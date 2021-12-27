@@ -6,11 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-errors/errors"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // A ComponentType defines a type of component.
@@ -23,7 +22,6 @@ const (
 	ComponentTypeGantry          = ComponentType("gantry")
 	ComponentTypeGripper         = ComponentType("gripper")
 	ComponentTypeCamera          = ComponentType("camera")
-	ComponentTypeLidar           = ComponentType("lidar")
 	ComponentTypeSensor          = ComponentType("sensor")
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")
@@ -62,7 +60,7 @@ func (config *Component) ResourceName() resource.Name {
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
 	}
-	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 type validator interface {
@@ -118,7 +116,7 @@ func ParseComponentFlag(flag string) (Component, error) {
 		case "port":
 			port, err := strconv.ParseInt(keyVal[1], 10, 64)
 			if err != nil {
-				return Component{}, errors.Errorf("error parsing port: %w", err)
+				return Component{}, errors.Wrap(err, "error parsing port")
 			}
 			cmp.Port = int(port)
 		case "type":

@@ -3,32 +3,31 @@ package wx250s
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"fmt"
 	"math"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-
+	"github.com/pkg/errors"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
-
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed wx250s_kinematics.json
@@ -42,7 +41,7 @@ func init() {
 	})
 }
 
-// SleepAngles are the angles we go to to prepare to turn off torque
+// SleepAngles are the angles we go to to prepare to turn off torque.
 var SleepAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    840,
@@ -52,7 +51,7 @@ var SleepAngles = map[string]float64{
 	"Wrist_rot":   2048,
 }
 
-// OffAngles are the angles the arm falls into after torque is off
+// OffAngles are the angles the arm falls into after torque is off.
 var OffAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    795,
@@ -62,22 +61,22 @@ var OffAngles = map[string]float64{
 	"Wrist_rot":   2048,
 }
 
-// Arm TODO
+// Arm TODO.
 type Arm struct {
 	Joints   map[string][]*servo.Servo
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
-	model    *frame.Model
+	model    referenceframe.Model
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
-// and converts it to degrees, centered at 0
+// and converts it to degrees, centered at 0.
 func servoPosToDegrees(pos float64) float64 {
 	return ((pos - 2048) * 180) / 2048
 }
 
-// degreeToServoPos takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048
+// degreeToServoPos takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048.
 func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
@@ -98,7 +97,7 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-// NewArm TODO
+// NewArm TODO.
 func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usbPort")
 	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
@@ -106,7 +105,7 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 		return nil, err
 	}
 
-	model, err := frame.ParseJSON(wx250smodeljson, "")
+	model, err := referenceframe.ParseJSON(wx250smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -146,14 +145,14 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
 	if err != nil {
 		return err
 	}
 	return arm.GoToWaypoints(ctx, a, solution)
 }
 
-// MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position
+// MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
 func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
@@ -171,18 +170,18 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 	return a.WaitForMovement(ctx)
 }
 
-// CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics
+// CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
 func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return &pb.ArmJointPositions{}, nil
 }
 
-// JointMoveDelta TODO
+// JointMoveDelta TODO.
 func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
 }
 
-// Close will get the arm ready to be turned off
-func (a *Arm) Close() error {
+// Close will get the arm ready to be turned off.
+func (a *Arm) Close() {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
@@ -210,7 +209,6 @@ func (a *Arm) Close() error {
 	if err != nil {
 		a.logger.Errorf("Torque off error: %s", err)
 	}
-	return nil
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position.
@@ -233,13 +231,13 @@ func (a *Arm) GetAllAngles() (map[string]float64, error) {
 	return angles, nil
 }
 
-// JointOrder TODO
+// JointOrder TODO.
 func (a *Arm) JointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
 // PrintPositions print positions of all servos.
-// TODO(pl): Print joint names, not just servo numbers
+// TODO(pl): Print joint names, not just servo numbers.
 func (a *Arm) PrintPositions() error {
 	posString := ""
 	for i, s := range a.GetAllServos() {
@@ -349,7 +347,7 @@ func (a *Arm) SleepPosition(ctx context.Context) error {
 	return a.WaitForMovement(ctx)
 }
 
-// GetMoveLock TODO
+// GetMoveLock TODO.
 func (a *Arm) GetMoveLock() *sync.Mutex {
 	return a.moveLock
 }
@@ -366,18 +364,18 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 	return a.WaitForMovement(ctx)
 }
 
-// CurrentInputs TODO
-func (a *Arm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+// CurrentInputs TODO.
+func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-// GoToInputs TODO
-func (a *Arm) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+// GoToInputs TODO.
+func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 // WaitForMovement takes some servos, and will block until the servos are done moving.
@@ -405,47 +403,47 @@ func (a *Arm) WaitForMovement(ctx context.Context) error {
 	return nil
 }
 
-// ModelFrame TODO
-func (a *Arm) ModelFrame() *frame.Model {
+// ModelFrame TODO.
+func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
 func setServoDefaults(newServo *servo.Servo) error {
 	dm, err := newServo.DriveMode()
 	if err != nil {
-		return errors.Errorf("error DriveMode servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error DriveMode servo %d", newServo.ID)
 	}
 	if dm == 4 {
 		err = newServo.SetDriveMode(0)
 		if err != nil {
-			return errors.Errorf("error SetDriveMode0 servo %d: %w", newServo.ID, err)
+			return errors.Wrapf(err, "error SetDriveMode0 servo %d", newServo.ID)
 		}
 	}
 	if dm == 5 {
 		err = newServo.SetDriveMode(1)
 		if err != nil {
-			return errors.Errorf("error DriveMode1 servo %d: %w", newServo.ID, err)
+			return errors.Wrapf(err, "error DriveMode1 servo %d", newServo.ID)
 		}
 	}
 	err = newServo.SetPGain(2800)
 	if err != nil {
-		return errors.Errorf("error SetPGain servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetPGain servo %d", newServo.ID)
 	}
 	err = newServo.SetIGain(50)
 	if err != nil {
-		return errors.Errorf("error SetIGain servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetIGain servo %d", newServo.ID)
 	}
 	err = newServo.SetTorqueEnable(true)
 	if err != nil {
-		return errors.Errorf("error SetTorqueEnable servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetTorqueEnable servo %d", newServo.ID)
 	}
 	err = newServo.SetProfileVelocity(50)
 	if err != nil {
-		return errors.Errorf("error SetProfileVelocity servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetProfileVelocity servo %d", newServo.ID)
 	}
 	err = newServo.SetProfileAcceleration(10)
 	if err != nil {
-		return errors.Errorf("error SetProfileAcceleration servo %d: %w", newServo.ID, err)
+		return errors.Wrapf(err, "error SetProfileAcceleration servo %d", newServo.ID)
 	}
 	return nil
 }
@@ -455,11 +453,11 @@ func setServoDefaults(newServo *servo.Servo) error {
 func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, error) {
 	baudRate, err := strconv.Atoi(baudRateStr)
 	if err != nil {
-		return nil, errors.Errorf("mangled baudrate: %w", err)
+		return nil, errors.Wrap(err, "mangled baudrate")
 	}
 	armServoCount, err := strconv.Atoi(armServoCountStr)
 	if err != nil {
-		return nil, errors.Errorf("mangled servo count: %w", err)
+		return nil, errors.Wrap(err, "mangled servo count")
 	}
 
 	options := serial.OpenOptions{
@@ -473,7 +471,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 	serial, err := serial.Open(options)
 	if err != nil {
-		return nil, errors.Errorf("error opening serial port: %w", err)
+		return nil, errors.Wrap(err, "error opening serial port")
 	}
 
 	var servos []*servo.Servo
@@ -482,10 +480,10 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 	// By default, Dynamixel servos come 1-indexed out of the box because reasons
 	for i := 1; i <= armServoCount; i++ {
-		//Get model ID of each servo
+		// Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
-			return nil, errors.Errorf("error initializing servo %d: %w", i, err)
+			return nil, errors.Wrapf(err, "error initializing servo %d", i)
 		}
 
 		err = setServoDefaults(newServo)

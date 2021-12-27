@@ -62,3 +62,6 @@ bin/
 
 # code editor settings
 .vscode/*
+
+# exclude files from `ag` search
+.ignore

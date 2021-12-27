@@ -1,6 +1,6 @@
 package functionvm
 
-import "github.com/go-errors/errors"
+import "github.com/pkg/errors"
 
 type engineCtor func() (Engine, error)
 
@@ -8,8 +8,7 @@ var engineRegistry = map[EngineName]engineCtor{}
 
 // RegisterEngine registers the given engine name to an associated constructor.
 func RegisterEngine(name EngineName, constructor engineCtor) {
-	_, old := engineRegistry[name]
-	if old {
+	if _, old := engineRegistry[name]; old {
 		panic(errors.Errorf("trying to register two engines with same name %q", name))
 	}
 	engineRegistry[name] = constructor

@@ -1,3 +1,4 @@
+// Package vforcematrixtraditional implements the Viam Force Matrix.
 package vforcematrixtraditional
 
 import (
@@ -5,26 +6,27 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/slipdetection"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/forcematrix"
+	"go.viam.com/rdk/slipdetection"
 )
 
 // ModelName is used to register the sensor to a model name.
 const ModelName = "forcematrixtraditional_v1"
 
-// init registers the forcematrix sensor type
+// init registers the forcematrix sensor type.
 func init() {
 	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
 			return New(ctx, r, config, logger)
-		}})
+		},
+	})
 }
 
 // ForceMatrixTraditional represents a force matrix without a mux.
@@ -77,7 +79,7 @@ func New(ctx context.Context, r robot.Robot, config config.Component, logger gol
 	}, nil
 }
 
-// addToPreviousMatricesWindow adds a matrix reading to the readings history queue
+// addToPreviousMatricesWindow adds a matrix reading to the readings history queue.
 func (fsm *ForceMatrixTraditional) addToPreviousMatricesWindow(matrix [][]int) {
 	if len(fsm.previousMatrices) > forcematrix.MatrixStorageSize {
 		fsm.previousMatrices = fsm.previousMatrices[1:]
@@ -143,16 +145,15 @@ func (fsm *ForceMatrixTraditional) Readings(ctx context.Context) ([]interface{},
 }
 
 // GetPreviousMatrices is an accessor for the history of matrix readings stored
-// on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider)
+// on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider).
 func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
 	return fsm.previousMatrices
 }
 
 // IsSlipping is used to determine whether the object in contact
-// with the sensor matrix is slipping
+// with the sensor matrix is slipping.
 func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fsm, &(fsm.mu), 0, fsm.noiseThreshold, fsm.slipDetectionWindow)
-
 }
 
 // Desc returns that this is a forcematrix sensor type.

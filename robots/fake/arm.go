@@ -2,19 +2,20 @@ package fake
 
 import (
 	"context"
-	_ "embed" // used to import model frame
 
-	"github.com/go-errors/errors"
-
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	// used to import model referenceframe.
+	_ "embed"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed static_arm_model.json
@@ -52,11 +53,11 @@ type Arm struct {
 	position   *commonpb.Pose
 	joints     *pb.ArmJointPositions
 	CloseCount int
-	model      *referenceframe.Model
+	model      referenceframe.Model
 }
 
-// ModelFrame returns the dynamic frame of the model
-func (a *Arm) ModelFrame() *referenceframe.Model {
+// ModelFrame returns the dynamic frame of the model.
+func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
@@ -87,7 +88,7 @@ func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64)
 	return errors.New("arm JointMoveDelta does nothing")
 }
 
-// CurrentInputs TODO
+// CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
@@ -96,13 +97,12 @@ func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error)
 	return referenceframe.JointPosToInputs(res), nil
 }
 
-// GoToInputs TODO
+// GoToInputs TODO.
 func (a *Arm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 // Close does nothing.
-func (a *Arm) Close() error {
+func (a *Arm) Close() {
 	a.CloseCount++
-	return nil
 }

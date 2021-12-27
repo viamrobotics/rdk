@@ -1,3 +1,4 @@
+// Package fake implements a fake motor.
 package fake
 
 import (
@@ -6,18 +7,22 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			mcfg := config.ConvertedAttributes.(*motor.Config)
+			mcfg, ok := config.ConvertedAttributes.(*motor.Config)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(mcfg, config.ConvertedAttributes)
+			}
 			if mcfg.PID != nil {
 				pid, err := motor.CreatePID(mcfg.PID)
 				if err != nil {
@@ -42,7 +47,7 @@ type Motor struct {
 	pid      motor.PID
 }
 
-// PID Return the underlying PID
+// PID Return the underlying PID.
 func (m *Motor) PID() motor.PID {
 	return m.pid
 }
@@ -122,18 +127,18 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	return nil
 }
 
-// GoTillStop always returns an error
+// GoTillStop always returns an error.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	return errors.New("unsupported")
 }
 
-// SetToZeroPosition always returns an error
-func (m *Motor) SetToZeroPosition(ctx context.Context, offset float64) error {
+// ResetZeroPosition always returns an error.
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("unsupported")
 }
 
-// Off has the motor pretend to be off.
-func (m *Motor) Off(ctx context.Context) error {
+// Stop has the motor pretend to be off.
+func (m *Motor) Stop(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(0.0)

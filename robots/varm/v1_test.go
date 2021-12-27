@@ -28,5 +28,4 @@ func TestArmMath1(t *testing.T) {
 	test.That(t, j.degreesToPosition(0.0), test.ShouldAlmostEqual, 0.0, epsilon)
 	test.That(t, j.degreesToPosition(45.0), test.ShouldAlmostEqual, 0.5, epsilon)
 	test.That(t, j.degreesToPosition(90.0), test.ShouldAlmostEqual, 1.0, epsilon)
-
 }

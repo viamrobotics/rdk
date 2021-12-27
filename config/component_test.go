@@ -3,13 +3,12 @@ package config_test
 import (
 	"testing"
 
+	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-
-	"go.viam.com/test"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 )
 
 func TestComponentValidate(t *testing.T) {
@@ -47,13 +46,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name: "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
-				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
 				},
 				Name: "foo",
@@ -66,13 +65,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name: "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.SubtypeName(""),
 			},
 			resource.Name{
-				UUID: "4e2cd153-a2c4-5957-b034-9e1174b39ed2",
+				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.SubtypeName(""),
 				},
 				Name: "foo",
@@ -86,13 +85,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name:    "foo",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
-				UUID: "89308714-cdf2-5402-b028-4b5a061f403c",
+				UUID: "bd405f3f-da99-5adb-8637-1f914454da88",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
 				},
 				Name: "foo",
@@ -106,13 +105,13 @@ func TestComponentResourceName(t *testing.T) {
 				Name:    "",
 			},
 			resource.Subtype{
-				Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 				ResourceSubtype: resource.ResourceSubtypeCompass,
 			},
 			resource.Name{
-				UUID: "a7520aed-92c7-56eb-b048-edcb3069c41c",
+				UUID: "3c4145b6-aff8-52b9-9b06-778abc940d0f",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: resource.ResourceSubtypeCompass,
 				},
 				Name: "",
@@ -123,7 +122,6 @@ func TestComponentResourceName(t *testing.T) {
 			rName := tc.Config.ResourceName()
 			test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
 			test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
-
 		})
 	}
 }
@@ -192,7 +190,8 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = config.ParseComponentFlag("type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag(
+		"type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
 	test.That(t, comp.Host, test.ShouldEqual, "bar")

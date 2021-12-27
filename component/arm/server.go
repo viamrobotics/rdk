@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from arm_subtype.proto
+// subtypeServer implements the contract from arm_subtype.proto.
 type subtypeServer struct {
 	pb.UnimplementedArmServiceServer
 	s subtype.Service
@@ -36,7 +36,10 @@ func (s *subtypeServer) getArm(name string) (Arm, error) {
 }
 
 // CurrentPosition returns the position of the arm specified.
-func (s *subtypeServer) CurrentPosition(ctx context.Context, req *pb.ArmServiceCurrentPositionRequest) (*pb.ArmServiceCurrentPositionResponse, error) {
+func (s *subtypeServer) CurrentPosition(
+	ctx context.Context,
+	req *pb.ArmServiceCurrentPositionRequest,
+) (*pb.ArmServiceCurrentPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -52,7 +55,10 @@ func (s *subtypeServer) CurrentPosition(ctx context.Context, req *pb.ArmServiceC
 }
 
 // CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *subtypeServer) CurrentJointPositions(ctx context.Context, req *pb.ArmServiceCurrentJointPositionsRequest) (*pb.ArmServiceCurrentJointPositionsResponse, error) {
+func (s *subtypeServer) CurrentJointPositions(
+	ctx context.Context,
+	req *pb.ArmServiceCurrentJointPositionsRequest,
+) (*pb.ArmServiceCurrentJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -66,7 +72,10 @@ func (s *subtypeServer) CurrentJointPositions(ctx context.Context, req *pb.ArmSe
 }
 
 // MoveToPosition returns the position of the arm specified.
-func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.ArmServiceMoveToPositionRequest) (*pb.ArmServiceMoveToPositionResponse, error) {
+func (s *subtypeServer) MoveToPosition(
+	ctx context.Context,
+	req *pb.ArmServiceMoveToPositionRequest,
+) (*pb.ArmServiceMoveToPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -75,7 +84,10 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.ArmServiceMo
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-func (s *subtypeServer) MoveToJointPositions(ctx context.Context, req *pb.ArmServiceMoveToJointPositionsRequest) (*pb.ArmServiceMoveToJointPositionsResponse, error) {
+func (s *subtypeServer) MoveToJointPositions(
+	ctx context.Context,
+	req *pb.ArmServiceMoveToJointPositionsRequest,
+) (*pb.ArmServiceMoveToJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -84,7 +96,10 @@ func (s *subtypeServer) MoveToJointPositions(ctx context.Context, req *pb.ArmSer
 }
 
 // JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-func (s *subtypeServer) JointMoveDelta(ctx context.Context, req *pb.ArmServiceJointMoveDeltaRequest) (*pb.ArmServiceJointMoveDeltaResponse, error) {
+func (s *subtypeServer) JointMoveDelta(
+	ctx context.Context,
+	req *pb.ArmServiceJointMoveDeltaRequest,
+) (*pb.ArmServiceJointMoveDeltaResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err

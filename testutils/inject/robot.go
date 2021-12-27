@@ -4,25 +4,24 @@ package inject
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
 )
 
 // Robot is an injected robot.
@@ -58,7 +57,7 @@ type Robot struct {
 	ConfigFunc                func(ctx context.Context) (*config.Config, error)
 	StatusFunc                func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc                func() golog.Logger
-	CloseFunc                 func() error
+	CloseFunc                 func(ctx context.Context) error
 	RefreshFunc               func(ctx context.Context) error
 }
 
@@ -303,11 +302,11 @@ func (r *Robot) Logger() golog.Logger {
 }
 
 // Close calls the injected Close or the real version.
-func (r *Robot) Close() error {
+func (r *Robot) Close(ctx context.Context) error {
 	if r.CloseFunc == nil {
-		return utils.TryClose(r.Robot)
+		return utils.TryClose(ctx, r.Robot)
 	}
-	return r.CloseFunc()
+	return r.CloseFunc(ctx)
 }
 
 // Refresh calls the injected Refresh or the real version.

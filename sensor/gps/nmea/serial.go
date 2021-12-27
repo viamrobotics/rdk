@@ -1,3 +1,4 @@
+// Package nmea implements an NMEA serial gps.
 package nmea
 
 import (
@@ -12,18 +13,26 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/serial"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/gps"
+	"go.viam.com/rdk/serial"
 )
 
 func init() {
-	registry.RegisterSensor(gps.Type, "nmea-serial", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return newSerialNMEAGPS(config, logger)
-	}})
+	registry.RegisterSensor(
+		gps.Type,
+		"nmea-serial",
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			return newSerialNMEAGPS(config, logger)
+		}})
 }
 
 type serialNMEAGPS struct {
@@ -141,7 +150,7 @@ func (g *serialNMEAGPS) Desc() sensor.Description {
 	return sensor.Description{gps.Type, ""}
 }
 
-// toPoint converts a nmea.GLL to a geo.Point
+// toPoint converts a nmea.GLL to a geo.Point.
 func toPoint(a nmea.GLL) *geo.Point {
 	return geo.NewPoint(a.Latitude, a.Longitude)
 }
