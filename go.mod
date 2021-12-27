@@ -41,7 +41,7 @@ require (
 	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tonyOreglia/glee v0.0.0-20210610071128-503a6e4b07d7
-	github.com/u2takey/ffmpeg-go v0.3.0
+	github.com/u2takey/ffmpeg-go v0.4.0
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
@@ -115,6 +115,7 @@ require (
 	github.com/fzipp/gocyclo v0.3.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-critic/go-critic v0.6.1 // indirect
+	github.com/go-fonts/liberation v0.1.1 // indirect
 	github.com/go-latex/latex v0.0.0-20210118124228-b3d85cf34e07 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-toolsmith/astcast v1.0.0 // indirect
@@ -199,6 +200,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
+	github.com/phpdave11/gofpdf v1.4.2 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pion/datachannel v1.5.2 // indirect
 	github.com/pion/dtls/v2 v2.0.10 // indirect
