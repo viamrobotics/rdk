@@ -5,23 +5,21 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/core/component/imu"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	viamgrpc "go.viam.com/core/grpc"
+	"go.viam.com/rdk/component/imu"
+	viamgrpc "go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestClient(t *testing.T) {
@@ -86,7 +84,7 @@ func TestClient(t *testing.T) {
 
 		desc1 := imu1Client.Desc()
 		test.That(t, desc1, test.ShouldResemble, desc)
-		test.That(t, utils.TryClose(imu1Client), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
 	})
 
 	t.Run("IMU client 2", func(t *testing.T) {
@@ -160,7 +158,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		test.That(t, utils.TryClose(imu1Client), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
 	})
 }
 
@@ -187,8 +185,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
-	err = utils.TryClose(client1)
+	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(client2)
+	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
 }

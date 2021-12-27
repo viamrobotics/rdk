@@ -6,12 +6,11 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -55,7 +54,6 @@ func TestRotateSource(t *testing.T) {
 
 		test.That(t, d1, test.ShouldEqual, d2)
 	}
-
 }
 
 func BenchmarkRotate(b *testing.B) {

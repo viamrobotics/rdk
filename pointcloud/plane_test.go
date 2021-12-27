@@ -2,7 +2,6 @@ package pointcloud
 
 import (
 	"math"
-
 	"testing"
 
 	"go.viam.com/test"

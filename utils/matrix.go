@@ -62,10 +62,17 @@ func (v2m *Vec2Matrix) DistanceMSETo(to *Vec2Matrix) float64 {
 		}
 	}
 
+	var ok bool
 	if fromLen < toLen {
-		compareFrom = mat.DenseCopyOf(compareFrom).Grow(0, toLen-fromLen).(*mat.Dense)
+		compareFrom, ok = mat.DenseCopyOf(compareFrom).Grow(0, toLen-fromLen).(*mat.Dense)
+		if !ok {
+			panic("growing did not result in *mat.Dense")
+		}
 	} else if fromLen > toLen {
-		compareTo = mat.DenseCopyOf(compareTo).Grow(0, fromLen-toLen).(*mat.Dense)
+		compareTo, ok = mat.DenseCopyOf(compareTo).Grow(0, fromLen-toLen).(*mat.Dense)
+		if !ok {
+			panic("growing did not result in *mat.Dense")
+		}
 	}
 
 	compareFrom = sortMat(compareFrom)

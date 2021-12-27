@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/component/motor"
+	"go.viam.com/rdk/component/motor"
 )
 
 // Motor is an injected motor.
@@ -102,7 +102,7 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	return m.IsOnFunc(ctx)
 }
 
-// PID calls the injected PID getter or the real version
+// PID calls the injected PID getter or the real version.
 func (m *Motor) PID() motor.PID {
 	if m.PIDFunc == nil {
 		return m.Motor.PID()

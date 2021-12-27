@@ -7,11 +7,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 // init registers a pi motor based on pigpio.
@@ -42,11 +43,13 @@ func init() {
 	// for backwards compatibility?
 	registry.RegisterComponent(motor.Subtype, "pi", comp)
 	motor.RegisterConfigAttributeConverter("pi")
-
 }
 
 func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Board, *motor.Config, error) {
-	motorConfig := config.ConvertedAttributes.(*motor.Config)
+	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+	if !ok {
+		return nil, nil, utils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}

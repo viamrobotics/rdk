@@ -4,26 +4,25 @@ import (
 	"context"
 	"sync"
 
-	"go.viam.com/utils"
-
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
-
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
-	model   frame.Frame
+	model   referenceframe.Frame
 	logger  golog.Logger
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	if nCPU == 0 {
@@ -44,9 +43,9 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 
 func runSolver(ctx context.Context,
 	solver InverseKinematics,
-	c chan<- []frame.Input,
+	c chan<- []referenceframe.Input,
 	pos spatialmath.Pose,
-	seed []frame.Input,
+	seed []referenceframe.Input,
 	m Metric,
 ) error {
 
@@ -55,7 +54,7 @@ func runSolver(ctx context.Context,
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
 // positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatialmath.Pose, seed []frame.Input, m Metric) error {
+func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []referenceframe.Input, newGoal spatialmath.Pose, seed []referenceframe.Input, m Metric) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
@@ -126,7 +125,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal
 	return collectedErrs
 }
 
-// Frame returns the associated frame
-func (ik *CombinedIK) Frame() frame.Frame {
+// Frame returns the associated referenceframe.
+func (ik *CombinedIK) Frame() referenceframe.Frame {
 	return ik.model
 }

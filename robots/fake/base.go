@@ -5,10 +5,10 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -30,17 +30,17 @@ type Base struct {
 	CloseCount int
 }
 
-// MoveStraight does nothing
+// MoveStraight does nothing.
 func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	return nil
 }
 
-// MoveArc does nothing
+// MoveArc does nothing.
 func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
 
-// Spin does nothing
+// Spin does nothing.
 func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	return nil
 }
@@ -56,7 +56,6 @@ func (b *Base) Stop(ctx context.Context) error {
 }
 
 // Close does nothing.
-func (b *Base) Close() error {
+func (b *Base) Close() {
 	b.CloseCount++
-	return nil
 }

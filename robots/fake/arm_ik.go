@@ -2,20 +2,21 @@ package fake
 
 import (
 	"context"
-	_ "embed" // for arm model
 
-	"github.com/pkg/errors"
-
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	// for arm model.
+	_ "embed"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed arm_model.json
@@ -32,9 +33,9 @@ func init() {
 	})
 }
 
-// fakeModel returns the kinematics model
-func fakeModel() (*frame.Model, error) {
-	return frame.ParseJSON(armikModelJSON, "")
+// fakeModel returns the kinematics model.
+func fakeModel() (referenceframe.Model, error) {
+	return referenceframe.ParseJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.
@@ -65,11 +66,11 @@ type ArmIK struct {
 	joints     *pb.ArmJointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int
-	model      *frame.Model
+	model      referenceframe.Model
 }
 
-// ModelFrame returns the dynamic frame of the model
-func (a *ArmIK) ModelFrame() *frame.Model {
+// ModelFrame returns the dynamic frame of the model.
+func (a *ArmIK) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
@@ -88,7 +89,7 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints), nil)
+	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -111,22 +112,21 @@ func (a *ArmIK) JointMoveDelta(ctx context.Context, joint int, amountDegs float6
 	return errors.New("arm JointMoveDelta does nothing")
 }
 
-// CurrentInputs TODO
-func (a *ArmIK) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+// CurrentInputs TODO.
+func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-// GoToInputs TODO
-func (a *ArmIK) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+// GoToInputs TODO.
+func (a *ArmIK) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
 // Close does nothing.
-func (a *ArmIK) Close() error {
+func (a *ArmIK) Close() {
 	a.CloseCount++
-	return nil
 }

@@ -1,11 +1,12 @@
 package gantry
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestGantryName(t *testing.T) {
@@ -18,9 +19,9 @@ func TestGantryName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "b51ae74c-d7ab-5af9-a307-6d3b9ad45347",
+				UUID: "c7e7e1a5-2d0c-5665-af81-0f821bb94793",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -30,9 +31,9 @@ func TestGantryName(t *testing.T) {
 			"all fields included",
 			"gantry1",
 			resource.Name{
-				UUID: "5cfef262-55ef-5d44-9630-e77677df09be",
+				UUID: "4f1dd722-b371-59e9-9e66-701823f025b7",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "gantry1",
@@ -41,7 +42,7 @@ func TestGantryName(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := Named(tc.Name)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
@@ -72,12 +73,12 @@ func TestReconfigurableGantry(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(fakeGantry2)
+	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(context.Background(), fakeGantry2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeGantry1.(*reconfigurableGantry).actual, test.ShouldEqual, actualGantry2)
 	test.That(t, actualGantry1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(nil)
+	err = fakeGantry1.(*reconfigurableGantry).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gantry")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

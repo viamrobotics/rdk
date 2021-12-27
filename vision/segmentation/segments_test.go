@@ -5,10 +5,11 @@ import (
 
 	"go.viam.com/test"
 
-	pc "go.viam.com/core/pointcloud"
+	pc "go.viam.com/rdk/pointcloud"
 )
 
 func createPointClouds(t *testing.T) *Segments {
+	t.Helper()
 	clusters := make([]*PointCloudWithMeta, 0)
 	cloudMap := make(map[pc.Vec3]int)
 	clouds := make([]pc.PointCloud, 0)

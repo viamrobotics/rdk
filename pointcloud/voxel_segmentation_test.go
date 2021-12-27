@@ -9,14 +9,14 @@ import (
 	"go.viam.com/test"
 )
 
-// RandomCubeSide choose a random integer between 0 and 5 that correspond to one facet of a cube
+// RandomCubeSide choose a random integer between 0 and 5 that correspond to one facet of a cube.
 func RandomCubeSide() int {
 	min := 0
 	max := 6
 	return rand.Intn(max-min) + min
 }
 
-// GeneratePointsOnPlaneZ0 generates points on the z=0 plane
+// GeneratePointsOnPlaneZ0 generates points on the z=0 plane.
 func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) PointCloud {
 	pc := New()
 	for i := 0; i < nPoints; i++ {
@@ -32,7 +32,7 @@ func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) Poin
 	return pc
 }
 
-// GenerateCubeTestData generate 3d points on the R^3 unit cube
+// GenerateCubeTestData generate 3d points on the R^3 unit cube.
 func GenerateCubeTestData(nPoints int) PointCloud {
 	pc := New()
 	for i := 0; i < nPoints; i++ {
