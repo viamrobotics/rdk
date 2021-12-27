@@ -84,7 +84,7 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 	}
 }
 
-// NewDepthColorIntrinsicsExtrinsics TODO
+// NewDepthColorIntrinsicsExtrinsics TODO.
 func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
 	var matrices *DepthColorIntrinsicsExtrinsics
 	matrices = attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)

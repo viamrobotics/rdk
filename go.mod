@@ -11,7 +11,7 @@ require (
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
 	github.com/edaniels/gostream v0.0.0-20211225195313-3bb0ae1f64f3
-	github.com/erh/egoutil v0.2.0
+	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.5.1
@@ -30,18 +30,18 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
-	github.com/mitchellh/copystructure v1.1.1
+	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/pion/mediadevices v0.3.1
-	github.com/pion/webrtc/v3 v3.1.10
+	github.com/pion/mediadevices v0.3.0
+	github.com/pion/webrtc/v3 v3.1.8
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0
-	github.com/sjwhitworth/golearn v0.0.0-20211014193759-a8b69c276cd8
+	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
 	github.com/starship-technologies/gobag v1.0.6
-	github.com/tonyOreglia/glee v0.0.0-20210610071128-503a6e4b07d7
-	github.com/u2takey/ffmpeg-go v0.4.0
+	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
+	github.com/u2takey/ffmpeg-go v0.3.0
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
@@ -50,20 +50,20 @@ require (
 	go.opencensus.io v0.23.0
 	go.uber.org/multierr v1.7.0
 	go.uber.org/zap v1.19.1
-	go.viam.com/dynamixel v0.0.0-20210507131419-60a9033552cb
+	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
 	go.viam.com/utils v0.0.3-0.20211226004732-783522f55bd4
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
-	gonum.org/v1/gonum v0.9.3
-	gonum.org/v1/plot v0.9.0
+	gonum.org/v1/gonum v0.8.2
+	gonum.org/v1/plot v0.8.1
 	google.golang.org/genproto v0.0.0-20210921142501-181ce0d877f6
 	google.golang.org/grpc v1.40.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.27.1
 	howett.net/plist v0.0.0-20201203080718-1454fab16a06
-	periph.io/x/conn/v3 v3.6.10
-	periph.io/x/host/v3 v3.7.2
+	periph.io/x/conn/v3 v3.6.9
+	periph.io/x/host/v3 v3.7.1
 )
 
 require (
@@ -75,7 +75,7 @@ require (
 	github.com/Antonboom/nilnil v0.1.0 // indirect
 	github.com/BurntSushi/toml v0.4.1 // indirect
 	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
-	github.com/Masterminds/goutils v1.1.1 // indirect
+	github.com/Masterminds/goutils v1.1.0 // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/OpenPeeDeeP/depguard v1.0.1 // indirect
 	github.com/ajstarks/svgo v0.0.0-20200725142600-7a3c8b57fecb // indirect
@@ -100,7 +100,6 @@ require (
 	github.com/cncf/udpa/go v0.0.0-20201120205902-5459f2c99403 // indirect
 	github.com/cncf/xds/go v0.0.0-20210312221358-fbca930ec8ed // indirect
 	github.com/coreos/go-oidc v2.2.1+incompatible // indirect
-	github.com/coreos/go-oidc/v3 v3.1.0 // indirect
 	github.com/daixiang0/gci v0.2.9 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denis-tingajkin/go-header v0.4.2 // indirect
@@ -115,8 +114,7 @@ require (
 	github.com/fzipp/gocyclo v0.3.1 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/go-critic/go-critic v0.6.1 // indirect
-	github.com/go-fonts/liberation v0.1.1 // indirect
-	github.com/go-latex/latex v0.0.0-20210118124228-b3d85cf34e07 // indirect
+	github.com/go-latex/latex v0.0.0-20200518072620-0806b477ea35 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/go-toolsmith/astcast v1.0.0 // indirect
 	github.com/go-toolsmith/astcopy v1.0.0 // indirect
@@ -159,8 +157,8 @@ require (
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
-	github.com/huandu/xstrings v1.3.2 // indirect
-	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/huandu/xstrings v1.2.0 // indirect
+	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/improbable-eng/grpc-web v0.14.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
@@ -200,16 +198,15 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
-	github.com/phpdave11/gofpdf v1.4.2 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/pion/datachannel v1.5.2 // indirect
+	github.com/pion/datachannel v1.5.1 // indirect
 	github.com/pion/dtls/v2 v2.0.10 // indirect
-	github.com/pion/ice/v2 v2.1.14 // indirect
+	github.com/pion/ice/v2 v2.1.13 // indirect
 	github.com/pion/interceptor v0.1.0 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.5 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.9 // indirect
+	github.com/pion/rtcp v1.2.8 // indirect
 	github.com/pion/rtp v1.7.4 // indirect
 	github.com/pion/sctp v1.8.0 // indirect
 	github.com/pion/sdp/v3 v3.0.4 // indirect

@@ -13,9 +13,9 @@ import (
 
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -29,7 +29,7 @@ import (
 // ModelName is used to register the sensor to a model name.
 const ModelName = "gy511"
 
-// Used for converting config attributes
+// Used for converting config attributes.
 type AttrConfig struct {
 	Host string `json:"host"`
 }
@@ -40,7 +40,7 @@ func init() {
 		return New(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 	}})
 
-		config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, ModelName, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf AttrConfig
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

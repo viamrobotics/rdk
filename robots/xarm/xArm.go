@@ -22,10 +22,11 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// Used for converting config attributes
+// Used for converting config attributes.
 type AttrConfig struct {
 	Host string `json:"host"`
 }
+
 type xArm struct {
 	dof      int
 	tid      uint16
