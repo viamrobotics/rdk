@@ -7,10 +7,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // serviceClient is a client satisfies the arm.proto contract.
@@ -41,12 +41,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an arm client
+// client is an arm client.
 type client struct {
 	*serviceClient
 	name string
@@ -116,7 +116,7 @@ func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float
 	return err
 }
 
-func (c *client) ModelFrame() *referenceframe.Model {
+func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
 }
@@ -133,7 +133,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
 }

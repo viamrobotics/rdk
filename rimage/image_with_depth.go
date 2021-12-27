@@ -7,8 +7,9 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
+
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // ImageWithDepth is an image of color that has depth associated
@@ -37,12 +38,12 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 }
 
 // At returns the color at the given point.
-// TODO(erh): alpha encode with depth
+// TODO(erh): alpha encode with depth.
 func (i *ImageWithDepth) At(x, y int) color.Color {
 	return i.Color.At(x, y)
 }
 
-// To3D takes an image pixel coordinate and returns the 3D coordinate in the world
+// To3D takes an image pixel coordinate and returns the 3D coordinate in the world.
 func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
 	if i.camera == nil {
 		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
@@ -79,7 +80,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
 }
 
-// CropToDepthData TODO
+// CropToDepthData TODO.
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	var minY, minX, maxY, maxX int
 
@@ -149,7 +150,7 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	), nil
 }
 
-// Overlay TODO
+// Overlay TODO.
 func (i *ImageWithDepth) Overlay() *image.NRGBA {
 	const minAlpha = 32.0
 
@@ -171,7 +172,6 @@ func (i *ImageWithDepth) Overlay() *image.NRGBA {
 
 			r, g, b := c.RGB255()
 			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
-
 		}
 	}
 	return img
@@ -225,7 +225,10 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	width, height := bounds.Dx(), bounds.Dy()
 	dm := NewEmptyDepthMap(width, height)
 
-	grayImg := img.(*image.Gray16)
+	grayImg, ok := img.(*image.Gray16)
+	if !ok {
+		panic(rdkutils.NewUnexpectedTypeError(grayImg, img))
+	}
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			i := grayImg.PixOffset(x, y)
@@ -301,5 +304,4 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	iwd.aligned = b[0] == 0x1
 
 	return iwd, nil
-
 }

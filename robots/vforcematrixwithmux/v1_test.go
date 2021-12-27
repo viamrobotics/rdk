@@ -7,9 +7,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func createExpectedMatrix(component config.Component) [][]int {
@@ -36,7 +36,6 @@ func TestNew(t *testing.T) {
 		component := config.Component{Attributes: config.AttributeMap{"type": "what"}}
 		_, err := New(context.Background(), fakeRobot, component, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when unable to find analog reader", func(t *testing.T) {
@@ -204,6 +203,5 @@ func TestNew(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 			})
 		})
-
 	})
 }

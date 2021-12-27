@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/robot"
 )
 
 // An Action is some high-level process that is performed on a robot.
@@ -18,8 +18,7 @@ var actionRegistry = map[string]Action{}
 
 // RegisterAction associates a name to an action.
 func RegisterAction(name string, action Action) {
-	_, old := actionRegistry[name]
-	if old {
+	if _, old := actionRegistry[name]; old {
 		panic(errors.Errorf("trying to register 2 actions with the same name (%s)", name))
 	}
 	actionRegistry[name] = action

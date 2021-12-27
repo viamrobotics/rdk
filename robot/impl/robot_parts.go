@@ -7,32 +7,30 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc/client"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/sensor/gps"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/sensor/forcematrix"
+	"go.viam.com/rdk/sensor/gps"
 )
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
 	remotes         map[string]*remoteRobot
-	boards          map[string]*proxyBoard
 	bases           map[string]*proxyBase
 	sensors         map[string]sensor.Sensor
 	services        map[string]interface{}
@@ -46,7 +44,6 @@ type robotParts struct {
 func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
-		boards:          map[string]*proxyBoard{},
 		bases:           map[string]*proxyBase{},
 		sensors:         map[string]sensor.Sensor{},
 		services:        map[string]interface{}{},
@@ -58,7 +55,7 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 }
 
 // fixType ensures that the component has correct type information.
-func fixType(c config.Component, whichType config.ComponentType, pos int) config.Component {
+func fixType(c config.Component, whichType config.ComponentType) config.Component {
 	if c.Type == "" {
 		c.Type = whichType
 	} else if c.Type != whichType {
@@ -72,17 +69,9 @@ func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
 }
 
-// AddBoard adds a board to the parts.
-func (parts *robotParts) AddBoard(b board.Board, c config.Component) {
-	if proxy, ok := b.(*proxyBoard); ok {
-		b = proxy.actual
-	}
-	parts.boards[c.Name] = newProxyBoard(b)
-}
-
 // AddBase adds a base to the parts.
 func (parts *robotParts) AddBase(b base.Base, c config.Component) {
-	c = fixType(c, config.ComponentTypeBase, len(parts.bases))
+	c = fixType(c, config.ComponentTypeBase)
 	if proxy, ok := b.(*proxyBase); ok {
 		b = proxy.actual
 	}
@@ -91,7 +80,7 @@ func (parts *robotParts) AddBase(b base.Base, c config.Component) {
 
 // AddSensor adds a sensor to the parts.
 func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
-	c = fixType(c, config.ComponentTypeSensor, len(parts.sensors))
+	c = fixType(c, config.ComponentTypeSensor)
 	switch pType := s.(type) {
 	case *proxySensor:
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
@@ -228,8 +217,10 @@ func (parts *robotParts) BaseNames() []string {
 // BoardNames returns the names of all boards in the parts.
 func (parts *robotParts) BoardNames() []string {
 	names := []string{}
-	for k := range parts.boards {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == board.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
@@ -312,12 +303,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.remotes[k] = v
 		}
 	}
-	if len(parts.boards) != 0 {
-		clonedParts.boards = make(map[string]*proxyBoard, len(parts.boards))
-		for k, v := range parts.boards {
-			clonedParts.boards[k] = v
-		}
-	}
 	if len(parts.bases) != 0 {
 		clonedParts.bases = make(map[string]*proxyBase, len(parts.bases))
 		for k, v := range parts.bases {
@@ -355,44 +340,38 @@ func (parts *robotParts) Clone() *robotParts {
 }
 
 // Close attempts to close/stop all parts.
-func (parts *robotParts) Close() error {
+func (parts *robotParts) Close(ctx context.Context) error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
 	for _, x := range parts.services {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing service"))
 		}
 	}
 
 	for _, x := range parts.remotes {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
 		}
 	}
 
 	for _, x := range parts.bases {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing base"))
 		}
 	}
 
 	for _, x := range parts.sensors {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing sensor"))
 		}
 	}
 
-	for _, x := range parts.boards {
-		if err := utils.TryClose(x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing board"))
-		}
-	}
-
 	for _, x := range parts.resources {
-		if err := utils.TryClose(x); err != nil {
+		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
@@ -499,12 +478,10 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeBoard:
-			board, err := r.newBoard(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddBoard(board, c)
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+			config.ComponentTypeMotor, config.ComponentTypeServo:
+			fallthrough
 		default:
 			r, err := r.newResource(ctx, c)
 			if err != nil {
@@ -550,9 +527,13 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 // BoardByName returns the given board by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
-	part, ok := parts.boards[name]
+	rName := board.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(board.Board)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BoardByName(name)
@@ -751,9 +732,9 @@ type PartsMergeResult struct {
 }
 
 // Process integrates the results into the given parts.
-func (result *PartsMergeResult) Process(parts *robotParts) error {
+func (result *PartsMergeResult) Process(ctx context.Context, parts *robotParts) error {
 	for _, proc := range result.ReplacedProcesses {
-		if replaced, err := parts.processManager.AddProcess(context.Background(), proc, false); err != nil {
+		if replaced, err := parts.processManager.AddProcess(ctx, proc, false); err != nil {
 			return err
 		} else if replaced != nil {
 			return errors.Errorf("unexpected process replacement %v", replaced)
@@ -771,15 +752,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.remotes {
 			parts.remotes[k] = v
-		}
-	}
-
-	if len(toAdd.boards) != 0 {
-		if parts.boards == nil {
-			parts.boards = make(map[string]*proxyBoard, len(toAdd.boards))
-		}
-		for k, v := range toAdd.boards {
-			parts.boards[k] = v
 		}
 	}
 
@@ -864,18 +836,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.replace(v)
-		}
-	}
-
-	if len(toModify.boards) != 0 {
-		for k, v := range toModify.boards {
-			old, ok := parts.boards[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(v)
+			old.replace(ctx, v)
 		}
 	}
 
@@ -886,7 +847,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			old.replace(v)
+			old.replace(ctx, v)
 		}
 	}
 
@@ -918,7 +879,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 			if !ok {
 				return nil, errors.Errorf("new type %T is not reconfigurable", v)
 			}
-			if err := oldPart.Reconfigure(newPart); err != nil {
+			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
 				return nil, err
 			}
 		}
@@ -933,12 +894,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.remotes) != 0 {
 		for k := range toRemove.remotes {
 			delete(parts.remotes, k)
-		}
-	}
-
-	if len(toRemove.boards) != 0 {
-		for k := range toRemove.boards {
-			delete(parts.boards, k)
 		}
 	}
 
@@ -981,7 +936,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 
 // FilterFromConfig returns a shallow copy of the parts reflecting
 // a given config.
-func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logger) (*robotParts, error) {
+func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*robotParts, error) {
 	filtered := newRobotParts(logger, parts.robotClientOpts...)
 
 	for _, conf := range conf.Processes {
@@ -989,7 +944,7 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 		if !ok {
 			continue
 		}
-		if _, err := filtered.processManager.AddProcess(context.Background(), proc, false); err != nil {
+		if _, err := filtered.processManager.AddProcess(ctx, proc, false); err != nil {
 			return nil, err
 		}
 	}
@@ -1010,18 +965,16 @@ func (parts *robotParts) FilterFromConfig(conf *config.Config, logger golog.Logg
 				continue
 			}
 			filtered.AddBase(part, compConf)
-		case config.ComponentTypeBoard:
-			part, ok := parts.BoardByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddBoard(part, compConf)
 		case config.ComponentTypeSensor:
 			part, ok := parts.SensorByName(compConf.Name)
 			if !ok {
 				continue
 			}
 			filtered.AddSensor(part, compConf)
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+			config.ComponentTypeMotor, config.ComponentTypeServo:
+			fallthrough
 		default:
 			rName := compConf.ResourceName()
 			resource, ok := parts.ResourceByName(rName)

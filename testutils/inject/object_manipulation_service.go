@@ -5,17 +5,17 @@ import (
 
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/services/objectmanipulation"
+	"go.viam.com/rdk/services/objectmanipulation"
 )
 
 // ObjectManipulationService represents a fake instance of an object manipulation
-// service
+// service.
 type ObjectManipulationService struct {
 	objectmanipulation.Service
 	DoGrabFunc func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
-// DoGrab calls the injected DoGrab or the real variant
+// DoGrab calls the injected DoGrab or the real variant.
 func (mgs *ObjectManipulationService) DoGrab(
 	ctx context.Context,
 	gripperName, armName, cameraName string,

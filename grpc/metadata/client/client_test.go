@@ -5,22 +5,22 @@ import (
 	"net"
 	"testing"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/grpc/metadata/client"
-	"go.viam.com/core/grpc/metadata/server"
-	pb "go.viam.com/core/proto/api/service/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/testutils"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
+
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/grpc/metadata/client"
+	"go.viam.com/rdk/grpc/metadata/server"
+	pb "go.viam.com/rdk/proto/api/service/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 var newResource = resource.NewName(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	arm.SubtypeName,
 	"",
