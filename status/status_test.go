@@ -4,32 +4,31 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	fakeboard "go.viam.com/core/component/board/fake"
-	"go.viam.com/core/component/camera"
-	fakecamera "go.viam.com/core/component/camera/fake"
-	"go.viam.com/core/component/gripper"
-	fakegripper "go.viam.com/core/component/gripper/fake"
-	"go.viam.com/core/component/input"
-	fakeinput "go.viam.com/core/component/input/fake"
-	"go.viam.com/core/component/motor"
-	fakemotor "go.viam.com/core/component/motor/fake"
-	"go.viam.com/core/component/servo"
-	fakeservo "go.viam.com/core/component/servo/fake"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/status"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/camera"
+	fakecamera "go.viam.com/rdk/component/camera/fake"
+	"go.viam.com/rdk/component/gripper"
+	fakegripper "go.viam.com/rdk/component/gripper/fake"
+	"go.viam.com/rdk/component/input"
+	fakeinput "go.viam.com/rdk/component/input/fake"
+	"go.viam.com/rdk/component/motor"
+	fakemotor "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/component/servo"
+	fakeservo "go.viam.com/rdk/component/servo/fake"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robots/fake"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/status"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
@@ -148,6 +147,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status, err := status.Create(context.Background(), robot)
 		test.That(t, err, test.ShouldBeNil)
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},
@@ -216,6 +216,7 @@ func TestCreateStatus(t *testing.T) {
 		// Status is the same as with no remotes because it's up to the
 		// robot to utilize information from the remotes. We know
 		// Refresh is called due to the failure above.
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},

@@ -103,13 +103,13 @@ func CubeRoot(x float64) float64 {
 }
 
 // Square returns the square of the given value.
-// Math.pow( x, 2 ) is slow, this is faster
+// Math.pow( x, 2 ) is slow, this is faster.
 func Square(n float64) float64 {
 	return n * n
 }
 
 // SquareInt returns the square of the given value.
-// Math.pow( x, 2 ) is slow, this is faster
+// Math.pow( x, 2 ) is slow, this is faster.
 func SquareInt(n int) int {
 	return n * n
 }
@@ -123,22 +123,6 @@ func ScaleByPct(n int, pct float64) int {
 		scaled = n
 	}
 	return scaled
-}
-
-// RayToUpwardCWCartesian returns coordinates based off of
-// a coordinate system where the center is x,y=0,0 and
-// zero degrees is pointing up. This is helpful for visualizing
-// measurement devices that scan clockwise.
-// ray is in degrees
-// 0°   -  (0,increasing) // Up
-// 90°  -  (increasing, 0) // Right
-// 180° -  (0, decreasing) // Down
-// 270° -  (decreasing,0) // Left
-func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
-	angleRad := DegToRad(angle)
-	x := distance * math.Sin(angleRad)
-	y := distance * math.Cos(angleRad)
-	return x, y
 }
 
 // SampleRandomIntRange samples a random integer within a range given by [min, max]

@@ -4,19 +4,18 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"go.viam.com/test"
-
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	coreutils "go.viam.com/core/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func TestFrameModelPart(t *testing.T) {
-	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.ParseJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
@@ -27,9 +26,8 @@ func TestFrameModelPart(t *testing.T) {
 		FrameConfig: nil,
 		ModelFrame:  nil,
 	}
-	result, err := part.ToProtobuf()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldBeNil) // no FrameConfig means nil result
+	_, err = part.ToProtobuf()
+	test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 
 	// slightly specified part
 	part = &FrameSystemPart{
@@ -37,7 +35,7 @@ func TestFrameModelPart(t *testing.T) {
 		FrameConfig: &Frame{Parent: "world"},
 		ModelFrame:  nil,
 	}
-	result, err = part.ToProtobuf()
+	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose := &pb.Pose{OZ: 1, Theta: 0} // zero pose
 	exp := &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}}
@@ -75,13 +73,16 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, partAgain.FrameConfig.Translation, test.ShouldResemble, part.FrameConfig.Translation)
 	test.That(t, partAgain.FrameConfig.Orientation, test.ShouldResemble, part.FrameConfig.Orientation)
 	test.That(t, partAgain.ModelFrame.Name, test.ShouldEqual, part.ModelFrame.Name)
-	test.That(t, len(partAgain.ModelFrame.OrdTransforms), test.ShouldEqual, len(part.ModelFrame.OrdTransforms))
-
+	test.That(t,
+		len(partAgain.ModelFrame.(*referenceframe.SimpleModel).OrdTransforms),
+		test.ShouldEqual,
+		len(part.ModelFrame.(*referenceframe.SimpleModel).OrdTransforms),
+	)
 }
 
 func TestFramesFromPart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	jsonData, err := ioutil.ReadFile(coreutils.ResolveFile("config/data/model_frame.json"))
+	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
 	model, err := referenceframe.ParseJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)

@@ -1,4 +1,4 @@
-// This file is the original non-Core Arduino-based control for the resetbox.
+// This file is the original non-RDK Arduino-based control for the resetbox.
 // It will be obsoleted once porting is finished.
 // This is the older prototype resetbox.
 // In this, the arm controlled by a Pi and arduino-resetbox.go

@@ -33,7 +33,6 @@ func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
 	test.That(t, sensorParams.ExtrinsicD2C.RotationMatrix, test.ShouldHaveLength, 9)
 	test.That(t, sensorParams.ExtrinsicD2C.RotationMatrix, test.ShouldResemble, gtRotation)
 	test.That(t, sensorParams.ExtrinsicD2C.TranslationVector, test.ShouldHaveLength, 3)
-
 }
 
 func TestTransformPointToPoint(t *testing.T) {

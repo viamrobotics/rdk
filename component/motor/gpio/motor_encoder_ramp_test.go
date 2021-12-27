@@ -32,5 +32,4 @@ func TestWrapMotorWithEncoderRampMath(t *testing.T) {
 	test.That(t, m.computeRamp(0.65, 0.9), test.ShouldEqual, .65)
 	test.That(t, m.computeRamp(0.2, 1), test.ShouldAlmostEqual, .6, 0.001)
 	test.That(t, m.computeRamp(0.7, 0.701), test.ShouldAlmostEqual, .65, 0.001)
-
 }

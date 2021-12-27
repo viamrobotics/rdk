@@ -4,23 +4,22 @@ package robot
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -123,7 +122,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
+	Close(ctx context.Context) error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -141,7 +140,7 @@ type LocalRobot interface {
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
 
-//AllResourcesByName returns an array of all resources that have this simple name
+// AllResourcesByName returns an array of all resources that have this simple name.
 func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
 

@@ -5049,6 +5049,413 @@ To Do (FA): This will be deprecated</p></td>
 
         
       
+        <h3 id="proto.api.v1.BoardAnalogReaderReadRequest">BoardAnalogReaderReadRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>analog_reader_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of an analog reader on the robot&#39;s board </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardAnalogReaderReadResponse">BoardAnalogReaderReadResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p>Returns the value of the analog reader based on when the request was recieved </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptConfigRequest">BoardDigitalInterruptConfigRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupt_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a digital interrupt on the robot&#39;s board </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptConfigResponse">BoardDigitalInterruptConfigResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>config</td>
+                  <td><a href="#proto.api.v1.DigitalInterruptConfig">DigitalInterruptConfig</a></td>
+                  <td></td>
+                  <td><p>Returns the specified configuration of a digital interrupt on the robot&#39;s board </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptTickRequest">BoardDigitalInterruptTickRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupt_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a digital interrupt on the robot&#39;s board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>high</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Sets whether the digital interrupt is high or low </p></td>
+                </tr>
+              
+                <tr>
+                  <td>nanos</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p>A number that counts up from an arbitrary point in time </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptTickResponse">BoardDigitalInterruptTickResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptValueRequest">BoardDigitalInterruptValueRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>board_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupt_name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a digital interrupt on the robot&#39;s board </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardDigitalInterruptValueResponse">BoardDigitalInterruptValueResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p>Returns the returns the value of the interrupt based on the driver </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardGPIOGetRequest">BoardGPIOGetRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a pin </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardGPIOGetResponse">BoardGPIOGetResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>high</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Returns true if the given GPIO pin is high at the time that the request was recieved </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardGPIOSetRequest">BoardGPIOSetRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a pin </p></td>
+                </tr>
+              
+                <tr>
+                  <td>high</td>
+                  <td><a href="#bool">bool</a></td>
+                  <td></td>
+                  <td><p>Defines whether the pin will be set high or low </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardGPIOSetResponse">BoardGPIOSetResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardPWMSetFrequencyRequest">BoardPWMSetFrequencyRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a pin </p></td>
+                </tr>
+              
+                <tr>
+                  <td>frequency</td>
+                  <td><a href="#uint64">uint64</a></td>
+                  <td></td>
+                  <td><p>Frequency in hertz (cycles/second) </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardPWMSetFrequencyResponse">BoardPWMSetFrequencyResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.v1.BoardPWMSetRequest">BoardPWMSetRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a board </p></td>
+                </tr>
+              
+                <tr>
+                  <td>pin</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a pin </p></td>
+                </tr>
+              
+                <tr>
+                  <td>duty_cycle</td>
+                  <td><a href="#uint32">uint32</a></td>
+                  <td></td>
+                  <td><p>A value between 0-255, where 255 is equivalent to being high 100% of the time </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.v1.BoardPWMSetResponse">BoardPWMSetResponse</h3>
+        <p></p>
+
+        
+
+        
+      
         <h3 id="proto.api.v1.BoardStatus">BoardStatus</h3>
         <p></p>
 
@@ -6016,7 +6423,7 @@ To Do (FA): This will be deprecated</p></td>
                   <td>controller</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an input controller </p></td>
                 </tr>
               
             </tbody>
@@ -6040,7 +6447,8 @@ To Do (FA): This will be deprecated</p></td>
                   <td>controls</td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>Returns a list of all the controls (buttons and axes) that are
+available to a given Input Controller </p></td>
                 </tr>
               
             </tbody>
@@ -6071,21 +6479,21 @@ To Do (FA): This will be deprecated</p></td>
                   <td>event</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>An event type (eg: ButtonPress, ButtonRelease) </p></td>
                 </tr>
               
                 <tr>
                   <td>control</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX) </p></td>
                 </tr>
               
                 <tr>
                   <td>value</td>
                   <td><a href="#double">double</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>0 or 1 for buttons, -1.0 to &#43;1.0 for axes </p></td>
                 </tr>
               
             </tbody>
@@ -6109,14 +6517,14 @@ To Do (FA): This will be deprecated</p></td>
                   <td>controller</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an input controller </p></td>
                 </tr>
               
                 <tr>
                   <td>events</td>
                   <td><a href="#proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>A list of Events </p></td>
                 </tr>
               
             </tbody>
@@ -6140,21 +6548,23 @@ To Do (FA): This will be deprecated</p></td>
                   <td>control</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of a control (button or axis) </p></td>
                 </tr>
               
                 <tr>
                   <td>events</td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>Specify which event types to recieve events for
+To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive </p></td>
                 </tr>
               
                 <tr>
                   <td>cancelled_events</td>
                   <td><a href="#string">string</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>Specify which event types to stop recieving events for
+This can be an empty list </p></td>
                 </tr>
               
             </tbody>
@@ -6178,14 +6588,14 @@ To Do (FA): This will be deprecated</p></td>
                   <td>controller</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an input controller </p></td>
                 </tr>
               
                 <tr>
                   <td>event</td>
                   <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Digitally assert a given event </p></td>
                 </tr>
               
             </tbody>
@@ -6216,7 +6626,7 @@ To Do (FA): This will be deprecated</p></td>
                   <td>controller</td>
                   <td><a href="#string">string</a></td>
                   <td></td>
-                  <td><p> </p></td>
+                  <td><p>Name of an input controller </p></td>
                 </tr>
               
             </tbody>
@@ -6240,7 +6650,8 @@ To Do (FA): This will be deprecated</p></td>
                   <td>events</td>
                   <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
+                  <td><p>Returns a list of the most recent event for each control on a given InputController. Effectively provides the current &#34;state&#34; of all 
+buttons/axes on a given input controller </p></td>
                 </tr>
               
             </tbody>
@@ -7602,6 +8013,73 @@ angular speed, expressed in degrees per second</p></td>
               </tr>
             
               <tr>
+                <td>BoardStatus</td>
+                <td><a href="#proto.api.v1.BoardStatusRequest">BoardStatusRequest</a></td>
+                <td><a href="#proto.api.v1.BoardStatusResponse">BoardStatusResponse</a></td>
+                <td><p>BoardStatus returns the status of a board of the underlying robot.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardGPIOSet</td>
+                <td><a href="#proto.api.v1.BoardGPIOSetRequest">BoardGPIOSetRequest</a></td>
+                <td><a href="#proto.api.v1.BoardGPIOSetResponse">BoardGPIOSetResponse</a></td>
+                <td><p>BoardGPIOSet sets a given pin on a robot&#39;s board to either high or low</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardGPIOGet</td>
+                <td><a href="#proto.api.v1.BoardGPIOGetRequest">BoardGPIOGetRequest</a></td>
+                <td><a href="#proto.api.v1.BoardGPIOGetResponse">BoardGPIOGetResponse</a></td>
+                <td><p>BoardGPIOGet gets the high/low state of a given pin on a robot&#39;s board</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardPWMSet</td>
+                <td><a href="#proto.api.v1.BoardPWMSetRequest">BoardPWMSetRequest</a></td>
+                <td><a href="#proto.api.v1.BoardPWMSetResponse">BoardPWMSetResponse</a></td>
+                <td><p>BoardPWMSet sets a given pin on a robot&#39;s board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
+is high 100% of the time</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardPWMSetFrequency</td>
+                <td><a href="#proto.api.v1.BoardPWMSetFrequencyRequest">BoardPWMSetFrequencyRequest</a></td>
+                <td><a href="#proto.api.v1.BoardPWMSetFrequencyResponse">BoardPWMSetFrequencyResponse</a></td>
+                <td><p>BoardPWMSetFrequency sets a given pin of a robot&#39;s board to a specified PWM frequency expressed in hertz 
+(cycles per second). 0 will use the board&#39;s default PWM frequency</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardAnalogReaderRead</td>
+                <td><a href="#proto.api.v1.BoardAnalogReaderReadRequest">BoardAnalogReaderReadRequest</a></td>
+                <td><a href="#proto.api.v1.BoardAnalogReaderReadResponse">BoardAnalogReaderReadResponse</a></td>
+                <td><p>BoardAnalogReaderRead returns the value at the time that the request was recieved
+of a specified analog reader on the robot&#39;s board</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardDigitalInterruptConfig</td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptConfigRequest">BoardDigitalInterruptConfigRequest</a></td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptConfigResponse">BoardDigitalInterruptConfigResponse</a></td>
+                <td><p>BoardDigitalInterruptConfig returns the config the interrupt was created with.</p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardDigitalInterruptValue</td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptValueRequest">BoardDigitalInterruptValueRequest</a></td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptValueResponse">BoardDigitalInterruptValueResponse</a></td>
+                <td><p></p></td>
+              </tr>
+            
+              <tr>
+                <td>BoardDigitalInterruptTick</td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptTickRequest">BoardDigitalInterruptTickRequest</a></td>
+                <td><a href="#proto.api.v1.BoardDigitalInterruptTickResponse">BoardDigitalInterruptTickResponse</a></td>
+                <td><p>BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
+interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto</p></td>
+              </tr>
+            
+              <tr>
                 <td>SensorReadings</td>
                 <td><a href="#proto.api.v1.SensorReadingsRequest">SensorReadingsRequest</a></td>
                 <td><a href="#proto.api.v1.SensorReadingsResponse">SensorReadingsResponse</a></td>
@@ -7675,21 +8153,22 @@ angular speed, expressed in degrees per second</p></td>
                 <td>InputControllerLastEvents</td>
                 <td><a href="#proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</a></td>
-                <td><p></p></td>
+                <td><p>InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller</p></td>
               </tr>
             
               <tr>
                 <td>InputControllerEventStream</td>
                 <td><a href="#proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a> stream</td>
-                <td><p></p></td>
+                <td><p>InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot&#39;s input controller</p></td>
               </tr>
             
               <tr>
                 <td>InputControllerInjectEvent</td>
                 <td><a href="#proto.api.v1.InputControllerInjectEventRequest">InputControllerInjectEventRequest</a></td>
                 <td><a href="#proto.api.v1.InputControllerInjectEventResponse">InputControllerInjectEventResponse</a></td>
-                <td><p></p></td>
+                <td><p>InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+like button presses or axis movements</p></td>
               </tr>
             
               <tr>

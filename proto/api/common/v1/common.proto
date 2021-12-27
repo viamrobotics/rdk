@@ -1,7 +1,7 @@
 // common.proto should hold messages that are used across multiple resource subtypes
 syntax = "proto3";
-option go_package = "go.viam.com/core/proto/api/common/v1";
-option java_package = "com.viam.core.proto.api.common.v1";
+option go_package = "go.viam.com/rdk/proto/api/common/v1";
+option java_package = "com.viam.rdk.proto.api.common.v1";
 
 package proto.api.common.v1;
 

@@ -8,9 +8,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 type depthSourceTestHelper struct {
@@ -24,7 +24,7 @@ func (h *depthSourceTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
-
+	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
 	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
@@ -76,7 +76,7 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined")
@@ -88,7 +88,7 @@ func TestDepthSourceGripper(t *testing.T) {
 }
 
 func TestDepthSourceIntel(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")

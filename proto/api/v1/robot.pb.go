@@ -7,15 +7,14 @@
 package v1
 
 import (
-	reflect "reflect"
-	sync "sync"
-
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
+	reflect "reflect"
+	sync "sync"
 )
 
 const (
@@ -1912,6 +1911,1016 @@ func (x *SensorStatus) GetType() string {
 		return x.Type
 	}
 	return ""
+}
+
+type BoardStatusRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+}
+
+func (x *BoardStatusRequest) Reset() {
+	*x = BoardStatusRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[33]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardStatusRequest) ProtoMessage() {}
+
+func (x *BoardStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[33]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardStatusRequest.ProtoReflect.Descriptor instead.
+func (*BoardStatusRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *BoardStatusRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+type BoardStatusResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Status *BoardStatus `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+}
+
+func (x *BoardStatusResponse) Reset() {
+	*x = BoardStatusResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[34]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardStatusResponse) ProtoMessage() {}
+
+func (x *BoardStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[34]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardStatusResponse.ProtoReflect.Descriptor instead.
+func (*BoardStatusResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *BoardStatusResponse) GetStatus() *BoardStatus {
+	if x != nil {
+		return x.Status
+	}
+	return nil
+}
+
+type BoardGPIOSetRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Defines whether the pin will be set high or low
+	High bool `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
+}
+
+func (x *BoardGPIOSetRequest) Reset() {
+	*x = BoardGPIOSetRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[35]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardGPIOSetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardGPIOSetRequest) ProtoMessage() {}
+
+func (x *BoardGPIOSetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[35]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardGPIOSetRequest.ProtoReflect.Descriptor instead.
+func (*BoardGPIOSetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *BoardGPIOSetRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BoardGPIOSetRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+func (x *BoardGPIOSetRequest) GetHigh() bool {
+	if x != nil {
+		return x.High
+	}
+	return false
+}
+
+type BoardGPIOSetResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BoardGPIOSetResponse) Reset() {
+	*x = BoardGPIOSetResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[36]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardGPIOSetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardGPIOSetResponse) ProtoMessage() {}
+
+func (x *BoardGPIOSetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[36]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardGPIOSetResponse.ProtoReflect.Descriptor instead.
+func (*BoardGPIOSetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{36}
+}
+
+type BoardGPIOGetRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+}
+
+func (x *BoardGPIOGetRequest) Reset() {
+	*x = BoardGPIOGetRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[37]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardGPIOGetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardGPIOGetRequest) ProtoMessage() {}
+
+func (x *BoardGPIOGetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[37]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardGPIOGetRequest.ProtoReflect.Descriptor instead.
+func (*BoardGPIOGetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{37}
+}
+
+func (x *BoardGPIOGetRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BoardGPIOGetRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+type BoardGPIOGetResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Returns true if the given GPIO pin is high at the time that the request was recieved
+	High bool `protobuf:"varint,1,opt,name=high,proto3" json:"high,omitempty"`
+}
+
+func (x *BoardGPIOGetResponse) Reset() {
+	*x = BoardGPIOGetResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[38]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardGPIOGetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardGPIOGetResponse) ProtoMessage() {}
+
+func (x *BoardGPIOGetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[38]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardGPIOGetResponse.ProtoReflect.Descriptor instead.
+func (*BoardGPIOGetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *BoardGPIOGetResponse) GetHigh() bool {
+	if x != nil {
+		return x.High
+	}
+	return false
+}
+
+type BoardPWMSetRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// A value between 0-255, where 255 is equivalent to being high 100% of the time
+	DutyCycle uint32 `protobuf:"varint,3,opt,name=duty_cycle,json=dutyCycle,proto3" json:"duty_cycle,omitempty"`
+}
+
+func (x *BoardPWMSetRequest) Reset() {
+	*x = BoardPWMSetRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[39]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardPWMSetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardPWMSetRequest) ProtoMessage() {}
+
+func (x *BoardPWMSetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[39]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardPWMSetRequest.ProtoReflect.Descriptor instead.
+func (*BoardPWMSetRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *BoardPWMSetRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BoardPWMSetRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+func (x *BoardPWMSetRequest) GetDutyCycle() uint32 {
+	if x != nil {
+		return x.DutyCycle
+	}
+	return 0
+}
+
+type BoardPWMSetResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BoardPWMSetResponse) Reset() {
+	*x = BoardPWMSetResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[40]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardPWMSetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardPWMSetResponse) ProtoMessage() {}
+
+func (x *BoardPWMSetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[40]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardPWMSetResponse.ProtoReflect.Descriptor instead.
+func (*BoardPWMSetResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{40}
+}
+
+type BoardPWMSetFrequencyResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BoardPWMSetFrequencyResponse) Reset() {
+	*x = BoardPWMSetFrequencyResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[41]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardPWMSetFrequencyResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardPWMSetFrequencyResponse) ProtoMessage() {}
+
+func (x *BoardPWMSetFrequencyResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[41]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardPWMSetFrequencyResponse.ProtoReflect.Descriptor instead.
+func (*BoardPWMSetFrequencyResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{41}
+}
+
+type BoardPWMSetFrequencyRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// Name of a pin
+	Pin string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	// Frequency in hertz (cycles/second)
+	Frequency uint64 `protobuf:"varint,3,opt,name=frequency,proto3" json:"frequency,omitempty"`
+}
+
+func (x *BoardPWMSetFrequencyRequest) Reset() {
+	*x = BoardPWMSetFrequencyRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[42]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardPWMSetFrequencyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardPWMSetFrequencyRequest) ProtoMessage() {}
+
+func (x *BoardPWMSetFrequencyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[42]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardPWMSetFrequencyRequest.ProtoReflect.Descriptor instead.
+func (*BoardPWMSetFrequencyRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *BoardPWMSetFrequencyRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BoardPWMSetFrequencyRequest) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+func (x *BoardPWMSetFrequencyRequest) GetFrequency() uint64 {
+	if x != nil {
+		return x.Frequency
+	}
+	return 0
+}
+
+type BoardAnalogReaderReadRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of an analog reader on the robot's board
+	AnalogReaderName string `protobuf:"bytes,2,opt,name=analog_reader_name,json=analogReaderName,proto3" json:"analog_reader_name,omitempty"`
+}
+
+func (x *BoardAnalogReaderReadRequest) Reset() {
+	*x = BoardAnalogReaderReadRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[43]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardAnalogReaderReadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardAnalogReaderReadRequest) ProtoMessage() {}
+
+func (x *BoardAnalogReaderReadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[43]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardAnalogReaderReadRequest.ProtoReflect.Descriptor instead.
+func (*BoardAnalogReaderReadRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *BoardAnalogReaderReadRequest) GetBoardName() string {
+	if x != nil {
+		return x.BoardName
+	}
+	return ""
+}
+
+func (x *BoardAnalogReaderReadRequest) GetAnalogReaderName() string {
+	if x != nil {
+		return x.AnalogReaderName
+	}
+	return ""
+}
+
+type BoardAnalogReaderReadResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Returns the value of the analog reader based on when the request was recieved
+	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *BoardAnalogReaderReadResponse) Reset() {
+	*x = BoardAnalogReaderReadResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[44]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardAnalogReaderReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardAnalogReaderReadResponse) ProtoMessage() {}
+
+func (x *BoardAnalogReaderReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[44]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardAnalogReaderReadResponse.ProtoReflect.Descriptor instead.
+func (*BoardAnalogReaderReadResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *BoardAnalogReaderReadResponse) GetValue() int32 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type DigitalInterruptConfig struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Name    string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Pin     string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
+	Type    string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Formula string `protobuf:"bytes,4,opt,name=formula,proto3" json:"formula,omitempty"`
+}
+
+func (x *DigitalInterruptConfig) Reset() {
+	*x = DigitalInterruptConfig{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[45]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *DigitalInterruptConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DigitalInterruptConfig) ProtoMessage() {}
+
+func (x *DigitalInterruptConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[45]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DigitalInterruptConfig.ProtoReflect.Descriptor instead.
+func (*DigitalInterruptConfig) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *DigitalInterruptConfig) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DigitalInterruptConfig) GetPin() string {
+	if x != nil {
+		return x.Pin
+	}
+	return ""
+}
+
+func (x *DigitalInterruptConfig) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *DigitalInterruptConfig) GetFormula() string {
+	if x != nil {
+		return x.Formula
+	}
+	return ""
+}
+
+type BoardDigitalInterruptConfigRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
+	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
+}
+
+func (x *BoardDigitalInterruptConfigRequest) Reset() {
+	*x = BoardDigitalInterruptConfigRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[46]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptConfigRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptConfigRequest) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptConfigRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[46]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptConfigRequest.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptConfigRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *BoardDigitalInterruptConfigRequest) GetBoardName() string {
+	if x != nil {
+		return x.BoardName
+	}
+	return ""
+}
+
+func (x *BoardDigitalInterruptConfigRequest) GetDigitalInterruptName() string {
+	if x != nil {
+		return x.DigitalInterruptName
+	}
+	return ""
+}
+
+type BoardDigitalInterruptConfigResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Returns the specified configuration of a digital interrupt on the robot's board
+	Config *DigitalInterruptConfig `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
+}
+
+func (x *BoardDigitalInterruptConfigResponse) Reset() {
+	*x = BoardDigitalInterruptConfigResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[47]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptConfigResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptConfigResponse) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptConfigResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[47]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptConfigResponse.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptConfigResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *BoardDigitalInterruptConfigResponse) GetConfig() *DigitalInterruptConfig {
+	if x != nil {
+		return x.Config
+	}
+	return nil
+}
+
+type BoardDigitalInterruptValueRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
+	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
+}
+
+func (x *BoardDigitalInterruptValueRequest) Reset() {
+	*x = BoardDigitalInterruptValueRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[48]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptValueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptValueRequest) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptValueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[48]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptValueRequest.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptValueRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *BoardDigitalInterruptValueRequest) GetBoardName() string {
+	if x != nil {
+		return x.BoardName
+	}
+	return ""
+}
+
+func (x *BoardDigitalInterruptValueRequest) GetDigitalInterruptName() string {
+	if x != nil {
+		return x.DigitalInterruptName
+	}
+	return ""
+}
+
+type BoardDigitalInterruptValueResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Returns the returns the value of the interrupt based on the driver
+	Value int64 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+}
+
+func (x *BoardDigitalInterruptValueResponse) Reset() {
+	*x = BoardDigitalInterruptValueResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[49]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptValueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptValueResponse) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptValueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[49]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptValueResponse.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptValueResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *BoardDigitalInterruptValueResponse) GetValue() int64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+type BoardDigitalInterruptTickRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Name of a board
+	BoardName string `protobuf:"bytes,1,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// Name of a digital interrupt on the robot's board
+	DigitalInterruptName string `protobuf:"bytes,2,opt,name=digital_interrupt_name,json=digitalInterruptName,proto3" json:"digital_interrupt_name,omitempty"`
+	// Sets whether the digital interrupt is high or low
+	High bool `protobuf:"varint,3,opt,name=high,proto3" json:"high,omitempty"`
+	// A number that counts up from an arbitrary point in time
+	Nanos uint64 `protobuf:"varint,4,opt,name=nanos,proto3" json:"nanos,omitempty"`
+}
+
+func (x *BoardDigitalInterruptTickRequest) Reset() {
+	*x = BoardDigitalInterruptTickRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[50]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptTickRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptTickRequest) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptTickRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[50]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptTickRequest.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptTickRequest) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *BoardDigitalInterruptTickRequest) GetBoardName() string {
+	if x != nil {
+		return x.BoardName
+	}
+	return ""
+}
+
+func (x *BoardDigitalInterruptTickRequest) GetDigitalInterruptName() string {
+	if x != nil {
+		return x.DigitalInterruptName
+	}
+	return ""
+}
+
+func (x *BoardDigitalInterruptTickRequest) GetHigh() bool {
+	if x != nil {
+		return x.High
+	}
+	return false
+}
+
+func (x *BoardDigitalInterruptTickRequest) GetNanos() uint64 {
+	if x != nil {
+		return x.Nanos
+	}
+	return 0
+}
+
+type BoardDigitalInterruptTickResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *BoardDigitalInterruptTickResponse) Reset() {
+	*x = BoardDigitalInterruptTickResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_v1_robot_proto_msgTypes[51]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BoardDigitalInterruptTickResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardDigitalInterruptTickResponse) ProtoMessage() {}
+
+func (x *BoardDigitalInterruptTickResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_v1_robot_proto_msgTypes[51]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardDigitalInterruptTickResponse.ProtoReflect.Descriptor instead.
+func (*BoardDigitalInterruptTickResponse) Descriptor() ([]byte, []int) {
+	return file_proto_api_v1_robot_proto_rawDescGZIP(), []int{51}
 }
 
 type SensorReadingsRequest struct {
@@ -4830,6 +5839,7 @@ type InputControllerControlsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -4877,6 +5887,8 @@ type InputControllerControlsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns a list of all the controls (buttons and axes) that are
+	// available to a given Input Controller
 	Controls []string `protobuf:"bytes,1,rep,name=controls,proto3" json:"controls,omitempty"`
 }
 
@@ -4924,6 +5936,7 @@ type InputControllerLastEventsRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Name of an input controller
 	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
 }
 
@@ -4971,6 +5984,8 @@ type InputControllerLastEventsResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all
+	// buttons/axes on a given input controller
 	Events []*InputControllerEvent `protobuf:"bytes,1,rep,name=events,proto3" json:"events,omitempty"`
 }
 
@@ -5065,8 +6080,10 @@ type InputControllerInjectEventRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Controller string                `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	Event      *InputControllerEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// Name of an input controller
+	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
+	// Digitally assert a given event
+	Event *InputControllerEvent `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
 }
 
 func (x *InputControllerInjectEventRequest) Reset() {
@@ -5158,10 +6175,13 @@ type InputControllerEvent struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Time    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
-	Event   string                 `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
-	Control string                 `protobuf:"bytes,3,opt,name=control,proto3" json:"control,omitempty"`
-	Value   float64                `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
+	Time *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
+	// An event type (eg: ButtonPress, ButtonRelease)
+	Event string `protobuf:"bytes,2,opt,name=event,proto3" json:"event,omitempty"`
+	// A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX)
+	Control string `protobuf:"bytes,3,opt,name=control,proto3" json:"control,omitempty"`
+	// 0 or 1 for buttons, -1.0 to +1.0 for axes
+	Value float64 `protobuf:"fixed64,4,opt,name=value,proto3" json:"value,omitempty"`
 }
 
 func (x *InputControllerEvent) Reset() {
@@ -5229,8 +6249,10 @@ type InputControllerEventStreamRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Controller string                                      `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
-	Events     []*InputControllerEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Name of an input controller
+	Controller string `protobuf:"bytes,1,opt,name=controller,proto3" json:"controller,omitempty"`
+	// A list of Events
+	Events []*InputControllerEventStreamRequest_Events `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
 }
 
 func (x *InputControllerEventStreamRequest) Reset() {
@@ -5921,8 +6943,13 @@ type InputControllerEventStreamRequest_Events struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Control         string   `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
-	Events          []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Name of a control (button or axis)
+	Control string `protobuf:"bytes,1,opt,name=control,proto3" json:"control,omitempty"`
+	// Specify which event types to recieve events for
+	// To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
+	Events []string `protobuf:"bytes,2,rep,name=events,proto3" json:"events,omitempty"`
+	// Specify which event types to stop recieving events for
+	// This can be an empty list
 	CancelledEvents []string `protobuf:"bytes,3,rep,name=cancelled_events,json=cancelledEvents,proto3" json:"cancelled_events,omitempty"`
 }
 
@@ -7025,27 +8052,12 @@ var file_proto_api_v1_robot_proto_rawDesc = []byte{
 	0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x6c, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x52,
 	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12,
 	0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73,
-	0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6c, 0x74, 0x69,
-	0x74, 0x75, 0x64, 0x65, 0x12, 0x73, 0x0a, 0x08, 0x47, 0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64,
-	0x12, 0x1d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e,
-	0x47, 0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47,
-	0x50, 0x53, 0x53, 0x70, 0x65, 0x65, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x28, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x22, 0x12, 0x20, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
-	0x2f, 0x73, 0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61,
-	0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x70, 0x65, 0x65, 0x64, 0x12, 0x7f, 0x0a, 0x0b, 0x47, 0x50, 0x53,
-	0x41, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x12, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x63, 0x63, 0x75, 0x72,
-	0x61, 0x63, 0x79, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x21, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x50, 0x53, 0x41, 0x63, 0x63,
-	0x75, 0x72, 0x61, 0x63, 0x79, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2b, 0x82,
-	0xd3, 0xe4, 0x93, 0x02, 0x25, 0x12, 0x23, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x73,
-	0x65, 0x6e, 0x73, 0x6f, 0x72, 0x73, 0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65,
-	0x7d, 0x2f, 0x61, 0x63, 0x63, 0x75, 0x72, 0x61, 0x63, 0x79, 0x42, 0x3b, 0x0a, 0x1a, 0x63, 0x6f,
-	0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x72, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76, 0x31, 0x5a, 0x1d, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61,
-	0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x63, 0x6f, 0x72, 0x65, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f,
-	0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x2f, 0x67, 0x70, 0x73, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x63, 0x63, 0x75,
+	0x72, 0x61, 0x63, 0x79, 0x42, 0x39, 0x0a, 0x19, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d,
+	0x2e, 0x72, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x76,
+	0x31, 0x5a, 0x1c, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72,
+	0x64, 0x6b, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (

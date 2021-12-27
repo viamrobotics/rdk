@@ -14,17 +14,17 @@ type EulerAngles struct {
 	Yaw   float64 `json:"yaw"`   // psi
 }
 
-// NewEulerAngles creates an empty EulerAngles struct
+// NewEulerAngles creates an empty EulerAngles struct.
 func NewEulerAngles() *EulerAngles {
 	return &EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
 }
 
-// EulerAngles returns orientation in Euler angle representation
+// EulerAngles returns orientation in Euler angle representation.
 func (ea *EulerAngles) EulerAngles() *EulerAngles {
 	return ea
 }
 
-// Quaternion returns orientation in quaternion representation
+// Quaternion returns orientation in quaternion representation.
 func (ea *EulerAngles) Quaternion() quat.Number {
 	cy := math.Cos(ea.Yaw * 0.5)
 	sy := math.Sin(ea.Yaw * 0.5)
@@ -42,22 +42,22 @@ func (ea *EulerAngles) Quaternion() quat.Number {
 	return q
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+// OrientationVectorRadians returns orientation as an orientation vector (in radians).
 func (ea *EulerAngles) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(ea.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees).
 func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(ea.Quaternion())
 }
 
-// AxisAngles returns the orientation in axis angle representation
+// AxisAngles returns the orientation in axis angle representation.
 func (ea *EulerAngles) AxisAngles() *R4AA {
 	return QuatToR4AA(ea.Quaternion())
 }
 
-// RotationMatrix returns the orientation in rotation matrix representation
+// RotationMatrix returns the orientation in rotation matrix representation.
 func (ea *EulerAngles) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(ea.Quaternion())
 }

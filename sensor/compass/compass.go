@@ -5,8 +5,8 @@ package compass
 import (
 	"context"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/utils"
 )
 
 // The known compass types.

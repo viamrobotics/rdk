@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"

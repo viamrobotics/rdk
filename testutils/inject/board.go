@@ -5,8 +5,8 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/rdk/component/board"
+	pb "go.viam.com/rdk/proto/api/v1"
 )
 
 // Board is an injected board.
@@ -20,7 +20,7 @@ type Board struct {
 	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
-	CloseFunc                  func() error
+	CloseFunc                  func(ctx context.Context) error
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
@@ -94,11 +94,11 @@ func (b *Board) DigitalInterruptNames() []string {
 }
 
 // Close calls the injected Close or the real version.
-func (b *Board) Close() error {
+func (b *Board) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(b.Board)
+		return utils.TryClose(ctx, b.Board)
 	}
-	return b.CloseFunc()
+	return b.CloseFunc(ctx)
 }
 
 // Status calls the injected Status or the real version.

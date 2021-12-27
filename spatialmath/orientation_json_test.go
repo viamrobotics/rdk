@@ -6,10 +6,9 @@ import (
 	"os"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-
-	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/num/quat"
 )
 

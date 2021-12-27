@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/component/input"
+	"go.viam.com/rdk/component/input"
 )
 
 // InputController is an injected InputController.
@@ -35,7 +35,7 @@ func (s *InputController) LastEvents(ctx context.Context) (map[input.Control]inp
 	return s.LastEventsFunc(ctx)
 }
 
-//RegisterControlCallback calls the injected function or the real version.
+// RegisterControlCallback calls the injected function or the real version.
 func (s *InputController) RegisterControlCallback(
 	ctx context.Context,
 	control input.Control,
