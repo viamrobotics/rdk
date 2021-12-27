@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
@@ -15,18 +17,65 @@ import (
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/slipdetection"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // ModelName is used to register the sensor to a model name.
 const ModelName = "forcematrixtraditional_v1"
 
+// ForceMatrixConfig describes the configuration of a forcematrixtraditional_v1.
+type ForceMatrixConfig struct {
+	BoardName           string   `json:"board"` // used to control gpio pins & read out pressure values
+	ColumnGPIOPins      []string `json:"column_gpio_pins_left_to_right"`
+	RowAnalogChannels   []string `json:"row_analog_channels_top_to_bottom"`
+	SlipDetectionWindow int      `json:"slip_detection_window"`
+	NoiseThreshold      float64  `json:"slip_detection_signal_to_noise_cutoff"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *ForceMatrixConfig) Validate(path string) error {
+	if config.BoardName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if len(config.ColumnGPIOPins) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("column_gpio_pins_left_to_right has to be an array of length > 0"))
+	}
+	if len(config.RowAnalogChannels) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("row_analog_channels_top_to_bottom has to be an array of length > 0"))
+	}
+	if config.SlipDetectionWindow == 0 || config.SlipDetectionWindow > forcematrix.MatrixStorageSize {
+		return utils.NewConfigValidationError(path,
+			errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v",
+				forcematrix.MatrixStorageSize))
+	}
+	return nil
+}
+
 // init registers the forcematrix sensor type.
 func init() {
 	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-			return New(ctx, r, config, logger)
+			forceMatrixConfig, ok := config.ConvertedAttributes.(*ForceMatrixConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
+			}
+			return newForceMatrix(r, forceMatrixConfig)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
+		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ForceMatrixConfig
+
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &ForceMatrixConfig{})
 }
 
 // ForceMatrixTraditional represents a force matrix without a mux.
@@ -42,40 +91,30 @@ type ForceMatrixTraditional struct {
 	noiseThreshold float64 // sensitivity threshold for determining noise
 }
 
-// New returns a new ForceMatrixTraditional given gpio pins and analog channels.
-func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixTraditional, error) {
-	boardName := config.Attributes.String("board")
-	b, exists := r.BoardByName(boardName)
+// newForceMatrix returns a new ForceMatrixTraditional given gpio pins and analog channels.
+func newForceMatrix(r robot.Robot, c *ForceMatrixConfig) (*ForceMatrixTraditional, error) {
+	b, exists := r.BoardByName(c.BoardName)
 	if !exists {
-		return nil, errors.Errorf("need a board for force sensor, named (%v)", boardName)
+		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
 	}
 
-	columnGpioPins := config.Attributes.StringSlice("column_gpio_pins_left_to_right")
-	analogChannels := config.Attributes.StringSlice("row_analog_channels_top_to_bottom")
-
-	analogReaders := make([]board.AnalogReader, 0, len(analogChannels))
-	for _, readerName := range analogChannels {
+	analogReaders := make([]board.AnalogReader, 0, len(c.RowAnalogChannels))
+	for _, readerName := range c.RowAnalogChannels {
 		reader, exists := b.AnalogReaderByName(readerName)
 		if !exists {
 			return nil, errors.Errorf("expected to find analog reader called %q", readerName)
 		}
 		analogReaders = append(analogReaders, reader)
 	}
-	noiseThreshold := config.Attributes.Float64("slip_detection_signal_to_noise_cutoff", 0)
-	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
-	if slipDetectionWindow > forcematrix.MatrixStorageSize {
-		return nil, errors.Errorf("slip_detection_window has to be <= %v", forcematrix.MatrixStorageSize)
-	}
-	previousMatrices := make([][][]int, 0)
 
 	return &ForceMatrixTraditional{
-		columnGpioPins:      columnGpioPins,
-		analogChannels:      analogChannels,
+		columnGpioPins:      c.ColumnGPIOPins,
+		analogChannels:      c.RowAnalogChannels,
 		analogReaders:       analogReaders,
 		board:               b,
-		previousMatrices:    previousMatrices,
-		slipDetectionWindow: slipDetectionWindow,
-		noiseThreshold:      noiseThreshold,
+		previousMatrices:    make([][][]int, 0, forcematrix.MatrixStorageSize),
+		slipDetectionWindow: c.SlipDetectionWindow,
+		noiseThreshold:      c.NoiseThreshold,
 	}, nil
 }
 
