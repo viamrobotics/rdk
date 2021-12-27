@@ -57,7 +57,7 @@ func printRot(o spatialmath.Orientation) string {
 }
 
 func readConfig(cfgPath string) (*transform.ExtrinsicCalibrationConfig, error) {
-	f, err := os.Open(cfgPath)
+	f, err := os.Open(cfgPath) //nolint
 	if err != nil {
 		return nil, errors.Wrap(err, fmt.Sprintf("path=%q", cfgPath))
 	}
