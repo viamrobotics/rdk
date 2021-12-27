@@ -5,16 +5,24 @@ import (
 	"math"
 	"math/rand"
 
-	"go.viam.com/core/spatialmath"
-
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/diff/fd"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/optimize"
+
+	"go.viam.com/rdk/spatialmath"
 )
+
+// ExtrinsicCalibrationConfig stores all the necessary parameters to do an extrinsic calibration.
+type ExtrinsicCalibrationConfig struct {
+	ColorPoints     []r2.Point              `json:"color_points"`
+	DepthPoints     []r3.Vector             `json:"depth_points"`
+	ColorIntrinsics PinholeCameraIntrinsics `json:"color_intrinsics"`
+	DepthIntrinsics PinholeCameraIntrinsics `json:"depth_intrinsics"`
+}
 
 // RunPinholeExtrinsicCalibration will solve the optimization problem to find the rigid pose
 // (translation and rotation) that changes the reference frame from the
@@ -37,7 +45,7 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 	// initial value for rotation euler angles(3) and translation(3)
 	params := make([]float64, 6)
 	for i := range params {
-		params[i] = (rand.Float64() - 0.5) / 10.
+		params[i] = (rand.Float64() - 0.5) / 10. //nolint // initial values for parameters
 	}
 	// do the minimization
 	res, err := optimize.Minimize(*prob, params, settings, method)
@@ -60,25 +68,27 @@ func RunPinholeExtrinsicCalibration(prob *optimize.Problem, logger golog.Logger)
 // points between the two cameras. depthPoints are the x,y pixels of the depth map and the
 // measured depth at that pixel, and the colorPoints are the x,y pixels of the corresponding
 // point in the color image.
-func BuildExtrinsicOptProblem(depth, color *PinholeCameraIntrinsics, depthPoints []r3.Vector, colorPoints []r2.Point) (*optimize.Problem, error) {
+func BuildExtrinsicOptProblem(conf *ExtrinsicCalibrationConfig) (*optimize.Problem, error) {
 	// check if the number of points in each image is the same
-	if len(colorPoints) != len(depthPoints) {
-		return nil, errors.Errorf("number of color points (%d) does not equal number of depth points (%d)", len(colorPoints), len(depthPoints))
+	if len(conf.ColorPoints) != len(conf.DepthPoints) {
+		return nil,
+			errors.Errorf("number of color points (%d) does not equal number of depth points (%d)", len(conf.ColorPoints), len(conf.DepthPoints))
 	}
 	// check if there are at least 4 points in each image
-	if len(colorPoints) < 4 {
-		return nil, errors.Errorf("need at least 4 points to calculate extrinsic matrix, only have %d", len(colorPoints))
+	if len(conf.ColorPoints) < 4 {
+		return nil,
+			errors.Errorf("need at least 4 points to calculate extrinsic matrix, only have %d", len(conf.ColorPoints))
 	}
-	for i, pt := range depthPoints {
+	for i, pt := range conf.DepthPoints {
 		if pt.Z == 0.0 {
 			return nil, errors.Errorf("point %d has a depth of 0. Zero depth is not allowed", i)
 		}
 	}
-	depthPx, depthPy := depth.Ppx, depth.Ppy
-	depthFx, depthFy := depth.Fx, depth.Fy
-	colorPx, colorPy := color.Ppx, color.Ppy
-	colorFx, colorFy := color.Fx, color.Fy
-	N := len(colorPoints)
+	depthPx, depthPy := conf.DepthIntrinsics.Ppx, conf.DepthIntrinsics.Ppy
+	depthFx, depthFy := conf.DepthIntrinsics.Fx, conf.DepthIntrinsics.Fy
+	colorPx, colorPy := conf.ColorIntrinsics.Ppx, conf.ColorIntrinsics.Ppy
+	colorFx, colorFy := conf.ColorIntrinsics.Fx, conf.ColorIntrinsics.Fy
+	N := len(conf.ColorPoints)
 	m2mm := 1000.0 // all parameters should be around the same scale
 	fcn := func(p []float64) float64 {
 		// p[0] - roll-x, p[1] - pitch-y, p[2] - yaw-z
@@ -100,8 +110,8 @@ func BuildExtrinsicOptProblem(depth, color *PinholeCameraIntrinsics, depthPoints
 		translation := p[3:]
 		mse := 0.0
 		for i := 0; i < N; i++ {
-			cPt := colorPoints[i]
-			dPt := depthPoints[i]
+			cPt := conf.ColorPoints[i]
+			dPt := conf.DepthPoints[i]
 			z := dPt.Z
 			// 2D depth point to 3D
 			x := z * ((dPt.X - depthPx) / depthFx)
@@ -132,7 +142,7 @@ func BuildExtrinsicOptProblem(depth, color *PinholeCameraIntrinsics, depthPoints
 			mse += math.Pow(x-cPt.X, 2)
 			mse += math.Pow(y-cPt.Y, 2)
 		}
-		mse = mse / float64(N)
+		mse /= float64(N)
 		return mse
 	}
 	grad := func(grad, x []float64) {

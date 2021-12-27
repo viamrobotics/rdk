@@ -1,5 +1,7 @@
 // Given at least 4 corresponding points, and the intrinsic matrices of both cameras, computes
-// the rigid transform (rotation + translation) that would be the extrinsic transformation from camera 1 to camera 2. rimage/transform/example_extrinsic_calib.json has an example input file.
+// the rigid transform (rotation + translation) that would be the extrinsic transformation
+// from camera 1 to camera 2.
+// rimage/transform/example_extrinsic_calib.json has an example input file.
 // $./extrinsic_calibration -conf=/path/to/input/file
 package main
 
@@ -10,23 +12,13 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/spatialmath"
-
-	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
-	"github.com/golang/geo/r2"
-	"github.com/golang/geo/r3"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/spatialmath"
 )
-
-type calibrationConfig struct {
-	ColorPoints     []r2.Point                        `json:"color_points"`
-	DepthPoints     []r3.Vector                       `json:"depth_points"`
-	ColorIntrinsics transform.PinholeCameraIntrinsics `json:"color_intrinsics"`
-	DepthIntrinsics transform.PinholeCameraIntrinsics `json:"depth_intrinsics"`
-}
 
 func main() {
 	confPtr := flag.String("conf", "", "path of configuration for extrinsic parameter finding")
@@ -42,14 +34,14 @@ func calibrate(conf string, logger golog.Logger) {
 		logger.Fatal(err)
 	}
 	// set up the optimization problem
-	problem, err := transform.BuildExtrinsicOptProblem(&cfg.DepthIntrinsics, &cfg.ColorIntrinsics, cfg.DepthPoints, cfg.ColorPoints)
+	problem, err := transform.BuildExtrinsicOptProblem(cfg)
 	if err != nil {
 		logger.Fatal(err)
 	}
 	// solve the problem
 	pose, err := transform.RunPinholeExtrinsicCalibration(problem, logger)
 	// print result to output stream
-	fmt.Printf("\nrotation:\n%v\ntranslation:\n%.3f\n", printRot(pose.Orientation()), pose.Point())
+	logger.Infof("\nrotation:\n%v\ntranslation:\n%.3f\n", printRot(pose.Orientation()), pose.Point())
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -64,10 +56,10 @@ func printRot(o spatialmath.Orientation) string {
 	return w1 + w2 + w3
 }
 
-func readConfig(cfgPath string) (*calibrationConfig, error) {
+func readConfig(cfgPath string) (*transform.ExtrinsicCalibrationConfig, error) {
 	f, err := os.Open(cfgPath)
 	if err != nil {
-		return nil, errors.Errorf("path=%q: %w", cfgPath, err)
+		return nil, errors.Wrap(err, fmt.Sprintf("path=%q", cfgPath))
 	}
 	defer utils.UncheckedErrorFunc(f.Close)
 
@@ -76,10 +68,10 @@ func readConfig(cfgPath string) (*calibrationConfig, error) {
 		return nil, err
 	}
 
-	conf := &calibrationConfig{}
+	conf := &transform.ExtrinsicCalibrationConfig{}
 	err = json.Unmarshal(byteJSON, conf)
 	if err != nil {
-		return nil, errors.Errorf("error parsing byte array - %w", err)
+		return nil, errors.Wrap(err, "error parsing byte array ")
 	}
 	return conf, nil
 }

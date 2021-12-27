@@ -7,15 +7,14 @@ import (
 	"math/rand"
 	"testing"
 
-	"go.viam.com/test"
-	"go.viam.com/utils/testutils"
-
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/utils"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+	"go.viam.com/utils/testutils"
+
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 func TestMainCalibrate(t *testing.T) {
@@ -31,14 +30,14 @@ func TestMainCalibrate(t *testing.T) {
 	// writes bytes to temporary file
 	b, err := json.MarshalIndent(calibConfig, "", " ")
 	test.That(t, err, test.ShouldBeNil)
-	err = ioutil.WriteFile(outDir+"/test.json", b, 0644)
+	err = ioutil.WriteFile(outDir+"/test.json", b, 0o644)
 	test.That(t, err, test.ShouldBeNil)
 
 	// read from temp file and process
 	calibrate(outDir+"/test.json", logger)
 }
 
-func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *calibrationConfig {
+func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *transform.ExtrinsicCalibrationConfig {
 	depthH, depthW := float64(c.DepthCamera.Height), float64(c.DepthCamera.Width)
 	colorPoints := make([]r2.Point, n)
 	depthPoints := make([]r3.Vector, n)
@@ -50,7 +49,7 @@ func createInputConfig(c *transform.DepthColorIntrinsicsExtrinsics, n int) *cali
 		cx, cy, _ := c.DepthPixelToColorPixel(dx, dy, dz)
 		colorPoints[i] = r2.Point{cx, cy}
 	}
-	conf := &calibrationConfig{
+	conf := &transform.ExtrinsicCalibrationConfig{
 		ColorPoints:     colorPoints,
 		DepthPoints:     depthPoints,
 		ColorIntrinsics: c.ColorCamera,

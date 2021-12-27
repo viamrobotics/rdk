@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"go.viam.com/core/rimage/transform"
-
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage/transform"
 )
 
 var logger = golog.NewLogger("depth_to_color")
@@ -34,14 +34,14 @@ func main() {
 	if err != nil {
 		logger.Fatal(err)
 	}
-	fmt.Printf("depth: x: %.3f, y: %.3f, z:%.3f\n", x, y, z)
+	logger.Infof("depth: x: %.3f, y: %.3f, z:%.3f\n", x, y, z)
 
 	// load the inputs from the config file
 	params, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(*confPtr)
 	if err != nil {
-		err = errors.Errorf("path=%q: %w", *confPtr, err)
+		err = errors.Wrap(err, fmt.Sprintf("path=%q", *confPtr))
 		logger.Fatal(err)
 	}
 	cx, cy, _ := params.DepthPixelToColorPixel(x, y, z)
-	fmt.Printf("color: x: %.3f, y: %.3f\n", cx, cy)
+	logger.Infof("color: x: %.3f, y: %.3f\n", cx, cy)
 }
