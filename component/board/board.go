@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	robotpb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
@@ -71,10 +71,12 @@ type Board interface {
 	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 	PWMSetFreq(ctx context.Context, pin string, freq uint) error
 
+	// TODO(maximpertsov): remove status altogether?
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*pb.Status, error)
+	//
+	Status(ctx context.Context) (*robotpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -258,7 +260,7 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	return names
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.Status, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context) (*robotpb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {

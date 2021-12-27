@@ -12,8 +12,8 @@ import (
 // CreateStatus constructs a new up to date status from the given board.
 // The operation can take time and be expensive, so it can be cancelled by the
 // given context.
-func CreateStatus(ctx context.Context, b Board) (*pb.Status, error) {
-	var status pb.Status
+func CreateStatus(ctx context.Context, b Board) (*pb.BoardStatus, error) {
+	var status pb.BoardStatus
 
 	if names := b.AnalogReaderNames(); len(names) != 0 {
 		status.Analogs = make(map[string]*pb.AnalogStatus, len(names))
