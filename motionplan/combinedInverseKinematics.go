@@ -48,13 +48,17 @@ func runSolver(ctx context.Context,
 	seed []referenceframe.Input,
 	m Metric,
 ) error {
-
 	return solver.Solve(ctx, c, pos, seed, m)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
-// positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []referenceframe.Input, newGoal spatialmath.Pose, seed []referenceframe.Input, m Metric) error {
+// positions. If unable to solve, the returned error will be non-nil.
+func (ik *CombinedIK) Solve(ctx context.Context,
+	c chan<- []referenceframe.Input,
+	newGoal spatialmath.Pose,
+	seed []referenceframe.Input,
+	m Metric,
+) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {

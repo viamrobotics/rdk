@@ -91,7 +91,6 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-
 	var inputSteps []*solution
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
@@ -446,7 +445,7 @@ func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 	return pos
 }
 
-// Used for coordinating parallel computations of nearestNeighbor
+// Used for coordinating parallel computations of nearestNeighbor.
 type neighborManager struct {
 	nnKeys    chan *solution
 	neighbors chan *neighbor

@@ -62,8 +62,8 @@ type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
 	Plan(context.Context, *commonpb.Pose, []referenceframe.Input, *PlannerOptions) ([][]referenceframe.Input, error)
-	Resolution() float64 // Resolution specifies how narrowly to check for constraints
-	Frame() referenceframe.Frame  // Frame will return the frame used for planning
+	Resolution() float64         // Resolution specifies how narrowly to check for constraints
+	Frame() referenceframe.Frame // Frame will return the frame used for planning
 }
 
 // NewLinearMotionPlanner returns a linearMotionPlanner. This does a linear IK interpolation from start to goal.
@@ -101,7 +101,6 @@ func (mp *linearMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
-
 	// Store copy of planner options for duration of solve
 	var inputSteps [][]referenceframe.Input
 
@@ -238,7 +237,6 @@ func getSolutions(ctx context.Context,
 	seed []referenceframe.Input,
 	f referenceframe.Frame,
 ) (map[float64][]referenceframe.Input, error) {
-
 	seedPos, err := f.Transform(seed)
 	if err != nil {
 		return nil, err

@@ -35,7 +35,6 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	goal spatial.Pose,
 	solveFrame, goalFrame referenceframe.Frame,
 ) ([]map[string][]referenceframe.Input, error) {
-
 	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, nil)
 }
 
@@ -48,7 +47,6 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	solveFrame, goalFrame referenceframe.Frame,
 	opt *PlannerOptions,
 ) ([]map[string][]referenceframe.Input, error) {
-
 	// Default for opt if nil
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
