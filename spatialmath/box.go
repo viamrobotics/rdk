@@ -7,31 +7,31 @@ import (
 	"github.com/pkg/errors"
 )
 
-// BoxCreator implements the VolumeCreator interface for box structs
+// BoxCreator implements the VolumeCreator interface for box structs.
 type boxCreator struct {
 	halfSize r3.Vector
 	offset   Pose
 }
 
-// box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it
+// box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
 	pose     Pose
 	halfSize r3.Vector
 }
 
 // NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose.
-// These boxes have dimensions given by the provided halfSize vector
+// These boxes have dimensions given by the provided halfSize vector.
 func NewBox(halfSize r3.Vector) VolumeCreator {
 	return &boxCreator{halfSize, NewZeroPose()}
 }
 
 // NewBoxFromOffset instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
-// at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector
+// at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBoxFromOffset(halfSize r3.Vector, offset Pose) VolumeCreator {
 	return &boxCreator{halfSize, offset}
 }
 
-// NewVolume instantiates a new box from a BoxCreator class
+// NewVolume instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	b := &box{}
 	b.pose = Compose(pose, bc.offset)
@@ -39,7 +39,7 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	return b
 }
 
-// CollidesWith checks if the given box collides with the given volume and returns true if it does
+// CollidesWith checks if the given box collides with the given volume and returns true if it does.
 func (b *box) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(*box); ok {
 		return boxVsBoxCollision(b, other), nil

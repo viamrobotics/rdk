@@ -7,11 +7,11 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/gripper"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/gripper"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, error) {
@@ -83,5 +83,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, resp, test.ShouldBeNil)
 	})
-
 }

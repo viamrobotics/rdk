@@ -1,5 +1,5 @@
 # ROS package
-The ROS package implements functionality that bridges the gap between `core` and `ROS`.
+The ROS package implements functionality that bridges the gap between `rdk` and `ROS`.
 
 ## Plane Segmentation
 Plane segmentation works with ROS bags that contain the `/L515_ImageWithDepth` rostopic that publishes Intel Realsense L515 RGBD data.

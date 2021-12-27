@@ -8,10 +8,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 type segmentationSourceTestHelper struct {
@@ -19,8 +19,14 @@ type segmentationSourceTestHelper struct {
 	config segmentation.ObjectConfig
 }
 
-func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
-
+func (h *segmentationSourceTestHelper) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
+	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
 	is, err := NewDepthComposed(nil, nil, &h.attrs, logger)
@@ -57,7 +63,7 @@ func (h *segmentationSourceTestHelper) Process(t *testing.T, pCtx *rimage.Proces
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)

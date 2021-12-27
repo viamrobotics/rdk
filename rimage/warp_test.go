@@ -4,9 +4,8 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -73,7 +72,6 @@ func TestWarp2(t *testing.T) {
 
 	err = WriteImageToFile(outDir+"/canny1-warped.png", out)
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func BenchmarkWarp(b *testing.B) {
@@ -104,7 +102,6 @@ func BenchmarkWarp(b *testing.B) {
 }
 
 func TestWarpInvert(t *testing.T) {
-
 	toSlice := func(m mat.Matrix) []float64 {
 		a := []float64{}
 		for x := 0; x < 3; x++ {
@@ -149,5 +146,4 @@ func TestWarpSmall1(t *testing.T) {
 
 	err = WriteImageToFile(outDir+"/warpsmall1.png", x)
 	test.That(t, err, test.ShouldBeNil)
-
 }

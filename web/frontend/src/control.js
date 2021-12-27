@@ -11,6 +11,8 @@ window.gripperApi = require('./gen/proto/api/component/v1/gripper_pb.js');
 const { GripperServiceClient } = require('./gen/proto/api/component/v1/gripper_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/v1/servo_pb.js');
 const { ServoServiceClient } = require('./gen/proto/api/component/v1/servo_pb_service.js');
+window.motorApi = require('./gen/proto/api/component/v1/motor_pb.js');
+const { MotorServiceClient } = require('./gen/proto/api/component/v1/motor_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/v1/camera_pb_service.js');
 window.commonApi = require('./gen/proto/api/common/v1/common_pb.js');
@@ -44,7 +46,9 @@ let connect = async () => {
 	try {
 		let transportFactory;
 		if (window.webrtcEnabled) {
-			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { rtcConfig: rtcConfig });
+			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { 
+				webrtcOptions: { rtcConfig: rtcConfig }
+			});
 			transportFactory = webRTCConn.transportFactory
 			window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
 			webRTCConn.peerConnection.ontrack = async event => {
@@ -71,6 +75,7 @@ let connect = async () => {
 		window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
 		window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 		window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+		window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	} catch (e) {
 		console.error("error dialing:", e);
 		throw e;

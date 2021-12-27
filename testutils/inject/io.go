@@ -1,6 +1,8 @@
 package inject
 
-import "io"
+import (
+	"io"
+)
 
 // ReadWriteCloser is an injected read write closer.
 type ReadWriteCloser struct {

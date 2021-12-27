@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 func TestJointPositions(t *testing.T) {

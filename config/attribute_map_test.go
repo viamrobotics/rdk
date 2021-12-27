@@ -80,5 +80,4 @@ func TestAttributeMap(t *testing.T) {
 	}
 	test.That(t, badStringSliceGetter1, test.ShouldPanic)
 	test.That(t, badStringSliceGetter2, test.ShouldPanic)
-
 }

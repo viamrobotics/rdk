@@ -93,7 +93,7 @@
     "processes": [
         {
             "id" : "tof1",
-            "name": "/home/erh/core/etc/camera_servers/royaleserver",
+            "name": "/home/erh/rdk/etc/camera_servers/royaleserver",
             "log": true
         }
     ]

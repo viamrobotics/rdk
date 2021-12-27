@@ -1,3 +1,4 @@
+// Package grpc provides grpc utilities.
 package grpc
 
 import "github.com/pion/webrtc/v3"

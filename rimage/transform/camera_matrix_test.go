@@ -7,12 +7,11 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 )
 
 var outDir string
@@ -38,7 +37,7 @@ func TestPC1(t *testing.T) {
 	pc, err := cameraMatrices.ImageWithDepthToPointCloud(iwd)
 	test.That(t, err, test.ShouldBeNil)
 
-	file, err := os.OpenFile(outDir+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0755)
+	file, err := os.OpenFile(outDir+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o755)
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 
@@ -60,7 +59,6 @@ func TestPC2(t *testing.T) {
 
 	err = pc.WriteToFile(outDir + "/board2.las")
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestCameraMatrixTo3D(t *testing.T) {
