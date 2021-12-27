@@ -5,12 +5,12 @@ import (
 	"math"
 	"testing"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 func TestArmName(t *testing.T) {
@@ -23,9 +23,9 @@ func TestArmName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "8ad23fcd-7f30-56b9-a7f4-cf37a980b4dd",
+				UUID: "a5b161b9-dfa9-5eef-93d1-58431fd91212",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -35,9 +35,9 @@ func TestArmName(t *testing.T) {
 			"all fields included",
 			"arm1",
 			resource.Name{
-				UUID: "1ef3fc81-df1d-5ac4-b11d-bc1513e47f06",
+				UUID: "ded8a90b-0c77-5bda-baf5-b7e79bbdb28a",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "arm1",
@@ -46,7 +46,7 @@ func TestArmName(t *testing.T) {
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
 			observed := Named(tc.Name)
-			test.That(t, tc.Expected, test.ShouldResemble, observed)
+			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
@@ -69,7 +69,7 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeArm1.(*reconfigurableArm).Reconfigure(fakeArm2)
+	err = fakeArm1.(*reconfigurableArm).Reconfigure(context.Background(), fakeArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeArm1.(*reconfigurableArm).actual, test.ShouldEqual, actualArm2)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
@@ -104,7 +104,9 @@ type mockArm struct {
 	reconfCount int
 }
 
-func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) { return nil, nil }
+func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+	return &commonpb.Pose{}, nil
+}
 
 func (m *mockArm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error { return nil }
 
@@ -113,14 +115,14 @@ func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPosi
 }
 
 func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	return nil, nil
+	return &pb.ArmJointPositions{}, nil
 }
 
 func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return nil
 }
 
-func (m *mockArm) ModelFrame() *referenceframe.Model {
+func (m *mockArm) ModelFrame() referenceframe.Model {
 	return nil
 }
 
@@ -132,4 +134,4 @@ func (m *mockArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) e
 	return nil
 }
 
-func (m *mockArm) Close() error { m.reconfCount++; return nil }
+func (m *mockArm) Close(ctx context.Context) error { m.reconfCount++; return nil }

@@ -1,11 +1,12 @@
 package input
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestInputControllerName(t *testing.T) {
@@ -18,9 +19,9 @@ func TestInputControllerName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "6c851c39-bb5d-5f94-b09d-8b84043c327d",
+				UUID: "48d8bd5e-629b-51c1-8bf8-f2f308942012",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -30,9 +31,9 @@ func TestInputControllerName(t *testing.T) {
 			"all fields included",
 			"input1",
 			resource.Name{
-				UUID: "954e620a-f0e5-5f24-b065-2847b26fe006",
+				UUID: "bd8e8873-6bf0-52c7-9034-6527a245a943",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "input1",
@@ -72,12 +73,12 @@ func TestReconfigurableInputController(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(fakeInput2)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), fakeInput2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput2)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(nil)
+	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Controller")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

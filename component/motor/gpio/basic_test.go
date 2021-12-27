@@ -5,18 +5,18 @@ import (
 	"testing"
 	"time"
 
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/robots/fake"
-
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/motor"
 )
 
-// Test the A/B/PWM style IO
+// Test the A/B/PWM style IO.
 func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
@@ -46,6 +46,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
+	//nolint:dupl
 	t.Run("motor (A/B/PWM) Go testing", func(t *testing.T) {
 		test.That(t, m.Go(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -117,13 +118,12 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.PWMSetFreq(ctx, "3", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
 	})
-
 }
 
-// Test the DIR/PWM style IO
+// Test the DIR/PWM style IO.
 func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
@@ -132,7 +132,11 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define maxRPM attribute"))
 
-		_, err = NewMotor(b, motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000}, logger)
+		_, err = NewMotor(
+			b,
+			motor.Config{Pins: map[string]string{"dir": "1", "en": "2", "pwm": "3"}, MaxPowerPct: 100, PWMFreq: 4000},
+			logger,
+		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 
@@ -151,6 +155,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
+	//nolint:dupl
 	t.Run("motor (DIR/PWM) Go testing", func(t *testing.T) {
 		test.That(t, m.Go(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -222,10 +227,10 @@ func TestMotorDirPWM(t *testing.T) {
 	})
 }
 
-// Test the A/B only style IO
+// Test the A/B only style IO.
 func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
-	b := &fake.Board{}
+	b := &fakeboard.Board{}
 	logger := golog.NewTestLogger(t)
 
 	m, err := NewMotor(b, motor.Config{Pins: map[string]string{"a": "1", "b": "2", "en": "3"}, MaxRPM: 100, PWMFreq: 4000}, logger)
@@ -345,5 +350,4 @@ func TestGoForMath(t *testing.T) {
 	powerPct, waitDur = goForMath(100, 1000, 50)
 	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
-
 }

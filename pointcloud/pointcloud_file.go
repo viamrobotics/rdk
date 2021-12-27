@@ -13,10 +13,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/jblindsay/lidario"
 	"github.com/pkg/errors"
-
-	"go.viam.com/utils"
-
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 )
 
 // NewFromFile returns a pointcloud read in from the given file.
@@ -89,7 +87,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 }
 
 // WriteToFile writes the point cloud out to a LAS file.
-func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
+func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
 		return
@@ -100,7 +98,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 	}()
 
 	pointFormatID := 0
-	if pc.hasColor {
+	if cloud.hasColor {
 		pointFormatID = 2
 	}
 	if err = lf.AddHeader(lidario.LasHeader{
@@ -110,11 +108,11 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 	}
 
 	var pVals []int
-	if pc.hasValue {
-		pVals = make([]int, 0, pc.Size())
+	if cloud.hasValue {
+		pVals = make([]int, 0, cloud.Size())
 	}
 	var lastErr error
-	pc.Iterate(func(p Point) bool {
+	cloud.Iterate(func(p Point) bool {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
@@ -134,7 +132,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 			PointSourceID: 1,
 		}
 		lp = pr0
-		if pc.hasColor {
+		if cloud.hasColor {
 			red, green, blue := 255, 255, 255
 			if p.HasColor() {
 				r, g, b := p.RGB255()
@@ -149,7 +147,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 				},
 			}
 		}
-		if pc.hasValue {
+		if cloud.hasValue {
 			if p.HasValue() {
 				pVals = append(pVals, p.Value())
 			} else {
@@ -162,7 +160,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 		}
 		return true
 	})
-	if pc.hasValue {
+	if cloud.hasValue {
 		var buf bytes.Buffer
 		for _, v := range pVals {
 			bytes := make([]byte, 8)
@@ -183,6 +181,7 @@ func (pc *basicPointCloud) WriteToFile(fn string) (err error) {
 		return
 	}
 
+	// nolint:nakedret
 	return
 }
 
@@ -194,9 +193,9 @@ func _colorToPCDInt(pt Point) int {
 	r, g, b := pt.RGB255()
 	x := 0
 
-	x = x | (int(r) << 16)
-	x = x | (int(g) << 8)
-	x = x | (int(b) << 0)
+	x |= (int(r) << 16)
+	x |= (int(g) << 8)
+	x |= (int(b) << 0)
 	return x
 }
 
@@ -207,7 +206,7 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
-func (pc *basicPointCloud) ToPCD(out io.Writer) error {
+func (cloud *basicPointCloud) ToPCD(out io.Writer) error {
 	var err error
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
@@ -220,16 +219,16 @@ func (pc *basicPointCloud) ToPCD(out io.Writer) error {
 		"VIEWPOINT 0 0 0 1 0 0 0\n"+
 		"POINTS %d\n"+
 		"DATA ascii\n",
-		pc.Size(),
+		cloud.Size(),
 		1,
-		pc.Size(),
+		cloud.Size(),
 	)
 
 	if err != nil {
 		return err
 	}
 
-	pc.Iterate(func(pt Point) bool {
+	cloud.Iterate(func(pt Point) bool {
 		// Our point clouds are in mm, PCD files expect meters
 		position := pt.Position()
 		width := position.X / 1000.
@@ -274,7 +273,7 @@ func readPcdHeaderLineCheck(in *bufio.Reader, name string, value string) error {
 	return nil
 }
 
-// ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now
+// ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now.
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 	in := bufio.NewReader(inRaw)
 

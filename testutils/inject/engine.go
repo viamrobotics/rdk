@@ -1,6 +1,6 @@
 package inject
 
-import functionvm "go.viam.com/core/function/vm"
+import functionvm "go.viam.com/rdk/function/vm"
 
 // Engine is an injected engine.
 type Engine struct {

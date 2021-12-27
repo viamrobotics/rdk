@@ -8,7 +8,11 @@ import (
 	spatial "go.viam.com/core/spatialmath"
 	"go.viam.com/core/utils"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -20,21 +24,23 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile(wx250s), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	test.That(t, m.OperationalDoF(), test.ShouldEqual, 1)
+	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	isValid := simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = m.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	isValid = simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, isValid, test.ShouldBeFalse)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
-	randpos := m.GenerateRandomJointPositions(rand.New(rand.NewSource(1)))
-	test.That(t, m.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
+	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
 	m, err = ParseJSONFile(utils.ResolveFile(wx250s), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -44,9 +50,11 @@ func TestModelLoading(t *testing.T) {
 func TestTransform(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile(wx250s), "")
 	test.That(t, err, test.ShouldBeNil)
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	joints := []Frame{}
-	for _, tform := range m.OrdTransforms {
+	for _, tform := range simpleM.OrdTransforms {
 		if len(tform.DoF()) > 0 {
 			joints = append(joints, tform)
 		}
@@ -71,6 +79,8 @@ func TestTransform(t *testing.T) {
 func TestVolume(t *testing.T) {
 	m, err := ParseJSONFile(utils.ResolveFile(ur5e), "")
 	test.That(t, err, test.ShouldBeNil)
+	simpleM, ok := m.(*SimpleModel)
+	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(m.DoF()))
 	vols, err := m.Volume(inputs)

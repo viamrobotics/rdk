@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from arm_subtype.proto
+// subtypeServer implements the contract from arm_subtype.proto.
 type subtypeServer struct {
 	pb.UnimplementedArmServiceServer
 	s subtype.Service

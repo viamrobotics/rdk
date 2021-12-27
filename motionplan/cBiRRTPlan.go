@@ -9,103 +9,76 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
-
 	"go.viam.com/utils"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 const (
-	// The maximum percent of a joints range of motion to allow per step
+	// The maximum percent of a joints range of motion to allow per step.
 	frameStep = 0.015
-	// If the dot product between two sets of joint angles is less than this, consider them identical
+	// If the dot product between two sets of joint angles is less than this, consider them identical.
 	jointSolveDist = 0.0001
-	// Number of planner iterations before giving up
+	// Number of planner iterations before giving up.
 	planIter = 2000
-	// Number of IK solutions with which to seed the goal side of the bidirectional tree
+	// Number of IK solutions with which to seed the goal side of the bidirectional tree.
 	solutionsToSeed = 10
-	// Check constraints are still met every this many mm/degrees of movement
+	// Check constraints are still met every this many mm/degrees of movement.
 	stepSize = 2
-	// Name of joint swing scorer
+	// Name of joint swing scorer.
 	jointConstraint = "defaultJointSwingConstraint"
-	// Max number of iterations of path smoothing to run
+	// Max number of iterations of path smoothing to run.
 	smoothIter = 250
-	// Number of iterations to mrun before beginning to accept randomly seeded locations
+	// Number of iterations to mrun before beginning to accept randomly seeded locations.
 	iterBeforeRand = 50
 )
 
-// cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given frame.
+// cBiRRTMotionPlanner an object able to solve constrained paths around obstacles to some goal for a given referenceframe.
 // It uses the Constrained Bidirctional Rapidly-expanding Random Tree algorithm, Berenson et al 2009
 // https://ieeexplore.ieee.org/document/5152399/
 type cBiRRTMotionPlanner struct {
 	solDist         float64
 	solver          InverseKinematics
 	fastGradDescent *NloptIK
-	frame           frame.Frame
+	frame           referenceframe.Frame
 	logger          golog.Logger
 	qstep           []float64
 	iter            int
+	nCPU            int
 	stepSize        float64
 	randseed        *rand.Rand
-	opt             *PlannerOptions
-	nn              *neighborManager
 }
 
-// Used for coordinating parallel computations of nearestNeighbor
-type neighborManager struct {
-	nnKeys    chan *solution
-	neighbors chan *neighbor
-	nnLock    sync.RWMutex
-	seedPos   *solution
-	ready     bool
-	nCPU      int
-}
-
-type neighbor struct {
-	dist float64
-	sol  *solution
-}
-
-// needed to wrap slices so we can use them as map keys
+// needed to wrap slices so we can use them as map keys.
 type solution struct {
-	inputs []frame.Input
+	inputs []referenceframe.Input
 }
 
-// NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object
-func NewCBiRRTMotionPlanner(frame frame.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
+// NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
+func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
 	if err != nil {
 		return nil, err
 	}
-	nlopt, err := CreateNloptIKSolver(frame, logger)
+	// nlopt should try only once
+	nlopt, err := CreateNloptIKSolver(frame, logger, 1)
 	if err != nil {
 		return nil, err
 	}
-	// nlopt should try only once
-	nlopt.SetMaxIter(1)
-	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist}
-	mp.nn = &neighborManager{nCPU: nCPU}
+	mp := &cBiRRTMotionPlanner{solver: ik, fastGradDescent: nlopt, frame: frame, logger: logger, solDist: jointSolveDist, nCPU: nCPU}
 
 	mp.qstep = getFrameSteps(frame, frameStep)
 	mp.iter = planIter
 	mp.stepSize = stepSize
 
+	//nolint:gosec
 	mp.randseed = rand.New(rand.NewSource(1))
-	mp.opt = NewDefaultPlannerOptions()
 
 	return mp, nil
 }
 
-func (mp *cBiRRTMotionPlanner) SetMetric(m Metric) {
-	mp.solver.SetMetric(m)
-}
-
-func (mp *cBiRRTMotionPlanner) SetPathDistFunc(m Metric) {
-	mp.fastGradDescent.SetMetric(m)
-}
-
-func (mp *cBiRRTMotionPlanner) Frame() frame.Frame {
+func (mp *cBiRRTMotionPlanner) Frame() referenceframe.Frame {
 	return mp.frame
 }
 
@@ -113,20 +86,18 @@ func (mp *cBiRRTMotionPlanner) Resolution() float64 {
 	return mp.stepSize
 }
 
-func (mp *cBiRRTMotionPlanner) SetOptions(opt *PlannerOptions) {
-	mp.opt = opt
-	mp.SetMetric(opt.metric)
-	mp.SetPathDistFunc(opt.pathDist)
-}
-
-func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, seed []frame.Input) ([][]frame.Input, error) {
+func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
+	goal *commonpb.Pose,
+	seed []referenceframe.Input,
+	opt *PlannerOptions,
+) ([][]referenceframe.Input, error) {
 	var inputSteps []*solution
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// Store copy of planner options for duration of solve
-	opt := mp.opt
 
 	// How many of the top solutions to try
 	// Solver will terminate after getting this many to save time
@@ -136,7 +107,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		opt.maxSolutions = nSolutions
 	}
 
-	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp)
+	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
 		return nil, err
 	}
@@ -162,12 +133,15 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 	seedMap := make(map[*solution]*solution)
 	seedMap[&solution{seed}] = nil
 
-	// Alternate to which map our random sample is added
 	// for the first iteration, we try the 0.5 interpolation between seed and goal[0]
-	addSeed := true
-	target := &solution{frame.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
+	target := &solution{referenceframe.InterpolateInputs(seed, solutions[keys[0]], 0.5)}
 
 	var rSeed *solution
+
+	nn := &neighborManager{nCPU: mp.nCPU}
+
+	// Create a reference to the two maps so that wew can alternate which one is grown
+	map1, map2 := seedMap, goalMap
 
 	for i := 0; i < mp.iter; i++ {
 		select {
@@ -178,28 +152,15 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 
 		var seedReached, goalReached *solution
 
-		// Alternate which tree we extend
-		if addSeed {
-			// extend seed tree first
-			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, seedMap)
-			// Extend tree seedMap as far towards target as it can get. It may or may not reach it.
-			seedReached = mp.constrainedExtend(opt, seedMap, nearest, target)
-			// Find the nearest point in goalMap to the furthest point reached in seedMap
-			near2 := mp.nn.nearestNeighbor(ctxWithCancel, seedReached, goalMap)
-			// extend goalMap towards the point in seedMap
-			goalReached = mp.constrainedExtend(opt, goalMap, near2, seedReached)
-			rSeed = seedReached
-		} else {
-			// extend goal tree first
-			nearest := mp.nn.nearestNeighbor(ctxWithCancel, target, goalMap)
-			// Extend tree goalMap as far towards target as it can get. It may or may not reach it.
-			goalReached = mp.constrainedExtend(opt, goalMap, nearest, target)
-			// Find the nearest point in seedMap to the furthest point reached in goalMap
-			near2 := mp.nn.nearestNeighbor(ctxWithCancel, goalReached, seedMap)
-			// extend seedMap towards the point in goalMap
-			seedReached = mp.constrainedExtend(opt, seedMap, near2, goalReached)
-			rSeed = goalReached
-		}
+		// extend seed tree first
+		nearest := nn.nearestNeighbor(ctxWithCancel, target, map1)
+		// Extend map1 as far towards target as it can get. It may or may not reach it.
+		seedReached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
+		// Find the nearest point in map2 to the furthest point reached in map1
+		near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, map2)
+		// extend map1 towards the point in map1
+		goalReached = mp.constrainedExtend(ctx, opt, map2, near2, seedReached)
+		rSeed = seedReached
 
 		corners[seedReached] = true
 		corners[goalReached] = true
@@ -229,16 +190,17 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
 		// The 2 at a time is to ensure random seeds are added onto both the seed and goal maps.
 		if i >= iterBeforeRand && i%4 >= 2 {
-			target = &solution{frame.RandomFrameInputs(mp.frame, mp.randseed)}
+			target = &solution{referenceframe.RandomFrameInputs(mp.frame, mp.randseed)}
 		} else {
 			// Seeding nearby to valid points results in much faster convergence in less constrained space
-			target = &solution{frame.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
+			target = &solution{referenceframe.RestrictedRandomFrameInputs(mp.frame, mp.randseed, 0.2)}
 			for j, v := range rSeed.inputs {
 				target.inputs[j].Value += v.Value
 			}
 		}
 
-		addSeed = !addSeed
+		// Swap the maps
+		map1, map2 = map2, map1
 	}
 
 	return nil, errors.New("could not solve path")
@@ -246,21 +208,27 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context, goal *commonpb.Pose, se
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
 // return the closest solution to the target that it reaches, which may or may not actually be the target.
-func (mp *cBiRRTMotionPlanner) constrainedExtend(opt *PlannerOptions, rrtMap map[*solution]*solution, near, target *solution) *solution {
+func (mp *cBiRRTMotionPlanner) constrainedExtend(
+	ctx context.Context,
+	opt *PlannerOptions,
+	rrtMap map[*solution]*solution,
+	near, target *solution,
+) *solution {
 	oldNear := near
 	for i := 0; true; i++ {
-		if inputDist(near.inputs, target.inputs) < mp.solDist {
+		switch {
+		case inputDist(near.inputs, target.inputs) < mp.solDist:
 			return near
-		} else if inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs) {
-			break
-		} else if i > 2 && inputDist(near.inputs, oldNear.inputs) < math.Pow(mp.solDist, 3) {
+		case inputDist(near.inputs, target.inputs) > inputDist(oldNear.inputs, target.inputs):
+			return oldNear
+		case i > 2 && inputDist(near.inputs, oldNear.inputs) < math.Pow(mp.solDist, 3):
 			// not moving enough to make meaningful progress. Do not trigger on first iteration.
-			break
+			return oldNear
 		}
 
 		oldNear = near
 
-		newNear := make([]frame.Input, 0, len(near.inputs))
+		newNear := make([]referenceframe.Input, 0, len(near.inputs))
 
 		// alter near to be closer to target
 		for j, nearInput := range near.inputs {
@@ -271,11 +239,11 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(opt *PlannerOptions, rrtMap map
 				newVal := math.Min(mp.qstep[j], math.Abs(v2-v1))
 				// get correct sign
 				newVal *= (v2 - v1) / math.Abs(v2-v1)
-				newNear = append(newNear, frame.Input{nearInput.Value + newVal})
+				newNear = append(newNear, referenceframe.Input{nearInput.Value + newVal})
 			}
 		}
 		// if we are not meeting a constraint, gradient descend to the constraint
-		newNear = mp.constrainNear(opt, oldNear.inputs, newNear)
+		newNear = mp.constrainNear(ctx, opt, oldNear.inputs, newNear)
 
 		if newNear != nil {
 			// constrainNear will ensure path between oldNear and newNear satisfies constraints along the way
@@ -288,9 +256,14 @@ func (mp *cBiRRTMotionPlanner) constrainedExtend(opt *PlannerOptions, rrtMap map
 	return oldNear
 }
 
-// constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance function has
-// been specified, this will use that.
-func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, target []frame.Input) []frame.Input {
+// constrainNear will do a IK gradient descent from seedInputs to target. If a gradient descent distance
+// function has been specified, this will use that.
+func (mp *cBiRRTMotionPlanner) constrainNear(
+	ctx context.Context,
+	opt *PlannerOptions,
+	seedInputs,
+	target []referenceframe.Input,
+) []referenceframe.Input {
 	seedPos, err := mp.frame.Transform(seedInputs)
 	if err != nil {
 		return nil
@@ -305,18 +278,17 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 		goalPos,
 		seedInputs,
 		target,
-		mp.frame}, mp.Resolution())
+		mp.frame,
+	}, mp.Resolution())
 	if ok {
 		return target
 	}
 
-	solutionGen := make(chan []frame.Input, 1)
-	// This should run very fast and does not need to be cancelled. A cancellation will be caught above in Plan()
-	ctx := context.Background()
+	solutionGen := make(chan []referenceframe.Input, 1)
 	// Spawn the IK solver to generate solutions until done
-	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target)
+	err = mp.fastGradDescent.Solve(ctx, solutionGen, goalPos, target, opt.pathDist)
 	// We should have zero or one solutions
-	var solved []frame.Input
+	var solved []referenceframe.Input
 	select {
 	case solved = <-solutionGen:
 	default:
@@ -330,8 +302,7 @@ func (mp *cBiRRTMotionPlanner) constrainNear(opt *PlannerOptions, seedInputs, ta
 	if !ok {
 		if failpos != nil && inputDist(target, failpos.EndInput) > mp.solDist {
 			// If we have a first failing position, and that target is updating (no infinite loop), then recurse
-			//~ return mp.constrainNear(opt, seedInputs, failpos.StartInput)
-			return mp.constrainNear(opt, failpos.StartInput, failpos.EndInput)
+			return mp.constrainNear(ctx, opt, failpos.StartInput, failpos.EndInput)
 		}
 		return nil
 	}
@@ -345,8 +316,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 	opt *PlannerOptions,
 	inputSteps []*solution,
 	corners map[*solution]bool,
-) [][]frame.Input {
-
+) [][]referenceframe.Input {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), smoothIter))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
@@ -356,7 +326,9 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		default:
 		}
 		// Pick two random non-adjacent indices, excepting the ends
+		//nolint:gosec
 		j := 2 + rand.Intn(len(inputSteps)-3)
+		//nolint:gosec
 		i := rand.Intn(j) + 1
 
 		ok, hitCorners := smoothable(inputSteps, i, j, corners)
@@ -371,7 +343,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 		shortcutGoal[jSol] = nil
 
 		// extend backwards for convenience later. Should work equally well in both directions
-		reached := mp.constrainedExtend(opt, shortcutGoal, jSol, iSol)
+		reached := mp.constrainedExtend(ctx, opt, shortcutGoal, jSol, iSol)
 
 		// Note this could technically replace paths with "longer" paths i.e. with more waypoints.
 		// However, smoothed paths are invariably more intuitive and smooth, and lend themselves to future shortening,
@@ -391,7 +363,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			inputSteps = newInputSteps
 		}
 	}
-	finalSteps := make([][]frame.Input, 0, len(inputSteps))
+	finalSteps := make([][]referenceframe.Input, 0, len(inputSteps))
 	for _, sol := range inputSteps {
 		finalSteps = append(finalSteps, sol.inputs)
 	}
@@ -399,7 +371,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 	return finalSteps
 }
 
-// Check if there is more than one joint direction change. If not, then not a good candidate for smoothing
+// Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
 func smoothable(inputSteps []*solution, i, j int, corners map[*solution]bool) (bool, []*solution) {
 	startPos := inputSteps[i]
 	nextPos := inputSteps[i+1]
@@ -453,7 +425,7 @@ func smoothable(inputSteps []*solution, i, j int, corners map[*solution]bool) (b
 
 // getFrameSteps will return a slice of positive values representing the largest amount a particular DOF of a frame should
 // move in any given step.
-func getFrameSteps(f frame.Frame, by float64) []float64 {
+func getFrameSteps(f referenceframe.Frame, by float64) []float64 {
 	dof := f.DoF()
 	pos := make([]float64, len(dof))
 	for i, lim := range dof {
@@ -471,6 +443,21 @@ func getFrameSteps(f frame.Frame, by float64) []float64 {
 		pos[i] = jRange * by
 	}
 	return pos
+}
+
+// Used for coordinating parallel computations of nearestNeighbor.
+type neighborManager struct {
+	nnKeys    chan *solution
+	neighbors chan *neighbor
+	nnLock    sync.RWMutex
+	seedPos   *solution
+	ready     bool
+	nCPU      int
+}
+
+type neighbor struct {
+	dist float64
+	sol  *solution
 }
 
 func (nm *neighborManager) nearestNeighbor(ctx context.Context, seed *solution, rrtMap map[*solution]*solution) *solution {
@@ -539,7 +526,6 @@ func (nm *neighborManager) startNNworkers(ctx context.Context) {
 }
 
 func (nm *neighborManager) nnWorker(ctx context.Context) {
-
 	var best *solution
 	bestDist := math.Inf(1)
 

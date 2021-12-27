@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // key is the map key used within the point cloud implementation. That is

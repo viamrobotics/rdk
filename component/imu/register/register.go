@@ -5,23 +5,23 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/imu"
-	_ "go.viam.com/core/component/imu/fake" // for imu
-	_ "go.viam.com/core/component/imu/wit"  // for imu
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/imu"
+
+	// for imu.
+	_ "go.viam.com/rdk/component/imu/fake"
+
+	// for imu.
+	_ "go.viam.com/rdk/component/imu/wit"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/subtype"
 )
 
 func init() {
 	registry.RegisterResourceSubtype(imu.Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return imu.WrapWithReconfigurable(r)
-		},
+		Reconfigurable: imu.WrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,

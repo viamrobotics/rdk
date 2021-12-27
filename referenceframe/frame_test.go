@@ -4,14 +4,13 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
-	pb "go.viam.com/core/proto/api/component/v1"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
-
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
