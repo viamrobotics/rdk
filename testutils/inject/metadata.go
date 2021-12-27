@@ -1,8 +1,8 @@
 package inject
 
 import (
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/resource"
 )
 
 // Metadata is an injected metadata.

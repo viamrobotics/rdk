@@ -7,7 +7,7 @@ import (
 	goserial "github.com/jacobsa/go-serial/serial"
 )
 
-// Description describes a specific serial device/
+// Description describes a specific serial device/.
 type Description struct {
 	Type Type
 	Path string

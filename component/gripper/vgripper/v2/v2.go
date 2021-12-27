@@ -3,26 +3,26 @@ package vgripper
 
 import (
 	"context"
-	_ "embed" // used to import model frame
+
+	// used to import model referenceframe.
+	_ "embed"
 	"math"
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/forcematrix"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor/forcematrix"
 )
 
 // modelName is used to register the gripper to a model name.
@@ -34,7 +34,7 @@ var vgripperv2json []byte
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return new(ctx, r, config, logger)
+			return newGripper(ctx, r, config, logger)
 		},
 	})
 }
@@ -77,13 +77,13 @@ type gripperV2 struct {
 	closedDirection, openDirection int64
 
 	// other
-	model                 *referenceframe.Model
+	model                 referenceframe.Model
 	numBadCurrentReadings int
 	logger                golog.Logger
 }
 
-// new returns a gripperV2 which operates with a ForceMatrix.
-func new(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
+// newGripper returns a gripperV2 which operates with a ForceMatrix.
+func newGripper(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
 	boardName := config.Attributes.String("board")
 	board, exists := r.BoardByName(boardName)
 	if !exists {
@@ -250,6 +250,8 @@ func (vg *gripperV2) AntiSlipForceControl(ctx context.Context) error {
 		// make sure we've grabbed something successfully before going straight into AntiSlipForceControlling
 		vg.state = gripperStateAntiSlipForceControlling
 	case gripperStateAntiSlipForceControlling:
+	case gripperStateCalibrating, gripperStateIdle, gripperStateOpening:
+		fallthrough
 	default:
 		defer vg.stateMu.Unlock()
 		return nil
@@ -279,10 +281,12 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		case gripperStateUnspecified:
 			return errors.New("gripper state is unspecified")
 		case gripperStateAntiSlipForceControlling:
+		case gripperStateCalibrating, gripperStateGrabbing, gripperStateIdle, gripperStateOpening:
+			fallthrough
 		default:
 			return nil
 		}
-		//vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
+		// vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
 
 		// Adjust grip strength
 		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
@@ -302,12 +306,11 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 			return vg.stopAfterError(ctx, err)
 		}
 
-		err = vg.checkCurrentInAcceptableRange(ctx, current, "anti-slip force control")
+		err = vg.checkCurrentInAcceptableRange(current, "anti-slip force control")
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
 	}
-
 }
 
 // calibrate finds the open and close position, as well as which motor direction
@@ -321,7 +324,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 			return true
 		}
 
-		err = vg.checkCurrentInAcceptableRange(ctx, current, "init")
+		err = vg.checkCurrentInAcceptableRange(current, "init")
 		if err != nil {
 			vg.logger.Error(err)
 			return true
@@ -403,7 +406,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	err = vg.motor.SetToZeroPosition(ctx, curPos-vg.closedPos)
+	err = vg.motor.ResetZeroPosition(ctx, curPos-vg.closedPos)
 	if err != nil {
 		return err
 	}
@@ -416,8 +419,8 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	return nil
 }
 
-// ModelFrame returns the dynamic frame of the model
-func (vg *gripperV2) ModelFrame() *referenceframe.Model {
+// ModelFrame returns the dynamic frame of the model.
+func (vg *gripperV2) ModelFrame() referenceframe.Model {
 	return vg.model
 }
 
@@ -428,6 +431,8 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	case gripperStateUnspecified:
 		return errors.New("gripper state is unspecified")
 	case gripperStateOpening:
+	case gripperStateAntiSlipForceControlling, gripperStateCalibrating, gripperStateGrabbing, gripperStateIdle:
+		fallthrough
 	default:
 		return errors.New("gripper state is unspecified")
 	}
@@ -443,12 +448,14 @@ func (vg *gripperV2) open(ctx context.Context) error {
 	msPer := 10
 	total := 0
 	for {
-		//vg.logger.Debugf("Opening, state: %v", vg.state.String())
+		// vg.logger.Debugf("Opening, state: %v", vg.state.String())
 
 		switch vg.State() {
 		case gripperStateUnspecified:
 			return errors.New("gripper state is unspecified")
 		case gripperStateOpening:
+		case gripperStateAntiSlipForceControlling, gripperStateCalibrating, gripperStateGrabbing, gripperStateIdle:
+			fallthrough
 		default:
 			return nil
 		}
@@ -469,7 +476,6 @@ func (vg *gripperV2) open(ctx context.Context) error {
 			}
 			if math.Abs(measuredPos-vg.openPos) > positionTolerance {
 				return errors.Errorf("didn't reach open position, wanted: %f +/- %v, am at: %f", vg.openPos, positionTolerance, measuredPos)
-
 			}
 			return nil
 		}
@@ -477,7 +483,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
-		err = vg.checkCurrentInAcceptableRange(ctx, current, "opening")
+		err = vg.checkCurrentInAcceptableRange(current, "opening")
 		if err != nil {
 			return vg.stopAfterError(ctx, err)
 		}
@@ -485,7 +491,10 @@ func (vg *gripperV2) open(ctx context.Context) error {
 		total += msPer
 		if total > openTimeout {
 			measuredPos, err := vg.motor.Position(ctx)
-			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err))
+			return vg.stopAfterError(
+				ctx,
+				multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err),
+			)
 		}
 	}
 }
@@ -498,6 +507,8 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	case gripperStateUnspecified:
 		return false, errors.New("gripper state is unspecified")
 	case gripperStateGrabbing:
+	case gripperStateAntiSlipForceControlling, gripperStateCalibrating, gripperStateIdle, gripperStateOpening:
+		fallthrough
 	default:
 		return false, nil
 	}
@@ -513,11 +524,13 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 	msPer := 10
 	total := 0
 	for {
-		//vg.logger.Debugf("Grabbing, state: %v", vg.state.String())
+		// vg.logger.Debugf("Grabbing, state: %v", vg.state.String())
 		switch vg.State() {
 		case gripperStateUnspecified:
 			return false, errors.New("gripper state is unspecified")
 		case gripperStateGrabbing:
+		case gripperStateAntiSlipForceControlling, gripperStateCalibrating, gripperStateIdle, gripperStateOpening:
+			fallthrough
 		default:
 			return false, nil
 		}
@@ -545,12 +558,11 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			if !hasPressure && math.Abs(measuredPos-vg.closedPos) > positionTolerance {
 				return false, errors.Errorf("didn't reach closed position and am not holding an object,"+
 					"closed position: %f +/- %v tolerance, actual position: %f", vg.closedPos, positionTolerance, measuredPos)
-
 			}
 			return false, nil
 		}
 
-		err = vg.checkCurrentInAcceptableRange(ctx, current, "grabbing")
+		err = vg.checkCurrentInAcceptableRange(current, "grabbing")
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -582,8 +594,8 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 }
 
 // checkCurrentInAcceptableRange checks if the current is within a healthy range or not.
-func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current float64, where string) error {
-	//vg.logger.Debugf("Motor Current: %f", current)
+func (vg *gripperV2) checkCurrentInAcceptableRange(current float64, where string) error {
+	// vg.logger.Debugf("Motor Current: %f", current)
 	if math.Abs(current) < maxCurrent {
 		vg.numBadCurrentReadings = 0
 		return nil
@@ -596,21 +608,21 @@ func (vg *gripperV2) checkCurrentInAcceptableRange(ctx context.Context, current 
 }
 
 // Close stops the motors.
-func (vg *gripperV2) Close() error {
-	return vg.Stop(context.Background())
+func (vg *gripperV2) Close(ctx context.Context) error {
+	return vg.Stop(ctx)
 }
 
 // stopAfterError stops the motor and returns the combined errors.
 func (vg *gripperV2) stopAfterError(ctx context.Context, other error) error {
-	return multierr.Combine(other, vg.motor.Off(ctx))
+	return multierr.Combine(other, vg.motor.Stop(ctx))
 }
 
 // Stop stops the motors.
 func (vg *gripperV2) Stop(ctx context.Context) error {
-	return vg.motor.Off(ctx)
+	return vg.motor.Stop(ctx)
 }
 
-// readCurrent reads the current and returns signed (bidirectional) amperage
+// readCurrent reads the current and returns signed (bidirectional) amperage.
 func (vg *gripperV2) readCurrent(ctx context.Context) (float64, error) {
 	raw, err := vg.current.Read(ctx)
 	if err != nil {

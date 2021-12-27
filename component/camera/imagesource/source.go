@@ -8,27 +8,29 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	_ "embed" // for embedding camera parameters
+
+	// for embedding camera parameters.
+	_ "embed"
 	"fmt"
 	"image"
 	"io/ioutil"
 	"net/http"
 
-	"github.com/pkg/errors"
-
-	"go.viam.com/utils"
-
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/robot"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+
+	// register ppm.
+	_ "github.com/lmittmann/ppm"
+	"github.com/pkg/errors"
 	"github.com/mitchellh/mapstructure"
-	_ "github.com/lmittmann/ppm" // register ppm
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed intel515_parameters.json
@@ -120,19 +122,14 @@ func init() {
 
 }
 
-// staticSource is a fixed, stored image
+// staticSource is a fixed, stored image.
 type staticSource struct {
 	Img image.Image
 }
 
-// Next returns the stored image
+// Next returns the stored image.
 func (ss *staticSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return ss.Img, func() {}, nil
-}
-
-// Close does nothing
-func (ss *staticSource) Close() error {
-	return nil
 }
 
 // fileSource stores the paths to a color and depth image.
@@ -153,11 +150,6 @@ func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-// Close closes the source (does nothing)
-func (fs *fileSource) Close() error {
-	return nil
-}
-
 func decodeColor(colorData []byte) (image.Image, error) {
 	img, _, err := image.Decode(bytes.NewBuffer(colorData))
 	return img, err
@@ -171,13 +163,19 @@ func decodeBoth(bothData []byte, aligned bool) (*rimage.ImageWithDepth, error) {
 	return rimage.ReadBothFromBytes(bothData, aligned)
 }
 
-func readyBytesFromURL(client http.Client, url string) ([]byte, error) {
-	resp, err := client.Get(url)
+func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 	return ioutil.ReadAll(resp.Body)
 }
 
@@ -199,7 +197,7 @@ func (ds *dualServerSource) IsAligned() bool {
 // Next requests the next images from both the color and depth source, and combines them
 // together as an ImageWithDepth before returning them.
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
-	colorData, err := readyBytesFromURL(ds.client, ds.ColorURL)
+	colorData, err := readyBytesFromURL(ctx, ds.client, ds.ColorURL)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "couldn't ready color url")
 	}
@@ -208,7 +206,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 
-	depthData, err := readyBytesFromURL(ds.client, ds.DepthURL)
+	depthData, err := readyBytesFromURL(ctx, ds.client, ds.DepthURL)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "couldn't ready depth url")
 	}
@@ -222,15 +220,14 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 // Close closes the connection to both servers.
-func (ds *dualServerSource) Close() error {
+func (ds *dualServerSource) Close() {
 	ds.client.CloseIdleConnections()
-	return nil
 }
 
-// StreamType specifies what kind of image stream is coming from the camera
+// StreamType specifies what kind of image stream is coming from the camera.
 type StreamType string
 
-// The allowed types of streams that can come from an ImageSource
+// The allowed types of streams that can come from an ImageSource.
 const (
 	ColorStream = StreamType("color")
 	DepthStream = StreamType("depth")
@@ -253,23 +250,22 @@ func (s *serverSource) IsAligned() bool {
 	return s.isAligned
 }
 
-// Projector is the  Projector which projects between 3D and 2D representations
+// Projector is the  Projector which projects between 3D and 2D representations.
 func (s *serverSource) Projector() rimage.Projector {
 	return s.camera
 }
 
-// Close closes the server connection
-func (s *serverSource) Close() error {
+// Close closes the server connection.
+func (s *serverSource) Close() {
 	s.client.CloseIdleConnections()
-	return nil
 }
 
-// Next returns the next image in the queue from the server
+// Next returns the next image in the queue from the server.
 func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var img *rimage.ImageWithDepth
 	var err error
 
-	allData, err := readyBytesFromURL(s.client, s.URL)
+	allData, err := readyBytesFromURL(ctx, s.client, s.URL)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
 	}
@@ -323,6 +319,7 @@ func NewIntelServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream
 	if cfg.Num == "" {
 		cfg.Num = "0"
 	}
+
 	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
 	if err != nil {
 		return nil, err

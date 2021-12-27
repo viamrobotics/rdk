@@ -8,22 +8,37 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/gps"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterSensor(gps.Type, "fake", registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return &GPS{Name: config.Name}, nil
-	}})
-	registry.RegisterBase("intercept_gps", registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		return newInterceptingGPSBase(r, c)
-	}})
+	registry.RegisterSensor(
+		gps.Type,
+		"fake",
+		registry.Sensor{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (sensor.Sensor, error) {
+			return &GPS{Name: config.Name}, nil
+		}})
+	registry.RegisterBase(
+		"intercept_gps",
+		registry.Base{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			c config.Component,
+			logger golog.Logger,
+		) (base.Base, error) {
+			return newInterceptingGPSBase(r, c)
+		}})
 }
 
 // GPS is a fake gps device that always returns the set location.
@@ -48,11 +63,6 @@ func (g *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.Latitude, g.Longitude}, nil
 }
 
-// Close does nothing.
-func (g *GPS) Close() error {
-	return nil
-}
-
 // Location always returns the set values.
 func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
@@ -60,35 +70,35 @@ func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
 	return geo.NewPoint(g.Latitude, g.Longitude), nil
 }
 
-// Altitude returns the set value
+// Altitude returns the set value.
 func (g *GPS) Altitude(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.altitude, nil
 }
 
-// Speed returns the set value
+// Speed returns the set value.
 func (g *GPS) Speed(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.speed, nil
 }
 
-// Satellites returns the set values
+// Satellites returns the set values.
 func (g *GPS) Satellites(ctx context.Context) (int, int, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.activeSats, g.totalSats, nil
 }
 
-// Accuracy returns the set values
+// Accuracy returns the set values.
 func (g *GPS) Accuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.hAcc, g.vAcc, nil
 }
 
-// Valid returns the set value
+// Valid returns the set value.
 func (g *GPS) Valid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -119,7 +129,7 @@ func (g *GPS) RunCommand(ctx context.Context, name string, args map[string]inter
 	default:
 		return nil, errors.Errorf("unknown command %q", name)
 	}
-	return nil, nil
+	return map[string]interface{}(nil), nil
 }
 
 type interceptingGPSBase struct {
@@ -149,7 +159,10 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if !ok {
 		return nil, errors.Errorf("%q is not a GPS device", gpsName)
 	}
-	fakeG := utils.UnwrapProxy(gpsDevice).(*GPS)
+	fakeG, ok := utils.UnwrapProxy(gpsDevice).(*GPS)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(fakeG, utils.UnwrapProxy(gpsDevice))
+	}
 
 	lat := c.Attributes.Float64("start_latitude", 0)
 	lng := c.Attributes.Float64("start_longitude", 0)
@@ -176,7 +189,7 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis i
 	return nil
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
 func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
@@ -195,9 +208,5 @@ func (b *interceptingGPSBase) WidthMillis(ctx context.Context) (int, error) {
 }
 
 func (b *interceptingGPSBase) Stop(ctx context.Context) error {
-	return nil
-}
-
-func (b *interceptingGPSBase) Close() error {
 	return nil
 }

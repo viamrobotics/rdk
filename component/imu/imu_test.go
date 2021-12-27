@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/spatialmath"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestIMUName(t *testing.T) {
@@ -21,9 +21,9 @@ func TestIMUName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "a5fb18ee-d69d-5a8d-b716-c4dac028b93c",
+				UUID: "053e1e0c-20de-59e7-bace-922cb1ada629",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -33,9 +33,9 @@ func TestIMUName(t *testing.T) {
 			"all fields included",
 			"imu1",
 			resource.Name{
-				UUID: "23f3b6b6-598f-5659-8b07-7c3dc333efb3",
+				UUID: "aed67198-6075-5806-837a-6d33ee4b5a42",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "imu1",
@@ -81,12 +81,12 @@ func TestReconfigurableIMU(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 0)
 
-	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(fakeIMU2)
+	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(context.Background(), fakeIMU2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeIMU1.(*reconfigurableIMU).actual, test.ShouldEqual, actualIMU2)
 	test.That(t, actualIMU1.reconfCalls, test.ShouldEqual, 1)
 
-	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(nil)
+	err = fakeIMU1.(*reconfigurableIMU).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new IMU")
 }
@@ -148,16 +148,19 @@ func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity
 	m.angularVelocityCalls++
 	return av, nil
 }
+
 func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCalls++
 	return ea, nil
 }
+
 func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	m.readingsCalls++
 	return []interface{}{av, ea}, nil
 }
+
 func (m *mock) Desc() sensor.Description {
 	m.descCalls++
 	return desc
 }
-func (m *mock) Close() error { m.reconfCalls++; return nil }
+func (m *mock) Close() { m.reconfCalls++ }

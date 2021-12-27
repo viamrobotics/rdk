@@ -3,23 +3,21 @@ package servo_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/test"
 	"google.golang.org/grpc"
 
-	"go.viam.com/core/component/servo"
-	viamgrpc "go.viam.com/core/grpc"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/servo"
+	viamgrpc "go.viam.com/rdk/grpc"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestClient(t *testing.T) {
@@ -36,7 +34,6 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	workingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-		fmt.Println("HIT")
 		return 20, nil
 	}
 
@@ -94,7 +91,6 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingServoDialedClient := servo.NewClientFromConn(conn, "workingServo", logger)
-		test.That(t, err, test.ShouldBeNil)
 
 		err = workingServoDialedClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)
@@ -106,6 +102,6 @@ func TestClient(t *testing.T) {
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
-	test.That(t, utils.TryClose(workingServoClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(failingServoClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), workingServoClient), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), failingServoClient), test.ShouldBeNil)
 }

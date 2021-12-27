@@ -8,11 +8,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func createWorkingMotor() *inject.Motor {
@@ -23,7 +23,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 		return nil
 	}
-	injectMotor.OffFunc = func(ctx context.Context) error {
+	injectMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
@@ -32,7 +32,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
-	injectMotor.SetToZeroPositionFunc = func(ctx context.Context, offset float64) error {
+	injectMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return nil
 	}
 	return injectMotor
@@ -49,7 +49,7 @@ func TestNew(t *testing.T) {
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 			return nil, false
 		}
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -79,9 +79,8 @@ func TestNew(t *testing.T) {
 			return fakeMotor, true
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when not able to find current analog reader", func(t *testing.T) {
@@ -101,7 +100,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -122,7 +121,7 @@ func TestNew(t *testing.T) {
 			return nil, false
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -143,7 +142,7 @@ func TestNew(t *testing.T) {
 			return &inject.Sensor{}, true
 		}
 
-		_, err := new(context.Background(), fakeRobot, config.Component{}, logger)
+		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 }
@@ -250,7 +249,6 @@ func TestOpen(t *testing.T) {
 		}
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
-
 	})
 
 	t.Run("return error when the open position isn't reached before the timeout", func(t *testing.T) {
@@ -276,7 +274,7 @@ func TestOpen(t *testing.T) {
 		err := injectedGripper.Open(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		// Make sure the motor is off
-		err = injectedGripper.motor.Off(context.Background())
+		err = injectedGripper.motor.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -449,7 +447,7 @@ func TestGrab(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, grabbedSuccessfully, test.ShouldBeFalse)
 		// Make sure the motor is off
-		err = injectedGripper.motor.Off(context.Background())
+		err = injectedGripper.motor.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
@@ -462,7 +460,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 2,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 	})
 
@@ -471,7 +469,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 1,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -480,7 +478,7 @@ func TestProcessCurrentReading(t *testing.T) {
 		injectedGripper := &gripperV2{
 			numBadCurrentReadings: currentBadReadingCounts - 5,
 		}
-		err := injectedGripper.checkCurrentInAcceptableRange(context.Background(), current, "testing")
+		err := injectedGripper.checkCurrentInAcceptableRange(current, "testing")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedGripper.numBadCurrentReadings, test.ShouldEqual, 0)
 	})
@@ -490,17 +488,16 @@ func TestClose(t *testing.T) {
 	t.Run("make sure calling Close shuts down the motor", func(t *testing.T) {
 		fakeMotor := &inject.Motor{}
 		counter := 0
-		fakeMotor.OffFunc = func(ctx context.Context) error {
+		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
 			return nil
 		}
 		injectedGripper := &gripperV2{
 			motor: fakeMotor,
 		}
-		err := injectedGripper.Close()
+		err := injectedGripper.Close(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, counter, test.ShouldEqual, 1)
-
 	})
 }
 
@@ -508,7 +505,7 @@ func TestStop(t *testing.T) {
 	t.Run("make sure calling Stops shuts down the motor", func(t *testing.T) {
 		fakeMotor := &inject.Motor{}
 		counter := 0
-		fakeMotor.OffFunc = func(ctx context.Context) error {
+		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
 			return nil
 		}
@@ -518,7 +515,6 @@ func TestStop(t *testing.T) {
 		err := injectedGripper.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, counter, test.ShouldEqual, 1)
-
 	})
 }
 
@@ -578,7 +574,6 @@ func TestReadRobustAveragePressure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		// (2.5 + 7 + 1 + 49)/4 = 14.875
 		test.That(t, averagePressure, test.ShouldAlmostEqual, 14.875)
-
 	})
 
 	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
@@ -594,6 +589,7 @@ func TestReadRobustAveragePressure(t *testing.T) {
 		test.That(t, averagePressure, test.ShouldAlmostEqual, 0)
 	})
 }
+
 func TestReadAveragePressure(t *testing.T) {
 	t.Run("successfully read the average pressure", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}

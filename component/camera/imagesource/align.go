@@ -6,22 +6,20 @@ import (
 	"image"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"go.viam.com/utils"
-	"go.viam.com/utils/artifact"
-
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/robot"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -135,7 +133,7 @@ func getCameraSystems(attrs *rimage.AttrConfig, logger golog.Logger) (rimage.Ali
 	return alignCamera, projectCamera, nil
 }
 
-// depthComposed TODO
+// depthComposed TODO.
 type depthComposed struct {
 	color, depth     gostream.ImageSource
 	alignmentCamera  rimage.Aligner
@@ -158,13 +156,7 @@ func NewDepthComposed(color, depth gostream.ImageSource, attrs *rimage.AttrConfi
 	return &depthComposed{color, depth, alignCamera, projectCamera, attrs.Aligned, attrs.Debug, logger}, nil
 }
 
-// Close does nothing.
-func (dc *depthComposed) Close() error {
-	// TODO(erh): who owns these?
-	return nil
-}
-
-// Next TODO
+// Next TODO.
 func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := dc.color.Next(ctx)
 	if err != nil {
@@ -210,5 +202,4 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	aligned.SetProjector(dc.projectionCamera)
 
 	return aligned, func() {}, err
-
 }

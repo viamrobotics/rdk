@@ -27,7 +27,6 @@ func TestPointCenter(t *testing.T) {
 
 	test.That(t, Center(all, 1000), test.ShouldResemble, image.Point{50, 50})
 	test.That(t, Center(all, 48), test.ShouldResemble, image.Point{1, 1})
-
 }
 
 func TestPointAngle(t *testing.T) {
@@ -69,5 +68,4 @@ func TestR2ToImage(t *testing.T) {
 	resultR2Rect := TranslateR2Rect(r2Rect, r2.Point{2., 3.})
 
 	test.That(t, R2RectToImageRect(resultR2Rect), test.ShouldResemble, resultImageRect)
-
 }

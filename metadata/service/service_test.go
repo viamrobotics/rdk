@@ -6,9 +6,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/resource"
 )
 
 func TestAdd(t *testing.T) {
@@ -18,7 +18,7 @@ func TestAdd(t *testing.T) {
 	arm := arm.Named("arm1")
 	test.That(t, err, test.ShouldBeNil)
 	sensor := resource.NewName(
-		resource.ResourceNamespaceCore,
+		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
 		"sensor1",
@@ -86,7 +86,7 @@ func TestReplace(t *testing.T) {
 	arm := arm.Named("arm1")
 	test.That(t, err, test.ShouldBeNil)
 	sensor := resource.NewName(
-		resource.ResourceNamespaceCore,
+		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
 		resource.ResourceSubtypeSensor,
 		"sensor1",

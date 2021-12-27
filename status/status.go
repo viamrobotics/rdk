@@ -9,10 +9,10 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gantry"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/robot"
 )
 
 // Create constructs a new up to date status from the given robot.

@@ -4,10 +4,10 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/core/rimage"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/rimage"
 )
 
 type alignImageHelper struct {
@@ -23,6 +23,7 @@ func Abs(x int) int {
 	}
 	return x
 }
+
 func makeTestCases() []alignImageHelper {
 	cases := []alignImageHelper{
 		{
@@ -77,9 +78,15 @@ func makeTestCases() []alignImageHelper {
 	return cases
 }
 
-func expectedImageAlignOutput(a alignImageHelper, t *testing.T, logger golog.Logger) {
-
-	colorOutput, depthOutput, err := ImageAlign(a.config.ColorInputSize, a.config.ColorWarpPoints, a.config.DepthInputSize, a.config.DepthWarpPoints, logger)
+func expectedImageAlignOutput(t *testing.T, a alignImageHelper, logger golog.Logger) {
+	t.Helper()
+	colorOutput, depthOutput, err := ImageAlign(
+		a.config.ColorInputSize,
+		a.config.ColorWarpPoints,
+		a.config.DepthInputSize,
+		a.config.DepthWarpPoints,
+		logger,
+	)
 	test.That(t, err, test.ShouldBeNil)
 	// If scaling changes expected pixel boundaries by 1 pixel, that can be explained by rounding
 	for i := range colorOutput {
@@ -101,8 +108,7 @@ func TestAlignImage(t *testing.T) {
 	for _, c := range cases {
 		logger := golog.NewTestLogger(t)
 		t.Run(c.name, func(t *testing.T) {
-			expectedImageAlignOutput(c, t, logger)
+			expectedImageAlignOutput(t, c, logger)
 		})
 	}
-
 }

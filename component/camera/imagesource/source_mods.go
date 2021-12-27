@@ -9,48 +9,64 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterComponent(camera.Subtype, "rotate", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		sourceName := config.Attributes.String("source")
-		source, ok := r.CameraByName(sourceName)
-		if !ok {
-			return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
-		}
+	registry.RegisterComponent(
+		camera.Subtype,
+		"rotate",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			sourceName := config.Attributes.String("source")
+			source, ok := r.CameraByName(sourceName)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
+			}
 
-		return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
-	}})
+			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
+		}})
 
-	registry.RegisterComponent(camera.Subtype, "resize", registry.Component{Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-		sourceName := config.Attributes.String("source")
-		source, ok := r.CameraByName(sourceName)
-		if !ok {
-			return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
-		}
+	registry.RegisterComponent(
+		camera.Subtype,
+		"resize",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			sourceName := config.Attributes.String("source")
+			source, ok := r.CameraByName(sourceName)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
+			}
 
-		width := config.Attributes.Int("width", 800)
-		height := config.Attributes.Int("height", 640)
+			width := config.Attributes.Int("width", 800)
+			height := config.Attributes.Int("height", 640)
 
-		return &camera.ImageSource{
-			ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
-		}, nil
-	}})
-
+			return &camera.ImageSource{
+				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
+			}, nil
+		}})
 }
 
-// rotateImageDepthSource TODO
+// rotateImageDepthSource TODO.
 type rotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
-// Next TODO
+// Next TODO.
 func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
@@ -66,7 +82,7 @@ func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 	return iwd.Rotate(180), func() {}, nil
 }
 
-// Close TODO
-func (rids *rotateImageDepthSource) Close() error {
-	return rids.Original.Close()
+// Close TODO.
+func (rids *rotateImageDepthSource) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, rids.Original)
 }

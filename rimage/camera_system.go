@@ -7,7 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/pointcloud"
+	"go.viam.com/rdk/pointcloud"
 )
 
 
@@ -28,11 +28,12 @@ type AttrConfig struct {
 }
 
 // Aligner aligns a color and depth image together
+// Aligner aligns a color and depth image together.
 type Aligner interface {
 	AlignImageWithDepth(*ImageWithDepth) (*ImageWithDepth, error)
 }
 
-// Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud
+// Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud.
 type Projector interface {
 	ImageWithDepthToPointCloud(*ImageWithDepth) (pointcloud.PointCloud, error)
 	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
@@ -70,7 +71,7 @@ func (i *ImageWithDepth) ToPointCloud() (pointcloud.PointCloud, error) {
 	return i.camera.ImageWithDepthToPointCloud(i)
 }
 
-// Parallel projections to pointclouds are done in a naive way that don't take any camera parameters into account
+// Parallel projections to pointclouds are done in a naive way that don't take any camera parameters into account.
 func defaultToPointCloud(ii *ImageWithDepth) (pointcloud.PointCloud, error) {
 	if !ii.IsAligned() {
 		return nil, errors.New("input ImageWithDepth is not aligned")

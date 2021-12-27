@@ -1,3 +1,4 @@
+// Package gpiostepper implements a GPIO based stepper motor.
 package gpiostepper
 
 import (
@@ -10,14 +11,14 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "gpiostepper"
@@ -38,7 +39,10 @@ func init() {
 }
 
 func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Board, *motor.Config, error) {
-	motorConfig := config.ConvertedAttributes.(*motor.Config)
+	motorConfig, ok := config.ConvertedAttributes.(*motor.Config)
+	if !ok {
+		return nil, nil, rdkutils.NewUnexpectedTypeError(motorConfig, config.ConvertedAttributes)
+	}
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
@@ -61,8 +65,7 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 		logger:           logger,
 	}
 
-	err := m.Validate()
-	if err != nil {
+	if err := m.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -88,12 +91,12 @@ type gpioStepper struct {
 	targetStepsPerSecond int64
 }
 
-// PID return the underlying PID
+// PID return the underlying PID.
 func (m *gpioStepper) PID() motor.PID {
 	return nil
 }
 
-// validate if this config is valid
+// validate if this config is valid.
 func (m *gpioStepper) Validate() error {
 	if m.theBoard == nil {
 		return errors.New("need a board for gpioStepper")
@@ -152,7 +155,6 @@ func (m *gpioStepper) startThread(ctx context.Context) {
 func (m *gpioStepper) doRun(ctx context.Context) {
 	for {
 		sleep, err := m.doCycle(ctx)
-
 		if err != nil {
 			m.logger.Info("error in gpioStepper %w", err)
 		}
@@ -179,7 +181,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	return time.Duration(int64(time.Microsecond*1000*1000) / m.targetStepsPerSecond), nil
 }
 
-// have to be locked to call
+// have to be locked to call.
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
 		m.enable(ctx, true),
@@ -218,7 +220,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 	rpm = math.Abs(rpm) * float64(d)
 
 	if math.Abs(rpm) < 0.1 {
-		return m.Off(ctx)
+		return m.Stop(ctx)
 	}
 
 	m.lock.Lock()
@@ -239,7 +241,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
-// towards the specified target
+// towards the specified target.
 func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
@@ -259,7 +261,7 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
-func (m *gpioStepper) SetToZeroPosition(ctx context.Context, offset float64) error {
+func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	m.stepPosition = int64(offset * float64(m.stepsPerRotation))
@@ -281,8 +283,8 @@ func (m *gpioStepper) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// Off turns the motor off.
-func (m *gpioStepper) Off(ctx context.Context) error {
+// Stop turns the power to the motor off immediately, without any gradual step down.
+func (m *gpioStepper) Stop(ctx context.Context) error {
 	m.stop()
 	m.lock.Lock()
 	defer m.lock.Unlock()

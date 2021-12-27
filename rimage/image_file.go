@@ -11,7 +11,6 @@ import (
 	"github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 )
 
@@ -23,6 +22,7 @@ func readImageFromFile(path string, aligned bool) (image.Image, error) {
 		return ReadBothFromFile(path, aligned)
 	}
 
+	//nolint:gosec
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,6 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	default:
 		return errors.Errorf("rimage.WriteImageToFile unsupported format: %s", filepath.Ext(path))
 	}
-
 }
 
 // ConvertImage converts a go image into our Image type.
@@ -102,20 +101,17 @@ func ConvertImage(img image.Image) *Image {
 func fastConvertNRGBA(dst *Image, src *image.NRGBA) {
 	for y := 0; y < dst.height; y++ {
 		for x := 0; x < dst.width; x++ {
-
 			i := src.PixOffset(x, y)
 			s := src.Pix[i : i+3 : i+3] // Small cap improves performance, see https://golang.org/issue/27857
 			r, g, b := s[0], s[1], s[2]
 			dst.SetXY(x, y, NewColor(r, g, b))
 		}
 	}
-
 }
 
 func fastConvertRGBA(dst *Image, src *image.RGBA) {
 	for y := 0; y < dst.height; y++ {
 		for x := 0; x < dst.width; x++ {
-
 			i := src.PixOffset(x, y)
 			s := src.Pix[i : i+4 : i+4]
 			r, g, b, a := s[0], s[1], s[2], s[3]
@@ -127,7 +123,6 @@ func fastConvertRGBA(dst *Image, src *image.RGBA) {
 			}
 		}
 	}
-
 }
 
 func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
@@ -135,7 +130,6 @@ func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
 
 	for y := 0; y < dst.height; y++ {
 		for x := 0; x < dst.width; x++ {
-
 			yi := src.YOffset(x, y)
 			ci := src.COffset(x, y)
 
@@ -148,7 +142,6 @@ func fastConvertYcbcr(dst *Image, src *image.YCbCr) {
 			dst.SetXY(x, y, NewColor(r, g, b))
 		}
 	}
-
 }
 
 // IsImageFile returns if the given file is an image file based on what

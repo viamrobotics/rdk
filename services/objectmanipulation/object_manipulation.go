@@ -1,3 +1,4 @@
+// Package objectmanipulation implements an object manipulation service.
 package objectmanipulation
 
 import (
@@ -9,12 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 )
 
 const frameSystemName = "move_gripper"
@@ -49,7 +50,7 @@ type objectMService struct {
 }
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
-// to that location and commands it to grab the object
+// to that location and commands it to grab the object.
 func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 	// get gripper component
 	gripper, ok := mgs.r.GripperByName(gripperName)
@@ -62,15 +63,21 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 		return false, err
 	}
 	cameraPose := spatialmath.NewPoseFromPoint(*cameraPoint)
-	err = mgs.moveGripper(ctx, gripperName, rootName, cameraPose, cameraName)
+	err = mgs.moveGripper(ctx, gripperName, cameraPose, cameraName)
 	if err != nil {
 		return false, err
 	}
 	return gripper.Grab(ctx)
 }
 
-// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the goalPose in the reference frame specified by goalFrameName
-func (mgs objectMService) moveGripper(ctx context.Context, gripperName, rootName string, goalPose spatialmath.Pose, goalFrameName string) error {
+// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the
+// goalPose in the reference frame specified by goalFrameName.
+func (mgs objectMService) moveGripper(
+	ctx context.Context,
+	gripperName string,
+	goalPose spatialmath.Pose,
+	goalFrameName string,
+) error {
 	r := mgs.r
 	logger := r.Logger()
 	logger.Debugf("goal given in frame of %q", goalFrameName)

@@ -1,3 +1,4 @@
+// Package simple implements a one axis gantry.
 package simple
 
 import (
@@ -7,26 +8,26 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/gantry"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, "simpleoneaxis", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewOneAxis(ctx, r, config, logger)
-		}})
+		},
+	})
 }
 
-// NewOneAxis creates a new one axis gantry
+// NewOneAxis creates a new one axis gantry.
 func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &oneAxis{
 		name:   config.Name,
@@ -57,8 +58,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 
 	g.rpm = config.Attributes.Float64("rpm", 10.0)
 
-	err := g.init(ctx)
-	if err != nil {
+	if err := g.init(ctx); err != nil {
 		return nil, err
 	}
 
@@ -109,7 +109,7 @@ func (g *oneAxis) init(ctx context.Context) error {
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
-		return g.motor.Off(ctx)
+		return g.motor.Stop(ctx)
 	})
 
 	d := -1
@@ -118,7 +118,6 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	}
 
 	err := g.motor.GoFor(ctx, g.rpm, float64(d*10000))
-
 	if err != nil {
 		return 0, err
 	}
@@ -130,7 +129,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			return 0, err
 		}
 		if hit {
-			err = g.motor.Off(ctx)
+			err = g.motor.Stop(ctx)
 			if err != nil {
 				return 0, err
 			}
@@ -161,7 +160,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	return high == g.limitHigh, err
 }
 
-// Position returns the position in meters
+// Position returns the position in meters.
 func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
@@ -180,7 +179,7 @@ func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
 }
 
-// position is in meters
+// position is in meters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positions)
@@ -200,8 +199,8 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	return g.motor.GoTo(ctx, g.rpm, x)
 }
 
-func (g *oneAxis) ModelFrame() *referenceframe.Model {
-	m := referenceframe.NewModel()
+func (g *oneAxis) ModelFrame() referenceframe.Model {
+	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(
 		g.name,
 		[]bool{true},
@@ -222,6 +221,7 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 	}
 	return referenceframe.FloatsToInputs(res), nil
 }
+
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }

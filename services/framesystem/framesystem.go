@@ -8,13 +8,13 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
-// Type is the name of the type of service
+// Type is the name of the type of service.
 const Type = config.ServiceType("frame_system")
 
 func init() {
@@ -30,7 +30,7 @@ func init() {
 type Service interface {
 	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
-	ModelFrame(ctx context.Context, name string) (*referenceframe.Model, error)
+	ModelFrame(ctx context.Context, name string) (referenceframe.Model, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -50,13 +50,20 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 			return nil, err
 		}
 	}
-	sortedFrameNames, err := topologicallySortFrameNames(ctx, children)
+	sortedFrameNames, err := topologicallySortFrameNames(children)
 	if err != nil {
 		return nil, err
 	}
 	// ensure that there are no disconnected frames
 	if len(sortedFrameNames) != len(seen) {
-		return nil, errors.Errorf("the frame system is not fully connected, expected %d frames but frame system has %d. Expected frames are: %v. Actual frames are: %v", len(seen), len(sortedFrameNames), mapKeys(seen), sortedFrameNames)
+		return nil, errors.Errorf(
+			"the frame system is not fully connected, expected %d frames but frame system has %d."+
+				" Expected frames are: %v. Actual frames are: %v",
+			len(seen),
+			len(sortedFrameNames),
+			mapKeys(seen),
+			sortedFrameNames,
+		)
 	}
 	// ensure that at least one frame connects to world if the frame system is not empty
 	if len(parts) != 0 && len(children[referenceframe.World]) == 0 {
@@ -85,7 +92,7 @@ type frameSystemService struct {
 
 // FrameSystemConfig returns a directed acyclic graph of the structure of the frame system
 // The output of this function is to be sent over GRPC to the client, so the client can build the frame system.
-// the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up
+// the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up.
 func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
@@ -104,7 +111,7 @@ func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config
 	return fsConfig, nil
 }
 
-// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots)
+// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots).
 func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
@@ -116,8 +123,8 @@ func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string
 }
 
 // ModelFrame returns the model frame for the named part in the local frame system.
-// If the part does not have a model frame, nil will be returned
-func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) (*referenceframe.Model, error) {
+// If the part does not have a model frame, nil will be returned.
+func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) (referenceframe.Model, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	if part, ok := svc.fsParts[name]; ok {
