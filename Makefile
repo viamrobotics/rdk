@@ -37,6 +37,8 @@ build-web: buf-web
 	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
+buf: buf-go buf-web
+
 buf-go:
 	go install github.com/golang/protobuf/protoc-gen-go \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
@@ -48,6 +50,7 @@ buf-go:
 
 buf-web:
 	buf lint
+	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
