@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
@@ -42,7 +43,6 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/forcematrix"
 	servicepkg "go.viam.com/rdk/services"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -84,10 +84,10 @@ var emptyStatus = &pb.Status{
 			Type: compass.RelativeType,
 		},
 		"fsm1": {
-			Type: forcematrix.Type,
+			Type: string(forcematrix.SubtypeName),
 		},
 		"fsm2": {
-			Type: forcematrix.Type,
+			Type: string(forcematrix.SubtypeName),
 		},
 	},
 	Motors: map[string]*pb.MotorStatus{
@@ -169,10 +169,10 @@ var finalStatus = &pb.Status{
 			Type: compass.RelativeType,
 		},
 		"fsm1": {
-			Type: forcematrix.Type,
+			Type: string(forcematrix.SubtypeName),
 		},
 		"fsm2": {
-			Type: forcematrix.Type,
+			Type: string(forcematrix.SubtypeName),
 		},
 	},
 	Servos: map[string]*pb.ServoStatus{
@@ -439,13 +439,21 @@ func TestClient(t *testing.T) {
 		switch name {
 		case "compass2":
 			return injectRelCompassDev, true
-		case "fsm1":
-			return injectFsm, true
-		case "fsm2":
-			return injectFsm2, true
 		default:
 			return injectCompassDev, true
 		}
+	}
+
+	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		if name.Subtype == forcematrix.Subtype {
+			switch name.Name {
+			case "fsm1":
+				return injectFsm, true
+			case "fsm2":
+				return injectFsm2, true
+			}
+		}
+		return nil, false
 	}
 
 	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
@@ -1080,23 +1088,23 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	sensorDev, ok = client.SensorByName("fsm1")
+	forceMatrixDev, ok := client.ResourceByName(forcematrix.Named("fsm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
-	readings, err = sensorDev.Readings(context.Background())
+	test.That(t, forceMatrixDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
+	readings, err = forceMatrixDev.(forcematrix.ForceMatrix).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
-	isSlipping, err := sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
+	isSlipping, err := forceMatrixDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
 	test.That(t, isSlipping, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 
-	sensorDev, ok = client.SensorByName("fsm2")
+	forceMatrixDev, ok = client.ResourceByName(forcematrix.Named("fsm2"))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
-	_, err = sensorDev.Readings(context.Background())
+	test.That(t, forceMatrixDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
+	_, err = forceMatrixDev.(forcematrix.ForceMatrix).Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
-	isSlipping, err = sensorDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
+	isSlipping, err = forceMatrixDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
 	test.That(t, isSlipping, test.ShouldBeFalse)
 	test.That(t, err, test.ShouldNotBeNil)
 

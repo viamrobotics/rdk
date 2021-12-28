@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -37,7 +38,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -318,8 +318,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &relativeCompassClient{&compassClient{sc}}, true
 	case gps.Type:
 		return &gpsClient{sc}, true
-	case forcematrix.Type:
-		return &forcematrixClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -375,6 +373,10 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case forcematrix.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		sc := &sensorClient{rc, name.Name, sensorType}
+		return &forcematrixClient{sc}, true
 	case board.Subtype:
 		for _, info := range rc.boardNames {
 			if info.name == name.Name {
@@ -1419,7 +1421,7 @@ func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
 }
 
 func (fmc *forcematrixClient) Desc() sensor.Description {
-	return sensor.Description{forcematrix.Type, ""}
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
 }
 
 // Ensure implements ForceMatrix.
