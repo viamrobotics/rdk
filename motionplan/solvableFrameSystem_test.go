@@ -153,13 +153,13 @@ func TestSolverFrame(t *testing.T) {
 
 	// get the Volume at the zero position and test that the output is correct
 	inputs := frame.StartPositions(solver)
-	vols, err := sf.Volume(sf.mapToSlice(inputs))
-	test.That(t, err, test.ShouldBeNil)
+	vols, _ := sf.Volume(sf.mapToSlice(inputs))
+	test.That(t, vols, test.ShouldNotBeNil)
 	linkMidpoint := spatial.NewPoseFromPoint(r3.Vector{0, 0, -49.8})
 	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
 	test.That(t, err, test.ShouldBeNil)
 	poseExpect = spatial.Compose(poseExpect, linkMidpoint)
 	volPose := vols["UR5e:ee_link"].Pose()
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.AlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }

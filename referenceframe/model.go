@@ -98,10 +98,13 @@ func (m *SimpleModel) Volume(inputs []Input) (map[string]spatialmath.Volume, err
 	volumeMap := make(map[string]spatialmath.Volume)
 	for _, joint := range joints {
 		vol, err := joint.Volume([]Input{})
-		multierr.AppendInto(&errAll, err)
-		if vol != nil {
-			volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
+		if vol == nil {
+			// only propagate errors that result in nil volume
+			multierr.AppendInto(&errAll, err)
+			continue
 		}
+		volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
+
 	}
 	return volumeMap, errAll
 }

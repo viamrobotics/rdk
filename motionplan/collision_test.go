@@ -28,7 +28,7 @@ func TestCheckCollisions(t *testing.T) {
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	vols, err = m.Volume(make([]frame.Input, len(m.DoF())))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckCollisions(vols)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cg.Collisions()), test.ShouldEqual, len(m.DoF()))
@@ -40,23 +40,23 @@ func TestUniqueCollisions(t *testing.T) {
 
 	// zero position of ur5e arm
 	input := make([]frame.Input, len(m.DoF()))
-	vols, err := m.Volume(input)
-	test.That(t, err, test.ShouldBeNil)
+	vols, _ := m.Volume(input)
+	test.That(t, vols, test.ShouldNotBeNil)
 	zeroPositionCG, err := CheckCollisions(vols)
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
 	input[3] = frame.Input{2}
-	vols, err = m.Volume(input)
-	test.That(t, err, test.ShouldBeNil)
+	vols, _ = m.Volume(input)
+	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err := CheckUniqueCollisions(vols, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
 	input[4] = frame.Input{2.5}
-	vols, err = m.Volume(input)
-	test.That(t, err, test.ShouldBeNil)
+	vols, _ = m.Volume(input)
+	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckUniqueCollisions(vols, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
