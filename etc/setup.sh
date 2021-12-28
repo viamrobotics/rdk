@@ -13,9 +13,32 @@ fi
 
 if [ "$(uname)" == "Linux" ]; then
 
-	if [ "$(uname -m)" != "x86_64" ]; then
-		echo "Automated dev environment setup is only supported on Linux/x86_64 or Darwin (Mac)."
-		echo "If you need to build on a Raspberry Pi, please install the Viam RPi image."
+	# Try for minimal (build-only, no linters or code generation) environment on pi/jetson/similar
+	if [ "$(uname -m)" == "aarch64" ] && [ $(cat /etc/debian_version | cut -d. -f1) -ge 10 ]; then
+		PKG_LIST="build-essential procps curl file git golang-go wasmer-dev libnlopt-dev libx264-dev"
+		if [ -d "/sys/bus/platform/drivers/raspberrypi-firmware" ]; then
+			PKG_LIST="$PKG_LIST libpigpio-dev"
+		fi
+
+		INSTALL_CMD="echo 'deb [trusted=yes] http://packages.viam.com/debian viam/' > /etc/apt/sources.list.d/viam.list && \
+		apt-get update && \
+		apt-get install --assume-yes $PKG_LIST"
+
+		sudo bash -c "$INSTALL_CMD"
+
+		if [ $? -ne 0 ]; then
+			echo "Package installation failed when running:"
+			echo "sudo bash -c \"$INSTALL_CMD\""
+			exit 1
+		fi
+
+		echo "Full dev environment is only supported on Linux/x86_64, Darwin (MacOS)."
+		echo "Minimal environment installed. Build/run/test should work, but no linters or code generators were installed."
+		exit 0
+
+	elif [ "$(uname -m)" != "x86_64" ]; then
+		echo "Automated dev environment (full) setup is only supported on Linux/x86_64 and Darwin (MacOS)."
+		echo "Minimal environment setup is also available for Debian-based aarch64 systems. (Raspberry Pi, Nvidia Jetson, etc.)"
 		exit 1
 	fi
 

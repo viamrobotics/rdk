@@ -4,11 +4,13 @@ package pi
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
+	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -33,16 +35,16 @@ func TestPiPigpio(t *testing.T) {
 	}
 
 	pp, err := NewPigpio(ctx, &cfg, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	servoCtor := registry.ComponentLookup(servo.Subtype, modelName)
-	servo1, err := servoCtor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
+	if err == errors.New("not running on a pi") {
+		t.Skip("not running on a pi")
+		return
+	}
 	test.That(t, err, test.ShouldBeNil)
 
 	p := pp.(*piPigpio)
 
 	defer func() {
-		err := p.Close()
+		err := p.Close(ctx)
 		test.That(t, err, test.ShouldBeNil)
 	}()
 
@@ -101,7 +103,14 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		err := servo1.Move(ctx, 90)
+
+		servoReg := registry.ComponentLookup(servo.Subtype, modelName)
+		test.That(t, servoReg, test.ShouldNotBeNil)
+		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		servo1 := servoInt.(servo.Servo)
+
+		err = servo1.Move(ctx, 90)
 		test.That(t, err, test.ShouldBeNil)
 
 		v, err := servo1.AngularOffset(ctx)
@@ -122,8 +131,10 @@ func TestPiPigpio(t *testing.T) {
 		return pp, true
 	}
 
-	motorCtor := registry.ComponentLookup(motor.Subtype, modelName)
-	motor1, err := motorCtor(ctx, &injectRobot, config.Component{Name: "motor1", ConvertedAttributes: &motor.Config{
+	motorReg := registry.ComponentLookup(motor.Subtype, modelName)
+	test.That(t, motorReg, test.ShouldNotBeNil)
+
+	motorInt, err := motorReg.Constructor(ctx, &injectRobot, config.Component{Name: "motor1", ConvertedAttributes: &motor.Config{
 		Pins: map[string]string{
 			"a":   "13", // bcom 27
 			"b":   "40", // bcom 21
@@ -132,9 +143,11 @@ func TestPiPigpio(t *testing.T) {
 		Encoder:          "hall-a",
 		EncoderB:         "hall-b",
 		TicksPerRotation: 200,
+		BoardName: "test",
 	},
 	}, logger)
 	test.That(t, err, test.ShouldBeNil)
+	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
 		pos, err := motor1.Position(ctx)
