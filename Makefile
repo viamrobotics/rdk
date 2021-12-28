@@ -73,7 +73,7 @@ docker: dockerlocal
 server:
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
-deb-server: server
+deb-server: buf server
 	rm -rf etc/packaging/work/
 	mkdir etc/packaging/work/
 	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/
