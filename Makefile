@@ -15,7 +15,7 @@ endif
 
 # Linux always needs custom_wasmer_runtime for portability in packaging
 ifeq ("$(shell uname -s)", "Linux")
-	export CGO_LDFLAGS = -lwasmer
+	CGO_LDFLAGS = -lwasmer
 	TAGS = -tags="custom_wasmer_runtime"
 endif
 
@@ -30,17 +30,22 @@ setup:
 build: buf build-web build-go
 
 build-go:
-	go build $(TAGS) ./...
+	$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web:
 	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
 buf:
+	go install github.com/golang/protobuf/protoc-gen-go \
+		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
+		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 	buf lint
-	buf generate
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	PATH=${PATH}:`go env GOPATH`/bin buf generate
+	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
 lint:
 	buf lint
@@ -56,7 +61,7 @@ test:
 	unset CGO_LDFLAGS && ./etc/test.sh
 
 testpi:
-	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
+	sudo $(CGO_LDFLAGS) go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
 
 dockerlocal:
 	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .
@@ -65,7 +70,7 @@ docker: dockerlocal
 	docker push 'ghcr.io/viamrobotics/test:latest'
 
 server:
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 deb-server: server
 	rm -rf etc/packaging/work/
@@ -82,16 +87,16 @@ deb-install: deb-server
 	sudo dpkg -i etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)_$(SERVER_DEB_VER)+*.deb
 
 boat: samples/boat1/cmd.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
+	$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
 
 boat2: samples/boat2/cmd.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go
+	$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat2 samples/boat2/cmd.go
 
 resetbox: samples/resetbox/cmd.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go
+	$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/resetbox samples/resetbox/cmd.go
 
 gamepad: samples/gamepad/cmd.go
-	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/gamepad samples/gamepad/cmd.go
+	$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/gamepad samples/gamepad/cmd.go
 
 clean-all:
 	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
