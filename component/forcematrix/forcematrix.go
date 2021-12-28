@@ -7,13 +7,13 @@ import (
 	"context"
 	"sync"
 
-	"go.viam.com/rdk/utils"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"github.com/pkg/errors"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/utils"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "forcematrix".
