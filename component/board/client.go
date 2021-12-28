@@ -50,34 +50,26 @@ func (sc *serviceClient) Close() error {
 // client is an Board client
 type client struct {
 	*serviceClient
-	info boardInfo
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
+	name string
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, info boardInfo, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
+func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Board, error) {
 	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return clientFromSvcClient(sc, info), nil
+	return clientFromSvcClient(sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, info boardInfo, logger golog.Logger) Board {
+func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, info)
+	return clientFromSvcClient(sc, name)
 }
 
-func clientFromSvcClient(sc *serviceClient, info boardInfo) Board {
-	return &client{serviceClient: sc, info: info}
+func clientFromSvcClient(sc *serviceClient, name string) Board {
+	return &client{sc, name}
 }
 
 // SPIByName may need to be implemented
@@ -93,7 +85,7 @@ func (c *client) I2CByName(name string) (I2C, bool) {
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &analogReaderClient{
 		serviceClient:    c.serviceClient,
-		boardName:        c.info.name,
+		boardName:        c.name,
 		analogReaderName: name,
 	}, true
 }
@@ -101,14 +93,14 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		serviceClient:        c.serviceClient,
-		boardName:            c.info.name,
+		boardName:            c.name,
 		digitalInterruptName: name,
 	}, true
 }
 
 func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 	_, err := c.client.GPIOSet(ctx, &pb.BoardServiceGPIOSetRequest{
-		Name: c.info.name,
+		Name: c.name,
 		Pin:  pin,
 		High: high,
 	})
@@ -117,7 +109,7 @@ func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 
 func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	resp, err := c.client.GPIOGet(ctx, &pb.BoardServiceGPIOGetRequest{
-		Name: c.info.name,
+		Name: c.name,
 		Pin:  pin,
 	})
 	if err != nil {
@@ -128,7 +120,7 @@ func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 
 func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	_, err := c.client.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
-		Name:      c.info.name,
+		Name:      c.name,
 		Pin:       pin,
 		DutyCycle: uint32(dutyCycle),
 	})
@@ -137,7 +129,7 @@ func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 
 func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	_, err := c.client.PWMSetFrequency(ctx, &pb.BoardServicePWMSetFrequencyRequest{
-		Name:      c.info.name,
+		Name:      c.name,
 		Pin:       pin,
 		Frequency: uint64(freq),
 	})
@@ -145,19 +137,19 @@ func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 }
 
 func (c *client) SPINames() []string {
-	return copyStringSlice(c.info.spiNames)
+	return copyStringSlice(c.SPINames())
 }
 
 func (c *client) I2CNames() []string {
-	return copyStringSlice(c.info.i2cNames)
+	return copyStringSlice(c.I2CNames())
 }
 
 func (c *client) AnalogReaderNames() []string {
-	return copyStringSlice(c.info.analogReaderNames)
+	return copyStringSlice(c.AnalogReaderNames())
 }
 
 func (c *client) DigitalInterruptNames() []string {
-	return copyStringSlice(c.info.digitalInterruptNames)
+	return copyStringSlice(c.DigitalInterruptNames())
 }
 
 // TODO(maximpertsov): remove

@@ -2,7 +2,9 @@
 package register
 
 import (
+	"github.com/edaniels/golog"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/utils/rpc"
 
 	// for board.
 	_ "go.viam.com/rdk/component/board/arduino"
@@ -23,5 +25,8 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(board.Subtype, registry.ResourceSubtype{
 		Reconfigurable: board.WrapWithReconfigurable,
+		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return board.NewClientFromConn(conn, name, logger)
+		},
 	})
 }
