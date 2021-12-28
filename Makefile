@@ -28,16 +28,16 @@ binsetup:
 setup:
 	bash etc/setup.sh
 
-build: buf build-web build-go
+build: build-web build-go
 
-build-go:
+build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
-build-web:
+build-web: buf-web
 	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
-buf:
+buf-go:
 	go install github.com/golang/protobuf/protoc-gen-go \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
@@ -45,6 +45,9 @@ buf:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 	buf lint
 	PATH=$(PATH_WITH_GO_BIN) buf generate
+
+buf-web:
+	buf lint
 	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
@@ -73,7 +76,7 @@ docker: dockerlocal
 server:
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
-deb-server: buf server
+deb-server: buf-go server
 	rm -rf etc/packaging/work/
 	mkdir etc/packaging/work/
 	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/
@@ -102,7 +105,7 @@ gamepad: samples/gamepad/cmd.go
 clean-all:
 	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
 
-appimage: buf server
+appimage: server
 	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
@@ -114,10 +117,10 @@ docker-emulation:
 
 appimage-multiarch: appimage-amd64 appimage-arm64
 
-appimage-amd64:
+appimage-amd64: buf-go
 	docker run --platform linux/amd64 -v`pwd`:/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
 
-appimage-arm64:
+appimage-arm64: buf-go
 	docker run --platform linux/arm64 -v`pwd`:/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
 
 appimage-deploy:
