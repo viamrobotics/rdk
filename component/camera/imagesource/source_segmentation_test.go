@@ -6,13 +6,29 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
+
+func TestSegmentationSource(t *testing.T) {
+	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	test.That(t, err, test.ShouldBeNil)
+	cameraMatrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	test.That(t, err, test.ShouldBeNil)
+	img.SetProjector(cameraMatrices)
+	source := &staticSource{img}
+	cfg := segmentation.ObjectConfig{50000, 500, 10.}
+
+	cs := &colorSegmentsSource{source, cfg}
+	_, _, err = cs.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
 
 type segmentationSourceTestHelper struct {
 	attrs  config.AttributeMap
@@ -63,6 +79,7 @@ func (h *segmentationSourceTestHelper) Process(
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
