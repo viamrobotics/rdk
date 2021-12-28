@@ -43,9 +43,9 @@ buf:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 	buf lint
-	buf generate
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	PATH=${PATH}:`go env GOPATH`/bin buf generate
+	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
 lint:
 	buf lint
