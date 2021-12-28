@@ -29,6 +29,7 @@ main
 vendor/
 
 # gRPC/Protocol Buffers
+bin
 dist/*
 proto/api/*
 !proto/api/*/*.proto
