@@ -362,33 +362,34 @@ func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud
 
 	for idx, c := range cfg.Components {
 		conv := findMapConverter(c.Type, c.Model)
-		if conv == nil {
-			for k, v := range c.Attributes {
-				s, ok := v.(string)
-				if ok {
-					cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
-					var loaded bool
-					var err error
-					v, loaded, err = loadSubFromFile(originalPath, s)
-					if err != nil {
-						return nil, err
-					}
-					if loaded {
-						cfg.Components[idx].Attributes[k] = v
-					}
-				}
-
-				conv := findConverter(c.Type, c.Model, k)
-				if conv == nil {
-					continue
-				}
-
-				n, err := conv(v)
+		// inner attributes may have their own converters, and file substitutions
+		for k, v := range c.Attributes {
+			s, ok := v.(string)
+			if ok {
+				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
+				var loaded bool
+				var err error
+				v, loaded, err = loadSubFromFile(originalPath, s)
 				if err != nil {
-					return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
+					return nil, err
 				}
-				cfg.Components[idx].Attributes[k] = n
+				if loaded {
+					cfg.Components[idx].Attributes[k] = v
+				}
 			}
+
+			aconv := findConverter(c.Type, c.Model, k)
+			if aconv == nil {
+				continue
+			}
+
+			n, err := aconv(v)
+			if err != nil {
+				return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
+			}
+			cfg.Components[idx].Attributes[k] = n
+		}
+		if conv == nil {
 			continue
 		}
 

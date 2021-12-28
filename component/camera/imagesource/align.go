@@ -48,6 +48,19 @@ func init() {
 			return &camera.ImageSource{ImageSource: dc}, nil
 		}})
 
+		config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_composed",
+			func(attributes config.AttributeMap) (interface{}, error) {
+				var conf rimage.AttrConfig
+				decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+				if err != nil {
+					return nil, err
+				}
+				if err := decoder.Decode(attributes); err != nil {
+					return nil, err
+				}
+				return &conf, nil
+		}, &rimage.AttrConfig{})
+
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "warp",
 		func(val interface{}) (interface{}, error) {
 			warp := &transform.AlignConfig{}

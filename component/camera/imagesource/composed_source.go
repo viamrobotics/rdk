@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -28,6 +29,19 @@ func init() {
 			return newDepthToPretty(r, config)
 		}})
 
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
+
 	registry.RegisterComponent(
 		camera.Subtype,
 		"overlay",
@@ -39,6 +53,19 @@ func init() {
 		) (interface{}, error) {
 			return newOverlay(r, config)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 }
 
 type overlaySource struct {

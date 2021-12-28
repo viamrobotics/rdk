@@ -50,7 +50,7 @@ func init() {
 			return &camera.ImageSource{ImageSource: source}, nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "single_stream",
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
@@ -76,7 +76,7 @@ func init() {
 			}}, nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "dual_stream",
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
@@ -100,7 +100,7 @@ func init() {
 		}})
 	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "intel",
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "intel",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
@@ -122,7 +122,7 @@ func init() {
 			}}, nil
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "file",
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})

@@ -10,6 +10,7 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -37,6 +38,19 @@ func init() {
 			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
 		}})
 
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
+
 	registry.RegisterComponent(
 		camera.Subtype,
 		"resize",
@@ -59,6 +73,19 @@ func init() {
 				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
 			}, nil
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 }
 
 // rotateImageDepthSource TODO.
