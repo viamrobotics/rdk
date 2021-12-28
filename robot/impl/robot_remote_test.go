@@ -17,6 +17,7 @@ import (
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
 	fakecamera "go.viam.com/rdk/component/camera/fake"
+	fakeforcematrix "go.viam.com/rdk/component/forcematrix/fake"
 	"go.viam.com/rdk/component/gripper"
 	fakegripper "go.viam.com/rdk/component/gripper/fake"
 	"go.viam.com/rdk/component/input"
@@ -174,7 +175,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		if strings.HasPrefix(name, "forcematrix") {
-			return &fake.ForceMatrix{Name: name}, true
+			return &fakeforcematrix.ForceMatrix{Name: name}, true
 		}
 		return &fake.Compass{Name: name}, true
 	}
@@ -638,7 +639,7 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 	fsm, ok := robot.SensorByName("forcematrix")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
+	test.That(t, fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 
 	robot.conf.Prefix = false
 	_, ok = robot.ServoByName("servo1")
