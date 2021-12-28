@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
 
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -130,19 +131,21 @@ func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, 
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
-	var err error
+	var errAll error
 	inputMap := sf.sliceToMap(inputs)
 	volumes := make(map[string]spatial.Volume)
 	for _, frame := range sf.frames {
 		vols, err := sf.fss.VolumeFrame(inputMap, frame, sf.goalFrame)
-		if err != nil {
-			return nil, err
+		if vols == nil {
+			// only propagate errors that result in nil volume
+			multierr.AppendInto(&errAll, err)
+			continue
 		}
 		for name, vol := range vols {
 			volumes[name] = vol
 		}
 	}
-	return volumes, err
+	return volumes, errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.

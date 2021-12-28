@@ -24,14 +24,15 @@ type Limit struct {
 	Max float64
 }
 
-func limitsALmostTheSame(a, b []Limit) bool {
+func limitsAlmostEqual(a, b []Limit) bool {
 	if len(a) != len(b) {
 		return false
 	}
 
+	const epsilon = 1e-5
 	for idx, x := range a {
-		if !float64AlmostEqual(x.Min, b[idx].Min) ||
-			!float64AlmostEqual(x.Max, b[idx].Max) {
+		if !utils.Float64AlmostEqual(x.Min, b[idx].Min, epsilon) ||
+			!utils.Float64AlmostEqual(x.Max, b[idx].Max, epsilon) {
 			return false
 		}
 	}
@@ -182,7 +183,7 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 // Volume returns an object representing the 3D space associeted with the staticFrame.
 func (sf *staticFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
 	if sf.volume == nil {
-		return nil, fmt.Errorf("volume not implemented for type %T", sf)
+		return nil, fmt.Errorf("instance of type %T does not have a defined volume", sf)
 	}
 	pose, err := sf.Transform(input)
 	m := make(map[string]spatial.Volume)
@@ -208,24 +209,12 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func float64AlmostEqual(a, b float64) bool {
-	return math.Abs(a-b) < .00001
-}
-
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*staticFrame)
 	if !ok {
 		return false
 	}
-
-	return sf.name == other.name &&
-		float64AlmostEqual(sf.transform.Point().X, other.transform.Point().X) &&
-		float64AlmostEqual(sf.transform.Point().Y, other.transform.Point().Y) &&
-		float64AlmostEqual(sf.transform.Point().Z, other.transform.Point().Z) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RX, other.transform.Orientation().AxisAngles().RX) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RY, other.transform.Orientation().AxisAngles().RY) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RZ, other.transform.Orientation().AxisAngles().RZ) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().Theta, other.transform.Orientation().AxisAngles().Theta)
+	return sf.name == other.name && spatial.PoseAlmostEqual(sf.transform, other.transform)
 }
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
@@ -342,7 +331,7 @@ func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
 		}
 	}
 
-	return limitsALmostTheSame(pf.limits, other.limits)
+	return limitsAlmostEqual(pf.limits, other.limits)
 }
 
 type rotationalFrame struct {
@@ -414,11 +403,12 @@ func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 		return false
 	}
 
+	const epsilon = 1e-5
 	return rf.name == other.name &&
-		limitsALmostTheSame(rf.limit, other.limit) &&
-		float64AlmostEqual(rf.rotAxis.X, other.rotAxis.X) &&
-		float64AlmostEqual(rf.rotAxis.Y, other.rotAxis.Y) &&
-		float64AlmostEqual(rf.rotAxis.Z, other.rotAxis.Z)
+		limitsAlmostEqual(rf.limit, other.limit) &&
+		utils.Float64AlmostEqual(rf.rotAxis.X, other.rotAxis.X, epsilon) &&
+		utils.Float64AlmostEqual(rf.rotAxis.Y, other.rotAxis.Y, epsilon) &&
+		utils.Float64AlmostEqual(rf.rotAxis.Z, other.rotAxis.Z, epsilon)
 }
 
 func decodePose(m map[string]interface{}) (spatial.Pose, error) {

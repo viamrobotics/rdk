@@ -134,7 +134,7 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 func NewCollisionConstraint(reference *CollisionGraph) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		vols, err := cInput.Frame.Volume(cInput.StartInput)
-		if err != nil {
+		if err != nil && vols == nil {
 			return false, 0
 		}
 		cg, err := CheckUniqueCollisions(vols, reference)

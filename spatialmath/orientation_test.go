@@ -109,6 +109,7 @@ func TestOrientationBetween(t *testing.T) {
 
 func testCompatibility(t *testing.T, o Orientation) {
 	t.Helper()
+
 	// Orientation Vectors
 	test.That(t, o.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
 	test.That(t, o.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)

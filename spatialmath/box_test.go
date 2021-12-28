@@ -14,7 +14,7 @@ func TestNewBoxFromOffset(t *testing.T) {
 	pt := r3.Vector{X: 1, Y: 0, Z: 0}
 	offset := NewPoseFromOrientation(pt, &EulerAngles{0, 0, math.Pi})
 	vol := NewBoxFromOffset(r3.Vector{}, offset).NewVolume(Invert(offset))
-	test.That(t, AlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
+	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
 	quatCompare(t, vol.Pose().Orientation().Quaternion(), NewZeroOrientation().Quaternion())
 }
 
