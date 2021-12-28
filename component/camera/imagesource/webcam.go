@@ -7,11 +7,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
-	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -33,7 +33,6 @@ func init() {
 			return NewWebcamSource(config.Attributes, logger)
 		}})
 
-	
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
