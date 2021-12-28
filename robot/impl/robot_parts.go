@@ -3,7 +3,9 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -438,6 +440,15 @@ func (parts *robotParts) processModifiedConfig(
 // newProcesses constructs all processes defined.
 func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
 	for _, procConf := range processes {
+		// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
+		// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
+		// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
+		_, isAppImage := os.LookupEnv("APPIMAGE")
+		if isAppImage {
+			procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
+			procConf.Name = "bash"
+		}
+
 		if _, err := parts.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
 			return err
 		}

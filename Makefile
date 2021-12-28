@@ -1,19 +1,22 @@
 
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
+ENTRYCMD = usermod --uid $(shell id -u) testbot && groupmod --gid $(shell id -g) testbot && sudo -u testbot
 
 GREPPED = $(shell grep -sao jetson /proc/device-tree/compatible)
 ifneq ("$(strip $(GREPPED))", "")
    $(info Nvidia Jetson Detected)
-   export CGO_LDFLAGS = -lwasmer
-   TAGS = -tags="jetson custom_wasmer_runtime"
    SERVER_DEB_PLATFORM = jetson
 else ifneq ("$(wildcard /etc/rpi-issue)","")
    $(info Raspberry Pi Detected)
-   export CGO_LDFLAGS = -lwasmer
-   TAGS = -tags="pi custom_wasmer_runtime"
    SERVER_DEB_PLATFORM = pi
 else
    SERVER_DEB_PLATFORM = generic
+endif
+
+# Linux always needs custom_wasmer_runtime for portability in packaging
+ifeq ("$(shell uname -s)", "Linux")
+	export CGO_LDFLAGS = -lwasmer
+	TAGS = -tags="custom_wasmer_runtime"
 endif
 
 SERVER_DEB_VER = 0.5
@@ -47,10 +50,10 @@ lint:
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
-	./etc/test.sh cover
+	unset CGO_LDFLAGS && ./etc/test.sh cover
 
 test:
-	./etc/test.sh
+	unset CGO_LDFLAGS && ./etc/test.sh
 
 testpi:
 	sudo go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
@@ -89,3 +92,27 @@ resetbox: samples/resetbox/cmd.go
 
 gamepad: samples/gamepad/cmd.go
 	go build $(TAGS) -o $(BIN_OUTPUT_PATH)/gamepad samples/gamepad/cmd.go
+
+clean-all:
+	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
+
+appimage: server
+	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
+	mkdir -p etc/packaging/appimages/deploy/
+	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
+	chmod 755 etc/packaging/appimages/deploy/*.AppImage
+
+# This sets up multi-arch emulation under linux. Run before using multi-arch targets.
+docker-emulation:
+	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+appimage-multiarch: appimage-amd64 appimage-arm64
+
+appimage-amd64:
+	docker run --platform linux/amd64 -v`pwd`:/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
+
+appimage-arm64:
+	docker run --platform linux/arm64 -v`pwd`:/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
+
+appimage-deploy:
+	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
