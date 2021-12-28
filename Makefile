@@ -18,7 +18,7 @@ ifeq ("$(shell uname -s)", "Linux")
 	CGO_LDFLAGS = -lwasmer
 	TAGS = -tags="custom_wasmer_runtime"
 endif
-PATH_WITH_GO_BIN=${PATH}:`go env GOPATH`/bin
+PATH_WITH_GO_BIN=${PATH}:`pwd`/bin
 
 SERVER_DEB_VER = 0.5
 
@@ -40,7 +40,7 @@ build-web: buf-web
 buf: buf-go buf-web
 
 buf-go:
-	go install github.com/golang/protobuf/protoc-gen-go \
+	GOBIN=`pwd`/bin go install github.com/golang/protobuf/protoc-gen-go \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
