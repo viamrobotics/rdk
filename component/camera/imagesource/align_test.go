@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestAlignIntrinsics(t *testing.T) {

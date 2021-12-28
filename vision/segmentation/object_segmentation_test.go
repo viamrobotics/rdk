@@ -4,11 +4,11 @@ import (
 	"context"
 	"testing"
 
-	pc "go.viam.com/rdk/pointcloud"
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"github.com/edaniels/golog"
+	pc "go.viam.com/rdk/pointcloud"
 )
 
 // get a segmentation of a pointcloud and calculate each object's center.

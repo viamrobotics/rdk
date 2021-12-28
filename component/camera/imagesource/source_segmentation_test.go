@@ -6,20 +6,22 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestSegmentationSource(t *testing.T) {
 	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
-	cameraMatrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(utils.ResolveFile("robots/configs/intel515_parameters.json"))
+	cameraMatrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	img.SetProjector(cameraMatrices)
 	source := &staticSource{img}
