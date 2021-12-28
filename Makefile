@@ -18,6 +18,7 @@ ifeq ("$(shell uname -s)", "Linux")
 	CGO_LDFLAGS = -lwasmer
 	TAGS = -tags="custom_wasmer_runtime"
 endif
+PATH_WITH_GO_BIN=${PATH}:`go env GOPATH`/bin
 
 SERVER_DEB_VER = 0.5
 
@@ -43,9 +44,9 @@ buf:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 	buf lint
-	PATH=${PATH}:`go env GOPATH`/bin buf generate
-	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	PATH=${PATH}:`go env GOPATH`/bin buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+	PATH=$(PATH_WITH_GO_BIN) buf generate
+	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
 lint:
 	buf lint
@@ -55,10 +56,10 @@ lint:
 	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
-	unset CGO_LDFLAGS && ./etc/test.sh cover
+	./etc/test.sh cover
 
 test:
-	unset CGO_LDFLAGS && ./etc/test.sh
+	./etc/test.sh
 
 testpi:
 	sudo $(CGO_LDFLAGS) go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
