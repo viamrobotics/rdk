@@ -11,10 +11,12 @@ import (
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pkg/errors"
+	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -30,6 +32,20 @@ func init() {
 		) (interface{}, error) {
 			return NewWebcamSource(config.Attributes, logger)
 		}})
+
+	
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
+			if err != nil {
+				return nil, err
+			}
+			if err := decoder.Decode(attributes); err != nil {
+				return nil, err
+			}
+			return &conf, nil
+		}, &rimage.AttrConfig{})
 }
 
 func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {

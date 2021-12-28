@@ -212,11 +212,11 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 			numFiles++
 
 			currentFile := f
-			d.logger.Debug(currentFile)
 
 			t.Run(filepath.Base(f), func(t *testing.T) {
 				t.Helper()
 				t.Parallel()
+				d.logger.Debug(currentFile)
 				img, err := readImageFromFile(currentFile, d.imagesAligned)
 				test.That(t, err, test.ShouldBeNil)
 
@@ -257,5 +257,5 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	defer func() {
 		err = multierr.Combine(err, outFile.Close())
 	}()
-	return theTemplate.Execute(outFile, &d.output)
+	return err//theTemplate.Execute(outFile, &d.output)
 }

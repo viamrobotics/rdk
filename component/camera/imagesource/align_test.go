@@ -84,7 +84,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	c.IntrinsicExtrinsic = nil
 	c.Homography = nil
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &alignTestHelper{*c, "warp"})
+	d.Process(t, &alignTestHelper{*c, "warp"})
 	test.That(t, err, test.ShouldBeNil)
 }
 
