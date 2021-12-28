@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -117,7 +117,7 @@ func TestNew(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
 		}
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return nil, false
 		}
 
@@ -125,6 +125,7 @@ func TestNew(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
+	// TODO [kat]: This needs to be deleted
 	t.Run("return error when returned sensor is not a forcematrix", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
@@ -138,7 +139,7 @@ func TestNew(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
 		}
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return &inject.Sensor{}, true
 		}
 

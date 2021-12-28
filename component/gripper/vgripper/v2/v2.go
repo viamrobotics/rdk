@@ -111,7 +111,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	forceMatrixName := config.Attributes.String("forcematrix")
-	forceMatrix, exists := r.SensorByName(forceMatrixName)
+	forceMatrix, exists := r.ResourceByName(forcematrix.Named(forceMatrixName))
 	if !exists {
 		return nil, errors.Errorf("failed to find a forcematrix sensor named '%v'", forceMatrixName)
 	}
