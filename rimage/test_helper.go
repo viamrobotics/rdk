@@ -257,5 +257,5 @@ func (d *MultipleImageTestDebugger) Process(t *testing.T, x MultipleImageTestDeb
 	defer func() {
 		err = multierr.Combine(err, outFile.Close())
 	}()
-	return err//theTemplate.Execute(outFile, &d.output)
+	return theTemplate.Execute(outFile, &d.output)
 }

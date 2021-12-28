@@ -8,9 +8,9 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
