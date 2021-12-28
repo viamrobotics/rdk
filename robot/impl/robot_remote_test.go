@@ -76,7 +76,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return rdktestutils.ExtractNames(boardNames...)
 	}
 	injectRobot.BoardNamesFunc = func() []string {
-		return coretestutils.ExtractNames(boardNames...)
+		return rdktestutils.ExtractNames(boardNames...)
 	}
 	injectRobot.GripperNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(gripperNames...)
