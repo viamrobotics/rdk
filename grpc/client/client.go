@@ -511,11 +511,13 @@ func (rc *RobotClient) BaseNames() []string {
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	out := make([]string, 0, len(rc.boardNames))
-	for _, info := range rc.boardNames {
-		out = append(out, info.name)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == camera.Subtype {
+			names = append(names, v.Name)
+		}
 	}
-	return out
+	return copyStringSlice(names)
 }
 
 // SensorNames returns the names of all known sensors.
