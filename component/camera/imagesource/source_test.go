@@ -3,6 +3,7 @@ package imagesource
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -14,6 +15,16 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 )
+
+const debugImageSource = "VIAM_DEBUG_IMAGESOURCE"
+
+func debugImageSourceOrSkip(t *testing.T) {
+	t.Helper()
+	imageSourceTest := os.Getenv(debugImageSource)
+	if imageSourceTest == "" {
+		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugImageSource))
+	}
+}
 
 func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
 	t.Helper()
