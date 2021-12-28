@@ -27,7 +27,7 @@ func TestCheckCollisions(t *testing.T) {
 	// case 2: zero position of ur5e arm
 	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	vols, err = m.Volume(make([]frame.Input, len(m.DoF())))
+	vols, _ = m.Volume(make([]frame.Input, len(m.DoF())))
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckCollisions(vols)
 	test.That(t, err, test.ShouldBeNil)

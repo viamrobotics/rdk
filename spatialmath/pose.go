@@ -169,12 +169,12 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	return intQ
 }
 
-// AlmostEqual will return a bool describing whether 2 poses are approximately the same
+// PoseAlmostEqual will return a bool describing whether 2 poses are approximately the same.
 func PoseAlmostEqual(a, b Pose) bool {
 	return PoseAlmostCoincident(a, b) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
 }
 
-// PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
+// PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 func PoseAlmostCoincident(a, b Pose) bool {
 	const epsilon = 1e-8
 	ap := a.Point()
