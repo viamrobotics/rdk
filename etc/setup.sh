@@ -20,9 +20,9 @@ if [ "$(uname)" == "Linux" ]; then
 	fi
 
 	INSTALL_CMD=""
-	if apt --version > /dev/null 2>&1; then
+	if apt-get --version > /dev/null 2>&1; then
 		# Debian/Ubuntu
-		INSTALL_CMD="apt install --assume-yes build-essential procps curl file git"
+		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git"
 	elif pacman --version > /dev/null 2>&1; then
 		# Arch
 		INSTALL_CMD="pacman -Sy --needed --noconfirm base-devel procps-ng curl git"
@@ -103,23 +103,21 @@ brew bundle --file=- <<-EOS
 
 tap  "bufbuild/buf"
 tap  "viamrobotics/brews"
-brew "gcc@11"
+# unpinned
 brew "make"
 brew "cmake"
 brew "pkgconfig"
 brew "go"
-brew "protobuf"
 brew "buf"
-brew "protoc-gen-go"
-brew "protoc-gen-doc"
-brew "protoc-gen-go-grpc"
-brew "protoc-gen-grpc-web"
-brew "protoc-gen-grpc-gateway"
-brew "ts-protoc-gen"
 brew "grpcurl"
 brew "node"
 brew "nlopt"
 brew "x264"
+# pinned
+brew "gcc@11"
+brew "protobuf@3.19"
+brew "protoc-gen-grpc-web"
+brew "ts-protoc-gen"
 brew "libwasmer"
 
 EOS
