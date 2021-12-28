@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/sensor/forcematrix"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/testutils/inject"
 )
 

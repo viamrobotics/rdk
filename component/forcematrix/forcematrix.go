@@ -98,7 +98,7 @@ func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,
 }
 
 // WrapWithReconfigurable converts a regular ForceMatrix implementation to a reconfigurableForceMatrix.
-// If fm is already a reconfigurableForceMatrix, then nothing is done.
+// If the ForceMatrix is already a reconfigurableForceMatrix, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	fm, ok := r.(ForceMatrix)
 	if !ok {
