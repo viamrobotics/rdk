@@ -37,6 +37,11 @@ build-web:
 	cd web/frontend && npm install && npx webpack
 
 buf:
+	go install github.com/golang/protobuf/protoc-gen-go \
+		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
+		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
 	buf lint
 	buf generate
 	buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
