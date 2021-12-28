@@ -34,8 +34,8 @@ func (s *subtypeServer) getBoard(name string) (Board, error) {
 	return board, nil
 }
 
-// BoardGPIOSet sets a given pin of a board of the underlying robot to either low or high.
-func (s *subtypeServer) BoardGPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSetRequest) (*pb.BoardServiceGPIOSetResponse, error) {
+// GPIOSet sets a given pin of a board of the underlying robot to either low or high.
+func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSetRequest) (*pb.BoardServiceGPIOSetResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
