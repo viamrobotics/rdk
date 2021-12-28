@@ -131,7 +131,7 @@ func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 	return r.Intn(max-min+1) + min
 }
 
-// Float64AlmostEqual compares two float64s and returns if the difference between them is less than epsilon
+// Float64AlmostEqual compares two float64s and returns if the difference between them is less than epsilon.
 func Float64AlmostEqual(a, b, epsilon float64) bool {
 	return math.Abs(a-b) < epsilon
 }

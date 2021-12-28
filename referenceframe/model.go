@@ -104,7 +104,6 @@ func (m *SimpleModel) Volume(inputs []Input) (map[string]spatialmath.Volume, err
 			continue
 		}
 		volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
-
 	}
 	return volumeMap, errAll
 }

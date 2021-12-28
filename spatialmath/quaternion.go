@@ -5,8 +5,9 @@ import (
 
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
-	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/rdk/utils"
 )
 
 type quaternion quat.Number
@@ -213,7 +214,7 @@ func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
 
-// AlmostEqual is an equality test for all the float components of a quaternion.
+// QuaternionAlmostEqual is an equality test for all the float components of a quaternion.
 func QuaternionAlmostEqual(a, b quat.Number, tol float64) bool {
 	return utils.Float64AlmostEqual(a.Imag, b.Imag, tol) &&
 		utils.Float64AlmostEqual(a.Jmag, b.Jmag, tol) &&
