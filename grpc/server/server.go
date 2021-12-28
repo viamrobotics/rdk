@@ -243,6 +243,24 @@ func (s *Server) BaseWidthMillis(
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
 }
 
+// BoardStatus returns the status of a board of the underlying robot.
+func (s *Server) BoardStatus(
+	ctx context.Context,
+	req *pb.BoardStatusRequest,
+) (*pb.BoardStatusResponse, error) {
+	b, ok := s.r.BoardByName(req.Name)
+	if !ok {
+		return nil, errors.Errorf("no board with name (%s)", req.Name)
+	}
+
+	status, err := b.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BoardStatusResponse{Status: status}, nil
+}
+
 // SensorReadings returns the readings of a sensor of the underlying robot.
 func (s *Server) SensorReadings(
 	ctx context.Context,
