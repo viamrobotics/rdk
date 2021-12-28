@@ -79,7 +79,7 @@ func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
 	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	steps, err := mp.Plan(ctx, pos, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}))
+	steps, err := mp.Plan(ctx, pos, referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0}), nil)
 	test.That(t, err, test.ShouldBeNil)
 	solution := steps[len(steps)-1]
 

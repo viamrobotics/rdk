@@ -29,13 +29,29 @@ func NewSolvableFrameSystem(fs referenceframe.FrameSystem, logger golog.Logger) 
 // then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
-// the world referenceframe.
-func (fss *SolvableFrameSystem) SolvePose(
-	ctx context.Context,
+// the world frame. It will use the default planner options.
+func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	seedMap map[string][]referenceframe.Input,
 	goal spatial.Pose,
 	solveFrame, goalFrame referenceframe.Frame,
 ) ([]map[string][]referenceframe.Input, error) {
+	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, nil)
+}
+
+// SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal pose with respect to the goal frame using the provided
+// planning options.
+func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
+	seedMap map[string][]referenceframe.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame referenceframe.Frame,
+	opt *PlannerOptions,
+) ([]map[string][]referenceframe.Input, error) {
+	// Default for opt if nil
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
+
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
 	if err != nil {
@@ -65,7 +81,7 @@ func (fss *SolvableFrameSystem) SolvePose(
 	seed := sf.mapToSlice(seedMap)
 
 	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
+	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
 	if err != nil {
 		return nil, err
 	}

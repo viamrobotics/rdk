@@ -1,0 +1,84 @@
+name: Build AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, appimage ]
+    paths-ignore:
+      - 'README.md'
+      - '**/Dockerfile.fortest'
+      - '**/.github/workflows/docker.yml'
+
+env:
+  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+
+jobs:
+  appimages_amd64:
+    name: (x64) Viam Server AppImage
+    runs-on: qemu-host
+
+    steps:
+    - name: Fix Permissions
+      run: sudo chown -R `whoami` ./
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with: 
+        fetch-depth: 2
+
+    - name: Configure git for private modules
+      run: |
+        git config --global url."https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com".insteadOf "https://github.com"
+
+    - name: Build and Package
+      run: make clean-all appimage-amd64
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Upload Files
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: '*'
+        parent: false
+        gzip: false
+
+  appimages_arm64:
+    name: (arm64) Viam Server AppImage
+    runs-on: qemu-host
+
+    steps:
+    - name: Fix Permissions
+      run: sudo chown -R `whoami` ./
+
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with: 
+        fetch-depth: 2
+
+    - name: Configure git for private modules
+      run: |
+        git config --global url."https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com".insteadOf "https://github.com"
+
+    - name: Build and Package
+      run: make clean-all appimage-arm64
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Upload Files
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: '*'
+        parent: false
+        gzip: false

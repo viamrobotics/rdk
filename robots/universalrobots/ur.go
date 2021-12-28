@@ -224,7 +224,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		return err
 	}
 	start := time.Now()
-	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints))
+	solution, err := ua.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}

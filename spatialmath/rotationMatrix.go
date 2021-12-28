@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -11,6 +12,15 @@ import (
 // m[3*r + c] is the element in the r'th row and c'th column.
 type RotationMatrix struct {
 	mat [9]float64
+}
+
+// NewRotationMatrix creates the rotation matrix from a slice of floats.
+func NewRotationMatrix(m []float64) (*RotationMatrix, error) {
+	if len(m) != 9 {
+		return nil, fmt.Errorf("input slice has %d elements, need exactly 9", len(m))
+	}
+	mat := [9]float64{m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]}
+	return &RotationMatrix{mat}, nil
 }
 
 // OrientationVectorRadians returns orientation as an orientation vector (in radians).
