@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
