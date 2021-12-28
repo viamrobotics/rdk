@@ -102,7 +102,7 @@ gamepad: samples/gamepad/cmd.go
 clean-all:
 	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
 
-appimage: server
+appimage: buf server
 	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
