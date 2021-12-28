@@ -4,7 +4,6 @@ package board
 import (
 	"context"
 	"runtime/debug"
-	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -52,11 +51,6 @@ func (sc *serviceClient) Close() error {
 type client struct {
 	*serviceClient
 	info boardInfo
-
-	// TODO(maximpertsov): Copied from common client
-	cachingStatus  bool
-	cachedStatus   *robotpb.BoardStatus
-	cachedStatusMu *sync.Mutex
 }
 
 type boardInfo struct {
@@ -276,16 +270,3 @@ func copyStringSlice(src []string) []string {
 // errUnimplemented is used for any unimplemented methods that should
 // eventually be implemented server side or faked client side.
 var errUnimplemented = errors.New("unimplemented")
-
-// TODO(maximpertsov): copied from common client - export into utils (or export from
-// common client)?
-// storeStatus atomically gets the status response from a robot server if and only
-// if we are automatically refreshing.
-func (c *client) getCachedStatus() *robotpb.BoardStatus {
-	if !c.cachingStatus {
-		return nil
-	}
-	c.cachedStatusMu.Lock()
-	defer c.cachedStatusMu.Unlock()
-	return c.cachedStatus
-}
