@@ -46,7 +46,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[3] = frame.Input{2}
+	input[3] = frame.Input{2.5}
 	vols, _ = m.Volumes(input)
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err := CheckUniqueCollisions(vols, zeroPositionCG)
