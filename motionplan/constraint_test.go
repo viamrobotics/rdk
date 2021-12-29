@@ -177,7 +177,7 @@ func TestCollisionConstraint(t *testing.T) {
 	// setup zero position as reference CollisionGraph and use it in handler
 	ur5e, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	zeroVols, _ := ur5e.Volume(zeroInput)
+	zeroVols, _ := ur5e.Volumes(zeroInput)
 	test.That(t, zeroVols, test.ShouldNotBeNil)
 	zeroCG, err := CheckCollisions(zeroVols)
 	test.That(t, err, test.ShouldBeNil)

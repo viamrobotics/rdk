@@ -88,8 +88,8 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return poses[0].transform, err
 }
 
-// Volume returns an object representing the 3D space associeted with the staticFrame.
-func (m *SimpleModel) Volume(inputs []Input) (map[string]spatialmath.Volume, error) {
+// Volumes returns an object representing the 3D space associeted with the staticFrame.
+func (m *SimpleModel) Volumes(inputs []Input) (map[string]spatialmath.Volume, error) {
 	joints, err := m.jointRadToQuats(inputs, true)
 	if err != nil && joints == nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (m *SimpleModel) Volume(inputs []Input) (map[string]spatialmath.Volume, err
 	var errAll error
 	volumeMap := make(map[string]spatialmath.Volume)
 	for _, joint := range joints {
-		vol, err := joint.Volume([]Input{})
+		vol, err := joint.Volumes([]Input{})
 		if vol == nil {
 			// only propagate errors that result in nil volume
 			multierr.AppendInto(&errAll, err)
