@@ -7,7 +7,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream/media"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/frame"
 	"github.com/pion/mediadevices/pkg/prop"
@@ -34,17 +33,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
 }
 
 func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {

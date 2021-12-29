@@ -12,7 +12,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
@@ -57,31 +56,13 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "xArm6",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm6",
+		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		&AttrConfig{})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, "xArm7",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm7",
+		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		&AttrConfig{})
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.

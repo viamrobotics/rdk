@@ -13,7 +13,6 @@ import (
 
 	movingaverage "github.com/RobinUS2/golang-moving-average"
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -42,18 +41,9 @@ func init() {
 			return New(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, ModelName,
+		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		&AttrConfig{})
 }
 
 // GY511 represents a gy511 compass.

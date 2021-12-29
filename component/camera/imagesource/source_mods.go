@@ -8,7 +8,6 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -39,17 +38,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -75,17 +65,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 }
 
 // rotateImageDepthSource TODO.

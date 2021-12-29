@@ -16,6 +16,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 )
@@ -75,6 +76,21 @@ func RegisterComponentAttributeMapConverter(compType ComponentType, model string
 		componentAttributeMapConverters,
 		ComponentAttributeMapConverterRegistration{compType, model, conv, retType},
 	)
+}
+
+// GenerateBasicAttributeMapConverter returns a basic attribute map converter function
+// that can be passed to RegisterComponentAttributeMapConverter in many cases.
+func GenerateBasicAttributeMapConverter(ac interface{}) (conv AttributeMapConverter) {
+	return func(attributes AttributeMap) (interface{}, error) {
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &ac})
+		if err != nil {
+			return nil, err
+		}
+		if err := decoder.Decode(attributes); err != nil {
+			return nil, err
+		}
+		return ac, nil
+	}
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.

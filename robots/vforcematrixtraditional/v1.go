@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
@@ -64,18 +63,9 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
-		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
-			var conf ForceMatrixConfig
-
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &ForceMatrixConfig{})
+		ModelName,
+		config.GenerateBasicAttributeMapConverter(&ForceMatrixConfig{}),
+		&ForceMatrixConfig{})
 }
 
 // ForceMatrixTraditional represents a force matrix without a mux.
