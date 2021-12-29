@@ -23,7 +23,7 @@ ifeq ("$(DOCKER_NESTED)", "")
 else
 	DOCKER_WORKSPACE=$(shell docker container inspect -f '{{range .Mounts}}{{ if eq .Destination "/__w" }}{{.Source}}{{ end }}{{end}}' $(shell hostname) | tr -d '\n')/rdk/rdk
 endif
-PATH_WITH_GO_BIN=${PATH}:`pwd`/bin
+PATH_WITH_GO_BIN=`pwd`/bin:${PATH}
 
 SERVER_DEB_VER = 0.5
 
