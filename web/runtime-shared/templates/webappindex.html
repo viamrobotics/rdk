@@ -1295,6 +1295,22 @@
           </tr>
         </table>
       </div>
+
+      <!-- ******* ForceMatrix *******  -->
+      <div>
+        <div v-for="(forcematrix, x) in filterResources('rdk', 'component', 'forcematrix').entries()" :key="forcematrix[1].name">
+          <hr>
+          <h2>ForceMatrix: ${forcematrix[1].name}</h2>
+          <template>
+            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
+            <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+            <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
+            <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
+            <div :id="'force-3d-id-' + x"></div>
+          </template>
+        </div>
+        <hr>
+      </div>
       
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
@@ -1465,16 +1481,10 @@
           <td>${sensor[0]}</td>
           <td>${sensor[1].type}</td>
           <td>
-            <template v-if="sensor[1].type === 'forcematrix'">
-              <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], x)">Visualize Force Matrix</button>
-              <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
-              <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
-              <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
-              <div :id="'force-3d-id-' + x"></div>
-            </template>
-            <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
+            <button v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>
         </tr>
+
       </table>
 
       <div>${res}</div>
