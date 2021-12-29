@@ -35,7 +35,10 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname,
-		config.GenerateBasicAttributeMapConverter(&AttrConfig{}), &AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // robotiqGripper TODO.

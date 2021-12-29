@@ -33,7 +33,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {

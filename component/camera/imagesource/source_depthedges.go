@@ -29,7 +29,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.

@@ -57,11 +57,17 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm6",
-		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&AttrConfig{})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm7",
-		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&AttrConfig{})
 }
 

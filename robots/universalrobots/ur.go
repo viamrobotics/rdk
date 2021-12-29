@@ -54,7 +54,10 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, modelname,
-		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&AttrConfig{})
 }
 

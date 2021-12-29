@@ -78,19 +78,16 @@ func RegisterComponentAttributeMapConverter(compType ComponentType, model string
 	)
 }
 
-// GenerateBasicAttributeMapConverter returns a basic attribute map converter function
-// that can be passed to RegisterComponentAttributeMapConverter in many cases.
-func GenerateBasicAttributeMapConverter(ac interface{}) (conv AttributeMapConverter) {
-	return func(attributes AttributeMap) (interface{}, error) {
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &ac})
-		if err != nil {
-			return nil, err
-		}
-		if err := decoder.Decode(attributes); err != nil {
-			return nil, err
-		}
-		return ac, nil
+// TransformAttributeMapToStruct uses an attribute map to transform attributes to the perscribed format.
+func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (interface{}, error) {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: to})
+	if err != nil {
+		return nil, err
 	}
+	if err := decoder.Decode(attributes); err != nil {
+		return nil, err
+	}
+	return to, nil
 }
 
 // RegisterServiceAttributeMapConverter associates a service type with a way to convert all attributes.

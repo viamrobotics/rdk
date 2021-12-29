@@ -38,7 +38,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(
@@ -65,7 +68,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 }
 
