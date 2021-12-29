@@ -7,11 +7,81 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
+
+func TestAlignIntrinsics(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	test.That(t, err, test.ShouldBeNil)
+	c := conf.FindComponent("front")
+	test.That(t, c, test.ShouldNotBeNil)
+	delete(c.Attributes, "warp")
+	delete(c.Attributes, "homography")
+
+	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, ii, c.Attributes, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
+func TestAlignWarp(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	c := conf.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	delete(c.Attributes, "intrinsic_extrinsic")
+	delete(c.Attributes, "homography")
+
+	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, ii, c.Attributes, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
+func TestAlignHomography(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	test.That(t, err, test.ShouldBeNil)
+
+	c := conf.FindComponent("combined")
+	test.That(t, c, test.ShouldNotBeNil)
+
+	delete(c.Attributes, "intrinsic_extrinsic")
+	delete(c.Attributes, "warp")
+
+	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	aligned, _ := applyAlignment(t, ii, c.Attributes, logger)
+	test.That(t, aligned, test.ShouldNotBeNil)
+}
+
+func applyAlignment(
+	t *testing.T,
+	ii *rimage.ImageWithDepth,
+	attrs config.AttributeMap,
+	logger golog.Logger,
+) (*rimage.ImageWithDepth, *depthComposed) {
+	t.Helper()
+	colorSource := &staticSource{ii.Color}
+	depthSource := &staticSource{ii.Depth}
+	is, err := NewDepthComposed(colorSource, depthSource, attrs, logger)
+	test.That(t, err, test.ShouldBeNil)
+	dc, ok := is.(*depthComposed)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	rawAligned, _, err := dc.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	fixed := rimage.ConvertToImageWithDepth(rawAligned)
+	return fixed, dc
+}
 
 type alignTestHelper struct {
 	attrs config.AttributeMap
@@ -30,17 +100,8 @@ func (h *alignTestHelper) Process(
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_"+h.name)
 
-	colorSource := &staticSource{ii.Color}
-	depthSource := &staticSource{ii.Depth}
-	is, err := NewDepthComposed(colorSource, depthSource, h.attrs, logger)
-	test.That(t, err, test.ShouldBeNil)
-	dc, ok := is.(*depthComposed)
-	test.That(t, ok, test.ShouldBeTrue)
+	fixed, dc := applyAlignment(t, ii, h.attrs, logger)
 
-	rawAligned, _, err := dc.Next(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-
-	fixed := rimage.ConvertToImageWithDepth(rawAligned)
 	pCtx.GotDebugImage(fixed.Color, "color-fixed_"+h.name)
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_"+h.name)
 
@@ -61,6 +122,7 @@ func (h *alignTestHelper) Process(
 }
 
 func TestAlignIntelIntrinsics(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -75,6 +137,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 }
 
 func TestAlignGripperWarp(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
@@ -89,6 +152,7 @@ func TestAlignGripperWarp(t *testing.T) {
 }
 
 func TestAlignGripperHomography(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
