@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
@@ -54,18 +53,9 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &AttrConfig{})
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, modelname,
+		config.GenerateBasicAttributeMapConverter(&AttrConfig{}),
+		&AttrConfig{})
 }
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.

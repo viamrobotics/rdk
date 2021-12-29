@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"github.com/viamrobotics/evdev"
 	"go.viam.com/utils"
@@ -42,17 +41,8 @@ func init() {
 	config.RegisterComponentAttributeMapConverter(
 		config.ComponentTypeInputController,
 		modelname,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &Config{})
+		config.GenerateBasicAttributeMapConverter(&Config{}),
+		&Config{})
 }
 
 func createController(ctx context.Context, logger golog.Logger, devFile string, reconnect bool) input.Controller {

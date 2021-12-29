@@ -21,7 +21,6 @@ import (
 
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -51,17 +50,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
@@ -77,17 +67,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "intel",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
@@ -101,17 +82,8 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "intel",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "file",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
@@ -123,17 +95,8 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		&rimage.AttrConfig{})
 }
 
 // staticSource is a fixed, stored image.

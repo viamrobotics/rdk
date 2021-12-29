@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
@@ -30,17 +29,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &rimage.AttrConfig{})
+		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.
