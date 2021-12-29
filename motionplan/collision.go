@@ -14,15 +14,12 @@ type CollisionGraph struct {
 	indices map[string]int
 
 	// nodes is a list of the nodes that comprise the graph
-	nodes map[int]*volumeNode
+	nodes []*volumeNode
 
 	// adjacencies represents the edges in the CollisionGraph as an adjacency matrix
 	// For a pair of nodes (nodes[i], nodes[j]), there exists an edge between them if adjacencies[i][j] is true
 	// This is always an undirected graph, this matrix will always be symmetric (adjacencies[i][j] == adjacencies[j][i])
 	adjacencies [][]bool
-
-	// size is the number of nodes in the graph
-	size int
 }
 
 // volumeNode defines a node for the CollisionGraph and only exists within this scope.
@@ -35,16 +32,19 @@ type volumeNode struct {
 // adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing.
 func newCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 	cg := &CollisionGraph{}
-	cg.indices = make(map[string]int)
-	cg.nodes = make(map[int]*volumeNode)
+	cg.indices = make(map[string]int, len(vols))
+	cg.nodes = make([]*volumeNode, len(vols))
+
+	size := 0
 	for name, vol := range vols {
-		cg.indices[name] = cg.size
-		cg.nodes[cg.size] = &volumeNode{name, vol}
-		cg.size++
+		cg.indices[name] = size
+		cg.nodes[size] = &volumeNode{name, vol}
+		size++
 	}
-	cg.adjacencies = make([][]bool, cg.size)
+
+	cg.adjacencies = make([][]bool, size)
 	for i := range cg.adjacencies {
-		cg.adjacencies[i] = make([]bool, cg.size)
+		cg.adjacencies[i] = make([]bool, size)
 	}
 	return cg
 }
@@ -53,8 +53,8 @@ func newCollisionGraph(vols map[string]spatial.Volume) *CollisionGraph {
 // are in collision within the specified CollisionGraph.
 func (cg *CollisionGraph) Collisions() []Collision {
 	collisions := make([]Collision, 0)
-	for i := 0; i < cg.size-1; i++ {
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < len(cg.nodes)-1; i++ {
+		for j := i + 1; j < len(cg.nodes); j++ {
 			if cg.adjacencies[i][j] {
 				collisions = append(collisions, Collision{cg.nodes[i].name, cg.nodes[j].name})
 			}
@@ -81,8 +81,8 @@ func CheckCollisions(vols map[string]spatial.Volume) (*CollisionGraph, error) {
 	cg := newCollisionGraph(vols)
 
 	// iterate through all Volume pairs and store collisions as edges in graph
-	for i := 0; i < cg.size-1; i++ {
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < len(cg.nodes)-1; i++ {
+		for j := i + 1; j < len(cg.nodes); j++ {
 			err := cg.checkAddEdge(i, j)
 			if err != nil {
 				return nil, err
@@ -99,8 +99,8 @@ func CheckUniqueCollisions(vols map[string]spatial.Volume, seen *CollisionGraph)
 	cg := newCollisionGraph(vols)
 
 	// iterate through all Volume pairs and store new collisions as edges in graph
-	for i := 0; i < cg.size-1; i++ {
-		for j := i + 1; j < cg.size; j++ {
+	for i := 0; i < len(cg.nodes)-1; i++ {
+		for j := i + 1; j < len(cg.nodes); j++ {
 			// ignore any previously seen collisions
 			x, xk := seen.indices[cg.nodes[i].name]
 			y, yk := seen.indices[cg.nodes[j].name]
