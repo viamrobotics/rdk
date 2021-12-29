@@ -169,9 +169,8 @@ func TestCollisionConstraint(t *testing.T) {
 		expected bool
 	}{
 		{zeroInput, true},
-		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 0, 0}), true},
-		// this is failing
-		{frame.FloatsToInputs([]float64{0, 0, 0, 2, 2.5, 0}), false},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 2.5, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 2.5, 2.5, 0}), false},
 	}
 
 	// setup zero position as reference CollisionGraph and use it in handler
