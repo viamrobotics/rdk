@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-type vector3 struct {
+type vectorJSON struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
@@ -26,25 +26,27 @@ type ModelJSON struct {
 		Parent      string                     `json:"parent"`
 		Translation spatialmath.Translation    `json:"translation"`
 		Orientation spatialmath.RawOrientation `json:"orientation"`
-		Volume      vector3                    `json:"volume"`
+
+		// Box represents the diagonal vector for a rectangular prism comprising the volume around the link
+		BoxVolume vectorJSON `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string  `json:"id"`
-		Type   string  `json:"type"`
-		Parent string  `json:"parent"`
-		Axis   vector3 `json:"axis"`
-		Max    float64 `json:"max"`
-		Min    float64 `json:"min"`
+		ID     string     `json:"id"`
+		Type   string     `json:"type"`
+		Parent string     `json:"parent"`
+		Axis   vectorJSON `json:"axis"`
+		Max    float64    `json:"max"`
+		Min    float64    `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
-		ID     string  `json:"id"`
-		Parent string  `json:"parent"`
-		A      float64 `json:"a"`
-		D      float64 `json:"d"`
-		Alpha  float64 `json:"alpha"`
-		Max    float64 `json:"max"`
-		Min    float64 `json:"min"`
-		Volume vector3 `json:"volume"`
+		ID        string     `json:"id"`
+		Parent    string     `json:"parent"`
+		A         float64    `json:"a"`
+		D         float64    `json:"d"`
+		Alpha     float64    `json:"alpha"`
+		Max       float64    `json:"max"`
+		Min       float64    `json:"min"`
+		BoxVolume vectorJSON `json:"volume"`
 	} `json:"dhParams"`
 	RawFrames []map[string]interface{} `json:"frames"`
 }
@@ -88,8 +90,8 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			pose := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
 			var vol spatialmath.VolumeCreator
-			if link.Volume.X != 0 && link.Volume.Y != 0 && link.Volume.Z != 0 {
-				dims := r3.Vector{link.Volume.X, link.Volume.Y, link.Volume.Z}.Mul(0.5)
+			if link.BoxVolume.X != 0 && link.BoxVolume.Y != 0 && link.BoxVolume.Z != 0 {
+				dims := r3.Vector{link.BoxVolume.X, link.BoxVolume.Y, link.BoxVolume.Z}.Mul(0.5)
 				offset := spatialmath.Invert(spatialmath.NewPoseFromOrientation(pt.Mul(0.5), ov))
 				vol = spatialmath.NewBoxFromOffset(dims, offset)
 			}

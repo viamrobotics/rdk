@@ -79,7 +79,7 @@ func TestVolume(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(sm.DoF()))
-	vols, _ := sm.Volume(inputs)
+	vols, _ := sm.Volumes(inputs)
 	test.That(t, vols, test.ShouldNotBeNil)
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
@@ -87,7 +87,7 @@ func TestVolume(t *testing.T) {
 	// calculate the midpoint of each link and compare to volume position
 	prev := spatial.NewZeroPose()
 	for _, joint := range expected {
-		if joint.volume != nil {
+		if joint.volumeCreator != nil {
 			linkMidpoint := spatial.Interpolate(prev, joint.transform, 0.5)
 			volCenter := vols[sm.Name()+":"+joint.Name()].Pose()
 			coincident := spatial.PoseAlmostCoincident(volCenter, linkMidpoint)

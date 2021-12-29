@@ -127,7 +127,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 // Volume takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
 // intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to volumes.
 // The key for each frame in the map will be the string: "<model_name>:<frame_name>".
-func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, error) {
+func (sf *solverFrame) Volumes(inputs []frame.Input) (map[string]spatial.Volume, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
@@ -135,7 +135,7 @@ func (sf *solverFrame) Volume(inputs []frame.Input) (map[string]spatial.Volume, 
 	inputMap := sf.sliceToMap(inputs)
 	volumes := make(map[string]spatial.Volume)
 	for _, frame := range sf.frames {
-		vols, err := sf.fss.VolumeFrame(inputMap, frame, sf.goalFrame)
+		vols, err := sf.fss.VolumesOfFrame(inputMap, frame, sf.goalFrame)
 		if vols == nil {
 			// only propagate errors that result in nil volume
 			multierr.AppendInto(&errAll, err)

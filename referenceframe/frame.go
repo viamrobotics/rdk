@@ -99,9 +99,9 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
 
-	// Volume returns a map between names and volumes for the reference frame and any intermediate frames that
-	// may be defined for it, e.g. links in an arm. If a frame does not have a volume it will not be added into the map
-	Volume([]Input) (map[string]spatial.Volume, error)
+	// Volumes returns a map between names and volumes for the reference frame and any intermediate frames that
+	// may be defined for it, e.g. links in an arm. If a frame does not have a volumeCreator it will not be added into the map
+	Volumes([]Input) (map[string]spatial.Volume, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
@@ -118,9 +118,9 @@ type Frame interface {
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
 // from the current Frame to the parent referenceframe.
 type staticFrame struct {
-	name      string
-	transform spatial.Pose
-	volume    spatial.VolumeCreator
+	name          string
+	transform     spatial.Pose
+	volumeCreator spatial.VolumeCreator
 }
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
@@ -138,25 +138,25 @@ func NewZeroStaticFrame(name string) Frame {
 }
 
 // NewStaticFrameWithVolume creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It also has an associated volume representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
-func NewStaticFrameWithVolume(name string, pose spatial.Pose, volume spatial.VolumeCreator) (Frame, error) {
+// It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewStaticFrameWithVolume(name string, pose spatial.Pose, volumeCreator spatial.VolumeCreator) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{name, pose, volume}, nil
+	return &staticFrame{name, pose, volumeCreator}, nil
 }
 
 // NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It inherits its name and volume properties from the specified Frame. Pose is not allowed to be nil.
+// It inherits its name and volumeCreator properties from the specified Frame. Pose is not allowed to be nil.
 func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	if tf, ok := frame.(*translationalFrame); ok {
-		return &staticFrame{tf.Name(), pose, tf.volume}, nil
+		return &staticFrame{tf.Name(), pose, tf.volumeCreator}, nil
 	}
 	if tf, ok := frame.(*staticFrame); ok {
-		return &staticFrame{tf.Name(), pose, tf.volume}, nil
+		return &staticFrame{tf.Name(), pose, tf.volumeCreator}, nil
 	}
 	return &staticFrame{frame.Name(), pose, nil}, nil
 }
@@ -180,14 +180,14 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-// Volume returns an object representing the 3D space associeted with the staticFrame.
-func (sf *staticFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
-	if sf.volume == nil {
-		return nil, fmt.Errorf("instance of type %T does not have a defined volume", sf)
+// Volumes returns an object representing the 3D space associeted with the staticFrame.
+func (sf *staticFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
+	if sf.volumeCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil volumeCreator", sf)
 	}
 	pose, err := sf.Transform(input)
 	m := make(map[string]spatial.Volume)
-	m[sf.Name()] = sf.volume.NewVolume(pose)
+	m[sf.Name()] = sf.volumeCreator.NewVolume(pose)
 	return m, err
 }
 
@@ -219,10 +219,10 @@ func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
-	name   string
-	axes   []bool // if it moves along each axes, x, y, z
-	limits []Limit
-	volume spatial.VolumeCreator
+	name          string
+	axes          []bool // if it moves along each axes, x, y, z
+	limits        []Limit
+	volumeCreator spatial.VolumeCreator
 }
 
 // NewTranslationalFrame creates a frame given a name and the axes in which to translate.
@@ -236,9 +236,9 @@ func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, err
 }
 
 // NewTranslationalFrameWithVolume creates a frame given a given a name and the axes in which to translate.
-// It also has an associated volume representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
-func NewTranslationalFrameWithVolume(name string, axes []bool, limits []Limit, volume spatial.VolumeCreator) (Frame, error) {
-	pf := &translationalFrame{name: name, axes: axes, volume: volume}
+// It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewTranslationalFrameWithVolume(name string, axes []bool, limits []Limit, volumeCreator spatial.VolumeCreator) (Frame, error) {
+	pf := &translationalFrame{name: name, axes: axes, volumeCreator: volumeCreator}
 	if len(limits) != pf.DoFInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
 	}
@@ -273,14 +273,14 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return q, err
 }
 
-// Volume returns an object representing the 3D space associeted with the translationalFrame.
-func (pf *translationalFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
-	if pf.volume == nil {
-		return nil, fmt.Errorf("volume not implemented for type %T", pf)
+// Volumes returns an object representing the 3D space associeted with the translationalFrame.
+func (pf *translationalFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
+	if pf.volumeCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil volumeCreator", pf)
 	}
 	pose, err := pf.Transform(input)
 	m := make(map[string]spatial.Volume)
-	m[pf.Name()] = pf.volume.NewVolume(pose)
+	m[pf.Name()] = pf.volumeCreator.NewVolume(pose)
 	return m, err
 }
 
@@ -371,10 +371,10 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return pose, err
 }
 
-// Volume will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy volumes is a
+// Volumes will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy volumes is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
-func (rf *rotationalFrame) Volume(input []Input) (map[string]spatial.Volume, error) {
-	return nil, fmt.Errorf("volume not implemented for type %T", rf)
+func (rf *rotationalFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
+	return nil, fmt.Errorf("s not implemented for type %T", rf)
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.

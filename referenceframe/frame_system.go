@@ -27,7 +27,7 @@ type FrameSystem interface {
 	// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	TransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (spatial.Pose, error)
-	VolumeFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error)
+	VolumesOfFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, dstFrame Frame) (r3.Vector, error)
 
 	// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target referenceframe.
@@ -166,15 +166,15 @@ func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFr
 	return sfs.transformFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
-// VolumeFrame takes in a source and destination frame and returns the volumes from the srcFrame in the reference
+// VolumesOfFrame takes in a source and destination frame and returns the volumes from the srcFrame in the reference
 // frame of the the second, in the form of a mapping between the name of the frame and its volume, and including any
 // intermediate frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of
 // inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) VolumeFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error) {
+func (sfs *simpleFrameSystem) VolumesOfFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
-	return sfs.volumeFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
+	return sfs.volumesFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
 // TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to
@@ -378,7 +378,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 }
 
 // Returns the relative pose between two frames.
-func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (map[string]spatial.Volume, error) {
+func (sfs *simpleFrameSystem) volumesFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (map[string]spatial.Volume, error) {
 	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	if toTarget == nil && err != nil {
 		return nil, err
@@ -389,7 +389,7 @@ func (sfs *simpleFrameSystem) volumeFromParent(inputMap map[string][]Input, src,
 	}
 
 	// transform from source to world, world to target
-	vols, err := volumeFromPositions(src, inputMap)
+	vols, err := volumesFromPositions(src, inputMap)
 	if err != nil && vols == nil {
 		return nil, err
 	}
@@ -436,10 +436,10 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	return frame.Transform(inputs)
 }
 
-func volumeFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Volume, error) {
+func volumesFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Volume, error) {
 	inputs, err := getFrameInputs(frame, positions)
 	if err != nil {
 		return nil, err
 	}
-	return frame.Volume(inputs)
+	return frame.Volumes(inputs)
 }
