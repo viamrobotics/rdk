@@ -29,7 +29,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -44,7 +47,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}), &rimage.AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 type overlaySource struct {

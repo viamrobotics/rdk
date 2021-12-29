@@ -49,8 +49,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_composed",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
-		&rimage.AttrConfig{})
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "warp",
 		func(val interface{}) (interface{}, error) {

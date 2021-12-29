@@ -14,7 +14,10 @@ func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
 		config.ComponentTypeBoard,
 		model,
-		config.GenerateBasicAttributeMapConverter(&Config{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&Config{})
 }
 

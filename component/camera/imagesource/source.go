@@ -50,7 +50,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
@@ -67,7 +70,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "intel",
@@ -82,7 +88,10 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "intel",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "file",
@@ -95,7 +104,10 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
-		config.GenerateBasicAttributeMapConverter(&rimage.AttrConfig{}),
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
 		&rimage.AttrConfig{})
 }
 

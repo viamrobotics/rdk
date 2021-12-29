@@ -71,7 +71,10 @@ func init() {
 	})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
-		ModelName, config.GenerateBasicAttributeMapConverter(&ForceMatrixConfig{}), &ForceMatrixConfig{})
+		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ForceMatrixConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &ForceMatrixConfig{})
 }
 
 // ForceMatrixWithMux represents a force matrix that's wired up with a mux.
