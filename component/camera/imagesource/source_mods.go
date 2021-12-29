@@ -37,6 +37,13 @@ func init() {
 			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
 		}})
 
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&rimage.AttrConfig{})
+
 	registry.RegisterComponent(
 		camera.Subtype,
 		"resize",
@@ -59,6 +66,13 @@ func init() {
 				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
 			}, nil
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&rimage.AttrConfig{})
 }
 
 // rotateImageDepthSource TODO.

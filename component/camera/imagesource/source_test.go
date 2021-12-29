@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -65,16 +64,20 @@ func TestDualServerSource(t *testing.T) {
 
 func TestIntelServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := config.AttributeMap{}
-	s, err := NewIntelServerSource("127.0.0.1", 8181, attrs, logger)
+	attrs := rimage.AttrConfig{}
+	attrs.Host = "127.0.0.1"
+	attrs.Port = 8181
+	s, err := NewIntelServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := config.AttributeMap{}
-	s, err := NewServerSource("127.0.0.1", 8181, attrs, logger)
+	attrs := rimage.AttrConfig{}
+	attrs.Host = "127.0.0.1"
+	attrs.Port = 8181
+	s, err := NewServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }

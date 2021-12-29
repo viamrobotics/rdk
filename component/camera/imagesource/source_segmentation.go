@@ -29,6 +29,12 @@ func init() {
 		) (interface{}, error) {
 			return newColorSegmentsSource(r, config)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 // colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
