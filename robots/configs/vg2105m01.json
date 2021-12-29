@@ -14,10 +14,12 @@
       "frame": {
         "parent": "world"
       },
-      "host": "10.237.115.187",
       "model": "ur",
       "name": "theArm",
-      "type": "arm"
+      "type": "arm",
+      "attributes": {
+          "host": "10.237.115.187"
+      }
     }
   ],
   "remotes": [

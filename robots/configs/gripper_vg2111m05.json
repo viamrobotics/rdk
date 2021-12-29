@@ -146,11 +146,13 @@
       "type": "gripper"
     },
     {
-      "host": "127.0.0.1",
       "model": "intel",
       "name": "depth",
-      "port": 8181,
-      "type": "camera"
+      "type": "camera",
+      "attributes": {
+          "host": "127.0.0.1",
+          "port": 8181
+      }
     }
   ],
   "processes": [
