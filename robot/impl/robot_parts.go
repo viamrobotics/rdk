@@ -486,7 +486,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			parts.AddSensor(sensorDevice, c)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
 			fallthrough
 		default:
 			r, err := r.newResource(ctx, c)
@@ -979,7 +979,7 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 			filtered.AddSensor(part, compConf)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
 			fallthrough
 		default:
 			rName := compConf.ResourceName()
