@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
+	fakeforcematrix "go.viam.com/rdk/component/forcematrix/fake"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -148,7 +149,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix",
 	)
@@ -366,7 +367,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix",
 	)
@@ -374,7 +375,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix_r1",
 	)
@@ -382,7 +383,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix_r2",
 	)
@@ -657,7 +658,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix",
 	)
@@ -665,7 +666,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix_r1",
 	)
@@ -673,7 +674,7 @@ func TestPartsClone(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(
 		t,
-		fsm.(*proxyForceMatrix).actual.(*fake.ForceMatrix).Name,
+		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
 		test.ShouldEqual,
 		"forcematrix_r2",
 	)
@@ -806,12 +807,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
-
-	injectFsm := &inject.ForceMatrix{}
-	parts.AddSensor(injectFsm, config.Component{Name: "forcematrix"})
-	fsm, ok := parts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxyForceMatrix).actual, test.ShouldEqual, injectFsm)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(
