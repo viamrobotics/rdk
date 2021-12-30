@@ -1,3 +1,4 @@
+// Package fake implements a fake arm.
 package fake
 
 import (
@@ -16,13 +17,14 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robots/fake"
 )
 
 //go:embed static_arm_model.json
 var armModelJSON []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
+	registry.RegisterComponent(arm.Subtype, fake.ModelName, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")

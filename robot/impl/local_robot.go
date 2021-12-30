@@ -19,8 +19,32 @@ import (
 	_ "go.viam.com/rdk/base/impl"
 	"go.viam.com/rdk/component/arm"
 
+	// register eva.
+	_ "go.viam.com/rdk/component/arm/eva"
+
+	// register fake arm.
+	_ "go.viam.com/rdk/component/arm/fake"
+
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
+
+	// register UR.
+	_ "go.viam.com/rdk/component/arm/universalrobots"
+
+	// register varm.
+	_ "go.viam.com/rdk/component/arm/varm"
+
+	// register force vx300s.
+	_ "go.viam.com/rdk/component/arm/vx300s"
+
+	// register force wx250s.
+	_ "go.viam.com/rdk/component/arm/wx250s"
+
+	// register force xArm.
+	_ "go.viam.com/rdk/component/arm/xarm"
+
+	// register force yahboom.
+	_ "go.viam.com/rdk/component/arm/yahboom"
 	"go.viam.com/rdk/component/board"
 
 	// register board.
@@ -66,35 +90,14 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 
-	// register eva.
-	_ "go.viam.com/rdk/robots/eva"
-
 	// register fake.
 	_ "go.viam.com/rdk/robots/fake"
-
-	// register UR.
-	_ "go.viam.com/rdk/robots/universalrobots"
-
-	// register varm.
-	_ "go.viam.com/rdk/robots/varm"
 
 	// register force matrix.
 	_ "go.viam.com/rdk/robots/vforcematrixtraditional"
 
 	// register force matrix.
 	_ "go.viam.com/rdk/robots/vforcematrixwithmux"
-
-	// register force vx300s.
-	_ "go.viam.com/rdk/robots/vx300s"
-
-	// register force wx250s.
-	_ "go.viam.com/rdk/robots/wx250s"
-
-	// register force xArm.
-	_ "go.viam.com/rdk/robots/xarm"
-
-	// register force yahboom.
-	_ "go.viam.com/rdk/robots/yahboom"
 	"go.viam.com/rdk/sensor"
 
 	// register gy511.
