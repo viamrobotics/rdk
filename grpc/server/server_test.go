@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
