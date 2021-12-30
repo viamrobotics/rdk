@@ -124,24 +124,21 @@ source ~/.viamdevrc
 
 brew bundle --file=- <<-EOS
 
-tap  "bufbuild/buf"
 tap  "viamrobotics/brews"
 # unpinned
 brew "make"
 brew "cmake"
 brew "pkgconfig"
-brew "go"
-brew "buf"
 brew "grpcurl"
-brew "node"
 brew "nlopt"
 brew "x264"
 # pinned
 brew "gcc@11"
+brew "go@1.17"
+brew "node@17"
 brew "protobuf@3.19"
-brew "protoc-gen-grpc-web"
-brew "ts-protoc-gen"
-brew "libwasmer"
+# viam tap
+brew "libwasmer@2.1"
 
 EOS
 
