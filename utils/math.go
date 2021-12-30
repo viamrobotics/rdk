@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/golang/geo/r3"
 )
 
 // DegToRad converts degrees to radians.
@@ -133,5 +135,10 @@ func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 
 // Float64AlmostEqual compares two float64s and returns if the difference between them is less than epsilon.
 func Float64AlmostEqual(a, b, epsilon float64) bool {
-	return math.Abs(a-b) < epsilon
+	return (a-b) < epsilon && (b-a) < epsilon
+}
+
+// R3VectorAlmostEqual compares two r3.Vector objects and returns if the all elementwise differences are less than epsilon.
+func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
+	return math.Abs(a.X-b.X) < epsilon && math.Abs(a.Y-b.Y) < epsilon && math.Abs(a.Z-b.Z) < epsilon
 }
