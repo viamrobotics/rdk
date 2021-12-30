@@ -5,12 +5,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/testutils/inject"
-
-	"go.viam.com/test"
 )
 
 func createShamMotor() *inject.Motor {
@@ -75,7 +74,6 @@ func TestNewMultiAxis(t *testing.T) {
 
 	_, err = NewMultiAxis(ctx, shamRobot, shamcfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
-
 }
 
 func TestInit(t *testing.T) {
@@ -83,7 +81,6 @@ func TestInit(t *testing.T) {
 	fakemotor := createShamMotor()
 	_, err := fakemotor.PositionSupportedFunc(ctx)
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestHomeTwoLimitSwitch(t *testing.T) {
@@ -129,7 +126,6 @@ func TestHomeEncoder(t *testing.T) {
 	ctx := context.Background()
 	err := fakegantry.homeEncoder(ctx, 1)
 	test.That(t, err, test.ShouldNotBeNil)
-
 }
 
 func TestTestLimit(t *testing.T) {
@@ -165,10 +161,6 @@ func TestCurrentPosition(t *testing.T) {
 
 	fakemotors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
 	ctx := context.Background()
-	//fakeboard := &inject.Board{}
-	//fakeboard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-	//	return true, nil
-	//}
 	fakegantry := &multiAxis{
 		limitBoard:      createFakeBoard(),
 		limitHigh:       true,
@@ -182,7 +174,6 @@ func TestCurrentPosition(t *testing.T) {
 
 	test.That(t, positions, test.ShouldResemble, []float64{1, 1, 1})
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestLengths(t *testing.T) {
@@ -196,4 +187,4 @@ func TestLengths(t *testing.T) {
 	test.ShouldHaveLength(t, fakelengths, len(fakegantry.motorList))
 }
 
-//TODO: tests for reference frame
+// TODO: tests for reference frame

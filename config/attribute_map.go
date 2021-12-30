@@ -33,13 +33,13 @@ func (am AttributeMap) IntSlice(name string) []int {
 			} else if i, ok := v.(float64); ok && i == float64(int64(i)) {
 				ints = append(ints, int(i))
 			} else {
-				panic(errors.Errorf("values in (%s) need to be ints but got %T", name, v))
+				panic(errors.Errorf("values in (%s) need to be float64s but got %T", name, v))
 			}
 		}
 		return ints
 	}
 
-	panic(errors.Errorf("wanted a []int for (%s) but got (%v) %T", name, x, x))
+	panic(errors.Errorf("wanted a []float64 for (%s) but got (%v) %T", name, x, x))
 }
 
 // Float64Slice attempts to return a slice of ints present in the map with
@@ -176,7 +176,6 @@ func (am AttributeMap) Bool(name string, def bool) bool {
 
 // BoolSlice attempts to return a slice of bools present in the map with
 // the given name; returns an empty slice otherwise.
-// Added because axes and reference frames are slices of bools. Unsure if needed.
 func (am AttributeMap) BoolSlice(name string, def bool) []bool {
 	if am == nil {
 		return []bool{}

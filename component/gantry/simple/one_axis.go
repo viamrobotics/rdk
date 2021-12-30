@@ -105,7 +105,7 @@ func (g *oneAxis) init(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	err = g.motor.GoFor(ctx, -1*g.rpm, 2)
+	err = g.motor.GoTo(ctx, -1*g.rpm, 0.2*(positionB-positionA))
 	if err != nil {
 		return err
 	}
@@ -177,22 +177,18 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
 
-<<<<<<< HEAD
-	g.logger.Debugf("oneAxis GetPosition %v -> %v", pos, x)
-=======
-	limit1, err := g.limitHit(ctx, true)
+	limitAtZero, err := g.limitHit(ctx, true)
 	if err != nil {
 		return nil, err
 	}
 
-	limit2, err := g.limitHit(ctx, false)
+	limitAtOne, err := g.limitHit(ctx, false)
 	if err != nil {
 		return nil, err
 	}
 
 	// Prints out Motor position, Gantry position along length, state of tlimit switches.
-	g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, x, limit1, limit2)
->>>>>>> bf2501fe (Add files)
+	g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, x, limitAtZero, limitAtOne)
 
 	return []float64{x}, nil
 }
@@ -201,20 +197,7 @@ func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
 }
 
-<<<<<<< HEAD
-// position is in meters.
-<<<<<<< HEAD
-func (g *oneAxis) MoveToPosition(ctx context.Context, positionsMm []float64) error {
-	if len(positionsMm) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positionsMm)
-	}
-
-	if positionsMm[0] < 0 || positionsMm[0] > g.lengthMeters {
-		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positionsMm[0], g.lengthMeters)
-=======
-=======
-// Position is in meters
->>>>>>> 10dc0889 (Add files)
+// Position is in meters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %.02f", positions)
@@ -222,17 +205,13 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 
 	if positions[0] < 0 || positions[0] > g.lengthMeters {
 		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.lengthMeters)
->>>>>>> bf2501fe (Add files)
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 
-	x := positionsMm[0] / g.lengthMeters
+	x := positions[0] / g.lengthMeters
 	x = g.positionLimits[0] + (x * theRange)
 
-<<<<<<< HEAD
-	g.logger.Debugf("oneAxis SetPosition %v -> %v", positionsMm[0], x)
-=======
 	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions[0], x)
 
 	// Limit switch errors that stop the motors.
@@ -242,17 +221,17 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 		return err
 	}
 
-	// Hits backwards limit switch, goes in forwards direction for two revolutions
+	// Hits backwards limit switch, goes in forwards direction for .2 * theRange
 	if hit {
 		if x < g.positionLimits[0] {
 			dir := float64(1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+			return g.motor.GoTo(ctx, dir*g.rpm, .2*theRange)
 		}
 
 		return g.motor.Stop(ctx)
 	}
 
-	// Hits forward limit switch, goes in backwards direction for two revolutions
+	// Hits forward limit switch, goes in backwards direction for .2 * theRange
 	hit, err = g.limitHit(ctx, false)
 	if err != nil {
 		return err
@@ -260,17 +239,12 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+			return g.motor.GoTo(ctx, dir*g.rpm, .2*theRange)
 		}
 		return g.motor.Stop(ctx)
 	}
->>>>>>> bf2501fe (Add files)
 
-	err = g.motor.GoTo(ctx, g.rpm, x)
-	if err != nil {
-		return err
-	}
-	return nil
+	return g.motor.GoTo(ctx, g.rpm, x)
 }
 
 func (g *oneAxis) ModelFrame() referenceframe.Model {

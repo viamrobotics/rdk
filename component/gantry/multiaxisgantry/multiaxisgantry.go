@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -24,10 +23,18 @@ func init() {
 	registry.RegisterComponent(gantry.Subtype, "multiaxis", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewMultiAxis(ctx, r, config, logger)
-		}})
+		},
+	})
 }
 
-// NewMultiAxis creates a new-multi axis gantry
+type switchLimitType string
+
+const (
+	switchLimiTypeEncoder = switchLimitType("encoder")
+	switchLimitTypeOnePin = switchLimitType("onePin")
+)
+
+// NewMultiAxis creates a new-multi axis gantry.
 func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &multiAxis{
 		logger:          logger,
@@ -170,7 +177,7 @@ func (g *multiAxis) init(ctx context.Context) error {
 	return nil
 }
 
-// home gets passed to init
+// home gets passed to init.
 func (g *multiAxis) homeTwoLimSwitch(ctx context.Context, motorID int, limitID []int) error {
 	ok, err := g.motors[motorID].PositionSupported(ctx)
 	if err != nil {
@@ -280,7 +287,7 @@ func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, z
 	return g.motors[motorID].Position(ctx)
 }
 
-// This reads a limit pin from the list of limitPins and returns true if that limit pin // is hit.
+// This reads a limit pin from the list of limitPins and returns true if that limit pin is hit.
 func (g *multiAxis) limitHit(ctx context.Context, offset int) (bool, error) {
 	pin := g.limitSwitchPins[offset]
 	high, err := g.limitBoard.GPIOGet(ctx, pin)
@@ -336,7 +343,6 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	}
 
 	switch g.limitType {
-
 	// Moving should be the same for single limit switch logic and two limit switch logic
 	case "oneLimSwitch", "twoLimSwitch":
 		for idx := range g.motorList {
@@ -359,7 +365,6 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
 				return g.motors[idx].Stop(ctx)
-
 			}
 
 			// Hits forward limit switch, goes in backwards direction for two revolutions
@@ -373,7 +378,6 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
 				}
 				return g.motors[idx].Stop(ctx)
-
 			}
 
 			err = g.motors[idx].GoTo(ctx, g.rpm[idx], targetPos)
@@ -389,9 +393,15 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	return nil
 }
 
+<<<<<<< HEAD
 //TODO incorporate frames into movement function above.
 func (g *multiAxis) ModelFrame() *referenceframe.Model {
 	m := referenceframe.NewModel()
+=======
+// TODO incorporate frames into movement function above.
+func (g *multiAxis) ModelFrame() referenceframe.Model {
+	m := referenceframe.NewSimpleModel()
+>>>>>>> c51caed0 (addressed smaller requested changes)
 	for idx := range g.motorList {
 		f, err := referenceframe.NewTranslationalFrame(
 			g.name,
