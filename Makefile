@@ -1,4 +1,3 @@
-
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 ENTRYCMD = usermod --uid $(shell id -u) testbot && groupmod --gid $(shell id -g) testbot && sudo -u testbot
 
@@ -12,6 +11,7 @@ else ifneq ("$(wildcard /etc/rpi-issue)","")
 else
    SERVER_DEB_PLATFORM = generic
 endif
+SERVER_DEB_VER = 0.5
 
 # Linux always needs custom_wasmer_runtime for portability in packaging
 ifeq ("$(shell uname -s)", "Linux")
@@ -24,8 +24,6 @@ else
 	DOCKER_WORKSPACE=$(shell docker container inspect -f '{{range .Mounts}}{{ if eq .Destination "/__w" }}{{.Source}}{{ end }}{{end}}' $(shell hostname) | tr -d '\n')/rdk/rdk
 endif
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
-
-SERVER_DEB_VER = 0.5
 
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
@@ -53,7 +51,6 @@ tool-install:
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		github.com/edaniels/golinters/cmd/combined \
 		github.com/golangci/golangci-lint/cmd/golangci-lint
-	npm install
 
 buf: buf-go buf-web
 
@@ -62,6 +59,7 @@ buf-go: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf generate
 
 buf-web: tool-install
+	npm install
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
@@ -79,7 +77,7 @@ test:
 	./etc/test.sh
 
 testpi:
-	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
+	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
 
 dockerlocal:
 	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .

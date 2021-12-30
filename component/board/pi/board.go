@@ -132,7 +132,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
 		for _, sc := range cfg.SPIs {
 			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.Errorf("only SPI buses 0 and 1 are available on Pi boards.")
+				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards.")
 			}
 			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 		}
