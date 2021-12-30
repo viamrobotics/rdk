@@ -29,8 +29,8 @@ func TestBoxAlmostEqual(t *testing.T) {
 func TestBoxVsBox(t *testing.T) {
 	cases := []struct {
 		testname string
-		a        *box
-		b        *box
+		a        Volume
+		b        Volume
 		expected bool
 	}{
 		{
@@ -119,7 +119,9 @@ func TestBoxVsBox(t *testing.T) {
 			if !c.expected {
 				fn = test.ShouldBeFalse
 			}
-			test.That(t, boxVsBoxCollision(c.a, c.b), fn)
+			collides, err := c.a.CollidesWith(c.b)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, collides, fn)
 		})
 	}
 }
