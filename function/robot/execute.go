@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/robot"
@@ -23,6 +24,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	if err != nil {
 		return nil, err
 	}
+	defer utils.UncheckedErrorFunc(engine.Close)
 	// TODO(erd): maybe this should be an argument and not a global set of functions
 	if err := engine.ImportFunction("robot.gripperOpen", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
