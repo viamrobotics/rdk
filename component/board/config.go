@@ -3,7 +3,6 @@ package board
 import (
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
@@ -17,15 +16,9 @@ func RegisterConfigAttributeConverter(model string) {
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &Config{})
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
 // A Config describes the configuration of a board and all of its connected parts.

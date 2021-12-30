@@ -11,9 +11,9 @@
         { "name" : "depth",
           "type" : "camera",
           "model" : "intel",
-          "host" : "127.0.0.1",
-          "port" : 8181,
           "attributes" : {
+              "host": "127.0.0.1",
+              "port": 8181,
               "hide" : true
           }
         },

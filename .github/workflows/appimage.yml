@@ -16,11 +16,10 @@ jobs:
   appimages_amd64:
     name: (x64) Viam Server AppImage
     runs-on: qemu-host
+    container:
+      image: ghcr.io/viamrobotics/test:latest
 
     steps:
-    - name: Fix Permissions
-      run: sudo chown -R `whoami` ./
-
     - name: Checkout Code
       uses: actions/checkout@v2
       with: 
@@ -28,10 +27,17 @@ jobs:
 
     - name: Configure git for private modules
       run: |
-        git config --global url."https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com".insteadOf "https://github.com"
+        sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
+        sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
+
+    - name: Update dev environment and setup testbot permissions
+      run: |
+        sudo -u testbot bash -lc 'make setup'
+        chown -R testbot .
+        groupmod --gid $(ls -n /var/run/docker.sock | cut -d" " -f4) docker && usermod -aG docker testbot
 
     - name: Build and Package
-      run: make clean-all appimage-amd64
+      run: sudo -u testbot DOCKER_NESTED=yes bash -lc 'make clean-all appimage-amd64'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v0.4.3
@@ -51,11 +57,10 @@ jobs:
   appimages_arm64:
     name: (arm64) Viam Server AppImage
     runs-on: qemu-host
+    container:
+      image: ghcr.io/viamrobotics/test:latest
 
     steps:
-    - name: Fix Permissions
-      run: sudo chown -R `whoami` ./
-
     - name: Checkout Code
       uses: actions/checkout@v2
       with: 
@@ -63,10 +68,18 @@ jobs:
 
     - name: Configure git for private modules
       run: |
-        git config --global url."https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com".insteadOf "https://github.com"
+        sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
+        sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
+
+    - name: Update dev environment and setup testbot permissions
+      run: |
+        sudo -u testbot bash -lc 'make setup'
+        chown -R testbot .
+        groupmod --gid $(ls -n /var/run/docker.sock | cut -d" " -f4) docker && usermod -aG docker testbot
 
     - name: Build and Package
-      run: make clean-all appimage-arm64
+      run: |
+        sudo -u testbot DOCKER_NESTED=yes bash -lc 'make clean-all appimage-arm64'
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v0.4.3
