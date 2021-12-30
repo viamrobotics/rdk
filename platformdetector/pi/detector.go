@@ -5,5 +5,7 @@
 package pi
 
 import (
+
+	// Import the real pi code.
 	_ "go.viam.com/rdk/component/board/pi"
 )
