@@ -48,7 +48,7 @@ func TestServer(t *testing.T) {
 
 		_, err = boardServer.GPIOSet(context.Background(), &pb.BoardServiceGPIOSetRequest{Name: fakeBoardName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not an Board")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
 
 		_, err = boardServer.GPIOSet(context.Background(), &pb.BoardServiceGPIOSetRequest{Name: missingBoardName})
 		test.That(t, err, test.ShouldNotBeNil)

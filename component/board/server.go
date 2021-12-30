@@ -29,7 +29,7 @@ func (s *subtypeServer) getBoard(name string) (Board, error) {
 	}
 	board, ok := resource.(Board)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an Board", name)
+		return nil, errors.Errorf("resource with name (%s) is not a Board", name)
 	}
 	return board, nil
 }
