@@ -31,15 +31,32 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+const (
+	modelname = "eva"
+)
+
+// AttrConfig is used for converting config attributes.
+type AttrConfig struct {
+	Token string `json:"token"`
+	Host  string `json:"host"`
+}
+
 //go:embed eva_kinematics.json
 var evamodeljson []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, "eva", registry.Component{
+	registry.RegisterComponent(arm.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewEva(ctx, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 type evaData struct {
@@ -338,8 +355,6 @@ func evaModel() (referenceframe.Model, error) {
 
 // NewEva TODO.
 func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
-	attrs := cfg.Attributes
-	host := cfg.Host
 	model, err := evaModel()
 	if err != nil {
 		return nil, err
@@ -350,9 +365,9 @@ func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm
 	}
 
 	e := &eva{
-		host:      host,
+		host:      cfg.ConvertedAttributes.(*AttrConfig).Host,
 		version:   "v1",
-		token:     attrs.String("token"),
+		token:     cfg.ConvertedAttributes.(*AttrConfig).Token,
 		logger:    logger,
 		moveLock:  &sync.Mutex{},
 		model:     model,

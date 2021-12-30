@@ -3,7 +3,6 @@ package config
 import (
 	"flag"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -32,9 +31,6 @@ const (
 // A Component describes the configuration of a component.
 type Component struct {
 	Name string `json:"name"`
-
-	Host string `json:"host"`
-	Port int    `json:"port"`
 
 	Type      ComponentType `json:"type"`
 	SubType   string        `json:"subtype"`
@@ -116,14 +112,6 @@ func ParseComponentFlag(flag string) (Component, error) {
 		switch keyVal[0] {
 		case "name":
 			cmp.Name = keyVal[1]
-		case "host":
-			cmp.Host = keyVal[1]
-		case "port":
-			port, err := strconv.ParseInt(keyVal[1], 10, 64)
-			if err != nil {
-				return Component{}, errors.Wrap(err, "error parsing port")
-			}
-			cmp.Port = int(port)
 		case "type":
 			cmp.Type = ComponentType(keyVal[1])
 		case "subtype":

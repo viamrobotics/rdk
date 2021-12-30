@@ -177,22 +177,16 @@ func TestComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	err = utils.ParseFlags([]string{"main", "--comp=host=foo"}, &myStruct)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
-
-	err = utils.ParseFlags([]string{"main", "--comp=type=foo,host=bar,attr=wee:woo"}, &myStruct)
+	err = utils.ParseFlags([]string{"main", "--comp=type=foo,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myStruct.Comp.Type, test.ShouldEqual, config.ComponentType("foo"))
-	test.That(t, myStruct.Comp.Host, test.ShouldEqual, "bar")
 	test.That(t, myStruct.Comp.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
 
-	err = utils.ParseFlags([]string{"main", "type=foo,host=bar,attr=wee:woo"}, &myStruct)
+	err = utils.ParseFlags([]string{"main", "type=foo,attr=wee:woo"}, &myStruct)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, myStruct.Comp2.Type, test.ShouldEqual, config.ComponentType("foo"))
-	test.That(t, myStruct.Comp2.Host, test.ShouldEqual, "bar")
 	test.That(t, myStruct.Comp2.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 	})
@@ -202,14 +196,6 @@ func TestParseComponentFlag(t *testing.T) {
 	_, err := config.ParseComponentFlag("foo")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
-
-	_, err = config.ParseComponentFlag("host=foo")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "required")
-
-	_, err = config.ParseComponentFlag("port=foo")
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "syntax")
 
 	comp, err := config.ParseComponentFlag("name=baz,type=foo,depends_on=")
 	test.That(t, err, test.ShouldBeNil)
@@ -231,12 +217,9 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err = config.ParseComponentFlag(
-		"type=foo,host=bar,port=5,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	comp, err = config.ParseComponentFlag("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, comp.Name, test.ShouldEqual, "baz")
-	test.That(t, comp.Host, test.ShouldEqual, "bar")
-	test.That(t, comp.Port, test.ShouldEqual, 5)
 	test.That(t, comp.Type, test.ShouldEqual, config.ComponentType("foo"))
 	test.That(t, comp.SubType, test.ShouldEqual, "who")
 	test.That(t, comp.Model, test.ShouldEqual, "bar")

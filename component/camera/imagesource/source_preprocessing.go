@@ -27,6 +27,12 @@ func init() {
 		) (interface{}, error) {
 			return newPreprocessDepth(r, config)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "preprocess_depth",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 // preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.

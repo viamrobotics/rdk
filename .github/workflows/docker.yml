@@ -1,6 +1,8 @@
 name: Docker
 
 on:
+  schedule:
+    - cron: '0 1 * * *' # once a day at 1AM
   workflow_dispatch:
   push:
     paths:

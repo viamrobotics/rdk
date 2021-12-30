@@ -21,6 +21,11 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+// AttrConfig is used for converting config attributes.
+type AttrConfig struct {
+	Host string `json:"host"`
+}
+
 type xArm struct {
 	dof      int
 	tid      uint16
@@ -50,6 +55,20 @@ func init() {
 			return NewxArm(ctx, config, logger, 7)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm6",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeArm, "xArm7",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 // XArmModel returns the kinematics model of the xArm, also has all Frame information.
@@ -64,7 +83,7 @@ func xArmModel(dof int) (referenceframe.Model, error) {
 
 // NewxArm returns a new xArm with the specified dof.
 func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof int) (arm.Arm, error) {
-	host := cfg.Host
+	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	conn, err := net.Dial("tcp", host+":502")
 	if err != nil {
 		return nil, err
