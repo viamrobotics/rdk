@@ -18,10 +18,10 @@ import (
 	// register base.
 	_ "go.viam.com/rdk/base/impl"
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/board"
 
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
+	"go.viam.com/rdk/component/board"
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"

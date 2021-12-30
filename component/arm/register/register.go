@@ -15,7 +15,6 @@ import (
 	// register fake arm.
 	_ "go.viam.com/rdk/component/arm/fake"
 
-
 	// register UR.
 	_ "go.viam.com/rdk/component/arm/universalrobots"
 
@@ -33,7 +32,6 @@ import (
 
 	// register force yahboom.
 	_ "go.viam.com/rdk/component/arm/yahboom"
-
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/subtype"
