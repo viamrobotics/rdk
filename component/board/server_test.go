@@ -15,16 +15,16 @@ import (
 )
 
 const (
-	testBoardName    = "board1"
-	fakeBoardName    = "board2"
+	boardName        = "board1"
+	invalidBoardName = "board2"
 	missingBoardName = "board3"
 )
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
 	boards := map[resource.Name]interface{}{
-		board.Named(testBoardName): injectBoard,
-		board.Named(fakeBoardName): "notBoard",
+		board.Named(boardName):        injectBoard,
+		board.Named(invalidBoardName): "notBoard",
 	}
 	boardSvc, err := subtype.New(boards)
 	if err != nil {
@@ -45,11 +45,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardGPIOSet(context.Background(), &pb.BoardGPIOSetRequest{
-			Name: "board1",
+			Name: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -65,7 +65,7 @@ func TestServer(t *testing.T) {
 			return err1
 		}
 		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-			Name: "board1",
+			Name: boardName,
 			Pin:  "one",
 			High: true,
 		})
@@ -77,7 +77,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-			Name: "board1",
+			Name: boardName,
 			Pin:  "one",
 			High: true,
 		})
@@ -96,11 +96,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardGPIOGet(context.Background(), &pb.BoardGPIOGetRequest{
-			Name: "board1",
+			Name: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -116,7 +116,7 @@ func TestServer(t *testing.T) {
 			return false, err1
 		}
 		_, err = server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-			Name: "board1",
+			Name: boardName,
 			Pin:  "one",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
@@ -127,7 +127,7 @@ func TestServer(t *testing.T) {
 			return true, nil
 		}
 		getResp, err := server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-			Name: "board1",
+			Name: boardName,
 			Pin:  "one",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -147,11 +147,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardPWMSet(context.Background(), &pb.BoardPWMSetRequest{
-			Name: "board1",
+			Name: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -167,7 +167,7 @@ func TestServer(t *testing.T) {
 			return err1
 		}
 		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-			Name:      "board1",
+			Name:      boardName,
 			Pin:       "one",
 			DutyCycle: 7,
 		})
@@ -179,7 +179,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-			Name:      "board1",
+			Name:      boardName,
 			Pin:       "one",
 			DutyCycle: 7,
 		})
@@ -199,11 +199,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardPWMSetFrequency(context.Background(), &pb.BoardPWMSetFrequencyRequest{
-			Name: "board1",
+			Name: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -219,7 +219,7 @@ func TestServer(t *testing.T) {
 			return err1
 		}
 		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-			Name:      "board1",
+			Name:      boardName,
 			Pin:       "one",
 			Frequency: 123123,
 		})
@@ -231,7 +231,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-			Name:      "board1",
+			Name:      boardName,
 			Pin:       "one",
 			Frequency: 123123,
 		})
@@ -251,11 +251,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName: "board1",
+			BoardName: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -267,7 +267,7 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
+			BoardName:        boardName,
 			AnalogReaderName: "analog1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -287,7 +287,7 @@ func TestServer(t *testing.T) {
 		}
 		ctx := context.Background()
 		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
+			BoardName:        boardName,
 			AnalogReaderName: "analog1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
@@ -298,7 +298,7 @@ func TestServer(t *testing.T) {
 			return 8, nil
 		}
 		readResp, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
+			BoardName:        boardName,
 			AnalogReaderName: "analog1",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -317,11 +317,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName: "board1",
+			BoardName: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -333,7 +333,7 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -353,7 +353,7 @@ func TestServer(t *testing.T) {
 		}
 		ctx := context.Background()
 		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
@@ -370,7 +370,7 @@ func TestServer(t *testing.T) {
 			return theConfig, nil
 		}
 		configResp, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -390,11 +390,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName: "board1",
+			BoardName: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -406,7 +406,7 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -426,7 +426,7 @@ func TestServer(t *testing.T) {
 		}
 		ctx := context.Background()
 		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
@@ -437,7 +437,7 @@ func TestServer(t *testing.T) {
 			return 42, nil
 		}
 		valueResp, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldBeNil)
@@ -456,11 +456,11 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err := server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName: "board1",
+			BoardName: boardName,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
+		test.That(t, capName, test.ShouldEqual, boardName)
 
 		injectBoard := &inject.Board{}
 		injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
@@ -472,7 +472,7 @@ func TestServer(t *testing.T) {
 		}
 
 		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
@@ -492,7 +492,7 @@ func TestServer(t *testing.T) {
 		}
 		ctx := context.Background()
 		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 			High:                 true,
 			Nanos:                1028,
@@ -505,7 +505,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
+			BoardName:            boardName,
 			DigitalInterruptName: "digital1",
 			High:                 true,
 			Nanos:                1028,
