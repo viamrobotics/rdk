@@ -45,7 +45,7 @@ func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSet
 }
 
 // BoardGPIOGet gets the high/low state of a given pin of a board of the underlying robot.
-func (s *subtypeServer) BoardGPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGetRequest) (*pb.BoardServiceGPIOGetResponse, error) {
+func (s *subtypeServer) GPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGetRequest) (*pb.BoardServiceGPIOGetResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
