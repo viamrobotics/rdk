@@ -10,7 +10,6 @@ if [ "`sudo whoami`x" != "rootx" ]; then
 	exit 1
 fi
 
-
 if [ "$(uname)" == "Linux" ]; then
 
 	# Try for minimal (build-only, no linters or code generation) environment on pi/jetson/similar
@@ -32,12 +31,17 @@ if [ "$(uname)" == "Linux" ]; then
 			exit 1
 		fi
 
-		echo "Full dev environment is only supported on Linux/x86_64, Darwin (MacOS)."
-		echo "Minimal environment installed. Build/run/test should work, but no linters or code generators were installed."
+		git config --global --get-regexp url. > /dev/null
+		if [ $? -ne 0 ]; then
+			git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+		fi
+
+		echo -e "\033[41m""Full dev environment is only supported on Linux/x86_64, Darwin (MacOS).""\033[0m"
+		echo -e "\033[0;32m""Minimal environment installed. Go build/run/test should work, but web targets may fail.""\033[0m"
 		exit 0
 
 	elif [ "$(uname -m)" != "x86_64" ]; then
-		echo "Automated dev environment (full) setup is only supported on Linux/x86_64 and Darwin (MacOS)."
+		echo -e "\033[41m""Automated dev environment (full) setup is only supported on Linux/x86_64 and Darwin (MacOS).""\033[0m"
 		echo "Minimal environment setup is also available for Debian-based aarch64 systems. (Raspberry Pi, Nvidia Jetson, etc.)"
 		exit 1
 	fi
@@ -124,7 +128,6 @@ source ~/.viamdevrc
 
 brew bundle --file=- <<-EOS
 
-tap  "viamrobotics/brews"
 # unpinned
 brew "make"
 brew "cmake"
@@ -138,6 +141,7 @@ brew "go@1.17"
 brew "node@17"
 brew "protobuf@3.19"
 # viam tap
+tap  "viamrobotics/brews"
 brew "libwasmer@2.1"
 
 EOS
@@ -157,4 +161,3 @@ fi
 echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
 echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
 exit 0
-
