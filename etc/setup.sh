@@ -12,7 +12,7 @@ fi
 
 if [ "$(uname)" == "Linux" ]; then
 
-	# Try for minimal (build-only, no linters or code generation) environment on pi/jetson/similar
+	# Try for minimal (no node or web tooling) environment on pi/jetson/similar
 	if [ "$(uname -m)" == "aarch64" ] && [ $(cat /etc/debian_version | cut -d. -f1) -ge 10 ]; then
 		PKG_LIST="build-essential procps curl file git golang-go wasmer-dev libnlopt-dev libx264-dev"
 		if [ -d "/sys/bus/platform/drivers/raspberrypi-firmware" ]; then

@@ -41,7 +41,7 @@ build-web: buf-web
 	cd web/frontend && npm install && npx webpack
 
 tool-install:
-	GOBIN=`pwd`/bin go install github.com/golang/protobuf/protoc-gen-go \
+	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
 		github.com/bufbuild/buf/cmd/buf \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
 		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
