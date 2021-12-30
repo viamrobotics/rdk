@@ -34,12 +34,12 @@
             }
         },
         {
-            "model": "fake",
+            "model": "${TEST_MODEL_NAME_1-fake}",
             "name": "mock1",
             "type": "mock"
         },
         {
-            "model": "fake2",
+            "model": "${TEST_MODEL_NAME_2-fake2}",
             "name": "mock2",
             "type": "mock"
         }
