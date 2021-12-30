@@ -44,7 +44,7 @@ func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSet
 	return &pb.BoardServiceGPIOSetResponse{}, b.GPIOSet(ctx, req.Pin, req.High)
 }
 
-// BoardGPIOGet gets the high/low state of a given pin of a board of the underlying robot.
+// GPIOGet gets the high/low state of a given pin of a board of the underlying robot.
 func (s *subtypeServer) GPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGetRequest) (*pb.BoardServiceGPIOGetResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *subtypeServer) GPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGet
 	return &pb.BoardServiceGPIOGetResponse{High: high}, nil
 }
 
-// BoardPWMSet sets a given pin of the underlying robot to the given duty cycle.
+// PWMSet sets a given pin of the underlying robot to the given duty cycle.
 func (s *subtypeServer) PWMSet(ctx context.Context, req *pb.BoardServicePWMSetRequest) (*pb.BoardServicePWMSetResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
@@ -68,9 +68,9 @@ func (s *subtypeServer) PWMSet(ctx context.Context, req *pb.BoardServicePWMSetRe
 	return &pb.BoardServicePWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
 }
 
-// BoardPWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
+// PWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
 // frequency.
-func (s *subtypeServer) BoardPWMSetFrequency(
+func (s *subtypeServer) PWMSetFrequency(
 	ctx context.Context,
 	req *pb.BoardServicePWMSetFrequencyRequest,
 ) (*pb.BoardServicePWMSetFrequencyResponse, error) {

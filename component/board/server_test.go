@@ -138,7 +138,7 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{ctx, pin, dutyCycle}
 			return err1
 		}
-		_, err = server.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+		_, err = serverMethod(ctx, &request{
 			Name:      boardName,
 			Pin:       "one",
 			DutyCycle: 7,
@@ -150,7 +150,7 @@ func TestServer(t *testing.T) {
 			capArgs = []interface{}{ctx, pin, dutyCycle}
 			return nil
 		}
-		_, err = server.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+		_, err = serverMethod(ctx, &request{
 			Name:      boardName,
 			Pin:       "one",
 			DutyCycle: 7,
@@ -159,58 +159,50 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
 	})
 
-	// //nolint:dupl
-	// t.Run("BoardPWMSetFrequency", func(t *testing.T) {
-	// 	server, injectBoard, err := newServer()
-	// 	test.That(t, err, test.ShouldBeNil)
-	//
-	// 	var capName string
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		capName = name
-	// 		return nil, false
-	// 	}
-	//
-	// 	_, err := server.BoardPWMSetFrequency(context.Background(), &pb.BoardPWMSetFrequencyRequest{
-	// 		Name: boardName,
-	// 	})
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-	// 	test.That(t, capName, test.ShouldEqual, boardName)
-	//
-	// 	injectBoard := &inject.Board{}
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		return injectBoard, true
-	// 	}
-	//
-	// 	var capArgs []interface{}
-	// 	ctx := context.Background()
-	//
-	// 	err1 := errors.New("whoops")
-	// 	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-	// 		capArgs = []interface{}{ctx, pin, freq}
-	// 		return err1
-	// 	}
-	// 	_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-	// 		Name:      boardName,
-	// 		Pin:       "one",
-	// 		Frequency: 123123,
-	// 	})
-	// 	test.That(t, err, test.ShouldEqual, err1)
-	// 	test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
-	//
-	// 	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-	// 		capArgs = []interface{}{ctx, pin, freq}
-	// 		return nil
-	// 	}
-	// 	_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-	// 		Name:      boardName,
-	// 		Pin:       "one",
-	// 		Frequency: 123123,
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
-	// })
-	//
+	t.Run("PWMSetFrequency", func(t *testing.T) {
+		server, injectBoard, err := newServer()
+		test.That(t, err, test.ShouldBeNil)
+
+		serverMethod := server.PWMSetFrequency
+		type request = pb.BoardServicePWMSetFrequencyRequest
+		ctx := context.Background()
+
+		_, err = serverMethod(ctx, &request{Name: invalidBoardName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
+
+		_, err = serverMethod(ctx, &request{Name: missingBoardName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
+
+		var capArgs []interface{}
+
+		err1 := errors.New("whoops")
+		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			capArgs = []interface{}{ctx, pin, freq}
+			return err1
+		}
+		_, err = serverMethod(ctx, &request{
+			Name:      boardName,
+			Pin:       "one",
+			Frequency: 123123,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
+
+		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			capArgs = []interface{}{ctx, pin, freq}
+			return nil
+		}
+		_, err = serverMethod(ctx, &request{
+			Name:      boardName,
+			Pin:       "one",
+			Frequency: 123123,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
+	})
+
 	// //nolint:dupl
 	// t.Run("BoardAnalogReaderRead", func(t *testing.T) {
 	// 	server, injectBoard, err := newServer()
