@@ -234,7 +234,7 @@ func TestFrameTransform(t *testing.T) {
 }
 
 /*
-This test uses the same setup as the above test, but this time is concered with representing a volume in a difference reference frame
+This test uses the same setup as the above test, but this time is concede with representing a volume in a difference reference frame
 
 |              |
 |*frame1       |*object
