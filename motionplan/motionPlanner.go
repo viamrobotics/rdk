@@ -245,6 +245,8 @@ func getSolutions(ctx context.Context,
 
 	solutionGen := make(chan []referenceframe.Input)
 	ikErr := make(chan error, 1)
+	defer func() { <-ikErr }()
+
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	defer cancel()
 
