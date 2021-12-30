@@ -59,7 +59,7 @@ func (s *subtypeServer) GPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGet
 }
 
 // BoardPWMSet sets a given pin of the underlying robot to the given duty cycle.
-func (s *subtypeServer) BoardPWMSet(ctx context.Context, req *pb.BoardServicePWMSetRequest) (*pb.BoardServicePWMSetResponse, error) {
+func (s *subtypeServer) PWMSet(ctx context.Context, req *pb.BoardServicePWMSetRequest) (*pb.BoardServicePWMSetResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err

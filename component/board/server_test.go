@@ -115,59 +115,50 @@ func TestServer(t *testing.T) {
 		test.That(t, getResp.High, test.ShouldBeTrue)
 	})
 
-	//
-	// //nolint:dupl
-	// t.Run("BoardPWMSet", func(t *testing.T) {
-	// 	server, injectBoard, err := newServer()
-	// 	test.That(t, err, test.ShouldBeNil)
-	//
-	// 	var capName string
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		capName = name
-	// 		return nil, false
-	// 	}
-	//
-	// 	_, err := server.BoardPWMSet(context.Background(), &pb.BoardPWMSetRequest{
-	// 		Name: boardName,
-	// 	})
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-	// 	test.That(t, capName, test.ShouldEqual, boardName)
-	//
-	// 	injectBoard := &inject.Board{}
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		return injectBoard, true
-	// 	}
-	//
-	// 	var capArgs []interface{}
-	// 	ctx := context.Background()
-	//
-	// 	err1 := errors.New("whoops")
-	// 	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-	// 		capArgs = []interface{}{ctx, pin, dutyCycle}
-	// 		return err1
-	// 	}
-	// 	_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-	// 		Name:      boardName,
-	// 		Pin:       "one",
-	// 		DutyCycle: 7,
-	// 	})
-	// 	test.That(t, err, test.ShouldEqual, err1)
-	// 	test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-	//
-	// 	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-	// 		capArgs = []interface{}{ctx, pin, dutyCycle}
-	// 		return nil
-	// 	}
-	// 	_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-	// 		Name:      boardName,
-	// 		Pin:       "one",
-	// 		DutyCycle: 7,
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-	// })
-	//
+	t.Run("PWMSet", func(t *testing.T) {
+		server, injectBoard, err := newServer()
+		test.That(t, err, test.ShouldBeNil)
+
+		serverMethod := server.PWMSet
+		type request = pb.BoardServicePWMSetRequest
+		ctx := context.Background()
+
+		_, err = serverMethod(ctx, &request{Name: invalidBoardName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
+
+		_, err = serverMethod(ctx, &request{Name: missingBoardName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
+
+		var capArgs []interface{}
+
+		err1 := errors.New("whoops")
+		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			capArgs = []interface{}{ctx, pin, dutyCycle}
+			return err1
+		}
+		_, err = server.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+			Name:      boardName,
+			Pin:       "one",
+			DutyCycle: 7,
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
+
+		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			capArgs = []interface{}{ctx, pin, dutyCycle}
+			return nil
+		}
+		_, err = server.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+			Name:      boardName,
+			Pin:       "one",
+			DutyCycle: 7,
+		})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
+	})
+
 	// //nolint:dupl
 	// t.Run("BoardPWMSetFrequency", func(t *testing.T) {
 	// 	server, injectBoard, err := newServer()
