@@ -23,7 +23,7 @@ ifeq ("$(DOCKER_NESTED)", "")
 else
 	DOCKER_WORKSPACE=$(shell docker container inspect -f '{{range .Mounts}}{{ if eq .Destination "/__w" }}{{.Source}}{{ end }}{{end}}' $(shell hostname) | tr -d '\n')/rdk/rdk
 endif
-PATH_WITH_GO_BIN=`pwd`/bin:${PATH}
+PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 SERVER_DEB_VER = 0.5
 
@@ -42,29 +42,35 @@ build-web: buf-web
 	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
-buf: buf-go buf-web
-
-buf-go:
+tool-install:
 	GOBIN=`pwd`/bin go install github.com/golang/protobuf/protoc-gen-go \
+		github.com/bufbuild/buf/cmd/buf \
+		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
+		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
-	buf lint
-	PATH=$(PATH_WITH_GO_BIN) buf generate
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+		github.com/edaniels/golinters/cmd/combined \
+		github.com/golangci/golangci-lint/cmd/golangci-lint
+	npm install
 
-buf-web:
-	buf lint
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+buf: buf-go buf-web
 
-lint:
-	buf lint
-	go install github.com/edaniels/golinters/cmd/combined
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+buf-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	PATH=$(PATH_WITH_TOOLS) buf generate
+
+buf-web: tool-install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+
+lint: tool-install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=bin/combined
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
 	./etc/test.sh cover

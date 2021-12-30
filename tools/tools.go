@@ -5,6 +5,9 @@
 package tools
 
 import (
+	_ "github.com/bufbuild/buf/cmd/buf"
+	_ "github.com/bufbuild/buf/cmd/protoc-gen-buf-lint"
+	_ "github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking"
 	_ "github.com/edaniels/golinters/cmd/combined"
 	_ "github.com/fullstorydev/grpcurl/cmd/grpcurl"
 	_ "github.com/golang/protobuf/protoc-gen-go"
