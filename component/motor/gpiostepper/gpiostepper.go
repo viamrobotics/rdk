@@ -257,15 +257,15 @@ func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func
 	}
 	defer func() {
 		if err := m.Stop(ctx); err != nil {
-			m.logger.Error("failed to turn off motor")
+			m.logger.Errorw("failed to turn off motor", "error", err)
 		}
 	}()
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
-			return errors.New("context cancelled during GoTillStop")
+			return errors.Wrap(ctx.Err(), "stopped via context")
 		}
 		if stopFunc != nil && stopFunc(ctx) {
-			return nil
+			return ctx.Err()
 		}
 	}
 }
