@@ -18,6 +18,14 @@ func TestNewBoxFromOffset(t *testing.T) {
 	quatCompare(t, vol.Pose().Orientation().Quaternion(), NewZeroOrientation().Quaternion())
 }
 
+func TestBoxAlmostEqual(t *testing.T) {
+	original := makeBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{})
+	good := makeBox(NewZeroOrientation(), r3.Vector{1e-16, 1e-16, 1e-16}, r3.Vector{1e-16, 1e-16, 1e-16})
+	bad := makeBox(NewZeroOrientation(), r3.Vector{1e-2, 1e-2, 1e-2}, r3.Vector{1e-2, 1e-2, 1e-2})
+	test.That(t, original.AlmostEqual(good), test.ShouldBeTrue)
+	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
+}
+
 func TestBoxVsBox(t *testing.T) {
 	cases := []struct {
 		testname string
