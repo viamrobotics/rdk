@@ -30,29 +30,17 @@ func init() {
 type switchLimitType string
 
 const (
-	switchLimiTypeEncoder = switchLimitType("encoder")
-	switchLimitTypeOnePin = switchLimitType("onePin")
+	switchLimitTypeEncoder         = switchLimitType("encoder")
+	switchLimitTypeOnePinOneLength = switchLimitType("onePinOneLength")
+	switchLimitTypeTwoPin          = switchLimitType("twoPin")
 )
 
 // NewMultiAxis creates a new-multi axis gantry.
 func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &multiAxis{
-		logger:          logger,
-		name:            config.Name,
-		motorList:       []string{},
-		motors:          []motor.Motor{},
-		limitSwitchPins: []string{},
-		limitBoard:      nil,
-		limitHigh:       false,
-		axes:            []bool{},
-		limitType:       "",
-		lengthMeters:    []float64{},
-		rpm:             []float64{},
-		positionLimits:  []float64{},
-		pulleyR:         []float64{},
+		logger: logger,
+		name:   config.Name,
 	}
-
-	var ok bool
 
 	// The multi axis gantry uses the motors to consturct the axes of the gantry
 	// Logic considering # axes != to # of motors should be added if we need to use reference
@@ -60,17 +48,19 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	g.motorList = config.Attributes.StringSlice("motors")
 	if len(g.motorList) < 1 {
 		return nil, errors.New("need at least 1 axis")
-	} else if len(g.motorList) > 2 {
-		return nil, errors.New("up to 3 axes supported")
+	} else if len(g.motorList) > 3 {
+		return nil, errors.New("only 1,2, or 3 axes supported")
 	}
 
 	for idx := range g.motorList {
+		var ok bool
 		g.motors[idx], ok = r.MotorByName(g.motorList[idx])
-	}
-	if !ok {
-		return nil, errors.New("cannot find motors for gantry")
+		if !ok {
+			return nil, errors.New("cannot find motors for gantry")
+		}
 	}
 
+	var ok bool
 	g.limitBoard, ok = r.BoardByName(config.Attributes.String("limitBoard"))
 	if !ok {
 		return nil, errors.New("cannot find board for gantry")
@@ -78,14 +68,14 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 
 	g.limitHigh = config.Attributes.Bool("limitHigh", true)
 
-	g.lengthMeters = config.Attributes.Float64Slice("lengthMeters")
-	if len(g.lengthMeters) <= len(g.motorList) {
-		return nil, errors.New("each axis needs a non-zero length")
-	}
-
 	g.pulleyR = config.Attributes.Float64Slice("pulleyR")
 	if g.limitType == "onePinOneLength" && len(g.pulleyR) <= len(g.motorList) {
 		return nil, errors.New("gantries that have one limit switch per axis require pulley radii to be specified")
+	}
+
+	g.lengthMeters = config.Attributes.Float64Slice("lengthMeters")
+	if len(g.lengthMeters) <= len(g.motorList) {
+		return nil, errors.New("each axis needs a non-zero length")
 	}
 
 	for idx := range g.motorList {
@@ -123,7 +113,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 }
 
 // Multiaxis is a gantry type that includes lists of motor names, a list of motor objects, a limit board with enable pins,
-// motor directionpins, limit positionpins and a descriptive name based on the type of limit used.
+// motor direction pins, limit position pins and a descriptive name based on the type of limit used.
 // It also includes motor initial speeds, and each axes' length as descriptors.
 // AxesList is not doing much now.
 type multiAxis struct {
