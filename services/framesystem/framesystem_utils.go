@@ -160,7 +160,11 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 		if !ok {
 			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
 		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+		fm, ok := part.(forcematrix.ForceMatrix)
+		if !ok {
+			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
+		}
+		if framer, ok := utils.UnwrapProxy(fm).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil
 		}
 		return nil, referenceframe.ErrNoModelInformation
