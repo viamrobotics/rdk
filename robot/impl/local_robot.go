@@ -18,34 +18,10 @@ import (
 	// register base.
 	_ "go.viam.com/rdk/base/impl"
 	"go.viam.com/rdk/component/arm"
-
-	// register eva.
-	_ "go.viam.com/rdk/component/arm/eva"
-
-	// register fake arm.
-	_ "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/board"
 
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
-
-	// register UR.
-	_ "go.viam.com/rdk/component/arm/universalrobots"
-
-	// register varm.
-	_ "go.viam.com/rdk/component/arm/varm"
-
-	// register force vx300s.
-	_ "go.viam.com/rdk/component/arm/vx300s"
-
-	// register force wx250s.
-	_ "go.viam.com/rdk/component/arm/wx250s"
-
-	// register force xArm.
-	_ "go.viam.com/rdk/component/arm/xarm"
-
-	// register force yahboom.
-	_ "go.viam.com/rdk/component/arm/yahboom"
-	"go.viam.com/rdk/component/board"
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"
