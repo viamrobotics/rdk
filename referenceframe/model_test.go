@@ -13,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
 	simpleM, ok := m.(*SimpleModel)
@@ -34,13 +34,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
-	m, err = ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "foo")
+	m, err = ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestTransform(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -69,7 +69,7 @@ func TestTransform(t *testing.T) {
 }
 
 func TestVerboseTransform(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
