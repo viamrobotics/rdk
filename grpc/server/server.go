@@ -18,6 +18,7 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/input"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
@@ -25,7 +26,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/services"
 	"go.viam.com/rdk/services/framesystem"
@@ -1116,9 +1116,9 @@ func (s *Server) ForceMatrixSlipDetection(
 }
 
 func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	fm, ok := s.r.ResourceByName(forcematrix.Named(name))
 	if !ok {
 		return nil, errors.Errorf("no force matrix with name (%s)", name)
 	}
-	return sensorDevice.(forcematrix.ForceMatrix), nil
+	return fm.(forcematrix.ForceMatrix), nil
 }

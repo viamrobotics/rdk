@@ -10,17 +10,17 @@ import (
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/slipdetection"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is used to register the sensor to a model name.
-const ModelName = "forcematrixtraditional_v1"
+// model is used to register the sensor to a model name.
+const model = "forcematrixtraditional_v1"
 
 // ForceMatrixConfig describes the configuration of a forcematrixtraditional_v1.
 type ForceMatrixConfig struct {
@@ -52,8 +52,13 @@ func (config *ForceMatrixConfig) Validate(path string) error {
 
 // init registers the forcematrix sensor type.
 func init() {
-	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterComponent(forcematrix.Subtype, model, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
 			forceMatrixConfig, ok := config.ConvertedAttributes.(*ForceMatrixConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
@@ -62,8 +67,8 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
-		ModelName,
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeForceMatrix,
+		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ForceMatrixConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -190,5 +195,5 @@ func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error)
 
 // Desc returns that this is a forcematrix sensor type.
 func (fsm *ForceMatrixTraditional) Desc() sensor.Description {
-	return sensor.Description{forcematrix.Type, ""}
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
 }
