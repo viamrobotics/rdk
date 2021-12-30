@@ -124,28 +124,6 @@ func TestNew(t *testing.T) {
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-
-	// TODO [kat]: This needs to be deleted
-	t.Run("return error when returned sensor is not a forcematrix", func(t *testing.T) {
-		fakeRobot := &inject.Robot{}
-		fakeBoard := &inject.Board{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := createWorkingMotor()
-			return fakeMotor, true
-		}
-		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			return &inject.AnalogReader{}, true
-		}
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Sensor{}, true
-		}
-
-		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }
 
 func TestCalibrate(t *testing.T) {
