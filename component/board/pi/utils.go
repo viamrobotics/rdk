@@ -78,5 +78,5 @@ func broadcomPinFromHardwareLabel(hwPin string) (uint, bool) {
 			return existingVal, true
 		}
 	}
-	panic(fmt.Errorf("could not find corresponding broadcom pin for %s", hwPin))
+	return 1000, false
 }

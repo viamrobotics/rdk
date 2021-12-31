@@ -70,7 +70,6 @@ func (s *piPigpioI2CHandle) WriteByteData(ctx context.Context, register byte, da
 		return errors.Errorf("error in WriteByteData (%d)", res)
 	}
 	return nil
-
 }
 
 func (s *piPigpioI2CHandle) ReadWordData(ctx context.Context, register byte) (uint16, error) {
@@ -79,7 +78,6 @@ func (s *piPigpioI2CHandle) ReadWordData(ctx context.Context, register byte) (ui
 		return 0, errors.Errorf("error in ReadWordData (%d)", res)
 	}
 	return uint16(res & 0xFFFF), nil
-
 }
 
 func (s *piPigpioI2CHandle) WriteWordData(ctx context.Context, register byte, data uint16) error {
@@ -99,7 +97,7 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 	temp := C.i2cOpen(bus, (C.uint)(addr), handle.i2cFlags)
 
 	if temp < 0 {
-		return nil, errors.Errorf("error opening I2C Bus %s return code was %d, flags were %X", bus, handle.handle, handle.i2cFlags)
+		return nil, errors.Errorf("error opening I2C Bus %d return code was %d, flags were %X", bus, handle.handle, handle.i2cFlags)
 	}
 	handle.handle = C.uint(temp)
 
@@ -107,6 +105,6 @@ func (s *piPigpioI2C) OpenHandle(addr byte) (board.I2CHandle, error) {
 }
 
 func (h *piPigpioI2CHandle) Close() error {
-	C.i2cClose((C.uint)(h.handle))
+	C.i2cClose(h.handle)
 	return nil
 }
