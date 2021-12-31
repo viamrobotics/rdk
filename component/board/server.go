@@ -105,8 +105,8 @@ func (s *subtypeServer) AnalogReaderRead(
 	return &pb.BoardServiceAnalogReaderReadResponse{Value: int32(val)}, nil
 }
 
-// BoardDigitalInterruptConfig returns the config the interrupt was created with.
-func (s *subtypeServer) BoardDigitalInterruptConfig(
+// DigitalInterruptConfig returns the config the interrupt was created with.
+func (s *subtypeServer) DigitalInterruptConfig(
 	ctx context.Context,
 	req *pb.BoardServiceDigitalInterruptConfigRequest,
 ) (*pb.BoardServiceDigitalInterruptConfigResponse, error) {
