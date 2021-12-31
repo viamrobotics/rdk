@@ -148,40 +148,6 @@ func TestServer(t *testing.T) {
 				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
-		// server, injectBoard, err := newServer()
-		// test.That(t, err, test.ShouldBeNil)
-		//
-		// serverMethod := server.GPIOGet
-		// type request = pb.BoardServiceGPIOGetRequest
-		// ctx := context.Background()
-		//
-		// _, err = serverMethod(ctx, &request{Name: invalidBoardName})
-		// test.That(t, err, test.ShouldNotBeNil)
-		// test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
-		//
-		// _, err = serverMethod(ctx, &request{Name: missingBoardName})
-		// test.That(t, err, test.ShouldNotBeNil)
-		// test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
-		//
-		// var capArgs []interface{}
-		//
-		// err1 := errors.New("whoops")
-		// injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		// 	capArgs = []interface{}{ctx, pin}
-		// 	return false, err1
-		// }
-		// _, err = serverMethod(ctx, &request{Name: boardName, Pin: "one"})
-		// test.That(t, err, test.ShouldEqual, err1)
-		// test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
-		//
-		// injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		// 	capArgs = []interface{}{ctx, pin}
-		// 	return true, nil
-		// }
-		// getResp, err := serverMethod(ctx, &request{Name: boardName, Pin: "one"})
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
-		// test.That(t, getResp.High, test.ShouldBeTrue)
 	})
 
 	t.Run("PWMSet", func(t *testing.T) {
