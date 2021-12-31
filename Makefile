@@ -130,10 +130,10 @@ docker-emulation:
 appimage-multiarch: appimage-amd64 appimage-arm64
 
 appimage-amd64:
-	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:amd64-latest $(ENTRYCMD) make appimage
+	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
 appimage-arm64:
-	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:arm64-latest $(ENTRYCMD) make appimage
+	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
