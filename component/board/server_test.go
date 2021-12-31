@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+// TODO(maximpertsov): add board with analogs, with interrupts, etc
+
 const (
 	boardName        = "board1"
 	invalidBoardName = "board2"
