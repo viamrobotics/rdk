@@ -37,47 +37,61 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 
 func TestServer(t *testing.T) {
 	t.Run("GPIOSet", func(t *testing.T) {
-		server, injectBoard, err := newServer()
-		test.That(t, err, test.ShouldBeNil)
-
-		serverMethod := server.GPIOSet
 		type request = pb.BoardServiceGPIOSetRequest
 		ctx := context.Background()
 
-		_, err = serverMethod(ctx, &request{Name: invalidBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
-
-		_, err = serverMethod(ctx, &request{Name: missingBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
-
-		var capArgs []interface{}
-
-		err1 := errors.New("whoops")
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-			capArgs = []interface{}{ctx, pin, high}
-			return err1
+		tests := []struct {
+			injectErr  error
+			req        *request
+			expCapArgs []interface{}
+			expRespErr error
+		}{
+			{
+				injectErr:  nil,
+				req:        &request{Name: missingBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: invalidBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+			},
+			{
+				injectErr:  genericError,
+				req:        &request{Name: boardName, Pin: "one", High: true},
+				expCapArgs: []interface{}{ctx, "one", true},
+				expRespErr: genericError,
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: boardName, Pin: "one", High: true},
+				expCapArgs: []interface{}{ctx, "one", true},
+				expRespErr: nil,
+			},
 		}
-		_, err = serverMethod(ctx, &request{
-			Name: boardName,
-			Pin:  "one",
-			High: true,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
 
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-			capArgs = []interface{}{ctx, pin, high}
-			return nil
+		for _, tc := range tests {
+			t.Run("", func(t *testing.T) {
+				server, injectBoard, err := newServer()
+				test.That(t, err, test.ShouldBeNil)
+
+				var capArgs []interface{}
+				injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+					capArgs = []interface{}{ctx, pin, high}
+					return tc.injectErr
+				}
+
+				_, err = server.GPIOSet(ctx, tc.req)
+				if tc.expRespErr == nil {
+					test.That(t, err, test.ShouldBeNil)
+				} else {
+					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				}
+				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+			})
 		}
-		_, err = serverMethod(ctx, &request{
-			Name: boardName,
-			Pin:  "one",
-			High: true,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
 	})
 
 	t.Run("GPIOGet", func(t *testing.T) {
