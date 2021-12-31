@@ -280,70 +280,76 @@ func TestServer(t *testing.T) {
 		}
 	})
 
-	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
+	t.Run("AnalogReaderRead", func(t *testing.T) {
 		type request = pb.BoardServiceAnalogReaderReadRequest
 		type response = pb.BoardServiceAnalogReaderReadResponse
 		ctx := context.Background()
 
 		tests := []struct {
-			injectResult board.AnalogReader
-			injectOk     bool
-			req          *request
-			expCapArgs   []interface{}
-			expResp      *response
-			expRespErr   error
+			injectAnalogReader     *inject.AnalogReader
+			injectAnalogReaderOk   bool
+			injectResult           int
+			injectErr              error
+			req                    *request
+			expCapAnalogReaderArgs []interface{}
+			expCapArgs             []interface{}
+			expResp                *response
+			expRespErr             error
 		}{
 			{
-				injectResult: nil,
-				injectOk:     false,
-				req:          &request{BoardName: missingBoardName},
-				expCapArgs:   []interface{}(nil),
-				expResp:      nil,
-				expRespErr:   errors.Errorf("no Board with name (%s)", missingBoardName),
+				injectAnalogReader:     nil,
+				injectAnalogReaderOk:   false,
+				injectResult:           0,
+				injectErr:              nil,
+				req:                    &request{BoardName: missingBoardName},
+				expCapAnalogReaderArgs: []interface{}(nil),
+				expCapArgs:             []interface{}(nil),
+				expResp:                nil,
+				expRespErr:             errors.Errorf("no Board with name (%s)", missingBoardName),
 			},
 			{
-				injectResult: nil,
-				injectOk:     false,
-				req:          &request{BoardName: invalidBoardName},
-				expCapArgs:   []interface{}(nil),
-				expResp:      nil,
-				expRespErr:   errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+				injectAnalogReader:     nil,
+				injectAnalogReaderOk:   false,
+				injectResult:           0,
+				injectErr:              nil,
+				req:                    &request{BoardName: invalidBoardName},
+				expCapAnalogReaderArgs: []interface{}(nil),
+				expCapArgs:             []interface{}(nil),
+				expResp:                nil,
+				expRespErr:             errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
 			},
 			{
-				injectResult: nil,
-				injectOk:     false,
-				req:          &request{BoardName: boardName, AnalogReaderName: "analog1"},
-				expCapArgs:   []interface{}{"analog1"},
-				expResp:      nil,
-				expRespErr:   errors.Errorf("unknown analog reader: analog1"),
+				injectAnalogReader:     nil,
+				injectAnalogReaderOk:   false,
+				injectResult:           0,
+				injectErr:              nil,
+				req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+				expCapAnalogReaderArgs: []interface{}{"analog1"},
+				expCapArgs:             []interface{}(nil),
+				expResp:                nil,
+				expRespErr:             errors.Errorf("unknown analog reader: analog1"),
 			},
 			{
-				injectResult: func() board.AnalogReader {
-					ar := &inject.AnalogReader{}
-					ar.ReadFunc = func(ctx context.Context) (int, error) {
-						return 0, genericError
-					}
-					return ar
-				}(),
-				injectOk:   true,
-				req:        &request{BoardName: boardName, AnalogReaderName: "analog1"},
-				expCapArgs: []interface{}{"analog1"},
-				expResp:    nil,
-				expRespErr: genericError,
+				injectAnalogReader:     &inject.AnalogReader{},
+				injectAnalogReaderOk:   true,
+				injectResult:           0,
+				injectErr:              genericError,
+				req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+				expCapAnalogReaderArgs: []interface{}{"analog1"},
+				expCapArgs:             []interface{}{ctx},
+				expResp:                nil,
+				expRespErr:             genericError,
 			},
 			{
-				injectResult: func() board.AnalogReader {
-					ar := &inject.AnalogReader{}
-					ar.ReadFunc = func(ctx context.Context) (int, error) {
-						return 8, nil
-					}
-					return ar
-				}(),
-				injectOk:   true,
-				req:        &request{BoardName: boardName, AnalogReaderName: "analog1"},
-				expCapArgs: []interface{}{"analog1"},
-				expResp:    &response{Value: 8},
-				expRespErr: nil,
+				injectAnalogReader:     &inject.AnalogReader{},
+				injectAnalogReaderOk:   true,
+				injectResult:           8,
+				injectErr:              nil,
+				req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+				expCapAnalogReaderArgs: []interface{}{"analog1"},
+				expCapArgs:             []interface{}{ctx},
+				expResp:                &response{Value: 8},
+				expRespErr:             nil,
 			},
 		}
 
@@ -352,10 +358,18 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capArgs []interface{}
+				var capAnalogReaderArgs []interface{}
 				injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-					capArgs = []interface{}{name}
-					return tc.injectResult, tc.injectOk
+					capAnalogReaderArgs = []interface{}{name}
+					return tc.injectAnalogReader, tc.injectAnalogReaderOk
+				}
+
+				var capArgs []interface{}
+				if tc.injectAnalogReader != nil {
+					tc.injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+						capArgs = []interface{}{ctx}
+						return tc.injectResult, tc.injectErr
+					}
 				}
 
 				resp, err := server.AnalogReaderRead(ctx, tc.req)
@@ -365,70 +379,11 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
+
+				test.That(t, capAnalogReaderArgs, test.ShouldResemble, tc.expCapAnalogReaderArgs)
 				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
-
-		// var capName string
-		// injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-		// 	capName = name
-		// 	return nil, false
-		// }
-		//
-		// _, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-		// 	BoardName: boardName,
-		// })
-		// test.That(t, err, test.ShouldNotBeNil)
-		// test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		// test.That(t, capName, test.ShouldEqual, boardName)
-
-		// injectBoard := &inject.Board{}
-		// injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-		// 	return injectBoard, true
-		// }
-		// injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		// 	capName = name
-		// 	return nil, false
-		// }
-		//
-		// _, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-		// 	BoardName:        boardName,
-		// 	AnalogReaderName: "analog1",
-		// })
-		// test.That(t, err, test.ShouldNotBeNil)
-		// test.That(t, err.Error(), test.ShouldContainSubstring, "unknown analog reader")
-		// test.That(t, capName, test.ShouldEqual, "analog1")
-		//
-		// injectAnalogReader := &inject.AnalogReader{}
-		// injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		// 	return injectAnalogReader, true
-		// }
-		//
-		// var capCtx context.Context
-		// err1 := errors.New("whoops")
-		// injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		// 	capCtx = ctx
-		// 	return 0, err1
-		// }
-		// ctx := context.Background()
-		// _, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-		// 	BoardName:        boardName,
-		// 	AnalogReaderName: "analog1",
-		// })
-		// test.That(t, err, test.ShouldEqual, err1)
-		// test.That(t, capCtx, test.ShouldEqual, ctx)
-		//
-		// injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		// 	capCtx = ctx
-		// 	return 8, nil
-		// }
-		// readResp, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-		// 	BoardName:        boardName,
-		// 	AnalogReaderName: "analog1",
-		// })
-		// test.That(t, err, test.ShouldBeNil)
-		// test.That(t, capCtx, test.ShouldEqual, ctx)
-		// test.That(t, readResp.Value, test.ShouldEqual, 8)
 	})
 
 	// t.Run("BoardDigitalInterruptConfig", func(t *testing.T) {
