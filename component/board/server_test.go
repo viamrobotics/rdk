@@ -160,47 +160,62 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("PWMSetFrequency", func(t *testing.T) {
-		server, injectBoard, err := newServer()
-		test.That(t, err, test.ShouldBeNil)
-
-		serverMethod := server.PWMSetFrequency
 		type request = pb.BoardServicePWMSetFrequencyRequest
 		ctx := context.Background()
+		errWhoops := errors.New("whoops")
 
-		_, err = serverMethod(ctx, &request{Name: invalidBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
-
-		_, err = serverMethod(ctx, &request{Name: missingBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
-
-		var capArgs []interface{}
-
-		err1 := errors.New("whoops")
-		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-			capArgs = []interface{}{ctx, pin, freq}
-			return err1
+		tests := []struct {
+			injectErr  error
+			req        *request
+			expCapArgs []interface{}
+			expRespErr error
+		}{
+			{
+				injectErr:  nil,
+				req:        &request{Name: missingBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: invalidBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+			},
+			{
+				injectErr:  errWhoops,
+				req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
+				expCapArgs: []interface{}{ctx, "one", uint(123123)},
+				expRespErr: errWhoops,
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
+				expCapArgs: []interface{}{ctx, "one", uint(123123)},
+				expRespErr: nil,
+			},
 		}
-		_, err = serverMethod(ctx, &request{
-			Name:      boardName,
-			Pin:       "one",
-			Frequency: 123123,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
 
-		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-			capArgs = []interface{}{ctx, pin, freq}
-			return nil
+		for _, tc := range tests {
+			t.Run("", func(t *testing.T) {
+				server, injectBoard, err := newServer()
+				test.That(t, err, test.ShouldBeNil)
+
+				var capArgs []interface{}
+
+				injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+					capArgs = []interface{}{ctx, pin, freq}
+					return tc.injectErr
+				}
+				_, err = server.PWMSetFrequency(ctx, tc.req)
+				if tc.expRespErr == nil {
+					test.That(t, err, test.ShouldBeNil)
+				} else {
+					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				}
+				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+			})
 		}
-		_, err = serverMethod(ctx, &request{
-			Name:      boardName,
-			Pin:       "one",
-			Frequency: 123123,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
 	})
 
 	// //nolint:dupl
