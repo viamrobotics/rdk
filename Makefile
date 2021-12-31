@@ -1,5 +1,5 @@
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
-ENTRYCMD = usermod --uid $(shell id -u) testbot && groupmod --gid $(shell id -g) testbot && sudo -u testbot
+ENTRYCMD = --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
 GREPPED = $(shell grep -sao jetson /proc/device-tree/compatible)
 ifneq ("$(strip $(GREPPED))", "")
@@ -117,7 +117,7 @@ gamepad: samples/gamepad/cmd.go
 clean-all:
 	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
 
-appimage: server
+appimage: buf-go server
 	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
@@ -129,13 +129,11 @@ docker-emulation:
 
 appimage-multiarch: appimage-amd64 appimage-arm64
 
-appimage-setup: buf-go
+appimage-amd64:
+	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:amd64-latest $(ENTRYCMD) make appimage
 
-appimage-amd64: appimage-setup
-	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
-
-appimage-arm64: appimage-setup
-	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
+appimage-arm64:
+	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:arm64-latest $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
