@@ -82,8 +82,8 @@ func (s *subtypeServer) PWMSetFrequency(
 	return &pb.BoardServicePWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
 }
 
-// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-func (s *subtypeServer) BoardAnalogReaderRead(
+// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+func (s *subtypeServer) AnalogReaderRead(
 	ctx context.Context,
 	req *pb.BoardServiceAnalogReaderReadRequest,
 ) (*pb.BoardServiceAnalogReaderReadResponse, error) {
