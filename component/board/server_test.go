@@ -20,6 +20,8 @@ const (
 	missingBoardName = "board3"
 )
 
+var genericError = errors.New("whoops")
+
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
 	boards := map[resource.Name]interface{}{
@@ -116,53 +118,8 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("PWMSet", func(t *testing.T) {
-		server, injectBoard, err := newServer()
-		test.That(t, err, test.ShouldBeNil)
-
-		serverMethod := server.PWMSet
 		type request = pb.BoardServicePWMSetRequest
 		ctx := context.Background()
-
-		_, err = serverMethod(ctx, &request{Name: invalidBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Board")
-
-		_, err = serverMethod(ctx, &request{Name: missingBoardName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Board")
-
-		var capArgs []interface{}
-
-		err1 := errors.New("whoops")
-		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-			capArgs = []interface{}{ctx, pin, dutyCycle}
-			return err1
-		}
-		_, err = serverMethod(ctx, &request{
-			Name:      boardName,
-			Pin:       "one",
-			DutyCycle: 7,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-
-		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-			capArgs = []interface{}{ctx, pin, dutyCycle}
-			return nil
-		}
-		_, err = serverMethod(ctx, &request{
-			Name:      boardName,
-			Pin:       "one",
-			DutyCycle: 7,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-	})
-
-	t.Run("PWMSetFrequency", func(t *testing.T) {
-		type request = pb.BoardServicePWMSetFrequencyRequest
-		ctx := context.Background()
-		errWhoops := errors.New("whoops")
 
 		tests := []struct {
 			injectErr  error
@@ -183,10 +140,68 @@ func TestServer(t *testing.T) {
 				expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
 			},
 			{
-				injectErr:  errWhoops,
+				injectErr:  genericError,
+				req:        &request{Name: boardName, Pin: "one", DutyCycle: 7},
+				expCapArgs: []interface{}{ctx, "one", byte(7)},
+				expRespErr: genericError,
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: boardName, Pin: "one", DutyCycle: 7},
+				expCapArgs: []interface{}{ctx, "one", byte(7)},
+				expRespErr: nil,
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run("", func(t *testing.T) {
+				server, injectBoard, err := newServer()
+				test.That(t, err, test.ShouldBeNil)
+
+				var capArgs []interface{}
+				injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+					capArgs = []interface{}{ctx, pin, dutyCycle}
+					return tc.injectErr
+				}
+
+				_, err = server.PWMSet(ctx, tc.req)
+				if tc.expRespErr == nil {
+					test.That(t, err, test.ShouldBeNil)
+				} else {
+					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				}
+				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+			})
+		}
+	})
+
+	t.Run("PWMSetFrequency", func(t *testing.T) {
+		type request = pb.BoardServicePWMSetFrequencyRequest
+		ctx := context.Background()
+
+		tests := []struct {
+			injectErr  error
+			req        *request
+			expCapArgs []interface{}
+			expRespErr error
+		}{
+			{
+				injectErr:  nil,
+				req:        &request{Name: missingBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+			},
+			{
+				injectErr:  nil,
+				req:        &request{Name: invalidBoardName},
+				expCapArgs: []interface{}(nil),
+				expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+			},
+			{
+				injectErr:  genericError,
 				req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
 				expCapArgs: []interface{}{ctx, "one", uint(123123)},
-				expRespErr: errWhoops,
+				expRespErr: genericError,
 			},
 			{
 				injectErr:  nil,
@@ -202,11 +217,11 @@ func TestServer(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 
 				var capArgs []interface{}
-
 				injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
 					capArgs = []interface{}{ctx, pin, freq}
 					return tc.injectErr
 				}
+
 				_, err = server.PWMSetFrequency(ctx, tc.req)
 				if tc.expRespErr == nil {
 					test.That(t, err, test.ShouldBeNil)
