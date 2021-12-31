@@ -10,12 +10,39 @@ if [ "`sudo whoami`x" != "rootx" ]; then
 	exit 1
 fi
 
-
 if [ "$(uname)" == "Linux" ]; then
 
-	if [ "$(uname -m)" != "x86_64" ]; then
-		echo "Automated dev environment setup is only supported on Linux/x86_64 or Darwin (Mac)."
-		echo "If you need to build on a Raspberry Pi, please install the Viam RPi image."
+	# Try for minimal (no node or web tooling) environment on pi/jetson/similar
+	if [ "$(uname -m)" == "aarch64" ] && [ $(cat /etc/debian_version | cut -d. -f1) -ge 10 ]; then
+		PKG_LIST="build-essential procps curl file git golang-go wasmer-dev libnlopt-dev libx264-dev"
+		if [ -d "/sys/bus/platform/drivers/raspberrypi-firmware" ]; then
+			PKG_LIST="$PKG_LIST libpigpio-dev"
+		fi
+
+		INSTALL_CMD="echo 'deb [trusted=yes] http://packages.viam.com/debian viam/' > /etc/apt/sources.list.d/viam.list && \
+		apt-get update && \
+		apt-get install --assume-yes $PKG_LIST"
+
+		sudo bash -c "$INSTALL_CMD"
+
+		if [ $? -ne 0 ]; then
+			echo "Package installation failed when running:"
+			echo "sudo bash -c \"$INSTALL_CMD\""
+			exit 1
+		fi
+
+		git config --global --get-regexp url. > /dev/null
+		if [ $? -ne 0 ]; then
+			git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+		fi
+
+		echo -e "\033[41m""Full dev environment is only supported on Linux/x86_64, Darwin (MacOS).""\033[0m"
+		echo -e "\033[0;32m""Minimal environment installed. Go build/run/test should work, but web targets may fail.""\033[0m"
+		exit 0
+
+	elif [ "$(uname -m)" != "x86_64" ]; then
+		echo -e "\033[41m""Automated dev environment (full) setup is only supported on Linux/x86_64 and Darwin (MacOS).""\033[0m"
+		echo "Minimal environment setup is also available for Debian-based aarch64 systems. (Raspberry Pi, Nvidia Jetson, etc.)"
 		exit 1
 	fi
 
@@ -101,24 +128,21 @@ source ~/.viamdevrc
 
 brew bundle --file=- <<-EOS
 
-tap  "bufbuild/buf"
-tap  "viamrobotics/brews"
 # unpinned
 brew "make"
 brew "cmake"
 brew "pkgconfig"
-brew "go"
-brew "buf"
 brew "grpcurl"
-brew "node"
 brew "nlopt"
 brew "x264"
 # pinned
 brew "gcc@11"
+brew "go@1.17"
+brew "node@17"
 brew "protobuf@3.19"
-brew "protoc-gen-grpc-web"
-brew "ts-protoc-gen"
-brew "libwasmer"
+# viam tap
+tap  "viamrobotics/brews"
+brew "libwasmer@2.1"
 
 EOS
 
@@ -137,4 +161,3 @@ fi
 echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
 echo -e "Don't forget to restart your shell, or execute: ""\033[41m""source ~/.viamdevrc""\033[0m"
 exit 0
-

@@ -33,6 +33,7 @@ bin
 dist/*
 proto/api/*
 !proto/api/*/*.proto
+node_modules/
 
 # Test data
 coverage.txt
