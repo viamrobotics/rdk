@@ -137,8 +137,8 @@ func digitalInterruptConfigToProto(config *DigitalInterruptConfig) *pb.DigitalIn
 	}
 }
 
-// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-func (s *subtypeServer) BoardDigitalInterruptValue(
+// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+func (s *subtypeServer) DigitalInterruptValue(
 	ctx context.Context,
 	req *pb.BoardServiceDigitalInterruptValueRequest,
 ) (*pb.BoardServiceDigitalInterruptValueResponse, error) {

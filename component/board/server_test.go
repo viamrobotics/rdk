@@ -506,73 +506,113 @@ func TestServer(t *testing.T) {
 		}
 	})
 
-	// //nolint:dupl
-	// t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
-	// 	server, injectBoard, err := newServer()
-	// 	test.That(t, err, test.ShouldBeNil)
-	//
-	// 	var capName string
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		capName = name
-	// 		return nil, false
-	// 	}
-	//
-	// 	_, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-	// 		BoardName: boardName,
-	// 	})
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-	// 	test.That(t, capName, test.ShouldEqual, boardName)
-	//
-	// 	injectBoard := &inject.Board{}
-	// 	injectBoard.BoardByNameFunc = func(name string) (board.Board, bool) {
-	// 		return injectBoard, true
-	// 	}
-	// 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-	// 		capName = name
-	// 		return nil, false
-	// 	}
-	//
-	// 	_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-	// 		BoardName:            boardName,
-	// 		DigitalInterruptName: "digital1",
-	// 	})
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
-	// 	test.That(t, capName, test.ShouldEqual, "digital1")
-	//
-	// 	injectDigitalInterrupt := &inject.DigitalInterrupt{}
-	// 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-	// 		return injectDigitalInterrupt, true
-	// 	}
-	//
-	// 	var capCtx context.Context
-	// 	err1 := errors.New("whoops")
-	// 	injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-	// 		capCtx = ctx
-	// 		return 0, err1
-	// 	}
-	// 	ctx := context.Background()
-	// 	_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-	// 		BoardName:            boardName,
-	// 		DigitalInterruptName: "digital1",
-	// 	})
-	// 	test.That(t, err, test.ShouldEqual, err1)
-	// 	test.That(t, capCtx, test.ShouldEqual, ctx)
-	//
-	// 	injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-	// 		capCtx = ctx
-	// 		return 42, nil
-	// 	}
-	// 	valueResp, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-	// 		BoardName:            boardName,
-	// 		DigitalInterruptName: "digital1",
-	// 	})
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	test.That(t, capCtx, test.ShouldEqual, ctx)
-	// 	test.That(t, valueResp.Value, test.ShouldEqual, 42)
-	// })
-	//
+	//nolint:dupl
+	t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
+		type request = pb.BoardServiceDigitalInterruptValueRequest
+		type response = pb.BoardServiceDigitalInterruptValueResponse
+		ctx := context.Background()
+
+		tests := []struct {
+			injectDigitalInterrupt     *inject.DigitalInterrupt
+			injectDigitalInterruptOk   bool
+			injectResult               int64
+			injectErr                  error
+			req                        *request
+			expCapDigitalInterruptArgs []interface{}
+			expCapArgs                 []interface{}
+			expResp                    *response
+			expRespErr                 error
+		}{
+			{
+				injectDigitalInterrupt:     nil,
+				injectDigitalInterruptOk:   false,
+				injectResult:               0,
+				injectErr:                  nil,
+				req:                        &request{BoardName: missingBoardName},
+				expCapDigitalInterruptArgs: []interface{}(nil),
+				expCapArgs:                 []interface{}(nil),
+				expResp:                    nil,
+				expRespErr:                 errors.Errorf("no Board with name (%s)", missingBoardName),
+			},
+			{
+				injectDigitalInterrupt:     nil,
+				injectDigitalInterruptOk:   false,
+				injectResult:               0,
+				injectErr:                  nil,
+				req:                        &request{BoardName: invalidBoardName},
+				expCapDigitalInterruptArgs: []interface{}(nil),
+				expCapArgs:                 []interface{}(nil),
+				expResp:                    nil,
+				expRespErr:                 errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+			},
+			{
+				injectDigitalInterrupt:     nil,
+				injectDigitalInterruptOk:   false,
+				injectResult:               0,
+				injectErr:                  nil,
+				req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+				expCapDigitalInterruptArgs: []interface{}{"digital1"},
+				expCapArgs:                 []interface{}(nil),
+				expResp:                    nil,
+				expRespErr:                 errors.Errorf("unknown digital interrupt: digital1"),
+			},
+			{
+				injectDigitalInterrupt:     &inject.DigitalInterrupt{},
+				injectDigitalInterruptOk:   true,
+				injectResult:               0,
+				injectErr:                  genericError,
+				req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+				expCapDigitalInterruptArgs: []interface{}{"digital1"},
+				expCapArgs:                 []interface{}{ctx},
+				expResp:                    nil,
+				expRespErr:                 genericError,
+			},
+			{
+				injectDigitalInterrupt:     &inject.DigitalInterrupt{},
+				injectDigitalInterruptOk:   true,
+				injectResult:               42,
+				injectErr:                  nil,
+				req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+				expCapDigitalInterruptArgs: []interface{}{"digital1"},
+				expCapArgs:                 []interface{}{ctx},
+				expResp:                    &response{Value: 42},
+				expRespErr:                 nil,
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run("", func(t *testing.T) {
+				server, injectBoard, err := newServer()
+				test.That(t, err, test.ShouldBeNil)
+
+				var capDigitalInterruptArgs []interface{}
+				injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+					capDigitalInterruptArgs = []interface{}{name}
+					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
+				}
+
+				var capArgs []interface{}
+				if tc.injectDigitalInterrupt != nil {
+					tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+						capArgs = []interface{}{ctx}
+						return tc.injectResult, tc.injectErr
+					}
+				}
+
+				resp, err := server.DigitalInterruptValue(ctx, tc.req)
+				if tc.expRespErr == nil {
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, resp, test.ShouldResemble, tc.expResp)
+				} else {
+					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				}
+
+				test.That(t, capDigitalInterruptArgs, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+			})
+		}
+	})
+
 	// t.Run("BoardDigitalInterruptTick", func(t *testing.T) {
 	// 	server, injectBoard, err := newServer()
 	// 	test.That(t, err, test.ShouldBeNil)
