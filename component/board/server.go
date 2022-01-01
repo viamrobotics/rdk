@@ -159,8 +159,8 @@ func (s *subtypeServer) DigitalInterruptValue(
 	return &pb.BoardServiceDigitalInterruptValueResponse{Value: val}, nil
 }
 
-// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-func (s *subtypeServer) BoardDigitalInterruptTick(
+// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+func (s *subtypeServer) DigitalInterruptTick(
 	ctx context.Context,
 	req *pb.BoardServiceDigitalInterruptTickRequest,
 ) (*pb.BoardServiceDigitalInterruptTickResponse, error) {
