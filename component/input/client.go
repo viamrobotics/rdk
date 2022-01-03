@@ -11,8 +11,8 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/component/v1"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 // serviceClient is a client satisfies the proto contract.
