@@ -56,32 +56,32 @@ func TestClient(t *testing.T) {
 	injectBoard := &inject.Board{}
 	var (
 		// capBoardName string
+		capGPIOSet    []interface{}
+		capGPIOGet    []interface{}
+		capPWMSet     []interface{}
+		capPWMSetFreq []interface{}
 
-		capGPIOGetPin      string
-		capPWMSetPin       string
-		capPWMSetDutyCycle byte
-		capPWMSetFreqPin   string
-		capPWMSetFreqFreq  uint
+		// capPWMSetFreqPin  string
+		// capPWMSetFreqFreq uint
 
 		capAnalogReaderName     string
 		capDigitalInterruptName string
 	)
 
 	injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+		capGPIOSet = []interface{}{pin, high}
 		return nil
 	}
 	injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		capGPIOGetPin = pin
+		capGPIOGet = []interface{}{pin}
 		return true, nil
 	}
 	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-		capPWMSetPin = pin
-		capPWMSetDutyCycle = dutyCycle
+		capPWMSet = []interface{}{pin, dutyCycle}
 		return nil
 	}
 	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-		capPWMSetFreqPin = pin
-		capPWMSetFreqFreq = freq
+		capPWMSetFreq = []interface{}{pin, freq}
 		return nil
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
@@ -109,27 +109,29 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	testWorkingClient := func(client board.Board) {
+	testWorkingClient := func(t *testing.T, client board.Board) {
 		ctx := context.Background()
 
 		err = client.GPIOSet(ctx, "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.GPIOSetCap, test.ShouldResemble, []interface{}{ctx, "one", true})
+		test.That(t, capGPIOSet, test.ShouldResemble, []interface{}{"one", true})
+		defer func() { capGPIOSet = []interface{}(nil) }()
 
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, capGPIOGetPin, test.ShouldEqual, "one")
+		test.That(t, capGPIOGet, test.ShouldResemble, []interface{}{"one"})
+		defer func() { capGPIOGet = []interface{}(nil) }()
 
 		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSetPin, test.ShouldEqual, "one")
-		test.That(t, capPWMSetDutyCycle, test.ShouldEqual, byte(7))
+		test.That(t, capPWMSet, test.ShouldResemble, []interface{}{"one", byte(7)})
+		defer func() { capPWMSet = []interface{}(nil) }()
 
 		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
-		test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
+		test.That(t, capPWMSetFreq, test.ShouldResemble, []interface{}{"one", uint(11233)})
+		defer func() { capPWMSetFreq = []interface{}(nil) }()
 
 		// Analogs + Digital Interrupts
 
@@ -171,21 +173,20 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
 
-	t.Run("Board client 1", func(t *testing.T) {
-		// working
+	t.Run("New client", func(t *testing.T) {
 		board1Client, err := board.NewClient(context.Background(), board1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-		testWorkingClient(board1Client)
+		testWorkingClient(t, board1Client)
 	})
 
-	t.Run("Board client 2", func(t *testing.T) {
+	t.Run("New client from connection", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		board1Client2 := board.NewClientFromConn(conn, board1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		testWorkingClient(board1Client2)
+		testWorkingClient(t, board1Client2)
 	})
 }
 
