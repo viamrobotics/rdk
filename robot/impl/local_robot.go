@@ -30,6 +30,9 @@ import (
 	// register camera.
 	_ "go.viam.com/rdk/component/camera/register"
 
+	// register force matrix.
+	_ "go.viam.com/rdk/component/forcematrix/register"
+
 	// register gantry.
 	_ "go.viam.com/rdk/component/gantry/register"
 	"go.viam.com/rdk/component/gripper"
@@ -78,9 +81,6 @@ import (
 
 	// register gy511.
 	_ "go.viam.com/rdk/sensor/compass/gy511"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/sensor/forcematrix"
 
 	// register merge gps.
 	_ "go.viam.com/rdk/sensor/gps/merge"

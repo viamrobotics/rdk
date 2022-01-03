@@ -53,11 +53,20 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 	}
 
 	var i DigitalInterrupt
+	var associateEngine func(eng functionvm.Engine)
 	switch cfg.Type {
 	case "basic":
-		i = &BasicDigitalInterrupt{cfg: cfg}
+		iActual := &BasicDigitalInterrupt{cfg: cfg}
+		associateEngine = func(eng functionvm.Engine) {
+			iActual.engine = eng
+		}
+		i = iActual
 	case "servo":
-		i = &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
+		iActual := &ServoDigitalInterrupt{cfg: cfg, ra: utils.NewRollingAverage(ServoRollingAverageWindow)}
+		associateEngine = func(eng functionvm.Engine) {
+			iActual.engine = eng
+		}
+		i = iActual
 	default:
 		panic(errors.Errorf("unknown interrupt type (%s)", cfg.Type))
 	}
@@ -97,6 +106,7 @@ func CreateDigitalInterrupt(cfg DigitalInterruptConfig) (DigitalInterrupt, error
 		if err != nil {
 			return nil, err
 		}
+		associateEngine(eng)
 		i.AddPostProcessor(func(raw int64) int64 {
 			results, err := eng.ExecuteSource(cfg.Function.Source)
 			if err != nil {
@@ -120,7 +130,8 @@ type BasicDigitalInterrupt struct {
 
 	callbacks []chan bool
 
-	pp PostProcessor
+	pp     PostProcessor
+	engine functionvm.Engine
 }
 
 // Config returns the config used to create this interrupt.
@@ -171,14 +182,23 @@ func (i *BasicDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
 }
 
+// Close releases any resources.
+func (i *BasicDigitalInterrupt) Close() error {
+	if i.engine == nil {
+		return nil
+	}
+	return i.engine.Close()
+}
+
 // A ServoDigitalInterrupt is an interrupt associated with a servo in order to
 // track the amount of time that has passed between low signals (pulse width). Post processors
 // make meaning of these widths.
 type ServoDigitalInterrupt struct {
-	cfg  DigitalInterruptConfig
-	last uint64
-	ra   *utils.RollingAverage
-	pp   PostProcessor
+	cfg    DigitalInterruptConfig
+	last   uint64
+	ra     *utils.RollingAverage
+	pp     PostProcessor
+	engine functionvm.Engine
 }
 
 // Config returns the config the interrupt was created with.
@@ -227,4 +247,12 @@ func (i *ServoDigitalInterrupt) AddCallback(c chan bool) {
 // Value returns.
 func (i *ServoDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 	i.pp = pp
+}
+
+// Close releases any resources.
+func (i *ServoDigitalInterrupt) Close() error {
+	if i.engine == nil {
+		return nil
+	}
+	return i.engine.Close()
 }

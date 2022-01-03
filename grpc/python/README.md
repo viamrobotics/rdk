@@ -4,11 +4,7 @@
 
 * Python 3
 * RDK [Dependencies](../../README.md#dependencies)
-* Run `make setup`
-
-## Run
-
-* Run `make buf`
+* Run `make setup buf`
 
 ### Server
 * Run `make run_server`
