@@ -1,5 +1,4 @@
-//go:build pi
-// +build pi
+//go:build linux && arm64
 
 // Package pi implements a Board and its related interfaces for a Raspberry Pi.
 package pi
@@ -13,6 +12,7 @@ import "C"
 import (
 	"context"
 	"math"
+	"os"
 	"strconv"
 	"sync"
 
@@ -93,6 +93,14 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		resCode = C.gpioInitialise()
 		if resCode < 0 {
 			instanceMu.Unlock()
+			// failed to init, check for common causes
+			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+			if err != nil {
+				return nil, errors.New("not running on a pi")
+			}
+			if os.Getuid() != 0 {
+				return nil, errors.New("not running as root, try sudo")
+			}
 			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 		}
 		initOnce = true
@@ -124,7 +132,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
 		for _, sc := range cfg.SPIs {
 			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.Errorf("only SPI buses 0 and 1 are available on Pi boards.")
+				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards.")
 			}
 			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 		}
@@ -163,7 +171,6 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.interrupts[c.Name] = di
 		piInstance.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
-
 	}
 
 	instanceMu.Lock()
@@ -273,34 +280,6 @@ func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
 	return nil
 }
 
-// piPigpioAnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
-type piPigpioAnalogReader struct {
-	channel int
-	bus     board.SPI
-	chip    string
-}
-
-func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
-	var tx [3]byte
-	tx[0] = 1                            // start bit
-	tx[1] = byte((8 + par.channel) << 4) // single-ended
-	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
-
-	bus, err := par.bus.OpenHandle()
-	if err != nil {
-		return 0, err
-	}
-	defer bus.Close()
-
-	rx, err := bus.Xfer(ctx, 1000000, par.chip, 0, tx[:])
-	if err != nil {
-		return 0, err
-	}
-	val := (int(rx[1]) << 8) | int(rx[2]) // reassemble 10 bit value
-
-	return val, nil
-}
-
 type piPigpioSPI struct {
 	pi           *piPigpio
 	mu           sync.Mutex
@@ -316,7 +295,6 @@ type piPigpioSPIHandle struct {
 }
 
 func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-
 	if s.isClosed {
 		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
 	}
@@ -326,7 +304,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	var nativeCS C.uint
 
 	if s.bus.busSelect == "1" {
-		spiFlags = spiFlags | 0x100 // Sets AUX SPI bus bit
+		spiFlags |= 0x100 // Sets AUX SPI bus bit
 		if mode == 1 || mode == 3 {
 			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
@@ -366,7 +344,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	// 1    0   1
 	// 2    1   0
 	// 3    1   1
-	spiFlags = spiFlags | mode
+	spiFlags |= mode
 
 	count := len(tx)
 	rx := make([]byte, count)
@@ -401,7 +379,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		}
 	}
 
-	if int(ret) != int(count) {
+	if int(ret) != count {
 		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
 	}
 
@@ -488,7 +466,6 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 
 // Close attempts to close all parts of the board cleanly.
 func (pi *piPigpio) Close(ctx context.Context) error {
-
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		C.gpioTerminate()
@@ -549,6 +526,9 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		// this should *not* block for long otherwise the lock
 		// will be held
 		// TODO(erd): use new cgo Value to pass a context?
-		i.Tick(context.TODO(), high, tick*1000)
+		err := i.Tick(context.TODO(), high, tick*1000)
+		if err != nil {
+			instance.logger.Error(err)
+		}
 	}
 }

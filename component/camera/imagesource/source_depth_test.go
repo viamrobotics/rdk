@@ -7,14 +7,26 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
 
+func TestDepthSource(t *testing.T) {
+	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	test.That(t, err, test.ShouldBeNil)
+	source := &staticSource{img}
+	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
+	blur := 3.0
+	ds := &depthEdgesSource{source, canny, blur}
+	_, _, err = ds.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
 type depthSourceTestHelper struct {
-	attrs config.AttributeMap
+	attrs rimage.AttrConfig
 }
 
 func (h *depthSourceTestHelper) Process(
@@ -27,7 +39,7 @@ func (h *depthSourceTestHelper) Process(
 	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	is, err := NewDepthComposed(nil, nil, &h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dc, ok := is.(*depthComposed)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -76,25 +88,27 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined")
+	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
-	err = d.Process(t, &depthSourceTestHelper{c.Attributes})
+	err = d.Process(t, &depthSourceTestHelper{*c})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestDepthSourceIntel(t *testing.T) {
+	debugImageSourceOrSkip(t)
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front")
+	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)
-	err = d.Process(t, &depthSourceTestHelper{c.Attributes})
+	err = d.Process(t, &depthSourceTestHelper{*c})
 	test.That(t, err, test.ShouldBeNil)
 }

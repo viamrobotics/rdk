@@ -25,7 +25,7 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, collisionEqual(collisions[0], Collision{"cube222", "cube333"}), test.ShouldBeTrue)
 
 	// case 2: zero position of ur5e arm
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	vols, _ = m.Volumes(make([]frame.Input, len(m.DoF())))
 	test.That(t, vols, test.ShouldNotBeNil)
@@ -35,7 +35,7 @@ func TestCheckCollisions(t *testing.T) {
 }
 
 func TestUniqueCollisions(t *testing.T) {
-	m, err := frame.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// zero position of ur5e arm

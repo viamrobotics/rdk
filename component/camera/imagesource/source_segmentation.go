@@ -29,6 +29,12 @@ func init() {
 		) (interface{}, error) {
 			return newColorSegmentsSource(r, config)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 // colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
@@ -46,10 +52,10 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	defer closer()
 	ii := rimage.ConvertToImageWithDepth(i)
 	if ii.Depth == nil {
-		return nil, nil, errors.New("no depth")
+		return nil, nil, errors.New("colorSegmentsSource Next(): no depth")
 	}
 	if ii.Projector() == nil {
-		return nil, nil, errors.New("no camera system")
+		return nil, nil, errors.New("colorSegmentsSource Next(): no camera system")
 	}
 	cloud, err := ii.ToPointCloud()
 	if err != nil {

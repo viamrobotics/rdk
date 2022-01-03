@@ -9,11 +9,7 @@
 * macOS
 	* `brew install openssl`
 	* `export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/homebrew/opt/openssl/lib/pkgconfig`
-* Run `make setup`
-
-## Run
-
-* Run `make buf`
+* Run `make setup buf`
 
 ### Server
 * Run `make run_server`

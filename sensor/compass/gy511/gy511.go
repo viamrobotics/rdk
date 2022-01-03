@@ -28,19 +28,25 @@ import (
 // ModelName is used to register the sensor to a model name.
 const ModelName = "gy511"
 
+// AttrConfig is used for converting config attributes.
+type AttrConfig struct {
+	Host string `json:"host"`
+}
+
 // init registers the gy511 compass type.
 func init() {
-	registry.RegisterSensor(
-		compass.Type,
-		ModelName,
-		registry.Sensor{Constructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			config config.Component,
-			logger golog.Logger,
-		) (sensor.Sensor, error) {
-			return New(ctx, config.Host, logger)
+	registry.RegisterSensor(compass.Type, ModelName,
+		registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+			return New(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, ModelName,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 // GY511 represents a gy511 compass.
