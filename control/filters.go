@@ -149,13 +149,6 @@ func (f *filterStruct) Reset(ctx context.Context) error {
 	return f.filter.Reset()
 }
 
-func (f *filterStruct) Configure(ctx context.Context, config ControlBlockConfig) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.cfg = config
-	return f.initFilter()
-}
-
 func (f *filterStruct) Config(ctx context.Context) ControlBlockConfig {
 	return f.cfg
 }

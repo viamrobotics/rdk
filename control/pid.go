@@ -132,13 +132,6 @@ func (p *basicPID) Reset(ctx context.Context) error {
 	return p.reset()
 }
 
-func (p *basicPID) Configure(ctx context.Context, config ControlBlockConfig) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.cfg = config
-	return p.reset()
-}
-
 func (p *basicPID) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()

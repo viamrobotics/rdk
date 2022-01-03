@@ -130,13 +130,6 @@ func (d *derivative) reset() error {
 	return nil
 }
 
-func (d *derivative) Configure(ctx context.Context, config ControlBlockConfig) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	d.cfg = config
-	return d.reset()
-}
-
 func (d *derivative) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()

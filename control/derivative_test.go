@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 )
 
 func TestDerivativeConfig(t *testing.T) {
-	ctx := context.Background()
+	logger := golog.NewDevelopmentLogger("derivative")
 	for _, c := range []struct {
 		conf ControlBlockConfig
 		err  string
@@ -63,9 +64,9 @@ func TestDerivativeConfig(t *testing.T) {
 			"derive block Derive1 doesn't have a derive_type field",
 		},
 	} {
-		var d derivative
-		err := d.Configure(ctx, c.conf)
+		b, err := newDerivative(c.conf, logger)
 		if c.err == "" {
+			d := b.(*derivative)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(d.y), test.ShouldEqual, 1)
 			test.That(t, len(d.y[0].signal), test.ShouldEqual, 1)
@@ -78,6 +79,7 @@ func TestDerivativeConfig(t *testing.T) {
 
 func TestDerivativeNext(t *testing.T) {
 	const iter int = 3000
+	logger := golog.NewDevelopmentLogger("derivative")
 	ctx := context.Background()
 	cfg := ControlBlockConfig{
 		Name: "Derive1",
@@ -87,8 +89,8 @@ func TestDerivativeNext(t *testing.T) {
 		},
 		DependsOn: []string{"A"},
 	}
-	var d derivative
-	err := d.Configure(ctx, cfg)
+	b, err := newDerivative(cfg, logger)
+	d := b.(*derivative)
 	test.That(t, err, test.ShouldBeNil)
 	var sin []float64
 	for i := 0; i < iter; i++ {
@@ -118,7 +120,7 @@ func TestDerivativeNext(t *testing.T) {
 		},
 		DependsOn: []string{"A"},
 	}
-	err = d.Configure(ctx, cfg)
+	err = d.UpdateConfig(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	for i := 0; i < iter; i++ {
 		sig.SetSignalValueAt(0, sin[i])
@@ -137,7 +139,7 @@ func TestDerivativeNext(t *testing.T) {
 		},
 		DependsOn: []string{"A"},
 	}
-	err = d.Configure(ctx, cfg)
+	err = d.UpdateConfig(ctx, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	sin = nil
 	for i := 0; i < iter; i++ {

@@ -7,14 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 )
 
 func TestPIDConfig(t *testing.T) {
-	ctx := context.Background()
-
+	logger := golog.NewTestLogger(t)
 	for i, tc := range []struct {
 		conf ControlBlockConfig
 		err  string
@@ -48,8 +48,7 @@ func TestPIDConfig(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			var p basicPID
-			err := p.Configure(ctx, tc.conf)
+			_, err := newPID(tc.conf, logger)
 			if tc.err == "" {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
@@ -62,7 +61,7 @@ func TestPIDConfig(t *testing.T) {
 
 func TestPIDBasicIntegralWindup(t *testing.T) {
 	ctx := context.Background()
-	var pid basicPID
+	logger := golog.NewTestLogger(t)
 	cfg := ControlBlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
@@ -77,7 +76,8 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 		Type:      "PID",
 		DependsOn: []string{"A"},
 	}
-	err := pid.Configure(ctx, cfg)
+	b, err := newPID(cfg, logger)
+	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
 	s := []Signal{
 		{
@@ -120,7 +120,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 
 func TestPIDTunner(t *testing.T) {
 	ctx := context.Background()
-	var pid basicPID
+	logger := golog.NewTestLogger(t)
 	cfg := ControlBlockConfig{
 		Name: "PID1",
 		Attribute: config.AttributeMap{
@@ -137,7 +137,8 @@ func TestPIDTunner(t *testing.T) {
 		Type:      "PID",
 		DependsOn: []string{"A"},
 	}
-	err := pid.Configure(ctx, cfg)
+	b, err := newPID(cfg, logger)
+	pid := b.(*basicPID)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pid.tuning, test.ShouldBeTrue)
 	test.That(t, pid.tuner.currentPhase, test.ShouldEqual, begin)
