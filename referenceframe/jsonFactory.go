@@ -11,6 +11,12 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+type vectorJSON struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	Z float64 `json:"z"`
+}
+
 // ModelJSON represents all supported fields in a kinematics JSON file.
 type ModelJSON struct {
 	Name         string `json:"name"`
@@ -20,27 +26,27 @@ type ModelJSON struct {
 		Parent      string                     `json:"parent"`
 		Translation spatialmath.Translation    `json:"translation"`
 		Orientation spatialmath.RawOrientation `json:"orientation"`
+
+		// Box represents the diagonal vector for a rectangular prism comprising the volume around the link
+		BoxVolume vectorJSON `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string `json:"id"`
-		Type   string `json:"type"`
-		Parent string `json:"parent"`
-		Axis   struct {
-			X float64 `json:"x"`
-			Y float64 `json:"y"`
-			Z float64 `json:"z"`
-		} `json:"axis"`
-		Max float64 `json:"max"`
-		Min float64 `json:"min"`
+		ID     string     `json:"id"`
+		Type   string     `json:"type"`
+		Parent string     `json:"parent"`
+		Axis   vectorJSON `json:"axis"`
+		Max    float64    `json:"max"`
+		Min    float64    `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
-		ID     string  `json:"id"`
-		Parent string  `json:"parent"`
-		A      float64 `json:"a"`
-		D      float64 `json:"d"`
-		Alpha  float64 `json:"alpha"`
-		Max    float64 `json:"max"`
-		Min    float64 `json:"min"`
+		ID        string     `json:"id"`
+		Parent    string     `json:"parent"`
+		A         float64    `json:"a"`
+		D         float64    `json:"d"`
+		Alpha     float64    `json:"alpha"`
+		Max       float64    `json:"max"`
+		Min       float64    `json:"min"`
+		BoxVolume vectorJSON `json:"volume"`
 	} `json:"dhParams"`
 	RawFrames []map[string]interface{} `json:"frames"`
 }
@@ -64,12 +70,12 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 	case "SVA", "":
 		for _, link := range m.Links {
 			if link.ID == World {
-				return model, errors.New("reserved word: cannot name a link 'world'")
+				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
 		for _, joint := range m.Joints {
 			if joint.ID == World {
-				return model, errors.New("reserved word: cannot name a joint 'world'")
+				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
@@ -81,10 +87,16 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			}
 			ov := orientation.OrientationVectorRadians()
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
+			pose := spatialmath.NewPoseFromOrientationVector(pt, ov)
 
-			q := spatialmath.NewPoseFromOrientationVector(pt, ov)
+			var vol spatialmath.VolumeCreator
+			if link.BoxVolume.X != 0 && link.BoxVolume.Y != 0 && link.BoxVolume.Z != 0 {
+				dims := r3.Vector{link.BoxVolume.X, link.BoxVolume.Y, link.BoxVolume.Z}.Mul(0.5)
+				offset := spatialmath.Invert(spatialmath.NewPoseFromOrientation(pt.Mul(0.5), ov))
+				vol = spatialmath.NewBoxFromOffset(dims, offset)
+			}
+			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, vol)
 
-			transforms[link.ID], err = NewStaticFrame(link.ID, q)
 			if err != nil {
 				return nil, err
 			}
@@ -132,6 +144,7 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			}
 			parentMap[linkID] = jointID
 		}
+
 	case "frames":
 		for _, x := range m.RawFrames {
 			f, err := UnmarshalFrameMap(x)
@@ -140,8 +153,8 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			}
 			model.OrdTransforms = append(model.OrdTransforms, f)
 		}
-
 		return model, nil
+
 	default:
 		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
 	}
@@ -193,7 +206,6 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 		orderedTransforms[i], orderedTransforms[j] = orderedTransforms[j], orderedTransforms[i]
 	}
 	model.OrdTransforms = orderedTransforms
-
 	return model, nil
 }
 
