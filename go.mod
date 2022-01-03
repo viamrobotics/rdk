@@ -13,7 +13,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20211225195313-3bb0ae1f64f3
+	github.com/edaniels/gostream v0.0.0-20220103180139-fea9e4d30816
 	github.com/erh/egoutil v0.0.10
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
@@ -37,8 +37,8 @@ require (
 	github.com/mitchellh/mapstructure v1.4.2
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/pion/mediadevices v0.3.0
-	github.com/pion/webrtc/v3 v3.1.8
+	github.com/pion/mediadevices v0.3.1
+	github.com/pion/webrtc/v3 v3.1.10
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0
 	github.com/sjwhitworth/golearn v0.0.0-20201127221938-294d65fca392
@@ -55,7 +55,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.3-0.20211226004732-783522f55bd4
+	go.viam.com/utils v0.0.3-0.20220103175926-79510d5e0dff
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	gonum.org/v1/gonum v0.8.2
@@ -204,14 +204,14 @@ require (
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/phayes/checkstyle v0.0.0-20170904204023-bfd46e6a821d // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
-	github.com/pion/datachannel v1.5.1 // indirect
+	github.com/pion/datachannel v1.5.2 // indirect
 	github.com/pion/dtls/v2 v2.0.10 // indirect
-	github.com/pion/ice/v2 v2.1.13 // indirect
+	github.com/pion/ice/v2 v2.1.14 // indirect
 	github.com/pion/interceptor v0.1.0 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.5 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.8 // indirect
+	github.com/pion/rtcp v1.2.9 // indirect
 	github.com/pion/rtp v1.7.4 // indirect
 	github.com/pion/sctp v1.8.0 // indirect
 	github.com/pion/sdp/v3 v3.0.4 // indirect
