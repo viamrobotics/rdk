@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 	board1 := "board1"
 	injectBoard := &inject.Board{}
 	var (
-		capBoardName string
+		// capBoardName string
 
 		capGPIOSetPin      string
 		capGPIOSetHigh     bool
@@ -138,7 +138,7 @@ func TestClient(t *testing.T) {
 		test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
 		test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
 
-        // Analogs + Digital Interrupts
+		// Analogs + Digital Interrupts
 
 		// board3, ok := client.BoardByName("board3")
 		// test.That(t, ok, test.ShouldBeTrue)
@@ -148,7 +148,7 @@ func TestClient(t *testing.T) {
 		readVal, err := analog1.Read(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capAnalogReaderName, test.ShouldEqual, "analog1")
 
 		// digital1, ok := board3.DigitalInterruptByName("digital1")
@@ -157,20 +157,20 @@ func TestClient(t *testing.T) {
 		digital1Config, err := digital1.Config(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		digital1Val, err := digital1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
 		test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		// TODO(maximpertsov): add remaining client methods
@@ -202,13 +202,13 @@ func TestClient(t *testing.T) {
 		test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
 		test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
 
-        // Analogs + Digital Interrupts
+		// Analogs + Digital Interrupts
 		analog1, ok := injectBoard.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
 		readVal, err := analog1.Read(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capAnalogReaderName, test.ShouldEqual, "analog1")
 
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
@@ -216,20 +216,20 @@ func TestClient(t *testing.T) {
 		digital1Config, err := digital1.Config(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		digital1Val, err := digital1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
 		test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
-		test.That(t, capBoardName, test.ShouldEqual, "board3")
+		// test.That(t, capBoardName, test.ShouldEqual, "board3")
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		// TODO(maximpertsov): add remaining client methods
