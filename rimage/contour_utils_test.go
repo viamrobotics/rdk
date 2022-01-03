@@ -27,7 +27,6 @@ func TestFindContours(t *testing.T) {
 			}
 
 			binary.Set(r, c, outVal)
-
 		}
 	}
 	contours, hierarchy := FindContours(binary)
@@ -61,15 +60,14 @@ func TestFindContours(t *testing.T) {
 	test.That(t, len(contours[1]), test.ShouldEqual, 404)
 	test.That(t, len(contours[2]), test.ShouldEqual, 564)
 	test.That(t, len(contours[3]), test.ShouldEqual, 396)
-
 }
 
 func TestApproxContourDP(t *testing.T) {
 	c1 := make([]r2.Point, 3)
 	// half a 50x50 square contour
-	c1[0] = r2.Point{50, 50}   //nolint:govet
-	c1[1] = r2.Point{100, 50}  //nolint:govet
-	c1[2] = r2.Point{100, 100} //nolint:govet
+	c1[0] = r2.Point{50, 50}
+	c1[1] = r2.Point{100, 50}
+	c1[2] = r2.Point{100, 100}
 
 	// small epsilon: c1 and its approximation should be equal
 	c1Approx1 := ApproxContourDP(c1, 0.5)

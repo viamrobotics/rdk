@@ -6,7 +6,7 @@ import (
 	"math"
 )
 
-// Matrix interface for the Kernel
+// Matrix interface for the Kernel.
 type Matrix interface {
 	At(x, y int) float64
 }
@@ -35,7 +35,7 @@ func (k *Kernel) At(x, y int) float64 {
 	return k.Content[x][y]
 }
 
-// Set sets a value at a given {x, y} position
+// Set sets a value at a given {x, y} position.
 func (k *Kernel) Set(x int, y int, value float64) {
 	k.Content[x][y] = value
 }
@@ -65,7 +65,6 @@ func (k *Kernel) Normalize() *Kernel {
 	sum := k.AbSum()
 	if sum == 0 {
 		sum = 1
-
 	}
 	for x := 0; x < k.Height; x++ {
 		for y := 0; y < k.Width; y++ {

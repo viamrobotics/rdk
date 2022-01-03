@@ -136,12 +136,12 @@ func OpeningMorph(dm *DepthMap, kernelSize, iterations int) (*DepthMap, error) {
 }
 
 // intTuple is storing a pair of int
-// Slices of intTuple are used to store structuring elements for morphological operations
+// Slices of intTuple are used to store structuring elements for morphological operations.
 type intTuple struct {
 	a, b int
 }
 
-// ErodeSquare implements the gray level image erosion with a square structuring element of size k
+// ErodeSquare implements the gray level image erosion with a square structuring element of size k.
 func ErodeSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 	r, c := img.Dims()
 	eroded := mat.NewDense(r, c, nil)
@@ -155,13 +155,11 @@ func ErodeSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 		foundSmaller := false
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {
-
 				px := padded.At(y+ky, x+kx)
 				if px < minVal {
 					minVal = px
 					foundSmaller = true
 				}
-
 			}
 		}
 		if foundSmaller {
@@ -171,7 +169,7 @@ func ErodeSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 	return eroded, nil
 }
 
-// ErodeCross implements the gray level image erosion with a square structuring element of size k
+// ErodeCross implements the gray level image erosion with a square structuring element of size k.
 func ErodeCross(img *mat.Dense) (*mat.Dense, error) {
 	r, c := img.Dims()
 	eroded := mat.NewDense(r, c, nil)
@@ -211,18 +209,16 @@ func ErodeCross(img *mat.Dense) (*mat.Dense, error) {
 				minVal = px
 				foundSmaller = true
 			}
-
 		}
 
 		if foundSmaller {
 			eroded.Set(y, x, minVal)
 		}
-
 	})
 	return eroded, nil
 }
 
-// DilateSquare implements the gray level image dilation with a square structuring element of size k
+// DilateSquare implements the gray level image dilation with a square structuring element of size k.
 func DilateSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 	r, c := img.Dims()
 	dilated := mat.NewDense(r, c, nil)
@@ -237,13 +233,11 @@ func DilateSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 		foundLarger := false
 		for ky := 0; ky < kernelSize.Y; ky++ {
 			for kx := 0; kx < kernelSize.X; kx++ {
-
 				px = padded.At(y+ky, x+kx)
 				if px > maxVal {
 					maxVal = px
 					foundLarger = true
 				}
-
 			}
 		}
 		if foundLarger {
@@ -253,7 +247,7 @@ func DilateSquare(img *mat.Dense, k int) (*mat.Dense, error) {
 	return dilated, nil
 }
 
-// DilateCross implements the gray level image dilation with a 3x3 cross structuring element
+// DilateCross implements the gray level image dilation with a 3x3 cross structuring element.
 func DilateCross(img *mat.Dense) (*mat.Dense, error) {
 	r, c := img.Dims()
 	dilated := mat.NewDense(r, c, nil)
@@ -295,19 +289,17 @@ func DilateCross(img *mat.Dense) (*mat.Dense, error) {
 				maxVal = px
 				foundLarger = true
 			}
-
 		}
 
 		if foundLarger {
 			dilated.Set(y, x, maxVal)
 		}
-
 	})
 	return dilated, nil
 }
 
 // MorphoGradientCross implements the morphological gradient i.e. dilated_img - eroded_img, with cross structuring element
-// of size 3
+// of size 3.
 func MorphoGradientCross(img *mat.Dense) (*mat.Dense, error) {
 	r, c := img.Dims()
 	gradient := mat.NewDense(r, c, nil)

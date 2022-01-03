@@ -8,19 +8,19 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// BorderPad is an enum type for supported padding types
+// BorderPad is an enum type for supported padding types.
 type BorderPad int
 
 const (
-	// BorderConstant - xxxabcdefghxxx - where x is a black ( color.Gray{0} ) pixel
+	// BorderConstant - xxxabcdefghxxx - where x is a black ( color.Gray{0} ) pixel.
 	BorderConstant BorderPad = iota
-	// BorderReplicate - aaaabcdefghhhh - replicates the nearest pixel
+	// BorderReplicate - aaaabcdefghhhh - replicates the nearest pixel.
 	BorderReplicate
-	// BorderReflect - cbabcdefgfed - reflects the nearest pixel group
+	// BorderReflect - cbabcdefgfed - reflects the nearest pixel group.
 	BorderReflect
 )
 
-// Paddings struct holds the padding sizes for each padding
+// Paddings struct holds the padding sizes for each padding.
 type Paddings struct {
 	// PaddingLeft is the size of the left padding
 	PaddingLeft int
@@ -112,7 +112,7 @@ func rightPaddingReflect(img image.Image, padded image.Image, p Paddings, setPix
 	}
 }
 
-// PaddingFloat64 pads a *mat.Dense - padding mode = reflect
+// PaddingFloat64 pads a *mat.Dense - padding mode = reflect.
 func PaddingFloat64(img *mat.Dense, kernelSize image.Point, anchor image.Point, border BorderPad) (*mat.Dense, error) {
 	h, w := img.Dims()
 	originalSize := image.Point{w, h}
@@ -190,65 +190,7 @@ func PaddingGray(img *image.Gray, kernelSize image.Point, anchor image.Point, bo
 	return padded, nil
 }
 
-// PaddingRGBA appends padding to a given RGBA image. The size of the padding is calculated from the kernel size
-// and the anchor point. Supported Border types are: BorderConstant, BorderReplicate, BorderReflect.
-// Example of usage:
-//
-// 		res, err := padding.PaddingRGBA(img, {5, 5}, {1, 1}, BorderReflect)
-//
-// Note: this will add a 1px padding for the top and left borders of the image and a 3px padding fot the bottom and
-// right borders of the image.
-func PaddingRGBA(img *image.RGBA, kernelSize image.Point, anchor image.Point, border BorderPad) (*image.RGBA, error) {
-	originalSize := img.Bounds().Size()
-	p, error := computePaddingSizes(kernelSize, anchor)
-	if error != nil {
-		return nil, error
-	}
-	rect := getImageRectangleFromPaddingSizes(p, originalSize)
-	padded := image.NewRGBA(rect)
-
-	for x := p.PaddingLeft; x < originalSize.X+p.PaddingLeft; x++ {
-		for y := p.PaddingTop; y < originalSize.Y+p.PaddingTop; y++ {
-			padded.Set(x, y, img.RGBAAt(x-p.PaddingLeft, y-p.PaddingTop))
-		}
-	}
-
-	switch border {
-	case BorderConstant:
-		// do nothing
-	case BorderReplicate:
-		topPaddingReplicate(img, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		bottomPaddingReplicate(img, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		leftPaddingReplicate(img, padded, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		rightPaddingReplicate(img, padded, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-	case BorderReflect:
-		topPaddingReflect(img, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		bottomPaddingReflect(img, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		leftPaddingReflect(img, padded, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-		rightPaddingReflect(img, padded, p, func(x int, y int, pixel color.Color) {
-			padded.Set(x, y, pixel)
-		})
-	default:
-		return nil, errors.New("unknown Border type")
-	}
-	return padded, nil
-}
-
-// helper functions
+// helper functions.
 func computePaddingSizes(kernelSize image.Point, anchor image.Point) (Paddings, error) {
 	var p Paddings
 	if kernelSize.X < 0 || kernelSize.Y < 0 {

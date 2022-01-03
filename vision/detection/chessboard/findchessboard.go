@@ -1,3 +1,4 @@
+// Package chessboard implements the non-ML chessboard detection in an image.
 package chessboard
 
 import (
@@ -11,17 +12,16 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-var (
-	logger = golog.NewLogger("detect_chessboard")
-)
+// set-up logger.
+var logger = golog.NewLogger("detect_chessboard")
 
-// OutputsConfiguration stores the parameters needed for contour precessing in chessboard detection
+// OutputsConfiguration stores the parameters needed for contour precessing in chessboard detection.
 type OutputsConfiguration struct {
 	OutputFolder string `json:"out-folder"` // low threshold for Canny contours detection
 	BaseName     string `json:"base-name"`  // high threshold for Canny contours detection
 }
 
-// DetectionConfiguration stores the parameters necessary for chessboard detection in an image
+// DetectionConfiguration stores the parameters necessary for chessboard detection in an image.
 type DetectionConfiguration struct {
 	Saddle   SaddleConfiguration        `json:"saddle"`
 	Contours ChessContoursConfiguration `json:"contours"`
@@ -30,7 +30,7 @@ type DetectionConfiguration struct {
 }
 
 // getMinSaddleDistance returns the saddle point that minimizes the distance with r2.Point pt, as well as this minimum
-// distance
+// distance.
 func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float64) {
 	bestDist := math.Inf(1)
 	bestPt := pt
@@ -40,13 +40,12 @@ func getMinSaddleDistance(saddlePoints []r2.Point, pt r2.Point) (r2.Point, float
 		if dist < bestDist {
 			bestDist = dist
 			bestPt = saddlePt
-
 		}
 	}
 	return bestPt, bestDist
 }
 
-// FindChessboard is the function that finds the chessboard given a rimage.Image
+// FindChessboard is the function that finds the chessboard given a rimage.Image.
 func FindChessboard(img rimage.Image, edgesGray *image.Image, cfg DetectionConfiguration, plot bool) (*ChessGrid, error) {
 	cfgOut := cfg.Output
 	// convert to mat
@@ -62,7 +61,7 @@ func FindChessboard(img rimage.Image, edgesGray *image.Image, cfg DetectionConfi
 	edgesImgGray := image.NewGray(image.Rect(0, 0, b.Dx(), b.Dy()))
 
 	if edgesGray == nil {
-		//TODO(louise): fix canny contour detection.
+		// TODO(louise): fix canny contour detection.
 		cannyDetector := rimage.NewCannyDericheEdgeDetectorWithParameters(cfg.Contours.CannyHigh, cfg.Contours.CannyLow, false)
 		edgesImgGray, err = cannyDetector.DetectEdges(&img, 0.5)
 

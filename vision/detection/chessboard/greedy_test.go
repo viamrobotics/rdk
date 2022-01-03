@@ -9,9 +9,7 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-var (
-	NTESTRANDOM int = 5
-)
+var NTESTRANDOM = 5
 
 func Create3IdentityMatrix() *mat.Dense {
 	I := mat.NewDense(3, 3, nil)
@@ -94,7 +92,6 @@ func TestGetInitialChessGrid(t *testing.T) {
 	T2.Set(0, 2, 2)
 	T2.Set(1, 2, 2)
 	test.That(t, mat.EqualApprox(T, T2, 0.0000001), test.ShouldBeTrue)
-
 }
 
 func TestSumGoodPoints(t *testing.T) {

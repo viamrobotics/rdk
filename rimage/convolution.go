@@ -10,40 +10,40 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// GetSobelX returns the Kernel corresponding to the Sobel kernel in the x direction
+// GetSobelX returns the Kernel corresponding to the Sobel kernel in the x direction.
 func GetSobelX() Kernel {
-
-	return Kernel{[][]float64{
-		{-1, 0, 1},
-		{-2, 0, 2},
-		{-1, 0, 1},
-	},
+	return Kernel{
+		[][]float64{
+			{-1, 0, 1},
+			{-2, 0, 2},
+			{-1, 0, 1},
+		},
 		3,
 		3,
 	}
 }
 
-// GetSobelY returns the Kernel corresponding to the Sobel kernel in the y direction
+// GetSobelY returns the Kernel corresponding to the Sobel kernel in the y direction.
 func GetSobelY() Kernel {
-
-	return Kernel{[][]float64{
-		{-1, -2, -1},
-		{0, 0, 0},
-		{1, 2, 1},
-	},
+	return Kernel{
+		[][]float64{
+			{-1, -2, -1},
+			{0, 0, 0},
+			{1, 2, 1},
+		},
 		3,
 		3,
 	}
 }
 
-// GetBlur3 returns the Kernel corresponding to the Sobel kernel in the y direction
+// GetBlur3 returns the Kernel corresponding to the Sobel kernel in the y direction.
 func GetBlur3() Kernel {
-
-	return Kernel{[][]float64{
-		{1, 1, 1},
-		{1, 1, 1},
-		{1, 1, 1},
-	},
+	return Kernel{
+		[][]float64{
+			{1, 1, 1},
+			{1, 1, 1},
+			{1, 1, 1},
+		},
 		3,
 		3,
 	}
@@ -80,7 +80,7 @@ func ConvolveGray(img *image.Gray, kernel *Kernel, anchor image.Point, border Bo
 }
 
 // ConvolveGrayFloat64 implements a gray float64 image convolution with the Kernel filter
-// There is no clamping in this case
+// There is no clamping in this case.
 func ConvolveGrayFloat64(m *mat.Dense, filter *Kernel) (*mat.Dense, error) {
 	h, w := m.Dims()
 	result := mat.NewDense(h, w, nil)

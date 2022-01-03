@@ -6,9 +6,9 @@ import (
 
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/floats"
 
 	"go.viam.com/rdk/utils"
-	"gonum.org/v1/gonum/floats"
 )
 
 // NoPoints TODO.
@@ -152,7 +152,7 @@ func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
 	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
 }
 
-// SliceVecsToXsYs converts a slice of r2.Point to 2 slices floats containing x and y coordinates
+// SliceVecsToXsYs converts a slice of r2.Point to 2 slices floats containing x and y coordinates.
 func SliceVecsToXsYs(pts []r2.Point) ([]float64, []float64) {
 	xs := make([]float64, len(pts))
 	ys := make([]float64, len(pts))
@@ -163,7 +163,7 @@ func SliceVecsToXsYs(pts []r2.Point) ([]float64, []float64) {
 	return xs, ys
 }
 
-// SortVectorsCounterClockwise sorts a slice of vectors counterclockwise
+// SortVectorsCounterClockwise sorts a slice of vectors counterclockwise.
 func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
 	xs, ys := SliceVecsToXsYs(pts)
 	xMin := floats.Min(xs)
@@ -191,7 +191,7 @@ func SortVectorsCounterClockwise(pts []r2.Point) []r2.Point {
 	return out
 }
 
-// SlicePointsToXsYs converts a slice of image.Point to 2 slices floats containing x and y coordinates
+// SlicePointsToXsYs converts a slice of image.Point to 2 slices floats containing x and y coordinates.
 func SlicePointsToXsYs(pts []image.Point) ([]float64, []float64) {
 	xs := make([]float64, len(pts))
 	ys := make([]float64, len(pts))
@@ -202,7 +202,7 @@ func SlicePointsToXsYs(pts []image.Point) ([]float64, []float64) {
 	return xs, ys
 }
 
-// AreCollinear returns true if the 3 points a, b and c are collinear
+// AreCollinear returns true if the 3 points a, b and c are collinear.
 func AreCollinear(a, b, c r2.Point, eps float64) bool {
 	val := math.Abs((b.X-a.X)*(c.Y-a.Y) - (c.X-a.X)*(b.Y-a.Y))
 	return val < eps

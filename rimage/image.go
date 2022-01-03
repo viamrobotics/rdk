@@ -136,7 +136,7 @@ func (i *Image) SubImage(r image.Rectangle) Image {
 	return Image{data: newData, width: width, height: height}
 }
 
-// ConvertColorImageToLuminanceFloat convert an Image to a gray level image as a float dense matrix
+// ConvertColorImageToLuminanceFloat convert an Image to a gray level image as a float dense matrix.
 func ConvertColorImageToLuminanceFloat(img Image) *mat.Dense {
 	out := mat.NewDense(img.height, img.width, nil)
 	utils.ParallelForEachPixel(image.Point{img.width, img.height}, func(x int, y int) {

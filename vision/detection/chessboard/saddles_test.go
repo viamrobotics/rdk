@@ -28,7 +28,6 @@ func TestComputeSaddleMap(t *testing.T) {
 	test.That(t, mat.Min(saddle), test.ShouldEqual, 0)                         // GT obtained from python prototype code
 	test.That(t, mat.Max(saddle), test.ShouldBeGreaterThan, 1*math.Pow(10, 6)) // GT obtained from python prototype code
 	test.That(t, len(saddlePoints), test.ShouldEqual, 116)                     // GT obtained from python prototype code
-
 }
 
 func TestNonMaxSuppression(t *testing.T) {
@@ -47,7 +46,6 @@ func TestNonMaxSuppression(t *testing.T) {
 	test.That(t, w, test.ShouldEqual, w1)
 	// expecting (50, 100) to be non-zero and neighboring points to be 0
 	test.That(t, nonMaxSuppressed.At(49, 99), test.ShouldEqual, 0)
-	//test.That(t, nonMaxSuppressed.At(50, 100), test.ShouldEqual, 0)
+	// test.That(t, nonMaxSuppressed.At(50, 100), test.ShouldEqual, 0)
 	test.That(t, nonMaxSuppressed.At(51, 101), test.ShouldEqual, 0)
-
 }

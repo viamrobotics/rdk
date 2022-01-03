@@ -12,30 +12,30 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// ContourFloat defines the Contour type that contains 2d float points
+// ContourFloat defines the Contour type that contains 2d float points.
 type ContourFloat []r2.Point
 
-// ContourInt defines the Contour type that contains image points (int coordinates)
+// ContourInt defines the Contour type that contains image points (int coordinates).
 type ContourInt []image.Point
 
-// ContourPoint is a simple structure for readability
+// ContourPoint is a simple structure for readability.
 type ContourPoint struct {
 	Point r2.Point
 	Idx   int
 }
 
-// Border stores the ID of a Border and its type (Hole or Outer)
+// Border stores the ID of a Border and its type (Hole or Outer).
 type Border struct {
 	segNum, borderType int
 }
 
-// enumeration for Border types
+// enumeration for Border types.
 const (
 	Hole = iota + 1
 	Outer
 )
 
-// CreateHoleBorder creates a Hole Border
+// CreateHoleBorder creates a Hole Border.
 func CreateHoleBorder() Border {
 	return Border{
 		segNum:     0,
@@ -43,7 +43,7 @@ func CreateHoleBorder() Border {
 	}
 }
 
-// CreateOuterBorder creates an Outer Border
+// CreateOuterBorder creates an Outer Border.
 func CreateOuterBorder() Border {
 	return Border{
 		segNum:     0,
@@ -51,30 +51,30 @@ func CreateOuterBorder() Border {
 	}
 }
 
-// PointMat stores a point in matrix coordinates convention
+// PointMat stores a point in matrix coordinates convention.
 type PointMat struct {
 	Row, Col int
 }
 
-// Set sets a current point to new coordinates (r,c)
+// Set sets a current point to new coordinates (r,c).
 func (p *PointMat) Set(r, c int) {
 	p.Col = c
 	p.Row = r
 }
 
-// SetTo sets a current point to new coordinates (r,c)
+// SetTo sets a current point to new coordinates (r,c).
 func (p *PointMat) SetTo(p2 PointMat) {
 	p.Col = p2.Col
 	p.Row = p2.Row
 }
 
-// SamePoint returns true if a point q is equal to the point p
+// SamePoint returns true if a point q is equal to the point p.
 func (p *PointMat) SamePoint(q *PointMat) bool {
 	return p.Row == q.Row && p.Col == q.Col
 }
 
 // GetPairOfFarthestPointsContour take an ordered contour and returns the 2 farthest points and their respective
-// indices in that contour
+// indices in that contour.
 func GetPairOfFarthestPointsContour(points ContourFloat) (ContourPoint, ContourPoint) {
 	start := ContourPoint{points[0], 0}
 	end := ContourPoint{points[1], 1}
@@ -92,7 +92,7 @@ func GetPairOfFarthestPointsContour(points ContourFloat) (ContourPoint, ContourP
 	return start, end
 }
 
-// IsContourClosed takes a sorted contour, and returns true if the first and last points of it are spatially epsilon-close
+// IsContourClosed takes a sorted contour, and returns true if the first and last points of it are spatially epsilon-close.
 func IsContourClosed(points ContourFloat, eps float64) bool {
 	start := points[0]
 	end := points[len(points)-1]
@@ -102,7 +102,7 @@ func IsContourClosed(points ContourFloat, eps float64) bool {
 }
 
 // ReorderClosedContourWithFarthestPoints takes a closed ordered contour and reorders the points in it so that all the
-// points from p1 to p2 are in the first part of the contour and points from p2 to p1 in the second part
+// points from p1 to p2 are in the first part of the contour and points from p2 to p1 in the second part.
 func ReorderClosedContourWithFarthestPoints(points ContourFloat) ContourFloat {
 	start, end := GetPairOfFarthestPointsContour(points)
 	if start.Idx > end.Idx {
@@ -111,17 +111,17 @@ func ReorderClosedContourWithFarthestPoints(points ContourFloat) ContourFloat {
 	c1 := points[start.Idx:end.Idx]
 	c2 := points[end.Idx:]
 	c2 = append(c2, points[:start.Idx]...)
-	reorderedContour := append(c1, c2...)
-	return reorderedContour
+	c1 = append(c1, c2...)
+	return c1
 }
 
 // helpers
-// convertImagePointToVec converts an image.Point to a r2.Point
+// convertImagePointToVec converts an image.Point to a r2.Point.
 func convertImagePointToVec(p image.Point) r2.Point {
 	return r2.Point{X: float64(p.X), Y: float64(p.Y)}
 }
 
-// ConvertContourIntToContourFloat converts a slice of image.Point to a slice of r2.Point
+// ConvertContourIntToContourFloat converts a slice of image.Point to a slice of r2.Point.
 func ConvertContourIntToContourFloat(pts []image.Point) ContourFloat {
 	out := make([]r2.Point, len(pts))
 	for i, pt := range pts {
@@ -130,7 +130,7 @@ func ConvertContourIntToContourFloat(pts []image.Point) ContourFloat {
 	return out
 }
 
-// savePNG takes an image.Image and saves it to a png file fn
+// savePNG takes an image.Image and saves it to a png file fn.
 func savePNG(fn string, m image.Image) error {
 	f, err := os.Create(fn)
 	if err != nil {
@@ -142,7 +142,7 @@ func savePNG(fn string, m image.Image) error {
 
 // Visualization functions
 
-// DrawContours draws the contours in a black image and saves it in outFile
+// DrawContours draws the contours in a black image and saves it in outFile.
 func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) error {
 	h, w := img.Dims()
 	g := image.NewGray16(image.Rect(0, 0, w, h))
@@ -159,7 +159,7 @@ func DrawContours(img *mat.Dense, contours [][]image.Point, outFile string) erro
 	return nil
 }
 
-// DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile
+// DrawContoursSimplified draws the simplified polygonal contours in a black image and saves it in outFile.
 func DrawContoursSimplified(img *mat.Dense, contours []ContourFloat, outFile string) error {
 	h, w := img.Dims()
 	dc := gg.NewContext(h, w)

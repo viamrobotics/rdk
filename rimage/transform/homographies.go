@@ -4,12 +4,10 @@ import (
 	"log"
 	"math"
 
-	"github.com/gonum/floats"
-
 	"github.com/go-errors/errors"
-
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
+	"github.com/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 
@@ -18,7 +16,7 @@ import (
 )
 
 // ComputeNormalizationMatFromSliceVecs computes the normalization matrix from a slice of vectors
-// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.2 p109
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.2 p109.
 func ComputeNormalizationMatFromSliceVecs(pts []r2.Point) *mat.Dense {
 	out := mat.NewDense(3, 3, nil)
 	xs, ys := rimage.SliceVecsToXsYs(pts)
@@ -45,7 +43,7 @@ func ComputeNormalizationMatFromSliceVecs(pts []r2.Point) *mat.Dense {
 }
 
 // EstimateExactHomographyFrom8Points computes the exact homography from 2 sets of 4 matching points
-// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.1 p91
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.1 p91.
 func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat.Dense, error) {
 	if len(s1) != 4 {
 		panic("slice s1 must have 4 points each")
@@ -58,7 +56,6 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat
 	norm1 := ComputeNormalizationMatFromSliceVecs(s1)
 	norm2 := ComputeNormalizationMatFromSliceVecs(s1)
 	if normalize {
-
 		st1 = ApplyNormalizationMat(norm1, s1)
 		st2 = ApplyNormalizationMat(norm2, s2)
 	}
@@ -83,7 +80,8 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat
 	X4 := st2[3].X
 	Y4 := st2[3].Y
 	// create homography system
-	a := []float64{x1, y1, 1, 0, 0, 0, -X1 * x1, -X1 * y1,
+	a := []float64{
+		x1, y1, 1, 0, 0, 0, -X1 * x1, -X1 * y1,
 		0, 0, 0, x1, y1, 1, -Y1 * x1, -Y1 * y1,
 		x2, y2, 1, 0, 0, 0, -X2 * x2, -X2 * y2,
 		0, 0, 0, x2, y2, 1, -Y2 * x2, -Y2 * y2,
@@ -100,7 +98,7 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat
 
 	// If matrix A is invertible, get the least square solution
 	if mat.Det(A) != 0 {
-		//x := mat.NewDense(8, 1, nil)
+		// x := mat.NewDense(8, 1, nil)
 		// Perform an SVD retaining all singular vectors.
 		var svd mat.SVD
 		ok := svd.Factorize(A, mat.SVDFull)
@@ -112,15 +110,19 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat
 		const rcond = 1e-15
 		rank := svd.Rank(rcond)
 		if rank == 0 {
-			log.Fatal("zero rank system")
-			return nil, nil
+			log.Panic("zero rank system")
+			return mat.NewDense(3, 3, nil), nil
 		}
 
 		// Find a least-squares solution using the determined parts of the system.
 		var x mat.Dense
 		svd.SolveTo(&x, b, rank)
 		// homography is a 3x3 matrix, with last element =1
-		s := append(x.RawMatrix().Data, 1.)
+		s := make([]float64, len(x.RawMatrix().Data)+1)
+		for i, v := range x.RawMatrix().Data {
+			s[i] = v
+		}
+		s[len(x.RawMatrix().Data)] = 1.
 		outMat := mat.NewDense(3, 3, s)
 
 		if normalize {
@@ -145,11 +147,11 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*mat
 		return outMat, nil
 	}
 	// Otherwise, matrix cannot be inverted; return nothing
-	return nil, nil
+	return mat.NewDense(3, 3, nil), nil
 }
 
 // MeanVarianceCol is a helper function to compute the normalization matrix for least squares homography estimation
-// It estimates the mean and variance of a column in a *mat.Dense
+// It estimates the mean and variance of a column in a *mat.Dense.
 func MeanVarianceCol(m mat.Matrix, j int) (float64, float64) {
 	r, _ := m.Dims()
 	col := make([]float64, r)
@@ -161,9 +163,8 @@ func MeanVarianceCol(m mat.Matrix, j int) (float64, float64) {
 	return mean, std
 }
 
-// getNormalizationMatrix gets the matrix to center the points on (0,0)
-func getNormalizationMatrix(pts rimage.TransformationMatrix) *mat.Dense {
-
+// getNormalizationMatrix gets the matrix to center the points on (0,0).
+func getNormalizationMatrix(pts *mat.Dense) *mat.Dense {
 	avgX, stdX := MeanVarianceCol(pts, 0)
 	avgY, stdY := MeanVarianceCol(pts, 1)
 
@@ -179,8 +180,8 @@ func getNormalizationMatrix(pts rimage.TransformationMatrix) *mat.Dense {
 	return outMat
 }
 
-// EstimateLeastSquaresHomography estimates an homography from 2 sets of corresponding points
-func EstimateLeastSquaresHomography(pts1, pts2 rimage.TransformationMatrix) (*mat.Dense, error) {
+// EstimateLeastSquaresHomography estimates an homography from 2 sets of corresponding points.
+func EstimateLeastSquaresHomography(pts1, pts2 *mat.Dense) (*mat.Dense, error) {
 	normalizationMat1 := getNormalizationMatrix(pts1)
 	normalizationMat2 := getNormalizationMatrix(pts2)
 	M := make([]float64, 0)
@@ -203,7 +204,6 @@ func EstimateLeastSquaresHomography(pts1, pts2 rimage.TransformationMatrix) (*ma
 			-p1.At(0, 0) * p2.At(1, 0), -p1.At(1, 0) * p2.At(1, 0), -p2.At(1, 0),
 		}
 		M = append(M, currentSlice2...)
-
 	}
 	m := mat.NewDense(2*nRows, 9, M)
 	var svd mat.SVD
@@ -213,8 +213,7 @@ func EstimateLeastSquaresHomography(pts1, pts2 rimage.TransformationMatrix) (*ma
 	}
 	// Determine the rank of the A matrix with a near zero condition threshold.
 	const rcond = 1e-15
-	rank := svd.Rank(rcond)
-	if rank == 0 {
+	if svd.Rank(rcond) == 0 {
 		log.Fatal("zero rank system")
 	}
 	var V, m1, m2, m3 mat.Dense
@@ -238,10 +237,9 @@ func EstimateLeastSquaresHomography(pts1, pts2 rimage.TransformationMatrix) (*ma
 	m3.Scale(1./m2.At(2, 2), &m2)
 
 	return &m3, nil
-
 }
 
-// SelectFourPointPairs randomly selects 4 pairs of points in two point slices of the same length
+// SelectFourPointPairs randomly selects 4 pairs of points in two point slices of the same length.
 func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 	if len(p1) != len(p2) {
 		err := errors.New("p1 and p2 should have the same length")
@@ -262,7 +260,7 @@ func SelectFourPointPairs(p1, p2 []r2.Point) ([]r2.Point, []r2.Point, error) {
 	return s1, s2, nil
 }
 
-// geometricDistance computes the distance of point1 transformed by the homography h 1->2 to point 2
+// geometricDistance computes the distance of point1 transformed by the homography h 1->2 to point 2.
 func geometricDistance(p1, p2 r2.Point, h mat.Matrix) float64 {
 	pt1 := mat.NewDense(3, 1, []float64{p1.X, p1.Y, 1.0})
 	pt2 := mat.NewDense(3, 1, []float64{p2.X, p2.Y, 1.0})
@@ -277,7 +275,7 @@ func geometricDistance(p1, p2 r2.Point, h mat.Matrix) float64 {
 	return errVec.Norm()
 }
 
-// Are4PointsNonCollinear returns true if 4 points are not collinear 3 by 3
+// Are4PointsNonCollinear returns true if 4 points are not collinear 3 by 3.
 func Are4PointsNonCollinear(p1, p2, p3, p4 r2.Point) bool {
 	return !rimage.AreCollinear(p1, p2, p3, 0.01) && !rimage.AreCollinear(p2, p3, p4, 0.01) &&
 		!rimage.AreCollinear(p1, p3, p4, 0.01) && !rimage.AreCollinear(p1, p2, p4, 0.01)
@@ -285,7 +283,7 @@ func Are4PointsNonCollinear(p1, p2, p3, p4 r2.Point) bool {
 
 // EstimateHomographyRANSAC estimates a homography from matches of 2 sets of
 // points with the RANdom SAmple Consensus method
-// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.4 p118
+// from Multiple View Geometry. Richard Hartley and Andrew Zisserman. Alg 4.4 p118.
 func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIteration int) (*mat.Dense, []int, error) {
 	// test len(pts1)==len(pts2)
 	// test len(pts1) > 4
@@ -337,25 +335,25 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 	return finalH, maxInliers, nil
 }
 
-// ApplyHomography applies a homography on a slice of r2.Vec
-func ApplyHomography(H rimage.Matrix, pts []r2.Point) []r2.Point {
+// ApplyHomography applies a homography on a slice of r2.Vec.
+func ApplyHomography(h rimage.Matrix, pts []r2.Point) []r2.Point {
 	outPoints := make([]r2.Point, len(pts))
 	for i, pt := range pts {
-		x := H.At(0, 0)*pt.X + H.At(0, 1)*pt.Y + H.At(0, 2)
-		y := H.At(1, 0)*pt.X + H.At(1, 1)*pt.Y + H.At(1, 2)
-		z := H.At(2, 0)*pt.X + H.At(2, 1)*pt.Y + H.At(2, 2)
+		x := h.At(0, 0)*pt.X + h.At(0, 1)*pt.Y + h.At(0, 2)
+		y := h.At(1, 0)*pt.X + h.At(1, 1)*pt.Y + h.At(1, 2)
+		z := h.At(2, 0)*pt.X + h.At(2, 1)*pt.Y + h.At(2, 2)
 		outPoints[i] = r2.Point{X: x / z, Y: y / z}
 	}
 	return outPoints
 }
 
-// ApplyNormalizationMat applies a normalization matrix to a slice of r2.Point
-func ApplyNormalizationMat(H rimage.Matrix, pts []r2.Point) []r2.Point {
+// ApplyNormalizationMat applies a normalization matrix to a slice of r2.Point.
+func ApplyNormalizationMat(h rimage.Matrix, pts []r2.Point) []r2.Point {
 	outPoints := make([]r2.Point, len(pts))
 	for i, pt := range pts {
-		x := H.At(0, 0)*pt.X + H.At(0, 1)*pt.Y + H.At(0, 2)
-		y := H.At(1, 0)*pt.X + H.At(1, 1)*pt.Y + H.At(1, 2)
-		//z := H.At(2, 0)*pt.X + H.At(2, 1)*pt.Y + H.At(2, 2)
+		x := h.At(0, 0)*pt.X + h.At(0, 1)*pt.Y + h.At(0, 2)
+		y := h.At(1, 0)*pt.X + h.At(1, 1)*pt.Y + h.At(1, 2)
+		// z := h.At(2, 0)*pt.X + h.At(2, 1)*pt.Y + h.At(2, 2)
 		outPoints[i] = r2.Point{X: x, Y: y}
 	}
 	return outPoints
