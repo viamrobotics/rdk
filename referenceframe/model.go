@@ -81,29 +81,29 @@ func floatsToString(inputs []Input) string {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	poses, err := m.jointRadToQuats(inputs, false)
-	if err != nil && poses == nil {
+	frames, err := m.jointRadToQuats(inputs, false)
+	if err != nil && frames == nil {
 		return nil, err
 	}
-	return poses[0].transform, err
+	return frames[0].transform, err
 }
 
 // Volumes returns an object representing the 3D space associeted with the staticFrame.
 func (m *SimpleModel) Volumes(inputs []Input) (map[string]spatialmath.Volume, error) {
-	joints, err := m.jointRadToQuats(inputs, true)
-	if err != nil && joints == nil {
+	frames, err := m.jointRadToQuats(inputs, true)
+	if err != nil && frames == nil {
 		return nil, err
 	}
 	var errAll error
 	volumeMap := make(map[string]spatialmath.Volume)
-	for _, joint := range joints {
-		vol, err := joint.Volumes([]Input{})
+	for _, frame := range frames {
+		vol, err := frame.Volumes([]Input{})
 		if vol == nil {
 			// only propagate errors that result in nil volume
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		volumeMap[m.name+":"+joint.Name()] = vol[joint.Name()]
+		volumeMap[m.name+":"+frame.Name()] = vol[frame.Name()]
 	}
 	return volumeMap, errAll
 }
