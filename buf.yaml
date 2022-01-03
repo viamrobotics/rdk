@@ -1,5 +1,5 @@
 version: v1beta1
-name: buf.build/viam/core
+name: buf.build/viam/rdk
 build:
   roots:
     - .
@@ -7,6 +7,7 @@ build:
     - vendor
     - rpc/examples/echo/frontend/node_modules
     - rpc/js/node_modules
+    - node_modules
 lint:
   use:
     - DEFAULT

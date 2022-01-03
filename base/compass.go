@@ -6,11 +6,10 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/utils"
 )
 
 // AugmentWithCompass augments the given base with the given compass in order

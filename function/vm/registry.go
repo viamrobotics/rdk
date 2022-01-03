@@ -1,6 +1,9 @@
 package functionvm
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
+)
 
 type engineCtor func() (Engine, error)
 
@@ -8,8 +11,7 @@ var engineRegistry = map[EngineName]engineCtor{}
 
 // RegisterEngine registers the given engine name to an associated constructor.
 func RegisterEngine(name EngineName, constructor engineCtor) {
-	_, old := engineRegistry[name]
-	if old {
+	if _, old := engineRegistry[name]; old {
 		panic(errors.Errorf("trying to register two engines with same name %q", name))
 	}
 	engineRegistry[name] = constructor
@@ -31,5 +33,6 @@ func ValidateSource(name EngineName, source string) error {
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(engine.Close)
 	return engine.ValidateSource(source)
 }

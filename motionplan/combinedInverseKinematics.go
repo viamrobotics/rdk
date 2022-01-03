@@ -4,33 +4,32 @@ import (
 	"context"
 	"sync"
 
-	"go.viam.com/utils"
-
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
-
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // CombinedIK defines the fields necessary to run a combined solver.
 type CombinedIK struct {
 	solvers []InverseKinematics
-	model   frame.Frame
+	model   referenceframe.Frame
 	logger  golog.Logger
 }
 
 // CreateCombinedIKSolver creates a combined parallel IK solver with a number of nlopt solvers equal to the nCPU
 // passed in. Each will be given a different random seed. When asked to solve, all solvers will be run in parallel
 // and the first valid found solution will be returned.
-func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
+func CreateCombinedIKSolver(model referenceframe.Frame, logger golog.Logger, nCPU int) (*CombinedIK, error) {
 	ik := &CombinedIK{}
 	ik.model = model
 	if nCPU == 0 {
 		nCPU = 1
 	}
 	for i := 1; i <= nCPU; i++ {
-		nlopt, err := CreateNloptIKSolver(model, logger)
+		nlopt, err := CreateNloptIKSolver(model, logger, -1)
 		nlopt.id = i
 		if err != nil {
 			return nil, err
@@ -42,13 +41,24 @@ func CreateCombinedIKSolver(model frame.Frame, logger golog.Logger, nCPU int) (*
 	return ik, nil
 }
 
-func runSolver(ctx context.Context, solver InverseKinematics, c chan<- []frame.Input, pos spatialmath.Pose, seed []frame.Input) error {
-	return solver.Solve(ctx, c, pos, seed)
+func runSolver(ctx context.Context,
+	solver InverseKinematics,
+	c chan<- []referenceframe.Input,
+	pos spatialmath.Pose,
+	seed []referenceframe.Input,
+	m Metric,
+) error {
+	return solver.Solve(ctx, c, pos, seed, m)
 }
 
 // Solve will initiate solving for the given position in all child solvers, seeding with the specified initial joint
-// positions. If unable to solve, the returned error will be non-nil
-func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal spatialmath.Pose, seed []frame.Input) error {
+// positions. If unable to solve, the returned error will be non-nil.
+func (ik *CombinedIK) Solve(ctx context.Context,
+	c chan<- []referenceframe.Input,
+	newGoal spatialmath.Pose,
+	seed []referenceframe.Input,
+	m Metric,
+) error {
 	ik.logger.Debugf("starting joint positions: %v", seed)
 	startPos, err := ik.model.Transform(seed)
 	if err != nil {
@@ -71,7 +81,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal
 
 		utils.PanicCapturingGo(func() {
 			defer activeSolvers.Done()
-			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed)
+			errChan <- runSolver(ctxWithCancel, thisSolver, c, newGoal, seed, m)
 		})
 	}
 
@@ -119,23 +129,7 @@ func (ik *CombinedIK) Solve(ctx context.Context, c chan<- []frame.Input, newGoal
 	return collectedErrs
 }
 
-// Frame returns the associated frame
-func (ik *CombinedIK) Frame() frame.Frame {
+// Frame returns the associated referenceframe.
+func (ik *CombinedIK) Frame() referenceframe.Frame {
 	return ik.model
-}
-
-// Close closes all member IK solvers
-func (ik *CombinedIK) Close() error {
-	var err error
-	for _, solver := range ik.solvers {
-		err = multierr.Combine(err, solver.Close())
-	}
-	return err
-}
-
-// SetMetric sets the function for distance between two poses
-func (ik *CombinedIK) SetMetric(m Metric) {
-	for _, solver := range ik.solvers {
-		solver.SetMetric(m)
-	}
 }

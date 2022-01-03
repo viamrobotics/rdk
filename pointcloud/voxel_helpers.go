@@ -10,7 +10,7 @@ import (
 
 // helpers for Voxel attributes computation
 
-// estimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector
+// estimatePlaneNormalFromPoints estimates the normal vector of the plane formed by the points in the []r3.Vector.
 func estimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	// Put points in mat
 	nPoints := len(points)
@@ -24,7 +24,6 @@ func estimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	var pc stat.PC
 	ok := pc.PrincipalComponents(mPt, nil)
 	if !ok {
-
 		return r3.Vector{}
 	}
 	var vecs mat.Dense
@@ -46,35 +45,35 @@ func estimatePlaneNormalFromPoints(points []r3.Vector) r3.Vector {
 	return normal.Normalize()
 }
 
-// GetVoxelCenter computes the barycenter of the points in the slice of r3.Vector
+// GetVoxelCenter computes the barycenter of the points in the slice of r3.Vector.
 func GetVoxelCenter(points []r3.Vector) r3.Vector {
 	center := r3.Vector{}
 	for _, pt := range points {
-		center.X = center.X + pt.X
-		center.Y = center.Y + pt.Y
-		center.Z = center.Z + pt.Z
+		center.X += pt.X
+		center.Y += pt.Y
+		center.Z += pt.Z
 	}
 	center = center.Mul(1. / float64(len(points)))
 	return center
 }
 
-// GetOffset computes the offset of the plane with given normal vector and a point in it
+// GetOffset computes the offset of the plane with given normal vector and a point in it.
 func GetOffset(center, normal r3.Vector) float64 {
 	return -normal.Dot(center)
 }
 
-// GetResidual computes the mean fitting error of points to a given plane
+// GetResidual computes the mean fitting error of points to a given plane.
 func GetResidual(points []r3.Vector, plane Plane) float64 {
 	dist := 0.
 	for _, pt := range points {
 		d := plane.Distance(Vec3(pt))
-		dist = dist + d*d
+		dist += d * d
 	}
-	dist = dist / float64(len(points))
+	dist /= float64(len(points))
 	return math.Sqrt(dist)
 }
 
-// GetVoxelCoordinates computes voxel coordinates in VoxelGrid Axes
+// GetVoxelCoordinates computes voxel coordinates in VoxelGrid Axes.
 func GetVoxelCoordinates(pt, ptMin r3.Vector, voxelSize float64) VoxelCoords {
 	ptVoxel := pt.Sub(ptMin)
 	coords := VoxelCoords{}
@@ -84,7 +83,7 @@ func GetVoxelCoordinates(pt, ptMin r3.Vector, voxelSize float64) VoxelCoords {
 	return coords
 }
 
-// GetWeight computes weights for Region Growing segmentation
+// GetWeight computes weights for Region Growing segmentation.
 func GetWeight(points []r3.Vector, lam, residual float64) float64 {
 	nPoints := len(points)
 	dR := 1. / float64(nPoints)

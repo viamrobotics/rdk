@@ -10,10 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func BenchmarkNewFromFile(b *testing.B) {
@@ -87,7 +86,6 @@ func TestPCD(t *testing.T) {
 
 	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
 	test.That(t, err, test.ShouldNotBeNil)
-
 }
 
 func TestRoundTripFileWithColorFloat(t *testing.T) {

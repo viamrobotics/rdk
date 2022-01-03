@@ -4,11 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/testutils"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/testutils"
 )
 
 func TestBothMain(t *testing.T) {
@@ -27,8 +26,10 @@ func TestBothMain(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	out3 := outDir + "/shelf.both.gz"
-	err = realMain([]string{"combineRGBAndZ16",
-		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), out3})
+	err = realMain([]string{
+		"combineRGBAndZ16",
+		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), out3,
+	})
 	test.That(t, err, test.ShouldBeNil)
 
 	out2 := outDir + "/shelf.las"

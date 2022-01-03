@@ -11,11 +11,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	"go.viam.com/core/pointcloud"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/pointcloud"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 // serviceClient is a client satisfies the camera.proto contract.
@@ -46,12 +46,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an camera client
+// client is an camera client.
 type client struct {
 	*serviceClient
 	name string
@@ -95,7 +95,6 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	default:
 		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}
-
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -114,7 +113,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
 }

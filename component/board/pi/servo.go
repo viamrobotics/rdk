@@ -1,5 +1,4 @@
-//go:build pi
-// +build pi
+//go:build linux && arm64
 
 package pi
 
@@ -15,18 +14,17 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	piutils "go.viam.com/core/lib/pi"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers a pi servo based on pigpio.
 func init() {
 	registry.RegisterComponent(
 		servo.Subtype,
-		"pi",
+		modelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 				if !config.Attributes.Has("pin") {
@@ -34,7 +32,7 @@ func init() {
 				}
 
 				pin := config.Attributes.String("pin")
-				bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+				bcom, have := broadcomPinFromHardwareLabel(pin)
 				if !have {
 					return nil, errors.Errorf("no hw mapping for %s", pin)
 				}

@@ -12,26 +12,25 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/core/action"
-	"go.viam.com/core/component/board"
-	functionrobot "go.viam.com/core/function/robot"
-	functionvm "go.viam.com/core/function/vm"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/services"
-	"go.viam.com/core/services/framesystem"
-	"go.viam.com/core/services/navigation"
-	"go.viam.com/core/services/objectmanipulation"
-	"go.viam.com/core/spatialmath"
-	coreutils "go.viam.com/core/utils"
+	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
+	functionrobot "go.viam.com/rdk/function/robot"
+	functionvm "go.viam.com/rdk/function/vm"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/sensor/gps"
+	"go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Server implements the contract from robot.proto that ultimately satisfies
@@ -55,10 +54,9 @@ func New(r robot.Robot) pb.RobotServiceServer {
 }
 
 // Close cleanly shuts down the server.
-func (s *Server) Close() error {
+func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-	return nil
 }
 
 // Status returns the robot's underlying status.
@@ -194,7 +192,6 @@ func (s *Server) BaseMoveArc(
 		return nil, err
 	}
 	return &pb.BaseMoveArcResponse{Success: true}, nil
-
 }
 
 // BaseSpin spins a base of the underlying robot.
@@ -215,7 +212,6 @@ func (s *Server) BaseSpin(
 		return nil, err
 	}
 	return &pb.BaseSpinResponse{Success: true}, nil
-
 }
 
 // BaseStop stops a base of the underlying robot.
@@ -585,7 +581,7 @@ func (s *Server) ResourceRunCommand(
 	if !ok {
 		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
 	}
-	commander, ok := coreutils.UnwrapProxy(resource).(runCommander)
+	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
 	if !ok {
 		return nil, errors.New("cannot run commands on this resource")
 	}
@@ -624,6 +620,10 @@ func (s *Server) FrameServiceConfig(
 	for i, part := range sortedParts {
 		c, err := part.ToProtobuf()
 		if err != nil {
+			if errors.Is(err, referenceframe.ErrNoModelInformation) {
+				configs[i] = nil
+				continue
+			}
 			return nil, err
 		}
 		configs[i] = c
@@ -682,6 +682,8 @@ func (s *Server) NavigationServiceSetMode(
 		if err := navSvc.SetMode(ctx, navigation.ModeWaypoint); err != nil {
 			return nil, err
 		}
+	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_UNSPECIFIED:
+		fallthrough
 	default:
 		return nil, errors.Errorf("unknown mode %q", req.Mode.String())
 	}
@@ -777,7 +779,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 }
 
 // ObjectManipulationServiceDoGrab commands a gripper to move and grab
-// an object at the passed camera point
+// an object at the passed camera point.
 func (s *Server) ObjectManipulationServiceDoGrab(
 	ctx context.Context,
 	req *pb.ObjectManipulationServiceDoGrabRequest,
@@ -918,7 +920,6 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional
 // slice into protobuf format.
 func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
-
 	rows := len(matrix)
 	var cols int
 	if rows != 0 {
@@ -955,7 +956,7 @@ func (s *Server) ForceMatrixMatrix(
 	return matrixToProto(matrix), nil
 }
 
-// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected
+// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected.
 func (s *Server) ForceMatrixSlipDetection(
 	ctx context.Context,
 	req *pb.ForceMatrixSlipDetectionRequest,
@@ -972,9 +973,9 @@ func (s *Server) ForceMatrixSlipDetection(
 }
 
 func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	fm, ok := s.r.ResourceByName(forcematrix.Named(name))
 	if !ok {
 		return nil, errors.Errorf("no force matrix with name (%s)", name)
 	}
-	return sensorDevice.(forcematrix.ForceMatrix), nil
+	return fm.(forcematrix.ForceMatrix), nil
 }

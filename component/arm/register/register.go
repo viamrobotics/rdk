@@ -5,21 +5,17 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/component/arm"
-	componentpb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/component/arm"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/subtype"
 )
 
 func init() {
 	registry.RegisterResourceSubtype(arm.Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return arm.WrapWithReconfigurable(r)
-		},
+		Reconfigurable: arm.WrapWithReconfigurable,
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -32,5 +28,4 @@ func init() {
 			return arm.NewClientFromConn(conn, name, logger)
 		},
 	})
-
 }

@@ -10,5 +10,5 @@ In the quickjs directory:
 `CONFIG_WASM=y PATH=/opt/wasi-sdk/bin:$PATH make libquickjs.wasm`
 ```
 
-1. Then copy `libquickjs.wasm` to your artifact data directory within `core`, typically `~/core/.artifact/data/function/vm/engines/javascript/`.
+1. Then copy `libquickjs.wasm` to your artifact data directory within `rdk`, typically `~/rdk/.artifact/data/function/vm/engines/javascript/`.
 2. Then push the build with `artifact push`.

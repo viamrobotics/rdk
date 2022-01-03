@@ -1,7 +1,7 @@
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
-import "go.viam.com/core/config"
+import "go.viam.com/rdk/config"
 
 // Options are used for configuring the web server.
 type Options struct {

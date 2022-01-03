@@ -8,39 +8,37 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/component/motor"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc"
-	metadataclient "go.viam.com/core/grpc/metadata/client"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/compass"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/sensor/gps"
-	"go.viam.com/core/spatialmath"
-
-	"github.com/edaniels/golog"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
+	metadataclient "go.viam.com/rdk/grpc/metadata/client"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/sensor/gps"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -133,7 +131,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 // Close cleanly closes the underlying connections and stops the refresh goroutine
 // if it is running.
-func (rc *RobotClient) Close() error {
+func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
@@ -318,8 +316,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &relativeCompassClient{&compassClient{sc}}, true
 	case gps.Type:
 		return &gpsClient{sc}, true
-	case forcematrix.Type:
-		return &forcematrixClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -378,8 +374,12 @@ func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/core/issues/375): remove this switch statement after the V2 migration is done
+	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case forcematrix.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		sc := &sensorClient{rc, name.Name, sensorType}
+		return &forcematrixClient{sc}, true
 	case board.Subtype:
 		for _, info := range rc.boardNames {
 			if info.name == name.Name {
@@ -401,7 +401,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
-// TODO(https://github.com/viamrobotics/core/issues/57) - do not use status
+// TODO(https://github.com/viamrobotics/rdk/issues/57) - do not use status
 // as we plan on making it a more expensive request with more details than
 // needed for the purposes of this method.
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
@@ -624,7 +624,7 @@ func (rc *RobotClient) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-// ResourceNames returns all resource names
+// ResourceNames returns all resource names.
 func (rc *RobotClient) ResourceNames() []resource.Name {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
@@ -645,7 +645,7 @@ func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
 }
 
-// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs
+// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
 func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	// request the full config from the remote robot's frame system service.FrameSystemConfig()
@@ -760,12 +760,12 @@ type boardClient struct {
 	info boardInfo
 }
 
-// SPIByName may need to be implemented
+// SPIByName may need to be implemented.
 func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
 	return nil, false
 }
 
-// I2CByName may need to be implemented
+// I2CByName may need to be implemented.
 func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
 	return nil, false
 }
@@ -861,11 +861,6 @@ func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 func (bc *boardClient) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
-}
-
-// Close shuts the board down, no methods should be called on the board after this
-func (bc *boardClient) Close() error {
-	return nil
 }
 
 // analogReaderClient satisfies a gRPC based motor.Motor. Refer to the interface
@@ -1146,10 +1141,10 @@ func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
 }
 
 func (fmc *forcematrixClient) Desc() sensor.Description {
-	return sensor.Description{forcematrix.Type, ""}
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
 }
 
-// Ensure implements ForceMatrix
+// Ensure implements ForceMatrix.
 var _ = forcematrix.ForceMatrix(&forcematrixClient{})
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.

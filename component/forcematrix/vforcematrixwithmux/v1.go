@@ -1,3 +1,4 @@
+// Package vforcematrixwithmux implements the Viam Force Matrix with Multiplexer.
 package vforcematrixwithmux
 
 import (
@@ -6,25 +7,79 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	utils "go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/forcematrix"
-	"go.viam.com/core/slipdetection"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/slipdetection"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is used to register the sensor to a model name
-const ModelName = "forcematrixwithmux_v1"
+// model is used to register the sensor to a model name.
+const model = "forcematrixwithmux_v1"
+
+// ForceMatrixConfig describes the configuration of a forcematrixwithmux_v1.
+type ForceMatrixConfig struct {
+	BoardName           string   `json:"board"` // used to control gpio pins & read out pressure values
+	ColumnGPIOPins      []string `json:"column_gpio_pins_left_to_right"`
+	MuxGPIOPins         []string `json:"mux_gpio_pins_s2_to_s0"`
+	IOPins              []int    `json:"io_pins_top_to_bottom"`
+	AnalogChannel       string   `json:"analog_channel"`
+	SlipDetectionWindow int      `json:"slip_detection_window"`
+	NoiseThreshold      float64  `json:"slip_detection_signal_to_noise_cutoff"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *ForceMatrixConfig) Validate(path string) error {
+	if config.BoardName == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "board")
+	}
+	if len(config.ColumnGPIOPins) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("column_gpio_pins_left_to_right has to be an array of length > 0"))
+	}
+	if len(config.MuxGPIOPins) != 3 {
+		return utils.NewConfigValidationError(path, errors.New("mux_gpio_pins_s2_to_s0 has to be an array of length 3"))
+	}
+	if len(config.IOPins) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("io_pins_top_to_bottom has to be an array of length > 0"))
+	}
+	if config.AnalogChannel == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "analog_channel")
+	}
+	if config.SlipDetectionWindow == 0 || config.SlipDetectionWindow > forcematrix.MatrixStorageSize {
+		return utils.NewConfigValidationError(path,
+			errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v",
+				forcematrix.MatrixStorageSize))
+	}
+	return nil
+}
 
 // init registers the forcematrix mux sensor type.
 func init() {
-	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-			return New(ctx, r, config, logger)
-		}})
+	registry.RegisterComponent(forcematrix.Subtype, model, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			forceMatrixConfig, ok := config.ConvertedAttributes.(*ForceMatrixConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
+			}
+			return newForceMatrix(r, forceMatrixConfig, logger)
+		},
+	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeForceMatrix,
+		model, func(attributes config.AttributeMap) (interface{}, error) {
+			var conf ForceMatrixConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &ForceMatrixConfig{})
 }
 
 // ForceMatrixWithMux represents a force matrix that's wired up with a mux.
@@ -44,39 +99,28 @@ type ForceMatrixWithMux struct {
 	logger       golog.Logger
 }
 
-// New returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
+// newForceMatrix returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
-func New(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*ForceMatrixWithMux, error) {
-	boardName := config.Attributes.String("board")
-	b, exists := r.BoardByName(boardName)
+func newForceMatrix(r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixWithMux, error) {
+	b, exists := r.BoardByName(c.BoardName)
 	if !exists {
-		return nil, errors.Errorf("need a board for force sensor, named (%v)", boardName)
+		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
 	}
 
-	columnGpioPins := config.Attributes.StringSlice("column_gpio_pins_left_to_right")
-	muxGpioPins := config.Attributes.StringSlice("mux_gpio_pins_s2_to_s0")
-	ioPins := config.Attributes.IntSlice("io_pins_top_to_bottom")
-	analogChannel := config.Attributes.String("analog_channel")
-	reader, exists := b.AnalogReaderByName(analogChannel)
-	noiseThreshold := config.Attributes.Float64("slip_detection_signal_to_noise_cutoff", 0)
-	slipDetectionWindow := config.Attributes.Int("slip_detection_window", forcematrix.MatrixStorageSize)
-	if slipDetectionWindow > forcematrix.MatrixStorageSize {
-		return nil, errors.Errorf("slip_detection_window has to be <= %v", forcematrix.MatrixStorageSize)
-	}
-	previousMatrices := make([][][]int, 0)
+	reader, exists := b.AnalogReaderByName(c.AnalogChannel)
 
 	if exists {
 		return &ForceMatrixWithMux{
-			columnGpioPins:      columnGpioPins,
-			muxGpioPins:         muxGpioPins,
-			ioPins:              ioPins,
-			analogChannel:       analogChannel,
+			columnGpioPins:      c.ColumnGPIOPins,
+			muxGpioPins:         c.MuxGPIOPins,
+			ioPins:              c.IOPins,
+			analogChannel:       c.AnalogChannel,
 			analogReader:        reader,
 			board:               b,
-			previousMatrices:    previousMatrices,
+			previousMatrices:    make([][][]int, 0, forcematrix.MatrixStorageSize),
 			logger:              logger,
-			slipDetectionWindow: slipDetectionWindow,
-			noiseThreshold:      noiseThreshold,
+			slipDetectionWindow: c.SlipDetectionWindow,
+			noiseThreshold:      c.NoiseThreshold,
 		}, nil
 	}
 
@@ -118,7 +162,7 @@ func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) e
 	return nil
 }
 
-// addToPreviousMatricesWindow adds a matrix reading to the readings history queue
+// addToPreviousMatricesWindow adds a matrix reading to the readings history queue.
 func (fmsm *ForceMatrixWithMux) addToPreviousMatricesWindow(matrix [][]int) {
 	if len(fmsm.previousMatrices) > forcematrix.MatrixStorageSize {
 		fmsm.previousMatrices = fmsm.previousMatrices[1:]
@@ -162,7 +206,6 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 				return nil, err
 			}
 			matrix[row][col] = val
-
 		}
 	}
 	fmsm.addToPreviousMatricesWindow(matrix)
@@ -189,19 +232,18 @@ func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, er
 }
 
 // GetPreviousMatrices is an accessor for the history of matrix readings stored
-// on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider)
+// on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider).
 func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
 	return fmsm.previousMatrices
 }
 
 // IsSlipping is used to determine whether the object in contact
-// with the sensor matrix is slipping
+// with the sensor matrix is slipping.
 func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fmsm, &(fmsm.mu), 0, fmsm.noiseThreshold, fmsm.slipDetectionWindow)
-
 }
 
 // Desc returns that this is a forcematrix mux sensor type.
 func (fmsm *ForceMatrixWithMux) Desc() sensor.Description {
-	return sensor.Description{forcematrix.Type, ""}
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
 }

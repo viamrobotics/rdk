@@ -6,28 +6,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"go.viam.com/utils"
-
-	"go.viam.com/core/action"
-	"go.viam.com/core/base"
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/grpc/client"
-	grpcserver "go.viam.com/core/grpc/server"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	servicepkg "go.viam.com/core/services"
-	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	grpcserver "go.viam.com/rdk/grpc/server"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
+	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func newServer() (pb.RobotServiceServer, *inject.Robot) {
@@ -226,9 +225,8 @@ func TestServer(t *testing.T) {
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
 		)
 		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
-		modelFrame, err := referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, modelFrame, test.ShouldEqual, fsConfigs[0].ModelFrame)
+		_, err = referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
+		test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 	})
 
 	t.Run("ObjectManipulation", func(t *testing.T) {
@@ -278,7 +276,6 @@ func TestServer(t *testing.T) {
 		resp, err := server.ObjectManipulationServiceDoGrab(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetHasGrabbed(), test.ShouldBeTrue)
-
 	})
 
 	t.Run("StatusStream", func(t *testing.T) {
@@ -366,7 +363,7 @@ func TestServer(t *testing.T) {
 		actionName = utils.RandomAlphaString(5)
 		called = make(chan robot.Robot)
 		action.RegisterAction(actionName, func(ctx context.Context, r robot.Robot) {
-			go utils.TryClose(server)
+			go utils.TryClose(context.Background(), server)
 			<-ctx.Done()
 			called <- r
 		})
@@ -646,6 +643,7 @@ func TestServer(t *testing.T) {
 		test.That(t, getResp.High, test.ShouldBeTrue)
 	})
 
+	//nolint:dupl
 	t.Run("BoardPWMSet", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -695,6 +693,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
 	})
 
+	//nolint:dupl
 	t.Run("BoardPWMSetFrequency", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -744,6 +743,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
 	})
 
+	//nolint:dupl
 	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -878,6 +878,7 @@ func TestServer(t *testing.T) {
 		test.That(t, client.DigitalInterruptConfigFromProto(configResp.Config), test.ShouldResemble, theConfig)
 	})
 
+	//nolint:dupl
 	t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -1196,8 +1197,8 @@ func TestServer(t *testing.T) {
 	t.Run("ForceMatrixMatrix", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
@@ -1210,7 +1211,7 @@ func TestServer(t *testing.T) {
 
 		var capMatrix [][]int
 		injectFsm := &inject.ForceMatrix{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return injectFsm, true
 		}
 		expectedMatrix := make([][]int, 4)
@@ -1231,8 +1232,8 @@ func TestServer(t *testing.T) {
 	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
@@ -1242,7 +1243,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "fsm1")
 
 		injectFsm := &inject.ForceMatrix{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return injectFsm, true
 		}
 		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
@@ -1253,9 +1254,7 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
-
 	})
-
 }
 
 type robotServiceStatusStreamServer struct {

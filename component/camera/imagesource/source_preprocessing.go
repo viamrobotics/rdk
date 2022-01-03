@@ -4,16 +4,15 @@ import (
 	"context"
 	"image"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -28,6 +27,12 @@ func init() {
 		) (interface{}, error) {
 			return newPreprocessDepth(r, config)
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "preprocess_depth",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &rimage.AttrConfig{})
 }
 
 // preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
@@ -35,12 +40,7 @@ type preprocessDepthSource struct {
 	source gostream.ImageSource
 }
 
-// Close closes the source
-func (os *preprocessDepthSource) Close() error {
-	return nil
-}
-
-// Next applies depth preprocessing to the next image
+// Next applies depth preprocessing to the next image.
 func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	i, closer, err := os.source.Next(ctx)
 	if err != nil {
@@ -64,5 +64,4 @@ func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, 
 		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
 	}
 	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
-
 }

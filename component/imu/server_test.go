@@ -6,17 +6,19 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/imu"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/spatialmath"
-	"go.viam.com/core/subtype"
-	"go.viam.com/core/testutils/inject"
+	"go.viam.com/rdk/component/imu"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils/inject"
 )
 
-const testIMUName = "imu1"
-const fakeIMUName = "imu2"
-const missingIMUName = "imu3"
+const (
+	testIMUName    = "imu1"
+	fakeIMUName    = "imu2"
+	missingIMUName = "imu3"
+)
 
 func newServer() (pb.IMUServiceServer, *inject.IMU, error) {
 	injectIMU := &inject.IMU{}
@@ -36,13 +38,13 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
-
 		return spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 	}
 	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
 	}
 
+	//nolint:dupl
 	t.Run("IMU angular velocity", func(t *testing.T) {
 		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
@@ -57,6 +59,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
 
+	//nolint:dupl
 	t.Run("IMU orientation", func(t *testing.T) {
 		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)

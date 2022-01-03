@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestPCRoundTrip(t *testing.T) {
@@ -56,8 +55,8 @@ func TestDefaultToPointCloud(t *testing.T) {
 	pc2, err := iwd2.ToPointCloud()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pc2, test.ShouldBeNil)
-
 }
+
 func TestImageWithDepthFromImages(t *testing.T) {
 	iwd, err := NewImageWithDepthFromImages(
 		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)

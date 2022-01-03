@@ -13,19 +13,6 @@ plugins:
     opt:
       - paths=source_relative
       - generate_unbound_methods=true
-  - name: js
-    out: dist/js
-    opt:
-      - import_style=commonjs
-  - name: grpc-web
-    out: dist/js
-    opt:
-      - import_style=commonjs
-      - mode=grpcwebtext
-  - name: ts
-    out: dist/js
-    opt:
-      - service=grpc-web
   - name: doc
     out: docs/proto
     strategy: all
