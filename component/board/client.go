@@ -152,8 +152,23 @@ func (c *client) DigitalInterruptNames() []string {
 	return copyStringSlice(c.DigitalInterruptNames())
 }
 
-// TODO(maximpertsov): remove
+// TODO(maximpertsov): do we still need to cache the board status?
+// TODO(maximpertsov): do we need to implement board status at all?
 func (c *client) Status(ctx context.Context) (*robotpb.BoardStatus, error) {
+	// if status := c.rc.getCachedStatus(); status != nil {
+	// 	boardStatus, ok := status.Boards[bc.info.name]
+	// 	if !ok {
+	// 		return nil, errors.Errorf("no board with name (%s)", bc.info.name)
+	// 	}
+	// 	return boardStatus, nil
+	// }
+	// resp, err := c.client.BoardStatus(ctx, &robotpb.BoardStatusRequest{
+	// 	Name: c.name,
+	// })
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// return resp.Status, nil
 	return nil, nil
 }
 
