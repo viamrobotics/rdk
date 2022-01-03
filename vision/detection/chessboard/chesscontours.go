@@ -7,8 +7,8 @@ import (
 	"github.com/golang/geo/r2"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 // ChessContoursConfiguration stores the parameters needed for contour precessing in chessboard detection
@@ -148,7 +148,8 @@ func getContourBoundingBoxArea(contour []r2.Point) float64 {
 }
 
 // PruneContours keeps contours that correspond to a chessboard square
-func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.ContourNode, saddleScoreMap *mat.Dense, winSize, minContourArea int, eps float64) []rimage.ContourFloat {
+func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.ContourNode, saddleScoreMap *mat.Dense,
+	winSize, minContourArea int, eps float64) []rimage.ContourFloat {
 	newContours := make([]rimage.ContourFloat, 0)
 	for i, c := range contours {
 		cSorted := rimage.SortPointCounterClockwise(c)

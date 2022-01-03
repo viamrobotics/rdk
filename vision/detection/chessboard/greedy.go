@@ -7,9 +7,9 @@ import (
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/rimage/transform"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
 )
 
 // ChessGreedyConfiguration stores the parameters for the iterative refinement of the grid
@@ -173,7 +173,8 @@ func GreedyIterations(contours []rimage.ContourFloat, saddlePoints rimage.Contou
 				if nGood < 4 {
 					continue
 				}
-				if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio || math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
+				if M == nil || math.Abs(M.At(0, 0)/M.At(1, 1)) > cfg.HomographyAcceptableScaleRatio ||
+					math.Abs(M.At(1, 1)/M.At(0, 0)) > cfg.HomographyAcceptableScaleRatio {
 					M = nil
 					break
 				}

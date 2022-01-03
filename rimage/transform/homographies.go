@@ -13,8 +13,8 @@ import (
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 // ComputeNormalizationMatFromSliceVecs computes the normalization matrix from a slice of vectors
