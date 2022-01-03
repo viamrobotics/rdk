@@ -367,7 +367,7 @@
                     // filters out WebGamepad
                     return theData.resources.filter(elem => {
                       return (
-                        elem.namespace == 'core'
+                        elem.namespace == 'rdk'
                         && elem.type == 'component'
                         && elem.subtype == 'input_controller'
                         && elem.name !== 'WebGamepad'
@@ -1396,7 +1396,7 @@
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
-        v-if="filterResources('core', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
+        v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
         v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
