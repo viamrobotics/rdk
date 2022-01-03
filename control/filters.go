@@ -49,10 +49,10 @@ func (f *filterStruct) initFilter() error {
 	switch filterType(fType) {
 	case filterFIRMovingAverage:
 		if !f.cfg.Attribute.Has("filter_size") {
-			return errors.Errorf("filter %s of type %s should have a filterSize field", f.cfg.Name, fType)
+			return errors.Errorf("filter %s of type %s should have a filter_size field", f.cfg.Name, fType)
 		}
 		flt := movingAverageFilter{
-			filterSize: f.cfg.Attribute.Int("filterSize", 0),
+			filterSize: f.cfg.Attribute.Int("filter_size", 0),
 		}
 		f.filter = &flt
 		return f.filter.Reset()
