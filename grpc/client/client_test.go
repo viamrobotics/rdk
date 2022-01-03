@@ -19,12 +19,15 @@ import (
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
+	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/servo"
@@ -54,6 +57,7 @@ var emptyStatus = &pb.Status{
 			GridPosition: &pb.Pose{
 				X:     0.0,
 				Y:     0.0,
+				Z:     0.0,
 				Theta: 0.0,
 				OX:    1.0,
 				OY:    0.0,
