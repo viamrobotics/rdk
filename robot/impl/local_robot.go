@@ -69,29 +69,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 
-	// register eva.
-	_ "go.viam.com/rdk/robots/eva"
-
 	// register fake.
 	_ "go.viam.com/rdk/robots/fake"
-
-	// register UR.
-	_ "go.viam.com/rdk/robots/universalrobots"
-
-	// register varm.
-	_ "go.viam.com/rdk/robots/varm"
-
-	// register vx300s.
-	_ "go.viam.com/rdk/robots/vx300s"
-
-	// register wx250s.
-	_ "go.viam.com/rdk/robots/wx250s"
-
-	// register xArm.
-	_ "go.viam.com/rdk/robots/xarm"
-
-	// register yahboom.
-	_ "go.viam.com/rdk/robots/yahboom"
 	"go.viam.com/rdk/sensor"
 
 	// register gy511.
