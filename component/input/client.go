@@ -43,12 +43,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an input controller client
+// client is an input controller client.
 type client struct {
 	*serviceClient
 	name          string
@@ -118,7 +118,7 @@ func (c *client) LastEvents(ctx context.Context) (map[Control]Event, error) {
 	return eventsOut, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (c *client) InjectEvent(ctx context.Context, event Event) error {
 	eventMsg := &pb.InputControllerServiceEvent{
 		Time:    timestamppb.New(event.Time),
@@ -350,7 +350,7 @@ func (c *client) execCallback(ctx context.Context, event Event) {
 	}
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	if c.cancelBackgroundWorkers != nil {
 		c.cancelBackgroundWorkers()

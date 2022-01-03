@@ -182,7 +182,8 @@ func TestServer(t *testing.T) {
 					Event:   string(event.Event),
 					Control: string(event.Control),
 					Value:   event.Value,
-				}}
+				},
+			}
 		}
 
 		err = injectInputController.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)

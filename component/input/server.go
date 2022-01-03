@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from proto
+// subtypeServer implements the contract from proto.
 type subtypeServer struct {
 	pb.UnimplementedInputControllerServiceServer
 	s subtype.Service
@@ -35,7 +35,7 @@ func (s *subtypeServer) getInputController(name string) (Controller, error) {
 	return input, nil
 }
 
-// Controls lists the inputs of an Controller
+// Controls lists the inputs of an Controller.
 func (s *subtypeServer) Controls(
 	ctx context.Context,
 	req *pb.InputControllerServiceControlsRequest,
@@ -59,7 +59,7 @@ func (s *subtypeServer) Controls(
 	return resp, nil
 }
 
-// LastEvents returns the last Event (current state) of each control
+// LastEvents returns the last Event (current state) of each control.
 func (s *subtypeServer) LastEvents(
 	ctx context.Context,
 	req *pb.InputControllerServiceLastEventsRequest,
@@ -88,7 +88,7 @@ func (s *subtypeServer) LastEvents(
 	return resp, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code
+// InjectEvent allows directly sending an Event (such as a button press) from external code.
 func (s *subtypeServer) InjectEvent(
 	ctx context.Context,
 	req *pb.InputControllerServiceInjectEventRequest,
@@ -115,7 +115,7 @@ func (s *subtypeServer) InjectEvent(
 	return &pb.InputControllerServiceInjectEventResponse{}, nil
 }
 
-// EventStream returns a stream of Event
+// EventStream returns a stream of Event.
 func (s *subtypeServer) EventStream(
 	req *pb.InputControllerServiceEventStreamRequest,
 	server pb.InputControllerService_EventStreamServer,
