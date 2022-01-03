@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // A ServiceType defines a type of service.

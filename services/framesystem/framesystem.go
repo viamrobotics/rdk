@@ -18,10 +18,10 @@ import (
 // Type is the name of the type of service.
 const Type = config.ServiceType("frame_system")
 
-// SubtypeName is the name of the type of service
+// SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("frame_system")
 
-// Subtype is a constant that identifies the frame system resource subtype
+// Subtype is a constant that identifies the frame system resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
@@ -32,17 +32,7 @@ func init() {
 	// TODO: Services do not require reconfigurability. A future commit
 	// implementing a grpc service for this service will add RegisterRPCService
 	// and RPCClient to the ResourceSubtype initialization here - GV
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
-			service, ok := resource.(Service)
-			if !ok {
-				return nil, errors.Errorf(
-					"expected resource to be a Service but got %T", resource,
-				)
-			}
-			return service, nil
-		},
-	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -53,7 +43,6 @@ func init() {
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	resource.Reconfigurable
 	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
 	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	ModelFrame(ctx context.Context, name string) (referenceframe.Model, error)
@@ -157,10 +146,4 @@ func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) (ref
 		return part.ModelFrame, nil
 	}
 	return nil, errors.Errorf("no part with name %q in frame system", name)
-}
-
-// Reconfigure returns nil because resource registration requires
-// reconfigurability but services do not for now
-func (svc *frameSystemService) Reconfigure(ctx context.Context, newR resource.Reconfigurable) error {
-	return nil
 }

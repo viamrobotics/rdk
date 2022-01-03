@@ -27,17 +27,7 @@ func init() {
 	// TODO: Services do not require reconfigurability. A future commit
 	// implementing a grpc service for this service will add RegisterRPCService
 	// and RPCClient to the ResourceSubtype initialization here - GV
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
-			service, ok := resource.(Service)
-			if !ok {
-				return nil, errors.Errorf(
-					"expected resource to be a Service but got %T", resource,
-				)
-			}
-			return service, nil
-		},
-	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -69,7 +59,6 @@ const (
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	resource.Reconfigurable
 	Mode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
 	Close(ctx context.Context) error
@@ -85,10 +74,10 @@ type Service interface {
 // Type is the type of service.
 const Type = config.ServiceType("navigation")
 
-// SubtypeName is the name of the type of service
+// SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("navigation")
 
-// Subtype is a constant that identifies the navigation service resource subtype
+// Subtype is a constant that identifies the navigation service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
@@ -334,12 +323,6 @@ func (svc *navService) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
 	return utils.TryClose(ctx, svc.store)
-}
-
-// Reconfigure returns nil because resource registration requires
-// reconfigurability but services do not for now
-func (svc *navService) Reconfigure(ctx context.Context, newR resource.Reconfigurable) error {
-	return nil
 }
 
 func fixAngle(a float64) float64 {

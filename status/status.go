@@ -39,7 +39,8 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	}
 
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == arm.Subtype {
+		switch {
+		case name.Subtype == arm.Subtype:
 			if status.Arms == nil {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
@@ -82,7 +83,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Arms[name.Name] = armStatus
-		} else if name.Subtype == gantry.Subtype {
+		case name.Subtype == gantry.Subtype:
 			if status.Gantries == nil {
 				status.Gantries = make(map[string]*pb.GantryStatus)
 			}
@@ -109,10 +110,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Gantries[name.Name] = gantryStatus
-		} else if name.ResourceType == resource.ResourceTypeService {
+		case name.ResourceType == resource.ResourceTypeService:
 			status.Services[name.Subtype.String()] = true
 		}
-
 	}
 
 	if names := r.GripperNames(); len(names) != 0 {
