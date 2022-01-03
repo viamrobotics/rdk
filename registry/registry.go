@@ -104,10 +104,10 @@ func RegisterService(subtype resource.Subtype, creator Service) {
 	_, old := serviceRegistry[subtype.String()]
 	// TODO: change to support multiple instances of same service type?
 	if old {
-		panic(errors.Errorf("trying to register two services with same subtype:%s", subtype))
+		panic(errors.Errorf("trying to register two services with same subtype: %s", subtype))
 	}
 	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
+		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	serviceRegistry[subtype.String()] = creator
 }
@@ -212,8 +212,12 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
+	// TODO: remove outer condition when creating separate grpc clients for
+	// services - GV
+	if subtype.ResourceType != resource.ResourceTypeService {
+		if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+			panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
+		}
 	}
 	subtypeRegistry[subtype] = creator
 }

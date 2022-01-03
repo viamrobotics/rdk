@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -103,7 +104,6 @@ func TestConfigRemote(t *testing.T) {
 		},
 		Services: []config.Service{
 			{
-				Name: "frame_system",
 				Type: "frame_system",
 			},
 		},
@@ -217,8 +217,8 @@ func TestConfigRemote(t *testing.T) {
 			"bar.func2": true,
 		},
 		Services: map[string]bool{
-			"frame_system": true,
-			"web1":         true,
+			"rdk:service:frame_system": true,
+			"rdk:service:web":          true,
 		},
 	}
 
@@ -354,7 +354,8 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	test.That(t, len(svc.All()), test.ShouldEqual, 8)
+	// 8 declared resources + default web service
+	test.That(t, len(svc.All()), test.ShouldEqual, 9)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -366,7 +367,7 @@ func TestMetadataUpdate(t *testing.T) {
 				},
 				ResourceSubtype: service.SubtypeName,
 			},
-			Name: "",
+			Name: "rdk:service:metadata",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -387,7 +388,7 @@ func TestMetadataUpdate(t *testing.T) {
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
-			Name: "func1",
+			Name: "rdk:service:function/func1",
 		}: {},
 		{
 			UUID: "4f86ef35-a10d-533b-af91-a1e5b83aeb67",
@@ -398,7 +399,7 @@ func TestMetadataUpdate(t *testing.T) {
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
-			Name: "func2",
+			Name: "rdk:service:function/func2",
 		}: {},
 		{
 			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
@@ -426,6 +427,11 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeSensor,
 			},
 			Name: "compass2",
+		}: {},
+		{
+			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
+			Subtype: framesystem.Subtype,
+			Name:    "rdk:service:frame_system",
 		}: {},
 	}
 	svcResources := svc.All()

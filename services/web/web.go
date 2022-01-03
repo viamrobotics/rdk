@@ -40,10 +40,10 @@ import (
 // Type is the type of service.
 const Type = config.ServiceType("web")
 
-// SubtypeName is the name of the type of service
+// SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("web")
 
-// Subtype is a constant that identifies the web service resource subtype
+// Subtype is a constant that identifies the web service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
@@ -54,17 +54,7 @@ func init() {
 	// TODO: Services do not require reconfigurability. A future commit
 	// implementing a grpc service for this service will add RegisterRPCService
 	// and RPCClient to the ResourceSubtype initialization here - GV
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
-		Reconfigurable: func(resource interface{}) (resource.Reconfigurable, error) {
-			service, ok := resource.(Service)
-			if !ok {
-				return nil, errors.Errorf(
-					"expected resource to be a Service but got %T", resource,
-				)
-			}
-			return service, nil
-		},
-	})
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -183,7 +173,6 @@ var defaultStreamConfig = x264.DefaultStreamConfig
 
 // A Service controls the web server for a robot.
 type Service interface {
-	resource.Reconfigurable
 	// Start starts the web server
 	Start(context.Context, Options) error
 }
@@ -561,10 +550,4 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	})
 	return err
-}
-
-// Reconfigure returns nil because resource registration requires
-// reconfigurability but services do not for now
-func (svc *webService) Reconfigure(newR resource.Reconfigurable) error {
-	return nil
 }

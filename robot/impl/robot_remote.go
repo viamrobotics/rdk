@@ -493,7 +493,8 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 	for name, newPart := range newParts.resources {
 		oldPart, ok := parts.resources[name]
 		delete(oldResources, name)
-		if ok {
+		isService := name.ResourceType == resource.ResourceTypeService
+		if ok && !isService {
 			oldPart, ok := oldPart.(resource.Reconfigurable)
 			if !ok {
 				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", oldPart))

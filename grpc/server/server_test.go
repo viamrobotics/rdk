@@ -167,7 +167,7 @@ func TestServer(t *testing.T) {
 			return service, ok
 		}
 		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+		test.That(t, err, test.ShouldBeError, errors.New("no framesystem service"))
 
 		// set up the robot with something that is not a framesystem service
 		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {

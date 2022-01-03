@@ -826,16 +826,22 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			oldPart, ok := old.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("old type %T is not reconfigurable", old)
-			}
-			newPart, ok := v.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("new type %T is not reconfigurable", v)
-			}
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				return nil, err
+			isService := k.ResourceType == resource.ResourceTypeService
+			if !isService {
+				oldPart, ok := old.(resource.Reconfigurable)
+				if !ok {
+					return nil, errors.Errorf("old type %T is not reconfigurable", old)
+				}
+				newPart, ok := v.(resource.Reconfigurable)
+				if !ok {
+					return nil, errors.Errorf("new type %T is not reconfigurable", v)
+				}
+				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+					return nil, err
+				}
+			} else {
+				delete(parts.resources, k)
+				parts.resources[k] = v
 			}
 		}
 	}
