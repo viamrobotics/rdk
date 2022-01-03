@@ -19,7 +19,7 @@ var logger = golog.NewDevelopmentLogger("armplay")
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/varm/v1.json"), "")
+	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -48,7 +48,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
 
@@ -121,7 +121,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 
-	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
