@@ -12,18 +12,18 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ChessGreedyConfiguration stores the parameters for the iterative refinement of the grid
+// Implementation of greedy iteration for chessboard detection
+
+// ChessGreedyConfiguration stores the parameters for the iterative refinement of the grid.
 type ChessGreedyConfiguration struct {
 	HomographyAcceptableScaleRatio float64 `json:"scale-ratio"`       // acceptable ratio for scale part in estimated homography
 	MinPointsNeeded                int     `json:"min_points_needed"` // minimum number of points to deem Grid estimation valid
 	MaxPointsNeeded                int     `json:"max_points_needed"` // if number of valid points above this, greedy iterations can be stopped
 }
 
-var (
-	quadI = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
-)
+var quadI = []r2.Point{{0, 0}, {1, 0}, {1, 1}, {0, 1}}
 
-// getIdentityGrid returns a n x n 2D Grid with coordinates offset,..., offset+n-1,
+// getIdentityGrid returns a n x n 2D Grid with coordinates offset,..., offset+n-1,.
 func getIdentityGrid(n, offset int) MeshGrid {
 	// create n x n 2D Grid 0...n-1
 	x := make([]float64, n)
@@ -33,7 +33,6 @@ func getIdentityGrid(n, offset int) MeshGrid {
 	// add offset
 	for _, points := range pts {
 		floats.AddConst(float64(offset), points)
-
 	}
 	// output slice of r2.Point / MeshGrid
 	outPoints := make(MeshGrid, 0)
@@ -44,15 +43,15 @@ func getIdentityGrid(n, offset int) MeshGrid {
 	return outPoints
 }
 
-// makeChessGrid returns an identity Grid and its transformation with homography H
-func makeChessGrid(H rimage.Matrix, n int) (MeshGrid, MeshGrid) {
+// makeChessGrid returns an identity Grid and its transformation with homography H.
+func makeChessGrid(homographyMat rimage.Matrix, n int) (MeshGrid, MeshGrid) {
 	unitGrid := getIdentityGrid(2+2*n, -n)
-	grid := transform.ApplyHomography(H, unitGrid)
+	grid := transform.ApplyHomography(homographyMat, unitGrid)
 	return unitGrid, grid
 }
 
 // getInitialChessGrid returns an ideal grid, the homography H from the unit quad to current quad
-// and the ideal grid transformed by H
+// and the ideal grid transformed by H.
 func getInitialChessGrid(quad []r2.Point) (MeshGrid, MeshGrid, *mat.Dense, error) {
 	// order points ccw
 	quad = rimage.SortPointCounterClockwise(quad)
@@ -69,7 +68,7 @@ func getInitialChessGrid(quad []r2.Point) (MeshGrid, MeshGrid, *mat.Dense, error
 	return nil, nil, nil, nil
 }
 
-// GenerateNewBestFit gets the homography that gets the most inliers in current Grid
+// GenerateNewBestFit gets the homography that gets the most inliers in current Grid.
 func GenerateNewBestFit(gridIdeal, grid MeshGrid, gridGood []int) (*mat.Dense, error) {
 	// select valid chessboard corner points in ideal Grid
 	ptsA := make([]r2.Point, 0)
@@ -94,7 +93,7 @@ func GenerateNewBestFit(gridIdeal, grid MeshGrid, gridGood []int) (*mat.Dense, e
 }
 
 // findGoodPoints returns points from a detected Grid that are close to a saddle point and replace these points
-// with the saddle points coordinates
+// with the saddle points coordinates.
 func findGoodPoints(grid MeshGrid, saddlePoints []r2.Point, maxPointDist float64) ([]r2.Point, []int) {
 	// for each Grid point, get the closest saddle point within range
 	newGrid := make([]r2.Point, len(grid))
@@ -120,10 +119,10 @@ func findGoodPoints(grid MeshGrid, saddlePoints []r2.Point, maxPointDist float64
 	return newGrid, gridGood
 }
 
-// MeshGrid is a slice of r2.point that contains grid organized points
+// MeshGrid is a slice of r2.point that contains grid organized points.
 type MeshGrid []r2.Point
 
-// ChessGrid stores the data necessary to get the chess grid points in an image
+// ChessGrid stores the data necessary to get the chess grid points in an image.
 type ChessGrid struct {
 	M            *mat.Dense // homography from ideal Grid to estimated Grid
 	IdealGrid    MeshGrid   // ideal Grid
@@ -132,7 +131,7 @@ type ChessGrid struct {
 	SaddlePoints []r2.Point // slice of saddle points detected in the first step of the chessboard detection algorithm
 }
 
-// sumGoodPoints returns the number of good points in the grid
+// sumGoodPoints returns the number of good points in the grid.
 func sumGoodPoints(goodPoints []int) int {
 	sum := 0
 	for _, pt := range goodPoints {
@@ -141,9 +140,9 @@ func sumGoodPoints(goodPoints []int) int {
 	return sum
 }
 
-// GreedyIterations performs greedy iterations to find the best fitted grid for chess board
+// GreedyIterations performs greedy iterations to find the best fitted grid for chess board.
 func GreedyIterations(contours []rimage.ContourFloat, saddlePoints rimage.ContourFloat, cfg ChessGreedyConfiguration) (*ChessGrid, error) {
-	currentNGood := 0
+	var currentNGood int
 	currentGridNext := make(MeshGrid, 0)
 	currentGridGood := make([]int, 0)
 	currentM := mat.NewDense(3, 3, nil)
@@ -206,5 +205,5 @@ func GreedyIterations(contours []rimage.ContourFloat, saddlePoints rimage.Contou
 			SaddlePoints: saddlePoints,
 		}, nil
 	}
-	return nil, nil
+	return nil, err
 }

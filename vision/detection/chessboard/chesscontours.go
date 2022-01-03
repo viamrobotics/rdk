@@ -11,7 +11,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// ChessContoursConfiguration stores the parameters needed for contour precessing in chessboard detection
+// Implementation of functions to determine if a contour is a chessboard square contour
+
+// ChessContoursConfiguration stores the parameters needed for contour precessing in chessboard detection.
 type ChessContoursConfiguration struct {
 	CannyLow       float64 `json:"canny-low"`        // low threshold for Canny contours detection
 	CannyHigh      float64 `json:"canny-high"`       // high threshold for Canny contours detection
@@ -20,9 +22,8 @@ type ChessContoursConfiguration struct {
 	MinSidePolygon float64 `json:"min-side-poly"`    // if a polygon side is smaller than this value, it can be removed
 }
 
-// BinarizeMat take a mat.Dense and returns a binary mat.Dense according to threshold value
+// BinarizeMat take a mat.Dense and returns a binary mat.Dense according to threshold value.
 func BinarizeMat(m mat.Matrix, thresh float64) *mat.Dense {
-
 	out := mat.DenseCopyOf(m)
 	nRows, nCols := (m).Dims()
 	originalSize := image.Point{nCols, nRows}
@@ -36,7 +37,7 @@ func BinarizeMat(m mat.Matrix, thresh float64) *mat.Dense {
 	return out
 }
 
-// GetAngle computes the angle given a 3 square side lengths, in degrees
+// GetAngle computes the angle given a 3 square side lengths, in degrees.
 func GetAngle(a, b, c float64) float64 {
 	k := (a*a + b*b - c*c) / (2 * a * b)
 	// handle floating point issues
@@ -44,7 +45,7 @@ func GetAngle(a, b, c float64) float64 {
 	return math.Acos(k) * 180 / math.Pi
 }
 
-// IsContourSquare takes a 4 points contour and checks if it corresponds to a square transformed by a homography
+// IsContourSquare takes a 4 points contour and checks if it corresponds to a square transformed by a homography.
 func IsContourSquare(contour []r2.Point) bool {
 	isSquare := false
 	if len(contour) != 4 {
@@ -80,7 +81,7 @@ func IsContourSquare(contour []r2.Point) bool {
 
 // UpdateCorners take a contour, checks the maximum saddle score in a window of size winSize around each point in the contour
 // if the saddle score is > 0, replace the contour point with the point with the maximum saddle score
-// if one of the contour points is not close to a saddle point, returns nil
+// if one of the contour points is not close to a saddle point, returns nil.
 func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) []r2.Point {
 	nRows, nCols := saddleScoreMap.Dims()
 	// copy contour
@@ -124,7 +125,7 @@ func UpdateCorners(contour []r2.Point, saddleScoreMap *mat.Dense, winSize int) [
 	return newContour
 }
 
-// getContourBoundingBoxArea gets the bounding box around a contours and computes the area of that box
+// getContourBoundingBoxArea gets the bounding box around a contours and computes the area of that box.
 func getContourBoundingBoxArea(contour []r2.Point) float64 {
 	minX, minY := math.MaxFloat64, math.MaxFloat64
 	maxX, maxY := 0.0, 0.0
@@ -147,7 +148,7 @@ func getContourBoundingBoxArea(contour []r2.Point) float64 {
 	return w * h
 }
 
-// PruneContours keeps contours that correspond to a chessboard square
+// PruneContours keeps contours that correspond to a chessboard square.
 func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.ContourNode, saddleScoreMap *mat.Dense,
 	winSize, minContourArea int, eps float64) []rimage.ContourFloat {
 	newContours := make([]rimage.ContourFloat, 0)
@@ -182,7 +183,7 @@ func PruneContours(contours []rimage.ContourFloat, hierarchy []rimage.ContourNod
 }
 
 // RemoveSmallSidePolygon takes a polygonal contour as an input (CCW sorted); if a side of the polygon has a length < eps
-// the end point of that side will be removed
+// the end point of that side will be removed.
 func RemoveSmallSidePolygon(points []r2.Point, eps float64) []r2.Point {
 	outPoints := make([]r2.Point, 0, len(points))
 	for i := range points {

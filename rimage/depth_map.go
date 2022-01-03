@@ -615,7 +615,7 @@ func (w *dmWarpConnector) NumFields() int {
 
 // Warp returns a copy of this depth map warped by the given transformation matrix
 // into a new size.
-func (dm *DepthMap) Warp(m Matrix, newSize image.Point) *DepthMap {
+func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap {
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)
 	return conn.Out

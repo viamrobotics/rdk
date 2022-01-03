@@ -17,7 +17,7 @@ import (
 //    David Douglas & Thomas Peucker, "Algorithms for the reduction of the number of points required to represent a
 //   digitized line or its caricature", The Canadian Cartographer 10(2), 112–122 (1973)
 
-// ContourNode is a structure storing data from each contour to form a tree
+// ContourNode is a structure storing data from each contour to form a tree.
 type ContourNode struct {
 	Parent      int
 	FirstChild  int
@@ -25,102 +25,107 @@ type ContourNode struct {
 	Border      Border
 }
 
-// reset resets a ContourNode to default values
+// reset resets a ContourNode to default values.
 func (n *ContourNode) reset() {
 	n.Parent = -1
 	n.FirstChild = -1
 	n.NextSibling = -1
 }
 
-//stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+// stepCCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
 func (p *PointMat) stepCCW8(pivot *PointMat) {
-	if p.Row == pivot.Row && p.Col > pivot.Col {
+	switch {
+	case p.Row == pivot.Row && p.Col > pivot.Col:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col + 1
-	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+	case p.Col > pivot.Col && p.Row < pivot.Row:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col
-	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+	case p.Row < pivot.Row && p.Col == pivot.Col:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col - 1
-	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+	case p.Row < pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row
 		p.Col = pivot.Col - 1
-	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+	case p.Row == pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+	case p.Row > pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col
-	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+	case p.Row > pivot.Row && p.Col == pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col + 1
-	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+	case p.Row > pivot.Row && p.Col > pivot.Col:
 		p.Row = pivot.Row
 		p.Col = pivot.Col + 1
 	}
 }
 
-//stepCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
+// stepCW8 performs a step around a pixel CCW in the 8-connect neighborhood.
 func (p *PointMat) stepCW8(pivot *PointMat) {
-	if p.Row == pivot.Row && p.Col > pivot.Col {
+	switch {
+	case p.Row == pivot.Row && p.Col > pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col + 1
-	} else if p.Col > pivot.Col && p.Row < pivot.Row {
+	case p.Col > pivot.Col && p.Row < pivot.Row:
 		p.Row = pivot.Row
 		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row && p.Col == pivot.Col {
+	case p.Row < pivot.Row && p.Col == pivot.Col:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col + 1
-	} else if p.Row < pivot.Row && p.Col < pivot.Col {
+	case p.Row < pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col
-	} else if p.Row == pivot.Row && p.Col < pivot.Col {
+	case p.Row == pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row - 1
 		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col < pivot.Col {
+	case p.Row > pivot.Row && p.Col < pivot.Col:
 		p.Row = pivot.Row
 		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col == pivot.Col {
+	case p.Row > pivot.Row && p.Col == pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col - 1
-	} else if p.Row > pivot.Row && p.Col > pivot.Col {
+	case p.Row > pivot.Row && p.Col > pivot.Col:
 		p.Row = pivot.Row + 1
 		p.Col = pivot.Col
 	}
 }
 
-// isPointOutOfBounds checks if a given pixel is out of bounds of the image
+// isPointOutOfBounds checks if a given pixel is out of bounds of the image.
 func isPointOutOfBounds(p *PointMat, h, w int) bool {
 	return p.Col >= w || p.Row >= h || p.Col < 0 || p.Row < 0
 }
 
-//marks a pixel as examined after passing through
+// marks a pixel as examined after passing through.
 func markExamined(mark, center PointMat, checked []bool) {
-	loc := -1
+	var loc int
 	//    3
 	//  2 x 0
 	//    1
-	if mark.Col > center.Col {
+	switch {
+	case mark.Col > center.Col:
 		loc = 0
-	} else if mark.Col < center.Col {
+	case mark.Col < center.Col:
 		loc = 2
-	} else if mark.Row > center.Row {
+	case mark.Row > center.Row:
 		loc = 1
-	} else if mark.Row < center.Row {
+	case mark.Row < center.Row:
 		loc = 3
+	default:
+		loc = -1
 	}
 	if loc != -1 {
 		checked[loc] = true
 	}
 }
 
-// isExamined checks if given pixel has already been examined
+// isExamined checks if given pixel has already been examined.
 func isExamined(checked []bool) bool {
 	return checked[0]
 }
 
-// followBorder is a helper function for the contour finding algorithm
+// followBorder is a helper function for the contour finding algorithm.
 func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image.Point {
 	nRows, nCols := img.Dims()
 	current := PointMat{
@@ -169,7 +174,6 @@ func followBorder(img *mat.Dense, row, col int, p2 PointMat, nbp Border) []image
 		p2.SetTo(p3)
 		p3.SetTo(p4)
 	}
-
 }
 
 // FindContours implements the contour hierarchy finding from Suzuki et al.
@@ -194,7 +198,7 @@ func FindContours(img *mat.Dense) ([][]image.Point, []ContourNode) {
 		Row: 0,
 		Col: 0,
 	}
-	borderStartFound := false
+	var borderStartFound bool
 	for r := 0; r < nRows; r++ {
 		lnbd.segNum = 1
 		lnbd.borderType = Hole
@@ -233,7 +237,7 @@ func FindContours(img *mat.Dense) ([][]image.Point, []ContourNode) {
 					hierarchy = append(hierarchy, tmpNode)
 				}
 				contour := followBorder(img, r, c, p2, nbd)
-				//fmt.Println(contour)
+				// fmt.Println(contour)
 				contour = SortImagePointCounterClockwise(contour)
 				contours = append(contours, contour)
 			}
@@ -251,7 +255,7 @@ func FindContours(img *mat.Dense) ([][]image.Point, []ContourNode) {
 	return contours, hierarchy
 }
 
-// ToImagePoint convert a local struct PointMap to an image.Point
+// ToImagePoint convert a local struct PointMap to an image.Point.
 func ToImagePoint(q PointMat) image.Point {
 	return image.Point{q.Col, q.Row}
 }
@@ -272,7 +276,7 @@ func (l Line) DistanceToPoint(pt r2.Point) float64 {
 
 // Coefficients returns the three coefficients that define a line.
 // A line can be represented by the following equation:
-// ax + by + c = 0
+// ax + by + c = 0.
 func (l Line) Coefficients() (a, b, c float64) {
 	a = l.Start.Y - l.End.Y
 	b = l.End.X - l.Start.X
@@ -282,7 +286,7 @@ func (l Line) Coefficients() (a, b, c float64) {
 }
 
 // ApproxContourDP accepts a slice of points and a threshold epsilon, and approximates a contour by
-// a succession of segments
+// a succession of segments.
 func ApproxContourDP(points ContourFloat, ep float64) ContourFloat {
 	if len(points) <= 2 {
 		return points
@@ -306,7 +310,7 @@ func ApproxContourDP(points ContourFloat, ep float64) ContourFloat {
 	return ContourFloat{points[0], points[len(points)-1]}
 }
 
-// seekMostDistantPoint finds the point that is the most distant from the line defined by 2 points
+// seekMostDistantPoint finds the point that is the most distant from the line defined by 2 points.
 func seekMostDistantPoint(l Line, points ContourFloat) (idx int, maxDist float64) {
 	for i := 0; i < len(points); i++ {
 		d := l.DistanceToPoint(points[i])
@@ -319,7 +323,7 @@ func seekMostDistantPoint(l Line, points ContourFloat) (idx int, maxDist float64
 	return idx, maxDist
 }
 
-// SimplifyContours iterates through a slice of contours and performs the contour approximation from ApproxContourDP
+// SimplifyContours iterates through a slice of contours and performs the contour approximation from ApproxContourDP.
 func SimplifyContours(contours [][]image.Point) []ContourFloat {
 	simplifiedContours := make([]ContourFloat, len(contours))
 
@@ -331,7 +335,7 @@ func SimplifyContours(contours [][]image.Point) []ContourFloat {
 	return simplifiedContours
 }
 
-// SortPointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+// SortPointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi.
 func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
 	// create new slice of points
 	out := make([]r2.Point, len(pts))
@@ -360,7 +364,7 @@ func SortPointCounterClockwise(pts []r2.Point) []r2.Point {
 	return out
 }
 
-// SortImagePointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi
+// SortImagePointCounterClockwise sorts a slice of image.Point in counterclockwise order, starting from point closest to -pi.
 func SortImagePointCounterClockwise(pts []image.Point) []image.Point {
 	// create new slice of points
 	out := make([]image.Point, len(pts))

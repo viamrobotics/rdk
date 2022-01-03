@@ -12,7 +12,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// SaddleConfiguration stores the parameters to process the Hessian determinant image into a relevant saddle points map
+// Implementation of functions for saddle points detection in a gray float image
+
+// SaddleConfiguration stores the parameters to process the Hessian determinant image into a relevant saddle points map.
 type SaddleConfiguration struct {
 	GrayThreshold     float64 `json:"gray"`      // initial threshold for pruning saddle points in saddle map
 	ScoreThresholdMin float64 `json:"score-min"` // minimum saddle score value for pruning
@@ -20,7 +22,7 @@ type SaddleConfiguration struct {
 	NMSWindowSize     int     `json:"win-size"`  // window size for non-maximum suppression
 }
 
-// DefaultSaddleConf stores the default parameters for saddle game
+// DefaultSaddleConf stores the default parameters for saddle game.
 var DefaultSaddleConf = SaddleConfiguration{
 	GrayThreshold:     128.,
 	ScoreThresholdMin: 10000.,
@@ -30,7 +32,7 @@ var DefaultSaddleConf = SaddleConfiguration{
 
 // computePixelWiseHessianDeterminant computes hessian components for each pixel and returns a *mat.Dense containing
 // the value of the determinant of the Hessian for each pixel
-// The sign and value of the determinant of the Hessian gives location of saddle points
+// The sign and value of the determinant of the Hessian gives location of saddle points.
 func computePixelWiseHessianDeterminant(img *mat.Dense) (*mat.Dense, error) {
 	nRows, nCols := img.Dims()
 	sobelX := rimage.GetSobelX()
@@ -65,7 +67,7 @@ func computePixelWiseHessianDeterminant(img *mat.Dense) (*mat.Dense, error) {
 }
 
 // SumPositive is a function to count strictly positive element in a *mat.Dense
-// Can be used with the Apply function
+// Can be used with the Apply function.
 func SumPositive(i, j int, val float64) float64 {
 	if val > 0 {
 		return 1.
@@ -73,7 +75,7 @@ func SumPositive(i, j int, val float64) float64 {
 	return 0.
 }
 
-// PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= cfg.ScoreThresholdMin
+// PruneSaddle prunes the saddle points map until the number of non-zero points reaches a value <= cfg.ScoreThresholdMin.
 func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	thresh := cfg.GrayThreshold
 
@@ -84,14 +86,13 @@ func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	scores.Apply(SumPositive, saddleMap)
 	score := mat.Sum(scores)
 	for score > cfg.ScoreThresholdMin {
-		thresh = thresh * 2
+		thresh *= 2
 		decFilt := func(r, c int, v float64) float64 {
 			if v < thresh {
 				return 0.
 			}
 			return v
 		}
-		//mask := mat.NewDense(r,c,nil)
 		pruned.Apply(decFilt, pruned)
 		scores.Apply(SumPositive, pruned)
 		score = mat.Sum(scores)
@@ -99,7 +100,7 @@ func PruneSaddle(s mat.Matrix, cfg *SaddleConfiguration) *mat.Dense {
 	return pruned
 }
 
-// nonMaxSuppression performs a non-maximum suppression in a mat.Dense, with a window of size winSize
+// nonMaxSuppression performs a non-maximum suppression in a mat.Dense, with a window of size winSize.
 func nonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 	h, w := img.Dims()
 	kernel := rimage.GetBlur3()
@@ -128,7 +129,7 @@ func nonMaxSuppression(img *mat.Dense, winSize int) *mat.Dense {
 	return imgSup
 }
 
-// GetSaddleMapPoints gets a saddle point presence map and a slice of relevant saddle points
+// GetSaddleMapPoints gets a saddle point presence map and a slice of relevant saddle points.
 func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, []image.Point, error) {
 	nRows, nCols := img.Dims()
 	originalSize := image.Point{nCols, nRows}
@@ -166,9 +167,8 @@ func GetSaddleMapPoints(img *mat.Dense, conf *SaddleConfiguration) (*mat.Dense, 
 
 // visualization functions
 
-// PlotSaddleMap plots polygonal contours and saddle points on a black image and saves it to a png file : outFile
+// PlotSaddleMap plots polygonal contours and saddle points on a black image and saves it to a png file : outFile.
 func PlotSaddleMap(saddlePoints rimage.ContourInt, contours []rimage.ContourFloat, outFile string, iw, ih int) error {
-
 	dc := gg.NewContext(iw, ih)
 
 	// Draw contours
@@ -176,7 +176,6 @@ func PlotSaddleMap(saddlePoints rimage.ContourInt, contours []rimage.ContourFloa
 
 	for _, c := range contours {
 		for i, pt := range c {
-			//dc.SetPixel(int(pt.X), int(pt.Y))
 			p2 := c[(i+1)%len(c)]
 			dc.DrawLine(pt.X, pt.Y, p2.X, p2.Y)
 			dc.SetLineWidth(1)
@@ -192,14 +191,10 @@ func PlotSaddleMap(saddlePoints rimage.ContourInt, contours []rimage.ContourFloa
 		A: 255,
 	})
 	for _, pt := range saddlePoints {
-		//dc.SetPixel(pt.X, pt.Y)
+		// dc.SetPixel(pt.X, pt.Y)
 		dc.DrawPoint(float64(pt.X), float64(pt.Y), 2.5)
 		dc.Fill()
 	}
 
-	err := dc.SavePNG(outFile)
-	if err != nil {
-		return err
-	}
-	return nil
+	return dc.SavePNG(outFile)
 }

@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r2"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/floats"
 	"gonum.org/v1/gonum/mat"
-
-	"go.viam.com/test"
 
 	"go.viam.com/rdk/utils"
 )
@@ -81,7 +80,7 @@ func SubFor(sub []int, idx int, dims []int) []int {
 	return sub
 }
 
-// CreateRotationMatrix creates a 2x2 rotation matrix with given angle in radians
+// CreateRotationMatrix creates a 2x2 rotation matrix with given angle in radians.
 func CreateRotationMatrix(angle float64) *mat.Dense {
 	r := mat.NewDense(2, 2, nil)
 	r.Set(0, 0, math.Cos(angle))
@@ -103,7 +102,8 @@ func SlicesXsYsToPoints(points [][]float64) []r2.Point {
 }
 
 func TestEstimateHomographyFrom8Points(t *testing.T) {
-	h := []float64{7.82502613e-01, -9.71005496e-02, 9.73247024e+00,
+	h := []float64{
+		7.82502613e-01, -9.71005496e-02, 9.73247024e+00,
 		9.71005496e-02, 7.82502613e-01, 7.26666735e+00,
 		8.96533720e-04, -9.39239890e-04, 1.00000000e+00,
 	}
