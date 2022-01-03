@@ -56,7 +56,7 @@ type InjectableInputController struct {
 	InjectEventFunc func(ctx context.Context, event input.Event) error
 }
 
-//InjectEvent calls the injected function or the real version.
+// InjectEvent calls the injected function or the real version.
 func (s *InjectableInputController) InjectEvent(ctx context.Context, event input.Event) error {
 	if s.InjectEventFunc == nil {
 		return s.InjectEvent(ctx, event)
