@@ -23,6 +23,7 @@ import (
 	grpcserver "go.viam.com/rdk/grpc/server"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	servicepkg "go.viam.com/rdk/services"
@@ -1354,8 +1355,8 @@ func TestServer(t *testing.T) {
 	t.Run("ForceMatrixMatrix", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
@@ -1368,7 +1369,7 @@ func TestServer(t *testing.T) {
 
 		var capMatrix [][]int
 		injectFsm := &inject.ForceMatrix{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return injectFsm, true
 		}
 		expectedMatrix := make([][]int, 4)
@@ -1389,8 +1390,8 @@ func TestServer(t *testing.T) {
 	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
@@ -1400,7 +1401,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capName, test.ShouldEqual, "fsm1")
 
 		injectFsm := &inject.ForceMatrix{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return injectFsm, true
 		}
 		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {

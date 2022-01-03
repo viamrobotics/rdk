@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	rdkutils "go.viam.com/rdk/utils"
@@ -87,17 +86,10 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 }
 
 // NewDepthColorIntrinsicsExtrinsics TODO.
-func NewDepthColorIntrinsicsExtrinsics(attrs config.AttributeMap) (*DepthColorIntrinsicsExtrinsics, error) {
-	var matrices *DepthColorIntrinsicsExtrinsics
-
-	if attrs.Has("intrinsic_extrinsic") {
-		var ok bool
-		matrices, ok = attrs["intrinsic_extrinsic"].(*DepthColorIntrinsicsExtrinsics)
-		if !ok {
-			return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs["intrinsic_extrinsic"])
-		}
-	} else {
-		return nil, errors.New("no camera config")
+func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
+	matrices, ok := attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs.IntrinsicExtrinsic)
 	}
 	return matrices, nil
 }

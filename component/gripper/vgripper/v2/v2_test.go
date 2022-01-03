@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -117,29 +117,8 @@ func TestNew(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
 		}
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return nil, false
-		}
-
-		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("return error when returned sensor is not a forcematrix", func(t *testing.T) {
-		fakeRobot := &inject.Robot{}
-		fakeBoard := &inject.Board{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := createWorkingMotor()
-			return fakeMotor, true
-		}
-		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			return &inject.AnalogReader{}, true
-		}
-		fakeRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			return &inject.Sensor{}, true
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)

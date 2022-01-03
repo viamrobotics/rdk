@@ -11,13 +11,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var (
-	wx250s = "robots/wx250s/wx250s_kinematics.json"
-	ur5e   = "robots/universalrobots/ur5e.json"
-)
-
 func TestModelLoading(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile(wx250s), "")
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
 	simpleM, ok := m.(*SimpleModel)
@@ -38,13 +33,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
-	m, err = ParseJSONFile(utils.ResolveFile(wx250s), "foo")
+	m, err = ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestTransform(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile(wx250s), "")
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -72,8 +67,8 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestVolume(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile(ur5e), "")
+func TestVerboseTransform(t *testing.T) {
+	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
