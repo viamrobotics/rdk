@@ -25,7 +25,7 @@ func TestAdd(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	newMetadata := resource.NewFromSubtype(service.Subtype, "metadata1")
+	newMetadata := resource.NameFromSubtype(service.Subtype, "metadata1")
 
 	test.That(t, err, test.ShouldBeNil)
 
@@ -93,7 +93,7 @@ func TestReplace(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc := resource.NewFromSubtype(service.Subtype, "")
+	metadataSvc := resource.NameFromSubtype(service.Subtype, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {

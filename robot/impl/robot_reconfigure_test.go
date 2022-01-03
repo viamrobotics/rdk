@@ -34,7 +34,7 @@ func TestRobotReconfigure(t *testing.T) {
 	}
 	mockSubtype := resource.NewSubtype(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName("mock"))
 	mockNamed := func(name string) resource.Name {
-		return resource.NewFromSubtype(mockSubtype, name)
+		return resource.NameFromSubtype(mockSubtype, name)
 	}
 	modelName1 := utils.RandomAlphaString(5)
 	modelName2 := utils.RandomAlphaString(5)

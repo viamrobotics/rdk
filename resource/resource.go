@@ -105,15 +105,19 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	if name != "" {
 		i = fmt.Sprintf("%s/%s", i, name)
 	}
+	nameIdent := name
+	if rType == ResourceTypeService {
+		nameIdent = i
+	}
 	return Name{
 		UUID:    uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
 		Subtype: resourceSubtype,
-		Name:    name,
+		Name:    nameIdent,
 	}
 }
 
-// NewFromSubtype creates a new Name based on a Subtype and name string passed in.
-func NewFromSubtype(subtype Subtype, name string) Name {
+// NameFromSubtype creates a new Name based on a Subtype and name string passed in.
+func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
