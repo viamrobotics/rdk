@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )

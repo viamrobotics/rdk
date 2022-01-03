@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
@@ -36,73 +35,72 @@ func (server *subtypeServer) getMotor(name string) (Motor, error) {
 	return motor, nil
 }
 
-// MotorGetPIDConfig returns the config of the motor's PID
-func (s *Server) MotorGetPIDConfig(ctx context.Context, req *pb.MotorGetPIDConfigRequest) (*pb.MotorGetPIDConfigResponse, error) {
+// GetPIDConfig returns the config of the motor's PID.
+func (server *subtypeServer) GetPIDConfig(
+	ctx context.Context,
+	req *pb.MotorServiceGetPIDConfigRequest,
+) (*pb.MotorServiceGetPIDConfigResponse, error) {
 	return nil, errors.New("motorGetPidNotImpl")
-
 }
 
-// MotorSetPIDConfig change the config of the motor's PID
-func (s *Server) MotorSetPIDConfig(ctx context.Context, req *pb.MotorSetPIDConfigRequest) (*pb.MotorSetPIDConfigResponse, error) {
-	return nil, errors.New("motorSetPIDConfigNotImpl")
+func (server *subtypeServer) SetPIDConfig(
+	ctx context.Context,
+	req *pb.MotorServiceSetPIDConfigRequest,
+) (*pb.MotorServiceSetPIDConfigResponse, error) {
+	return nil, errors.New("motorGetPidNotImpl")
 }
 
-// MotorPIDStep execute a step response on the PID controller
-func (s *Server) MotorPIDStep(req *pb.MotorPIDStepRequest, server pb.RobotService_MotorPIDStepServer) error {
-	m, ok := s.r.MotorByName(req.Name)
-	if !ok {
-		return errors.Errorf("no motor (%s) found", req.Name)
-	}
-	pid := m.PID()
-	if pid == nil {
-		return errors.New("no underlying PID for motor configured")
+// PIDStep execute a step response on the PID controller.
+func (server *subtypeServer) PIDStep(
+	req *pb.MotorServicePIDStepRequest,
+	serverPIDStep pb.MotorService_PIDStepServer,
+) (result error) {
+	motorName := req.GetName()
+	motor, err := server.getMotor(motorName)
+	if err != nil {
+		return errors.Errorf("no motor (%s) found", motorName)
 	}
 	setPoint := req.GetSetPoint()
-	if err := m.Off(server.Context()); err != nil {
-		return err
-	}
-	if err := pid.Reset(); err != nil {
+	if err := motor.Stop(serverPIDStep.Context()); err != nil {
 		return err
 	}
 
 	lastTime := time.Now()
-	lastPos, err := m.Position(server.Context())
+	lastPos, err := motor.Position(serverPIDStep.Context())
 	totalTime := 0.0
 	if err != nil {
 		return err
 	}
 	ticker := time.NewTicker(time.Millisecond * 10)
 	defer ticker.Stop()
-	defer func(m motor.Motor) {
-		if err := m.Off(server.Context()); err != nil {
-			s.r.Logger().Error(err)
+	defer func(m Motor, err error) {
+		// TODO - previous version had logging, but used the logger from the robot,
+		// should we still try to do this? - GV
+		errOff := m.Stop(serverPIDStep.Context())
+		if errOff != nil {
+			result = multierr.Combine(errOff, err)
 		}
-	}(m)
+	}(motor, err)
+
 	for {
 		select {
-		case <-server.Context().Done():
-			err := m.Off(server.Context())
-			return multierr.Combine(server.Context().Err(), err)
+		case <-serverPIDStep.Context().Done():
+			err := motor.Stop(serverPIDStep.Context())
+			return multierr.Combine(serverPIDStep.Context().Err(), err)
 		default:
 		}
 		<-ticker.C
 		dt := time.Since(lastTime)
 		lastTime = time.Now()
-		currPos, err := m.Position(server.Context())
+		currPos, err := motor.Position(serverPIDStep.Context())
 		if err != nil {
 			return err
 		}
 		vel := (currPos - lastPos) / dt.Seconds()
-		effort, ok := pid.Output(server.Context(), dt, setPoint, vel)
 		lastPos = currPos
-		if ok {
-			if err = m.Go(server.Context(), effort/100); err != nil {
-				return err
-			}
-		}
 
 		totalTime += dt.Seconds()
-		if err := server.Send(&pb.MotorPIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {
+		if err := serverPIDStep.Send(&pb.MotorServicePIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {
 			return err
 		}
 	}

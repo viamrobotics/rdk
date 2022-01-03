@@ -12,7 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 type wrapBlocks struct {
@@ -21,7 +21,7 @@ type wrapBlocks struct {
 	y int
 }
 
-func generateNInputs(n int, yMax int, baseName string) []wrapBlocks {
+func generateNInputs(n int, baseName string) []wrapBlocks {
 	out := make([]wrapBlocks, n)
 
 	out[0].c = ControlBlockConfig{
@@ -36,7 +36,8 @@ func generateNInputs(n int, yMax int, baseName string) []wrapBlocks {
 	out[0].y = 0
 	out[0].c.Name = fmt.Sprintf("%s%d", baseName, 0)
 	for i := 1; i < n; i++ {
-		out[i].c = ControlBlockConfig{Name: "S1",
+		out[i].c = ControlBlockConfig{
+			Name: "S1",
 			Type: "constant",
 			Attribute: config.AttributeMap{
 				"constant_val": 3.0,
@@ -49,6 +50,7 @@ func generateNInputs(n int, yMax int, baseName string) []wrapBlocks {
 	}
 	return out
 }
+
 func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
 	b := wrapBlocks{
 		c: ControlBlockConfig{
@@ -65,8 +67,8 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 	b.c.Name = fmt.Sprintf("%s%d", baseName, 0)
 	ins = append(ins, b)
 	for i := 1; i < n; i++ {
-		xR := 0
-		yR := 0
+		var xR int
+		var yR int
 		for {
 			xR = rand.Intn(xMax-2) + 2
 			yR = rand.Intn(yMax)
@@ -101,8 +103,8 @@ func generateNSums(n int, xMax int, yMax int, baseName string, ins []wrapBlocks)
 
 func generateNBlocks(n int, xMax int, yMax int, baseName string, ins []wrapBlocks) []wrapBlocks {
 	for i := 0; i < n; i++ {
-		xR := 0
-		yR := 0
+		var xR int
+		var yR int
 		for {
 			xR = rand.Intn(xMax-1) + 1
 			yR = rand.Intn(yMax)
@@ -185,7 +187,8 @@ func mergedAll(xMax int, yMax int, grid [][]*wrapBlocks, def *wrapBlocks) {
 	}
 }
 
-func benchNBlocks(n int, freq float64, b *testing.B) {
+func benchNBlocks(b *testing.B, n int, freq float64) {
+	b.Helper()
 	rand.Seed(time.Now().UTC().UnixNano())
 	if n < 10 {
 		return
@@ -198,7 +201,7 @@ func benchNBlocks(n int, freq float64, b *testing.B) {
 	nB := nObjs
 	yMax := nI
 	xMax := n/yMax + 2
-	out := generateNInputs(nI, xMax, "Inputs")
+	out := generateNInputs(nI, "Inputs")
 	out = generateNSums(nS, xMax, yMax, "Sums", out)
 	out = generateNBlocks(nB, xMax, yMax, "Blocks", out)
 	lastSum := &out[nI]
@@ -222,25 +225,26 @@ func benchNBlocks(n int, freq float64, b *testing.B) {
 		cfg.Blocks = append(cfg.Blocks, out[i].c)
 	}
 	logger := golog.NewLogger("Bench")
-	ctx := context.Background()
-	cloop, err := createControlLoop(ctx, logger, cfg, nil)
+	cloop, err := createControlLoop(logger, cfg, nil)
 	if err == nil {
 		b.ResetTimer()
-		cloop.StartBenchmark(ctx, b.N)
+		cloop.startBenchmark(b.N)
 		cloop.activeBackgroundWorkers.Wait()
 	}
-
 }
 
 func BenchmarkLoop10(b *testing.B) {
-	benchNBlocks(10, 100.0, b)
+	benchNBlocks(b, 10, 100.0)
 }
+
 func BenchmarkLoop30(b *testing.B) {
-	benchNBlocks(30, 100.0, b)
+	benchNBlocks(b, 30, 100.0)
 }
+
 func BenchmarkLoop100(b *testing.B) {
-	benchNBlocks(100, 100.0, b)
+	benchNBlocks(b, 100, 100.0)
 }
+
 func TestControlLoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ctx := context.Background()
@@ -305,10 +309,10 @@ func TestControlLoop(t *testing.T) {
 		},
 		Frequency: 20.0,
 	}
-	cLoop, err := createControlLoop(ctx, logger, cfg, nil)
+	cLoop, err := createControlLoop(logger, cfg, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, cLoop, test.ShouldNotBeNil)
-	cLoop.Start(ctx)
+	cLoop.Start()
 	for i := 200; i > 0; i-- {
 		time.Sleep(65 * time.Millisecond)
 		b, err := cLoop.OutputAt(ctx, "E")

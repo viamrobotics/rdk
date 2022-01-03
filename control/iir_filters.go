@@ -65,7 +65,9 @@ func calculateBiquadCoefficient(fc float64, p int, n int, rp float64, hp bool) (
 	return a, b
 }
 
-// calculateABCoeffs calculate the a,b coefficient for the recursive filter function. To simplify the algebra we use a cascade of biquad filters for filters for order > 2 hence we can only build even order filters
+// calculateABCoeffs calculate the a,b coefficient for the recursive filter function.
+// To simplify the algebra we use a cascade of biquad filters for filters for order > 2
+// hence we can only build even order filters.
 func (f *iirFilter) calculateABCoeffs() error {
 	fc := 2.0 * f.cutOffFreq / f.smpFreq
 
@@ -133,6 +135,7 @@ func (f *iirFilter) Next(x float64) (float64, bool) {
 	f.y = f.y[1:]
 	return y, true
 }
+
 func (f *iirFilter) Reset() error {
 	f.x = make([]float64, f.n)
 	f.y = make([]float64, f.n)
@@ -152,7 +155,7 @@ func design(fp float64, fs float64, gp float64, gs float64, smpFreq float64) (*i
 	wp = math.Tan(math.Pi * wp / 2.0)
 	ws = math.Tan(math.Pi * ws / 2.0)
 
-	//TODO this is just for lowpass
+	// TODO this is just for lowpass
 	n := int(math.Ceil(math.Log10((math.Pow(10.0, gs/10)-1)/(math.Pow(10.0, gp/10)-1)) / (2 * math.Log10(ws/wp))))
 	if n%2 != 0 {
 		n++

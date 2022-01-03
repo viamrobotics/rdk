@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )

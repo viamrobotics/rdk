@@ -1,10 +1,11 @@
+// Package control package for feedback loop controls
 package control
 
 import (
 	"context"
 )
 
-// Controllable controllable type for a DC motor
+// Controllable controllable type for a DC motor.
 type Controllable interface {
 	// Go set the power and direction of the motor
 	Go(ctx context.Context, power float64) error
@@ -13,10 +14,10 @@ type Controllable interface {
 }
 
 // ControlConfig configuration of the control loop
-// nolint: golint
+// nolint: revive
 type ControlConfig struct {
 	Blocks    []ControlBlockConfig `json:"blocks"`    // Blocks Control Block Config
-	Frequency float64              `json:"frequency"` //Frequency loop Frequency
+	Frequency float64              `json:"frequency"` // Frequency loop Frequency
 }
 
 // Control control interface can be used to interfact with a control loop to query signals, change config, start/stop the loop etc...

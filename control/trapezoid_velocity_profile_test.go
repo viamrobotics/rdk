@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestTrapezoidVelocityProfileConfig(t *testing.T) {
@@ -63,6 +63,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 		}
 	}
 }
+
 func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	ctx := context.Background()
 	cfg := ControlBlockConfig{

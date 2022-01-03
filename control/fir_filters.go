@@ -24,7 +24,7 @@ func (f *movingAverageFilter) filterSample(x float64) float64 {
 		}
 		return 0.0
 	}
-	f.accumulator = f.accumulator + (x-f.x[0])/float64(f.smpCount)
+	f.accumulator += (x - f.x[0]) / float64(f.smpCount)
 	f.x = f.x[1:]
 	f.x = append(f.x, x)
 	return f.accumulator
@@ -91,6 +91,7 @@ func (f *firWindowedSinc) Reset() error {
 	f.x = make([]float64, 0)
 	return f.calculateKernel()
 }
+
 func (f *firWindowedSinc) Next(x float64) (float64, bool) {
 	y := f.filterVal(x)
 	if math.IsNaN(y) {
@@ -121,6 +122,7 @@ func (f *firWindowedSinc) calculateKernel() error {
 	}
 	return nil
 }
+
 func (f *firWindowedSinc) filterVal(x float64) float64 {
 	if len(f.x) < f.kernelSize {
 		f.x = append(f.x, x)

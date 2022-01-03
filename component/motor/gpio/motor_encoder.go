@@ -129,11 +129,11 @@ func newEncodedMotor(
 	}
 
 	if len(motorConfig.ControlLoop.Blocks) != 0 {
-		cLoop, err := control.NewControlLoop(cancelCtx, logger, motorConfig.ControlLoop, em)
+		cLoop, err := control.NewControlLoop(logger, motorConfig.ControlLoop, em)
 		if err != nil {
 			return nil, err
 		}
-		err = cLoop.Start(cancelCtx)
+		err = cLoop.Start()
 		if err != nil {
 			return nil, err
 		}

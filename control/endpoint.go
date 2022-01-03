@@ -10,16 +10,16 @@ import (
 )
 
 type endpoint struct {
-	mu  sync.Mutex
-	ctr Controllable
-	cfg ControlBlockConfig
-	y   []Signal
+	mu     sync.Mutex
+	ctr    Controllable
+	cfg    ControlBlockConfig
+	y      []Signal
+	logger golog.Logger
 }
 
 func newEndpoint(config ControlBlockConfig, logger golog.Logger, ctr Controllable) (ControlBlock, error) {
-	e := &endpoint{cfg: config}
-	err := e.reset()
-	if err != nil {
+	e := &endpoint{cfg: config, logger: logger, ctr: ctr}
+	if err := e.reset(); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -64,17 +64,20 @@ func (e *endpoint) Configure(ctx context.Context, config ControlBlockConfig) err
 	e.cfg = config
 	return e.reset()
 }
+
 func (e *endpoint) Reset(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	return e.reset()
 }
+
 func (e *endpoint) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.cfg = config
 	return e.reset()
 }
+
 func (e *endpoint) Output(ctx context.Context) []Signal {
 	return e.y
 }

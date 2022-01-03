@@ -2,7 +2,7 @@ package control
 
 import "sync"
 
-//Signal holds any data passed between blocks
+// Signal holds any data passed between blocks.
 type Signal struct {
 	signal    []float64
 	time      []int
@@ -11,6 +11,7 @@ type Signal struct {
 	mu        *sync.Mutex
 }
 
+//nolint: unparam
 func makeSignal(name string, dimension int) Signal {
 	var s Signal
 	s.dimension = dimension
@@ -21,7 +22,7 @@ func makeSignal(name string, dimension int) Signal {
 	return s
 }
 
-// GetSignalValueAt returns the value of the signal at an index, threadsafe
+// GetSignalValueAt returns the value of the signal at an index, threadsafe.
 func (s *Signal) GetSignalValueAt(i int) float64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -31,7 +32,7 @@ func (s *Signal) GetSignalValueAt(i int) float64 {
 	return s.signal[i]
 }
 
-//SetSignalValueAt set the value of a signal at an index, threadsafe
+// SetSignalValueAt set the value of a signal at an index, threadsafe.
 func (s *Signal) SetSignalValueAt(i int, val float64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

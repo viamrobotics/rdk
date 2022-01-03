@@ -91,7 +91,7 @@ type gpioStepper struct {
 	targetStepsPerSecond int64
 }
 
-// validate if this config is valid
+// validate if this config is valid.
 func (m *gpioStepper) Validate() error {
 	if m.theBoard == nil {
 		return errors.New("need a board for gpioStepper")

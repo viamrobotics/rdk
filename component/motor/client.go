@@ -176,11 +176,3 @@ func (c *client) IsOn(ctx context.Context) (bool, error) {
 	}
 	return resp.GetIsOn(), nil
 }
-
-func (c *client) PID() PID {
-	return nil
-}
-
-func (m *motorClient) ControlLoop(ctx context.Context) *control.ControlLoop {
-	return nil
-}

@@ -74,6 +74,7 @@ func TestIIRFilterButter(t *testing.T) {
 	test.That(t, iirFlt.bCoeffs[5], test.ShouldAlmostEqual, 0.051753033880)
 	test.That(t, iirFlt.bCoeffs[6], test.ShouldAlmostEqual, 0.005022526595)
 }
+
 func TestIIRFilterChebyshevI(t *testing.T) {
 	iirFlt := iirFilter{smpFreq: 10000, cutOffFreq: 1000, n: 4, ripple: 0.5, fltType: "lowpass"}
 
@@ -94,6 +95,7 @@ func TestIIRFilterChebyshevI(t *testing.T) {
 	test.That(t, iirFlt.aCoeffs[3], test.ShouldAlmostEqual, 0.024803623162167082)
 	test.That(t, iirFlt.aCoeffs[4], test.ShouldAlmostEqual, 0.00620090579054177)
 }
+
 func TestIIRFilterDesign(t *testing.T) {
 	iirFlt, err := design(2000, 4250, 3.0, 30.0, 10000)
 	test.That(t, err, test.ShouldBeNil)

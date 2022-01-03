@@ -7,7 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 type controlBlockType string
@@ -24,8 +24,8 @@ const (
 	blockEncoderToRPM               controlBlockType = "encoderToRpm"
 )
 
-//ControlBlockConfig configuration of a given block
-// nolint: golint
+// ControlBlockConfig configuration of a given block
+// nolint: revive
 type ControlBlockConfig struct {
 	Name      string              `json:"name"`       // Control Block name
 	Type      controlBlockType    `json:"type"`       // Control Block type
@@ -33,13 +33,13 @@ type ControlBlockConfig struct {
 	DependsOn []string            `json:"depends_on"` // List of blocks needed for calling Next
 }
 
-//ControlBlock interface for a control block
-// nolint: golint
+// ControlBlock interface for a control block
+// nolint: revive
 type ControlBlock interface {
 	// Reset will reset the control block to initial state. Returns an error on failure
 	Reset(ctx context.Context) error
 
-	//Next calculate the next output. Takes an array of float64 , a delta time returns True and the output value on success false otherwise
+	// Next calculate the next output. Takes an array of float64 , a delta time returns True and the output value on success false otherwise
 	Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool)
 
 	// Config initialize and configure the ControlBlock return an error on failure
@@ -51,11 +51,11 @@ type ControlBlock interface {
 	// Output returns the most recent valid value, useful for block aggregating signals
 	Output(ctx context.Context) []Signal
 
-	//Config returns the underlying config for a ControlBlock
+	// Config returns the underlying config for a ControlBlock
 	Config(ctx context.Context) ControlBlockConfig
 }
 
-func createControlBlock(ctx context.Context, cfg ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
+func createControlBlock(cfg ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
 	t := cfg.Type
 	switch t {
 	case blockEndpoint:
