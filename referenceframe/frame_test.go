@@ -16,7 +16,8 @@ import (
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
-	frame := &staticFrame{"test", expPose}
+	frame, err := NewStaticFrame("test", expPose)
+	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
 	pose, err := frame.Transform(emptyInput)
@@ -107,6 +108,40 @@ func TestRevoluteFrame(t *testing.T) {
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
 	test.That(t, limit, test.ShouldHaveLength, 1)
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestVolumes(t *testing.T) {
+	bc := spatial.NewBox(r3.Vector{1, 1, 1})
+	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
+	expectedBox := bc.NewVolume(pose)
+
+	// test creating a new static frame with a volume"
+	sf, err := NewStaticFrameWithVolume("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err := sf.Volumes([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
+
+	// test creating a new translational frame with a volume"
+	tf, err := NewTranslationalFrameWithVolume("", []bool{false, true, false}, []Limit{{Min: -30, Max: 30}}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = tf.Volumes(FloatsToInputs([]float64{10}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
+
+	// test erroring correctly from trying to create a volume for a rotational frame
+	rf, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = rf.Volumes([]Input{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, vols, test.ShouldBeNil)
+
+	// test inheriting a volume creator
+	sf, err = NewStaticFrameFromFrame(tf, pose)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = sf.Volumes([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
 }
 
 func TestSerializationStatic(t *testing.T) {

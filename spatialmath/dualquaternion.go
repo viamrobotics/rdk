@@ -188,33 +188,6 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
-// Norm returns the norm of the quaternion, i.e. the sqrt of the sum of the squares of the imaginary parts.
-func Norm(q quat.Number) float64 {
-	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
-}
-
-// Flip will multiply a quaternion by -1, returning a quaternion representing the same orientation but in the opposing octant.
-func Flip(q quat.Number) quat.Number {
-	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
-}
-
-// AlmostEqual is an equality test for all the float components of a quaternion.
-func AlmostEqual(a, b quat.Number, tol float64) bool {
-	if math.Abs(a.Real-b.Real) > tol {
-		return false
-	}
-	if math.Abs(a.Imag-b.Imag) > tol {
-		return false
-	}
-	if math.Abs(a.Jmag-b.Jmag) > tol {
-		return false
-	}
-	if math.Abs(a.Kmag-b.Kmag) > tol {
-		return false
-	}
-	return true
-}
-
 // OffsetBy takes two offsets and computes the final position.
 func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q1 := newDualQuaternionFromProtobuf(a)

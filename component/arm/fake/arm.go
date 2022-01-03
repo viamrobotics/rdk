@@ -1,3 +1,4 @@
+// Package fake implements a fake arm.
 package fake
 
 import (
@@ -22,7 +23,7 @@ import (
 var armModelJSON []byte
 
 func init() {
-	registry.RegisterComponent(arm.Subtype, ModelName, registry.Component{
+	registry.RegisterComponent(arm.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			if config.Attributes.Bool("fail_new", false) {
 				return nil, errors.New("whoops")

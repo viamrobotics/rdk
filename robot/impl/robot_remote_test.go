@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -128,7 +129,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.ArmNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.Arm{Name: name}, true
+		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
@@ -209,7 +210,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 				// TODO: some kind of mapping based on resource name may be needed
 				switch name.Subtype {
 				case arm.Subtype:
-					return &fake.Arm{Name: name.Name}, true
+					return &fakearm.Arm{Name: name.Name}, true
 				case board.Subtype:
 					return injectRobot.BoardByNameFunc(name.Name)
 				case servo.Subtype:
