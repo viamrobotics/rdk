@@ -76,13 +76,6 @@ func (b *sum) reset() error {
 	return nil
 }
 
-func (b *sum) Configure(ctx context.Context, config ControlBlockConfig) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.cfg = config
-	return b.reset()
-}
-
 func (b *sum) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

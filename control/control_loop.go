@@ -173,7 +173,7 @@ func (c *ControlLoop) SetConfigAt(ctx context.Context, name string, config Contr
 	if !ok {
 		return errors.Errorf("cannot return Config for non existing block %s", name)
 	}
-	return blk.blk.Configure(ctx, config)
+	return blk.blk.UpdateConfig(ctx, config)
 }
 
 // BlockList returns the list of blocks in a control loop error when the list is empty.

@@ -58,13 +58,6 @@ func (e *endpoint) reset() error {
 	return nil
 }
 
-func (e *endpoint) Configure(ctx context.Context, config ControlBlockConfig) error {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.cfg = config
-	return e.reset()
-}
-
 func (e *endpoint) Reset(ctx context.Context) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()

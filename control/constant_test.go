@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 )
 
 func TestConstantConfig(t *testing.T) {
-	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
 		conf ControlBlockConfig
 		err  string
@@ -50,10 +51,9 @@ func TestConstantConfig(t *testing.T) {
 			"invalid number of inputs for constant block constant1 expected 0 got 2",
 		},
 	} {
-		var s constant
-
-		err := s.Configure(ctx, c.conf)
+		b, err := newConstant(c.conf, logger)
 		if c.err == "" {
+			s := b.(*constant)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(s.y), test.ShouldEqual, 1)
 		} else {
@@ -65,6 +65,7 @@ func TestConstantConfig(t *testing.T) {
 
 func TestConstantNext(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	c := ControlBlockConfig{
 		Name: "constant1",
 		Type: "constant",
@@ -73,9 +74,7 @@ func TestConstantNext(t *testing.T) {
 		},
 		DependsOn: []string{},
 	}
-	var s constant
-	err := s.Configure(ctx, c)
-
+	s, err := newConstant(c, logger)
 	test.That(t, err, test.ShouldBeNil)
 	out, ok := s.Next(ctx, []Signal{}, (time.Millisecond * 1))
 	test.That(t, ok, test.ShouldBeTrue)

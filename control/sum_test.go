@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 )
 
 func TestSumConfig(t *testing.T) {
-	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	for _, c := range []struct {
 		conf ControlBlockConfig
 		err  string
@@ -62,10 +63,9 @@ func TestSumConfig(t *testing.T) {
 			"expected +/- for sum block Sum1 got \\",
 		},
 	} {
-		var s sum
-
-		err := s.Configure(ctx, c.conf)
+		b, err := newSum(c.conf, logger)
 		if c.err == "" {
+			s := b.(*sum)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(s.y), test.ShouldEqual, 1)
 		} else {
@@ -77,6 +77,7 @@ func TestSumConfig(t *testing.T) {
 
 func TestSumNext(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	c := ControlBlockConfig{
 		Name: "Sum1",
 		Type: "Sum",
@@ -85,8 +86,7 @@ func TestSumNext(t *testing.T) {
 		},
 		DependsOn: []string{"A", "B", "C", "D"},
 	}
-	var s sum
-	err := s.Configure(ctx, c)
+	s, err := newSum(c, logger)
 
 	test.That(t, err, test.ShouldBeNil)
 

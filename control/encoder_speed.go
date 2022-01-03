@@ -47,13 +47,6 @@ func (b *encoderToRPM) reset() error {
 	return nil
 }
 
-func (b *encoderToRPM) Configure(ctx context.Context, config ControlBlockConfig) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.cfg = config
-	return b.reset()
-}
-
 func (b *encoderToRPM) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

@@ -113,13 +113,6 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	return nil
 }
 
-func (s *trapezoidVelocityGenerator) Configure(ctx context.Context, config ControlBlockConfig) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cfg = config
-	return s.reset()
-}
-
 func (s *trapezoidVelocityGenerator) Reset(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

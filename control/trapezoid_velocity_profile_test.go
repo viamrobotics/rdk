@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
 )
 
 func TestTrapezoidVelocityProfileConfig(t *testing.T) {
-	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 
 	for _, c := range []struct {
 		conf ControlBlockConfig
@@ -53,8 +54,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 			"trapezoidale velocity profile block Trap1 needs max_acc field",
 		},
 	} {
-		var s trapezoidVelocityGenerator
-		err := s.Configure(ctx, c.conf)
+		_, err := newTrapezoidVelocityProfile(c.conf, logger)
 		if c.err == "" {
 			test.That(t, err, test.ShouldBeNil)
 		} else {
@@ -66,6 +66,7 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 
 func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
 	cfg := ControlBlockConfig{
 		Name:      "Trap1",
 		Type:      "trapezoidalVelocityProfile",
@@ -75,8 +76,8 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 			"max_vel": 100.0,
 		},
 	}
-	var s trapezoidVelocityGenerator
-	err := s.Configure(ctx, cfg)
+	b, err := newTrapezoidVelocityProfile(cfg, logger)
+	s := b.(*trapezoidVelocityGenerator)
 	test.That(t, err, test.ShouldBeNil)
 
 	ins := []Signal{

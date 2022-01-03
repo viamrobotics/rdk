@@ -42,9 +42,6 @@ type ControlBlock interface {
 	// Next calculate the next output. Takes an array of float64 , a delta time returns True and the output value on success false otherwise
 	Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool)
 
-	// Config initialize and configure the ControlBlock return an error on failure
-	Configure(ctx context.Context, config ControlBlockConfig) error
-
 	// UpdateConfig update the configuration of a pre-existing control block returns an error on failure
 	UpdateConfig(ctx context.Context, config ControlBlockConfig) error
 
