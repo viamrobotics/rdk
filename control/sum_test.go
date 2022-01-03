@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestSumConfig(t *testing.T) {
@@ -91,25 +91,29 @@ func TestSumNext(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	signals := []Signal{
-		{name: "A",
+		{
+			name:      "A",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,
 			mu:        &sync.Mutex{},
 		},
-		{name: "B",
+		{
+			name:      "B",
 			signal:    []float64{2.0},
 			time:      []int{2},
 			dimension: 1,
 			mu:        &sync.Mutex{},
 		},
-		{name: "C",
+		{
+			name:      "C",
 			signal:    []float64{1.0},
 			time:      []int{2},
 			dimension: 1,
 			mu:        &sync.Mutex{},
 		},
-		{name: "D",
+		{
+			name:      "D",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,

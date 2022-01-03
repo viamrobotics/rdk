@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestGainConfig(t *testing.T) {
@@ -80,7 +80,8 @@ func TestGainNext(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	signals := []Signal{
-		{name: "A",
+		{
+			name:      "A",
 			signal:    []float64{1.0},
 			time:      []int{1},
 			dimension: 1,

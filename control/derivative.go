@@ -43,11 +43,13 @@ var backward1st3Stencil = derivativeStencil{
 	Order:  1,
 	Coeffs: []float64{-0.3333333333, 1.5, -3, 1.83333333333},
 }
+
 var backward2nd1Stencil = derivativeStencil{
 	Type:   "backward",
 	Order:  2,
 	Coeffs: []float64{1, -2, 1},
 }
+
 var backward2nd2Stencil = derivativeStencil{
 	Type:   "backward",
 	Order:  2,
@@ -60,12 +62,12 @@ type derivative struct {
 	stencil derivativeStencil
 	px      [][]float64
 	y       []Signal
+	logger  golog.Logger
 }
 
 func newDerivative(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
-	d := &derivative{cfg: config}
-	err := d.reset()
-	if err != nil {
+	d := &derivative{cfg: config, logger: logger}
+	if err := d.reset(); err != nil {
 		return nil, err
 	}
 	return d, nil
@@ -134,6 +136,7 @@ func (d *derivative) Configure(ctx context.Context, config ControlBlockConfig) e
 	d.cfg = config
 	return d.reset()
 }
+
 func (d *derivative) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -150,6 +153,7 @@ func (d *derivative) Reset(ctx context.Context) error {
 func (d *derivative) Output(ctx context.Context) []Signal {
 	return d.y
 }
+
 func (d *derivative) Config(ctx context.Context) ControlBlockConfig {
 	return d.cfg
 }

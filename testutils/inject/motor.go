@@ -19,7 +19,6 @@ type Motor struct {
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
 	StopFunc              func(ctx context.Context) error
 	IsOnFunc              func(ctx context.Context) (bool, error)
-	PIDFunc               func() motor.PID
 }
 
 // SetPower calls the injected Power or the real version.
@@ -100,12 +99,4 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 		return m.Motor.IsOn(ctx)
 	}
 	return m.IsOnFunc(ctx)
-}
-
-// PID calls the injected PID getter or the real version.
-func (m *Motor) PID() motor.PID {
-	if m.PIDFunc == nil {
-		return m.Motor.PID()
-	}
-	return m.PIDFunc()
 }

@@ -15,12 +15,12 @@ type encoderToRPM struct {
 	y                  []Signal
 	pulsesPerReolution int
 	prevEncCount       int
+	logger             golog.Logger
 }
 
 func newEncoderSpeed(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
-	e := &encoderToRPM{cfg: config}
-	err := e.reset()
-	if err != nil {
+	e := &encoderToRPM{cfg: config, logger: logger}
+	if err := e.reset(); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -32,6 +32,7 @@ func (b *encoderToRPM) Next(ctx context.Context, x []Signal, dt time.Duration) (
 	b.prevEncCount = currEncCount
 	return b.y, true
 }
+
 func (b *encoderToRPM) reset() error {
 	if !b.cfg.Attribute.Has("PulsesPerRevolution") {
 		return errors.Errorf("encoderToRPM block %s doesn't have a PulsesPerRevolution field", b.cfg.Name)
@@ -52,11 +53,13 @@ func (b *encoderToRPM) Configure(ctx context.Context, config ControlBlockConfig)
 	b.cfg = config
 	return b.reset()
 }
+
 func (b *encoderToRPM) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.reset()
 }
+
 func (b *encoderToRPM) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

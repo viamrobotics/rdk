@@ -11,15 +11,14 @@ import (
 )
 
 func newPID(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
-	p := &basicPID{cfg: config}
-	err := p.reset()
-	if err != nil {
+	p := &basicPID{cfg: config, logger: logger}
+	if err := p.reset(); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-// BasicPID is the standard implementation of a PID controller
+// BasicPID is the standard implementation of a PID controller.
 type basicPID struct {
 	mu       sync.Mutex
 	cfg      ControlBlockConfig
@@ -36,14 +35,17 @@ type basicPID struct {
 	limLo    float64
 	tuner    pidTuner
 	tuning   bool
+	logger   golog.Logger
 }
 
-// Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call, setPoint is the desired value, measured is the measured value. Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value
+// Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call,
+// setPoint is the desired value, measured is the measured value.
+// Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value.
 func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.tuning {
-		out, done := p.tuner.pidTunerStep(x[0].GetSignalValueAt(0), dt)
+		out, done := p.tuner.pidTunerStep(x[0].GetSignalValueAt(0))
 		if done {
 			p.kD = p.tuner.kD
 			p.kI = p.tuner.kI
@@ -53,23 +55,24 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		p.y[0].SetSignalValueAt(0, out)
 	} else {
 		dtS := dt.Seconds()
-		error := x[0].GetSignalValueAt(0)
-		if (p.sat > 0 && error > 0) || (p.sat < 0 && error < 0) {
+		pvError := x[0].GetSignalValueAt(0)
+		if (p.sat > 0 && pvError > 0) || (p.sat < 0 && pvError < 0) {
 			return p.y, false
 		}
 		p.int += p.kI * p.error * dtS
-		if p.int > p.satLimUp {
+		switch {
+		case p.int > p.satLimUp:
 			p.int = p.satLimUp
 			p.sat = 1
-		} else if p.int < p.satLimLo {
+		case p.int < p.satLimLo:
 			p.int = p.limLo
 			p.sat = -1
-		} else {
+		default:
 			p.sat = 0
 		}
-		deriv := (error - p.error) / dtS
-		output := p.kP*error + p.int + p.kD*deriv
-		p.error = error
+		deriv := (pvError - p.error) / dtS
+		output := p.kP*pvError + p.int + p.kD*deriv
+		p.error = pvError
 		if output > p.limUp {
 			output = p.limUp
 		} else if output < p.limLo {
@@ -78,7 +81,6 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		p.y[0].SetSignalValueAt(0, output)
 	}
 	return p.y, true
-
 }
 
 func (p *basicPID) reset() error {
@@ -136,6 +138,7 @@ func (p *basicPID) Configure(ctx context.Context, config ControlBlockConfig) err
 	p.cfg = config
 	return p.reset()
 }
+
 func (p *basicPID) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -258,8 +261,7 @@ func (p *pidTuner) computeGains() {
 	}
 }
 
-// Output returns the discrete step of the PID controller, dt is the delta time between two subsequent call, setPoint is the desired value, measured is the measured value. Returns false when the output is invalid (the integral is saturating) in this case continue to use the last valid value
-func (p *pidTuner) pidTunerStep(pv float64, dt time.Duration) (float64, bool) {
+func (p *pidTuner) pidTunerStep(pv float64) (float64, bool) {
 	l1 := 0.2
 	l2 := 0.1
 	l3 := 0.1

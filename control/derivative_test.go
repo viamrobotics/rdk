@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestDerivativeConfig(t *testing.T) {
@@ -75,6 +75,7 @@ func TestDerivativeConfig(t *testing.T) {
 		}
 	}
 }
+
 func TestDerivativeNext(t *testing.T) {
 	const iter int = 3000
 	ctx := context.Background()

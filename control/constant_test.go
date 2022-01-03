@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/config"
+	"go.viam.com/rdk/config"
 )
 
 func TestConstantConfig(t *testing.T) {

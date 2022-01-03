@@ -14,12 +14,12 @@ type constant struct {
 	cfg      ControlBlockConfig
 	y        []Signal
 	constant float64
+	logger   golog.Logger
 }
 
 func newConstant(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
-	c := &constant{cfg: config}
-	err := c.reset()
-	if err != nil {
+	c := &constant{cfg: config, logger: logger}
+	if err := c.reset(); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -28,6 +28,7 @@ func newConstant(config ControlBlockConfig, logger golog.Logger) (ControlBlock, 
 func (b *constant) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
 	return b.y, true
 }
+
 func (b *constant) reset() error {
 	if !b.cfg.Attribute.Has("constant_val") {
 		return errors.Errorf("constant block %s doesn't have a constant_val field", b.cfg.Name)
@@ -48,11 +49,13 @@ func (b *constant) Configure(ctx context.Context, config ControlBlockConfig) err
 	b.cfg = config
 	return b.reset()
 }
+
 func (b *constant) Reset(ctx context.Context) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.reset()
 }
+
 func (b *constant) UpdateConfig(ctx context.Context, config ControlBlockConfig) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

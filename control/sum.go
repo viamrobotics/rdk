@@ -21,12 +21,12 @@ type sum struct {
 	cfg       ControlBlockConfig
 	y         []Signal
 	operation map[string]sumOperand
+	logger    golog.Logger
 }
 
 func newSum(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
-	s := &sum{cfg: config}
-	err := s.reset()
-	if err != nil {
+	s := &sum{cfg: config, logger: logger}
+	if err := s.reset(); err != nil {
 		return nil, err
 	}
 	return s, nil
@@ -54,12 +54,15 @@ func (b *sum) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal,
 	b.y[0].SetSignalValueAt(0, y)
 	return b.y, true
 }
+
 func (b *sum) reset() error {
 	if !b.cfg.Attribute.Has("sum_string") {
 		return errors.Errorf("sum block %s doesn't have a sum_string", b.cfg.Name)
 	}
 	if len(b.cfg.DependsOn) != len(b.cfg.Attribute.String("sum_string")) {
-		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d", b.cfg.Name, len(b.cfg.Attribute.String("sum_string")), len(b.cfg.DependsOn))
+		return errors.Errorf("invalid number of inputs for sum block %s expected %d got %d",
+			b.cfg.Name, len(b.cfg.Attribute.String("sum_string")),
+			len(b.cfg.DependsOn))
 	}
 	b.operation = make(map[string]sumOperand)
 	for idx, c := range b.cfg.Attribute.String("sum_string") {
