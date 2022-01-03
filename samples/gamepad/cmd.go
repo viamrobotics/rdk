@@ -46,7 +46,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer myRobot.Close(ctx)
 	go debugOut(ctx, myRobot)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	options := web.NewOptions()
+	options.Network = cfg.Network
+	return webserver.RunWeb(ctx, myRobot, options, logger)
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
@@ -79,7 +81,6 @@ func debugOut(ctx context.Context, r robot.Robot) {
 			logger.Infof("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
 			err = g.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
 			if err != nil {
-				logger.Error(err)
 				return
 			}
 		}
