@@ -12,7 +12,6 @@ import (
 // Board is an injected board.
 type Board struct {
 	board.Board
-    cap map[]
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	I2CByNameFunc              func(name string) (board.I2C, bool)
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
@@ -25,7 +24,6 @@ type Board struct {
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
-	GPIOSetCap                 []interface{}
 	GPIOGetFunc                func(ctx context.Context, pin string) (bool, error)
 	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
 	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
@@ -113,7 +111,6 @@ func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
 
 // GPIOSet calls the injected GPIOSet or the real version.
 func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
-	b.GPIOSetCap = []interface{}{ctx, pin, high}
 	if b.GPIOSetFunc == nil {
 		return b.Board.GPIOSet(ctx, pin, high)
 	}
