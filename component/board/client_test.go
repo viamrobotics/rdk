@@ -170,6 +170,8 @@ func TestClient(t *testing.T) {
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		// TODO(maximpertsov): add remaining client methods
+
+		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
 
 	t.Run("Board client 1", func(t *testing.T) {
@@ -177,7 +179,7 @@ func TestClient(t *testing.T) {
 		board1Client, err := board.NewClient(context.Background(), board1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-        testWorkingClient(board1Client)
+		testWorkingClient(board1Client)
 	})
 
 	t.Run("Board client 2", func(t *testing.T) {
@@ -186,7 +188,7 @@ func TestClient(t *testing.T) {
 		board1Client2 := board.NewClientFromConn(conn, board1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-        testWorkingClient(board1Client2)
+		testWorkingClient(board1Client2)
 	})
 }
 
