@@ -57,8 +57,6 @@ func TestClient(t *testing.T) {
 	var (
 		// capBoardName string
 
-		capGPIOSetPin      string
-		capGPIOSetHigh     bool
 		capGPIOGetPin      string
 		capPWMSetPin       string
 		capPWMSetDutyCycle byte
@@ -70,8 +68,6 @@ func TestClient(t *testing.T) {
 	)
 
 	injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-		capGPIOSetPin = pin
-		capGPIOSetHigh = high
 		return nil
 	}
 	injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
@@ -114,10 +110,11 @@ func TestClient(t *testing.T) {
 	})
 
 	testWorkingClient := func(client board.Board) {
-		err = client.GPIOSet(context.Background(), "one", true)
+		ctx := context.Background()
+
+		err = client.GPIOSet(ctx, "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capGPIOSetPin, test.ShouldEqual, "one")
-		test.That(t, capGPIOSetHigh, test.ShouldBeTrue)
+		test.That(t, injectBoard.GPIOSetCap, test.ShouldResemble, []interface{}{ctx, "one", true})
 
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
