@@ -113,27 +113,23 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	t.Run("Board client 1", func(t *testing.T) {
-		// working
-		board1Client, err := board.NewClient(context.Background(), board1, listener1.Addr().String(), logger, rpc.WithInsecure())
-		test.That(t, err, test.ShouldBeNil)
-
-		err = board1Client.GPIOSet(context.Background(), "one", true)
+	testWorkingClient := func(client board.Board) {
+		err = client.GPIOSet(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capGPIOSetPin, test.ShouldEqual, "one")
 		test.That(t, capGPIOSetHigh, test.ShouldBeTrue)
 
-		isHigh, err := board1Client.GPIOGet(context.Background(), "one")
+		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
 		test.That(t, capGPIOGetPin, test.ShouldEqual, "one")
 
-		err = board1Client.PWMSet(context.Background(), "one", 7)
+		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capPWMSetPin, test.ShouldEqual, "one")
 		test.That(t, capPWMSetDutyCycle, test.ShouldEqual, byte(7))
 
-		err = board1Client.PWMSetFreq(context.Background(), "one", 11233)
+		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
 		test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
@@ -174,6 +170,14 @@ func TestClient(t *testing.T) {
 		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
 
 		// TODO(maximpertsov): add remaining client methods
+	}
+
+	t.Run("Board client 1", func(t *testing.T) {
+		// working
+		board1Client, err := board.NewClient(context.Background(), board1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		test.That(t, err, test.ShouldBeNil)
+
+        testWorkingClient(board1Client)
 	})
 
 	t.Run("Board client 2", func(t *testing.T) {
@@ -182,58 +186,7 @@ func TestClient(t *testing.T) {
 		board1Client2 := board.NewClientFromConn(conn, board1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = board1Client2.GPIOSet(context.Background(), "one", true)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capGPIOSetPin, test.ShouldEqual, "one")
-		test.That(t, capGPIOSetHigh, test.ShouldBeTrue)
-
-		isHigh, err := board1Client2.GPIOGet(context.Background(), "one")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, capGPIOGetPin, test.ShouldEqual, "one")
-
-		err = board1Client2.PWMSet(context.Background(), "one", 7)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSetPin, test.ShouldEqual, "one")
-		test.That(t, capPWMSetDutyCycle, test.ShouldEqual, byte(7))
-
-		err = board1Client2.PWMSetFreq(context.Background(), "one", 11233)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSetFreqPin, test.ShouldEqual, "one")
-		test.That(t, capPWMSetFreqFreq, test.ShouldEqual, uint(11233))
-
-		// Analogs + Digital Interrupts
-		analog1, ok := injectBoard.AnalogReaderByName("analog1")
-		test.That(t, ok, test.ShouldBeTrue)
-		readVal, err := analog1.Read(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, readVal, test.ShouldEqual, 6)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capAnalogReaderName, test.ShouldEqual, "analog1")
-
-		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
-		test.That(t, ok, test.ShouldBeTrue)
-		digital1Config, err := digital1.Config(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
-
-		digital1Val, err := digital1.Value(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, digital1Val, test.ShouldEqual, 287)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
-
-		err = digital1.Tick(context.Background(), true, 44)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
-		test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
-
-		// TODO(maximpertsov): add remaining client methods
-
+        testWorkingClient(board1Client2)
 	})
 }
 
