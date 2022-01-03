@@ -24,7 +24,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		servo.Subtype,
-		"pi",
+		modelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 				if !config.Attributes.Has("pin") {
