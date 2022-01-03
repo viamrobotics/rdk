@@ -105,10 +105,7 @@ func (g *oneAxis) init(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	err = g.motor.GoTo(ctx, -1*g.rpm, 0.2*(positionB-positionA))
-	if err != nil {
-		return err
-	}
+	g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
 
 	return nil
 }
@@ -178,16 +175,10 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
 
 	limitAtZero, err := g.limitHit(ctx, true)
-	if err != nil {
-		return nil, err
-	}
 
 	limitAtOne, err := g.limitHit(ctx, false)
-	if err != nil {
-		return nil, err
-	}
 
-	// Prints out Motor position, Gantry position along length, state of tlimit switches.
+	// Prints out Motor positon, Gantry position along length, state of tlimit switches.
 	g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, x, limitAtZero, limitAtOne)
 
 	return []float64{x}, nil
@@ -217,34 +208,33 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	hit, err := g.limitHit(ctx, true)
-	if err != nil {
-		return err
-	}
 
-	// Hits backwards limit switch, goes in forwards direction for .2 * theRange
+	// Hits backwards limit switch, goes in forwards direction for two revolutions
 	if hit {
 		if x < g.positionLimits[0] {
 			dir := float64(1)
-			return g.motor.GoTo(ctx, dir*g.rpm, .2*theRange)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+		} else {
+			return g.motor.Stop(ctx)
 		}
-
-		return g.motor.Stop(ctx)
 	}
 
-	// Hits forward limit switch, goes in backwards direction for .2 * theRange
+	// Hits forward limit switch, goes in backwards direction for two revolutions
 	hit, err = g.limitHit(ctx, false)
-	if err != nil {
-		return err
-	}
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
-			return g.motor.GoTo(ctx, dir*g.rpm, .2*theRange)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+		} else {
+			return g.motor.Stop(ctx)
 		}
-		return g.motor.Stop(ctx)
 	}
 
-	return g.motor.GoTo(ctx, g.rpm, x)
+	err = g.motor.GoTo(ctx, g.rpm, x)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (g *oneAxis) ModelFrame() referenceframe.Model {
