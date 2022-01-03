@@ -72,11 +72,6 @@ import (
 	// register fake.
 	_ "go.viam.com/rdk/robots/fake"
 
-	// register force matrix.
-	_ "go.viam.com/rdk/robots/vforcematrixtraditional"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/robots/vforcematrixwithmux"
 	"go.viam.com/rdk/sensor"
 
 	// register gy511.
