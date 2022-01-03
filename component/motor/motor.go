@@ -4,21 +4,20 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "motor"
+// SubtypeName is a constant that identifies the component resource subtype string "motor".
 const SubtypeName = resource.SubtypeName("motor")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
@@ -68,11 +67,11 @@ type Motor interface {
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
 
-	//PID returns underlying PID for the motor
+	// PID returns underlying PID for the motor
 	PID() PID
 }
 
-// Named is a helper for getting the named Motor's typed resource name
+// Named is a helper for getting the named Motor's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NewFromSubtype(Subtype, name)
 }
@@ -159,20 +158,20 @@ func (r *reconfigurableMotor) PID() PID {
 	return r.actual.PID()
 }
 
-func (r *reconfigurableMotor) Close() error {
+func (r *reconfigurableMotor) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return viamutils.TryClose(r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
-func (r *reconfigurableMotor) Reconfigure(newMotor resource.Reconfigurable) error {
+func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
 		return errors.Errorf("expected new arm to be %T but got %T", r, newMotor)
 	}
-	if err := viamutils.TryClose(r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -218,13 +217,7 @@ func RegisterConfigAttributeConverter(model string) {
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &Config{})
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }

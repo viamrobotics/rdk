@@ -7,15 +7,33 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
+func TestSegmentationSource(t *testing.T) {
+	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	test.That(t, err, test.ShouldBeNil)
+	cameraMatrices, err := transform.NewDepthColorIntrinsicsExtrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/intel515_parameters.json"),
+	)
+	test.That(t, err, test.ShouldBeNil)
+	img.SetProjector(cameraMatrices)
+	source := &staticSource{img}
+	cfg := segmentation.ObjectConfig{50000, 500, 10.}
+
+	cs := &colorSegmentsSource{source, cfg}
+	_, _, err = cs.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+}
+
 type segmentationSourceTestHelper struct {
-	attrs  config.AttributeMap
+	attrs  rimage.AttrConfig
 	config segmentation.ObjectConfig
 }
 
@@ -26,10 +44,10 @@ func (h *segmentationSourceTestHelper) Process(
 	img image.Image,
 	logger golog.Logger,
 ) error {
-
+	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	is, err := NewDepthComposed(nil, nil, h.attrs, logger)
+	is, err := NewDepthComposed(nil, nil, &h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	dc, ok := is.(*depthComposed)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -63,14 +81,15 @@ func (h *segmentationSourceTestHelper) Process(
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
-	config, err := config.Read(utils.ResolveFile("robots/configs/intel.json"))
+	debugImageSourceOrSkip(t)
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front")
+	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
 	cfg := segmentation.ObjectConfig{50000, 500, 10.}
-	err = d.Process(t, &segmentationSourceTestHelper{c.Attributes, cfg})
+	err = d.Process(t, &segmentationSourceTestHelper{*c, cfg})
 	test.That(t, err, test.ShouldBeNil)
 }

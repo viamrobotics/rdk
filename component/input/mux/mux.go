@@ -1,20 +1,19 @@
+// Package mux implements a multiplexed input controller.
 package mux
 
 import (
 	"context"
 	"sync"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/core/component/input"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 const (
@@ -29,24 +28,17 @@ func init() {
 		modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &Config{})
-
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
-// Config is used for converting config attributes
+// Config is used for converting config attributes.
 type Config struct {
 	Sources []string `json:"sources"`
 }
 
-// NewController returns a new multiplexed input.Controller
+// NewController returns a new multiplexed input.Controller.
 func NewController(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 	var m mux
 	m.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
@@ -70,7 +62,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 		for {
 			select {
 			case eventIn := <-m.eventsChan:
-				m.makeCallbacks(ctxWithCancel, eventIn)
+				m.makeCallbacks(eventIn)
 			case <-ctxWithCancel.Done():
 				return
 			}
@@ -80,7 +72,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	return &m, nil
 }
 
-// mux is an input.Controller
+// mux is an input.Controller.
 type mux struct {
 	sources                 []input.Controller
 	mu                      sync.RWMutex
@@ -91,7 +83,7 @@ type mux struct {
 	eventsChan              chan input.Event
 }
 
-func (m *mux) makeCallbacks(ctx context.Context, eventOut input.Event) {
+func (m *mux) makeCallbacks(eventOut input.Event) {
 	m.mu.RLock()
 	_, ok := m.callbacks[eventOut.Control]
 	m.mu.RUnlock()
@@ -122,14 +114,13 @@ func (m *mux) makeCallbacks(ctx context.Context, eventOut input.Event) {
 	}
 }
 
-// Close terminates background worker threads
-func (m *mux) Close() error {
+// Close terminates background worker threads.
+func (m *mux) Close() {
 	m.cancelFunc()
 	m.activeBackgroundWorkers.Wait()
-	return nil
 }
 
-// Controls lists the unique input.Controls for the combined sources
+// Controls lists the unique input.Controls for the combined sources.
 func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
 	controlMap := make(map[input.Control]bool)
 	var ok bool
@@ -156,7 +147,7 @@ func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
 	return controlsOut, nil
 }
 
-// LastEvents returns the last input.Event (the current state)
+// LastEvents returns the last input.Event (the current state).
 func (m *mux) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	eventsOut := make(map[input.Control]input.Event)
 	var ok bool
@@ -181,7 +172,7 @@ func (m *mux) LastEvents(ctx context.Context) (map[input.Control]input.Event, er
 	return eventsOut, nil
 }
 
-// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events
+// RegisterControlCallback registers a callback function to be executed on the specified control's trigger Events.
 func (m *mux) RegisterControlCallback(
 	ctx context.Context,
 	control input.Control,

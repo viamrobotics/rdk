@@ -48,7 +48,7 @@
             "log": true
         },
         {
-            "name": "/home/erh/core/etc/camera_servers/intelrealserver",
+            "name": "/home/erh/rdk/etc/camera_servers/intelrealserver",
             "log": true
         }
 

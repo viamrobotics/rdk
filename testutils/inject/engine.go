@@ -1,6 +1,6 @@
 package inject
 
-import functionvm "go.viam.com/core/function/vm"
+import functionvm "go.viam.com/rdk/function/vm"
 
 // Engine is an injected engine.
 type Engine struct {
@@ -10,6 +10,7 @@ type Engine struct {
 	ImportFunctionFunc func(name string, f functionvm.Function) error
 	StandardOutputFunc func() string
 	StandardErrorFunc  func() string
+	CloseFunc          func() error
 }
 
 // ExecuteSource calls the injected ExecuteSource or the real version.
@@ -50,4 +51,15 @@ func (e *Engine) StandardError() string {
 		return e.Engine.StandardError()
 	}
 	return e.StandardErrorFunc()
+}
+
+// Close calls the injected Close or the real version.
+func (e *Engine) Close() error {
+	if e.CloseFunc == nil {
+		if e.Engine == nil {
+			return nil
+		}
+		return e.Engine.Close()
+	}
+	return e.CloseFunc()
 }

@@ -8,15 +8,15 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// TransformationMatrix TODO
+// TransformationMatrix TODO.
 type TransformationMatrix [][]float64
 
-// At TODO
+// At TODO.
 func (m TransformationMatrix) At(x, y int) float64 {
 	return m[x][y]
 }
 
-// Dims TODO
+// Dims TODO.
 func (m TransformationMatrix) Dims() (int, int) {
 	return len(m), len(m[0])
 }
@@ -34,13 +34,12 @@ func newTransformationMatrix(m mat.Matrix) TransformationMatrix {
 				tm[x][y] = m.At(x, y)
 			}
 		}
-
 	}
 
 	return tm
 }
 
-// WarpConnector TODO
+// WarpConnector TODO.
 type WarpConnector interface {
 	// return is if the point is valid or not
 	Get(x, y int, buf []float64) bool
@@ -49,40 +48,40 @@ type WarpConnector interface {
 	NumFields() int // how many float64 are in the buffers above
 }
 
-// WarpMatrixConnector TODO
+// WarpMatrixConnector TODO.
 type WarpMatrixConnector struct {
 	Input  mat.Matrix
 	Output *mat.Dense
 }
 
-// Get TODO
+// Get TODO.
 func (c *WarpMatrixConnector) Get(x, y int, buf []float64) bool {
 	buf[0] = c.Input.At(x, y)
 	return true
 }
 
-// Set TODO
+// Set TODO.
 func (c *WarpMatrixConnector) Set(x, y int, data []float64) {
 	c.Output.Set(x, y, data[0])
 }
 
-// OutputDims TODO
+// OutputDims TODO.
 func (c *WarpMatrixConnector) OutputDims() (int, int) {
 	return c.Output.Dims()
 }
 
-// NumFields TODO
+// NumFields TODO.
 func (c *WarpMatrixConnector) NumFields() int {
 	return 1
 }
 
-// WarpImageConnector TODO
+// WarpImageConnector TODO.
 type WarpImageConnector struct {
 	Input  *Image
 	Output *Image
 }
 
-// Get TODO
+// Get TODO.
 func (c *WarpImageConnector) Get(x, y int, buf []float64) bool {
 	// Note: this isn't quite correct, as we're going to averge rgb, and hsv differently.
 	// I'm not sure if it matters or not, but it might
@@ -91,18 +90,18 @@ func (c *WarpImageConnector) Get(x, y int, buf []float64) bool {
 	return true
 }
 
-// Set TODO
+// Set TODO.
 func (c *WarpImageConnector) Set(x, y int, data []float64) {
 	c.Output.SetXY(x, y, NewColorFromArray(data))
 }
 
-// OutputDims TODO
+// OutputDims TODO.
 func (c *WarpImageConnector) OutputDims() (int, int) {
 	b := c.Output.Bounds()
 	return b.Max.X, b.Max.Y
 }
 
-// NumFields TODO
+// NumFields TODO.
 func (c *WarpImageConnector) NumFields() int {
 	return 6
 }
@@ -134,11 +133,11 @@ func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 	raw := make([]float64, 8)
 	x := mat.NewDense(8, 1, raw)
 
-	err := x.Solve(a, b)
-	if err != nil {
+	if err := x.Solve(a, b); err != nil {
 		panic(err)
 	}
 
+	//nolint:makezero
 	raw = append(raw, 1.0)
 	m := mat.NewDense(3, 3, raw)
 
@@ -158,14 +157,13 @@ func invert(m mat.Matrix) *mat.Dense {
 	b.Set(0, 0, 1)
 	b.Set(1, 1, 1)
 	b.Set(2, 2, 1)
-	err := d.Solve(m, b)
-	if err != nil {
+	if err := d.Solve(m, b); err != nil {
 		panic(errors.Wrapf(err, "cannot invert matrix %v", m))
 	}
 	return d
 }
 
-// returns good area
+// returns good area.
 func getRoundedValueHelp(input WarpConnector, dx, dy float64, rp, cp float64, out, buf []float64) float64 {
 	area := dx * dy
 	if area <= .00001 {
@@ -205,7 +203,7 @@ func getRoundedValue(input WarpConnector, r, c float64, total, buf []float64) []
 	return total
 }
 
-// Warp TODO
+// Warp TODO.
 func Warp(input WarpConnector, m TransformationMatrix) {
 	rows, cols := input.OutputDims()
 
@@ -216,7 +214,6 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 
 	for r := 0; r < rows; r++ {
 		for c := 0; c < cols; c++ {
-
 			R := (m.At(0, 0)*float64(r) + m.At(0, 1)*float64(c) + m.At(0, 2)) /
 				(m.At(2, 0)*float64(r) + m.At(2, 1)*float64(c) + m.At(2, 2))
 			C := (m.At(1, 0)*float64(r) + m.At(1, 1)*float64(c) + m.At(1, 2)) /
@@ -228,10 +225,9 @@ func Warp(input WarpConnector, m TransformationMatrix) {
 			input.Set(r, c, getRoundedValue(input, R, C, total, buf))
 		}
 	}
-
 }
 
-// WarpImage TODO
+// WarpImage TODO.
 func WarpImage(img image.Image, m TransformationMatrix, newSize image.Point) *Image {
 	out := NewImage(newSize.X, newSize.Y)
 	conn := &WarpImageConnector{ConvertImage(img), out}

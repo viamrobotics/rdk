@@ -1,11 +1,12 @@
 package camera
 
 import (
+	"context"
 	"testing"
 
-	"go.viam.com/core/resource"
-
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 func TestCameraName(t *testing.T) {
@@ -18,9 +19,9 @@ func TestCameraName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "cf359663-1ffd-553f-8d2a-bd99656aa19a",
+				UUID: "15031593-23e2-5d62-bf05-b9f5286e1794",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "",
@@ -30,9 +31,9 @@ func TestCameraName(t *testing.T) {
 			"all fields included",
 			"camera1",
 			resource.Name{
-				UUID: "6543c4be-b3dd-56ab-976a-48cd37c91501",
+				UUID: "dcd0244b-6dd0-53e6-a97b-2b427d231302",
 				Subtype: resource.Subtype{
-					Type:            resource.Type{Namespace: resource.ResourceNamespaceCore, ResourceType: resource.ResourceTypeComponent},
+					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: SubtypeName,
 				},
 				Name: "camera1",
@@ -72,12 +73,12 @@ func TestReconfigurableCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(fakeCamera2)
+	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(context.Background(), fakeCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fakeCamera1.(*reconfigurableCamera).actual, test.ShouldEqual, actualCamera2)
 	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(nil)
+	err = fakeCamera1.(*reconfigurableCamera).Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new camera")
 }
@@ -88,4 +89,4 @@ type mock struct {
 	reconfCount int
 }
 
-func (m *mock) Close() error { m.reconfCount++; return nil }
+func (m *mock) Close() { m.reconfCount++ }

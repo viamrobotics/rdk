@@ -3,20 +3,30 @@ package imagesource
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
-
-	"go.viam.com/test"
-
-	"go.viam.com/core/config"
-	"go.viam.com/core/rimage"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.viam.com/test"
+
+	"go.viam.com/rdk/rimage"
 )
 
+const debugImageSource = "VIAM_DEBUG_IMAGESOURCE"
+
+func debugImageSourceOrSkip(t *testing.T) {
+	t.Helper()
+	imageSourceTest := os.Getenv(debugImageSource)
+	if imageSourceTest == "" {
+		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugImageSource))
+	}
+}
+
 func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
+	t.Helper()
 	a, _, err := s.Next(context.Background())
 	if err != nil {
 		if strings.Contains(err.Error(), "dial tcp 127.0.0.1:8181: connect: connection refused") {
@@ -47,25 +57,27 @@ func TestDualServerSource(t *testing.T) {
 		DepthURL:  fmt.Sprintf("http://%s/depth.dat", root),
 		isAligned: true,
 	}
-	defer func() {
-		test.That(t, s.Close(), test.ShouldBeNil)
-	}()
+	defer s.Close()
 
 	doServerSourceTest(t, s)
 }
 
 func TestIntelServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := config.AttributeMap{}
-	s, err := NewIntelServerSource("127.0.0.1", 8181, attrs, logger)
+	attrs := rimage.AttrConfig{}
+	attrs.Host = "127.0.0.1"
+	attrs.Port = 8181
+	s, err := NewIntelServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := config.AttributeMap{}
-	s, err := NewServerSource("127.0.0.1", 8181, attrs, logger)
+	attrs := rimage.AttrConfig{}
+	attrs.Host = "127.0.0.1"
+	attrs.Port = 8181
+	s, err := NewServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }

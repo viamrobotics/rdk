@@ -1,5 +1,4 @@
-//go:build pi
-// +build pi
+//go:build linux && arm64
 
 // Package pi implements a Board and its related interfaces for a Raspberry Pi.
 package pi
@@ -13,6 +12,7 @@ import "C"
 import (
 	"context"
 	"math"
+	"os"
 	"strconv"
 	"sync"
 
@@ -23,14 +23,14 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/board"
-	"go.viam.com/core/config"
-	piutils "go.viam.com/core/lib/pi"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 
-	pb "go.viam.com/core/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
 )
 
 const modelName = "pi"
@@ -46,7 +46,10 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			boardConfig := config.ConvertedAttributes.(*board.Config)
+			boardConfig, ok := config.ConvertedAttributes.(*board.Config)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(boardConfig, config.ConvertedAttributes)
+			}
 			return NewPigpio(ctx, boardConfig, logger)
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
@@ -90,6 +93,14 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		resCode = C.gpioInitialise()
 		if resCode < 0 {
 			instanceMu.Unlock()
+			// failed to init, check for common causes
+			_, err := os.Stat("/sys/bus/platform/drivers/raspberrypi-firmware")
+			if err != nil {
+				return nil, errors.New("not running on a pi")
+			}
+			if os.Getuid() != 0 {
+				return nil, errors.New("not running as root, try sudo")
+			}
 			return nil, errors.Errorf("gpioInitialise failed with code: %d", resCode)
 		}
 		initOnce = true
@@ -121,7 +132,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.spis = make(map[string]board.SPI, len(cfg.SPIs))
 		for _, sc := range cfg.SPIs {
 			if sc.BusSelect != "0" && sc.BusSelect != "1" {
-				return nil, errors.Errorf("only SPI buses 0 and 1 are available on Pi boards.")
+				return nil, errors.New("only SPI buses 0 and 1 are available on Pi boards.")
 			}
 			piInstance.spis[sc.Name] = &piPigpioSPI{pi: piInstance, busSelect: sc.BusSelect}
 		}
@@ -148,7 +159,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 	piInstance.interrupts = map[string]board.DigitalInterrupt{}
 	piInstance.interruptsHW = map[uint]board.DigitalInterrupt{}
 	for _, c := range cfg.DigitalInterrupts {
-		bcom, have := piutils.BroadcomPinFromHardwareLabel(c.Pin)
+		bcom, have := broadcomPinFromHardwareLabel(c.Pin)
 		if !have {
 			return nil, errors.Errorf("no hw mapping for %s", c.Pin)
 		}
@@ -160,7 +171,6 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 		piInstance.interrupts[c.Name] = di
 		piInstance.interruptsHW[bcom] = di
 		C.setupInterrupt(C.int(bcom))
-
 	}
 
 	instanceMu.Lock()
@@ -172,7 +182,7 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 
 // GPIOSet sets the given pin to high or low.
 func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -181,7 +191,7 @@ func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
 
 // GPIOGet reads the high/low state of the given pin.
 func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -232,7 +242,7 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 
 // PWMSet sets the given pin to the given PWM duty cycle.
 func (pi *piPigpio) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -250,7 +260,7 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 
 // PWMSetFreq sets the given pin to the given PWM frequency.
 func (pi *piPigpio) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	bcom, have := piutils.BroadcomPinFromHardwareLabel(pin)
+	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
@@ -270,34 +280,6 @@ func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
 	return nil
 }
 
-// piPigpioAnalogReader implements a board.AnalogReader using an MCP3008 ADC via SPI.
-type piPigpioAnalogReader struct {
-	channel int
-	bus     board.SPI
-	chip    string
-}
-
-func (par *piPigpioAnalogReader) Read(ctx context.Context) (int, error) {
-	var tx [3]byte
-	tx[0] = 1                            // start bit
-	tx[1] = byte((8 + par.channel) << 4) // single-ended
-	tx[2] = 0                            // extra clocks to recieve full 10 bits of data
-
-	bus, err := par.bus.OpenHandle()
-	if err != nil {
-		return 0, err
-	}
-	defer bus.Close()
-
-	rx, err := bus.Xfer(ctx, 1000000, par.chip, 0, tx[:])
-	if err != nil {
-		return 0, err
-	}
-	val := (int(rx[1]) << 8) | int(rx[2]) // reassemble 10 bit value
-
-	return val, nil
-}
-
 type piPigpioSPI struct {
 	pi           *piPigpio
 	mu           sync.Mutex
@@ -313,7 +295,6 @@ type piPigpioSPIHandle struct {
 }
 
 func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect string, mode uint, tx []byte) ([]byte, error) {
-
 	if s.isClosed {
 		return nil, errors.New("can't use Xfer() on an already closed SPIHandle")
 	}
@@ -323,7 +304,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	var nativeCS C.uint
 
 	if s.bus.busSelect == "1" {
-		spiFlags = spiFlags | 0x100 // Sets AUX SPI bus bit
+		spiFlags |= 0x100 // Sets AUX SPI bus bit
 		if mode == 1 || mode == 3 {
 			return nil, errors.New("AUX SPI Bus doesn't support Mode 1 or Mode 3")
 		}
@@ -363,7 +344,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	// 1    0   1
 	// 2    1   0
 	// 3    1   1
-	spiFlags = spiFlags | mode
+	spiFlags |= mode
 
 	count := len(tx)
 	rx := make([]byte, count)
@@ -398,7 +379,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		}
 	}
 
-	if int(ret) != int(count) {
+	if int(ret) != count {
 		return nil, errors.Errorf("error with spiXfer: Wanted %d bytes, got %d bytes.", count, ret)
 	}
 
@@ -484,8 +465,7 @@ func (pi *piPigpio) ModelAttributes() board.ModelAttributes {
 }
 
 // Close attempts to close all parts of the board cleanly.
-func (pi *piPigpio) Close() error {
-
+func (pi *piPigpio) Close(ctx context.Context) error {
 	instanceMu.Lock()
 	if len(instances) == 1 {
 		C.gpioTerminate()
@@ -496,19 +476,19 @@ func (pi *piPigpio) Close() error {
 
 	var err error
 	for _, spi := range pi.spis {
-		err = multierr.Combine(err, utils.TryClose(spi))
+		err = multierr.Combine(err, utils.TryClose(ctx, spi))
 	}
 
 	for _, analog := range pi.analogs {
-		err = multierr.Combine(err, utils.TryClose(analog))
+		err = multierr.Combine(err, utils.TryClose(ctx, analog))
 	}
 
 	for _, interrupt := range pi.interrupts {
-		err = multierr.Combine(err, utils.TryClose(interrupt))
+		err = multierr.Combine(err, utils.TryClose(ctx, interrupt))
 	}
 
 	for _, interruptHW := range pi.interruptsHW {
-		err = multierr.Combine(err, utils.TryClose(interruptHW))
+		err = multierr.Combine(err, utils.TryClose(ctx, interruptHW))
 	}
 	return err
 }
@@ -546,6 +526,9 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		// this should *not* block for long otherwise the lock
 		// will be held
 		// TODO(erd): use new cgo Value to pass a context?
-		i.Tick(context.TODO(), high, tick*1000)
+		err := i.Tick(context.TODO(), high, tick*1000)
+		if err != nil {
+			instance.logger.Error(err)
+		}
 	}
 }

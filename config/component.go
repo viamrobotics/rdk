@@ -3,14 +3,12 @@ package config
 import (
 	"flag"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
-
 	"go.viam.com/utils"
 
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/resource"
 )
 
 // A ComponentType defines a type of component.
@@ -23,20 +21,17 @@ const (
 	ComponentTypeGantry          = ComponentType("gantry")
 	ComponentTypeGripper         = ComponentType("gripper")
 	ComponentTypeCamera          = ComponentType("camera")
-	ComponentTypeLidar           = ComponentType("lidar")
 	ComponentTypeSensor          = ComponentType("sensor")
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")
 	ComponentTypeMotor           = ComponentType("motor")
+	ComponentTypeForceMatrix     = ComponentType("forcematrix")
 	ComponentTypeInputController = ComponentType("input_controller")
 )
 
 // A Component describes the configuration of a component.
 type Component struct {
 	Name string `json:"name"`
-
-	Host string `json:"host"`
-	Port int    `json:"port"`
 
 	Type      ComponentType `json:"type"`
 	SubType   string        `json:"subtype"`
@@ -62,7 +57,7 @@ func (config *Component) ResourceName() resource.Name {
 	if config.Type == ComponentTypeSensor {
 		cType = config.SubType
 	}
-	return resource.NewName(resource.ResourceNamespaceCore, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
+	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 
 type validator interface {
@@ -80,6 +75,11 @@ func (config *Component) Validate(path string) error {
 			continue
 		}
 		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
+			return err
+		}
+	}
+	if v, ok := config.ConvertedAttributes.(validator); ok {
+		if err := v.Validate(path); err != nil {
 			return err
 		}
 	}
@@ -113,14 +113,6 @@ func ParseComponentFlag(flag string) (Component, error) {
 		switch keyVal[0] {
 		case "name":
 			cmp.Name = keyVal[1]
-		case "host":
-			cmp.Host = keyVal[1]
-		case "port":
-			port, err := strconv.ParseInt(keyVal[1], 10, 64)
-			if err != nil {
-				return Component{}, errors.Wrap(err, "error parsing port")
-			}
-			cmp.Port = int(port)
 		case "type":
 			cmp.Type = ComponentType(keyVal[1])
 		case "subtype":

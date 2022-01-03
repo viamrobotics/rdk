@@ -9,12 +9,13 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
-	"go.viam.com/core/component/camera"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
@@ -35,6 +36,13 @@ func init() {
 
 			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
 		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&rimage.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -59,14 +67,20 @@ func init() {
 			}, nil
 		}})
 
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf rimage.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&rimage.AttrConfig{})
 }
 
-// rotateImageDepthSource TODO
+// rotateImageDepthSource TODO.
 type rotateImageDepthSource struct {
 	Original gostream.ImageSource
 }
 
-// Next TODO
+// Next TODO.
 func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
@@ -82,7 +96,7 @@ func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func
 	return iwd.Rotate(180), func() {}, nil
 }
 
-// Close TODO
-func (rids *rotateImageDepthSource) Close() error {
-	return rids.Original.Close()
+// Close TODO.
+func (rids *rotateImageDepthSource) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, rids.Original)
 }

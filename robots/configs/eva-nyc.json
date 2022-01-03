@@ -3,8 +3,8 @@
         { "name" : "eva-1",
           "type": "arm",
           "model": "eva",
-          "host" : "10.237.115.3",
           "attributes" : {
+              "host": "10.237.115.3",
               "token" : "${eva_token}"
           }
         }

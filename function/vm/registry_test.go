@@ -7,8 +7,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/testutils/inject"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestRegistryRegisterEngine(t *testing.T) {
@@ -49,9 +49,11 @@ func TestRegistryNewEngine(t *testing.T) {
 	eng1, err := functionvm.NewEngine(functionvm.EngineName(engName1))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eng1, test.ShouldEqual, injectEngine1)
+	test.That(t, eng1.Close(), test.ShouldBeNil)
 	eng2, err := functionvm.NewEngine(functionvm.EngineName(engName2))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, eng2, test.ShouldEqual, injectEngine2)
+	test.That(t, eng2.Close(), test.ShouldBeNil)
 	_, err = functionvm.NewEngine(functionvm.EngineName(engName3))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")

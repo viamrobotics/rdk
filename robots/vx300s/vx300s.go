@@ -3,32 +3,31 @@ package vx300s
 
 import (
 	"context"
-	_ "embed" // for embedding model file
+
+	// for embedding model file.
+	_ "embed"
 	"fmt"
 	"math"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
-
+	"github.com/pkg/errors"
 	"go.viam.com/dynamixel/network"
 	"go.viam.com/dynamixel/servo"
 	"go.viam.com/dynamixel/servo/s_model"
-
 	"go.viam.com/utils"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motionplan"
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	frame "go.viam.com/core/referenceframe"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/motionplan"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 //go:embed vx300s_kinematics.json
@@ -37,12 +36,12 @@ var vx300smodeljson []byte
 func init() {
 	registry.RegisterComponent(arm.Subtype, "vx300s", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newArm(ctx, config.Attributes, logger)
+			return newArm(config.Attributes, logger)
 		},
 	})
 }
 
-// SleepAngles are the angles we go to to prepare to turn off torque
+// SleepAngles are the angles we go to to prepare to turn off torque.
 var SleepAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    840,
@@ -52,7 +51,7 @@ var SleepAngles = map[string]float64{
 	"Wrist_rot":   2048,
 }
 
-// OffAngles are the angles the arm falls into after torque is off
+// OffAngles are the angles the arm falls into after torque is off.
 var OffAngles = map[string]float64{
 	"Waist":       2048,
 	"Shoulder":    795,
@@ -67,16 +66,16 @@ type myArm struct {
 	moveLock *sync.Mutex
 	logger   golog.Logger
 	mp       motionplan.MotionPlanner
-	model    *frame.Model
+	model    referenceframe.Model
 }
 
 // servoPosToDegrees takes a 360 degree 0-4096 servo position, centered at 2048,
-// and converts it to degrees, centered at 0
+// and converts it to degrees, centered at 0.
 func servoPosToDegrees(pos float64) float64 {
 	return ((pos - 2048) * 180) / 2048
 }
 
-// degreeToServoPos takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048
+// degreeToServoPos takes a 0-centered radian and converts to a 360 degree 0-4096 servo position, centered at 2048.
 func degreeToServoPos(pos float64) int {
 	return int(2048 + (pos/180)*2048)
 }
@@ -97,14 +96,14 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-func newArm(ctx context.Context, attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
 	usbPort := attributes.String("usbPort")
 	servos, err := findServos(usbPort, attributes.String("baudRate"), attributes.String("armServoCount"))
 	if err != nil {
 		return nil, err
 	}
 
-	model, err := frame.ParseJSON(vx300smodeljson, "")
+	model, err := referenceframe.ParseJSON(vx300smodeljson, "")
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +143,7 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	if err != nil {
 		return err
 	}
-	solution, err := a.mp.Plan(ctx, pos, frame.JointPosToInputs(joints))
+	solution, err := a.mp.Plan(ctx, pos, referenceframe.JointPosToInputs(joints), nil)
 	if err != nil {
 		return err
 	}
@@ -184,13 +183,13 @@ func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPosition
 	return &pb.ArmJointPositions{Degrees: positions}, nil
 }
 
-// JointMoveDelta TODO
+// JointMoveDelta TODO.
 func (a *myArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
 	return errors.New("not done yet")
 }
 
 // Close will get the arm ready to be turned off.
-func (a *myArm) Close() error {
+func (a *myArm) Close() {
 	// First, check if we are approximately in the sleep position
 	// If so, we can just turn off torque
 	// If not, let's move through the home position first
@@ -218,7 +217,6 @@ func (a *myArm) Close() error {
 	if err != nil {
 		a.logger.Errorf("Torque off error: %s", err)
 	}
-	return nil
 }
 
 // GetAllAngles will return a map of the angles of each joint, denominated in servo position.
@@ -241,13 +239,13 @@ func (a *myArm) GetAllAngles() (map[string]float64, error) {
 	return angles, nil
 }
 
-// JointOrder TODO
+// JointOrder TODO.
 func (a *myArm) JointOrder() []string {
 	return []string{"Waist", "Shoulder", "Elbow", "Forearm_rot", "Wrist", "Wrist_rot"}
 }
 
 // PrintPositions prints positions of all servos.
-// TODO(pl): Print joint names, not just servo numbers
+// TODO(pl): Print joint names, not just servo numbers.
 func (a *myArm) PrintPositions() error {
 	posString := ""
 	for i, s := range a.GetAllServos() {
@@ -357,7 +355,7 @@ func (a *myArm) SleepPosition(ctx context.Context) error {
 	return a.WaitForMovement(ctx)
 }
 
-// GetMoveLock TODO
+// GetMoveLock TODO.
 func (a *myArm) GetMoveLock() *sync.Mutex {
 	return a.moveLock
 }
@@ -399,24 +397,24 @@ func (a *myArm) WaitForMovement(ctx context.Context) error {
 	return nil
 }
 
-// ModelFrame TODO
-func (a *myArm) ModelFrame() *frame.Model {
+// ModelFrame TODO.
+func (a *myArm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-func (a *myArm) CurrentInputs(ctx context.Context) ([]frame.Input, error) {
+func (a *myArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return frame.JointPosToInputs(res), nil
+	return referenceframe.JointPosToInputs(res), nil
 }
 
-func (a *myArm) GoToInputs(ctx context.Context, goal []frame.Input) error {
-	return a.MoveToJointPositions(ctx, frame.InputsToJointPos(goal))
+func (a *myArm) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+	return a.MoveToJointPositions(ctx, referenceframe.InputsToJointPos(goal))
 }
 
-// TODO: Map out *all* servo defaults so that they are always set correctly
+// TODO: Map out *all* servo defaults so that they are always set correctly.
 func setServoDefaults(newServo *servo.Servo) error {
 	// Set some nice-to-have settings
 	err := newServo.SetTorqueEnable(false)
@@ -498,7 +496,7 @@ func findServos(usbPort, baudRateStr, armServoCountStr string) ([]*servo.Servo, 
 
 	// By default, Dynamixel servos come 1-indexed out of the box because reasons
 	for i := 1; i <= armServoCount; i++ {
-		//Get model ID of each servo
+		// Get model ID of each servo
 		newServo, err := s_model.New(network, i)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error initializing servo %d", i)

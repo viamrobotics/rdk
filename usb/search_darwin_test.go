@@ -23,15 +23,19 @@ func TestSearch(t *testing.T) {
 		{SearchFilter{}, goodInclude, "text", nil},
 		{goodFilter, nil, out1, nil},
 		{NewSearchFilter("IOUserSerial", "usbserial-2"), nil, out1, nil},
-		{goodFilter, func(vendorID, productID int) bool {
-			return true
-		}, out1, []Description{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
+		{
+			goodFilter, func(vendorID, productID int) bool {
+				return true
+			}, out1, []Description{
+				{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"},
+			},
 		},
-		{goodFilter, func(vendorID, productID int) bool {
-			return vendorID == 4292 && productID == 60000
-		}, out1, []Description{
-			{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"}},
+		{
+			goodFilter, func(vendorID, productID int) bool {
+				return vendorID == 4292 && productID == 60000
+			}, out1, []Description{
+				{ID: Identifier{Vendor: 4292, Product: 60000}, Path: "/dev/tty.usbserial-0001"},
+			},
 		},
 		{goodFilter, func(vendorID, productID int) bool {
 			return false

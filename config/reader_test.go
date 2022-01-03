@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -8,31 +9,31 @@ import (
 )
 
 func TestFromReaderValidate(t *testing.T) {
-	_, err := FromReader("somepath", strings.NewReader(""))
+	_, err := FromReader(context.Background(), "somepath", strings.NewReader(""))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "EOF")
 
-	_, err = FromReader("somepath", strings.NewReader(`{"cloud": 1}`))
+	_, err = FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unmarshal")
 
-	conf, err := FromReader("somepath", strings.NewReader(`{}`))
+	conf, err := FromReader(context.Background(), "somepath", strings.NewReader(`{}`))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &Config{
 		ConfigFilePath: "somepath",
 		Network:        NetworkConfig{BindAddress: "localhost:8080"},
 	})
 
-	_, err = FromReader("somepath", strings.NewReader(`{"cloud": {}}`))
+	_, err = FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": {}}`))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"id" is required`)
 
-	_, err = FromReader("somepath", strings.NewReader(`{"components": [{}]}`))
+	_, err = FromReader(context.Background(), "somepath", strings.NewReader(`{"components": [{}]}`))
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `components.0`)
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"name" is required`)
 
-	conf, err = FromReader("somepath", strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`))
+	conf, err = FromReader(context.Background(), "somepath", strings.NewReader(`{"components": [{"name": "foo", "type": "arm"}]}`))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, conf, test.ShouldResemble, &Config{
 		ConfigFilePath: "somepath",
