@@ -5,6 +5,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/utils"
 )
 
 // BoxCreator implements the VolumeCreator interface for box structs.
@@ -33,10 +35,25 @@ func NewBoxFromOffset(halfSize r3.Vector, offset Pose) VolumeCreator {
 
 // NewVolume instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewVolume(pose Pose) Volume {
-	b := &box{}
-	b.pose = Compose(pose, bc.offset)
-	b.halfSize = bc.halfSize
+	b := &box{bc.offset, bc.halfSize}
+	b.Transform(pose)
 	return b
+}
+
+func (b *box) Pose() Pose {
+	return b.pose
+}
+
+func (b *box) AlmostEqual(v Volume) bool {
+	other, ok := v.(*box)
+	if !ok {
+		return false
+	}
+	return PoseAlmostEqual(b.pose, other.pose) && utils.R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
+}
+
+func (b *box) Transform(toPremultiply Pose) {
+	b.pose = Compose(toPremultiply, b.pose)
 }
 
 // CollidesWith checks if the given box collides with the given volume and returns true if it does.
