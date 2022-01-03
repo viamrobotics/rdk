@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"image"
 
-	"go.viam.com/core/utils"
-	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/utils"
 )
 
 // resource and tutorial on mathematical morphology:
@@ -31,7 +31,8 @@ func makeStructuringElement(k int) *DepthMap {
 	return structEle
 }
 
-// ErodeSquare takes in a point, a depth map and an struct element and applies the operation erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
+// ErodeSquare takes in a point, a depth map and an struct element and applies the operation
+// erode(u,v) = min_(i,j){inDM[u+j,v+i]-kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
 // https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func erode(center image.Point, dm, kernel *DepthMap) Depth {
@@ -54,7 +55,8 @@ func erode(center image.Point, dm, kernel *DepthMap) Depth {
 	return Depth(depth)
 }
 
-// DilateSquare takes in a point, a depth map and a struct element and applies the operation dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
+// DilateSquare takes in a point, a depth map and a struct element and applies the operation
+// dilate(u,v) = max_(i,j){inDM[u+j,v+i]+kernel[j,i]}
 // on the rectangle in the depth map centered at the point (u,v) operated on by the element
 // https://clouard.users.greyc.fr/Pantheon/experiments/morphology/index-en.html#ch2-A
 func dilate(center image.Point, dm, kernel *DepthMap) Depth {

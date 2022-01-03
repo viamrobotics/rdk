@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 func Single(dim int, x []float64) [][]float64 {

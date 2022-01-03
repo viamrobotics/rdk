@@ -8,8 +8,8 @@ import (
 	"github.com/fogleman/gg"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
 
 // SaddleConfiguration stores the parameters to process the Hessian determinant image into a relevant saddle points map

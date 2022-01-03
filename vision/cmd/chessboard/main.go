@@ -6,12 +6,11 @@ import (
 	"image"
 	"os"
 
-	"go.viam.com/core/vision/detection/chessboard"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/detection/chessboard"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
-
-	"go.viam.com/core/rimage"
 )
 
 var (

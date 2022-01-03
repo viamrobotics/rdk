@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 )
 
 func TestComputeSaddleMap(t *testing.T) {

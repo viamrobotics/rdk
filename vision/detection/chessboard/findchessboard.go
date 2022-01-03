@@ -8,7 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r2"
 
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/rimage"
 )
 
 var (
@@ -100,7 +100,8 @@ func FindChessboard(img rimage.Image, edgesGray *image.Image, cfg DetectionConfi
 	}
 
 	// select only contours that correspond to convex quadrilateral
-	prunedContours := PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize, cfg.Contours.MinContourArea, cfg.Contours.MinSidePolygon)
+	prunedContours := PruneContours(contoursSimplified, hierarchy, saddleMap, cfg.Contours.WinSize,
+		cfg.Contours.MinContourArea, cfg.Contours.MinSidePolygon)
 	if plot {
 		outPath := cfgOut.OutputFolder + cfgOut.BaseName + "pruned_contours.png"
 		err = rimage.DrawContoursSimplified(edges, prunedContours, outPath)
