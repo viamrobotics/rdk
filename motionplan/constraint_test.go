@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -9,9 +10,9 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	"go.viam.com/rdk/referenceframe"
+	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
-	vutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var logger = golog.NewDevelopmentLogger("armplay")
@@ -19,7 +20,7 @@ var logger = golog.NewDevelopmentLogger("armplay")
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/varm/v1.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -34,21 +35,22 @@ func TestIKTolerances(t *testing.T) {
 		OZ: -1.11,
 	}
 	opt := NewDefaultPlannerOptions()
-	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}), opt)
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
-	_, err = mp.Plan(context.Background(), pos, referenceframe.FloatsToInputs([]float64{0, 0}), opt)
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestConstraintPath(t *testing.T) {
-	homePos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
-	toPos := referenceframe.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
+	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
 
@@ -67,7 +69,7 @@ func TestConstraintPath(t *testing.T) {
 
 	test.That(t, len(handler.Constraints()), test.ShouldEqual, 1)
 
-	badInterpPos := referenceframe.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
+	badInterpPos := frame.FloatsToInputs([]float64{6.2, 0, 0, 0, 0, 0})
 	ciBad := &ConstraintInput{StartInput: homePos, EndInput: badInterpPos, Frame: modelXarm}
 	ok, failCI = handler.CheckConstraintPath(ciBad, 0.5)
 	test.That(t, failCI, test.ShouldBeNil)
@@ -87,7 +89,7 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := referenceframe.JointPositionsFromRadians([]float64{
+	mp1 := frame.JointPositionsFromRadians([]float64{
 		3.75646398939225,
 		-1.0162453766159272,
 		1.2142890600914453,
@@ -96,7 +98,7 @@ func TestLineFollow(t *testing.T) {
 		-0.006502311329196852,
 		-4.3822913510408945,
 	})
-	mp2 := referenceframe.JointPositionsFromRadians([]float64{
+	mp2 := frame.JointPositionsFromRadians([]float64{
 		3.896845654143853,
 		-0.8353398707254642,
 		1.1306783805718412,
@@ -119,15 +121,15 @@ func TestLineFollow(t *testing.T) {
 	pointGrad := gradFunc(query, query)
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
-	fs := referenceframe.NewEmptySimpleFrameSystem("test")
+	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	m, err := referenceframe.ParseJSONFile(vutils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	markerFrame, err := referenceframe.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
+	markerFrame, err := frame.NewStaticFrame("marker", spatial.NewPoseFromPoint(r3.Vector{0, 0, 105}))
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(markerFrame, m)
 	test.That(t, err, test.ShouldBeNil)
@@ -142,7 +144,7 @@ func TestLineFollow(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
-	// Create a frame to solve for, and an IK solver with that referenceframe.
+	// Create a frame to solve for, and an IK solver with that frame.
 	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
 
 	opt := NewDefaultPlannerOptions()
@@ -150,12 +152,42 @@ func TestLineFollow(t *testing.T) {
 	opt.AddConstraint("whiteboard", validFunc)
 	ok, _ := opt.CheckConstraintPath(
 		&ConstraintInput{
-			StartInput: referenceframe.JointPosToInputs(mp1),
-			EndInput:   referenceframe.JointPosToInputs(mp2),
+			StartInput: frame.JointPosToInputs(mp1),
+			EndInput:   frame.JointPosToInputs(mp2),
 			Frame:      sf,
 		},
 		1,
 	)
 
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestCollisionConstraint(t *testing.T) {
+	zeroInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	cases := []struct {
+		input    []frame.Input
+		expected bool
+	}{
+		{zeroInput, true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 1, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{0, 0, 0, 1, 2.5, 0}), false},
+	}
+
+	// setup zero position as reference CollisionGraph and use it in handler
+	ur5e, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	zeroVols, _ := ur5e.Volumes(zeroInput)
+	test.That(t, zeroVols, test.ShouldNotBeNil)
+	zeroCG, err := CheckCollisions(zeroVols)
+	test.That(t, err, test.ShouldBeNil)
+	handler := &constraintHandler{}
+	handler.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
+
+	// loop through cases and check constraint handler processes them correctly
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: ur5e})
+			test.That(t, response, test.ShouldEqual, c.expected)
+		})
+	}
 }

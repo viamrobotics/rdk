@@ -119,12 +119,12 @@ func TestLidarPose(t *testing.T) {
 	test.That(t, expectPoint.Z, test.ShouldAlmostEqual, seenPoint.Z)
 }
 
-func TestAlmostCoincident(t *testing.T) {
+func TestPoseAlmostEqual(t *testing.T) {
 	p1 := NewPoseFromPoint(r3.Vector{1.0, 2.0, 3.0})
 	p2 := NewPoseFromPoint(r3.Vector{1.0000000001, 1.999999999, 3.0000000001})
 	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
-	test.That(t, AlmostCoincident(p1, p2), test.ShouldBeTrue)
-	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
+	test.That(t, PoseAlmostCoincident(p1, p2), test.ShouldBeTrue)
+	test.That(t, PoseAlmostCoincident(p1, p3), test.ShouldBeFalse)
 }
 
 var (
