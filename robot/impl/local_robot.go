@@ -71,7 +71,6 @@ import (
 
 	// register fake.
 	_ "go.viam.com/rdk/robots/fake"
-
 	"go.viam.com/rdk/sensor"
 
 	// register gy511.
