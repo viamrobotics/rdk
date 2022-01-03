@@ -31,8 +31,6 @@ vendor/
 # gRPC/Protocol Buffers
 bin
 dist/*
-proto/api/*
-!proto/api/*/*.proto
 node_modules/
 
 # Test data
