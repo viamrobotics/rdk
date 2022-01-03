@@ -33,7 +33,15 @@ func (config *Service) String() string {
 // ResourceName returns the  ResourceName for the component.
 func (config *Service) ResourceName() resource.Name {
 	cType := string(config.Type)
-	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeService, resource.SubtypeName(cType), config.Name)
+	// since services are singletons, the type is sufficient and we don't
+	// need an additional name specified in the config. Thus we pass an
+	// empty string for that parameter
+	return resource.NewName(
+		resource.ResourceNamespaceRDK,
+		resource.ResourceTypeService,
+		resource.SubtypeName(cType),
+		"",
+	)
 }
 
 // Set hydrates a config based on a flag like value.

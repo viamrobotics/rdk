@@ -25,6 +25,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/sensor"
@@ -632,7 +633,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
 	}
 
-	navServiceTemp, ok := myRobot.ServiceByName("navigation")
+	resName := resource.NameFromSubtype(navigation.Subtype, "")
+	navServiceTemp, ok := myRobot.ResourceByName(resName)
 	if !ok {
 		return errors.New("no navigation service")
 	}

@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -378,7 +379,8 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 		}
 		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	resName := resource.NameFromSubtype(web.Subtype, "")
+	svc, ok := r.ResourceByName(resName)
 	if !ok {
 		return errors.New("robot has no web service")
 	}

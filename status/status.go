@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
 	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -21,6 +22,8 @@ import (
 func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	var err error
 	var status pb.Status
+
+	status.Services = make(map[string]bool)
 
 	// manually refresh all remotes to get an up to date status
 	for _, name := range r.RemoteNames() {
@@ -106,7 +109,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Gantries[name.Name] = gantryStatus
+		} else if name.ResourceType == resource.ResourceTypeService {
+			status.Services[name.Subtype.String()] = true
 		}
+
 	}
 
 	if names := r.GripperNames(); len(names) != 0 {
@@ -243,12 +249,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		status.Functions = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Functions[name] = true
-		}
-	}
-	if names := r.ServiceNames(); len(names) != 0 {
-		status.Services = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Services[name] = true
 		}
 	}
 
