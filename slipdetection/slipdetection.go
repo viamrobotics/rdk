@@ -6,7 +6,7 @@ import (
 	"math"
 	"sync"
 
-	"go.viam.com/rdk/sensor/forcematrix"
+	"go.viam.com/rdk/component/forcematrix"
 )
 
 // ReadingsHistoryProvider represents a matrix sensor that supports slip detection.

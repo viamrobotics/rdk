@@ -2,7 +2,7 @@ name: Docker
 
 on:
   schedule:
-    - cron: '0 1 * * *' # once a day at 1AM
+    - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
   push:
     paths:
@@ -38,5 +38,5 @@ jobs:
     - name: Invoke test workflow
       uses: benc-uk/workflow-dispatch@v1
       with:
-        workflow: Go
+        workflow: Test
         token: ${{ secrets.GIT_ACCESS_TOKEN }}
