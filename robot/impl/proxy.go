@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/sensor/gps"
 )
 
@@ -267,45 +266,4 @@ func (p *proxyGPS) ProxyFor() interface{} {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.actual
-}
-
-type proxyForceMatrix struct {
-	*proxySensor
-	mu     sync.RWMutex
-	actual forcematrix.ForceMatrix
-}
-
-func (p *proxyForceMatrix) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func newProxyForceMatrix(actual forcematrix.ForceMatrix) *proxyForceMatrix {
-	return &proxyForceMatrix{proxySensor: &proxySensor{actual: actual}, actual: actual}
-}
-
-func (p *proxyForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Matrix(ctx)
-}
-
-func (p *proxyForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.IsSlipping(ctx)
-}
-
-func (p *proxyForceMatrix) replace(ctx context.Context, newSensor sensor.Sensor) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newSensor.(*proxyForceMatrix)
-	if !ok {
-		panic(fmt.Errorf("expected new forcematrix to be %T but got %T", actual, newSensor))
-	}
-	if err := utils.TryClose(ctx, p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
 }

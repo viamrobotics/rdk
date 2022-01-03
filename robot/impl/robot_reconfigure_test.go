@@ -1,9 +1,12 @@
 package robotimpl
 
 import (
+	"bytes"
 	"context"
+	"os"
 	"testing"
 
+	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -23,7 +26,9 @@ import (
 func TestRobotReconfigure(t *testing.T) {
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
-		conf, err := config.Read(context.Background(), filePath)
+		buf, err := envsubst.ReadFile(filePath)
+		test.That(t, err, test.ShouldBeNil)
+		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf))
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}
@@ -31,12 +36,17 @@ func TestRobotReconfigure(t *testing.T) {
 	mockNamed := func(name string) resource.Name {
 		return resource.NewFromSubtype(mockSubtype, name)
 	}
-	registry.RegisterComponent(mockSubtype, "fake", registry.Component{
+	modelName1 := utils.RandomAlphaString(5)
+	modelName2 := utils.RandomAlphaString(5)
+	test.That(t, os.Setenv("TEST_MODEL_NAME_1", modelName1), test.ShouldBeNil)
+	test.That(t, os.Setenv("TEST_MODEL_NAME_2", modelName2), test.ShouldBeNil)
+
+	registry.RegisterComponent(mockSubtype, modelName1, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return &mockFake{x: 5}, nil
 		},
 	})
-	registry.RegisterComponent(mockSubtype, "fake2", registry.Component{
+	registry.RegisterComponent(mockSubtype, modelName2, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return &mockFake2{x: 5}, nil
 		},

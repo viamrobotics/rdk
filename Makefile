@@ -1,6 +1,5 @@
-
 BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
-ENTRYCMD = usermod --uid $(shell id -u) testbot && groupmod --gid $(shell id -g) testbot && sudo -u testbot
+ENTRYCMD = --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
 
 GREPPED = $(shell grep -sao jetson /proc/device-tree/compatible)
 ifneq ("$(strip $(GREPPED))", "")
@@ -12,6 +11,7 @@ else ifneq ("$(wildcard /etc/rpi-issue)","")
 else
    SERVER_DEB_PLATFORM = generic
 endif
+SERVER_DEB_VER = 0.5
 
 # Linux always needs custom_wasmer_runtime for portability in packaging
 ifeq ("$(shell uname -s)", "Linux")
@@ -23,9 +23,7 @@ ifeq ("$(DOCKER_NESTED)", "")
 else
 	DOCKER_WORKSPACE=$(shell docker container inspect -f '{{range .Mounts}}{{ if eq .Destination "/__w" }}{{.Source}}{{ end }}{{end}}' $(shell hostname) | tr -d '\n')/rdk/rdk
 endif
-PATH_WITH_GO_BIN=`pwd`/bin:${PATH}
-
-SERVER_DEB_VER = 0.5
+PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 binsetup:
 	mkdir -p ${BIN_OUTPUT_PATH}
@@ -42,29 +40,35 @@ build-web: buf-web
 	cd web/frontend/core-components && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
-buf: buf-go buf-web
-
-buf-go:
-	GOBIN=`pwd`/bin go install github.com/golang/protobuf/protoc-gen-go \
+tool-install:
+	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
+		github.com/bufbuild/buf/cmd/buf \
+		github.com/bufbuild/buf/cmd/protoc-gen-buf-breaking \
+		github.com/bufbuild/buf/cmd/protoc-gen-buf-lint \
 		github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc \
 		google.golang.org/grpc/cmd/protoc-gen-go-grpc \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
-	buf lint
-	PATH=$(PATH_WITH_GO_BIN) buf generate
+		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
+		github.com/edaniels/golinters/cmd/combined \
+		github.com/golangci/golangci-lint/cmd/golangci-lint
 
-buf-web:
-	buf lint
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
-	PATH=$(PATH_WITH_GO_BIN) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+buf: buf-go buf-web
 
-lint:
-	buf lint
-	go install github.com/edaniels/golinters/cmd/combined
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=`go env GOPATH`/bin/combined
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go run github.com/golangci/golangci-lint/cmd/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+buf-go: tool-install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	PATH=$(PATH_WITH_TOOLS) buf generate
+
+buf-web: tool-install
+	npm install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
+
+lint: tool-install
+	PATH=$(PATH_WITH_TOOLS) buf lint
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=bin/combined
+	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
 	./etc/test.sh cover
@@ -73,7 +77,7 @@ test:
 	./etc/test.sh
 
 testpi:
-	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -race -coverprofile=coverage.txt go.viam.com/rdk/board/pi
+	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
 
 dockerlocal:
 	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .
@@ -113,7 +117,7 @@ gamepad: samples/gamepad/cmd.go
 clean-all:
 	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
 
-appimage: server
+appimage: buf-go server
 	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
@@ -125,13 +129,11 @@ docker-emulation:
 
 appimage-multiarch: appimage-amd64 appimage-arm64
 
-appimage-setup: buf-go
+appimage-amd64:
+	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
-appimage-amd64: appimage-setup
-	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
-
-appimage-arm64: appimage-setup
-	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest "$(ENTRYCMD) make appimage"
+appimage-arm64:
+	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/

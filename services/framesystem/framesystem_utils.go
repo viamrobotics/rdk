@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -154,6 +155,19 @@ func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]
 // JSON []byte if it does, or nil if it doesn't.
 func extractModelFrameJSON(r robot.Robot, name string, compType config.ComponentType) (referenceframe.Model, error) {
 	switch compType {
+	case config.ComponentTypeForceMatrix:
+		part, ok := r.ResourceByName(forcematrix.Named(name))
+		if !ok {
+			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
+		}
+		fm, ok := part.(forcematrix.ForceMatrix)
+		if !ok {
+			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
+		}
+		if framer, ok := utils.UnwrapProxy(fm).(referenceframe.ModelFramer); ok {
+			return framer.ModelFrame(), nil
+		}
+		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeBase:
 		part, ok := r.BaseByName(name)
 		if !ok {

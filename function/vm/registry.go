@@ -1,6 +1,9 @@
 package functionvm
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
+)
 
 type engineCtor func() (Engine, error)
 
@@ -30,5 +33,6 @@ func ValidateSource(name EngineName, source string) error {
 	if err != nil {
 		return err
 	}
+	defer utils.UncheckedErrorFunc(engine.Close)
 	return engine.ValidateSource(source)
 }

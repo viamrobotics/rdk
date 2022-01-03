@@ -14,21 +14,12 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ## Dependencies
 
-* make
-* Run `make setup`
+* Run `make setup` or `etc/setup.sh` (if make is not yet installed) to install a full dev environment.
+  * Note that on Raspberry Pi, Nvidia Jetson, etc. only a minimal environment is installed.
 
 ### First time run
 
 * Try out `go run web/cmd/server/main.go robots/configs/fake.json` and visit http://localhost:8080
-
-### libvpx linux source build
-If libvpx is not available on your distro, run the following:
-
-1. `git clone git@github.com:webmproject/libvpx.git`
-1. `cd libvpx`
-1. `mkdir build; cd build`
-1. `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
-1. `sudo make install`
 
 ## Development
 

@@ -7,5 +7,7 @@ package pi
 // TODO(maximpertsov): add to board component?
 
 import (
+
+	// Import the real pi code.
 	_ "go.viam.com/rdk/component/board/pi"
 )
