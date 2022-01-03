@@ -1,98 +1,221 @@
 {
-    "components" : [
-        { "name" : "color",
-          "type" : "camera",
-          "model" : "webcam",
-          "attributes" : {
-              "path_pattern" : "video0",
-              "width" : 1024
-          }
+    "components":
+    [
+        {
+            "name": "color",
+            "type": "camera",
+            "model": "webcam",
+            "attributes":
+            {
+                "path_pattern": "video0",
+                "width": 1024
+            }
         },
-        { "name" : "depth",
-          "type" : "camera",
-          "model" : "intel",
-          "attributes" : {
-              "host": "127.0.0.1",
-              "port": 8181,
-              "hide" : true
-          }
+        {
+            "name": "depth",
+            "type": "camera",
+            "model": "intel",
+            "attributes":
+            {
+                "host": "127.0.0.1",
+                "port": 8181,
+                "hide": true
+            }
         },
-        { "name" : "depth-pretty-awkward",
-          "type" : "camera",
-          "model" : "depth_to_pretty",
-          "attributes" : {
-              "source" : "depth",
-              "hide" : true
-          }
+        {
+            "name": "depth-pretty-awkward",
+            "type": "camera",
+            "model": "depth_to_pretty",
+            "attributes":
+            {
+                "source": "depth",
+                "hide": true
+            }
         },
-        { "name" : "depth-pretty",
-          "type" : "camera",
-          "model" : "resize",
-          "attributes" : {
-              "source" : "depth-pretty-awkward",
-              "width" : 448,
-              "height" : 342
-          }
+        {
+            "name": "depth-pretty",
+            "type": "camera",
+            "model": "resize",
+            "attributes":
+            {
+                "source": "depth-pretty-awkward",
+                "width": 448,
+                "height": 342
+            }
         },
-        { "name" : "combined",
-          "type" : "camera",
-          "model" : "depth_composed",
-          "attributes" : {
-              "debug" : false,
-              "color" : "color",
-              "depth" : "depth",
-              "homography": {
-                  "color": {
-                    "height": 768,
-                    "width": 1024,
-                    "fx": 821.32642889,
-                    "fy": 821.68607359,
-                    "ppx": 494.95941428,
-                    "ppy": 370.70529534,
-                    "distortion": {
-                      "rk1": 0.11297234,
-                      "rk2":  -0.21375332,
-                      "rk3": -0.01584774,
-                      "tp1": -0.00302002,
-                      "tp2": 0.19969297
+        {
+            "name": "combined",
+            "type": "camera",
+            "model": "depth_composed",
+            "attributes":
+            {
+                "debug": false,
+                "color": "color",
+                "depth": "depth",
+                "homography":
+                {
+                    "color":
+                    {
+                        "height": 768,
+                        "width": 1024,
+                        "fx": 821.32642889,
+                        "fy": 821.68607359,
+                        "ppx": 494.95941428,
+                        "ppy": 370.70529534,
+                        "distortion":
+                        {
+                            "rk1": 0.11297234,
+                            "rk2": -0.21375332,
+                            "rk3": -0.01584774,
+                            "tp1": -0.00302002,
+                            "tp2": 0.19969297
+                        }
+                    },
+                    "transform":
+                    [
+                        0.232700501,
+                        -0.00833535395,
+                        -36.1894025,
+                        -0.00190671303,
+                        0.235303232,
+                        8.38582614,
+                        -0.0000639101664,
+                        -0.0000464582754,
+                        1.00000000
+                    ],
+                    "depth_to_color": false,
+                    "rotate_depth": -90
+                },
+                "intrinsic_extrinsic":
+                {
+                    "color":
+                    {
+                        "height": 768,
+                        "width": 1024,
+                        "fx": 821.32642889,
+                        "fy": 821.68607359,
+                        "ppx": 494.95941428,
+                        "ppy": 370.70529534,
+                        "distortion":
+                        {
+                            "rk1": 0.11297234,
+                            "rk2": -0.21375332,
+                            "rk3": -0.01584774,
+                            "tp1": -0.00302002,
+                            "tp2": 0.19969297
+                        }
+                    },
+                    "depth":
+                    {
+                        "height": 171,
+                        "width": 224,
+                        "fx": 216.583,
+                        "fy": 216.583,
+                        "ppx": 116.385,
+                        "ppy": 87.7112,
+                        "distortion":
+                        {
+                            "rk1": 0.10837,
+                            "rk2": -3.06437,
+                            "rk3": 5.76528,
+                            "tp1": 2.67302E-16,
+                            "tp2": 6.04658E-16
+                        }
+                    },
+                    "extrinsicsDepthToColor":
+                    {
+                        "rotation":
+                        [
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ],
+                        "translation":
+                        [
+                            0.0,
+                            0.0,
+                            0.0
+                        ]
                     }
-                  },
-                  "transform": [ 2.32700501e-01, -8.33535395e-03, -3.61894025e+01, -1.90671303e-03, 2.35303232e-01, 8.38582614e+00, -6.39101664e-05, -4.64582754e-05, 1.00000000e+00],
-                  "depth_to_color": false,
-                  "rotate_depth": -90
-              },
-              "intrinsic_extrinsic": "$load{gripperv1_parameters.json}",
-              "warp" : {
-                  "ColorInputSize" : { "X" : 1024, "Y" : 768 },
-                  "ColorWarpPoints" : [ { "X" : 604, "Y" : 575}, { "X" : 695, "Y" : 115 } ],
-                  "DepthInputSize" : { "X" : 224, "Y" : 171},
-                  "DepthWarpPoints" : [ { "X" : 89, "Y" : 109}, { "X" : 206, "Y" : 132 } ],
-                  "WarpFromCommon" : true,
-                  "OutputSize" : { "X" : 448, "Y" : 342 },
-                  "OutputOrigin" : { "X" : 227, "Y" : 160 }
-              }
-          }
+                },
+                "warp":
+                {
+                    "ColorInputSize":
+                    {
+                        "X": 1024,
+                        "Y": 768
+                    },
+                    "ColorWarpPoints":
+                    [
+                        {
+                            "X": 604,
+                            "Y": 575
+                        },
+                        {
+                            "X": 695,
+                            "Y": 115
+                        }
+                    ],
+                    "DepthInputSize":
+                    {
+                        "X": 224,
+                        "Y": 171
+                    },
+                    "DepthWarpPoints":
+                    [
+                        {
+                            "X": 89,
+                            "Y": 109
+                        },
+                        {
+                            "X": 206,
+                            "Y": 132
+                        }
+                    ],
+                    "WarpFromCommon": true,
+                    "OutputSize":
+                    {
+                        "X": 448,
+                        "Y": 342
+                    },
+                    "OutputOrigin":
+                    {
+                        "X": 227,
+                        "Y": 160
+                    }
+                }
+            }
         },
-        { "name" : "depth-after-align",
-          "type" : "camera",
-          "model" : "depth_to_pretty",
-          "attributes" : {
-              "source" : "combined",
-              "hide" : true
-          }
+        {
+            "name": "depth-after-align",
+            "type": "camera",
+            "model": "depth_to_pretty",
+            "attributes":
+            {
+                "source": "combined",
+                "hide": true
+            }
         },
-
-        { "name" : "overlay",
-          "type" : "camera",
-          "model" : "overlay",
-          "attributes" : {
-              "source" : "combined"
-          }
+        {
+            "name": "overlay",
+            "type": "camera",
+            "model": "overlay",
+            "attributes":
+            {
+                "source": "combined"
+            }
         }
     ],
-    "processes": [
+    "processes":
+    [
         {
-            "id" : "tof1",
+            "id": "tof1",
             "name": "/home/erh/rdk/etc/camera_servers/royaleserver",
             "log": true
         }
