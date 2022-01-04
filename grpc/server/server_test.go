@@ -16,10 +16,10 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/base"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -71,12 +71,12 @@ var emptyStatus = &pb.StatusResponse{
 		InputControllers: map[string]*pb.InputControllerStatus{
 			"inputController1": {},
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"board1": {
-				Analogs: map[string]*pb.AnalogStatus{
+				Analogs: map[string]*commonpb.AnalogStatus{
 					"analog1": {},
 				},
-				DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+				DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 					"encoder": {},
 				},
 			},
@@ -498,53 +498,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
 		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
-	})
-
-	t.Run("BoardStatus", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		err1 := errors.New("whoops")
-		status := &pb.BoardStatus{
-			Analogs: map[string]*pb.AnalogStatus{
-				"analog1": {},
-			},
-			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
-				"encoder": {},
-			},
-		}
-		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
-			return nil, err1
-		}
-		_, err = server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
-			return status, nil
-		}
-		resp, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Status, test.ShouldResemble, status)
 	})
 
 	t.Run("Sensor", func(t *testing.T) {
