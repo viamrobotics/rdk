@@ -10,8 +10,8 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	robotpb "go.viam.com/rdk/proto/api/v1"
 )
 
 // serviceClient is a client satisfies the board.proto contract.
@@ -152,9 +152,20 @@ func (c *client) DigitalInterruptNames() []string {
 	return copyStringSlice(c.DigitalInterruptNames())
 }
 
-// TODO(maximpertsov): this is a stub to fulfill the board interface
-func (c *client) Status(ctx context.Context) (*robotpb.BoardStatus, error) {
-	return nil, nil
+func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+	// TODO(maximpertsov): can we rely on caching in main client?
+	// if status := bc.rc.getCachedStatus(); status != nil {
+	// 	boardStatus, ok := status.Boards[bc.info.name]
+	// 	if !ok {
+	// 		return nil, errors.Errorf("no board with name (%s)", bc.info.name)
+	// 	}
+	// 	return boardStatus, nil
+	// }
+	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.name})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Status, nil
 }
 
 func (c *client) ModelAttributes() ModelAttributes {

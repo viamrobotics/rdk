@@ -6,7 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 // Board is an injected board.
@@ -32,7 +32,7 @@ type Board struct {
 	CloseCap                   []interface{}
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
 	ConfigCap                  []interface{}
-	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
+	StatusFunc                 func(ctx context.Context) (*commonpb.BoardStatus, error)
 	StatusCap                  []interface{}
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
 	GPIOSetCap                 []interface{}
@@ -126,7 +126,7 @@ func (b *Board) Close(ctx context.Context) error {
 }
 
 // Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	b.StatusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
 		return b.Board.Status(ctx)
