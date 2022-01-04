@@ -13,6 +13,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	viamgrpc "go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -45,6 +46,18 @@ func TestClient(t *testing.T) {
 	})
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
+		// Status
+		injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+			// TODO: test a non-nil status
+			return nil, nil
+		}
+        status, err := client.Status(context.Background())
+		// TODO: test a non-nil status
+		test.That(t, status, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
+		injectBoard.StatusCap = []interface{}(nil)
+
 		// GPIOSet
 		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
