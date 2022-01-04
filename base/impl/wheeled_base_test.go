@@ -78,7 +78,6 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 
 	t.Run("straight no distance", func(t *testing.T) {
@@ -93,7 +92,6 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 
 	t.Run("WaitForMotorsToStop", func(t *testing.T) {
@@ -219,7 +217,6 @@ func TestFourWheelBase1(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
-
 	})
 	t.Run("arc math", func(t *testing.T) {
 		rpms, rotations := base.arcMath(1000, 1000, 10)
@@ -298,7 +295,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
 	})
-
 }
 
 func TestWheeledBaseConstructor(t *testing.T) {
