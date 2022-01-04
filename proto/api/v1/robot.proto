@@ -82,6 +82,15 @@ service RobotService {
     };  
   }
 
+  // Board
+
+  // BoardStatus returns the status of a board of the underlying robot.
+  rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/board/{name}/status"
+    };
+  }
+
   // Sensor
 
   // SensorReadings returns the readings of a sensor of the underlying robot.
@@ -446,10 +455,6 @@ message Vector3 {
   double y = 2;
   double z = 3;
 }
-
-// TODO(maximpertsov): these messages are copied in `board.proto`. Should they
-// be in common?
-// Board
 
 message BoardStatus {
   map<string, AnalogStatus> analogs = 1;

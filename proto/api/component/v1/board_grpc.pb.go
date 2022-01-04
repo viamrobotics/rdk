@@ -18,8 +18,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BoardServiceClient interface {
-	// GPIOSet sets the given pin of a board of the underlying robot to either low or high.
-	Status(ctx context.Context, in *BoardServiceStatusRequest, opts ...grpc.CallOption) (*BoardServiceStatusResponse, error)
 	GPIOSet(ctx context.Context, in *BoardServiceGPIOSetRequest, opts ...grpc.CallOption) (*BoardServiceGPIOSetResponse, error)
 	// GPIOGet gets the high/low state of the given pin of a board of the underlying robot.
 	GPIOGet(ctx context.Context, in *BoardServiceGPIOGetRequest, opts ...grpc.CallOption) (*BoardServiceGPIOGetResponse, error)
@@ -43,15 +41,6 @@ type boardServiceClient struct {
 
 func NewBoardServiceClient(cc grpc.ClientConnInterface) BoardServiceClient {
 	return &boardServiceClient{cc}
-}
-
-func (c *boardServiceClient) Status(ctx context.Context, in *BoardServiceStatusRequest, opts ...grpc.CallOption) (*BoardServiceStatusResponse, error) {
-	out := new(BoardServiceStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/Status", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *boardServiceClient) GPIOSet(ctx context.Context, in *BoardServiceGPIOSetRequest, opts ...grpc.CallOption) (*BoardServiceGPIOSetResponse, error) {
@@ -130,8 +119,6 @@ func (c *boardServiceClient) DigitalInterruptTick(ctx context.Context, in *Board
 // All implementations must embed UnimplementedBoardServiceServer
 // for forward compatibility
 type BoardServiceServer interface {
-	// GPIOSet sets the given pin of a board of the underlying robot to either low or high.
-	Status(context.Context, *BoardServiceStatusRequest) (*BoardServiceStatusResponse, error)
 	GPIOSet(context.Context, *BoardServiceGPIOSetRequest) (*BoardServiceGPIOSetResponse, error)
 	// GPIOGet gets the high/low state of the given pin of a board of the underlying robot.
 	GPIOGet(context.Context, *BoardServiceGPIOGetRequest) (*BoardServiceGPIOGetResponse, error)
@@ -154,9 +141,6 @@ type BoardServiceServer interface {
 type UnimplementedBoardServiceServer struct {
 }
 
-func (UnimplementedBoardServiceServer) Status(context.Context, *BoardServiceStatusRequest) (*BoardServiceStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
-}
 func (UnimplementedBoardServiceServer) GPIOSet(context.Context, *BoardServiceGPIOSetRequest) (*BoardServiceGPIOSetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GPIOSet not implemented")
 }
@@ -192,24 +176,6 @@ type UnsafeBoardServiceServer interface {
 
 func RegisterBoardServiceServer(s grpc.ServiceRegistrar, srv BoardServiceServer) {
 	s.RegisterService(&BoardService_ServiceDesc, srv)
-}
-
-func _BoardService_Status_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BoardServiceServer).Status(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/Status",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).Status(ctx, req.(*BoardServiceStatusRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _BoardService_GPIOSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -363,10 +329,6 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.api.component.v1.BoardService",
 	HandlerType: (*BoardServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Status",
-			Handler:    _BoardService_Status_Handler,
-		},
 		{
 			MethodName: "GPIOSet",
 			Handler:    _BoardService_GPIOSet_Handler,
