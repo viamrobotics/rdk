@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -514,7 +515,7 @@ func TestRemoteRobot(t *testing.T) {
 			"gripper1": true,
 			"gripper2": true,
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"board1": {},
 			"board2": {},
 		},
@@ -559,7 +560,7 @@ func TestRemoteRobot(t *testing.T) {
 			"one.gripper1": true,
 			"one.gripper2": true,
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"one.board1": {},
 			"one.board2": {},
 		},
