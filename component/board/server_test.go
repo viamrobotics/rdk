@@ -8,6 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -38,6 +39,83 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 }
 
 func TestServer(t *testing.T) {
+	t.Run("Status", func(t *testing.T) {
+		type request = pb.BoardServiceStatusRequest
+		type response = pb.BoardServiceStatusResponse
+		ctx := context.Background()
+
+		status := commonpb.BoardStatus{
+			Analogs: map[string]*commonpb.AnalogStatus{
+				"analog1": {},
+			},
+			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
+				"encoder": {},
+			},
+		}
+
+		tests := []struct {
+			injectResult *commonpb.BoardStatus
+			injectErr    error
+			req          *request
+			expCapArgs   []interface{}
+			expResp      *response
+			expRespErr   error
+		}{
+			{
+				injectResult: &status,
+				injectErr:    nil,
+				req:          &request{Name: missingBoardName},
+				expCapArgs:   []interface{}(nil),
+				expResp:      nil,
+				expRespErr:   errors.Errorf("no Board with name (%s)", missingBoardName),
+			},
+			{
+				injectResult: &status,
+				injectErr:    nil,
+				req:          &request{Name: invalidBoardName},
+				expCapArgs:   []interface{}(nil),
+				expResp:      nil,
+				expRespErr:   errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+			},
+			{
+				injectResult: &status,
+				injectErr:    genericError,
+				req:          &request{Name: boardName},
+				expCapArgs:   []interface{}{ctx},
+				expResp:      nil,
+				expRespErr:   genericError,
+			},
+			{
+				injectResult: &status,
+				injectErr:    nil,
+				req:          &request{Name: boardName},
+				expCapArgs:   []interface{}{ctx},
+				expResp:      &response{Status: &status},
+				expRespErr:   nil,
+			},
+		}
+
+		for _, tc := range tests {
+			t.Run("", func(t *testing.T) {
+				server, injectBoard, err := newServer()
+				test.That(t, err, test.ShouldBeNil)
+
+				injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+					return tc.injectResult, tc.injectErr
+				}
+
+				resp, err := server.Status(ctx, tc.req)
+				if tc.expRespErr == nil {
+					test.That(t, err, test.ShouldBeNil)
+					test.That(t, resp, test.ShouldResemble, tc.expResp)
+				} else {
+					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+				}
+				test.That(t, injectBoard.StatusCap, test.ShouldResemble, tc.expCapArgs)
+			})
+		}
+	})
+
 	t.Run("GPIOSet", func(t *testing.T) {
 		type request = pb.BoardServiceGPIOSetRequest
 		ctx := context.Background()
