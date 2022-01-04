@@ -12,6 +12,7 @@ type DigitalInterrupt struct {
 	ConfigFunc           func(ctx context.Context) (board.DigitalInterruptConfig, error)
 	ValueFunc            func(ctx context.Context) (int64, error)
 	TickFunc             func(ctx context.Context, high bool, nanos uint64) error
+	TickCap              []interface{}
 	AddCallbackFunc      func(c chan bool)
 	AddPostProcessorFunc func(pp board.PostProcessor)
 }
@@ -34,6 +35,7 @@ func (d *DigitalInterrupt) Value(ctx context.Context) (int64, error) {
 
 // Tick calls the injected Tick or the real version.
 func (d *DigitalInterrupt) Tick(ctx context.Context, high bool, nanos uint64) error {
+	d.TickCap = []interface{}{ctx, high, nanos}
 	if d.TickFunc == nil {
 		return d.DigitalInterrupt.Tick(ctx, high, nanos)
 	}

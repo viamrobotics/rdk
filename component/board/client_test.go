@@ -26,54 +26,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	injectAnalogReader := &inject.AnalogReader{}
-	injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-		return 6, nil
-	}
-
-	injectDigitalInterrupt := &inject.DigitalInterrupt{}
-	digitalIntConfig := board.DigitalInterruptConfig{
-		Name:    "foo",
-		Pin:     "bar",
-		Type:    "baz",
-		Formula: "baf",
-	}
-	injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-		return digitalIntConfig, nil
-	}
-	injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-		return 287, nil
-	}
-	var capDigitalInterruptHigh bool
-	var capDigitalInterruptNanos uint64
-	injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-		capDigitalInterruptHigh = high
-		capDigitalInterruptNanos = nanos
-		return nil
-	}
+	// var capDigitalInterruptHigh bool
+	// var capDigitalInterruptNanos uint64
 
 	board1 := "board1"
 	injectBoard := &inject.Board{}
-
-	injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-		return nil
-	}
-	injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		return true, nil
-	}
-	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-		return nil
-	}
-	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-		return nil
-	}
-	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		return injectAnalogReader, true
-	}
-	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		return injectDigitalInterrupt, true
-	}
-
 	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
@@ -91,63 +48,101 @@ func TestClient(t *testing.T) {
 	})
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
-		ctx := context.Background()
-
-		err = client.GPIOSet(ctx, "one", true)
+		// GPIOSet
+		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+			return nil
+		}
+		err = client.GPIOSet(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.GPIOSetCap[1:], test.ShouldResemble, []interface{}{"one", true})
 		defer func() { injectBoard.GPIOSetCap = []interface{}(nil) }()
 
+		// GPIOGet
+		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+			return true, nil
+		}
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
 		test.That(t, injectBoard.GPIOGetCap[1:], test.ShouldResemble, []interface{}{"one"})
 		defer func() { injectBoard.GPIOGetCap = []interface{}(nil) }()
 
+		// PWMSet
+		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			return nil
+		}
 		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.PWMSetCap[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
 		defer func() { injectBoard.PWMSetCap = []interface{}(nil) }()
 
+		// PWMSetFreq
+		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			return nil
+		}
 		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.PWMSetFreqCap[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
 		defer func() { injectBoard.PWMSetFreqCap = []interface{}(nil) }()
 
-		// Analogs + Digital Interrupts
-
-		// board3, ok := client.BoardByName("board3")
-		// test.That(t, ok, test.ShouldBeTrue)
-		// analog1, ok := board3.AnalogReaderByName("analog1")
+		// Analog
+		injectAnalogReader := &inject.AnalogReader{}
+		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return injectAnalogReader, true
+		}
 		analog1, ok := injectBoard.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, []interface{}{"analog1"})
+		defer func() { injectBoard.AnalogReaderByNameCap = []interface{}(nil) }()
+
+		// Analog:Read
+		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
+			return 6, nil
+		}
 		readVal, err := analog1.Read(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, []interface{}{"analog1"})
 
-		// digital1, ok := board3.DigitalInterruptByName("digital1")
+		// Digital Interrupt
+		injectDigitalInterrupt := &inject.DigitalInterrupt{}
+		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
+			return injectDigitalInterrupt, true
+		}
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
 		test.That(t, ok, test.ShouldBeTrue)
+		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
+		defer func() { injectBoard.DigitalInterruptByNameCap = []interface{}(nil) }()
+
+		// Digital Interrupt:Config
+		digitalIntConfig := board.DigitalInterruptConfig{
+			Name:    "foo",
+			Pin:     "bar",
+			Type:    "baz",
+			Formula: "baf",
+		}
+		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
+			return digitalIntConfig, nil
+		}
 		digital1Config, err := digital1.Config(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
 
+		// Digital Interrupt:Value
+		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
+			return 287, nil
+		}
 		digital1Val, err := digital1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
 
+		// Digital Interrupt:Tick
+		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
+			return nil
+		}
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
-		test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
-		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
+		test.That(t, injectDigitalInterrupt.TickCap[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
+		defer func() { injectDigitalInterrupt.TickCap = []interface{}(nil) }()
 
 		// TODO(maximpertsov): add remaining client methods
 
