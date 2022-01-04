@@ -48,13 +48,13 @@ func makeConstraints(attrs *rimage.AttrConfig, debug bool, logger golog.Logger) 
 	idealHeight := 1080
 
 	if attrs.Width > 0 {
-		minWidth = attrs.Width
+		minWidth = 0
 		maxWidth = attrs.Width
 		idealWidth = attrs.Width
 	}
 
 	if attrs.Height > 0 {
-		minHeight = attrs.Height
+		minHeight = 0
 		maxHeight = attrs.Height
 		idealHeight = attrs.Height
 	}
