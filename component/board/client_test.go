@@ -54,42 +54,23 @@ func TestClient(t *testing.T) {
 
 	board1 := "board1"
 	injectBoard := &inject.Board{}
-	var (
-		// capBoardName string
-		capGPIOSet    []interface{}
-		capGPIOGet    []interface{}
-		capPWMSet     []interface{}
-		capPWMSetFreq []interface{}
-
-		// capPWMSetFreqPin  string
-		// capPWMSetFreqFreq uint
-
-		capAnalogReaderName     string
-		capDigitalInterruptName string
-	)
 
 	injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-		capGPIOSet = []interface{}{pin, high}
 		return nil
 	}
 	injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		capGPIOGet = []interface{}{pin}
 		return true, nil
 	}
 	injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-		capPWMSet = []interface{}{pin, dutyCycle}
 		return nil
 	}
 	injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-		capPWMSetFreq = []interface{}{pin, freq}
 		return nil
 	}
 	injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-		capAnalogReaderName = name
 		return injectAnalogReader, true
 	}
 	injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-		capDigitalInterruptName = name
 		return injectDigitalInterrupt, true
 	}
 
@@ -114,24 +95,24 @@ func TestClient(t *testing.T) {
 
 		err = client.GPIOSet(ctx, "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.CapGPIOSet[1:], test.ShouldResemble, []interface{}{"one", true})
-		defer func() { injectBoard.CapGPIOSet = []interface{}(nil) }()
+		test.That(t, injectBoard.GPIOSetCap[1:], test.ShouldResemble, []interface{}{"one", true})
+		defer func() { injectBoard.GPIOSetCap = []interface{}(nil) }()
 
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, capGPIOGet, test.ShouldResemble, []interface{}{"one"})
-		defer func() { capGPIOGet = []interface{}(nil) }()
+		test.That(t, injectBoard.GPIOGetCap[1:], test.ShouldResemble, []interface{}{"one"})
+		defer func() { injectBoard.GPIOGetCap = []interface{}(nil) }()
 
 		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSet, test.ShouldResemble, []interface{}{"one", byte(7)})
-		defer func() { capPWMSet = []interface{}(nil) }()
+		test.That(t, injectBoard.PWMSetCap[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
+		defer func() { injectBoard.PWMSetCap = []interface{}(nil) }()
 
 		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capPWMSetFreq, test.ShouldResemble, []interface{}{"one", uint(11233)})
-		defer func() { capPWMSetFreq = []interface{}(nil) }()
+		test.That(t, injectBoard.PWMSetFreqCap[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
+		defer func() { injectBoard.PWMSetFreqCap = []interface{}(nil) }()
 
 		// Analogs + Digital Interrupts
 
@@ -144,7 +125,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, readVal, test.ShouldEqual, 6)
 		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capAnalogReaderName, test.ShouldEqual, "analog1")
+		test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, []interface{}{"analog1"})
 
 		// digital1, ok := board3.DigitalInterruptByName("digital1")
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
@@ -153,20 +134,20 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
 		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
+		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
 
 		digital1Val, err := digital1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
 		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
+		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
 
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capDigitalInterruptHigh, test.ShouldBeTrue)
 		test.That(t, capDigitalInterruptNanos, test.ShouldEqual, 44)
 		// test.That(t, capBoardName, test.ShouldEqual, "board3")
-		test.That(t, capDigitalInterruptName, test.ShouldEqual, "digital1")
+		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
 
 		// TODO(maximpertsov): add remaining client methods
 

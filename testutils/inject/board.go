@@ -154,7 +154,7 @@ func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
 
 // PWMSet calls the injected PWMSet or the real version.
 func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	b.PWMSetCap = []interface{}{ctx, pin}
+	b.PWMSetCap = []interface{}{ctx, pin, dutyCycle}
 	if b.PWMSetFunc == nil {
 		return b.Board.PWMSet(ctx, pin, dutyCycle)
 	}
