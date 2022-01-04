@@ -114,8 +114,8 @@ func TestClient(t *testing.T) {
 
 		err = client.GPIOSet(ctx, "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capGPIOSet, test.ShouldResemble, []interface{}{"one", true})
-		defer func() { capGPIOSet = []interface{}(nil) }()
+		test.That(t, injectBoard.CapGPIOSet[1:], test.ShouldResemble, []interface{}{"one", true})
+		defer func() { injectBoard.CapGPIOSet = []interface{}(nil) }()
 
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
