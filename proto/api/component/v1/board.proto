@@ -5,9 +5,16 @@ option java_package = "com.viam.rdk.proto.api.component.v1";
 package proto.api.component.v1;
 
 import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
 
 // BoardService services maintains all Boards associated with a robot
 service BoardService {
+  rpc Status(BoardServiceStatusRequest) returns (BoardServiceStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{name}/status"
+    };
+  }
+
   rpc GPIOSet(BoardServiceGPIOSetRequest) returns (BoardServiceGPIOSetResponse) {
     option (google.api.http) = {
       put: "/api/v1/component/board/{name}/gpio_set"
@@ -67,6 +74,14 @@ service BoardService {
     };
   }
 
+}
+
+message BoardServiceStatusRequest {
+  string name = 1;
+}
+
+message BoardServiceStatusResponse {
+  common.v1.BoardStatus status = 1;
 }
 
 message BoardServiceGPIOSetRequest {

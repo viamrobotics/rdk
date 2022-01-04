@@ -41,8 +41,6 @@ type RobotServiceClient interface {
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// BoardStatus returns the status of a board of the underlying robot.
-	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -195,15 +193,6 @@ func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, 
 func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
 	out := new(BaseWidthMillisResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error) {
-	out := new(BoardStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardStatus", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -494,8 +483,6 @@ type RobotServiceServer interface {
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// BoardStatus returns the status of a board of the underlying robot.
-	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -573,9 +560,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 }
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
 }
 func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
@@ -829,24 +813,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardStatus(ctx, req.(*BoardStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1360,10 +1326,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "BaseWidthMillis",
 			Handler:    _RobotService_BaseWidthMillis_Handler,
-		},
-		{
-			MethodName: "BoardStatus",
-			Handler:    _RobotService_BoardStatus_Handler,
 		},
 		{
 			MethodName: "SensorReadings",

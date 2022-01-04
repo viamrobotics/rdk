@@ -3,6 +3,49 @@
 
 import * as jspb from "google-protobuf";
 import * as google_api_annotations_pb from "../../../../google/api/annotations_pb";
+import * as proto_api_common_v1_common_pb from "../../../../proto/api/common/v1/common_pb";
+
+export class BoardServiceStatusRequest extends jspb.Message {
+  getName(): string;
+  setName(value: string): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardServiceStatusRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceStatusRequest): BoardServiceStatusRequest.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardServiceStatusRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceStatusRequest;
+  static deserializeBinaryFromReader(message: BoardServiceStatusRequest, reader: jspb.BinaryReader): BoardServiceStatusRequest;
+}
+
+export namespace BoardServiceStatusRequest {
+  export type AsObject = {
+    name: string,
+  }
+}
+
+export class BoardServiceStatusResponse extends jspb.Message {
+  hasStatus(): boolean;
+  clearStatus(): void;
+  getStatus(): proto_api_common_v1_common_pb.BoardStatus | undefined;
+  setStatus(value?: proto_api_common_v1_common_pb.BoardStatus): void;
+
+  serializeBinary(): Uint8Array;
+  toObject(includeInstance?: boolean): BoardServiceStatusResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceStatusResponse): BoardServiceStatusResponse.AsObject;
+  static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+  static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+  static serializeBinaryToWriter(message: BoardServiceStatusResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceStatusResponse;
+  static deserializeBinaryFromReader(message: BoardServiceStatusResponse, reader: jspb.BinaryReader): BoardServiceStatusResponse;
+}
+
+export namespace BoardServiceStatusResponse {
+  export type AsObject = {
+    status?: proto_api_common_v1_common_pb.BoardStatus.AsObject,
+  }
+}
 
 export class BoardServiceGPIOSetRequest extends jspb.Message {
   getName(): string;

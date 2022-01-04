@@ -179,7 +179,27 @@
             <ul>
               
                 <li>
+                  <a href="#proto.api.common.v1.AnalogStatus"><span class="badge">M</span>AnalogStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.common.v1.BoardStatus"><span class="badge">M</span>BoardStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.common.v1.BoardStatus.AnalogsEntry"><span class="badge">M</span>BoardStatus.AnalogsEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.common.v1.BoardStatus.DigitalInterruptsEntry"><span class="badge">M</span>BoardStatus.DigitalInterruptsEntry</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.common.v1.BoxGeometry"><span class="badge">M</span>BoxGeometry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.common.v1.DigitalInterruptStatus"><span class="badge">M</span>DigitalInterruptStatus</a>
                 </li>
               
                 <li>
@@ -322,6 +342,14 @@
               
                 <li>
                   <a href="#proto.api.component.v1.BoardServicePWMSetResponse"><span class="badge">M</span>BoardServicePWMSetResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.BoardServiceStatusRequest"><span class="badge">M</span>BoardServiceStatusRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.BoardServiceStatusResponse"><span class="badge">M</span>BoardServiceStatusResponse</a>
                 </li>
               
                 <li>
@@ -673,10 +701,6 @@
             <ul>
               
                 <li>
-                  <a href="#proto.api.v1.AnalogStatus"><span class="badge">M</span>AnalogStatus</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.ArmStatus"><span class="badge">M</span>ArmStatus</a>
                 </li>
               
@@ -721,26 +745,6 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.BoardStatus"><span class="badge">M</span>BoardStatus</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.BoardStatus.AnalogsEntry"><span class="badge">M</span>BoardStatus.AnalogsEntry</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.BoardStatus.DigitalInterruptsEntry"><span class="badge">M</span>BoardStatus.DigitalInterruptsEntry</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.BoardStatusRequest"><span class="badge">M</span>BoardStatusRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.BoardStatusResponse"><span class="badge">M</span>BoardStatusResponse</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.CompassHeadingRequest"><span class="badge">M</span>CompassHeadingRequest</a>
                 </li>
               
@@ -782,10 +786,6 @@
               
                 <li>
                   <a href="#proto.api.v1.ConfigResponse"><span class="badge">M</span>ConfigResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.DigitalInterruptStatus"><span class="badge">M</span>DigitalInterruptStatus</a>
                 </li>
               
                 <li>
@@ -1122,6 +1122,123 @@
       <p>common.proto should hold messages that are used across multiple resource subtypes</p>
 
       
+        <h3 id="proto.api.common.v1.AnalogStatus">AnalogStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.common.v1.BoardStatus">BoardStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>analogs</td>
+                  <td><a href="#proto.api.common.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupts</td>
+                  <td><a href="#proto.api.common.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.common.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.common.v1.AnalogStatus">AnalogStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.common.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.common.v1.DigitalInterruptStatus">DigitalInterruptStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.common.v1.BoxGeometry">BoxGeometry</h3>
         <p></p>
 
@@ -1149,6 +1266,30 @@
                 <tr>
                   <td>depth</td>
                   <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.common.v1.DigitalInterruptStatus">DigitalInterruptStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int64">int64</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -2068,6 +2209,54 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
+        <h3 id="proto.api.component.v1.BoardServiceStatusRequest">BoardServiceStatusRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.BoardServiceStatusResponse">BoardServiceStatusResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#proto.api.common.v1.BoardStatus">proto.api.common.v1.BoardStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.component.v1.DigitalInterruptConfig">DigitalInterruptConfig</h3>
         <p></p>
 
@@ -2126,6 +2315,13 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
             <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
           </thead>
           <tbody>
+            
+              <tr>
+                <td>Status</td>
+                <td><a href="#proto.api.component.v1.BoardServiceStatusRequest">BoardServiceStatusRequest</a></td>
+                <td><a href="#proto.api.component.v1.BoardServiceStatusResponse">BoardServiceStatusResponse</a></td>
+                <td><p></p></td>
+              </tr>
             
               <tr>
                 <td>GPIOSet</td>
@@ -2200,6 +2396,16 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               </tr>
             </thead>
             <tbody>
+            
+              
+              
+              <tr>
+                <td>Status</td>
+                <td>GET</td>
+                <td>/api/v1/component/board/{name}/status</td>
+                <td></td>
+              </tr>
+              
             
               
               
@@ -4475,30 +4681,6 @@ To Do (FA): This will be deprecated</p></td>
       <p></p>
 
       
-        <h3 id="proto.api.v1.AnalogStatus">AnalogStatus</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#int32">int32</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.ArmStatus">ArmStatus</h3>
         <p></p>
 
@@ -4823,147 +5005,6 @@ To Do (FA): This will be deprecated</p></td>
 
         
       
-        <h3 id="proto.api.v1.BoardStatus">BoardStatus</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>analogs</td>
-                  <td><a href="#proto.api.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>digital_interrupts</td>
-                  <td><a href="#proto.api.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</a></td>
-                  <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.BoardStatus.AnalogsEntry">BoardStatus.AnalogsEntry</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>key</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#proto.api.v1.AnalogStatus">AnalogStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.BoardStatus.DigitalInterruptsEntry">BoardStatus.DigitalInterruptsEntry</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>key</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#proto.api.v1.DigitalInterruptStatus">DigitalInterruptStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.BoardStatusRequest">BoardStatusRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>name</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.BoardStatusResponse">BoardStatusResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>status</td>
-                  <td><a href="#proto.api.v1.BoardStatus">BoardStatus</a></td>
-                  <td></td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.CompassHeadingRequest">CompassHeadingRequest</h3>
         <p></p>
 
@@ -5171,30 +5212,6 @@ To Do (FA): This will be deprecated</p></td>
                   <td>components</td>
                   <td><a href="#proto.api.v1.ComponentConfig">ComponentConfig</a></td>
                   <td>repeated</td>
-                  <td><p> </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.DigitalInterruptStatus">DigitalInterruptStatus</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>value</td>
-                  <td><a href="#int64">int64</a></td>
-                  <td></td>
                   <td><p> </p></td>
                 </tr>
               
@@ -6908,7 +6925,7 @@ Theta in pb.Pose should be degrees. It will be converted to radians in the inter
               
                 <tr>
                   <td>value</td>
-                  <td><a href="#proto.api.v1.BoardStatus">BoardStatus</a></td>
+                  <td><a href="#proto.api.common.v1.BoardStatus">proto.api.common.v1.BoardStatus</a></td>
                   <td></td>
                   <td><p> </p></td>
                 </tr>
@@ -7428,13 +7445,6 @@ angular speed, expressed in degrees per second</p></td>
               </tr>
             
               <tr>
-                <td>BoardStatus</td>
-                <td><a href="#proto.api.v1.BoardStatusRequest">BoardStatusRequest</a></td>
-                <td><a href="#proto.api.v1.BoardStatusResponse">BoardStatusResponse</a></td>
-                <td><p>BoardStatus returns the status of a board of the underlying robot.</p></td>
-              </tr>
-            
-              <tr>
                 <td>SensorReadings</td>
                 <td><a href="#proto.api.v1.SensorReadingsRequest">SensorReadingsRequest</a></td>
                 <td><a href="#proto.api.v1.SensorReadingsResponse">SensorReadingsResponse</a></td>
@@ -7721,16 +7731,6 @@ like button presses or axis movements</p></td>
                 <td>BaseWidthMillis</td>
                 <td>GET</td>
                 <td>/api/v1/base/{name}/width_millis</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>BoardStatus</td>
-                <td>GET</td>
-                <td>/api/v1/board/{name}/status</td>
                 <td></td>
               </tr>
               

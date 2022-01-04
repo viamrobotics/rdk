@@ -17,6 +17,8 @@ grpc.web = require('grpc-web');
 
 
 var google_api_annotations_pb = require('../../../../google/api/annotations_pb.js')
+
+var proto_api_common_v1_common_pb = require('../../../../proto/api/common/v1/common_pb.js')
 const proto = {};
 proto.proto = {};
 proto.proto.api = {};
@@ -72,6 +74,67 @@ proto.proto.api.component.v1.BoardServicePromiseClient =
    */
   this.hostname_ = hostname;
 
+};
+
+
+/**
+ * @const
+ * @type {!grpc.web.MethodDescriptor<
+ *   !proto.proto.api.component.v1.BoardServiceStatusRequest,
+ *   !proto.proto.api.component.v1.BoardServiceStatusResponse>}
+ */
+const methodDescriptor_BoardService_Status = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/Status',
+  grpc.web.MethodType.UNARY,
+  proto.proto.api.component.v1.BoardServiceStatusRequest,
+  proto.proto.api.component.v1.BoardServiceStatusResponse,
+  /**
+   * @param {!proto.proto.api.component.v1.BoardServiceStatusRequest} request
+   * @return {!Uint8Array}
+   */
+  function(request) {
+    return request.serializeBinary();
+  },
+  proto.proto.api.component.v1.BoardServiceStatusResponse.deserializeBinary
+);
+
+
+/**
+ * @param {!proto.proto.api.component.v1.BoardServiceStatusRequest} request The
+ *     request proto
+ * @param {?Object<string, string>} metadata User defined
+ *     call metadata
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceStatusResponse)}
+ *     callback The callback function(error, response)
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceStatusResponse>|undefined}
+ *     The XHR Node Readable Stream
+ */
+proto.proto.api.component.v1.BoardServiceClient.prototype.status =
+    function(request, metadata, callback) {
+  return this.client_.rpcCall(this.hostname_ +
+      '/proto.api.component.v1.BoardService/Status',
+      request,
+      metadata || {},
+      methodDescriptor_BoardService_Status,
+      callback);
+};
+
+
+/**
+ * @param {!proto.proto.api.component.v1.BoardServiceStatusRequest} request The
+ *     request proto
+ * @param {?Object<string, string>=} metadata User defined
+ *     call metadata
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceStatusResponse>}
+ *     Promise that resolves to the response
+ */
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.status =
+    function(request, metadata) {
+  return this.client_.unaryCall(this.hostname_ +
+      '/proto.api.component.v1.BoardService/Status',
+      request,
+      metadata || {},
+      methodDescriptor_BoardService_Status);
 };
 
 
