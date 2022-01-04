@@ -33,14 +33,11 @@ func (config *Service) String() string {
 // ResourceName returns the  ResourceName for the component.
 func (config *Service) ResourceName() resource.Name {
 	cType := string(config.Type)
-	// since services are singletons, the type is sufficient and we don't
-	// need an additional name specified in the config. Thus we pass an
-	// empty string for that parameter
 	return resource.NewName(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeService,
 		resource.SubtypeName(cType),
-		"",
+		cType,
 	)
 }
 
@@ -92,8 +89,8 @@ func ParseServiceFlag(flag string) (Service, error) {
 
 // Validate ensures all parts of the config are valid.
 func (config *Service) Validate(path string) error {
-	if config.Name == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "name")
+	if config.Type == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "type")
 	}
 	for key, value := range config.Attributes {
 		v, ok := value.(validator)
@@ -101,6 +98,11 @@ func (config *Service) Validate(path string) error {
 			continue
 		}
 		if err := v.Validate(fmt.Sprintf("%s.%s", path, key)); err != nil {
+			return err
+		}
+	}
+	if v, ok := config.ConvertedAttributes.(validator); ok {
+		if err := v.Validate(path); err != nil {
 			return err
 		}
 	}

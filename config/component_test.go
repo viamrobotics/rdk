@@ -9,19 +9,8 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils"
 )
-
-// convertedAttributes is a helper for testing if validation works.
-type convertedAttributes struct {
-	thing string
-}
-
-func (convAttr *convertedAttributes) Validate(path string) error {
-	if convAttr.thing == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "thing")
-	}
-	return nil
-}
 
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
@@ -42,21 +31,19 @@ func TestComponentValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Component{
-				Name: "foo",
-				ConvertedAttributes: &convertedAttributes{
-					thing: "",
-				},
+				Name:                "foo",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, `"thing" is required`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Component{
 				Name: "foo",
-				ConvertedAttributes: &convertedAttributes{
-					thing: "i am a thing!",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{
+					Thing: "i am a thing!",
 				},
 			}
 			err := invalidConfig.Validate("path")
