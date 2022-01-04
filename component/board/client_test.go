@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 		err = client.GPIOSet(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.GPIOSetCap[1:], test.ShouldResemble, []interface{}{"one", true})
-		defer func() { injectBoard.GPIOSetCap = []interface{}(nil) }()
+		injectBoard.GPIOSetCap = []interface{}(nil)
 
 		// GPIOGet
 		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
@@ -65,7 +65,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
 		test.That(t, injectBoard.GPIOGetCap[1:], test.ShouldResemble, []interface{}{"one"})
-		defer func() { injectBoard.GPIOGetCap = []interface{}(nil) }()
+		injectBoard.GPIOGetCap = []interface{}(nil)
 
 		// PWMSet
 		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.PWMSetCap[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
-		defer func() { injectBoard.PWMSetCap = []interface{}(nil) }()
+		injectBoard.PWMSetCap = []interface{}(nil)
 
 		// PWMSetFreq
 		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.PWMSetFreqCap[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
-		defer func() { injectBoard.PWMSetFreqCap = []interface{}(nil) }()
+		injectBoard.PWMSetFreqCap = []interface{}(nil)
 
 		// Analog
 		injectAnalogReader := &inject.AnalogReader{}
@@ -93,7 +93,7 @@ func TestClient(t *testing.T) {
 		analog1, ok := injectBoard.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, []interface{}{"analog1"})
-		defer func() { injectBoard.AnalogReaderByNameCap = []interface{}(nil) }()
+		injectBoard.AnalogReaderByNameCap = []interface{}(nil)
 
 		// Analog:Read
 		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
@@ -111,7 +111,7 @@ func TestClient(t *testing.T) {
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
-		defer func() { injectBoard.DigitalInterruptByNameCap = []interface{}(nil) }()
+		injectBoard.DigitalInterruptByNameCap = []interface{}(nil)
 
 		// Digital Interrupt:Config
 		digitalIntConfig := board.DigitalInterruptConfig{
@@ -142,7 +142,7 @@ func TestClient(t *testing.T) {
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectDigitalInterrupt.TickCap[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
-		defer func() { injectDigitalInterrupt.TickCap = []interface{}(nil) }()
+		injectDigitalInterrupt.TickCap = []interface{}(nil)
 
 		// TODO(maximpertsov): add remaining client methods
 
