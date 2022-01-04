@@ -367,7 +367,7 @@ func TestMetadataUpdate(t *testing.T) {
 				},
 				ResourceSubtype: service.SubtypeName,
 			},
-			Name: "rdk:service:metadata",
+			Name: "metadata",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -380,26 +380,26 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "fb2c9071-2700-5474-b8d3-54a3f9d45d17",
+			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
-			Name: "rdk:service:function/func1",
+			Name: "func1",
 		}: {},
 		{
-			UUID: "4f86ef35-a10d-533b-af91-a1e5b83aeb67",
+			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
-			Name: "rdk:service:function/func2",
+			Name: "func2",
 		}: {},
 		{
 			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
@@ -431,7 +431,7 @@ func TestMetadataUpdate(t *testing.T) {
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
 			Subtype: framesystem.Subtype,
-			Name:    "rdk:service:frame_system",
+			Name:    "frame_system",
 		}: {},
 	}
 	svcResources := svc.All()

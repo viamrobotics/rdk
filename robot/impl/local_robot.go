@@ -431,7 +431,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeService,
+			resource.ResourceTypeFunction,
 			resource.ResourceSubtypeFunction,
 			name,
 		)
