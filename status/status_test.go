@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -75,10 +76,10 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fake.Arm{Name: name.Name}, true
+		return &fakearm.Arm{Name: name.Name}, true
 	}
 	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return &fake.Arm{Name: name}, true
+		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return &fake.Base{Name: name}, true

@@ -97,6 +97,11 @@ func TestOrientationTransform(t *testing.T) {
 	test.That(t, aaResult.RZ, test.ShouldAlmostEqual, aa.RZ)
 }
 
+func TestOrientationAlmostEqual(t *testing.T) {
+	test.That(t, OrientationAlmostEqual(aa45x, ea45x), test.ShouldBeTrue)
+	test.That(t, OrientationAlmostEqual(aa45x, NewZeroOrientation()), test.ShouldBeFalse)
+}
+
 func TestOrientationBetween(t *testing.T) {
 	aa := &R4AA{Theta: math.Pi / 2., RX: 0., RY: 1., RZ: 0.}
 	btw := OrientationBetween(aa, ov45x).OrientationVectorDegrees()
@@ -109,6 +114,7 @@ func TestOrientationBetween(t *testing.T) {
 
 func testCompatibility(t *testing.T, o Orientation) {
 	t.Helper()
+
 	// Orientation Vectors
 	test.That(t, o.OrientationVectorRadians().Theta, test.ShouldAlmostEqual, ov45x.Theta)
 	test.That(t, o.OrientationVectorRadians().OX, test.ShouldAlmostEqual, ov45x.OX)
