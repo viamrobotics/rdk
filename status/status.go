@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
 	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/robot"
 )
 
@@ -124,7 +125,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	}
 
 	if names := r.BoardNames(); len(names) != 0 {
-		status.Boards = make(map[string]*pb.BoardStatus, len(names))
+		status.Boards = make(map[string]*commonpb.BoardStatus, len(names))
 		for _, name := range names {
 			board, ok := r.BoardByName(name)
 			if !ok {
