@@ -35,6 +35,7 @@ type Arguments struct {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
 	var argsMap rimage.AttrConfig
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
