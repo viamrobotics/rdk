@@ -200,27 +200,33 @@ func (s *subtypeServer) ObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
+	protoSegments, err := segmentsToProto(segments)
+	if err != nil {
+		return nil, err
+	}
 
-	frames := make([][]byte, segments.N())
-	centers := make([]pointcloud.Vec3, segments.N())
-	boundingBoxes := make([]pointcloud.BoxGeometry, segments.N())
-	for i, seg := range segments.Objects {
+	return &pb.CameraServiceObjectPointCloudsResponse{
+		MimeType: utils.MimeTypePCD,
+		Objects:  protoSegments,
+	}, nil
+}
+
+func segmentsToProto(segs *segmentation.ObjectSegmentation) ([]*pb.PointCloudObject, error) {
+	protoSegs := make([]*pb.PointCloudObject, 0, segs.N())
+	for _, seg := range segs.Objects {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}
-		frames[i] = buf.Bytes()
-		centers[i] = seg.Center
-		boundingBoxes[i] = seg.BoundingBox
+		ps := &pb.PointCloudObject{
+			Frame:       buf.Bytes(),
+			Center:      pointToProto(seg.Center),
+			BoundingBox: boxToProto(seg.BoundingBox),
+		}
+		protoSegs = append(protoSegs, ps)
 	}
-
-	return &pb.CameraServiceObjectPointCloudsResponse{
-		MimeType:      utils.MimeTypePCD,
-		Frames:        frames,
-		Centers:       pointsToProto(centers),
-		BoundingBoxes: boxesToProto(boundingBoxes),
-	}, nil
+	return protoSegs, nil
 }
 
 func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
@@ -231,26 +237,10 @@ func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
 	}
 }
 
-func pointsToProto(vs []pointcloud.Vec3) []*commonpb.Vector3 {
-	pvs := make([]*commonpb.Vector3, 0, len(vs))
-	for _, v := range vs {
-		pvs = append(pvs, pointToProto(v))
-	}
-	return pvs
-}
-
 func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
 	return &commonpb.BoxGeometry{
 		Width:  b.Width,
 		Length: b.Length,
 		Depth:  b.Depth,
 	}
-}
-
-func boxesToProto(bs []pointcloud.BoxGeometry) []*commonpb.BoxGeometry {
-	pbs := make([]*commonpb.BoxGeometry, 0, len(bs))
-	for _, v := range bs {
-		pbs = append(pbs, boxToProto(v))
-	}
-	return pbs
 }
