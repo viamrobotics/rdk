@@ -26,9 +26,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	// var capDigitalInterruptHigh bool
-	// var capDigitalInterruptNanos uint64
-
 	board1 := "board1"
 	injectBoard := &inject.Board{}
 	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
@@ -141,10 +138,7 @@ func TestClient(t *testing.T) {
 		}
 		err = digital1.Tick(context.Background(), true, 44)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectDigitalInterrupt.TickCap[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
-		injectDigitalInterrupt.TickCap = []interface{}(nil)
-
-		// TODO(maximpertsov): add remaining client methods
+		test.That(t, injectDigitalInterrupt.TickCap()[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
