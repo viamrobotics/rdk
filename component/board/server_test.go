@@ -79,9 +79,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capArgs []interface{}
 				injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-					capArgs = []interface{}{ctx, pin, high}
 					return tc.injectErr
 				}
 
@@ -91,7 +89,7 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.GPIOSetCap, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -148,9 +146,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capArgs []interface{}
 				injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-					capArgs = []interface{}{ctx, pin}
 					return tc.injectResult, tc.injectErr
 				}
 
@@ -161,7 +157,7 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.GPIOGetCap, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -207,9 +203,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capArgs []interface{}
 				injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-					capArgs = []interface{}{ctx, pin, dutyCycle}
 					return tc.injectErr
 				}
 
@@ -219,7 +213,7 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.PWMSetCap, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -265,9 +259,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capArgs []interface{}
 				injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-					capArgs = []interface{}{ctx, pin, freq}
 					return tc.injectErr
 				}
 
@@ -277,7 +269,7 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.PWMSetFreqCap, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -360,16 +352,12 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capAnalogReaderArgs []interface{}
 				injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-					capAnalogReaderArgs = []interface{}{name}
 					return tc.injectAnalogReader, tc.injectAnalogReaderOk
 				}
 
-				var capArgs []interface{}
 				if tc.injectAnalogReader != nil {
 					tc.injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-						capArgs = []interface{}{ctx}
 						return tc.injectResult, tc.injectErr
 					}
 				}
@@ -381,9 +369,8 @@ func TestServer(t *testing.T) {
 				} else {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
-
-				test.That(t, capAnalogReaderArgs, test.ShouldResemble, tc.expCapAnalogReaderArgs)
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, tc.expCapAnalogReaderArgs)
+				test.That(t, tc.injectAnalogReader.ReadCap(), test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -478,9 +465,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capDigitalInterruptArgs []interface{}
 				injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-					capDigitalInterruptArgs = []interface{}{name}
 					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 				}
 
@@ -500,7 +485,7 @@ func TestServer(t *testing.T) {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
 
-				test.That(t, capDigitalInterruptArgs, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+				test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
@@ -584,9 +569,7 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capDigitalInterruptArgs []interface{}
 				injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-					capDigitalInterruptArgs = []interface{}{name}
 					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 				}
 
@@ -606,7 +589,7 @@ func TestServer(t *testing.T) {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
 
-				test.That(t, capDigitalInterruptArgs, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+				test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
 			})
 		}
