@@ -261,6 +261,10 @@
             <ul>
               
                 <li>
+                  <a href="#proto.api.component.v1.AnalogStatus"><span class="badge">M</span>AnalogStatus</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.component.v1.BoardServiceAnalogReaderReadRequest"><span class="badge">M</span>BoardServiceAnalogReaderReadRequest</a>
                 </li>
               
@@ -325,7 +329,31 @@
                 </li>
               
                 <li>
+                  <a href="#proto.api.component.v1.BoardServiceStatusRequest"><span class="badge">M</span>BoardServiceStatusRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.BoardServiceStatusResponse"><span class="badge">M</span>BoardServiceStatusResponse</a>
+                </li>
+              
+                <li>
                   <a href="#proto.api.component.v1.DigitalInterruptConfig"><span class="badge">M</span>DigitalInterruptConfig</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.DigitalInterruptStatus"><span class="badge">M</span>DigitalInterruptStatus</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status"><span class="badge">M</span>Status</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status.AnalogsEntry"><span class="badge">M</span>Status.AnalogsEntry</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.Status.DigitalInterruptsEntry"><span class="badge">M</span>Status.DigitalInterruptsEntry</a>
                 </li>
               
               
@@ -1661,6 +1689,30 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
       <p></p>
 
       
+        <h3 id="proto.api.component.v1.AnalogStatus">AnalogStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int32">int32</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.component.v1.BoardServiceAnalogReaderReadRequest">BoardServiceAnalogReaderReadRequest</h3>
         <p></p>
 
@@ -2068,6 +2120,54 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
+        <h3 id="proto.api.component.v1.BoardServiceStatusRequest">BoardServiceStatusRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>name</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.BoardServiceStatusResponse">BoardServiceStatusResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>status</td>
+                  <td><a href="#proto.api.component.v1.Status">Status</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
         <h3 id="proto.api.component.v1.DigitalInterruptConfig">DigitalInterruptConfig</h3>
         <p></p>
 
@@ -2113,6 +2213,123 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
 
         
       
+        <h3 id="proto.api.component.v1.DigitalInterruptStatus">DigitalInterruptStatus</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#int64">int64</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status">Status</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>analogs</td>
+                  <td><a href="#proto.api.component.v1.Status.AnalogsEntry">Status.AnalogsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>digital_interrupts</td>
+                  <td><a href="#proto.api.component.v1.Status.DigitalInterruptsEntry">Status.DigitalInterruptsEntry</a></td>
+                  <td>repeated</td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status.AnalogsEntry">Status.AnalogsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.component.v1.AnalogStatus">AnalogStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.Status.DigitalInterruptsEntry">Status.DigitalInterruptsEntry</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>key</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#proto.api.component.v1.DigitalInterruptStatus">DigitalInterruptStatus</a></td>
+                  <td></td>
+                  <td><p> </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
 
       
 
@@ -2128,10 +2345,17 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
           <tbody>
             
               <tr>
+                <td>Status</td>
+                <td><a href="#proto.api.component.v1.BoardServiceStatusRequest">BoardServiceStatusRequest</a></td>
+                <td><a href="#proto.api.component.v1.BoardServiceStatusResponse">BoardServiceStatusResponse</a></td>
+                <td><p>GPIOSet sets the given pin of a board of the underlying robot to either low or high.</p></td>
+              </tr>
+            
+              <tr>
                 <td>GPIOSet</td>
                 <td><a href="#proto.api.component.v1.BoardServiceGPIOSetRequest">BoardServiceGPIOSetRequest</a></td>
                 <td><a href="#proto.api.component.v1.BoardServiceGPIOSetResponse">BoardServiceGPIOSetResponse</a></td>
-                <td><p>GPIOSet sets the given pin of a board of the underlying robot to either low or high.</p></td>
+                <td><p></p></td>
               </tr>
             
               <tr>
@@ -2200,6 +2424,16 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
               </tr>
             </thead>
             <tbody>
+            
+              
+              
+              <tr>
+                <td>Status</td>
+                <td>PUT</td>
+                <td>/api/v1/component/board/{name}/status</td>
+                <td></td>
+              </tr>
+              
             
               
               
