@@ -100,12 +100,12 @@ var emptyStatus = &pb.Status{
 	Servos: map[string]*pb.ServoStatus{
 		"servo1": {},
 	},
-	Boards: map[string]*pb.BoardStatus{
+	Boards: map[string]*commonpb.BoardStatus{
 		"board1": {
-			Analogs: map[string]*pb.AnalogStatus{
+			Analogs: map[string]*commonpb.AnalogStatus{
 				"analog1": {},
 			},
-			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 				"encoder": {},
 			},
 		},
@@ -187,21 +187,21 @@ var finalStatus = &pb.Status{
 		"inputController2": {},
 		"inputController3": {},
 	},
-	Boards: map[string]*pb.BoardStatus{
+	Boards: map[string]*commonpb.BoardStatus{
 		"board2": {
-			Analogs: map[string]*pb.AnalogStatus{
+			Analogs: map[string]*commonpb.AnalogStatus{
 				"analog1": {},
 			},
-			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 				"encoder": {},
 			},
 		},
 		"board3": {
-			Analogs: map[string]*pb.AnalogStatus{
+			Analogs: map[string]*commonpb.AnalogStatus{
 				"analog1": {},
 				"analog2": {},
 			},
-			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 				"encoder":  {},
 				"digital1": {},
 			},
@@ -359,7 +359,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
+	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
 		return emptyStatus.Boards["board1"], nil
 	}
 	var (
@@ -573,7 +573,7 @@ func TestClient(t *testing.T) {
 
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return &pb.Status{
-			Boards: map[string]*pb.BoardStatus{
+			Boards: map[string]*commonpb.BoardStatus{
 				"board1": {},
 				"board2": {},
 			},
