@@ -34,6 +34,21 @@ func (s *subtypeServer) getBoard(name string) (Board, error) {
 	return board, nil
 }
 
+// Status returns the status of a board of the underlying robot.
+func (s *subtypeServer) Status(ctx context.Context, req *pb.BoardServiceStatusRequest) (*pb.BoardServiceStatusResponse, error) {
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	status, err := b.Status(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BoardServiceStatusResponse{Status: status}, nil
+}
+
 // GPIOSet sets a given pin of a board of the underlying robot to either low or high.
 func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSetRequest) (*pb.BoardServiceGPIOSetResponse, error) {
 	b, err := s.getBoard(req.Name)
