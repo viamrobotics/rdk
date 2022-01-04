@@ -35,12 +35,11 @@ type wheeledBase struct {
 }
 
 func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-
 	// Stop the motors if the speed is 0
 	if math.Abs(degsPerSec) < 0.0001 {
 		err := base.Stop(ctx)
 		if err != nil {
-			return errors.Errorf("error when trying to spin a speed of 0: %v", err)
+			return errors.Errorf("error when trying to spin at a speed of 0: %v", err)
 		}
 		return err
 	}
@@ -69,12 +68,11 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 }
 
 func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-
 	// Stop the motors if the speed or distance are 0
 	if math.Abs(millisPerSec) < 0.0001 || distanceMillis == 0 {
 		err := base.Stop(ctx)
 		if err != nil {
-			return errors.Errorf("error when trying to mvoe straight a speed and/or distance of 0: %v", err)
+			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
 		}
 		return err
 	}
@@ -98,7 +96,6 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 }
 
 func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
-
 	// Stop the motors if the speed is 0
 	if math.Abs(millisPerSec) < 0.0001 {
 		err := base.Stop(ctx)
@@ -132,7 +129,7 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 	return base.WaitForMotorsToStop(ctx)
 }
 
-// returns rpm, revolutions for a spin motion
+// returns rpm, revolutions for a spin motion.
 func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
 	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
 	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
