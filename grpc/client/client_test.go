@@ -109,11 +109,17 @@ var emptyStatus = &pb.Status{
 				"encoder": {},
 			},
 		},
-		"board3": {},
+		// "board3": {},
 	},
 }
 
-var emptyResources = []resource.Name{arm.Named("arm1"), gripper.Named("gripper1"), camera.Named("camera1")}
+var emptyResources = []resource.Name{
+	arm.Named("arm1"),
+	board.Named("board1"),
+	// board.Named("board3"),
+	gripper.Named("gripper1"),
+	camera.Named("camera1"),
+}
 
 var finalStatus = &pb.Status{
 	Arms: map[string]*pb.ArmStatus{
@@ -212,6 +218,8 @@ var finalStatus = &pb.Status{
 var finalResources = []resource.Name{
 	arm.Named("arm2"),
 	arm.Named("arm3"),
+	board.Named("board2"),
+	board.Named("board3"),
 	servo.Named("servo2"),
 	servo.Named("servo3"),
 	gripper.Named("gripper2"),
@@ -526,6 +534,14 @@ func TestClient(t *testing.T) {
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+
+	boardSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
+
+	boardSvc2, err := subtype.New((map[resource.Name]interface{}{board.Named("board1"): injectArm}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
 
 	gripperSvc1, err := subtype.New((map[resource.Name]interface{}{}))
 	test.That(t, err, test.ShouldBeNil)
@@ -1169,6 +1185,8 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, status.String(), test.ShouldResemble, finalStatus.String())
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
+
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
@@ -1197,7 +1215,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board2", "board3"),
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
@@ -1217,6 +1235,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
+			boardNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
@@ -1243,6 +1262,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm1")}
+	boardNames = []resource.Name{board.Named("board1")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
@@ -1269,7 +1289,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board1", "board3"),
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
@@ -1284,6 +1304,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
+			boardNames,
 			gripperNames,
 			cameraNames,
 		)...))
@@ -1297,6 +1318,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+	boardNames = []resource.Name{board.Named("board2"), board.Named("board3")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
@@ -1343,6 +1365,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
+			boardNames,
 			gripperNames,
 			cameraNames,
 			servoNames,
