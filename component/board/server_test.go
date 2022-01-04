@@ -469,10 +469,8 @@ func TestServer(t *testing.T) {
 					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 				}
 
-				var capArgs []interface{}
 				if tc.injectDigitalInterrupt != nil {
 					tc.injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-						capArgs = []interface{}{ctx}
 						return tc.injectResult, tc.injectErr
 					}
 				}
@@ -486,7 +484,7 @@ func TestServer(t *testing.T) {
 				}
 
 				test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, tc.injectDigitalInterrupt.ConfigCap(), test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -573,10 +571,8 @@ func TestServer(t *testing.T) {
 					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 				}
 
-				var capArgs []interface{}
 				if tc.injectDigitalInterrupt != nil {
 					tc.injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-						capArgs = []interface{}{ctx}
 						return tc.injectResult, tc.injectErr
 					}
 				}
@@ -590,7 +586,7 @@ func TestServer(t *testing.T) {
 				}
 
 				test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, tc.injectDigitalInterrupt.ValueCap(), test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})
@@ -671,16 +667,12 @@ func TestServer(t *testing.T) {
 				server, injectBoard, err := newServer()
 				test.That(t, err, test.ShouldBeNil)
 
-				var capDigitalInterruptArgs []interface{}
 				injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-					capDigitalInterruptArgs = []interface{}{name}
 					return tc.injectDigitalInterrupt, tc.injectDigitalInterruptOk
 				}
 
-				var capArgs []interface{}
 				if tc.injectDigitalInterrupt != nil {
 					tc.injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-						capArgs = []interface{}{ctx, high, nanos}
 						return tc.injectErr
 					}
 				}
@@ -692,8 +684,8 @@ func TestServer(t *testing.T) {
 					test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 				}
 
-				test.That(t, capDigitalInterruptArgs, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
-				test.That(t, capArgs, test.ShouldResemble, tc.expCapArgs)
+				test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+				test.That(t, tc.injectDigitalInterrupt.TickCap(), test.ShouldResemble, tc.expCapArgs)
 			})
 		}
 	})

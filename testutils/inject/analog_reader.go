@@ -22,6 +22,7 @@ func (a *AnalogReader) Read(ctx context.Context) (int, error) {
 	return a.ReadFunc(ctx)
 }
 
+// ReadCap returns the last parameters received by Read, and then clears them.
 func (a *AnalogReader) ReadCap() []interface{} {
 	if a == nil {
 		return nil
