@@ -94,7 +94,6 @@ func TestWebWithAuth(t *testing.T) {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc, err := New(ctx, injectRobot, config.Service{}, logger)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
@@ -115,7 +114,6 @@ func TestWebWithAuth(t *testing.T) {
 
 			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
 			_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 			test.That(t, err, test.ShouldNotBeNil)
@@ -159,9 +157,53 @@ func TestWebWithAuth(t *testing.T) {
 
 			err = utils.TryClose(context.Background(), svc)
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 		})
 	}
+}
+
+func TestWebWithBadAuthHandlers(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx()
+
+	svc, err := New(ctx, injectRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: "unknown",
+		},
+	}
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
+	svc, err = New(ctx, injectRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	port, err = utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options = NewOptions()
+	addr = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+		},
+	}
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "non-empty")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "api-key")
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 }
 
 func TestWebUpdate(t *testing.T) {
