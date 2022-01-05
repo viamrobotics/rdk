@@ -292,7 +292,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 			servoNames,
 			motorNames,
 			inputNames,
-			inputNames,
 		)...),
 	)
 
@@ -434,6 +433,124 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ResourceByName(servo.Named("servo1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1")...)
+	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
+	boardNames = append(boardNames, rdktestutils.AddSuffixes(boardNames, "_r1")...)
+	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, rdktestutils.AddSuffixes(gripperNames, "_r1")...)
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, rdktestutils.AddSuffixes(cameraNames, "_r1")...)
+	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, rdktestutils.AddSuffixes(servoNames, "_r1")...)
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, rdktestutils.AddSuffixes(motorNames, "_r1")...)
+	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+	inputNames = append(inputNames, rdktestutils.AddSuffixes(inputNames, "_r1")...)
+
+	test.That(
+		t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"forcematrix",
+			"sensor1_r1",
+			"sensor2_r1",
+			"forcematrix_r1",
+		),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1"),
+	)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+			armNames,
+			boardNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...),
+	)
 }
 
 func TestPartsClone(t *testing.T) {
