@@ -191,15 +191,15 @@ func TestServer(t *testing.T) {
 			ClusteringRadius:   5.,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 2)
-		test.That(t, segs.Centers[0].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.Centers[1].Z, test.ShouldEqual, 5.)
-		test.That(t, segs.BoundingBoxes[0].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[0].Depth, test.ShouldEqual, 2)
-		test.That(t, segs.BoundingBoxes[1].Width, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Length, test.ShouldEqual, 0)
-		test.That(t, segs.BoundingBoxes[1].Depth, test.ShouldEqual, 2)
+		test.That(t, len(segs.Objects), test.ShouldEqual, 2)
+		test.That(t, segs.Objects[0].Center.Z, test.ShouldEqual, 5.)
+		test.That(t, segs.Objects[1].Center.Z, test.ShouldEqual, 5.)
+		test.That(t, segs.Objects[0].BoundingBox.Width, test.ShouldEqual, 0)
+		test.That(t, segs.Objects[0].BoundingBox.Length, test.ShouldEqual, 0)
+		test.That(t, segs.Objects[0].BoundingBox.Depth, test.ShouldEqual, 2)
+		test.That(t, segs.Objects[1].BoundingBox.Width, test.ShouldEqual, 0)
+		test.That(t, segs.Objects[1].BoundingBox.Length, test.ShouldEqual, 0)
+		test.That(t, segs.Objects[1].BoundingBox.Depth, test.ShouldEqual, 2)
 
 		// empty pointcloud
 		pcB := pointcloud.New()
@@ -214,7 +214,7 @@ func TestServer(t *testing.T) {
 			ClusteringRadius:   5.,
 		})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Frames), test.ShouldEqual, 0)
+		test.That(t, len(segs.Objects), test.ShouldEqual, 0)
 
 		_, err = cameraServer.ObjectPointClouds(context.Background(), &pb.CameraServiceObjectPointCloudsRequest{
 			Name:               camera2,
