@@ -24,7 +24,6 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/sensor/gps"
@@ -606,8 +605,7 @@ func (s *Server) FrameServiceConfig(
 	ctx context.Context,
 	req *pb.FrameServiceConfigRequest,
 ) (*pb.FrameServiceConfigResponse, error) {
-	resName := resource.NameFromSubtype(framesystem.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(framesystem.Name)
 	if !ok {
 		return nil, errors.New("no framesystem service")
 	}
@@ -639,8 +637,7 @@ func (s *Server) NavigationServiceMode(
 	ctx context.Context,
 	req *pb.NavigationServiceModeRequest,
 ) (*pb.NavigationServiceModeResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -669,8 +666,7 @@ func (s *Server) NavigationServiceSetMode(
 	ctx context.Context,
 	req *pb.NavigationServiceSetModeRequest,
 ) (*pb.NavigationServiceSetModeResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -700,8 +696,7 @@ func (s *Server) NavigationServiceLocation(
 	ctx context.Context,
 	req *pb.NavigationServiceLocationRequest,
 ) (*pb.NavigationServiceLocationResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -723,8 +718,7 @@ func (s *Server) NavigationServiceWaypoints(
 	ctx context.Context,
 	req *pb.NavigationServiceWaypointsRequest,
 ) (*pb.NavigationServiceWaypointsResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -753,8 +747,7 @@ func (s *Server) NavigationServiceAddWaypoint(
 	ctx context.Context,
 	req *pb.NavigationServiceAddWaypointRequest,
 ) (*pb.NavigationServiceAddWaypointResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -771,8 +764,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 	ctx context.Context,
 	req *pb.NavigationServiceRemoveWaypointRequest,
 ) (*pb.NavigationServiceRemoveWaypointResponse, error) {
-	resName := resource.NameFromSubtype(navigation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -793,8 +785,7 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 	ctx context.Context,
 	req *pb.ObjectManipulationServiceDoGrabRequest,
 ) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
-	resName := resource.NameFromSubtype(objectmanipulation.Subtype, "")
-	svc, ok := s.r.ResourceByName(resName)
+	svc, ok := s.r.ResourceByName(objectmanipulation.Name)
 	if !ok {
 		return nil, errors.New("no objectmanipulation service")
 	}

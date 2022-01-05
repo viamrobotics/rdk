@@ -172,8 +172,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with something that is not a framesystem service
 		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			services := make(map[resource.Name]interface{})
-			resName := resource.NameFromSubtype(framesystem.Subtype, "")
-			services[resName] = nil
+			services[framesystem.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -183,8 +182,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with the frame system
 		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			services := make(map[resource.Name]interface{})
-			resName := resource.NameFromSubtype(framesystem.Subtype, "")
-			services[resName] = fss
+			services[framesystem.Name] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -249,8 +247,7 @@ func TestServer(t *testing.T) {
 		// set up the robot with something that is not an objectmanipulation service
 		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			services := make(map[resource.Name]interface{})
-			resName := resource.NameFromSubtype(objectmanipulation.Subtype, "")
-			services[resName] = nil
+			services[objectmanipulation.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}

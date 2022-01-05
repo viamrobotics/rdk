@@ -624,8 +624,7 @@ func TestClient(t *testing.T) {
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		services := make(map[resource.Name]interface{})
-		resName := resource.NameFromSubtype(framesystem.Subtype, "")
-		services[resName] = fss
+		services[framesystem.Name] = fss
 		service, ok := services[name]
 		return service, ok
 	}
