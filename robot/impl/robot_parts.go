@@ -397,6 +397,10 @@ func (parts *robotParts) processModifiedConfig(
 		return err
 	}
 
+	if err := parts.newServices(ctx, config.Services, robot); err != nil {
+		return err
+	}
+
 	for _, f := range config.Functions {
 		parts.addFunction(f.Name)
 	}
@@ -840,6 +844,10 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 					return nil, err
 				}
 			} else {
+				svcToClose, ok := old.(resource.Closeable)
+				if ok {
+					svcToClose.Close(ctx)
+				}
 				delete(parts.resources, k)
 				parts.resources[k] = v
 			}
