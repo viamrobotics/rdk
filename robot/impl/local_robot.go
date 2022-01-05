@@ -353,6 +353,9 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	if err := r.parts.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
+	// debug print all of the robot parts
+	logger.Debugf("Robot Cameras: %v", r.CameraNames())
+	logger.Debugf("Robot Resources: %v", r.ResourceNames())
 
 	// if metadata exists, update it
 	if svc := service.ContextService(ctx); svc != nil {
