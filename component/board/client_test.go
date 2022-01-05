@@ -46,6 +46,8 @@ func TestClient(t *testing.T) {
 	})
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
+		t.Helper()
+
 		// Status
 		injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
 			// TODO: test a non-nil status
