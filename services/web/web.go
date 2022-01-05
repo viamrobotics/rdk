@@ -253,7 +253,7 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	return nil
 }
 
-func (svc *webService) Close() {
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -261,6 +261,7 @@ func (svc *webService) Close() {
 		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
