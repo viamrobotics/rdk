@@ -38,7 +38,6 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	return board.NewServer(boardSvc), injectBoard, nil
 }
 
-//nolint:dupl
 func TestStatus(t *testing.T) {
 	type request = pb.BoardServiceStatusRequest
 	type response = pb.BoardServiceStatusResponse
@@ -116,7 +115,6 @@ func TestStatus(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestGPIOSet(t *testing.T) {
 	type request = pb.BoardServiceGPIOSetRequest
 	ctx := context.Background()
@@ -173,7 +171,6 @@ func TestGPIOSet(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestGPIOGet(t *testing.T) {
 	type request = pb.BoardServiceGPIOGetRequest
 	type response = pb.BoardServiceGPIOGetResponse
@@ -458,7 +455,6 @@ func TestAnalogReaderRead(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestDigitalInterruptConfig(t *testing.T) {
 	type request = pb.BoardServiceDigitalInterruptConfigRequest
 	type response = pb.BoardServiceDigitalInterruptConfigResponse
@@ -676,7 +672,6 @@ func TestDigitalInterruptValue(t *testing.T) {
 	}
 }
 
-//nolint:dupl
 func TestDigitalInterruptTick(t *testing.T) {
 	type request = pb.BoardServiceDigitalInterruptTickRequest
 	type response = pb.BoardServiceDigitalInterruptTickResponse
