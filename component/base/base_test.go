@@ -7,13 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	dev.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	err := base.DoMove(context.Background(), base.Move{}, dev)
