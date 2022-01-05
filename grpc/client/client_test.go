@@ -756,9 +756,6 @@ func TestClient(t *testing.T) {
 
 	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
 
-	_, ok = client.BoardByName("boardwhat")
-	test.That(t, ok, test.ShouldBeFalse)
-
 	_, err = board1.Status(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
