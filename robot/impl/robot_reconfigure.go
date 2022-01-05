@@ -38,8 +38,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update web service
-	resName := resource.NameFromSubtype(web.Subtype, "")
-	webSvc, ok := r.ResourceByName(resName)
+	webSvc, ok := r.ResourceByName(web.Name)
 	if ok {
 		updateable, ok := webSvc.(resource.Updateable)
 		if ok {

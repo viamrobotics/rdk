@@ -28,6 +28,9 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Name is the FrameSystemService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
+
 func init() {
 	// TODO: Services do not require reconfigurability. A future commit
 	// implementing a grpc service for this service will add RegisterRPCService

@@ -84,6 +84,9 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Name is the NavigationService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
+
 // Config describes how to configure the service.
 type Config struct {
 	Store    StoreConfig `json:"store"`

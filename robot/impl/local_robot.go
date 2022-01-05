@@ -282,8 +282,7 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	resName := resource.NameFromSubtype(framesystem.Subtype, "")
-	service, ok := r.ResourceByName(resName)
+	service, ok := r.ResourceByName(framesystem.Name)
 	if !ok {
 		return nil, errors.New("service frame_system not found")
 	}
@@ -358,8 +357,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	if err != nil {
 		return nil, err
 	}
-	resName := resource.NameFromSubtype(web.Subtype, "")
-	r.parts.addResource(resName, webSvc)
+	r.parts.addResource(web.Name, webSvc)
 	successful = true
 	return r, nil
 }

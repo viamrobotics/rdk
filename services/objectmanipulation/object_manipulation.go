@@ -51,6 +51,9 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+// Name is the ObjectManipulationService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
+
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
 	return &objectMService{
