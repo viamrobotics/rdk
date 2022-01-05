@@ -42,12 +42,12 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an Board client
+// client is an Board client.
 type client struct {
 	*serviceClient
 	name string
@@ -72,12 +72,12 @@ func clientFromSvcClient(sc *serviceClient, name string) Board {
 	return &client{sc, name}
 }
 
-// SPIByName may need to be implemented
+// SPIByName may need to be implemented.
 func (c *client) SPIByName(name string) (SPI, bool) {
 	return nil, false
 }
 
-// I2CByName may need to be implemented
+// I2CByName may need to be implemented.
 func (c *client) I2CByName(name string) (I2C, bool) {
 	return nil, false
 }
@@ -253,7 +253,7 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 }
 
 // Close cleanly closes the underlying connections. No methods should be called on the
-// board after this
+// board after this.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
 }

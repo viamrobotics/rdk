@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 			// TODO: test a non-nil status
 			return nil, nil
 		}
-        status, err := client.Status(context.Background())
+		status, err := client.Status(context.Background())
 		// TODO: test a non-nil status
 		test.That(t, status, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeNil)
