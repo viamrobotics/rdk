@@ -30,15 +30,15 @@ func init() {
 }
 
 type serialNMEAGPS struct {
-	mu        sync.RWMutex
-	dev       io.ReadWriteCloser
-	logger    golog.Logger
-	ntripURL  string
-	username  string
-	password  string
-	writepath string
-	wbaud     int
-	data      gpsData
+	mu             sync.RWMutex
+	dev            io.ReadWriteCloser
+	logger         golog.Logger
+	ntripURL       string
+	ntripUsername  string
+	ntripPassword  string
+	ntripWritepath string
+	ntripWbaud     int
+	data           gpsData
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -68,12 +68,12 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.ntripURL = config.Attributes.String(ntripAddrAttrName)
 	if g.ntripURL != "" {
-		g.username = config.Attributes.String(ntripUserAttrName)
-		g.password = config.Attributes.String(ntripPassAttrName)
-		g.writepath = config.Attributes.String(ntripPathAttrName)
-		g.wbaud = config.Attributes.Int(ntripBaudAttrName, g.wbaud)
-		if g.writepath == "" {
-			g.writepath = serialPath
+		g.ntripUsername = config.Attributes.String(ntripUserAttrName)
+		g.ntripPassword = config.Attributes.String(ntripPassAttrName)
+		g.ntripWritepath = config.Attributes.String(ntripPathAttrName)
+		g.ntripWbaud = config.Attributes.Int(ntripBaudAttrName, g.ntripWbaud)
+		if g.ntripWritepath == "" {
+			g.ntripWritepath = serialPath
 		}
 		g.Start()
 		g.NtripClientRequest()
@@ -94,7 +94,7 @@ func (g *serialNMEAGPS) NtripClientRequest() {
 		if err != nil {
 			g.logger.Fatalf("Error creating ntrip client request %s", err)
 		}
-		req.SetBasicAuth(g.username, g.password)
+		req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
 
 		reconnFlag := 1
 		for reconnFlag == 1 {
@@ -116,13 +116,13 @@ func (g *serialNMEAGPS) NtripClientRequest() {
 		}()
 		// setup port to write to
 		options := slib.OpenOptions{
-			BaudRate:        uint(g.wbaud),
+			BaudRate:        uint(g.ntripWbaud),
 			DataBits:        8,
 			StopBits:        1,
 			MinimumReadSize: 1,
 		}
 
-		options.PortName = g.writepath
+		options.PortName = g.ntripWritepath
 		port, err := slib.Open(options)
 		if err != nil {
 			g.logger.Fatalf("Can't Write to serial %s", err)
