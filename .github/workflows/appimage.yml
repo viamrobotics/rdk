@@ -53,6 +53,7 @@ jobs:
     runs-on: arm64
     container:
       image: ghcr.io/viamrobotics/appimage:latest
+      options: --platform linux/arm64
 
     steps:
     - name: Checkout Code
