@@ -394,7 +394,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 			return nil, false
 		}
 		// pass in conn
-		resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
+		resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
 		return resourceClient, true
 	}
 }

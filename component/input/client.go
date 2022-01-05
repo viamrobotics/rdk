@@ -59,6 +59,7 @@ type client struct {
 	streamMu      sync.Mutex
 	mu            sync.RWMutex
 
+	closeContext            context.Context
 	activeBackgroundWorkers sync.WaitGroup
 	cancelBackgroundWorkers context.CancelFunc
 	callbackWait            sync.WaitGroup
@@ -71,17 +72,17 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	return clientFromSvcClient(sc, name), nil
+	return clientFromSvcClient(ctx, sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Controller {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Controller {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+	return clientFromSvcClient(ctx, sc, name)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) Controller {
-	return &client{serviceClient: sc, name: name}
+func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Controller {
+	return &client{closeContext: ctx, serviceClient: sc, name: name}
 }
 
 func (c *client) Controls(ctx context.Context) ([]Control, error) {
@@ -171,7 +172,7 @@ func (c *client) RegisterControlCallback(ctx context.Context, control Control, t
 	} else {
 		c.streamRunning = true
 		c.activeBackgroundWorkers.Add(1)
-		closeContext, cancel := context.WithCancel(context.Background())
+		closeContext, cancel := context.WithCancel(c.closeContext)
 		c.cancelBackgroundWorkers = cancel
 		utils.PanicCapturingGo(func() {
 			defer c.activeBackgroundWorkers.Done()
@@ -287,7 +288,12 @@ func (c *client) connectStream(ctx context.Context) {
 					break
 				}
 				c.sendConnectionStatus(ctx, false)
-				return
+				if utils.SelectContextOrWait(ctx, 3*time.Second) {
+					c.logger.Error(err)
+					break
+				} else {
+					return
+				}
 			}
 			if err != nil {
 				c.logger.Error(err)
@@ -352,7 +358,9 @@ func (c *client) execCallback(ctx context.Context, event Event) {
 
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
+	c.logger.Error("closing")
 	if c.cancelBackgroundWorkers != nil {
+		c.logger.Info("ggg")
 		c.cancelBackgroundWorkers()
 		c.cancelBackgroundWorkers = nil
 	}

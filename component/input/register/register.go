@@ -30,8 +30,8 @@ func init() {
 				pb.RegisterInputControllerServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return input.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return input.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

@@ -155,7 +155,7 @@ type (
 
 	// A CreateRPCClient will create the client for the resource.
 	// TODO: Remove as part of #227.
-	CreateRPCClient func(conn rpc.ClientConn, name string, logger golog.Logger) interface{}
+	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
 // Component stores a resource constructor (mandatory) and a Frame building function (optional).
