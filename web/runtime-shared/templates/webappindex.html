@@ -163,8 +163,7 @@
               resources: [],
               streamNames: [],
               fullcloud: null,
-              segments : null,
-              segCenters : null,
+              objects: null,
               minPtsPlane : 10000,
               minPtsSegment: 100,
               clusterRad: 5,
@@ -666,29 +665,33 @@
                         }
                         console.log("got pcd segments");
                         theData.pcdClick.foundSegments = true;
-                        theData.segments = resp.getFramesList_asB64();
-                        theData.segCenters = resp.getCentersList();
-                        theData.segBoundingBoxes = resp.getBoundingBoxesList();
+                        theData.objects = resp.getObjectsList();
                         theData.pcdClick.calculatingSegments = false;
                       });
                   },
-                  doSegmentLoad : function(data, i){
-                        var center = theData.segCenters[i];
+                  doSegmentLoad : function(i){
+                        var segment = theData.objects[i];
+                        var data = segment.getFrame_asB64();
+                        var center = segment.getCenter();
+                        var box = segment.getBoundingBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
+                        setBoundingBox(box, p);
                         const mimeType = 'pointcloud/pcd';
                         pcdLoad(`data:${mimeType};base64,${data}`);
                   },
                   doPointLoad : function(i){
-                        var center = theData.segCenters[i];
+                        var segment = theData.objects[i];
+                        var center = segment.getCenter();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
-                        var box = theData.segBoundingBoxes[i];
-                        var center = theData.segCenters[i];
+                        var segment = theData.objects[i];
+                        var center = segment.getCenter();
+                        var box = segment.getBoundingBox();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
@@ -1524,9 +1527,9 @@
           <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
           <td>--</td>
         </tr>
-        <tr v-for="(seg, i) in segments">
+        <tr v-for="(seg, i) in objects">
             <td>Object ${i}</td>
-            <td><button v-on:click="doSegmentLoad(seg, i)">GO</button></td>
+            <td><button v-on:click="doSegmentLoad(i)">GO</button></td>
             <td><button v-on:click="doPointLoad(i)">GO</button></td>
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
