@@ -145,6 +145,7 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -165,6 +166,7 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
