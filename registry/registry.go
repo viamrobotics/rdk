@@ -102,7 +102,6 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 func RegisterService(subtype resource.Subtype, creator Service) {
 	creator.RegistrarLoc = getCallerName()
 	_, old := serviceRegistry[subtype.String()]
-	// TODO: change to support multiple instances of same service type?
 	if old {
 		panic(errors.Errorf("trying to register two services with same subtype: %s", subtype))
 	}

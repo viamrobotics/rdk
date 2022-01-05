@@ -24,8 +24,8 @@ const (
 	triggerSpeedControl
 	Type        = config.ServiceType("base_remote_control")
 	SubtypeName = resource.SubtypeName("base_remote_control")
-	maxSpeed    = 100.0
-	maxAngle    = 40.0
+	maxSpeed    = 1000.0
+	maxAngle    = 360.0
 	distRatio   = 10
 )
 
@@ -241,10 +241,4 @@ func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, old
 		newAngle = angle
 	}
 	return newSpeed, newAngle
-}
-
-// Reconfigure returns nil because resource registration requires
-// reconfigurability but services do not for now.
-func (svc *remoteService) Reconfigure(ctx context.Context, newR resource.Reconfigurable) error {
-	return nil
 }
