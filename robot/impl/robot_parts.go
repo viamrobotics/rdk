@@ -948,6 +948,15 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 		}
 	}
 
+	for _, conf := range conf.Services {
+		rName := conf.ResourceName()
+		part, ok := parts.ResourceByName(rName)
+		if !ok {
+			continue
+		}
+		filtered.addResource(rName, part)
+	}
+
 	for _, conf := range conf.Functions {
 		_, ok := parts.functions[conf.Name]
 		if !ok {
