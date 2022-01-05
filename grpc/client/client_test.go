@@ -109,14 +109,14 @@ var emptyStatus = &pb.Status{
 				"encoder": {},
 			},
 		},
-		// "board3": {},
+		"board3": {},
 	},
 }
 
 var emptyResources = []resource.Name{
 	arm.Named("arm1"),
 	board.Named("board1"),
-	// board.Named("board3"),
+	board.Named("board3"),
 	gripper.Named("gripper1"),
 	camera.Named("camera1"),
 }
@@ -1262,7 +1262,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm1")}
-	boardNames = []resource.Name{board.Named("board1")}
+	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
