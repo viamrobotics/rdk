@@ -23,7 +23,7 @@ const (
 	missingBoardName = "board3"
 )
 
-var genericError = errors.New("whoops")
+var errFoo = errors.New("whoops")
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
@@ -79,11 +79,11 @@ func TestStatus(t *testing.T) {
 		},
 		{
 			injectResult: &status,
-			injectErr:    genericError,
+			injectErr:    errFoo,
 			req:          &request{Name: boardName},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
-			expRespErr:   genericError,
+			expRespErr:   errFoo,
 		},
 		{
 			injectResult: &status,
@@ -140,10 +140,10 @@ func TestGPIOSet(t *testing.T) {
 			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
 		},
 		{
-			injectErr:  genericError,
+			injectErr:  errFoo,
 			req:        &request{Name: boardName, Pin: "one", High: true},
 			expCapArgs: []interface{}{ctx, "one", true},
-			expRespErr: genericError,
+			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
@@ -205,11 +205,11 @@ func TestGPIOGet(t *testing.T) {
 		},
 		{
 			injectResult: false,
-			injectErr:    genericError,
+			injectErr:    errFoo,
 			req:          &request{Name: boardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx, "one"},
 			expResp:      nil,
-			expRespErr:   genericError,
+			expRespErr:   errFoo,
 		},
 		{
 			injectResult: true,
@@ -266,10 +266,10 @@ func TestPWMSet(t *testing.T) {
 			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
 		},
 		{
-			injectErr:  genericError,
+			injectErr:  errFoo,
 			req:        &request{Name: boardName, Pin: "one", DutyCycle: 7},
 			expCapArgs: []interface{}{ctx, "one", byte(7)},
-			expRespErr: genericError,
+			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
@@ -323,10 +323,10 @@ func TestPWMSetFrequency(t *testing.T) {
 			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
 		},
 		{
-			injectErr:  genericError,
+			injectErr:  errFoo,
 			req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
 			expCapArgs: []interface{}{ctx, "one", uint(123123)},
-			expRespErr: genericError,
+			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
@@ -410,12 +410,12 @@ func TestAnalogReaderRead(t *testing.T) {
 			injectAnalogReader:     &inject.AnalogReader{},
 			injectAnalogReaderOk:   true,
 			injectResult:           0,
-			injectErr:              genericError,
+			injectErr:              errFoo,
 			req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                nil,
-			expRespErr:             genericError,
+			expRespErr:             errFoo,
 		},
 		{
 			injectAnalogReader:     &inject.AnalogReader{},
@@ -519,12 +519,12 @@ func TestDigitalInterruptConfig(t *testing.T) {
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
 			injectDigitalInterruptOk:   true,
 			injectResult:               theConfig,
-			injectErr:                  genericError,
+			injectErr:                  errFoo,
 			req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    nil,
-			expRespErr:                 genericError,
+			expRespErr:                 errFoo,
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -627,12 +627,12 @@ func TestDigitalInterruptValue(t *testing.T) {
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
 			injectDigitalInterruptOk:   true,
 			injectResult:               0,
-			injectErr:                  genericError,
+			injectErr:                  errFoo,
 			req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    nil,
-			expRespErr:                 genericError,
+			expRespErr:                 errFoo,
 		},
 		{
 			injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -721,7 +721,7 @@ func TestDigitalInterruptTick(t *testing.T) {
 		{
 			injectDigitalInterrupt:   &inject.DigitalInterrupt{},
 			injectDigitalInterruptOk: true,
-			injectErr:                genericError,
+			injectErr:                errFoo,
 			req: &request{
 				BoardName:            boardName,
 				DigitalInterruptName: "digital1",
@@ -730,7 +730,7 @@ func TestDigitalInterruptTick(t *testing.T) {
 			},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx, true, uint64(1028)},
-			expRespErr:                 genericError,
+			expRespErr:                 errFoo,
 		},
 		{
 			injectDigitalInterrupt:   &inject.DigitalInterrupt{},
