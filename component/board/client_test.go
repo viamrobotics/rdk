@@ -49,13 +49,12 @@ func TestClient(t *testing.T) {
 		t.Helper()
 
 		// Status
+		injectStatus := &commonpb.BoardStatus{}
 		injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
-			// TODO: test a non-nil status
-			return nil, nil
+			return injectStatus, nil
 		}
-		status, err := client.Status(context.Background())
-		// TODO: test a non-nil status
-		test.That(t, status, test.ShouldBeNil)
+		respStatus, err := client.Status(context.Background())
+		test.That(t, respStatus, test.ShouldResemble, injectStatus)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
 		injectBoard.StatusCap = []interface{}(nil)
@@ -173,10 +172,6 @@ func TestClient(t *testing.T) {
 
 		testWorkingClient(t, board1Client2)
 	})
-}
-
-func TestClientZeroValues(t *testing.T) {
-	// TODO
 }
 
 func TestClientDialerOption(t *testing.T) {
