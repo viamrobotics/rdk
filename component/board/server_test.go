@@ -398,7 +398,7 @@ func TestAnalogReaderRead(t *testing.T) {
             expCapAnalogReaderArgs: []interface{}{"analog1"},
             expCapArgs:             []interface{}(nil),
             expResp:                nil,
-            expRespErr:             errors.Errorf("unknown analog reader: analog1"),
+            expRespErr:             errors.New("unknown analog reader: analog1"),
         },
         {
             injectAnalogReader:     &inject.AnalogReader{},
@@ -506,7 +506,7 @@ func TestDigitalInterruptConfig(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}{"digital1"},
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("unknown digital interrupt: digital1"),
+            expRespErr:                 errors.New("unknown digital interrupt: digital1"),
         },
         {
             injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -613,7 +613,7 @@ func TestDigitalInterruptValue(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}{"digital1"},
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("unknown digital interrupt: digital1"),
+            expRespErr:                 errors.New("unknown digital interrupt: digital1"),
         },
         {
             injectDigitalInterrupt:     &inject.DigitalInterrupt{},
@@ -707,7 +707,7 @@ func TestDigitalInterruptTick(t *testing.T) {
             req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
             expCapDigitalInterruptArgs: []interface{}{"digital1"},
             expCapArgs:                 []interface{}(nil),
-            expRespErr:                 errors.Errorf("unknown digital interrupt: digital1"),
+            expRespErr:                 errors.New("unknown digital interrupt: digital1"),
         },
         {
             injectDigitalInterrupt:   &inject.DigitalInterrupt{},
