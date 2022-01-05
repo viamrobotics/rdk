@@ -144,6 +144,7 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -164,6 +165,7 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -867,8 +869,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 			old.(interface{ replace(newSensor sensor.Sensor) }).replace(v)
 		}
 	}
-
-	// TODO(erd): how to handle service replacement?
 
 	if len(toModify.resources) != 0 {
 		for k, v := range toModify.resources {

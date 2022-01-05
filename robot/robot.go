@@ -56,7 +56,6 @@ type Robot interface {
 	InputControllerByName(name string) (input.Controller, bool)
 
 	// ServiceByName returns a service by name.
-	// TODO(erd): refactor to service resource
 	ServiceByName(name string) (interface{}, bool)
 
 	// ResourceByName returns a resource by name

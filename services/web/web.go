@@ -372,7 +372,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 	}
-	// TODO(erd): later: add command flags to enable auth
+	// TODO(https://github.com/viamrobotics/rdk/pull/398): later: add command flags to enable auth
 	if true {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
 	}

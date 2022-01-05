@@ -100,10 +100,15 @@ message CameraServiceObjectPointCloudsRequest {
 message CameraServiceObjectPointCloudsResponse {
   // Actual MIME type of response
   string mime_type = 1;
-  // Frame of each object in bytes
-  repeated bytes frames = 2;
-  // Center of each object in vector form
-  repeated common.v1.Vector3 centers = 3;
-  // Bounding box of each object
-  repeated common.v1.BoxGeometry bounding_boxes = 4;
+  // List of objects in the scene
+  repeated PointCloudObject objects = 2;
+}
+
+message PointCloudObject {
+  // Frame of object in bytes
+  bytes frame = 1;
+  // Center of object in vector form
+  common.v1.Vector3 center = 2;
+  // Bounding box of object
+  common.v1.BoxGeometry bounding_box = 3;
 }
