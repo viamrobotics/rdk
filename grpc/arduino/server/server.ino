@@ -43,7 +43,7 @@ uint8_t status(uint8_t* data, uint32_t dataLen, uint8_t** response, uint32_t* re
 }
 
 uint8_t compassHeading(uint8_t* data, uint32_t dataLen, uint8_t** response, uint32_t* responseLen) {
-    // TODO(erd): decode request to validate sensor name
+    // no validation of the request is done
     uint8_t* buffer;
     size_t outLen;
     

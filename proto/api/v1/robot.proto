@@ -213,7 +213,7 @@ service RobotService {
     };
   }
 
-  // TODO(erd): refactor to functions service
+  // TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
       post: "/api/v1/functions/by_name/{name}/execute"
@@ -696,7 +696,7 @@ message CompassMarkResponse {}
 
 message ExecuteFunctionRequest {
   string name = 1;
-  // TODO(erd): arguments
+  // TODO(https://github.com/viamrobotics/rdk/issues/408): arguments
 }
 
 message ExecuteFunctionResponse {
