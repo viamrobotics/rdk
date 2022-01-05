@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/forcematrix"
@@ -742,7 +742,7 @@ func (bc *baseClient) Stop(ctx context.Context) error {
 	return err
 }
 
-func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
+func (bc *baseClient) WidthGet(ctx context.Context) (int, error) {
 	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
 		Name: bc.name,
 	})

@@ -17,9 +17,9 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	_ "go.viam.com/rdk/component/arm/register"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
@@ -280,7 +280,7 @@ func TestClient(t *testing.T) {
 		capSensorName           string
 	)
 	injectBase := &inject.Base{}
-	injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 15, nil
 	}
 	var baseStopCalled bool
@@ -660,7 +660,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
-	_, err = base1.WidthMillis(context.Background())
+	_, err = base1.WidthGet(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
 	arm1, ok := client.ArmByName("arm1")
@@ -808,7 +808,7 @@ func TestClient(t *testing.T) {
 	base1, ok = client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	widthMillis, err := base1.WidthMillis(context.Background())
+	widthMillis, err := base1.WidthGet(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, widthMillis, test.ShouldEqual, 15)
 

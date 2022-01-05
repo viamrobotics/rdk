@@ -18,7 +18,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/motor"

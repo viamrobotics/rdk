@@ -123,9 +123,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	base1, ok := parts.BaseByName("base1")
+	_, ok = parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	_, ok = parts.BaseByName("base1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.GripperByName("gripper1")
@@ -304,15 +303,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	base1, ok := parts.BaseByName("base1")
+	_, ok = parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
-	base1, ok = parts.BaseByName("base1_r1")
+	_, ok = parts.BaseByName("base1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1_r1")
-	base1, ok = parts.BaseByName("base1_r2")
+	_, ok = parts.BaseByName("base1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1_r2")
 	_, ok = parts.BaseByName("base1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -713,15 +709,12 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.ArmByName("arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	base1, ok := newParts.BaseByName("base1")
+	_, ok = newParts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
-	base1, ok = newParts.BaseByName("base1_r1")
+	_, ok = newParts.BaseByName("base1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1_r1")
-	base1, ok = newParts.BaseByName("base1_r2")
+	_, ok = newParts.BaseByName("base1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1_r2")
 	_, ok = newParts.BaseByName("base1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -894,12 +887,15 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
 	injectBase := &inject.Base{}
-	parts.AddBase(injectBase, config.Component{Name: "base1"})
+	cfg = &config.Component{Type: config.ComponentTypeBase, Name: "base1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectBase)
 	base1, ok := parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual, test.ShouldEqual, injectBase)
-	parts.AddBase(base1, config.Component{Name: "base1"})
-	test.That(t, base1.(*proxyBase).actual, test.ShouldEqual, injectBase)
+	test.That(t, base1, test.ShouldEqual, injectBase)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectBase)
 
 	injectSensor := &inject.Sensor{}
 	parts.AddSensor(injectSensor, config.Component{Name: "sensor1"})
@@ -1740,13 +1736,16 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
 
-	robotForRemote.parts.AddBase(&inject.Base{}, config.Component{Name: "base2_r1"})
 	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
 	robotForRemote.parts.addResource(rName, &inject.Arm{})
+
+	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base2_r1"}
+	rName = cfg.ResourceName()
+	robotForRemote.parts.addResource(rName, &inject.Base{})
 
 	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board2_r1"}
 	rName = cfg.ResourceName()
@@ -1775,14 +1774,16 @@ func TestPartsMergeModify(t *testing.T) {
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
-	injectBase := &inject.Base{}
-	replacementParts.AddBase(injectBase, config.Component{Name: "base1"})
 	injectCompass := &inject.Compass{}
 	replacementParts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
 
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Arm{})
+
+	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base1"}
+	rName = cfg.ResourceName()
+	replacementParts.addResource(rName, &inject.Base{})
 
 	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
 	rName = cfg.ResourceName()

@@ -13,8 +13,8 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
@@ -33,7 +33,6 @@ import (
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
 	remotes         map[string]*remoteRobot
-	bases           map[string]*proxyBase
 	sensors         map[string]sensor.Sensor
 	services        map[string]interface{}
 	functions       map[string]struct{}
@@ -46,7 +45,6 @@ type robotParts struct {
 func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
-		bases:           map[string]*proxyBase{},
 		sensors:         map[string]sensor.Sensor{},
 		services:        map[string]interface{}{},
 		functions:       map[string]struct{}{},
@@ -69,15 +67,6 @@ func fixType(c config.Component, whichType config.ComponentType) config.Componen
 // addRemote adds a remote to the parts.
 func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
-}
-
-// AddBase adds a base to the parts.
-func (parts *robotParts) AddBase(b base.Base, c config.Component) {
-	c = fixType(c, config.ComponentTypeBase)
-	if proxy, ok := b.(*proxyBase); ok {
-		b = proxy.actual
-	}
-	parts.bases[c.Name] = &proxyBase{actual: b}
 }
 
 // AddSensor adds a sensor to the parts.
@@ -208,8 +197,10 @@ func (parts *robotParts) CameraNames() []string {
 // BaseNames returns the names of all bases in the parts.
 func (parts *robotParts) BaseNames() []string {
 	names := []string{}
-	for k := range parts.bases {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == base.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BaseNames)
 }
@@ -301,12 +292,6 @@ func (parts *robotParts) Clone() *robotParts {
 		clonedParts.remotes = make(map[string]*remoteRobot, len(parts.remotes))
 		for k, v := range parts.remotes {
 			clonedParts.remotes[k] = v
-		}
-	}
-	if len(parts.bases) != 0 {
-		clonedParts.bases = make(map[string]*proxyBase, len(parts.bases))
-		for k, v := range parts.bases {
-			clonedParts.bases[k] = v
 		}
 	}
 	if len(parts.sensors) != 0 {
@@ -489,12 +474,6 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
 	for _, c := range components {
 		switch c.Type {
-		case config.ComponentTypeBase:
-			b, err := r.newBase(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddBase(b, c)
 		case config.ComponentTypeSensor:
 			if c.SubType == "" {
 				return errors.New("sensor component requires subtype")
@@ -506,7 +485,8 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			parts.AddSensor(sensorDevice, c)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
+			config.ComponentTypeBase:
 			fallthrough
 		default:
 			r, err := r.newResource(ctx, c)
@@ -593,9 +573,13 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns the given base by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
-	part, ok := parts.bases[name]
+	rName := base.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(base.Base)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BaseByName(name)
@@ -778,15 +762,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.remotes {
 			parts.remotes[k] = v
-		}
-	}
-
-	if len(toAdd.bases) != 0 {
-		if parts.bases == nil {
-			parts.bases = make(map[string]*proxyBase, len(toAdd.bases))
-		}
-		for k, v := range toAdd.bases {
-			parts.bases[k] = v
 		}
 	}
 
@@ -983,12 +958,6 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		switch compConf.Type {
-		case config.ComponentTypeBase:
-			part, ok := parts.BaseByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddBase(part, compConf)
 		case config.ComponentTypeSensor:
 			part, ok := parts.SensorByName(compConf.Name)
 			if !ok {
@@ -997,7 +966,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 			filtered.AddSensor(part, compConf)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
+			config.ComponentTypeBase:
 			fallthrough
 		default:
 			rName := compConf.ResourceName()

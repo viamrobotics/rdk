@@ -13,11 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 
 	// register base.
-	_ "go.viam.com/rdk/base/impl"
 	"go.viam.com/rdk/component/arm"
+	_ "go.viam.com/rdk/component/base/register"
 
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
