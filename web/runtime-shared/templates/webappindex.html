@@ -673,9 +673,11 @@
                         var segment = theData.objects[i];
                         var data = segment.getFrame_asB64();
                         var center = segment.getCenter();
+                        var box = segment.getBoundingBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
+                        setBoundingBox(box, p);
                         const mimeType = 'pointcloud/pcd';
                         pcdLoad(`data:${mimeType};base64,${data}`);
                   },
