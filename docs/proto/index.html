@@ -288,6 +288,10 @@
                   <a href="#proto.api.component.v1.CameraServiceRenderFrameRequest"><span class="badge">M</span>CameraServiceRenderFrameRequest</a>
                 </li>
               
+                <li>
+                  <a href="#proto.api.component.v1.PointCloudObject"><span class="badge">M</span>PointCloudObject</a>
+                </li>
+              
               
               
               
@@ -1792,24 +1796,10 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                 </tr>
               
                 <tr>
-                  <td>frames</td>
-                  <td><a href="#bytes">bytes</a></td>
+                  <td>objects</td>
+                  <td><a href="#proto.api.component.v1.PointCloudObject">PointCloudObject</a></td>
                   <td>repeated</td>
-                  <td><p>Frame of each object in bytes </p></td>
-                </tr>
-              
-                <tr>
-                  <td>centers</td>
-                  <td><a href="#proto.api.common.v1.Vector3">proto.api.common.v1.Vector3</a></td>
-                  <td>repeated</td>
-                  <td><p>Center of each object in vector form </p></td>
-                </tr>
-              
-                <tr>
-                  <td>bounding_boxes</td>
-                  <td><a href="#proto.api.common.v1.BoxGeometry">proto.api.common.v1.BoxGeometry</a></td>
-                  <td>repeated</td>
-                  <td><p>Bounding box of each object </p></td>
+                  <td><p>List of objects in the scene </p></td>
                 </tr>
               
             </tbody>
@@ -1903,6 +1893,44 @@ There should be 1 entry in the list per joint, ordered spatially from the base t
                   <td><a href="#string">string</a></td>
                   <td></td>
                   <td><p>Requested MIME type of response </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.PointCloudObject">PointCloudObject</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>frame</td>
+                  <td><a href="#bytes">bytes</a></td>
+                  <td></td>
+                  <td><p>Frame of object in bytes </p></td>
+                </tr>
+              
+                <tr>
+                  <td>center</td>
+                  <td><a href="#proto.api.common.v1.Vector3">proto.api.common.v1.Vector3</a></td>
+                  <td></td>
+                  <td><p>Center of object in vector form </p></td>
+                </tr>
+              
+                <tr>
+                  <td>bounding_box</td>
+                  <td><a href="#proto.api.common.v1.BoxGeometry">proto.api.common.v1.BoxGeometry</a></td>
+                  <td></td>
+                  <td><p>Bounding box of object </p></td>
                 </tr>
               
             </tbody>
