@@ -9,19 +9,12 @@ import (
 
 	"go.viam.com/rdk/component/board"
 
-	// for board.
+	// for boards.
 	_ "go.viam.com/rdk/component/board/arduino"
-
-	// for board.
 	_ "go.viam.com/rdk/component/board/fake"
-
-	// for board.
 	_ "go.viam.com/rdk/component/board/jetson"
-
-	// for board.
 	_ "go.viam.com/rdk/component/board/numato"
 
-	// _ "go.viam.com/rdk/component/board/pi"      // for board.
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/subtype"

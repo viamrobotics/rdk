@@ -59,9 +59,9 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 }
 
 func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.Attributes.String("source"))
+	source, ok := r.CameraByName(config.ConvertedAttributes.(*rimage.AttrConfig).Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*rimage.AttrConfig).Source)
 	}
 	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
 }

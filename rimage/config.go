@@ -5,6 +5,7 @@ type AttrConfig struct {
 	Color              string      `json:"color"`
 	Depth              string      `json:"depth"`
 	Host               string      `json:"host"`
+	Source             string      `json:"source"`
 	Port               int         `json:"port"`
 	Aligned            bool        `json:"aligned"`
 	Debug              bool        `json:"debug"`
@@ -13,6 +14,9 @@ type AttrConfig struct {
 	Args               string      `json:"args"`
 	Width              int         `json:"width"`
 	Height             int         `json:"height"`
+	PlaneSize          int         `json:"plane_size"`
+	SegmentSize        int         `json:"segment_size"`
+	ClusterRadius      float64     `json:"cluster_radius"`
 	Format             string      `json:"format"`
 	Path               string      `json:"path"`
 	PathPattern        string      `json:"path_pattern"`

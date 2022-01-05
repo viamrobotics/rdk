@@ -152,7 +152,6 @@ var (
 )
 
 func newMongoDBNavigationStore(ctx context.Context, config map[string]interface{}) (*mongoDBNavigationStore, error) {
-	// TODO(erd): use config
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
