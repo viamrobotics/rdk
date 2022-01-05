@@ -11,8 +11,8 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
-	pb "go.viam.com/rdk/proto/api/v1"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/robot"
 )
 
