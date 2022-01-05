@@ -44,7 +44,7 @@ func init() {
 				return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 			}
 
-			dc, err := NewDepthComposed(color, depth, config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			dc, err := NewDepthComposed(color, depth, attrs, logger)
 			if err != nil {
 				return nil, err
 			}
