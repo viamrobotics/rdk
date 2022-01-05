@@ -521,8 +521,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		delete(oldServiceNames, name)
 		if ok {
 			_ = oldPart
-			// TODO(erd): how to handle service replacement?
-			// oldPart.replace(newPart)
 			continue
 		}
 		parts.services[name] = newPart
