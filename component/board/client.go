@@ -137,19 +137,23 @@ func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 }
 
 func (c *client) SPINames() []string {
-	return copyStringSlice(c.SPINames())
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (c *client) I2CNames() []string {
-	return copyStringSlice(c.I2CNames())
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (c *client) AnalogReaderNames() []string {
-	return copyStringSlice(c.AnalogReaderNames())
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (c *client) DigitalInterruptNames() []string {
-	return copyStringSlice(c.DigitalInterruptNames())
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
@@ -256,16 +260,6 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 // board after this.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
-}
-
-// TODO(maximpertsov): copied from common client - export into utils (or export from
-// common client)?
-// copyStringSlice is a helper to simply copy a string slice
-// so that no one mutates it.
-func copyStringSlice(src []string) []string {
-	out := make([]string, len(src))
-	copy(out, src)
-	return out
 }
 
 // TODO(maximpertsov): copied from common client - export into utils (or export from
