@@ -29,7 +29,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWebcamSource(config.Attributes, logger)
+			return NewWebcamSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
@@ -39,7 +39,7 @@ func init() {
 		}, &rimage.AttrConfig{})
 }
 
-func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs *rimage.AttrConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 	minWidth := 680
 	maxWidth := 4096
 	idealWidth := 1920
@@ -47,18 +47,16 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 	maxHeight := 2160
 	idealHeight := 1080
 
-	if attrs.Has("width") {
-		w := attrs.Int("width", idealWidth)
-		minWidth = w
-		maxWidth = w
-		idealWidth = w
+	if attrs.Width > 0 {
+		minWidth = attrs.Width
+		maxWidth = attrs.Width
+		idealWidth = attrs.Width
 	}
 
-	if attrs.Has("height") {
-		h := attrs.Int("height", idealHeight)
-		minHeight = h
-		maxHeight = h
-		idealHeight = h
+	if attrs.Height > 0 {
+		minHeight = attrs.Height
+		maxHeight = attrs.Height
+		idealHeight = attrs.Height
 	}
 
 	return mediadevices.MediaStreamConstraints{
@@ -67,7 +65,7 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 			constraint.Height = prop.IntRanged{minHeight, maxHeight, idealHeight}
 			constraint.FrameRate = prop.FloatRanged{0, 200, 60}
 
-			if !attrs.Has("format") || attrs.String("format") == "" {
+			if attrs.Format == "" {
 				constraint.FrameFormat = prop.FrameFormatOneOf{
 					frame.FormatI420,
 					frame.FormatI444,
@@ -79,7 +77,7 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 					frame.FormatNV21,
 				}
 			} else {
-				constraint.FrameFormat = prop.FrameFormatExact(attrs.String("format"))
+				constraint.FrameFormat = prop.FrameFormatExact(attrs.Format)
 			}
 
 			if debug {
@@ -90,20 +88,20 @@ func makeConstraints(attrs config.AttributeMap, debug bool, logger golog.Logger)
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs config.AttributeMap, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(attrs *rimage.AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
-	debug := attrs.Bool("debug", false)
+	debug := attrs.Debug
 
 	constraints := makeConstraints(attrs, debug, logger)
 
-	if attrs.Has("path") {
-		return tryWebcamOpen(attrs.String("path"), constraints)
+	if attrs.Path != "" {
+		return tryWebcamOpen(attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
-	if attrs.Has("path_pattern") {
-		pattern, err = regexp.Compile(attrs.String("path_pattern"))
+	if attrs.PathPattern != "" {
+		pattern, err = regexp.Compile(attrs.PathPattern)
 		if err != nil {
 			return nil, err
 		}

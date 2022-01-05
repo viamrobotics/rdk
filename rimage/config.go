@@ -11,6 +11,12 @@ type AttrConfig struct {
 	Stream             string      `json:"stream"`
 	Num                string      `json:"num"`
 	Args               string      `json:"args"`
+	Width              int         `json:"width"`
+	Height             int         `json:"height"`
+	Format             string      `json:"format"`
+	Path               string      `json:"path"`
+	PathPattern        string      `json:"path_pattern"`
+	Dump               bool        `json:"dump"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
