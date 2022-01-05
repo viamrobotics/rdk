@@ -66,7 +66,7 @@ func TestStatus(t *testing.T) {
             req:          &request{Name: missingBoardName},
             expCapArgs:   []interface{}(nil),
             expResp:      nil,
-            expRespErr:   errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectResult: &status,
@@ -74,7 +74,7 @@ func TestStatus(t *testing.T) {
             req:          &request{Name: invalidBoardName},
             expCapArgs:   []interface{}(nil),
             expResp:      nil,
-            expRespErr:   errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:   errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectResult: &status,
@@ -129,13 +129,13 @@ func TestGPIOSet(t *testing.T) {
             injectErr:  nil,
             req:        &request{Name: missingBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectErr:  nil,
             req:        &request{Name: invalidBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectErr:  genericError,
@@ -190,7 +190,7 @@ func TestGPIOGet(t *testing.T) {
             req:          &request{Name: missingBoardName},
             expCapArgs:   []interface{}(nil),
             expResp:      nil,
-            expRespErr:   errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectResult: false,
@@ -198,7 +198,7 @@ func TestGPIOGet(t *testing.T) {
             req:          &request{Name: invalidBoardName},
             expCapArgs:   []interface{}(nil),
             expResp:      nil,
-            expRespErr:   errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:   errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectResult: false,
@@ -253,13 +253,13 @@ func TestPWMSet(t *testing.T) {
             injectErr:  nil,
             req:        &request{Name: missingBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectErr:  nil,
             req:        &request{Name: invalidBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectErr:  genericError,
@@ -309,13 +309,13 @@ func TestPWMSetFrequency(t *testing.T) {
             injectErr:  nil,
             req:        &request{Name: missingBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr: errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectErr:  nil,
             req:        &request{Name: invalidBoardName},
             expCapArgs: []interface{}(nil),
-            expRespErr: errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectErr:  genericError,
@@ -376,7 +376,7 @@ func TestAnalogReaderRead(t *testing.T) {
             expCapAnalogReaderArgs: []interface{}(nil),
             expCapArgs:             []interface{}(nil),
             expResp:                nil,
-            expRespErr:             errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:             errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectAnalogReader:     nil,
@@ -387,7 +387,7 @@ func TestAnalogReaderRead(t *testing.T) {
             expCapAnalogReaderArgs: []interface{}(nil),
             expCapArgs:             []interface{}(nil),
             expResp:                nil,
-            expRespErr:             errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:             errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectAnalogReader:     nil,
@@ -484,7 +484,7 @@ func TestDigitalInterruptConfig(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:                 errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectDigitalInterrupt:     nil,
@@ -495,7 +495,7 @@ func TestDigitalInterruptConfig(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:                 errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectDigitalInterrupt:     nil,
@@ -591,7 +591,7 @@ func TestDigitalInterruptValue(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:                 errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectDigitalInterrupt:     nil,
@@ -602,7 +602,7 @@ func TestDigitalInterruptValue(t *testing.T) {
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
             expResp:                    nil,
-            expRespErr:                 errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:                 errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectDigitalInterrupt:     nil,
@@ -689,7 +689,7 @@ func TestDigitalInterruptTick(t *testing.T) {
             req:                        &request{BoardName: missingBoardName},
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
-            expRespErr:                 errors.Errorf("no Board with name (%s)", missingBoardName),
+            expRespErr:                 errors.Errorf("no board with name (%s)", missingBoardName),
         },
         {
             injectDigitalInterrupt:     nil,
@@ -698,7 +698,7 @@ func TestDigitalInterruptTick(t *testing.T) {
             req:                        &request{BoardName: invalidBoardName},
             expCapDigitalInterruptArgs: []interface{}(nil),
             expCapArgs:                 []interface{}(nil),
-            expRespErr:                 errors.Errorf("resource with name (%s) is not a Board", invalidBoardName),
+            expRespErr:                 errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
         },
         {
             injectDigitalInterrupt:     nil,

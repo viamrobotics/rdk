@@ -25,11 +25,11 @@ func NewServer(s subtype.Service) pb.BoardServiceServer {
 func (s *subtypeServer) getBoard(name string) (Board, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no Board with name (%s)", name)
+		return nil, errors.Errorf("no board with name (%s)", name)
 	}
 	board, ok := resource.(Board)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a Board", name)
+		return nil, errors.Errorf("resource with name (%s) is not a board", name)
 	}
 	return board, nil
 }
