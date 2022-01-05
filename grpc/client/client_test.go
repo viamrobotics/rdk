@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/board"
+	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/forcematrix"
