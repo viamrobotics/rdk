@@ -56,7 +56,6 @@ type RobotClient struct {
 
 	namesMu              *sync.RWMutex
 	baseNames            []string
-	boardNames           []boardInfo
 	sensorNames          []string
 	inputControllerNames []string
 	functionNames        []string
@@ -74,14 +73,6 @@ type RobotClient struct {
 	cachedStatusMu *sync.Mutex
 
 	closeContext context.Context
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
 }
 
 // New constructs a new RobotClient that is served at the given address. The given
