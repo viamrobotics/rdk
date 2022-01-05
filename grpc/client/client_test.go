@@ -796,6 +796,7 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	board1, ok = client.BoardByName("board1")
+	test.That(t, board1, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, ok = client.BoardByName("board3")
