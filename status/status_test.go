@@ -9,9 +9,9 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"

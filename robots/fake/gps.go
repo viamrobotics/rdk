@@ -8,7 +8,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -203,7 +203,7 @@ func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPe
 	return nil
 }
 
-func (b *interceptingGPSBase) WidthMillis(ctx context.Context) (int, error) {
+func (b *interceptingGPSBase) WidthGet(ctx context.Context) (int, error) {
 	return 600, nil
 }
 

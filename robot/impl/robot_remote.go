@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
@@ -413,13 +413,6 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	parts := newRobotParts(robot.Logger().Named("parts"))
-	for _, name := range robot.BaseNames() {
-		part, ok := robot.BaseByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddBase(part, config.Component{Name: name})
-	}
 	for _, name := range robot.SensorNames() {
 		part, ok := robot.SensorByName(name)
 		if !ok {

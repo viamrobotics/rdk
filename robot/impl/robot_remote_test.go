@@ -11,9 +11,9 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -589,13 +589,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	base1, ok := robot.BaseByName("base1")
+	_, ok = robot.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	robot.conf.Prefix = true
-	base1, ok = robot.BaseByName("one.base1")
+	_, ok = robot.BaseByName("one.base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, base1.(*proxyBase).actual.(*fake.Base).Name, test.ShouldEqual, "base1")
 	_, ok = robot.BaseByName("base1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

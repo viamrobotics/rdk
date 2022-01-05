@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robots/fake"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
 
@@ -132,9 +131,8 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -228,9 +226,8 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -330,9 +327,8 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -399,9 +395,8 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -427,7 +422,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		_, ok = robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeFalse)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 1)
 
 		_, ok = robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeFalse)
@@ -487,9 +481,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		base1Proxy := base1.(*proxyBase)
-		base1Actual := base1Proxy.actual.(*fake.Base)
-		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 0)
 
 		board1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -530,7 +521,6 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
-		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 1)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
 
 		newArm1, ok := robot.ArmByName("arm1")
@@ -539,7 +529,7 @@ func TestRobotReconfigure(t *testing.T) {
 
 		newBase1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, newBase1, test.ShouldEqual, base1Proxy)
+		test.That(t, newBase1, test.ShouldEqual, base1)
 
 		newBoard1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -610,9 +600,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		base1Proxy := base1.(*proxyBase)
-		base1Actual := base1Proxy.actual.(*fake.Base)
-		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 0)
 
 		board1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -661,23 +648,22 @@ func TestRobotReconfigure(t *testing.T) {
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "3"))
 
-		test.That(t, base1Actual.CloseCount, test.ShouldEqual, 1)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 1)
 
 		newArm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1)
 
-		_, ok = robot.BaseByName("base1")
+		newBase1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeFalse)
+		test.That(t, newBase1, test.ShouldEqual, base1)
 
 		newBoard1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
-		base2, ok := robot.BaseByName("base2")
+		_, ok = robot.BaseByName("base2")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base2.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		_, ok = robot.BoardByName("board2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -747,7 +733,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		board1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -871,7 +856,6 @@ func TestRobotReconfigure(t *testing.T) {
 
 		base1, ok := robot.BaseByName("base1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		board1, ok := robot.BoardByName("board1")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -920,8 +904,6 @@ func TestRobotReconfigure(t *testing.T) {
 				mockNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
-
-		test.That(t, base1.(*proxyBase).actual.(*fake.Base).CloseCount, test.ShouldEqual, 0)
 
 		newArm1, ok := robot.ArmByName("arm1")
 		test.That(t, ok, test.ShouldBeTrue)
