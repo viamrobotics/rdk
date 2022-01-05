@@ -365,7 +365,6 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 // ServiceByName returns a service by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
-	// TODO(erd): implement
 	return nil, false
 }
 

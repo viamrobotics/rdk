@@ -870,8 +870,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	// TODO(erd): how to handle service replacement?
-
 	if len(toModify.resources) != 0 {
 		for k, v := range toModify.resources {
 			old, ok := parts.resources[k]
