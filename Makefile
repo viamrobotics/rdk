@@ -18,11 +18,7 @@ ifeq ("$(shell uname -s)", "Linux")
 	CGO_LDFLAGS = -lwasmer
 	TAGS = -tags="custom_wasmer_runtime"
 endif
-ifeq ("$(DOCKER_NESTED)", "")
-	DOCKER_WORKSPACE=`pwd`
-else
-	DOCKER_WORKSPACE=$(shell docker container inspect -f '{{range .Mounts}}{{ if eq .Destination "/__w" }}{{.Source}}{{ end }}{{end}}' $(shell hostname) | tr -d '\n')/rdk/rdk
-endif
+
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 binsetup:
@@ -130,10 +126,10 @@ docker-emulation:
 appimage-multiarch: appimage-amd64 appimage-arm64
 
 appimage-amd64:
-	docker run --platform linux/amd64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
+	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
 appimage-arm64:
-	docker run --platform linux/arm64 -v$(DOCKER_WORKSPACE):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
+	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
