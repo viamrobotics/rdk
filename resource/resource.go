@@ -110,7 +110,7 @@ func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name stri
 	}
 	nameIdent := name
 	if isService {
-		nameIdent = string(subtype)
+		nameIdent = ""
 	}
 	return Name{
 		UUID:    uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
