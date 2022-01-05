@@ -77,13 +77,26 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 }
 
 func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.Attributes.String("source"))
+	attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.New("cannot retrieve converted attributes")
 	}
-	planeSize := config.Attributes.Int("plane_size", 10000)
-	segmentSize := config.Attributes.Int("segment_size", 5)
-	clusterRadius := config.Attributes.Float64("cluster_radius", 5.0)
+	source, ok := r.CameraByName(attrs.Source)
+	if !ok {
+		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+	}
+	planeSize := attrs.PlaneSize
+	if attrs.PlaneSize == 0 {
+		attrs.PlaneSize = 10000
+	}
+	segmentSize := attrs.SegmentSize
+	if attrs.SegmentSize == 0 {
+		attrs.SegmentSize = 5
+	}
+	clusterRadius := attrs.ClusterRadius
+	if attrs.ClusterRadius == 0 {
+		attrs.ClusterRadius = 5.0
+	}
 	cfg := segmentation.ObjectConfig{
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadius: clusterRadius,
 	}

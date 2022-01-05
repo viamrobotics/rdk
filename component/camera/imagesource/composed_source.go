@@ -25,7 +25,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthToPretty(r, config)
+			return newDepthToPretty(r, config.ConvertedAttributes.(*rimage.AttrConfig))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
@@ -43,7 +43,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newOverlay(r, config)
+			return newOverlay(r, config.ConvertedAttributes.(*rimage.AttrConfig))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
@@ -70,10 +70,10 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.Attributes.String("source"))
+func newOverlay(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
 	return &camera.ImageSource{ImageSource: &overlaySource{source}}, nil
 }
@@ -95,10 +95,10 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.Attributes.String("source"))
+func newDepthToPretty(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.Attributes.String("source"))
+		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
 	return &camera.ImageSource{ImageSource: &depthToPretty{source}}, nil
 }
