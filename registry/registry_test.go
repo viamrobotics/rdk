@@ -65,7 +65,7 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
-	rcf := func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+	rcf := func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 		return nil
 	}
 	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)

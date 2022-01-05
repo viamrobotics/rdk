@@ -36,8 +36,8 @@ func init() {
 				pb.RegisterCameraServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return camera.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return camera.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

@@ -48,8 +48,8 @@ func init() {
 				componentpb.RegisterGripperServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return gripper.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return gripper.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

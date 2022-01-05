@@ -221,7 +221,7 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		inputController2Client := input.NewClientFromConn(conn, inputController2, logger)
+		inputController2Client := input.NewClientFromConn(context.Background(), conn, inputController2, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = inputController2Client.Controls(context.Background())
