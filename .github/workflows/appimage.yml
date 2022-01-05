@@ -15,9 +15,9 @@ env:
 jobs:
   appimages_amd64:
     name: (x64) Viam Server AppImage
-    runs-on: qemu-host
+    runs-on: x64
     container:
-      image: ghcr.io/viamrobotics/test:latest
+      image: ghcr.io/viamrobotics/appimage:latest
 
     steps:
     - name: Checkout Code
@@ -25,19 +25,13 @@ jobs:
       with: 
         fetch-depth: 2
 
-    - name: Configure git for private modules
-      run: |
-        sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
-        sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
-
-    - name: Update dev environment and setup testbot permissions
-      run: |
-        sudo -u testbot bash -lc 'make setup'
-        chown -R testbot .
-        groupmod --gid $(ls -n /var/run/docker.sock | cut -d" " -f4) docker && usermod -aG docker testbot
+    # - name: Configure git for private modules
+    #   run: |
+    #     sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
+    #     sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
 
     - name: Build and Package
-      run: sudo -u testbot DOCKER_NESTED=yes bash -lc 'make clean-all appimage-amd64'
+      run: make clean-all appimage
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v0.4.3
@@ -56,9 +50,9 @@ jobs:
 
   appimages_arm64:
     name: (arm64) Viam Server AppImage
-    runs-on: qemu-host
+    runs-on: arm64
     container:
-      image: ghcr.io/viamrobotics/test:latest
+      image: ghcr.io/viamrobotics/appimage:latest
 
     steps:
     - name: Checkout Code
@@ -66,20 +60,14 @@ jobs:
       with: 
         fetch-depth: 2
 
-    - name: Configure git for private modules
-      run: |
-        sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
-        sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
-
-    - name: Update dev environment and setup testbot permissions
-      run: |
-        sudo -u testbot bash -lc 'make setup'
-        chown -R testbot .
-        groupmod --gid $(ls -n /var/run/docker.sock | cut -d" " -f4) docker && usermod -aG docker testbot
+    # - name: Configure git for private modules
+    #   run: |
+    #     sudo -u testbot bash -lc "git config --global --unset-all url.ssh://git@github.com/.insteadOf || true"
+    #     sudo -u testbot bash -lc "git config --global url.\"https://${{ secrets.GIT_ACCESS_TOKEN }}@github.com\".insteadOf \"https://github.com\""
 
     - name: Build and Package
       run: |
-        sudo -u testbot DOCKER_NESTED=yes bash -lc 'make clean-all appimage-arm64'
+        make clean-all appimage
 
     - name: Authorize GCP Upload
       uses: google-github-actions/auth@v0.4.3
