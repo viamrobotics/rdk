@@ -45,11 +45,12 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.tuning {
-		out, done := p.tuner.pidTunerStep(x[0].GetSignalValueAt(0))
+		out, done := p.tuner.pidTunerStep(math.Abs(x[0].GetSignalValueAt(0)), p.logger)
 		if done {
 			p.kD = p.tuner.kD
 			p.kI = p.tuner.kI
 			p.kP = p.tuner.kP
+			p.logger.Infof("Calculated gains are Kp %1.6f, Ki: %1.6f, Kd: %1.6f", p.kP, p.kI, p.kD)
 			p.tuning = false
 		}
 		p.y[0].SetSignalValueAt(0, out)
@@ -59,13 +60,13 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		if (p.sat > 0 && pvError > 0) || (p.sat < 0 && pvError < 0) {
 			return p.y, false
 		}
-		p.int += p.kI * p.error * dtS
+		p.int += p.kI * pvError * dtS
 		switch {
 		case p.int > p.satLimUp:
 			p.int = p.satLimUp
 			p.sat = 1
 		case p.int < p.satLimLo:
-			p.int = p.limLo
+			p.int = p.satLimLo
 			p.sat = -1
 		default:
 			p.sat = 0
@@ -191,6 +192,7 @@ type pidTuner struct {
 	limLo        float64
 	ssRValue     float64
 	ccT2         time.Duration
+	ccT3         time.Duration
 	out          float64
 }
 
@@ -231,22 +233,22 @@ func (p *pidTuner) computeGains() {
 		p.kI = 0.2066 * (kU / pU)
 		p.kD = 0.0721 * kU * pU
 	case tuneMethodCohenCoonsPI:
-		t1 := (p.ccT2.Seconds() - math.Log2(2.0)*p.tC.Seconds()) / (1.0 - math.Log2(2.0))
-		tau := p.tC.Seconds() - t1
+		t1 := (p.ccT2.Seconds() - math.Log(2.0)*p.ccT3.Seconds()) / (1.0 - math.Log(2.0))
+		tau := p.ccT3.Seconds() - t1
 		tauD := t1
 		K := (p.avgSpeedSS / stepPwr)
 		r := tauD / tau
 		p.kP = (1.0 / (K * r)) * (0.9 + r/12)
-		p.kI = p.kP * (tauD) * (30 + 3*r) / (9 + 20*r)
+		p.kI = p.kP / (tauD) * (30 + 3*r) / (9 + 20*r)
 	case tuneMethodCohenCoonsPID:
-		t1 := (p.ccT2.Seconds() - math.Log2(2.0)*p.tC.Seconds()) / (1.0 - math.Log2(2.0))
-		tau := p.tC.Seconds() - t1
+		t1 := (p.ccT2.Seconds() - math.Log(2.0)*p.ccT3.Seconds()) / (1.0 - math.Log(2.0))
+		tau := p.ccT3.Seconds() - t1
 		tauD := t1
 		K := (p.avgSpeedSS / stepPwr)
 		r := tauD / tau
 		p.kP = (1.0 / (K * r)) * (4.0/3.0 + r/4)
-		p.kI = p.kP * (tauD) * (32 + 6*r) / (13 + 8*r)
-		p.kD = p.kP * (4 * tauD / (11 + 2*r))
+		p.kI = p.kP / (tauD) * (32 + 6*r) / (13 + 8*r)
+		p.kD = p.kP / (4 * tauD / (11 + 2*r))
 	default:
 		p.kP = 0.4545 * kU
 		p.kI = 0.5454 * (kU / pU)
@@ -254,13 +256,23 @@ func (p *pidTuner) computeGains() {
 	}
 }
 
-func (p *pidTuner) pidTunerStep(pv float64) (float64, bool) {
+func pidTunerFindTCat(speeds []float64, times []time.Time, speed float64) time.Duration {
+	for i, v := range speeds {
+		if v > speed {
+			return times[i].Sub(times[0])
+		}
+	}
+	return time.Duration(0)
+}
+
+func (p *pidTuner) pidTunerStep(pv float64, logger golog.Logger) (float64, bool) {
 	l1 := 0.2
 	l2 := 0.1
 	l3 := 0.1
 	stepPwr := p.limUp * p.stepPct
 	switch p.currentPhase {
 	case begin:
+		logger.Infof("starting the PID tunning process method %s SSR value %1.3f", p.tuneMethod, p.ssRValue)
 		p.currentPhase = step
 		p.tS = time.Now()
 		p.out = stepPwr
@@ -274,14 +286,6 @@ func (p *pidTuner) pidTunerStep(pv float64) (float64, bool) {
 		p.stepRsp = append(p.stepRsp, pv)
 		p.stepRespT = append(p.stepRespT, time.Now())
 		if len(p.stepRsp) > 20 && r < p.ssRValue {
-			if p.tuneMethod == tuneMethodCohenCoonsPI || p.tuneMethod == tuneMethodCohenCoonsPID {
-				p.out = 0.0
-				p.computeGains()
-				p.currentPhase = end
-			} else {
-				p.out = stepPwr + 0.5*stepPwr
-				p.currentPhase = relay
-			}
 			p.tS = time.Now()
 			p.lastR = time.Now()
 			p.avgSpeedSS = 0.0
@@ -289,16 +293,22 @@ func (p *pidTuner) pidTunerStep(pv float64) (float64, bool) {
 				p.avgSpeedSS += p.stepRsp[len(p.stepRsp)-6]
 			}
 			p.avgSpeedSS /= 5
-			for i, v := range p.stepRsp {
-				if v > 0.5*p.avgSpeedSS && p.ccT2.Seconds() == 0.0 {
-					p.ccT2 = p.stepRespT[i].Sub(p.stepRespT[0])
-				}
-				if v > 0.632*p.avgSpeedSS {
-					p.tC = p.stepRespT[i].Sub(p.stepRespT[0])
-					break
-				}
+			if p.tuneMethod == tuneMethodCohenCoonsPI || p.tuneMethod == tuneMethodCohenCoonsPID {
+				p.out = 0.0
+				p.ccT2 = pidTunerFindTCat(p.stepRsp, p.stepRespT, 0.5*p.avgSpeedSS)
+				p.ccT3 = pidTunerFindTCat(p.stepRsp, p.stepRespT, 0.632*p.avgSpeedSS)
+				p.computeGains()
+				p.currentPhase = end
+			} else {
+				p.out = stepPwr + 0.5*stepPwr
+				p.currentPhase = relay
 			}
+			p.tC = pidTunerFindTCat(p.stepRsp, p.stepRespT, 0.85*p.avgSpeedSS)
 			p.pFindDir = 1
+		} else if time.Since(p.tS) > 5*time.Second {
+			logger.Errorf("couldn't reach steady state  r value %1.4f", r)
+			p.out = 0.0
+			p.currentPhase = end
 		}
 		return p.out, false
 	case relay:
@@ -327,7 +337,10 @@ func (p *pidTuner) pidTunerStep(pv float64) (float64, bool) {
 		}
 		return p.out, false
 	case end:
-		return 0.0, true
+		if int(pv) == 0 {
+			return 0.0, true
+		}
+		return 0.0, false
 	default:
 		return 0.0, false
 	}
