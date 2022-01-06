@@ -14,12 +14,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/input"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -917,147 +915,6 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
-}
-
-// InputControllerControls lists the inputs of an input.Controller.
-func (s *Server) InputControllerControls(
-	ctx context.Context,
-	req *pb.InputControllerControlsRequest,
-) (*pb.InputControllerControlsResponse, error) {
-	controller, ok := s.r.InputControllerByName(req.Controller)
-	if !ok {
-		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
-	}
-
-	controlList, err := controller.Controls(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &pb.InputControllerControlsResponse{}
-
-	for _, control := range controlList {
-		resp.Controls = append(resp.Controls, string(control))
-	}
-
-	return resp, nil
-}
-
-// InputControllerLastEvents returns the last input.Event (current state) of each control.
-func (s *Server) InputControllerLastEvents(
-	ctx context.Context,
-	req *pb.InputControllerLastEventsRequest,
-) (*pb.InputControllerLastEventsResponse, error) {
-	controller, ok := s.r.InputControllerByName(req.Controller)
-	if !ok {
-		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
-	}
-
-	eventsIn, err := controller.LastEvents(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &pb.InputControllerLastEventsResponse{}
-
-	for _, eventIn := range eventsIn {
-		resp.Events = append(resp.Events, &pb.InputControllerEvent{
-			Time:    timestamppb.New(eventIn.Time),
-			Event:   string(eventIn.Event),
-			Control: string(eventIn.Control),
-			Value:   eventIn.Value,
-		})
-	}
-
-	return resp, nil
-}
-
-// InputControllerInjectEvent allows directly sending an Event (such as a button press) from external code.
-func (s *Server) InputControllerInjectEvent(
-	ctx context.Context,
-	req *pb.InputControllerInjectEventRequest,
-) (*pb.InputControllerInjectEventResponse, error) {
-	controller, ok := s.r.InputControllerByName(req.Controller)
-	if !ok {
-		return nil, errors.Errorf("no input controller with name (%s)", req.Controller)
-	}
-	injectController, ok := controller.(input.Injectable)
-	if !ok {
-		return nil, errors.Errorf("input controller is not of type input.Injectable (%s)", req.Controller)
-	}
-
-	err := injectController.InjectEvent(ctx, input.Event{
-		Time:    req.Event.Time.AsTime(),
-		Event:   input.EventType(req.Event.Event),
-		Control: input.Control(req.Event.Control),
-		Value:   req.Event.Value,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.InputControllerInjectEventResponse{}, nil
-}
-
-// InputControllerEventStream returns a stream of input.Event.
-func (s *Server) InputControllerEventStream(
-	req *pb.InputControllerEventStreamRequest,
-	server pb.RobotService_InputControllerEventStreamServer,
-) error {
-	controller, ok := s.r.InputControllerByName(req.Controller)
-	if !ok {
-		return errors.Errorf("no input controller with name (%s)", req.Controller)
-	}
-	eventsChan := make(chan *pb.InputControllerEvent, 1024)
-
-	ctrlFunc := func(ctx context.Context, eventIn input.Event) {
-		resp := &pb.InputControllerEvent{
-			Time:    timestamppb.New(eventIn.Time),
-			Event:   string(eventIn.Event),
-			Control: string(eventIn.Control),
-			Value:   eventIn.Value,
-		}
-		select {
-		case eventsChan <- resp:
-		case <-ctx.Done():
-		}
-	}
-
-	for _, ev := range req.Events {
-		var triggers []input.EventType
-		for _, v := range ev.Events {
-			triggers = append(triggers, input.EventType(v))
-		}
-		if len(triggers) > 0 {
-			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), triggers, ctrlFunc)
-			if err != nil {
-				return err
-			}
-		}
-
-		var cancelledTriggers []input.EventType
-		for _, v := range ev.CancelledEvents {
-			cancelledTriggers = append(cancelledTriggers, input.EventType(v))
-		}
-		if len(cancelledTriggers) > 0 {
-			err := controller.RegisterControlCallback(server.Context(), input.Control(ev.Control), cancelledTriggers, nil)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	for {
-		select {
-		case <-server.Context().Done():
-			return server.Context().Err()
-		case msg := <-eventsChan:
-			err := server.Send(msg)
-			if err != nil {
-				return err
-			}
-		}
-	}
 }
 
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional

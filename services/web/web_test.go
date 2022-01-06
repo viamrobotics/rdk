@@ -242,7 +242,7 @@ func TestWebUpdate(t *testing.T) {
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	aClient := arm.NewClientFromConn(conn, arm1, logger)
+	aClient := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
 	position, err := aClient.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
@@ -269,7 +269,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
 	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	aClient2 := arm.NewClientFromConn(conn, arm1, logger)
+	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient2.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -292,7 +292,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
-	aClient3 := arm.NewClientFromConn(conn, arm2, logger)
+	aClient3 := arm.NewClientFromConn(context.Background(), conn, arm2, logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient3.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
