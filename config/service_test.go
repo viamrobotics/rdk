@@ -74,16 +74,22 @@ func TestServiceResourceName(t *testing.T) {
 	}
 }
 
-func TestParseServiceFlag(t *testing.T) {
-	_, err := config.ParseServiceFlag("foo")
+func TestSet(t *testing.T) {
+	conf := &config.Service{}
+	err := conf.Set("foo")
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
 
-	comp, err := config.ParseServiceFlag("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
+
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, comp.Type, test.ShouldEqual, config.ServiceType("foo"))
-	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
+	test.That(t, conf.Type, test.ShouldEqual, config.ServiceType("foo"))
+	test.That(t, conf.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 		"one": "two",
 	})
+
 }
