@@ -15,9 +15,6 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-// Type is the name of the type of service.
-const Type = config.ServiceType("frame_system")
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("frame_system")
 

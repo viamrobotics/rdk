@@ -22,7 +22,6 @@ import (
 const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
-	Type        = config.ServiceType("base_remote_control")
 	SubtypeName = resource.SubtypeName("base_remote_control")
 	maxSpeed    = 1000.0
 	maxAngle    = 360.0
@@ -45,8 +44,9 @@ func init() {
 	// and RPCClient to the ResourceSubtype initialization here - GV
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 	registry.RegisterService(Subtype, registry.Service{Constructor: New})
+	cType := config.ServiceType(SubtypeName)
 
-	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

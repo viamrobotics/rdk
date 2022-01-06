@@ -38,9 +38,6 @@ type Service interface {
 	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
-// Type is the type of service.
-const Type = config.ServiceType("object_manipulation")
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("object_manipulation")
 
