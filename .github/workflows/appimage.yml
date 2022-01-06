@@ -17,7 +17,7 @@ jobs:
     name: (x64) Viam Server AppImage
     runs-on: [x64, qemu-host]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64
+      image: ghcr.io/viamrobotics/canon:amd64-cache
       #options: --platform linux/amd64
 
     steps:
@@ -48,7 +48,7 @@ jobs:
     name: (arm64) Viam Server AppImage
     runs-on: [arm64, qemu-host]
     container:
-      image: ghcr.io/viamrobotics/canon:arm64
+      image: ghcr.io/viamrobotics/canon:arm64-cache
       #options: --platform linux/arm64
 
     steps:

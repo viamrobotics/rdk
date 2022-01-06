@@ -15,7 +15,7 @@ jobs:
     name: Build and Test
     runs-on: [self-hosted, x64]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64
+      image: ghcr.io/viamrobotics/canon:amd64-cache
 
     steps:
 
