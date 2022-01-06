@@ -27,8 +27,8 @@ func init() {
 				componentpb.RegisterServoServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return servo.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return servo.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }
