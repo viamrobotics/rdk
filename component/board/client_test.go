@@ -165,9 +165,10 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("New client from connection", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		ctx := context.Background()
+		conn, err := viamgrpc.Dial(ctx, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		board1Client2 := board.NewClientFromConn(conn, board1, logger)
+		board1Client2 := board.NewClientFromConn(ctx, conn, board1, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, board1Client2)
