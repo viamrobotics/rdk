@@ -14,7 +14,6 @@ import (
 	_ "go.viam.com/rdk/component/board/fake"
 	_ "go.viam.com/rdk/component/board/jetson"
 	_ "go.viam.com/rdk/component/board/numato"
-
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/subtype"
