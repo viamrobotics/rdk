@@ -7,7 +7,7 @@
             "type": "foo",
             "attributes":
             {
-                "foo": 5,
+                "foo": ${TEST_THING_FOO},
                 "foo2": true,
                 "foo3": false,
                 "foo4": "no",

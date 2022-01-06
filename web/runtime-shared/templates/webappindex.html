@@ -11,7 +11,10 @@
         width: 100%;
       }
       [v-cloak] { display: none; }
-      #connecting.done { display: none; }
+      #pre-app.connected { display: none; }
+      #connecting { display: none; }
+      #connecting.connecting { display: block; }
+      #connecting-error { color: red };
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -23,6 +26,7 @@
         window.webrtcSignalingAddress = url;
       }
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
@@ -839,9 +843,9 @@
               statusStream.cancel();
               try {
                 console.log("reconnecting");
-                await window.reconnect();
-              } catch {
-                console.error("failed to reconnect; retrying");
+                await window.connect();
+              } catch (e) {
+                console.error("failed to reconnect; retrying:", e);
                 setTimeout(() => restartStatusStream(), 1000);
               }
             }
@@ -1117,12 +1121,62 @@
         }
       }
 
-      async function waitForClientAndStart() {
-        console.debug("waiting for robot service to be ready");
-        await window.robotServiceReady;
-        console.debug("ready");
-        document.getElementById("connecting").classList.add("done");
+      async function doConnect(creds, onError) {
+        console.debug("connecting");
+        document.getElementById("connecting-error").innerHTML = "";
+        document.getElementById("connecting").classList.add("connecting");
+        try {
+            await window.connect(creds);
+        } catch (e) {
+          const msg = `failed to connect: ${e}`;
+          console.error(msg);
+          document.getElementById("connecting-error").innerHTML = msg;
+          document.getElementById("connecting").classList.remove("connecting");
+          if (onError) {
+            setTimeout(onError, 1000);
+          }
+          return;
+        }
+        console.debug("connected");
+        document.getElementById("pre-app").classList.add("connected");
         await startup();
+      }
+
+      async function waitForClientAndStart() {
+        if (window.supportedAuthTypes.length == 0) {
+          doConnect(undefined, waitForClientAndStart);
+          return;
+        }
+
+        const authElems = [];
+        const disableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = true;
+          }
+        };
+        const enableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = false;
+          }
+        };
+        for (authType of window.supportedAuthTypes) {
+          const authDiv = document.getElementById(`auth-${authType}`);
+          const input = authDiv.getElementsByTagName('input')[0];
+          const button = authDiv.getElementsByTagName('button')[0];
+          authElems.push(input, button);
+          const doLogin = () => {
+            disableAll();
+            const creds = { type: authType, payload: input.value };
+            doConnect(creds, () => enableAll());
+          }
+          button.addEventListener("click", () => doLogin());
+          input.addEventListener("keyup", (event) => {
+            if (event.keyCode !== 13) {
+              return;
+            }
+            doLogin();
+          });
+        }
       }
 
       async function initNavigation() {
@@ -1225,7 +1279,17 @@
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
-    <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+    <div id="pre-app">
+      <div id="connecting-error"></div>
+      <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+      {{range $authType := .SupportedAuthTypes }}    
+          <span>{{ $authType }}: </span>
+          <div id="auth-{{ $authType }}">
+            <input type="password"/>
+            <button>Login</button>
+          </div>
+      {{ end }}
+    </div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
