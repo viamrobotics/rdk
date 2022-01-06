@@ -1,0 +1,6 @@
+FROM ghcr.io/viamrobotics/canon:amd64
+
+# cache golang dependencies
+COPY go.mod go.sum /tmp/gomod/
+RUN chown -R testbot /tmp/gomod
+RUN sudo -u testbot bash -lc 'cd /tmp/gomod && go mod download && rm -r /tmp/gomod'
