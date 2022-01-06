@@ -289,7 +289,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					},
 				},
 			}
-			svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+			svc, ok := r.ResourceByName(web.Name)
 			test.That(t, ok, test.ShouldBeTrue)
 			err = svc.(web.Service).Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
@@ -376,7 +376,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					"func2": true,
 				},
 				Services: map[string]bool{
-					"web1": true,
+					"rdk:service:web": true,
 				},
 			}
 
