@@ -226,34 +226,6 @@ service RobotService {
     }; 
   }
 
-  rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/controls"
-    };
-  }
-
-  // InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-  rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/last_events"
-    };
-  }
-
-  // InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
-  rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/event_stream"
-    };
-  }
-
-  // InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
-  // like button presses or axis movements  
-  rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/input/{controller}/inject_event"
-    };
-  }
-
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
   rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
     option (google.api.http) = {
@@ -819,42 +791,6 @@ message ObjectManipulationServiceDoGrabResponse {
 
 // End Object Manipulation Service
 
-message InputControllerControlsRequest {
-  // Name of an input controller 
-  string controller = 1;
-}
-
-message InputControllerControlsResponse {
-  // Returns a list of all the controls (buttons and axes) that are
-  // available to a given Input Controller 
-  repeated string controls = 1;
-}
-
-message InputControllerLastEventsRequest {
-  // Name of an input controller 
-  string controller = 1;
-}
-
-message InputControllerLastEventsResponse {
-  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
-  // buttons/axes on a given input controller 
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerStatus {
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerInjectEventRequest {
-  // Name of an input controller 
-  string controller = 1;
-  // Digitally assert a given event 
-  InputControllerEvent event = 2;
-}
-
-message InputControllerInjectEventResponse {
-}
-
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
   // An event type (eg: ButtonPress, ButtonRelease)
@@ -865,21 +801,8 @@ message InputControllerEvent {
   double value = 4;
 }
 
-message InputControllerEventStreamRequest {
-  message Events {
-    // Name of a control (button or axis)
-    string control = 1;
-    // Specify which event types to recieve events for
-    // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
-    repeated string events = 2;
-    // Specify which event types to stop recieving events for
-    // This can be an empty list 
-    repeated string cancelled_events = 3;
-  }
-  // Name of an input controller 
-  string controller = 1;
-  // A list of Events
-  repeated Events events = 2;
+message InputControllerStatus {
+  repeated InputControllerEvent events = 1;
 }
 
 message GPSLocationRequest {

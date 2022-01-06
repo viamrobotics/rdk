@@ -413,6 +413,61 @@
         
           
           <li>
+            <a href="#proto%2fapi%2fcomponent%2fv1%2finput_controller.proto">proto/api/component/v1/input_controller.proto</a>
+            <ul>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceControlsRequest"><span class="badge">M</span>InputControllerServiceControlsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceControlsResponse"><span class="badge">M</span>InputControllerServiceControlsResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceEvent"><span class="badge">M</span>InputControllerServiceEvent</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceEventStreamRequest"><span class="badge">M</span>InputControllerServiceEventStreamRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceEventStreamRequest.Events"><span class="badge">M</span>InputControllerServiceEventStreamRequest.Events</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceEventStreamResponse"><span class="badge">M</span>InputControllerServiceEventStreamResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceInjectEventRequest"><span class="badge">M</span>InputControllerServiceInjectEventRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceInjectEventResponse"><span class="badge">M</span>InputControllerServiceInjectEventResponse</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceLastEventsRequest"><span class="badge">M</span>InputControllerServiceLastEventsRequest</a>
+                </li>
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerServiceLastEventsResponse"><span class="badge">M</span>InputControllerServiceLastEventsResponse</a>
+                </li>
+              
+              
+              
+              
+                <li>
+                  <a href="#proto.api.component.v1.InputControllerService"><span class="badge">S</span>InputControllerService</a>
+                </li>
+              
+            </ul>
+          </li>
+        
+          
+          <li>
             <a href="#proto%2fapi%2fcomponent%2fv1%2fmotor.proto">proto/api/component/v1/motor.proto</a>
             <ul>
               
@@ -874,39 +929,7 @@
                 </li>
               
                 <li>
-                  <a href="#proto.api.v1.InputControllerControlsRequest"><span class="badge">M</span>InputControllerControlsRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerControlsResponse"><span class="badge">M</span>InputControllerControlsResponse</a>
-                </li>
-              
-                <li>
                   <a href="#proto.api.v1.InputControllerEvent"><span class="badge">M</span>InputControllerEvent</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerEventStreamRequest"><span class="badge">M</span>InputControllerEventStreamRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerEventStreamRequest.Events"><span class="badge">M</span>InputControllerEventStreamRequest.Events</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerInjectEventRequest"><span class="badge">M</span>InputControllerInjectEventRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerInjectEventResponse"><span class="badge">M</span>InputControllerInjectEventResponse</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerLastEventsRequest"><span class="badge">M</span>InputControllerLastEventsRequest</a>
-                </li>
-              
-                <li>
-                  <a href="#proto.api.v1.InputControllerLastEventsResponse"><span class="badge">M</span>InputControllerLastEventsResponse</a>
                 </li>
               
                 <li>
@@ -2678,6 +2701,395 @@ The Tait–Bryan angle formalism is used, with rotations around three distinct a
                 <td>Orientation</td>
                 <td>GET</td>
                 <td>/api/v1/component/imu/{name}/orientation</td>
+                <td></td>
+              </tr>
+              
+            
+            </tbody>
+          </table>
+          
+        
+    
+      
+      <div class="file-heading">
+        <h2 id="proto/api/component/v1/input_controller.proto">proto/api/component/v1/input_controller.proto</h2><a href="#title">Top</a>
+      </div>
+      <p></p>
+
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceControlsRequest">InputControllerServiceControlsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of an input controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceControlsResponse">InputControllerServiceControlsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controls</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p>Returns a list of all the controls (buttons and axes) that are
+available to a given Input Controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>time</td>
+                  <td><a href="#google.protobuf.Timestamp">google.protobuf.Timestamp</a></td>
+                  <td></td>
+                  <td><p>Timestamp of event </p></td>
+                </tr>
+              
+                <tr>
+                  <td>event</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>An event type (eg: ButtonPress, ButtonRelease) </p></td>
+                </tr>
+              
+                <tr>
+                  <td>control</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>A control, can be a button (eg: ButtonSouth) or an axis (eg: AbsoluteX) </p></td>
+                </tr>
+              
+                <tr>
+                  <td>value</td>
+                  <td><a href="#double">double</a></td>
+                  <td></td>
+                  <td><p>0 or 1 for buttons, -1.0 to &#43;1.0 for axes </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceEventStreamRequest">InputControllerServiceEventStreamRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of an input controller </p></td>
+                </tr>
+              
+                <tr>
+                  <td>events</td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEventStreamRequest.Events">InputControllerServiceEventStreamRequest.Events</a></td>
+                  <td>repeated</td>
+                  <td><p>A list of Events </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceEventStreamRequest.Events">InputControllerServiceEventStreamRequest.Events</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>control</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of a control (button or axis) </p></td>
+                </tr>
+              
+                <tr>
+                  <td>events</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p>Specify which event types to recieve events for
+To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive </p></td>
+                </tr>
+              
+                <tr>
+                  <td>cancelled_events</td>
+                  <td><a href="#string">string</a></td>
+                  <td>repeated</td>
+                  <td><p>Specify which event types to stop recieving events for
+This can be an empty list </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceEventStreamResponse">InputControllerServiceEventStreamResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>event</td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
+                  <td></td>
+                  <td><p>Event for a controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceInjectEventRequest">InputControllerServiceInjectEventRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of an input controller </p></td>
+                </tr>
+              
+                <tr>
+                  <td>event</td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
+                  <td></td>
+                  <td><p>Digitally assert a given event </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceInjectEventResponse">InputControllerServiceInjectEventResponse</h3>
+        <p></p>
+
+        
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceLastEventsRequest">InputControllerServiceLastEventsRequest</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>controller</td>
+                  <td><a href="#string">string</a></td>
+                  <td></td>
+                  <td><p>Name of an input controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+        <h3 id="proto.api.component.v1.InputControllerServiceLastEventsResponse">InputControllerServiceLastEventsResponse</h3>
+        <p></p>
+
+        
+          <table class="field-table">
+            <thead>
+              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
+            </thead>
+            <tbody>
+              
+                <tr>
+                  <td>events</td>
+                  <td><a href="#proto.api.component.v1.InputControllerServiceEvent">InputControllerServiceEvent</a></td>
+                  <td>repeated</td>
+                  <td><p>Returns a list of the most recent event for each control on a given InputController. Effectively provides the current &#34;state&#34; of all 
+buttons/axes on a given input controller </p></td>
+                </tr>
+              
+            </tbody>
+          </table>
+
+          
+
+        
+      
+
+      
+
+      
+
+      
+        <h3 id="proto.api.component.v1.InputControllerService">InputControllerService</h3>
+        <p>InputControllerService services maintains all input controller associated with a robot</p>
+        <table class="enum-table">
+          <thead>
+            <tr><td>Method Name</td><td>Request Type</td><td>Response Type</td><td>Description</td></tr>
+          </thead>
+          <tbody>
+            
+              <tr>
+                <td>Controls</td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceControlsRequest">InputControllerServiceControlsRequest</a></td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceControlsResponse">InputControllerServiceControlsResponse</a></td>
+                <td><p>Controls returns a list of Controls provided by the Controller</p></td>
+              </tr>
+            
+              <tr>
+                <td>LastEvents</td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceLastEventsRequest">InputControllerServiceLastEventsRequest</a></td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceLastEventsResponse">InputControllerServiceLastEventsResponse</a></td>
+                <td><p>LastEvent returns a list of events representing the last event on each control of a give Input Controller</p></td>
+              </tr>
+            
+              <tr>
+                <td>EventStream</td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceEventStreamRequest">InputControllerServiceEventStreamRequest</a></td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceEventStreamResponse">InputControllerServiceEventStreamResponse</a> stream</td>
+                <td><p>EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot&#39;s input controller</p></td>
+              </tr>
+            
+              <tr>
+                <td>InjectEvent</td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceInjectEventRequest">InputControllerServiceInjectEventRequest</a></td>
+                <td><a href="#proto.api.component.v1.InputControllerServiceInjectEventResponse">InputControllerServiceInjectEventResponse</a></td>
+                <td><p>InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+like button presses or axis movements</p></td>
+              </tr>
+            
+          </tbody>
+        </table>
+
+        
+          
+          
+          <h4>Methods with HTTP bindings</h4>
+          <table>
+            <thead>
+              <tr>
+                <td>Method Name</td>
+                <td>Method</td>
+                <td>Pattern</td>
+                <td>Body</td>
+              </tr>
+            </thead>
+            <tbody>
+            
+              
+              
+              <tr>
+                <td>Controls</td>
+                <td>GET</td>
+                <td>/api/v1/component/input/{controller}/controls</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>LastEvents</td>
+                <td>GET</td>
+                <td>/api/v1/component/input/{controller}/last_events</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>EventStream</td>
+                <td>GET</td>
+                <td>/api/v1/component/input/{controller}/event_stream</td>
+                <td></td>
+              </tr>
+              
+            
+              
+              
+              <tr>
+                <td>InjectEvent</td>
+                <td>POST</td>
+                <td>/api/v1/component/input/{controller}/inject_event</td>
                 <td></td>
               </tr>
               
@@ -5657,55 +6069,6 @@ To Do (FA): This will be deprecated</p></td>
 
         
       
-        <h3 id="proto.api.v1.InputControllerControlsRequest">InputControllerControlsRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>controller</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Name of an input controller </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerControlsResponse">InputControllerControlsResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>controls</td>
-                  <td><a href="#string">string</a></td>
-                  <td>repeated</td>
-                  <td><p>Returns a list of all the controls (buttons and axes) that are
-available to a given Input Controller </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
         <h3 id="proto.api.v1.InputControllerEvent">InputControllerEvent</h3>
         <p></p>
 
@@ -5742,164 +6105,6 @@ available to a given Input Controller </p></td>
                   <td><a href="#double">double</a></td>
                   <td></td>
                   <td><p>0 or 1 for buttons, -1.0 to &#43;1.0 for axes </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>controller</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Name of an input controller </p></td>
-                </tr>
-              
-                <tr>
-                  <td>events</td>
-                  <td><a href="#proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</a></td>
-                  <td>repeated</td>
-                  <td><p>A list of Events </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerEventStreamRequest.Events">InputControllerEventStreamRequest.Events</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>control</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Name of a control (button or axis) </p></td>
-                </tr>
-              
-                <tr>
-                  <td>events</td>
-                  <td><a href="#string">string</a></td>
-                  <td>repeated</td>
-                  <td><p>Specify which event types to recieve events for
-To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive </p></td>
-                </tr>
-              
-                <tr>
-                  <td>cancelled_events</td>
-                  <td><a href="#string">string</a></td>
-                  <td>repeated</td>
-                  <td><p>Specify which event types to stop recieving events for
-This can be an empty list </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerInjectEventRequest">InputControllerInjectEventRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>controller</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Name of an input controller </p></td>
-                </tr>
-              
-                <tr>
-                  <td>event</td>
-                  <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
-                  <td></td>
-                  <td><p>Digitally assert a given event </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerInjectEventResponse">InputControllerInjectEventResponse</h3>
-        <p></p>
-
-        
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>controller</td>
-                  <td><a href="#string">string</a></td>
-                  <td></td>
-                  <td><p>Name of an input controller </p></td>
-                </tr>
-              
-            </tbody>
-          </table>
-
-          
-
-        
-      
-        <h3 id="proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</h3>
-        <p></p>
-
-        
-          <table class="field-table">
-            <thead>
-              <tr><td>Field</td><td>Type</td><td>Label</td><td>Description</td></tr>
-            </thead>
-            <tbody>
-              
-                <tr>
-                  <td>events</td>
-                  <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a></td>
-                  <td>repeated</td>
-                  <td><p>Returns a list of the most recent event for each control on a given InputController. Effectively provides the current &#34;state&#34; of all 
-buttons/axes on a given input controller </p></td>
                 </tr>
               
             </tbody>
@@ -7391,35 +7596,6 @@ interrupt is a proxy to some real hardware interrupt or for tests . To Do: This 
               </tr>
             
               <tr>
-                <td>InputControllerControls</td>
-                <td><a href="#proto.api.v1.InputControllerControlsRequest">InputControllerControlsRequest</a></td>
-                <td><a href="#proto.api.v1.InputControllerControlsResponse">InputControllerControlsResponse</a></td>
-                <td><p></p></td>
-              </tr>
-            
-              <tr>
-                <td>InputControllerLastEvents</td>
-                <td><a href="#proto.api.v1.InputControllerLastEventsRequest">InputControllerLastEventsRequest</a></td>
-                <td><a href="#proto.api.v1.InputControllerLastEventsResponse">InputControllerLastEventsResponse</a></td>
-                <td><p>InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller</p></td>
-              </tr>
-            
-              <tr>
-                <td>InputControllerEventStream</td>
-                <td><a href="#proto.api.v1.InputControllerEventStreamRequest">InputControllerEventStreamRequest</a></td>
-                <td><a href="#proto.api.v1.InputControllerEvent">InputControllerEvent</a> stream</td>
-                <td><p>InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot&#39;s input controller</p></td>
-              </tr>
-            
-              <tr>
-                <td>InputControllerInjectEvent</td>
-                <td><a href="#proto.api.v1.InputControllerInjectEventRequest">InputControllerInjectEventRequest</a></td>
-                <td><a href="#proto.api.v1.InputControllerInjectEventResponse">InputControllerInjectEventResponse</a></td>
-                <td><p>InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
-like button presses or axis movements</p></td>
-              </tr>
-            
-              <tr>
                 <td>ResourceRunCommand</td>
                 <td><a href="#proto.api.v1.ResourceRunCommandRequest">ResourceRunCommandRequest</a></td>
                 <td><a href="#proto.api.v1.ResourceRunCommandResponse">ResourceRunCommandResponse</a></td>
@@ -7794,46 +7970,6 @@ like button presses or axis movements</p></td>
                 <td>ExecuteSource</td>
                 <td>POST</td>
                 <td>/api/v1/functions/execute_code</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>InputControllerControls</td>
-                <td>GET</td>
-                <td>/api/v1/input/{controller}/controls</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>InputControllerLastEvents</td>
-                <td>GET</td>
-                <td>/api/v1/input/{controller}/last_events</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>InputControllerEventStream</td>
-                <td>GET</td>
-                <td>/api/v1/input/{controller}/event_stream</td>
-                <td></td>
-              </tr>
-              
-            
-              
-              
-              <tr>
-                <td>InputControllerInjectEvent</td>
-                <td>POST</td>
-                <td>/api/v1/input/{controller}/inject_event</td>
                 <td></td>
               </tr>
               

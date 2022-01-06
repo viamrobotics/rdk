@@ -18,13 +18,14 @@
       "name": "theArm",
       "type": "arm",
       "attributes": {
+          "speed": 0.1,
           "host": "10.237.115.187"
       }
     }
   ],
   "remotes": [
     {
-      "address": "vg2105m01.local:8080",
+      "address": "vg2105m01.60758fe0f6.viam.cloud",
       "prefix": false,
       "name": "gripper",
       "frame" : {

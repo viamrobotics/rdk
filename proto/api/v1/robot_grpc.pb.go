@@ -78,14 +78,6 @@ type RobotServiceClient interface {
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
-	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
-	// InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-	InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error)
-	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error)
-	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	// like button presses or axis movements
-	InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -382,65 +374,6 @@ func (c *robotServiceClient) ExecuteSource(ctx context.Context, in *ExecuteSourc
 	return out, nil
 }
 
-func (c *robotServiceClient) InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error) {
-	out := new(InputControllerControlsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerControls", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error) {
-	out := new(InputControllerLastEventsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerLastEvents", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &robotServiceInputControllerEventStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RobotService_InputControllerEventStreamClient interface {
-	Recv() (*InputControllerEvent, error)
-	grpc.ClientStream
-}
-
-type robotServiceInputControllerEventStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *robotServiceInputControllerEventStreamClient) Recv() (*InputControllerEvent, error) {
-	m := new(InputControllerEvent)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *robotServiceClient) InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error) {
-	out := new(InputControllerInjectEventResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerInjectEvent", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error) {
 	out := new(ResourceRunCommandResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ResourceRunCommand", in, out, opts...)
@@ -622,14 +555,6 @@ type RobotServiceServer interface {
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
-	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)
-	// InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-	InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error)
-	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error
-	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	// like button presses or axis movements
-	InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -737,18 +662,6 @@ func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *Execute
 }
 func (UnimplementedRobotServiceServer) ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteSource not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerControls not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerLastEvents not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method InputControllerEventStream not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerInjectEvent not implemented")
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
@@ -1291,81 +1204,6 @@ func _RobotService_ExecuteSource_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_InputControllerControls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerControlsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerControls(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerControls",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerControls(ctx, req.(*InputControllerControlsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_InputControllerLastEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerLastEventsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerLastEvents(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerLastEvents",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerLastEvents(ctx, req.(*InputControllerLastEventsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_InputControllerEventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(InputControllerEventStreamRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RobotServiceServer).InputControllerEventStream(m, &robotServiceInputControllerEventStreamServer{stream})
-}
-
-type RobotService_InputControllerEventStreamServer interface {
-	Send(*InputControllerEvent) error
-	grpc.ServerStream
-}
-
-type robotServiceInputControllerEventStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *robotServiceInputControllerEventStreamServer) Send(m *InputControllerEvent) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _RobotService_InputControllerInjectEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerInjectEventRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerInjectEvent",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, req.(*InputControllerInjectEventRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ResourceRunCommandRequest)
 	if err := dec(in); err != nil {
@@ -1712,18 +1550,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_ExecuteSource_Handler,
 		},
 		{
-			MethodName: "InputControllerControls",
-			Handler:    _RobotService_InputControllerControls_Handler,
-		},
-		{
-			MethodName: "InputControllerLastEvents",
-			Handler:    _RobotService_InputControllerLastEvents_Handler,
-		},
-		{
-			MethodName: "InputControllerInjectEvent",
-			Handler:    _RobotService_InputControllerInjectEvent_Handler,
-		},
-		{
 			MethodName: "ResourceRunCommand",
 			Handler:    _RobotService_ResourceRunCommand_Handler,
 		},
@@ -1780,11 +1606,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StatusStream",
 			Handler:       _RobotService_StatusStream_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "InputControllerEventStream",
-			Handler:       _RobotService_InputControllerEventStream_Handler,
 			ServerStreams: true,
 		},
 	},

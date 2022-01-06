@@ -62,7 +62,7 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Arm {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Arm {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }

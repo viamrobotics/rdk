@@ -48,8 +48,8 @@ func init() {
 				componentpb.RegisterArmServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return arm.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return arm.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }
