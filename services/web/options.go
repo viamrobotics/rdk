@@ -31,6 +31,12 @@ type Options struct {
 	// Network describes networking settings for the web server.
 	Network config.NetworkConfig
 
+	// Auth describes authentication and authorization settings for the web server.
+	Auth config.AuthConfig
+
+	// Managed signifies if this server is remotely managed (e.g. from some cloud service).
+	Managed bool
+
 	// internalSignaling indicates if an internal WebRTC signaling will be used.
 	internalSignaling bool
 

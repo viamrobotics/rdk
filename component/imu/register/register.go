@@ -28,8 +28,8 @@ func init() {
 				componentpb.RegisterIMUServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return imu.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return imu.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

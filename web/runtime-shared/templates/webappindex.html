@@ -11,7 +11,10 @@
         width: 100%;
       }
       [v-cloak] { display: none; }
-      #connecting.done { display: none; }
+      #pre-app.connected { display: none; }
+      #connecting { display: none; }
+      #connecting.connecting { display: block; }
+      #connecting-error { color: red };
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -23,6 +26,7 @@
         window.webrtcSignalingAddress = url;
       }
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
@@ -130,19 +134,10 @@
           status.servosMap = rawStatusObj.servosMap;
           status.motorsMap = rawStatusObj.motorsMap;
           status.servicesMap = rawStatusObj.servicesMap;
+          status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
-
-          status.inputControllersMap = [];
-          status.webGamepad = false;
-          for (let i of rawStatusObj.inputControllersMap) {
-            if (i[0] === "WebGamepad") {
-              status.webGamepad = true;
-            }else{
-              status.inputControllersMap.push(i);
-            }
-          }
 
           if (!firstResult) {
             console.log(rawStatusObj);
@@ -368,8 +363,21 @@
                         break;
                     }
                   },
+                  inputControllerByName : function(name) {
+                    return theData.status.inputControllersMap.find(elem => elem[0] == name) || {}
+                  },
+                  filteredInputControllerList : function() {
+                    // filters out WebGamepad
+                    return theData.resources.filter(elem => {
+                      return (
+                        elem.namespace == 'rdk'
+                        && elem.type == 'component'
+                        && elem.subtype == 'input_controller'
+                        && elem.name !== 'WebGamepad'
+                      )})
+                  },
                   inputInject: function(req) {
-                    robotService.inputControllerInjectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+                    inputControllerService.injectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
@@ -839,9 +847,9 @@
               statusStream.cancel();
               try {
                 console.log("reconnecting");
-                await window.reconnect();
-              } catch {
-                console.error("failed to reconnect; retrying");
+                await window.connect();
+              } catch (e) {
+                console.error("failed to reconnect; retrying:", e);
                 setTimeout(() => restartStatusStream(), 1000);
               }
             }
@@ -1117,12 +1125,62 @@
         }
       }
 
-      async function waitForClientAndStart() {
-        console.debug("waiting for robot service to be ready");
-        await window.robotServiceReady;
-        console.debug("ready");
-        document.getElementById("connecting").classList.add("done");
+      async function doConnect(creds, onError) {
+        console.debug("connecting");
+        document.getElementById("connecting-error").innerHTML = "";
+        document.getElementById("connecting").classList.add("connecting");
+        try {
+            await window.connect(creds);
+        } catch (e) {
+          const msg = `failed to connect: ${e}`;
+          console.error(msg);
+          document.getElementById("connecting-error").innerHTML = msg;
+          document.getElementById("connecting").classList.remove("connecting");
+          if (onError) {
+            setTimeout(onError, 1000);
+          }
+          return;
+        }
+        console.debug("connected");
+        document.getElementById("pre-app").classList.add("connected");
         await startup();
+      }
+
+      async function waitForClientAndStart() {
+        if (window.supportedAuthTypes.length == 0) {
+          doConnect(undefined, waitForClientAndStart);
+          return;
+        }
+
+        const authElems = [];
+        const disableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = true;
+          }
+        };
+        const enableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = false;
+          }
+        };
+        for (authType of window.supportedAuthTypes) {
+          const authDiv = document.getElementById(`auth-${authType}`);
+          const input = authDiv.getElementsByTagName('input')[0];
+          const button = authDiv.getElementsByTagName('button')[0];
+          authElems.push(input, button);
+          const doLogin = () => {
+            disableAll();
+            const creds = { type: authType, payload: input.value };
+            doConnect(creds, () => enableAll());
+          }
+          button.addEventListener("click", () => doLogin());
+          input.addEventListener("keyup", (event) => {
+            if (event.keyCode !== 13) {
+              return;
+            }
+            doLogin();
+          });
+        }
       }
 
       async function initNavigation() {
@@ -1225,7 +1283,17 @@
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
-    <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+    <div id="pre-app">
+      <div id="connecting-error"></div>
+      <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+      {{range $authType := .SupportedAuthTypes }}    
+          <span>{{ $authType }}: </span>
+          <div id="auth-{{ $authType }}">
+            <input type="password"/>
+            <button>Login</button>
+          </div>
+      {{ end }}
+    </div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
@@ -1386,16 +1454,16 @@
 
       <!-- ******* INPUT VIEW *******  -->
       <input-controller
-        v-for="controller in status.inputControllersMap"
-        :key="'new-' + controller[0]"
-        v-bind:controller-name="controller[0]"
-        v-bind:controller-status="controller[1]"
+        v-for="controller in filteredInputControllerList()"
+        :key="'new-' + controller.name"
+        v-bind:controller-name="controller.name"
+        v-bind:controller-status="inputControllerByName(controller.name)[1]"
         style="max-width: 1080px;">
       </input-controller>
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
-        v-if="status.webGamepad"
+        v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
         v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
