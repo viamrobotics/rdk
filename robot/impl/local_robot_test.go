@@ -366,7 +366,7 @@ func TestMetadataUpdate(t *testing.T) {
 				},
 				ResourceSubtype: service.SubtypeName,
 			},
-			Name: "metadata",
+			Name: "",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -430,7 +430,7 @@ func TestMetadataUpdate(t *testing.T) {
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
 			Subtype: framesystem.Subtype,
-			Name:    "frame_system",
+			Name:    "",
 		}: {},
 	}
 	svcResources := svc.All()
