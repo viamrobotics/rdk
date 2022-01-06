@@ -1,0 +1,28 @@
+{
+  "network": {
+    "bind_address": "localhost:8081"
+  },
+  "remotes": [
+    {
+      "name": "robot1",
+      "address": "localhost:8080",
+      "auth": {
+        "credentials": {
+          "type": "api-key",
+          "payload": "${RDK_AUTH_API_KEY}"
+        }
+      }
+    },
+    {
+      "name": "robot2",
+      "address": "localhost:8080",
+      "auth": {
+        "credentials": {
+          "type": "api-key",
+          "payload": "${RDK_AUTH_API_KEY}"
+        },
+        "entity": "local"
+      }
+    }
+  ]
+}

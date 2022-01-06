@@ -133,7 +133,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		arm1Client2 := arm.NewClientFromConn(conn, arm1, logger)
+		arm1Client2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		pos, err := arm1Client2.CurrentPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
