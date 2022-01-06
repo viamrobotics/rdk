@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/input"
 
-	// for all inputs.
+	// for inputs.
 	_ "go.viam.com/rdk/component/input/fake"
 	_ "go.viam.com/rdk/component/input/gamepad"
 	_ "go.viam.com/rdk/component/input/mux"
