@@ -76,12 +76,9 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Board {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
 	info := boardInfo{name: name}
-	// TODO(maximpertsov): add context to this function and refresh board info
-	ctx := context.Background()
-
 	return clientFromSvcClient(ctx, sc, info)
 }
 
