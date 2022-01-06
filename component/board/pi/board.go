@@ -525,7 +525,7 @@ func pigpioInterruptCallback(gpio, level int, rawTick uint32) {
 		}
 		// this should *not* block for long otherwise the lock
 		// will be held
-		// TODO(erd): use new cgo Value to pass a context?
+		// TODO(https://github.com/viamrobotics/rdk/issues/410): use new cgo Value to pass a context?
 		err := i.Tick(context.TODO(), high, tick*1000)
 		if err != nil {
 			instance.logger.Error(err)

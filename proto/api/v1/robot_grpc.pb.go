@@ -75,7 +75,7 @@ type RobotServiceClient interface {
 	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
 	ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error)
 	ForceMatrixSlipDetection(ctx context.Context, in *ForceMatrixSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixSlipDetectionResponse, error)
-	// TODO(erd): refactor to functions service
+	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
 	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
@@ -619,7 +619,7 @@ type RobotServiceServer interface {
 	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
 	ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error)
 	ForceMatrixSlipDetection(context.Context, *ForceMatrixSlipDetectionRequest) (*ForceMatrixSlipDetectionResponse, error)
-	// TODO(erd): refactor to functions service
+	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
 	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)

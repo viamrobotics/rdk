@@ -27,21 +27,24 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "depth_composed",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs := config.Attributes
+			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			if !ok {
+				return nil, errors.New("cannot retrieve converted attributes")
+			}
 
-			colorName := attrs.String("color")
+			colorName := attrs.Color
 			color, ok := r.CameraByName(colorName)
 			if !ok {
 				return nil, errors.Errorf("cannot find color camera (%s)", colorName)
 			}
 
-			depthName := attrs.String("depth")
+			depthName := attrs.Depth
 			depth, ok := r.CameraByName(depthName)
 			if !ok {
 				return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 			}
 
-			dc, err := NewDepthComposed(color, depth, config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			dc, err := NewDepthComposed(color, depth, attrs, logger)
 			if err != nil {
 				return nil, err
 			}

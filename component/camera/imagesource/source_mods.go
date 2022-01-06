@@ -28,7 +28,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			sourceName := config.Attributes.String("source")
+			sourceName := config.ConvertedAttributes.(*rimage.AttrConfig).Source
 			source, ok := r.CameraByName(sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
@@ -53,14 +53,24 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			sourceName := config.Attributes.String("source")
+			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			if !ok {
+				return nil, errors.New("cannot retrieve converted attributes")
+			}
+			sourceName := attrs.Source
 			source, ok := r.CameraByName(sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
 			}
 
-			width := config.Attributes.Int("width", 800)
-			height := config.Attributes.Int("height", 640)
+			width := attrs.Width
+			if width == 0 {
+				width = 800
+			}
+			height := attrs.Height
+			if height == 0 {
+				height = 640
+			}
 
 			return &camera.ImageSource{
 				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
