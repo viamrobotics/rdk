@@ -106,15 +106,15 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &multiAxis{
-		motorList:       []string{"x", "y", "z"},
-		motors:          motors,
-		limitBoard:      createFakeBoard(),
-		limitHigh:       true,
-		logger:          logger,
-		rpm:             []float64{300, 300, 300},
-		limitSwitchPins: []string{"1", "2", "3"},
-		lengthMeters:    []float64{1, 1, 1},
-		pulleyR:         []float64{.1, .1, .1},
+		motorList:         []string{"x", "y", "z"},
+		motors:            motors,
+		limitBoard:        createFakeBoard(),
+		limitHigh:         true,
+		logger:            logger,
+		rpm:               []float64{300, 300, 300},
+		limitSwitchPins:   []string{"1", "2", "3"},
+		lengthMillimeters: []float64{1, 1, 1},
+		pulleyR:           []float64{.1, .1, .1},
 	}
 
 	err := fakegantry.homeOneLimSwitch(ctx, 0, []int{0, 1})
@@ -178,8 +178,8 @@ func TestCurrentPosition(t *testing.T) {
 
 func TestLengths(t *testing.T) {
 	fakegantry := &multiAxis{
-		motorList:    []string{"x", "y", "z"},
-		lengthMeters: []float64{1.0, 2.0, 3.0},
+		motorList:         []string{"x", "y", "z"},
+		lengthMillimeters: []float64{1.0, 2.0, 3.0},
 	}
 	ctx := context.Background()
 	fakelengths, err := fakegantry.Lengths(ctx)
