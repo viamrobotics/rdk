@@ -9,10 +9,8 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 
-	// for gantry.
+	// for gantries.
 	_ "go.viam.com/rdk/component/gantry/fake"
-
-	// for gantry.
 	_ "go.viam.com/rdk/component/gantry/simple"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"

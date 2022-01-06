@@ -3371,7 +3371,7 @@ type ExecuteFunctionRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // TODO(erd): arguments
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"` // TODO(https://github.com/viamrobotics/rdk/issues/408): arguments
 }
 
 func (x *ExecuteFunctionRequest) Reset() {

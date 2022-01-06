@@ -9,10 +9,8 @@ import (
 
 	"go.viam.com/rdk/component/imu"
 
-	// for imu.
+	// for IMUs.
 	_ "go.viam.com/rdk/component/imu/fake"
-
-	// for imu.
 	_ "go.viam.com/rdk/component/imu/wit"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"

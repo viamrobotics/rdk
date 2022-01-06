@@ -248,6 +248,146 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 }
 
+func TestConfigRemoteWithAuth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		Case       string
+		Managed    bool
+		EntityName string
+	}{
+		{Case: "unmanaged and default host"},
+		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "managed and default host", Managed: true},
+		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+	} {
+		t.Run(tc.Case, func(t *testing.T) {
+			metadataSvc, err := service.New()
+			test.That(t, err, test.ShouldBeNil)
+			ctx := service.ContextWithService(context.Background(), metadataSvc)
+
+			r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+			}()
+
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+			options := web.NewOptions()
+			options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+			options.Managed = tc.Managed
+			options.Name = tc.EntityName
+			apiKey := "sosecret"
+			options.Auth.Handlers = []config.AuthHandlerConfig{
+				{
+					Type: rpc.CredentialsTypeAPIKey,
+					Config: config.AttributeMap{
+						"key": apiKey,
+					},
+				},
+			}
+			svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+			test.That(t, ok, test.ShouldBeTrue)
+			err = svc.(web.Service).Start(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+
+			addr := fmt.Sprintf("localhost:%d", port)
+			remoteConfig := &config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: addr,
+					},
+				},
+			}
+
+			_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+			entityName := tc.EntityName
+			if entityName == "" {
+				entityName = web.DefaultEntityName
+			}
+			_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(
+				rpc.WithInsecure(),
+				rpc.WithEntityCredentials(entityName, rpc.Credentials{
+					Type:    rpc.CredentialsTypeAPIKey,
+					Payload: apiKey,
+				}),
+			))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
+				Type:    rpc.CredentialsTypeAPIKey,
+				Payload: apiKey,
+			}
+
+			var r2 robot.LocalRobot
+			if tc.Managed {
+				_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+				remoteConfig.Remotes[0].Auth.Entity = entityName
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				test.That(t, err, test.ShouldBeNil)
+			} else {
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			status, err := r2.Status(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+
+			expectedStatus := &pb.Status{
+				Arms: map[string]*pb.ArmStatus{
+					"pieceArm": {
+						GridPosition: &pb.Pose{
+							X: 0.0,
+							Y: 0.0,
+							Z: 0.0,
+						},
+						JointPositions: &pb.JointPositions{
+							Degrees: []float64{0, 0, 0, 0, 0, 0},
+						},
+					},
+				},
+				Grippers: map[string]bool{
+					"pieceGripper": true,
+				},
+				Cameras: map[string]bool{
+					"cameraOver": true,
+				},
+				Sensors: map[string]*pb.SensorStatus{
+					"compass1": {
+						Type: "compass",
+					},
+					"compass2": {
+						Type: "relative_compass",
+					},
+				},
+				Functions: map[string]bool{
+					"func1": true,
+					"func2": true,
+				},
+				Services: map[string]bool{
+					"web1": true,
+				},
+			}
+
+			test.That(t, status, test.ShouldResemble, expectedStatus)
+
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
+}
+
 type dummyBoard struct {
 	board.Board
 	closeCount int
