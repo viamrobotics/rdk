@@ -31,7 +31,7 @@ func init() {
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return board.NewClientFromConn(conn, name, logger)
+			return board.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }
