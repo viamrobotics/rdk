@@ -4,6 +4,7 @@ package board
 import (
 	"context"
 	"runtime/debug"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -50,7 +51,18 @@ func (sc *serviceClient) Close() error {
 // client is an Board client.
 type client struct {
 	*serviceClient
-	name string
+	info boardInfo
+
+	cachedStatus   *commonpb.BoardStatus
+	cachedStatusMu *sync.Mutex
+}
+
+type boardInfo struct {
+	name                  string
+	spiNames              []string
+	i2cNames              []string
+	analogReaderNames     []string
+	digitalInterruptNames []string
 }
 
 // NewClient constructs a new client that is served at the given address.
@@ -59,17 +71,26 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	return clientFromSvcClient(sc, name), nil
+	info := boardInfo{name: name}
+	return clientFromSvcClient(ctx, sc, info), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
-	return clientFromSvcClient(sc, name)
+	info := boardInfo{name: name}
+	// TODO(maximpertsov): add context to this function and refresh board info
+	ctx := context.Background()
+
+	return clientFromSvcClient(ctx, sc, info)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) Board {
-	return &client{sc, name}
+func clientFromSvcClient(ctx context.Context, sc *serviceClient, info boardInfo) Board {
+	c := &client{serviceClient: sc, info: info}
+	if err := c.refresh(ctx); err != nil {
+		panic(err)
+	}
+	return c
 }
 
 // SPIByName may need to be implemented.
@@ -85,7 +106,7 @@ func (c *client) I2CByName(name string) (I2C, bool) {
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &analogReaderClient{
 		serviceClient:    c.serviceClient,
-		boardName:        c.name,
+		boardName:        c.info.name,
 		analogReaderName: name,
 	}, true
 }
@@ -93,14 +114,14 @@ func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	return &digitalInterruptClient{
 		serviceClient:        c.serviceClient,
-		boardName:            c.name,
+		boardName:            c.info.name,
 		digitalInterruptName: name,
 	}, true
 }
 
 func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 	_, err := c.client.GPIOSet(ctx, &pb.BoardServiceGPIOSetRequest{
-		Name: c.name,
+		Name: c.info.name,
 		Pin:  pin,
 		High: high,
 	})
@@ -109,7 +130,7 @@ func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 
 func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	resp, err := c.client.GPIOGet(ctx, &pb.BoardServiceGPIOGetRequest{
-		Name: c.name,
+		Name: c.info.name,
 		Pin:  pin,
 	})
 	if err != nil {
@@ -120,7 +141,7 @@ func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 
 func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	_, err := c.client.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
-		Name:      c.name,
+		Name:      c.info.name,
 		Pin:       pin,
 		DutyCycle: uint32(dutyCycle),
 	})
@@ -129,7 +150,7 @@ func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 
 func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	_, err := c.client.PWMSetFrequency(ctx, &pb.BoardServicePWMSetFrequencyRequest{
-		Name:      c.name,
+		Name:      c.info.name,
 		Pin:       pin,
 		Frequency: uint64(freq),
 	})
@@ -137,35 +158,70 @@ func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 }
 
 func (c *client) SPINames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(c.info.spiNames)
 }
 
 func (c *client) I2CNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(c.info.i2cNames)
 }
 
 func (c *client) AnalogReaderNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(c.info.analogReaderNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
-	debug.PrintStack()
-	panic(errUnimplemented)
+	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
+// Status uses the cached status or a newly fetched board status to return the state
+// of the board.
 func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	// TODO(maximpertsov): can we rely on caching in main client?
-	// if status := bc.rc.getCachedStatus(); status != nil {
-	// 	boardStatus, ok := status.Boards[bc.info.name]
-	// 	if !ok {
-	// 		return nil, errors.Errorf("no board with name (%s)", bc.info.name)
-	// 	}
-	// 	return boardStatus, nil
-	// }
-	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.name})
+	if status := c.getCachedStatus(); status != nil {
+		return status, nil
+	}
+	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.info.name})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Status, nil
+}
+
+func (c *client) refresh(ctx context.Context) error {
+	status, err := c.status(ctx)
+	if err != nil {
+		return errors.Wrap(err, "status call failed")
+	}
+	c.storeStatus(status)
+
+	c.info.analogReaderNames = make([]string, len(status.Analogs))
+	for name := range status.Analogs {
+		c.info.analogReaderNames = append(c.info.analogReaderNames, name)
+	}
+	c.info.digitalInterruptNames = make([]string, len(status.DigitalInterrupts))
+	for name := range status.Analogs {
+		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
+	}
+
+	return nil
+}
+
+// storeStatus atomically stores the status response.
+func (c *client) storeStatus(status *commonpb.BoardStatus) {
+	c.cachedStatusMu.Lock()
+	c.cachedStatus = status
+	c.cachedStatusMu.Unlock()
+}
+
+// getCachedStatus atomically gets the cached status response.
+func (c *client) getCachedStatus() *commonpb.BoardStatus {
+	c.cachedStatusMu.Lock()
+	defer c.cachedStatusMu.Unlock()
+	return c.cachedStatus
+}
+
+// status gets the latest status from the server.
+func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
+	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.info.name})
 	if err != nil {
 		return nil, err
 	}
@@ -260,6 +316,14 @@ func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 // board after this.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
+}
+
+// copyStringSlice is a helper to simply copy a string slice
+// so that no one mutates it.
+func copyStringSlice(src []string) []string {
+	out := make([]string, len(src))
+	copy(out, src)
+	return out
 }
 
 // errUnimplemented is used for any unimplemented methods that should
