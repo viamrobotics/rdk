@@ -33,8 +33,8 @@ build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web: buf-web
-	cd web/frontend/core-components && npm install && npm run build:prod
-	cd web/frontend && npm install && npx webpack
+	cd web/frontend/core-components && npm install && NODE_OPTIONS=--openssl-legacy-provider npm run build:prod
+	cd web/frontend && npm install && NODE_OPTIONS=--openssl-legacy-provider npx webpack
 
 tool-install:
 	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -58,7 +58,7 @@ buf-web: tool-install
 	npm install
 	PATH=$(PATH_WITH_TOOLS) buf lint
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml
-	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
+	PATH=$(PATH_WITH_TOOLS) buf generate --timeout 5m --template ./etc/buf.web.gen.yaml buf.build/googleapis/googleapis
 	PATH=$(PATH_WITH_TOOLS) buf generate --template ./etc/buf.web.gen.yaml buf.build/erdaniels/gostream
 
 lint: tool-install
@@ -126,10 +126,16 @@ docker-emulation:
 appimage-multiarch: appimage-amd64 appimage-arm64
 
 appimage-amd64:
-	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
+	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) make appimage
 
 appimage-arm64:
-	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/appimage:latest $(ENTRYCMD) make appimage
+	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
+
+buildshell-amd64:
+	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) bash
+
+buildshell-arm64:
+	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) bash
