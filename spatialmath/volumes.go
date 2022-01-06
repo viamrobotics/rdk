@@ -11,4 +11,5 @@ type Volume interface {
 	AlmostEqual(Volume) bool
 	Transform(Pose)
 	CollidesWith(Volume) (bool, error)
+	DistanceFrom(Volume) (float64, error)
 }
