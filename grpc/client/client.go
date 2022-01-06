@@ -119,7 +119,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
 	}
 	if rOpts.refreshEvery != 0 {
 		rc.cachingStatus = true

@@ -107,6 +107,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
 		Actions                    []string
+		SupportedAuthTypes         []string
 	}
 
 	temp := Temp{
@@ -119,6 +120,10 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
 		}
 		temp.WebRTCHost = app.options.Name
+	}
+
+	for _, handler := range app.options.Auth.Handlers {
+		temp.SupportedAuthTypes = append(temp.SupportedAuthTypes, string(handler.Type))
 	}
 
 	err := app.template.Execute(w, temp)
@@ -341,6 +346,10 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
+// DefaultEntityName is the default name that will be used to identify the
+// web server when one is not specified.
+const DefaultEntityName = "local"
+
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
@@ -360,6 +369,9 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		signalingOpts = append(signalingOpts, rpc.WithInsecure())
 	}
 
+	if options.Name == "" {
+		options.Name = DefaultEntityName
+	}
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
@@ -372,9 +384,30 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 	}
-	// TODO(https://github.com/viamrobotics/rdk/pull/398): later: add command flags to enable auth
-	if true {
+	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
+	} else {
+		authEntities := []string{options.Name}
+		if !options.Managed {
+			// allow authentication for non-unique entities.
+			// This eases direct connections via address.
+			authEntities = append(authEntities, listenerAddr, options.Network.BindAddress)
+		}
+		for _, handler := range options.Auth.Handlers {
+			switch handler.Type {
+			case rpc.CredentialsTypeAPIKey:
+				apiKey := handler.Config.String("key")
+				if apiKey == "" {
+					return errors.Errorf("%q handler requires non-empty API key", rpc.CredentialsTypeAPIKey)
+				}
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
+					rpc.CredentialsTypeAPIKey,
+					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+				))
+			default:
+				return errors.Errorf("do not know how to handle auth for %q", handler.Type)
+			}
+		}
 	}
 	rpcServer, err := rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
@@ -384,9 +417,6 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if options.SignalingAddress == "" {
 		options.internalSignaling = true
 		options.SignalingAddress = listenerAddr
-	}
-	if options.Name == "" {
-		options.Name = rpcServer.SignalingHost()
 	}
 
 	if err := rpcServer.RegisterServiceServer(
