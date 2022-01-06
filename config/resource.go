@@ -15,6 +15,7 @@ type validator interface {
 	Validate(path string) error
 }
 
+// A ResourceConfig represents an implmentation of a config for any type of resource
 type ResourceConfig interface {
 	validator
 	String() string
