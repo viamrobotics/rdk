@@ -91,5 +91,4 @@ func TestSet(t *testing.T) {
 		"wee": "woo",
 		"one": "two",
 	})
-
 }
