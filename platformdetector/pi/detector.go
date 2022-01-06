@@ -4,8 +4,6 @@
 // on other platforms.
 package pi
 
-// TODO(maximpertsov): add to board component?
-
 import (
 
 	// Import the real pi code.

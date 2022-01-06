@@ -107,7 +107,6 @@ func (s *subtypeServer) AnalogReaderRead(
 		return nil, err
 	}
 
-	// TODO(maximpertsov): define getAnalogReader
 	theReader, ok := b.AnalogReaderByName(req.AnalogReaderName)
 	if !ok {
 		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
@@ -130,7 +129,6 @@ func (s *subtypeServer) DigitalInterruptConfig(
 		return nil, err
 	}
 
-	// TODO(maximpertsov): define getDigitalInterrupt
 	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
 	if !ok {
 		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)

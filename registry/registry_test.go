@@ -45,7 +45,6 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestComponentRegistry(t *testing.T) {
-	// TODO(maximpertsov): add a similar test for a Board component
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
