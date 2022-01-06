@@ -262,8 +262,6 @@ func (c *client) Close() error {
 	return c.serviceClient.Close()
 }
 
-// TODO(maximpertsov): copied from common client - export into utils (or export from
-// common client)?
 // errUnimplemented is used for any unimplemented methods that should
 // eventually be implemented server side or faked client side.
 var errUnimplemented = errors.New("unimplemented")
