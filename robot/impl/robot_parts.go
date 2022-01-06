@@ -11,6 +11,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
@@ -144,6 +145,7 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -164,6 +166,7 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -454,7 +457,24 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		robotClient, err := client.New(ctx, config.Address, logger, parts.robotClientOpts...)
+		opts := make([]client.RobotClientOption, len(parts.robotClientOpts))
+		copy(opts, parts.robotClientOpts)
+		dialOpts := client.ExtractDialOptions(opts...)
+
+		if config.Auth.Credentials != nil {
+			if config.Auth.Entity == "" {
+				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+			} else {
+				dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+			}
+		} else {
+			// explicitly unset credentials so they are not fed to remotes unintentionally.
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
+		}
+		//nolint:makezero
+		opts = append(opts, client.WithDialOptions(dialOpts...))
+
+		robotClient, err := client.New(ctx, config.Address, logger, opts...)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
@@ -867,8 +887,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 			old.(interface{ replace(newSensor sensor.Sensor) }).replace(v)
 		}
 	}
-
-	// TODO(erd): how to handle service replacement?
 
 	if len(toModify.resources) != 0 {
 		for k, v := range toModify.resources {

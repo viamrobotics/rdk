@@ -32,7 +32,7 @@ func poseToSlice(p *commonpb.Pose) []float64 {
 // This should test forward kinematics functions.
 func TestForwardKinematics(t *testing.T) {
 	// Test fake 5DOF arm to confirm kinematics works with non-6dof arms
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 300, 0, 360.25
@@ -44,7 +44,7 @@ func TestForwardKinematics(t *testing.T) {
 	test.That(t, floatDelta(expect, actual), test.ShouldBeLessThanOrEqualTo, 0.00001)
 
 	// Test the 6dof arm we actually have
-	m, err = referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err = referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// Confirm end effector starts at 365, 0, 360.25
@@ -155,7 +155,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 
-	model, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	model, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -212,11 +212,11 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, gantryOffset)
 
-	modelXarm, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantry)
 
-	modelUR5e, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	modelUR5e, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -287,7 +287,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 
 func TestCombinedIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -320,7 +320,7 @@ func TestCombinedIKinematics(t *testing.T) {
 func TestUR5NloptIKinematics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
 	test.That(t, err, test.ShouldBeNil)
@@ -333,9 +333,9 @@ func TestUR5NloptIKinematics(t *testing.T) {
 }
 
 func TestSVAvsDH(t *testing.T) {
-	mSVA, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e.json"), "")
+	mSVA, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/universalrobots/ur5e_DH.json"), "")
+	mDH, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e_DH.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	numTests := 10000
@@ -362,7 +362,7 @@ func TestSVAvsDH(t *testing.T) {
 
 func TestCombinedCPUs(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/wx250s/wx250s_test.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_test.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateCombinedIKSolver(m, logger, runtime.NumCPU()/400000)
 	test.That(t, err, test.ShouldBeNil)

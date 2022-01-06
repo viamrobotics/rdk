@@ -9,28 +9,14 @@ import (
 
 	"go.viam.com/rdk/component/gripper"
 
-	// for a gripper.
+	// for grippers.
 	_ "go.viam.com/rdk/component/gripper/fake"
-
-	// for a gripper.
 	_ "go.viam.com/rdk/component/gripper/robotiq"
-
-	// for a gripper.
 	_ "go.viam.com/rdk/component/gripper/softrobotics"
-
-	// for a gripper with a single force sensor cell.
 	_ "go.viam.com/rdk/component/gripper/vgripper/v1"
-
-	// for a gripper with a force matrix.
 	_ "go.viam.com/rdk/component/gripper/vgripper/v2"
-
-	// for a gripper.
 	_ "go.viam.com/rdk/component/gripper/vx300s"
-
-	// for a gripper.
 	_ "go.viam.com/rdk/component/gripper/wx250s"
-
-	// for a gripper.
 	_ "go.viam.com/rdk/component/gripper/yahboom"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"

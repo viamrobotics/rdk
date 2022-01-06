@@ -26,7 +26,7 @@ func TestWriteViam(t *testing.T) {
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())

@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
 )
 
 func main() {
@@ -34,7 +35,9 @@ type Arguments struct {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
+	var argsMap rimage.AttrConfig
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
@@ -58,29 +61,33 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if argsParsed.Format != "" {
 		attrs["format"] = argsParsed.Format
+		argsMap.Format = argsParsed.Format
 	}
 
 	if argsParsed.Path != "" {
 		attrs["path"] = argsParsed.Path
+		argsMap.Path = argsParsed.Path
 	}
 
 	if argsParsed.PathPattern != "" {
 		attrs["path_pattern"] = argsParsed.PathPattern
+		argsMap.Format = argsParsed.PathPattern
 	}
 
 	if argsParsed.Debug {
 		attrs["debug"] = true
+		argsMap.Debug = true
 	}
 
 	if argsParsed.Debug {
 		logger.Debugf("attrs: %v", attrs)
 	}
 
-	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug, logger)
+	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug bool, logger golog.Logger) error {
-	webcam, err := imagesource.NewWebcamSource(attrs, logger)
+func viewCamera(ctx context.Context, attrs rimage.AttrConfig, port int, debug bool, logger golog.Logger) error {
+	webcam, err := imagesource.NewWebcamSource(&attrs, logger)
 	if err != nil {
 		return err
 	}

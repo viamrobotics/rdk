@@ -577,7 +577,7 @@ func (s *Server) ResourceRunCommand(
 	ctx context.Context,
 	req *pb.ResourceRunCommandRequest,
 ) (*pb.ResourceRunCommandResponse, error) {
-	// TODO(erd): support all resources
+	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
 	// we know only gps has this right now, so just look at sensors!
 	resource, ok := s.r.SensorByName(req.ResourceName)
 	if !ok {

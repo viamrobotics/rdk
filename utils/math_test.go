@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
@@ -174,4 +175,15 @@ func TestScaleByPct(t *testing.T) {
 	test.That(t, ScaleByPct(255, 1), test.ShouldEqual, 255)
 	test.That(t, ScaleByPct(255, .5), test.ShouldEqual, 127)
 	test.That(t, ScaleByPct(255, -2), test.ShouldEqual, 0)
+	test.That(t, ScaleByPct(255, 2), test.ShouldEqual, 255)
+}
+
+func TestFloat64AlmostEqual(t *testing.T) {
+	test.That(t, Float64AlmostEqual(1, 1.001, 1e-4), test.ShouldBeFalse)
+	test.That(t, Float64AlmostEqual(1, 1.001, 1e-2), test.ShouldBeTrue)
+}
+
+func TestR3VectorAlmostEqual(t *testing.T) {
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2, 3}, 1e-4), test.ShouldBeFalse)
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2.001, 3.001}, 1e-2), test.ShouldBeTrue)
 }

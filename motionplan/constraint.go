@@ -128,6 +128,28 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 	return dist <= epsilon
 }
 
+// NewCollisionConstraint creates a constraint function that will decide if the StartInput of a given ConstraintInput
+// is valid. This function will check for collisions between the volumes in the provided input's frame.
+// Collisions present in the provided reference CollisionGraph will not be ignored.
+func NewCollisionConstraint(reference *CollisionGraph) Constraint {
+	f := func(cInput *ConstraintInput) (bool, float64) {
+		vols, err := cInput.Frame.Volumes(cInput.StartInput)
+		if err != nil && vols == nil {
+			return false, 0
+		}
+		cg, err := CheckUniqueCollisions(vols, reference)
+		if err != nil {
+			return false, 0
+		}
+		numCollisions := len(cg.Collisions())
+		if numCollisions > 0 {
+			return false, 0
+		}
+		return true, 0
+	}
+	return f
+}
+
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
 // This function will check the given function at each point in checkSeq, and 1-point. If all constraints are satisfied,
 // it will return true. If any intermediate pose violates the constraint, will return false.
