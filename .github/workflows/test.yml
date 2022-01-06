@@ -3,7 +3,7 @@ name: Test
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, appimage ]
     paths-ignore:
       - '**/Dockerfile.fortest'
       - '**/.github/workflows/docker.yml'
@@ -15,7 +15,7 @@ jobs:
     name: Build and Test
     runs-on: [self-hosted, x64]
     container:
-      image: ghcr.io/viamrobotics/test:latest
+      image: ghcr.io/viamrobotics/canon:amd64
 
     steps:
 
