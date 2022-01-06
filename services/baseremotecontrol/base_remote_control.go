@@ -39,10 +39,6 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	// TODO: Services do not require reconfigurability. A future commit
-	// implementing a grpc service for this service will add RegisterRPCService
-	// and RPCClient to the ResourceSubtype initialization here - GV
-	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{})
 	registry.RegisterService(Subtype, registry.Service{Constructor: New})
 	cType := config.ServiceType(SubtypeName)
 

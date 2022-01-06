@@ -211,12 +211,8 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 	if old {
 		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
 	}
-	// TODO: remove outer condition when creating separate grpc clients for
-	// services - GV
-	if subtype.ResourceType != resource.ResourceTypeService {
-		if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
-			panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
-		}
+	if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
 	}
 	subtypeRegistry[subtype] = creator
 }
