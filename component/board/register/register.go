@@ -30,7 +30,7 @@ func init() {
 				pb.RegisterBoardServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return board.NewClientFromConn(conn, name, logger)
 		},
 	})
