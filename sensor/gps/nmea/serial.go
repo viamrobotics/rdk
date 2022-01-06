@@ -13,6 +13,7 @@ import (
 	"github.com/go-gnss/ntrip"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	"go.viam.com/core/config"
@@ -83,65 +84,67 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 
 	return g, nil
 }
+
+func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
+	// setup the ntrip client and write the RTCM data stream to the gps
+	// talk to the gps network, looking for mount points
+	req, err := ntrip.NewClientRequest(g.ntripURL)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	} else if resp.StatusCode != http.StatusOK {
+		g.logger.Errorf("received non-200 response code: %d", resp.StatusCode)
+		return nil
+	}
+
+	// setup port to write to
+	options := slib.OpenOptions{
+		BaudRate:        uint(g.ntripWbaud),
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 1,
+	}
+
+	options.PortName = g.ntripWritepath
+	port, err := slib.Open(options)
+	if err != nil {
+		return multierr.Combine(err, resp.Body.Close())
+	}
+	w := bufio.NewWriter(port)
+
+	// Read from resp.Body until EOF
+	r := io.TeeReader(resp.Body, w)
+	_, err = io.ReadAll(r)
+
+	if err != nil {
+		return multierr.Combine(err, resp.Body.Close())
+	}
+
+	return nil
+}
+
 func (g *serialNMEAGPS) NtripClientRequest() {
-	var resp *http.Response
+
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
 
-		// talk to the gps network, looking for mount points
-		req, err := ntrip.NewClientRequest(g.ntripURL)
-		if err != nil {
-			g.logger.Fatalf("Error creating ntrip client request %s", err)
-		}
-		req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
-
-		reconnFlag := 1
-		for reconnFlag == 1 {
-			resp, err = http.DefaultClient.Do(req)
-			if err != nil {
-				g.logger.Debugf("error making NTRIP request: %s\n", err)
-			} else if resp.StatusCode != http.StatusOK {
-				g.logger.Debugf("received non-200 response code: %d", resp.StatusCode)
-			} else {
-				reconnFlag = 0
-			}
-		}
-
-		defer func() {
-			err = resp.Body.Close()
-			if err != nil {
-				g.logger.Errorf("Error closing ntrip resp %s", err)
-			}
-		}()
-		// setup port to write to
-		options := slib.OpenOptions{
-			BaudRate:        uint(g.ntripWbaud),
-			DataBits:        8,
-			StopBits:        1,
-			MinimumReadSize: 1,
-		}
-
-		options.PortName = g.ntripWritepath
-		port, err := slib.Open(options)
-		if err != nil {
-			g.logger.Fatalf("Can't Write to serial %s", err)
-		}
-		w := bufio.NewWriter(port)
+		// loop to reconnect in case something breaks
 		for {
-			//loop in case something breaks
-			r := io.TeeReader(resp.Body, w)
-			_, err = io.ReadAll(r)
-
+			err := g.fetchNtripAndUpdate()
 			if err != nil {
-				g.logger.Fatalf("Error with RTCM stream: %s\n", err)
-
+				g.logger.Errorf("Error with ntrip client %s", err)
 			}
 		}
-		// Read from resp.Body until EOF
 
 	})
 }
+
 func (g *serialNMEAGPS) Start() {
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
