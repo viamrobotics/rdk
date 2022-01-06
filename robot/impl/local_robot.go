@@ -352,7 +352,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
-	webConfig := config.Service{Type: web.Type}
+	webConfig := config.Service{Type: config.ServiceType(web.SubtypeName)}
 	webSvc, err := r.newService(ctx, webConfig)
 	if err != nil {
 		return nil, err

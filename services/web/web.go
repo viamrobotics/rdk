@@ -37,9 +37,6 @@ import (
 	"go.viam.com/rdk/web"
 )
 
-// Type is the type of service.
-const Type = config.ServiceType("web")
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("web")
 

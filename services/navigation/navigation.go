@@ -71,9 +71,6 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
 
-// Type is the type of service.
-const Type = config.ServiceType("navigation")
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("navigation")
 
