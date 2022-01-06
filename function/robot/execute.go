@@ -25,7 +25,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		return nil, err
 	}
 	defer utils.UncheckedErrorFunc(engine.Close)
-	// TODO(erd): maybe this should be an argument and not a global set of functions
+	// NOTE(erd): maybe this should be an argument and not a global set of functions
 	if err := engine.ImportFunction("robot.gripperOpen", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
 			return nil, errors.New("expected 1 argument for gripper name")

@@ -81,11 +81,31 @@ func floatsToString(inputs []Input) string {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	poses, err := m.jointRadToQuats(inputs, false)
-	if err != nil && poses == nil {
+	frames, err := m.jointRadToQuats(inputs, false)
+	if err != nil && frames == nil {
 		return nil, err
 	}
-	return poses[0].transform, err
+	return frames[0].transform, err
+}
+
+// Volumes returns an object representing the 3D space associeted with the staticFrame.
+func (m *SimpleModel) Volumes(inputs []Input) (map[string]spatialmath.Volume, error) {
+	frames, err := m.jointRadToQuats(inputs, true)
+	if err != nil && frames == nil {
+		return nil, err
+	}
+	var errAll error
+	volumeMap := make(map[string]spatialmath.Volume)
+	for _, frame := range frames {
+		vol, err := frame.Volumes([]Input{})
+		if vol == nil {
+			// only propagate errors that result in nil volume
+			multierr.AppendInto(&errAll, err)
+			continue
+		}
+		volumeMap[m.name+":"+frame.Name()] = vol[frame.Name()]
+	}
+	return volumeMap, errAll
 }
 
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so
@@ -105,21 +125,6 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 	m.poseCache.Store(key, poses[len(poses)-1].transform)
 
 	return poses[len(poses)-1].transform, err
-}
-
-// VerboseTransform takes a model and a list of joint angles in radians and computes the dual quaterions representing
-// the pose of each of the intermediate frames (if any exist) up to and including the end effector, and returns a map
-// of frame names to poses. The key for each frame in the map will be the string "<model_name>:<frame_name>".
-func (m *SimpleModel) VerboseTransform(inputs []Input) (map[string]spatialmath.Pose, error) {
-	poses, err := m.jointRadToQuats(inputs, true)
-	if err != nil && poses == nil {
-		return nil, err
-	}
-	poseMap := make(map[string]spatialmath.Pose)
-	for _, pose := range poses {
-		poseMap[m.name+":"+pose.name] = pose.transform
-	}
-	return poseMap, err
 }
 
 // jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
@@ -145,11 +150,15 @@ func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*stati
 		multierr.AppendInto(&err, errNew)
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 		if collectAll {
-			poses = append(poses, &staticFrame{transform.Name(), composedTransformation})
+			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
+			if pose == nil {
+				return nil, err
+			}
+			poses = append(poses, tf.(*staticFrame))
 		}
 	}
 	if !collectAll {
-		poses = append(poses, &staticFrame{"", composedTransformation})
+		poses = append(poses, &staticFrame{"", composedTransformation, nil})
 	}
 	return poses, err
 }

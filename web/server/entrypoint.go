@@ -359,7 +359,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil {
+	if cfg.Cloud == nil {
+		// for now auth settings only apply to non cloud instances
+		options.Auth = cfg.Auth
+	} else {
+		options.Managed = true
 		options.Name = cfg.Cloud.Self
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}

@@ -8,6 +8,30 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
+
+	// register eva.
+	_ "go.viam.com/rdk/component/arm/eva"
+
+	// register fake arm.
+	_ "go.viam.com/rdk/component/arm/fake"
+
+	// register UR.
+	_ "go.viam.com/rdk/component/arm/universalrobots"
+
+	// register varm.
+	_ "go.viam.com/rdk/component/arm/varm"
+
+	// register vx300s.
+	_ "go.viam.com/rdk/component/arm/vx300s"
+
+	// register wx250s.
+	_ "go.viam.com/rdk/component/arm/wx250s"
+
+	// register xArm.
+	_ "go.viam.com/rdk/component/arm/xarm"
+
+	// register yahboom.
+	_ "go.viam.com/rdk/component/arm/yahboom"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/subtype"
