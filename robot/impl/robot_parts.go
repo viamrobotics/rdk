@@ -862,11 +862,8 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 					return nil, err
 				}
 			} else {
-				svcToClose, ok := old.(resource.Closeable)
-				if ok {
-					if err := svcToClose.Close(ctx); err != nil {
-						return nil, err
-					}
+				if err := utils.TryClose(ctx, old); err != nil {
+					return nil, err
 				}
 				delete(parts.resources, k)
 				parts.resources[k] = v
