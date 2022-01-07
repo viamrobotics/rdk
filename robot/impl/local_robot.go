@@ -35,6 +35,9 @@ import (
 
 	// register gantry.
 	_ "go.viam.com/rdk/component/gantry/register"
+
+	// register gps.
+	_ "go.viam.com/rdk/component/gps/register"
 	"go.viam.com/rdk/component/gripper"
 
 	// register gripper.
@@ -76,11 +79,6 @@ import (
 	// register gy511.
 	_ "go.viam.com/rdk/sensor/compass/gy511"
 
-	// register merge gps.
-	_ "go.viam.com/rdk/sensor/gps/merge"
-
-	// register NMEA gps.
-	_ "go.viam.com/rdk/sensor/gps/nmea"
 	"go.viam.com/rdk/services"
 
 	// register base remote control.

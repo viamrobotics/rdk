@@ -13,24 +13,24 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/serial"
 )
 
 func init() {
-	registry.RegisterSensor(
-		gps.Type,
+	registry.RegisterComponent(
+		gps.Subtype,
 		"nmea-serial",
-		registry.Sensor{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (sensor.Sensor, error) {
+		) (interface{}, error) {
 			return newSerialNMEAGPS(config, logger)
 		}})
 }
@@ -147,7 +147,7 @@ func (g *serialNMEAGPS) Close() error {
 
 // Desc returns that this is a GPS.
 func (g *serialNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{gps.Type, ""}
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.
