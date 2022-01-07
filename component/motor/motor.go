@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
@@ -218,13 +217,7 @@ func RegisterConfigAttributeConverter(model string) {
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
-		}, &Config{})
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }

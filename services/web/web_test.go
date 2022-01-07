@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
+	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -37,18 +37,14 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
-	// make sure we get something back
-	test.That(t, err, test.ShouldBeNil)
 	client, err := client.New(context.Background(), "localhost:8080", logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
-	// try to start another server
 	err = svc.Start(context.Background(), NewOptions())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "already started")
 
-	// try to close server
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
@@ -72,16 +68,142 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
-	// make sure we get something back
-	test.That(t, err, test.ShouldBeNil)
 	client, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
 
-	// try to close server
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
+}
+
+func TestWebWithAuth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx()
+
+	for _, tc := range []struct {
+		Case       string
+		Managed    bool
+		EntityName string
+	}{
+		{Case: "unmanaged and default host"},
+		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "managed and default host", Managed: true},
+		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+	} {
+		t.Run(tc.Case, func(t *testing.T) {
+			svc, err := New(ctx, injectRobot, config.Service{}, logger)
+			test.That(t, err, test.ShouldBeNil)
+
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+			options := NewOptions()
+			addr := fmt.Sprintf("localhost:%d", port)
+			options.Network.BindAddress = addr
+			options.Managed = tc.Managed
+			options.Name = tc.EntityName
+			apiKey := "sosecret"
+			options.Auth.Handlers = []config.AuthHandlerConfig{
+				{
+					Type: rpc.CredentialsTypeAPIKey,
+					Config: config.AttributeMap{
+						"key": apiKey,
+					},
+				},
+			}
+
+			err = svc.Start(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+
+			_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+			if tc.Managed {
+				_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+					rpc.WithInsecure(),
+					rpc.WithCredentials(rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey,
+					}),
+				))
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+				entityName := tc.EntityName
+				if entityName == "" {
+					entityName = DefaultEntityName
+				}
+				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+					rpc.WithInsecure(),
+					rpc.WithEntityCredentials(entityName, rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey,
+					}),
+				))
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+			} else {
+				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+					rpc.WithInsecure(),
+					rpc.WithCredentials(rpc.Credentials{
+						Type:    rpc.CredentialsTypeAPIKey,
+						Payload: apiKey,
+					}),
+				))
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+			}
+
+			err = utils.TryClose(context.Background(), svc)
+			test.That(t, err, test.ShouldBeNil)
+		})
+	}
+}
+
+func TestWebWithBadAuthHandlers(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ctx, injectRobot := setupRobotCtx()
+
+	svc, err := New(ctx, injectRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: "unknown",
+		},
+	}
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unknown")
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
+
+	svc, err = New(ctx, injectRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	port, err = utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options = NewOptions()
+	addr = fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rpc.CredentialsTypeAPIKey,
+		},
+	}
+
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "non-empty")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "api-key")
+	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 }
 
 func TestWebUpdate(t *testing.T) {
@@ -101,7 +223,6 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldNotBeNil)
 
-	// make sure we get something back
 	arm1 := "arm1"
 	c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
@@ -119,14 +240,13 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	conn, err := grpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
+	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(conn, arm1, logger)
 	position, err := aClient.CurrentPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
-	// try to close server
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -147,7 +267,7 @@ func TestWebUpdate(t *testing.T) {
 	c2, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
-	conn, err = grpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
+	conn, err = rgrpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	aClient2 := arm.NewClientFromConn(conn, arm1, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -178,7 +298,6 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
-	// try to close server
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)

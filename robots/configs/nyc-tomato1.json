@@ -3,7 +3,9 @@
         { "name" : "arm",
           "type": "arm",
           "model": "ur",
-          "host" : "10.237.115.66"
+          "attributes": {
+              "host" : "10.237.115.66"
+          }
         },
         {
             "name" : "armmover",

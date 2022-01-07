@@ -6,22 +6,21 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/slipdetection"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-// ModelName is used to register the sensor to a model name.
-const ModelName = "forcematrixwithmux_v1"
+// model is used to register the sensor to a model name.
+const model = "forcematrixwithmux_v1"
 
 // ForceMatrixConfig describes the configuration of a forcematrixwithmux_v1.
 type ForceMatrixConfig struct {
@@ -61,8 +60,13 @@ func (config *ForceMatrixConfig) Validate(path string) error {
 
 // init registers the forcematrix mux sensor type.
 func init() {
-	registry.RegisterSensor(forcematrix.Type, ModelName, registry.Sensor{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterComponent(forcematrix.Subtype, model, registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
 			forceMatrixConfig, ok := config.ConvertedAttributes.(*ForceMatrixConfig)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(forceMatrixConfig, config.ConvertedAttributes)
@@ -71,18 +75,10 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor,
-		ModelName, func(attributes config.AttributeMap) (interface{}, error) {
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeForceMatrix,
+		model, func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ForceMatrixConfig
-
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
-			if err != nil {
-				return nil, err
-			}
-			if err := decoder.Decode(attributes); err != nil {
-				return nil, err
-			}
-			return &conf, nil
+			return config.TransformAttributeMapToStruct(&conf, attributes)
 		}, &ForceMatrixConfig{})
 }
 
@@ -249,5 +245,5 @@ func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
 
 // Desc returns that this is a forcematrix mux sensor type.
 func (fmsm *ForceMatrixWithMux) Desc() sensor.Description {
-	return sensor.Description{forcematrix.Type, ""}
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
 }

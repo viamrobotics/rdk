@@ -35,51 +35,40 @@ if (window.webrtcAdditionalICEServers) {
 	rtcConfig.iceServers = rtcConfig.iceServers.concat(window.webrtcAdditionalICEServers);
 }
 
-let pResolve, pReject;
-window.robotServiceReady = new Promise((resolve, reject) => {
-	pResolve = resolve;
-	pReject = reject;
-})
-window.reconnect = async () => undefined;
-
-let connect = async () => {
-	try {
-		let transportFactory;
-		if (window.webrtcEnabled) {
-			const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, { 
-				webrtcOptions: { rtcConfig: rtcConfig }
-			});
-			transportFactory = webRTCConn.transportFactory
-			window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
-			webRTCConn.peerConnection.ontrack = async event => {
-				const video = document.createElement('video');
-				video.srcObject = event.streams[0];
-				video.autoplay = true;
-				video.controls = false;
-				video.playsInline = true;
-				const streamName = event.streams[0].id;
-				const streamContainer = document.getElementById(`stream-${streamName}`);
-				streamContainer.getElementsByTagName("button")[0].remove();
-				streamContainer.appendChild(video);
-			}
-		} else {
-			const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
-			transportFactory = await dialDirect(url);
+let connect = async (creds) => {
+	let transportFactory;
+	const opts = { credentials: creds, webrtcOptions: { rtcConfig: rtcConfig } };
+	if (window.webrtcEnabled) {
+		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
+		transportFactory = webRTCConn.transportFactory
+		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
+		webRTCConn.peerConnection.ontrack = async event => {
+			const video = document.createElement('video');
+			video.srcObject = event.streams[0];
+			video.autoplay = true;
+			video.controls = false;
+			video.playsInline = true;
+			const streamName = event.streams[0].id;
+			const streamContainer = document.getElementById(`stream-${streamName}`);
+			streamContainer.getElementsByTagName("button")[0].remove();
+			streamContainer.appendChild(video);
 		}
-		window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });
-
-		// TODO: these should be created as needed for #272
-		window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
-		window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
-	} catch (e) {
-		console.error("error dialing:", e);
-		throw e;
+	} else {
+		const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
+		transportFactory = await dialDirect(url, opts);
 	}
+
+	window.connect = () => connect(creds); // save creds
+
+	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });
+
+	// TODO: these should be created as needed for #272
+	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 }
-connect().then(pResolve).catch(pReject);
-window.reconnect = connect;
+window.connect = connect;

@@ -26,14 +26,14 @@ type FrameSystem interface {
 
 	// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-	TransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (spatial.Pose, error)
-	VerboseTransformFrame(positions map[string][]Input, srcFrame, endFrame Frame) (map[string]spatial.Pose, error)
-	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, endFrame Frame) (r3.Vector, error)
+	TransformFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (spatial.Pose, error)
+	VolumesOfFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error)
+	TransformPoint(positions map[string][]Input, point r3.Vector, srcFrame, dstFrame Frame) (r3.Vector, error)
 
 	// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target referenceframe.
 	// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	// We the inputs tells us how to walk back from the input pose to the target pose
-	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, endFrame Frame) (spatial.Pose, error)
+	TransformPose(positions map[string][]Input, pose spatial.Pose, srcFrame, dstFrame Frame) (spatial.Pose, error)
 
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
@@ -146,17 +146,6 @@ func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
 	return nil
 }
 
-// AddFrameFromPose adds an input staticFrame to the system given a parent and a pose.
-// It can only be added if the parent of the input frame already exists in the system,
-// and there is no frame with the input's name already.
-func (sfs *simpleFrameSystem) AddFrameFromPose(name string, parent Frame, pose spatial.Pose) error {
-	frame, err := NewStaticFrame(name, pose)
-	if err != nil {
-		return err
-	}
-	return sfs.AddFrame(frame, parent)
-}
-
 // AddFrame sets an already defined Frame into the system.
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 	err := sfs.checkName(frame.Name(), parent)
@@ -177,18 +166,15 @@ func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, srcFr
 	return sfs.transformFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
-// VerboseTransformFrame takes in a source and destination frame and returns the VerboseTransformation from the first
-// to the second, in the form of a mapping between the name of the frame and its pose, and including any intermediate
-// frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to
-// the frame name.
-func (sfs *simpleFrameSystem) VerboseTransformFrame(
-	positions map[string][]Input,
-	srcFrame, dstFrame Frame,
-) (map[string]spatial.Pose, error) {
+// VolumesOfFrame takes in a source and destination frame and returns the volumes from the srcFrame in the reference
+// frame of the the second, in the form of a mapping between the name of the frame and its volume, and including any
+// intermediate frames if they exist. Positions is a map of inputs for any frames with non-zero DOF, with slices of
+// inputs keyed to the frame name.
+func (sfs *simpleFrameSystem) VolumesOfFrame(positions map[string][]Input, srcFrame, dstFrame Frame) (map[string]spatial.Volume, error) {
 	if !sfs.frameExists(srcFrame.Name()) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", srcFrame.Name())
 	}
-	return sfs.transformMapFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
+	return sfs.volumesFromParent(positions, srcFrame, sfs.parents[srcFrame], dstFrame)
 }
 
 // TransformPoint takes in a point with respect to a source Frame, and outputs the point coordinates with respect to
@@ -373,11 +359,11 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 	return spatial.Invert(toTargetTransform), err
 }
 
-// Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified.
-func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, target Frame) (spatial.Pose, error) {
+// Returns the relative pose between two frames.
+func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (spatial.Pose, error) {
 	// catch all errors together to for allow hypothetical calculations that result in errors
 	var errAll error
-	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
+	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	multierr.AppendInto(&errAll, err)
 	fromParent, err := sfs.getSrcParentTransform(inputMap, src, srcParent)
 	multierr.AppendInto(&errAll, err)
@@ -391,12 +377,9 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), errAll
 }
 
-// Returns the relative pose between two frames, or a map of name to relative pose, if the verbose option is specified.
-func (sfs *simpleFrameSystem) transformMapFromParent(
-	inputMap map[string][]Input,
-	src, srcParent, target Frame,
-) (map[string]spatial.Pose, error) {
-	toTarget, err := sfs.getTargetParentTransform(inputMap, target)
+// Returns the relative pose between two frames.
+func (sfs *simpleFrameSystem) volumesFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (map[string]spatial.Volume, error) {
+	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
 	if toTarget == nil && err != nil {
 		return nil, err
 	}
@@ -406,14 +389,14 @@ func (sfs *simpleFrameSystem) transformMapFromParent(
 	}
 
 	// transform from source to world, world to target
-	poseMap, err := poseMapFromPositions(src, inputMap)
-	if err != nil && poseMap == nil {
+	vols, err := volumesFromPositions(src, inputMap)
+	if err != nil && vols == nil {
 		return nil, err
 	}
-	for name, pose := range poseMap {
-		poseMap[name] = spatial.Compose(spatial.Compose(toTarget, fromParent), pose)
+	for _, vol := range vols {
+		vol.Transform(spatial.Compose(toTarget, fromParent))
 	}
-	return poseMap, err
+	return vols, err
 }
 
 // compose the quaternions from the input frame to the world referenceframe.
@@ -453,10 +436,10 @@ func poseFromPositions(frame Frame, positions map[string][]Input) (spatial.Pose,
 	return frame.Transform(inputs)
 }
 
-func poseMapFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Pose, error) {
+func volumesFromPositions(frame Frame, positions map[string][]Input) (map[string]spatial.Volume, error) {
 	inputs, err := getFrameInputs(frame, positions)
 	if err != nil {
 		return nil, err
 	}
-	return frame.VerboseTransform(inputs)
+	return frame.Volumes(inputs)
 }

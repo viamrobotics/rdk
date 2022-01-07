@@ -3,12 +3,15 @@ package robotimpl
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
@@ -24,7 +27,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/forcematrix"
 	"go.viam.com/rdk/sensor/gps"
 )
 
@@ -86,8 +88,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
 	case *proxyCompass:
 		parts.sensors[c.Name] = newProxyCompass(pType.actual)
-	case *proxyForceMatrix:
-		parts.sensors[c.Name] = newProxyForceMatrix(pType.actual)
 	case *proxyRelativeCompass:
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	case *proxyGPS:
@@ -100,8 +100,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
 		case gps.Type:
 			parts.sensors[c.Name] = newProxyGPS(s.(gps.GPS))
-		case forcematrix.Type:
-			parts.sensors[c.Name] = newProxyForceMatrix(s.(forcematrix.ForceMatrix))
 		default:
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
@@ -147,6 +145,7 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -167,6 +166,7 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 				continue
 			}
 			names = append(names, name)
+			seen[name] = struct{}{}
 		}
 	}
 	return names
@@ -438,6 +438,15 @@ func (parts *robotParts) processModifiedConfig(
 // newProcesses constructs all processes defined.
 func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.ProcessConfig) error {
 	for _, procConf := range processes {
+		// In an AppImage execve() is meant to be hooked to swap out the AppImage's libraries and the system ones.
+		// Go doesn't use libc's execve() though, so the hooks fail and trying to exec binaries outside the AppImage can fail.
+		// We work around this by execing through a bash shell (included in the AppImage) which then gets hooked properly.
+		_, isAppImage := os.LookupEnv("APPIMAGE")
+		if isAppImage {
+			procConf.Args = []string{"-c", shellescape.QuoteCommand(append([]string{procConf.Name}, procConf.Args...))}
+			procConf.Name = "bash"
+		}
+
 		if _, err := parts.processManager.AddProcessFromConfig(ctx, procConf); err != nil {
 			return err
 		}
@@ -448,7 +457,24 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		robotClient, err := client.New(ctx, config.Address, logger, parts.robotClientOpts...)
+		opts := make([]client.RobotClientOption, len(parts.robotClientOpts))
+		copy(opts, parts.robotClientOpts)
+		dialOpts := client.ExtractDialOptions(opts...)
+
+		if config.Auth.Credentials != nil {
+			if config.Auth.Entity == "" {
+				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+			} else {
+				dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+			}
+		} else {
+			// explicitly unset credentials so they are not fed to remotes unintentionally.
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
+		}
+		//nolint:makezero
+		opts = append(opts, client.WithDialOptions(dialOpts...))
+
+		robotClient, err := client.New(ctx, config.Address, logger, opts...)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
@@ -480,7 +506,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 			parts.AddSensor(sensorDevice, c)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
 			fallthrough
 		default:
 			r, err := r.newResource(ctx, c)
@@ -862,8 +888,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	// TODO(erd): how to handle service replacement?
-
 	if len(toModify.resources) != 0 {
 		for k, v := range toModify.resources {
 			old, ok := parts.resources[k]
@@ -973,7 +997,7 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 			filtered.AddSensor(part, compConf)
 		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo:
+			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
 			fallthrough
 		default:
 			rName := compConf.ResourceName()
