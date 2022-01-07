@@ -10,7 +10,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/wasmerio/wasmer-go/wasmer"
-	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
 	functionvm "go.viam.com/rdk/function/vm"
@@ -27,6 +26,7 @@ func init() {
 }
 
 type javaScriptEngine struct {
+	instance      *wasmer.Instance
 	jsCtxPtr      interface{}
 	rtPtr         interface{}
 	hostFuncCFunc interface{}
@@ -113,6 +113,13 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var successful bool
+	defer func() {
+		if !successful {
+			instance.Close()
+		}
+	}()
 
 	exportedFuncs := map[string]exportedFunc{
 		"JS_NewRuntime":          {nil, false},
@@ -204,6 +211,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 	}
 
 	engine := &javaScriptEngine{
+		instance:      instance,
 		jsCtxPtr:      jsCtxPtr,
 		rtPtr:         rtPtr,
 		wasiEnv:       wasiEnv,
@@ -313,6 +321,7 @@ func newJavaScriptEngine() (*javaScriptEngine, error) {
 		return importedResults, nil
 	}
 
+	successful = true
 	return engine, nil
 }
 
@@ -718,12 +727,6 @@ func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, e
 }
 
 func (eng *javaScriptEngine) Close() error {
-	var err error
-	if _, freeErr := eng.callExportedFunction("JS_FreeContext", eng.jsCtxPtr); freeErr != nil {
-		err = multierr.Combine(err, freeErr)
-	}
-	if _, freeErr := eng.callExportedFunction("JS_FreeRuntime", eng.rtPtr); freeErr != nil {
-		err = multierr.Combine(err, freeErr)
-	}
-	return err
+	eng.instance.Close()
+	return nil
 }

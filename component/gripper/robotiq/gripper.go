@@ -18,12 +18,27 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+const (
+	modelname = "robotiq"
+)
+
+// AttrConfig is used for converting config attributes.
+type AttrConfig struct {
+	Host string `json:"host"`
+}
+
 func init() {
-	registry.RegisterComponent(gripper.Subtype, "robotiq", registry.Component{
+	registry.RegisterComponent(gripper.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, config.Host, logger)
+			return newGripper(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeInputController, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		}, &AttrConfig{})
 }
 
 // robotiqGripper TODO.

@@ -30,6 +30,9 @@ import (
 	// register camera.
 	_ "go.viam.com/rdk/component/camera/register"
 
+	// register force matrix.
+	_ "go.viam.com/rdk/component/forcematrix/register"
+
 	// register gantry.
 	_ "go.viam.com/rdk/component/gantry/register"
 	"go.viam.com/rdk/component/gripper"
@@ -66,42 +69,12 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 
-	// register eva.
-	_ "go.viam.com/rdk/robots/eva"
-
 	// register fake.
 	_ "go.viam.com/rdk/robots/fake"
-
-	// register UR.
-	_ "go.viam.com/rdk/robots/universalrobots"
-
-	// register varm.
-	_ "go.viam.com/rdk/robots/varm"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/robots/vforcematrixtraditional"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/robots/vforcematrixwithmux"
-
-	// register force vx300s.
-	_ "go.viam.com/rdk/robots/vx300s"
-
-	// register force wx250s.
-	_ "go.viam.com/rdk/robots/wx250s"
-
-	// register force xArm.
-	_ "go.viam.com/rdk/robots/xarm"
-
-	// register force yahboom.
-	_ "go.viam.com/rdk/robots/yahboom"
 	"go.viam.com/rdk/sensor"
 
 	// register gy511.
 	_ "go.viam.com/rdk/sensor/compass/gy511"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/sensor/forcematrix"
 
 	// register merge gps.
 	_ "go.viam.com/rdk/sensor/gps/merge"
