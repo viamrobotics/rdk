@@ -74,7 +74,6 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	//
 	Status(ctx context.Context) (*commonpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
