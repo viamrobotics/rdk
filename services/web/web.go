@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -116,9 +117,13 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if !app.options.internalSignaling || app.options.secure {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
+		var scheme string
+		if app.options.secureSignaling {
+			scheme = "https"
+		} else {
+			scheme = "http"
 		}
+		temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
 		temp.WebRTCHost = app.options.Name
 	}
 
@@ -365,9 +370,23 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	options.secure = secure
 
 	var signalingOpts []rpc.DialOption
-	if options.SignalingAddress == "" && !secure {
-		signalingOpts = append(signalingOpts, rpc.WithInsecure())
+	var insecureSignaling bool
+	if options.SignalingAddress == "" {
+		if !secure {
+			signalingOpts = append(signalingOpts, rpc.WithInsecure())
+			insecureSignaling = true
+		}
+	} else {
+		_, port, err := net.SplitHostPort(options.SignalingAddress)
+		if err != nil {
+			return err
+		}
+		if port != "443" {
+			signalingOpts = append(signalingOpts, rpc.WithInsecure())
+			insecureSignaling = true
+		}
 	}
+	options.secureSignaling = !insecureSignaling
 
 	if options.Name == "" {
 		options.Name = DefaultEntityName
@@ -415,7 +434,6 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
-		options.internalSignaling = true
 		options.SignalingAddress = listenerAddr
 	}
 
