@@ -36,7 +36,7 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	return board.NewServer(boardSvc), injectBoard, nil
 }
 
-func TestStatus(t *testing.T) {
+func TestServerStatus(t *testing.T) {
 	type request = pb.BoardServiceStatusRequest
 	type response = pb.BoardServiceStatusResponse
 	ctx := context.Background()
@@ -113,7 +113,7 @@ func TestStatus(t *testing.T) {
 	}
 }
 
-func TestGPIOSet(t *testing.T) {
+func TestServerGPIOSet(t *testing.T) {
 	type request = pb.BoardServiceGPIOSetRequest
 	ctx := context.Background()
 
@@ -169,7 +169,7 @@ func TestGPIOSet(t *testing.T) {
 	}
 }
 
-func TestGPIOGet(t *testing.T) {
+func TestServerGPIOGet(t *testing.T) {
 	type request = pb.BoardServiceGPIOGetRequest
 	type response = pb.BoardServiceGPIOGetResponse
 	ctx := context.Background()
@@ -238,7 +238,7 @@ func TestGPIOGet(t *testing.T) {
 }
 
 //nolint:dupl
-func TestPWMSet(t *testing.T) {
+func TestServerPWMSet(t *testing.T) {
 	type request = pb.BoardServicePWMSetRequest
 	ctx := context.Background()
 
@@ -295,7 +295,7 @@ func TestPWMSet(t *testing.T) {
 }
 
 //nolint:dupl
-func TestPWMSetFrequency(t *testing.T) {
+func TestServerPWMSetFrequency(t *testing.T) {
 	type request = pb.BoardServicePWMSetFrequencyRequest
 	ctx := context.Background()
 
@@ -352,7 +352,7 @@ func TestPWMSetFrequency(t *testing.T) {
 }
 
 //nolint:dupl
-func TestAnalogReaderRead(t *testing.T) {
+func TestServerAnalogReaderRead(t *testing.T) {
 	type request = pb.BoardServiceAnalogReaderReadRequest
 	type response = pb.BoardServiceAnalogReaderReadResponse
 	ctx := context.Background()
@@ -453,7 +453,7 @@ func TestAnalogReaderRead(t *testing.T) {
 	}
 }
 
-func TestDigitalInterruptConfig(t *testing.T) {
+func TestServerDigitalInterruptConfig(t *testing.T) {
 	type request = pb.BoardServiceDigitalInterruptConfigRequest
 	type response = pb.BoardServiceDigitalInterruptConfigResponse
 	ctx := context.Background()
@@ -568,7 +568,7 @@ func TestDigitalInterruptConfig(t *testing.T) {
 }
 
 //nolint:dupl
-func TestDigitalInterruptValue(t *testing.T) {
+func TestServerDigitalInterruptValue(t *testing.T) {
 	type request = pb.BoardServiceDigitalInterruptValueRequest
 	type response = pb.BoardServiceDigitalInterruptValueResponse
 	ctx := context.Background()
@@ -670,7 +670,7 @@ func TestDigitalInterruptValue(t *testing.T) {
 	}
 }
 
-func TestDigitalInterruptTick(t *testing.T) {
+func TestServerDigitalInterruptTick(t *testing.T) {
 	type request = pb.BoardServiceDigitalInterruptTickRequest
 	type response = pb.BoardServiceDigitalInterruptTickResponse
 	ctx := context.Background()
