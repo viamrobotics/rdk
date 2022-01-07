@@ -43,7 +43,7 @@ type PlannerOptions struct {
 	// Max number of ik solutions to consider
 	maxSolutions int
 	// Movements that score below this amount are considered "good enough" and returned immediately
-	minScore float64
+	minScore        float64
 	solutionPreview chan *solution
 }
 
