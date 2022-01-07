@@ -499,7 +499,7 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 
 			switch {
 			case oldIsReconfigurable != newIsReconfigurable:
-				// this is an indicator of a serious registration problem
+				// this is an indicator of a serious constructor problem
 				// for the resource subtype.
 				if oldIsReconfigurable {
 					panic(fmt.Errorf(

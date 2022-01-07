@@ -853,7 +853,7 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 
 			switch {
 			case oldIsReconfigurable != newIsReconfigurable:
-				// this is an indicator of a serious registration problem
+				// this is an indicator of a serious constructor problem
 				// for the resource subtype.
 				reconfError := errors.Errorf(
 					"new type %T is reconfigurable whereas old type %T is not",
