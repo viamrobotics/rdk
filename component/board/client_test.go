@@ -45,7 +45,7 @@ func setupServer(t *testing.T, name string, injectBoard *inject.Board) (net.List
 	return listener, func() { gServer.Stop() }
 }
 
-func TestClient(t *testing.T) {
+func TestFailingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	boardName := "board1"
 	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
@@ -53,14 +53,21 @@ func TestClient(t *testing.T) {
 	listener, cleanup := setupServer(t, boardName, injectBoard)
 	defer cleanup()
 
-	// failing
-	t.Run("Failing client", func(t *testing.T) {
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-		_, err := board.NewClient(cancelCtx, boardName, listener.Addr().String(), logger, rpc.WithInsecure())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
-	})
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := board.NewClient(cancelCtx, boardName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
+}
+
+func TestWorkingClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	boardName := "board1"
+	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
+
+	listener, cleanup := setupServer(t, boardName, injectBoard)
+	defer cleanup()
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
 		t.Helper()
