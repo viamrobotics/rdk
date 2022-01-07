@@ -848,20 +848,32 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			isService := k.ResourceType == resource.ResourceTypeService
-			if !isService {
-				oldPart, ok := old.(resource.Reconfigurable)
-				if !ok {
-					return nil, errors.Errorf("old type %T is not reconfigurable", old)
+			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
+			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
+
+			switch {
+			case oldIsReconfigurable != newIsReconfigurable:
+				// this is an indicator of a serious registration problem
+				// for the resource subtype.
+				reconfError := errors.Errorf(
+					"new type %T is reconfigurable whereas old type %T is not",
+					v, old)
+				if oldIsReconfigurable {
+					reconfError = errors.Errorf(
+						"old type %T is reconfigurable whereas new type %T is not",
+						old, v)
 				}
-				newPart, ok := v.(resource.Reconfigurable)
-				if !ok {
-					return nil, errors.Errorf("new type %T is not reconfigurable", v)
-				}
+				return nil, reconfError
+			case oldIsReconfigurable && newIsReconfigurable:
+				// if we are dealing with a reconfigurable resource
+				// use the new resource to reconfigure the old one.
 				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
 					return nil, err
 				}
-			} else {
+			case !oldIsReconfigurable && !newIsReconfigurable:
+				// if we are not dealing with a reconfigurable resource
+				// we want to close the old resource and replace it with the
+				// new.
 				if err := utils.TryClose(ctx, old); err != nil {
 					return nil, err
 				}
