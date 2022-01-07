@@ -26,7 +26,6 @@ type Board struct {
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
-	configCap                  []interface{}
 	StatusFunc                 func(ctx context.Context) (*commonpb.BoardStatus, error)
 	statusCap                  []interface{}
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error

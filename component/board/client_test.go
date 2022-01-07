@@ -33,6 +33,7 @@ func newBoardWithStatus(injectStatus *commonpb.BoardStatus) *inject.Board {
 }
 
 func setupService(t *testing.T, name string, injectBoard *inject.Board) (net.Listener, func()) {
+	t.Helper()
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
@@ -212,7 +213,7 @@ func TestClientWithStatus(t *testing.T) {
 	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
-    test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	respAnalogReaders := client.AnalogReaderNames()
 	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
@@ -245,7 +246,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
-    test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
+	test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	test.That(t, func() { client.AnalogReaderNames() }, test.ShouldPanic)
 	test.That(t, func() { client.DigitalInterruptNames() }, test.ShouldPanic)
