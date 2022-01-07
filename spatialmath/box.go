@@ -101,36 +101,42 @@ func boxVsBoxCollision(a, b *box) bool {
 // the penetration depth for the two boxes, which are in collision.  If the returned float is positive it represents
 // a lower bound on the separation distance for the two boxes, which are not in collision.
 // NOTES: calculating the true separation distance is a computationally infeasible problem
-//		  the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
+//        the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
 // references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
-//				https://dyn4j.org/2010/01/sat/#sat-nointer
+//              https://dyn4j.org/2010/01/sat/#sat-nointer
 func boxVsBoxDistance(a, b *box) float64 {
 	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
-	dists := make([]float64, 15)
+
+	// iterate over axes of box
+	max := math.Inf(-1)
 	for i := 0; i < 3; i++ {
-		dists[5*i] = separatingAxisTest(positionDelta, rmA.Row(i), a, b)
-		dists[5*i+1] = separatingAxisTest(positionDelta, rmB.Row(i), a, b)
+		// project onto face of box A
+		separation := separatingAxisTest(positionDelta, rmA.Row(i), a, b)
+		if separation > max {
+			max = separation
+		}
+
+		// project onto face of box B
+		separation = separatingAxisTest(positionDelta, rmB.Row(i), a, b)
+		if separation > max {
+			max = separation
+		}
+
+		// project onto a plane created by cross product of two edges from boxes
 		for j := 0; j < 3; j++ {
-			edgeCP := rmA.Row(i).Cross(rmB.Row(j))
-			// if edges are parallel, this check is already accounted for by a face pair - ignore case
-			if edgeCP.Norm() == 0 {
-				dists[5*i+j+2] = math.Inf(-1)
-			} else {
-				dists[5*i+j+2] = separatingAxisTest(positionDelta, edgeCP, a, b)
+			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+
+			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			if crossProductPlane.Norm() != 0 {
+				separation = separatingAxisTest(positionDelta, crossProductPlane, a, b)
+				if separation > max {
+					max = separation
+				}
 			}
 		}
 	}
-
-	// returned distance in either case will be max of separations along axes
-	max := dists[0]
-	for i := 1; i < 15; i++ {
-		if dists[i] > max {
-			max = dists[i]
-		}
-	}
-	return max
 }
 
 // separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
@@ -138,8 +144,8 @@ func boxVsBoxDistance(a, b *box) float64 {
 // this proves that there is no collision between the boxes
 // references:  https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 //              https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
-//			    https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
-//			    https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
+//              https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
+//              https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
 func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
