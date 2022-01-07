@@ -21,10 +21,9 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newBoardWithStatus(status *commonpb.BoardStatus) *inject.Board {
+func newBoardWithStatus(injectStatus *commonpb.BoardStatus) *inject.Board {
 	injectBoard := &inject.Board{}
 
-	injectStatus := &commonpb.BoardStatus{}
 	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
 		return injectStatus, nil
 	}
@@ -203,7 +202,14 @@ func TestClientWithStatus(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	boardName := "board1"
-	injectStatus := &commonpb.BoardStatus{}
+	injectStatus := &commonpb.BoardStatus{
+		Analogs: map[string]*commonpb.AnalogStatus{
+			"analog1": {},
+		},
+		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
+			"digital1": {},
+		},
+	}
 	injectBoard := newBoardWithStatus(injectStatus)
 
 	listener, cleanup := setupService(t, boardName, injectBoard)
@@ -212,18 +218,15 @@ func TestClientWithStatus(t *testing.T) {
 	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
-	respStatus, err := client.Status(context.Background())
-	test.That(t, respStatus, test.ShouldResemble, injectStatus)
-	test.That(t, err, test.ShouldBeNil)
 	test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
 	injectBoard.StatusCap = []interface{}(nil)
 
 	respAnalogReaders := client.AnalogReaderNames()
-	test.That(t, respAnalogReaders, test.ShouldResemble, []string{})
+	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
 	test.That(t, err, test.ShouldBeNil)
 
 	respDigitalInterrupts := client.DigitalInterruptNames()
-	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{})
+	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})
 	test.That(t, err, test.ShouldBeNil)
 
 	respSPIs := client.SPINames()
