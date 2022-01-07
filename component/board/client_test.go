@@ -80,8 +80,7 @@ func TestWorkingClient(t *testing.T) {
 		respStatus, err := client.Status(context.Background())
 		test.That(t, respStatus, test.ShouldResemble, injectStatus)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
-		injectBoard.StatusCap = []interface{}(nil)
+		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 		// GPIOSet
 		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
@@ -89,8 +88,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		err = client.GPIOSet(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.GPIOSetCap[1:], test.ShouldResemble, []interface{}{"one", true})
-		injectBoard.GPIOSetCap = []interface{}(nil)
+		test.That(t, injectBoard.GPIOSetCap()[1:], test.ShouldResemble, []interface{}{"one", true})
 
 		// GPIOGet
 		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
@@ -99,8 +97,7 @@ func TestWorkingClient(t *testing.T) {
 		isHigh, err := client.GPIOGet(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, injectBoard.GPIOGetCap[1:], test.ShouldResemble, []interface{}{"one"})
-		injectBoard.GPIOGetCap = []interface{}(nil)
+		test.That(t, injectBoard.GPIOGetCap()[1:], test.ShouldResemble, []interface{}{"one"})
 
 		// PWMSet
 		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
@@ -108,8 +105,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		err = client.PWMSet(context.Background(), "one", 7)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.PWMSetCap[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
-		injectBoard.PWMSetCap = []interface{}(nil)
+		test.That(t, injectBoard.PWMSetCap()[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
 
 		// PWMSetFreq
 		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
@@ -117,8 +113,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		err = client.PWMSetFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.PWMSetFreqCap[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
-		injectBoard.PWMSetFreqCap = []interface{}(nil)
+		test.That(t, injectBoard.PWMSetFreqCap()[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
 
 		// Analog
 		injectAnalogReader := &inject.AnalogReader{}
@@ -127,8 +122,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		analog1, ok := injectBoard.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, []interface{}{"analog1"})
-		injectBoard.AnalogReaderByNameCap = []interface{}(nil)
+		test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, []interface{}{"analog1"})
 
 		// Analog:Read
 		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
@@ -145,8 +139,7 @@ func TestWorkingClient(t *testing.T) {
 		}
 		digital1, ok := injectBoard.DigitalInterruptByName("digital1")
 		test.That(t, ok, test.ShouldBeTrue)
-		test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, []interface{}{"digital1"})
-		injectBoard.DigitalInterruptByNameCap = []interface{}(nil)
+		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
 
 		// Digital Interrupt:Config
 		digitalIntConfig := board.DigitalInterruptConfig{
@@ -219,8 +212,7 @@ func TestClientWithStatus(t *testing.T) {
 	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
-	injectBoard.StatusCap = []interface{}(nil)
+    test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	respAnalogReaders := client.AnalogReaderNames()
 	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
@@ -253,8 +245,7 @@ func TestClientWithoutStatus(t *testing.T) {
 	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
-	injectBoard.StatusCap = []interface{}(nil)
+    test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
 	test.That(t, func() { client.AnalogReaderNames() }, test.ShouldPanic)
 	test.That(t, func() { client.DigitalInterruptNames() }, test.ShouldPanic)

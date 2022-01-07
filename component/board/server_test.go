@@ -108,7 +108,7 @@ func TestServerStatus(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.StatusCap, test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.StatusCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -164,7 +164,7 @@ func TestServerGPIOSet(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.GPIOSetCap, test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.GPIOSetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -232,7 +232,7 @@ func TestServerGPIOGet(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.GPIOGetCap, test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.GPIOGetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -289,7 +289,7 @@ func TestServerPWMSet(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.PWMSetCap, test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.PWMSetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -346,7 +346,7 @@ func TestServerPWMSetFrequency(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.PWMSetFreqCap, test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.PWMSetFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -447,7 +447,7 @@ func TestServerAnalogReaderRead(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.AnalogReaderByNameCap, test.ShouldResemble, tc.expCapAnalogReaderArgs)
+			test.That(t, injectBoard.AnalogReaderByNameCap(), test.ShouldResemble, tc.expCapAnalogReaderArgs)
 			test.That(t, tc.injectAnalogReader.ReadCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
@@ -561,7 +561,7 @@ func TestServerDigitalInterruptConfig(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
 
-			test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+			test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 			test.That(t, tc.injectDigitalInterrupt.ConfigCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
@@ -664,7 +664,7 @@ func TestServerDigitalInterruptValue(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
 
-			test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+			test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 			test.That(t, tc.injectDigitalInterrupt.ValueCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
@@ -763,7 +763,7 @@ func TestServerDigitalInterruptTick(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
 
-			test.That(t, injectBoard.DigitalInterruptByNameCap, test.ShouldResemble, tc.expCapDigitalInterruptArgs)
+			test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, tc.expCapDigitalInterruptArgs)
 			test.That(t, tc.injectDigitalInterrupt.TickCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}

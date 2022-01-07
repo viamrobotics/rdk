@@ -13,40 +13,35 @@ import (
 type Board struct {
 	board.Board
 	SPIByNameFunc              func(name string) (board.SPI, bool)
-	SPIByNameCap               []interface{}
+	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
-	I2CByNameCap               []interface{}
+	i2cByNameCap               []interface{}
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
-	AnalogReaderByNameCap      []interface{}
+	analogReaderByNameCap      []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
-	DigitalInterruptByNameCap  []interface{}
+	digitalInterruptByNameCap  []interface{}
 	SPINamesFunc               func() []string
-	SPINamesCap                []interface{}
 	I2CNamesFunc               func() []string
-	I2CNamesCap                []interface{}
 	AnalogReaderNamesFunc      func() []string
-	AnalogReaderNamesCap       []interface{}
 	DigitalInterruptNamesFunc  func() []string
-	DigitalInterruptNamesCap   []interface{}
 	CloseFunc                  func(ctx context.Context) error
-	CloseCap                   []interface{}
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
-	ConfigCap                  []interface{}
+	configCap                  []interface{}
 	StatusFunc                 func(ctx context.Context) (*commonpb.BoardStatus, error)
-	StatusCap                  []interface{}
+	statusCap                  []interface{}
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
-	GPIOSetCap                 []interface{}
+	gpioSetCap                 []interface{}
 	GPIOGetFunc                func(ctx context.Context, pin string) (bool, error)
-	GPIOGetCap                 []interface{}
+	gpioGetCap                 []interface{}
 	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
-	PWMSetCap                  []interface{}
+	pwmSetCap                  []interface{}
 	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
-	PWMSetFreqCap              []interface{}
+	pwmSetFreqCap              []interface{}
 }
 
 // SPIByName calls the injected SPIByName or the real version.
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
-	b.SPIByNameCap = []interface{}{name}
+	b.spiByNameCap = []interface{}{name}
 	if b.SPIByNameFunc == nil {
 		return b.Board.SPIByName(name)
 	}
@@ -55,7 +50,7 @@ func (b *Board) SPIByName(name string) (board.SPI, bool) {
 
 // I2CByName calls the injected I2CByName or the real version.
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
-	b.I2CByNameCap = []interface{}{name}
+	b.i2cByNameCap = []interface{}{name}
 	if b.I2CByNameFunc == nil {
 		return b.Board.I2CByName(name)
 	}
@@ -64,25 +59,42 @@ func (b *Board) I2CByName(name string) (board.I2C, bool) {
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	b.AnalogReaderByNameCap = []interface{}{name}
+	b.analogReaderByNameCap = []interface{}{name}
 	if b.AnalogReaderByNameFunc == nil {
 		return b.Board.AnalogReaderByName(name)
 	}
 	return b.AnalogReaderByNameFunc(name)
 }
 
+// AnalogReaderByNameCap returns the last parameters received by AnalogReaderByName, and then clears them.
+func (b *Board) AnalogReaderByNameCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.analogReaderByNameCap = nil }()
+	return b.analogReaderByNameCap
+}
+
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	b.DigitalInterruptByNameCap = []interface{}{name}
+	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
 		return b.Board.DigitalInterruptByName(name)
 	}
 	return b.DigitalInterruptByNameFunc(name)
 }
 
+// DigitalInterruptByNameCap returns the last parameters received by DigitalInterruptByName, and then clears them.
+func (b *Board) DigitalInterruptByNameCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.digitalInterruptByNameCap = nil }()
+	return b.digitalInterruptByNameCap
+}
+
 // SPINames calls the injected SPINames or the real version.
 func (b *Board) SPINames() []string {
-	b.SPINamesCap = []interface{}{}
 	if b.SPINamesFunc == nil {
 		return b.Board.SPINames()
 	}
@@ -91,7 +103,6 @@ func (b *Board) SPINames() []string {
 
 // I2CNames calls the injected SPINames or the real version.
 func (b *Board) I2CNames() []string {
-	b.I2CNamesCap = []interface{}{}
 	if b.I2CNamesFunc == nil {
 		return b.Board.I2CNames()
 	}
@@ -100,7 +111,6 @@ func (b *Board) I2CNames() []string {
 
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
 func (b *Board) AnalogReaderNames() []string {
-	b.AnalogReaderNamesCap = []interface{}{}
 	if b.AnalogReaderNamesFunc == nil {
 		return b.Board.AnalogReaderNames()
 	}
@@ -109,7 +119,6 @@ func (b *Board) AnalogReaderNames() []string {
 
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
 func (b *Board) DigitalInterruptNames() []string {
-	b.DigitalInterruptNamesCap = []interface{}{}
 	if b.DigitalInterruptNamesFunc == nil {
 		return b.Board.DigitalInterruptNames()
 	}
@@ -118,7 +127,6 @@ func (b *Board) DigitalInterruptNames() []string {
 
 // Close calls the injected Close or the real version.
 func (b *Board) Close(ctx context.Context) error {
-	b.CloseCap = []interface{}{ctx}
 	if b.CloseFunc == nil {
 		return utils.TryClose(ctx, b.Board)
 	}
@@ -127,45 +135,90 @@ func (b *Board) Close(ctx context.Context) error {
 
 // Status calls the injected Status or the real version.
 func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	b.StatusCap = []interface{}{ctx}
+	b.statusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
 		return b.Board.Status(ctx)
 	}
 	return b.StatusFunc(ctx)
 }
 
+// StatusCap returns the last parameters received by Status, and then clears them.
+func (b *Board) StatusCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.statusCap = nil }()
+	return b.statusCap
+}
+
 // GPIOSet calls the injected GPIOSet or the real version.
 func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
-	b.GPIOSetCap = []interface{}{ctx, pin, high}
+	b.gpioSetCap = []interface{}{ctx, pin, high}
 	if b.GPIOSetFunc == nil {
 		return b.Board.GPIOSet(ctx, pin, high)
 	}
 	return b.GPIOSetFunc(ctx, pin, high)
 }
 
+// GPIOSetCap returns the last parameters received by GPIOSet, and then clears them.
+func (b *Board) GPIOSetCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.gpioSetCap = nil }()
+	return b.gpioSetCap
+}
+
 // GPIOGet calls the injected GPIOGet or the real version.
 func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	b.GPIOGetCap = []interface{}{ctx, pin}
+	b.gpioGetCap = []interface{}{ctx, pin}
 	if b.GPIOGetFunc == nil {
 		return b.Board.GPIOGet(ctx, pin)
 	}
 	return b.GPIOGetFunc(ctx, pin)
 }
 
+// GPIOGetCap returns the last parameters received by GPIOGet, and then clears them.
+func (b *Board) GPIOGetCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.gpioGetCap = nil }()
+	return b.gpioGetCap
+}
+
 // PWMSet calls the injected PWMSet or the real version.
 func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	b.PWMSetCap = []interface{}{ctx, pin, dutyCycle}
+	b.pwmSetCap = []interface{}{ctx, pin, dutyCycle}
 	if b.PWMSetFunc == nil {
 		return b.Board.PWMSet(ctx, pin, dutyCycle)
 	}
 	return b.PWMSetFunc(ctx, pin, dutyCycle)
 }
 
+// PWMSetCap returns the last parameters received by PWMSet, and then clears them.
+func (b *Board) PWMSetCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.pwmSetCap = nil }()
+	return b.pwmSetCap
+}
+
 // PWMSetFreq calls the injected PWMSetFreq or the real version.
 func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	b.PWMSetFreqCap = []interface{}{ctx, pin, freq}
+	b.pwmSetFreqCap = []interface{}{ctx, pin, freq}
 	if b.PWMSetFreqFunc == nil {
 		return b.Board.PWMSetFreq(ctx, pin, freq)
 	}
 	return b.PWMSetFreqFunc(ctx, pin, freq)
+}
+
+// PWMSetFreqCap returns the last parameters received by PWMSetFreq, and then clears them.
+func (b *Board) PWMSetFreqCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.pwmSetFreqCap = nil }()
+	return b.pwmSetFreqCap
 }
