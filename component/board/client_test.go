@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -223,19 +224,42 @@ func TestClientWithStatus(t *testing.T) {
 
 	respAnalogReaders := client.AnalogReaderNames()
 	test.That(t, respAnalogReaders, test.ShouldResemble, []string{"analog1"})
-	test.That(t, err, test.ShouldBeNil)
 
 	respDigitalInterrupts := client.DigitalInterruptNames()
 	test.That(t, respDigitalInterrupts, test.ShouldResemble, []string{"digital1"})
-	test.That(t, err, test.ShouldBeNil)
 
 	respSPIs := client.SPINames()
 	test.That(t, respSPIs, test.ShouldResemble, []string{})
-	test.That(t, err, test.ShouldBeNil)
 
 	respI2Cs := client.I2CNames()
 	test.That(t, respI2Cs, test.ShouldResemble, []string{})
+
+	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestClientWithoutStatus(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	boardName := "board1"
+	injectBoard := &inject.Board{}
+	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+		return nil, errors.New("no status")
+	}
+
+	listener, cleanup := setupService(t, boardName, injectBoard)
+	defer cleanup()
+
+	client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, injectBoard.StatusCap[1:], test.ShouldResemble, []interface{}{})
+	injectBoard.StatusCap = []interface{}(nil)
+
+	test.That(t, func() { client.AnalogReaderNames() }, test.ShouldPanic)
+	test.That(t, func() { client.DigitalInterruptNames() }, test.ShouldPanic)
+	test.That(t, func() { client.SPINames() }, test.ShouldPanic)
+	test.That(t, func() { client.I2CNames() }, test.ShouldPanic)
 
 	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
