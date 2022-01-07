@@ -30,7 +30,7 @@ type configuration struct {
 }
 
 type planReturn struct {
-	steps [][]referenceframe.Input
+	steps []*configuration
 	err   error
 }
 

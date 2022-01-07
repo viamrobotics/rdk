@@ -94,7 +94,11 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case plan := <-solutionChan:
-		return plan.steps, plan.err
+		finalSteps := make([][]referenceframe.Input, 0, len(plan.steps))
+		for _, step := range plan.steps {
+			finalSteps = append(finalSteps, step.inputs)
+		}
+		return finalSteps, plan.err
 	}
 }
 
@@ -343,7 +347,7 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 	opt *PlannerOptions,
 	inputSteps []*configuration,
 	corners map[*configuration]bool,
-) [][]referenceframe.Input {
+) []*configuration {
 	toIter := int(math.Min(float64(len(inputSteps)*len(inputSteps)), smoothIter))
 
 	for iter := 0; iter < toIter && len(inputSteps) > 4; iter++ {
@@ -390,12 +394,8 @@ func (mp *cBiRRTMotionPlanner) SmoothPath(
 			inputSteps = newInputSteps
 		}
 	}
-	finalSteps := make([][]referenceframe.Input, 0, len(inputSteps))
-	for _, sol := range inputSteps {
-		finalSteps = append(finalSteps, sol.inputs)
-	}
 
-	return finalSteps
+	return inputSteps
 }
 
 // Check if there is more than one joint direction change. If not, then not a good candidate for smoothing.
