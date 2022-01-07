@@ -50,11 +50,6 @@ type cBiRRTMotionPlanner struct {
 	randseed        *rand.Rand
 }
 
-// needed to wrap slices so we can use them as map keys.
-type solution struct {
-	inputs []referenceframe.Input
-}
-
 // NewCBiRRTMotionPlanner creates a cBiRRTMotionPlanner object.
 func NewCBiRRTMotionPlanner(frame referenceframe.Frame, nCPU int, logger golog.Logger) (MotionPlanner, error) {
 	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
@@ -91,6 +86,25 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	seed []referenceframe.Input,
 	opt *PlannerOptions,
 ) ([][]referenceframe.Input, error) {
+	solutionChan := make(chan *planReturn, 1)
+	utils.PanicCapturingGo(func() {
+		mp.planRunner(ctx, goal, seed, opt, solutionChan)
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case plan := <-solutionChan:
+		return plan.steps, plan.err
+	}
+}
+
+func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
+	goal *commonpb.Pose,
+	seed []referenceframe.Input,
+	opt *PlannerOptions,
+	solutionChan chan *planReturn,
+) {
+	defer close(solutionChan)
 	var inputSteps []*solution
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
@@ -109,7 +123,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 
 	solutions, err := getSolutions(ctx, opt, mp.solver, goal, seed, mp.Frame())
 	if err != nil {
-		return nil, err
+		solutionChan <- &planReturn{err: err}
+		return
 	}
 
 	// Get the N best solutions
@@ -122,6 +137,11 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
+	if nSolutions == 1 && opt.solutionPreview != nil {
+		opt.solutionPreview <- inputSteps[len(inputSteps) - 1]
+		opt.solutionPreview = nil
+	}
+	
 	goalMap := make(map[*solution]*solution, nSolutions)
 
 	for _, k := range keys[:nSolutions] {
@@ -146,7 +166,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	for i := 0; i < mp.iter; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			solutionChan <- &planReturn{err: ctx.Err()}
+			return
 		default:
 		}
 
@@ -183,8 +204,13 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 				inputSteps = append(inputSteps, goalReached)
 				goalReached = goalMap[goalReached]
 			}
+			if opt.solutionPreview != nil {
+				opt.solutionPreview <- inputSteps[len(inputSteps) - 1]
+			}
+			
 			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
-			return finalSteps, nil
+			solutionChan <- &planReturn{steps: finalSteps}
+			return
 		}
 
 		// If we have done more than 50 iterations, start seeding off completely random positions 2 at a time
@@ -203,7 +229,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 		map1, map2 = map2, map1
 	}
 
-	return nil, errors.New("could not solve path")
+	solutionChan <- &planReturn{err: errors.New("could not solve path")}
 }
 
 // constrainedExtend will try to extend the map towards the target while meeting constraints along the way. It will
