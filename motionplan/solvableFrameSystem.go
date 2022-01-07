@@ -141,7 +141,7 @@ func plannerRunner(ctx context.Context,
 			case nextSeed := <-opt.solutionPreview:
 				// Got a solution preview, start solving the next motion in a new thread.
 				var remainingSteps [][]frame.Input
-				if iter < len(goals)-2 {
+				if iter < len(goals)-1 {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
 					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
@@ -172,7 +172,7 @@ func plannerRunner(ctx context.Context,
 					return nil, finalSteps.err
 				}
 				var remainingSteps [][]frame.Input
-				if iter < len(goals)-2 {
+				if iter < len(goals)-1 {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
 					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1], opts, iter+1)
