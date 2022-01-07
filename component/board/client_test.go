@@ -21,6 +21,17 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
+func newBoardWithStatus() *inject.Board {
+	injectBoard := &inject.Board{}
+
+	injectStatus := &commonpb.BoardStatus{}
+	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+		return injectStatus, nil
+	}
+
+	return injectBoard
+}
+
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
@@ -28,7 +39,8 @@ func TestClient(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	board1 := "board1"
-	injectBoard := &inject.Board{}
+	injectBoard := newBoardWithStatus()
+
 	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
@@ -180,7 +192,7 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectBoard := &inject.Board{}
+	injectBoard := newBoardWithStatus()
 	board1 := "board1"
 
 	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
