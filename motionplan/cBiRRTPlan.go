@@ -138,10 +138,10 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		nSolutions = len(keys)
 	}
 	if nSolutions == 1 && opt.solutionPreview != nil {
-		opt.solutionPreview <- inputSteps[len(inputSteps) - 1]
+		opt.solutionPreview <- inputSteps[len(inputSteps)-1]
 		opt.solutionPreview = nil
 	}
-	
+
 	goalMap := make(map[*solution]*solution, nSolutions)
 
 	for _, k := range keys[:nSolutions] {
@@ -205,9 +205,9 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 				goalReached = goalMap[goalReached]
 			}
 			if opt.solutionPreview != nil {
-				opt.solutionPreview <- inputSteps[len(inputSteps) - 1]
+				opt.solutionPreview <- inputSteps[len(inputSteps)-1]
 			}
-			
+
 			finalSteps := mp.SmoothPath(ctx, opt, inputSteps, corners)
 			solutionChan <- &planReturn{steps: finalSteps}
 			return

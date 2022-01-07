@@ -7,8 +7,8 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -52,8 +52,8 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrame, goalFrame, []*PlannerOptions{opt})
 }
 
-// SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
-// set of PlannerOptions. It will solve the solveFrame to the goal pose with respect to the goal frame using the provided
+// SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal poses with respect to the goal frame using the provided
 // planning options.
 func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
@@ -66,10 +66,10 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 			opts = append(opts, NewDefaultPlannerOptions())
 		}
 	}
-	if len(opts) != len(goals){
+	if len(opts) != len(goals) {
 		return nil, errors.New("goals and options had different lengths")
 	}
-	
+
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
@@ -101,6 +101,9 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seed := sf.mapToSlice(seedMap)
 
 	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
+	if err != nil {
+		return nil, err
+	}
 	for _, resultSlice := range resultSlices {
 		steps = append(steps, sf.sliceToMap(resultSlice))
 	}
@@ -128,7 +131,7 @@ func plannerRunner(ctx context.Context,
 		utils.PanicCapturingGo(func() {
 			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, solutionChan)
 		})
-		for{
+		for {
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -137,24 +140,24 @@ func plannerRunner(ctx context.Context,
 			select {
 			case nextSeed := <-opt.solutionPreview:
 				var remainingSteps [][]frame.Input
-				if iter < len(goals) - 2 {
+				if iter < len(goals)-2 {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter + 1)
+					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
 				}
-				for{
+				for {
 					// get the step from this runner invocation, and return everything in order
 					select {
 					case <-ctx.Done():
 						return nil, ctx.Err()
 					default:
 					}
-					
+
 					select {
-					case finalSteps := <- solutionChan:
+					case finalSteps := <-solutionChan:
 						if finalSteps.err != nil {
 							return nil, finalSteps.err
 						}
@@ -162,16 +165,16 @@ func plannerRunner(ctx context.Context,
 					default:
 					}
 				}
-			case finalSteps := <- solutionChan:
-				// We didn't get a solution 
+			case finalSteps := <-solutionChan:
+				// We didn't get a solution
 				if finalSteps.err != nil {
 					return nil, finalSteps.err
 				}
 				var remainingSteps [][]frame.Input
-				if iter < len(goals) - 2 {
+				if iter < len(goals)-2 {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps) - 1], opts, iter + 1)
+					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1], opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -180,13 +183,16 @@ func plannerRunner(ctx context.Context,
 			default:
 			}
 		}
-	}else{
+	} else {
 		resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		if err != nil {
+			return nil, err
+		}
 		var remainingSteps [][]frame.Input
-		if iter < len(goals) - 2 {
+		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlices[len(resultSlices) - 1], opts, iter + 1)
+			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlices[len(resultSlices)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}
