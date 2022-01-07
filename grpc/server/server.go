@@ -17,7 +17,6 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/forcematrix"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -914,67 +913,4 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
-}
-
-// matrixToProto is a helper function to convert force matrix values from a 2-dimensional
-// slice into protobuf format.
-func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
-	rows := len(matrix)
-	var cols int
-	if rows != 0 {
-		cols = len(matrix[0])
-	}
-
-	data := make([]uint32, 0, rows*cols)
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-			data = append(data, uint32(matrix[row][col]))
-		}
-	}
-
-	return &pb.ForceMatrixMatrixResponse{Matrix: &pb.Matrix{
-		Rows: uint32(rows),
-		Cols: uint32(cols),
-		Data: data,
-	}}
-}
-
-// ForceMatrixMatrix returns a matrix of measured forces on a matrix force sensor.
-func (s *Server) ForceMatrixMatrix(
-	ctx context.Context,
-	req *pb.ForceMatrixMatrixRequest,
-) (*pb.ForceMatrixMatrixResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	matrix, err := forceMatrixDevice.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return matrixToProto(matrix), nil
-}
-
-// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected.
-func (s *Server) ForceMatrixSlipDetection(
-	ctx context.Context,
-	req *pb.ForceMatrixSlipDetectionRequest,
-) (*pb.ForceMatrixSlipDetectionResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ForceMatrixSlipDetectionResponse{IsSlipping: isSlipping}, nil
-}
-
-func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
-	fm, ok := s.r.ResourceByName(forcematrix.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no force matrix with name (%s)", name)
-	}
-	return fm.(forcematrix.ForceMatrix), nil
 }
