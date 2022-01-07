@@ -83,9 +83,13 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func clientFromSvcClient(ctx context.Context, sc *serviceClient, info boardInfo) Board {
-	c := &client{serviceClient: sc, info: info}
+	c := &client{
+		serviceClient:  sc,
+		info:           info,
+		cachedStatusMu: &sync.Mutex{},
+	}
 	if err := c.refresh(ctx); err != nil {
-		panic(err)
+		sc.logger.Warn(err)
 	}
 	return c
 }
@@ -155,18 +159,30 @@ func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 }
 
 func (c *client) SPINames() []string {
+	if c.getCachedStatus() == nil {
+		panic("no status")
+	}
 	return copyStringSlice(c.info.spiNames)
 }
 
 func (c *client) I2CNames() []string {
+	if c.getCachedStatus() == nil {
+		panic("no status")
+	}
 	return copyStringSlice(c.info.i2cNames)
 }
 
 func (c *client) AnalogReaderNames() []string {
+	if c.getCachedStatus() == nil {
+		panic("no status")
+	}
 	return copyStringSlice(c.info.analogReaderNames)
 }
 
 func (c *client) DigitalInterruptNames() []string {
+	if c.getCachedStatus() == nil {
+		panic("no status")
+	}
 	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
@@ -205,8 +221,8 @@ func (c *client) refresh(ctx context.Context) error {
 // storeStatus atomically stores the status response.
 func (c *client) storeStatus(status *commonpb.BoardStatus) {
 	c.cachedStatusMu.Lock()
+	defer c.cachedStatusMu.Unlock()
 	c.cachedStatus = status
-	c.cachedStatusMu.Unlock()
 }
 
 // getCachedStatus atomically gets the cached status response.
