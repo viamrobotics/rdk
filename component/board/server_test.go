@@ -41,7 +41,7 @@ func TestStatus(t *testing.T) {
 	type response = pb.BoardServiceStatusResponse
 	ctx := context.Background()
 
-	status := commonpb.BoardStatus{
+	status := &commonpb.BoardStatus{
 		Analogs: map[string]*commonpb.AnalogStatus{
 			"analog1": {},
 		},
@@ -59,7 +59,7 @@ func TestStatus(t *testing.T) {
 		expRespErr   error
 	}{
 		{
-			injectResult: &status,
+			injectResult: status,
 			injectErr:    nil,
 			req:          &request{Name: missingBoardName},
 			expCapArgs:   []interface{}(nil),
@@ -67,7 +67,7 @@ func TestStatus(t *testing.T) {
 			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
 		},
 		{
-			injectResult: &status,
+			injectResult: status,
 			injectErr:    nil,
 			req:          &request{Name: invalidBoardName},
 			expCapArgs:   []interface{}(nil),
@@ -75,7 +75,7 @@ func TestStatus(t *testing.T) {
 			expRespErr:   errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
 		},
 		{
-			injectResult: &status,
+			injectResult: status,
 			injectErr:    errFoo,
 			req:          &request{Name: boardName},
 			expCapArgs:   []interface{}{ctx},
@@ -83,11 +83,11 @@ func TestStatus(t *testing.T) {
 			expRespErr:   errFoo,
 		},
 		{
-			injectResult: &status,
+			injectResult: status,
 			injectErr:    nil,
 			req:          &request{Name: boardName},
 			expCapArgs:   []interface{}{ctx},
-			expResp:      &response{Status: &status},
+			expResp:      &response{Status: status},
 			expRespErr:   nil,
 		},
 	}
