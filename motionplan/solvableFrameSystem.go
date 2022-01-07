@@ -105,7 +105,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 		return nil, err
 	}
 	for _, resultSlice := range resultSlices {
-		steps = append(steps, sf.sliceToMap(resultSlice))
+		steps = append(steps, sf.sliceToMapConf(resultSlice))
 	}
 
 	return steps, nil
@@ -117,13 +117,14 @@ func plannerRunner(ctx context.Context,
 	seed []frame.Input,
 	opts []*PlannerOptions,
 	iter int,
-) ([][]frame.Input, error) {
+) ([]*configuration, error) {
 	var err error
 	goal := goals[iter]
 	opt := opts[iter]
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
 	}
+	remainingSteps := []*configuration{}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
 		endpointPreview := make(chan *configuration, 1)
@@ -140,7 +141,6 @@ func plannerRunner(ctx context.Context,
 			select {
 			case nextSeed := <-endpointPreview:
 				// Got a solution preview, start solving the next motion in a new thread.
-				var remainingSteps [][]frame.Input
 				if iter < len(goals)-1 {
 					// In this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it.
@@ -171,11 +171,10 @@ func plannerRunner(ctx context.Context,
 				if finalSteps.err != nil {
 					return nil, finalSteps.err
 				}
-				var remainingSteps [][]frame.Input
 				if iter < len(goals)-1 {
 					// in this case, we create the next step (and thus the remaining steps) and the
 					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1], opts, iter+1)
+					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
 					if err != nil {
 						return nil, err
 					}
@@ -185,15 +184,18 @@ func plannerRunner(ctx context.Context,
 			}
 		}
 	} else {
-		resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		resultSlices := []*configuration{}
+		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
 		if err != nil {
 			return nil, err
 		}
-		var remainingSteps [][]frame.Input
+		for _, step := range resultSlicesRaw {
+			resultSlices = append(resultSlices, &configuration{step})
+		}
 		if iter < len(goals)-2 {
 			// in this case, we create the next step (and thus the remaining steps) and the
 			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlices[len(resultSlices)-1], opts, iter+1)
+			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
 			if err != nil {
 				return nil, err
 			}
@@ -281,6 +283,17 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	for _, frame := range sf.frames {
 		fLen := i + len(frame.DoF())
 		inputs[frame.Name()] = inputSlice[i:fLen]
+		i = fLen
+	}
+	return inputs
+}
+
+func (sf *solverFrame) sliceToMapConf(inputSlice *configuration) map[string][]frame.Input {
+	inputs := frame.StartPositions(sf.fss)
+	i := 0
+	for _, frame := range sf.frames {
+		fLen := i + len(frame.DoF())
+		inputs[frame.Name()] = inputSlice.inputs[i:fLen]
 		i = fLen
 	}
 	return inputs
