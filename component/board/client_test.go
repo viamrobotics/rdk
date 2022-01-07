@@ -21,7 +21,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func newBoardWithStatus() *inject.Board {
+func newBoardWithStatus(status *commonpb.BoardStatus) *inject.Board {
 	injectBoard := &inject.Board{}
 
 	injectStatus := &commonpb.BoardStatus{}
@@ -32,27 +32,32 @@ func newBoardWithStatus() *inject.Board {
 	return injectBoard
 }
 
-func TestClient(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	listener1, err := net.Listen("tcp", "localhost:0")
+func setupServer(t *testing.T, name string, injectBoard *inject.Board) (net.Listener, func()) {
+	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	board1 := "board1"
-	injectBoard := newBoardWithStatus()
-
-	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
+	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(name): injectBoard}))
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+	go gServer.Serve(listener)
+	return listener, func() { gServer.Stop() }
+}
+
+func TestClient(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	boardName := "board1"
+	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
+
+	listener, cleanup := setupServer(t, boardName, injectBoard)
+	defer cleanup()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = board.NewClient(cancelCtx, board1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err := board.NewClient(cancelCtx, boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -170,7 +175,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("New client", func(t *testing.T) {
-		board1Client, err := board.NewClient(context.Background(), board1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		board1Client, err := board.NewClient(context.Background(), boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, board1Client)
@@ -178,9 +183,9 @@ func TestClient(t *testing.T) {
 
 	t.Run("New client from connection", func(t *testing.T) {
 		ctx := context.Background()
-		conn, err := viamgrpc.Dial(ctx, listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(ctx, listener.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		board1Client2 := board.NewClientFromConn(ctx, conn, board1, logger)
+		board1Client2 := board.NewClientFromConn(ctx, conn, boardName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		testWorkingClient(t, board1Client2)
@@ -189,24 +194,17 @@ func TestClient(t *testing.T) {
 
 func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	listener, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-	injectBoard := newBoardWithStatus()
-	board1 := "board1"
+	boardName := "board1"
+	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
 
-	boardSvc, err := subtype.New((map[resource.Name]interface{}{board.Named(board1): injectBoard}))
-	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
-
-	go gServer.Serve(listener)
-	defer gServer.Stop()
+	listener, cleanup := setupServer(t, boardName, injectBoard)
+	defer cleanup()
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := board.NewClient(ctx, board1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := board.NewClient(ctx, boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := board.NewClient(ctx, board1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := board.NewClient(ctx, boardName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
