@@ -490,25 +490,43 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 		parts.functions[name] = newPart
 	}
-	for name, newPart := range newParts.resources {
-		oldPart, ok := parts.resources[name]
-		delete(oldResources, name)
-		isService := name.ResourceType == resource.ResourceTypeService
-		if ok && !isService {
-			oldPart, ok := oldPart.(resource.Reconfigurable)
-			if !ok {
-				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", oldPart))
+	for name, newR := range newParts.resources {
+		old, ok := parts.resources[name]
+		if ok {
+			delete(oldResources, name)
+			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
+			newPart, newIsReconfigurable := newR.(resource.Reconfigurable)
+
+			switch {
+			case oldIsReconfigurable != newIsReconfigurable:
+				// this is an indicator of a serious registration problem
+				// for the resource subtype.
+				if oldIsReconfigurable {
+					panic(fmt.Errorf(
+						"old type %T is reconfigurable whereas new type %T is not",
+						old, newR))
+				}
+				panic(fmt.Errorf(
+					"new type %T is reconfigurable whereas old type %T is not",
+					newR, old))
+			case oldIsReconfigurable && newIsReconfigurable:
+				// if we are dealing with a reconfigurable resource
+				// use the new resource to reconfigure the old one.
+				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+					panic(err)
+				}
+				continue
+			case !oldIsReconfigurable && !newIsReconfigurable:
+				// if we are not dealing with a reconfigurable resource
+				// we want to close the old resource and replace it with the
+				// new.
+				if err := utils.TryClose(ctx, old); err != nil {
+					panic(err)
+				}
 			}
-			newPart, ok := newPart.(resource.Reconfigurable)
-			if !ok {
-				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", newPart))
-			}
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				panic(err)
-			}
-			continue
 		}
-		parts.resources[name] = newPart
+
+		parts.resources[name] = newR
 	}
 
 	for name := range oldBaseNames {
