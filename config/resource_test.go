@@ -255,6 +255,32 @@ func TestServiceValidate(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 		})
 	})
+
+	t.Run("Attributes", func(t *testing.T) {
+		t.Run("config invalid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type:       "frame_system",
+				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
+		})
+
+		t.Run("config valid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type: "frame_system",
+				Attributes: config.AttributeMap{
+					"attr": testutils.FakeConvertedAttributes{
+						Thing: "i am a thing!",
+					},
+					"attr2": "boop",
+				},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	})
 }
 
 func TestServiceResourceName(t *testing.T) {
