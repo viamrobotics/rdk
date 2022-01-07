@@ -126,10 +126,10 @@ func plannerRunner(ctx context.Context,
 	}
 	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
 		// cBiRRT supports solution look-ahead for parallel waypoint solving
-		opt.solutionPreview = make(chan *solution, 1)
+		endpointPreview := make(chan *configuration, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
-			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, solutionChan)
+			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, endpointPreview, solutionChan)
 		})
 		for {
 			select {
@@ -138,7 +138,7 @@ func plannerRunner(ctx context.Context,
 			default:
 			}
 			select {
-			case nextSeed := <-opt.solutionPreview:
+			case nextSeed := <-endpointPreview:
 				// Got a solution preview, start solving the next motion in a new thread.
 				var remainingSteps [][]frame.Input
 				if iter < len(goals)-1 {

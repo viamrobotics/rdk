@@ -25,7 +25,7 @@ type MotionPlanner interface {
 }
 
 // needed to wrap slices so we can use them as map keys.
-type solution struct {
+type configuration struct {
 	inputs []referenceframe.Input
 }
 
@@ -43,8 +43,7 @@ type PlannerOptions struct {
 	// Max number of ik solutions to consider
 	maxSolutions int
 	// Movements that score below this amount are considered "good enough" and returned immediately
-	minScore        float64
-	solutionPreview chan *solution
+	minScore float64
 }
 
 // NewDefaultPlannerOptions specifies a set of default options for the planner.
