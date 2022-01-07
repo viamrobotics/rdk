@@ -21,7 +21,6 @@ import (
 	grpcserver "go.viam.com/rdk/grpc/server"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/services/framesystem"
@@ -1192,68 +1191,6 @@ func TestServer(t *testing.T) {
 		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
 			Name: "compass1",
 		})
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("ForceMatrixMatrix", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		var capMatrix [][]int
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		expectedMatrix := make([][]int, 4)
-		for i := 0; i < len(expectedMatrix); i++ {
-			expectedMatrix[i] = []int{1, 2, 3, 4}
-		}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-			capMatrix = expectedMatrix
-			return expectedMatrix, nil
-		}
-		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
-	})
-
-	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }
