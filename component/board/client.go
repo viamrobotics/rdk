@@ -206,12 +206,12 @@ func (c *client) refresh(ctx context.Context) error {
 	}
 	c.storeStatus(status)
 
-	c.info.analogReaderNames = make([]string, len(status.Analogs))
+	c.info.analogReaderNames = []string{}
 	for name := range status.Analogs {
 		c.info.analogReaderNames = append(c.info.analogReaderNames, name)
 	}
-	c.info.digitalInterruptNames = make([]string, len(status.DigitalInterrupts))
-	for name := range status.Analogs {
+	c.info.digitalInterruptNames = []string{}
+	for name := range status.DigitalInterrupts {
 		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
 	}
 
