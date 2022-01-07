@@ -441,7 +441,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
 
-	boardSvc2, err := subtype.New((map[resource.Name]interface{}{board.Named("board1"): injectArm}))
+	boardSvc2, err := subtype.New((map[resource.Name]interface{}{board.Named("board1"): injectBoard}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
 
