@@ -98,12 +98,12 @@ func CheckUniqueCollisions(vols map[string]spatial.Volume, seen *CollisionGraph)
 	// iterate through all Volume pairs and store new collisions as edges in graph
 	for i := 0; i < len(cg.nodes)-1; i++ {
 		for j := i + 1; j < len(cg.nodes); j++ {
-			// ignore any previously seen collisions
+			// check for previously seen collisions and ignore them
 			x, xOk := seen.indices[cg.nodes[i].name]
 			y, yOk := seen.indices[cg.nodes[j].name]
 			if xOk && yOk && seen.adjacencies[x][y] >= 0 {
-				// collision already seen, but need to set it to a number < 0
-				distance = math.Inf(1)
+				// represent previously seen collisions as NaNs
+				distance = math.NaN()
 			} else {
 				distance, err = cg.nodes[i].volume.DistanceFrom(cg.nodes[j].volume)
 				if err != nil {
