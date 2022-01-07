@@ -137,6 +137,7 @@ func boxVsBoxDistance(a, b *box) float64 {
 			}
 		}
 	}
+	return max
 }
 
 // separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
