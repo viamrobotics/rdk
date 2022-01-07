@@ -160,7 +160,7 @@ type ServiceType string
 
 // A Service describes the configuration of a service.
 type Service struct {
-	Name                string       `json:"name"`
+	Name                string       `json:"name"` // NOTE: This property is deprecated for services
 	Type                ServiceType  `json:"type"`
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}

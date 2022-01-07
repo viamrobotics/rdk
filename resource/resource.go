@@ -170,9 +170,3 @@ type Updateable interface {
 	// Update updates the resource
 	Update(context.Context, map[Name]interface{}) error
 }
-
-// Closeable is implemented when a component/service of a robot should be specifically
-// closed in some way when being deleted or replaced.
-type Closeable interface {
-	Close(context.Context) error
-}

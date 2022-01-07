@@ -934,12 +934,7 @@ func TestPartsAdd(t *testing.T) {
 		cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
 	}
-	objectMResName := resource.NewName(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeService,
-		objectmanipulation.SubtypeName,
-		"",
-	)
+	objectMResName := objectmanipulation.Name
 	parts.addResource(objectMResName, injectObjectManipulationService)
 	objectManipulationService, ok := parts.ResourceByName(objectMResName)
 	test.That(t, ok, test.ShouldBeTrue)
