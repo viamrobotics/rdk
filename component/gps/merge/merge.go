@@ -42,7 +42,7 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 	m := &mergeGPS{r, nil, logger}
 
 	for _, s := range subs {
-		sensor, ok := r.SensorByName(s)
+		sensor, ok := r.ResourceByName(gps.Named(s))
 		if !ok {
 			return nil, fmt.Errorf("no gps named [%s]", s)
 		}
