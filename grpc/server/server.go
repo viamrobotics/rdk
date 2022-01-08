@@ -18,13 +18,13 @@ import (
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/services"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
@@ -806,7 +806,7 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	sensorDevice, ok := s.r.ResourceByName(gps.Named(name))
 	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", name)
 	}

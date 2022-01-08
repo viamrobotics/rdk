@@ -1,3 +1,4 @@
+// Package fake implements a fake GPS.
 package fake
 
 import (
