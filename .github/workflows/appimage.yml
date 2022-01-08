@@ -18,7 +18,7 @@ jobs:
     runs-on: [x64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
-      #options: --platform linux/amd64
+      options: --platform linux/amd64
 
     steps:
     - name: Checkout Code
@@ -49,7 +49,7 @@ jobs:
     runs-on: [arm64, qemu-host]
     container:
       image: ghcr.io/viamrobotics/canon:arm64-cache
-      #options: --platform linux/arm64
+      options: --platform linux/arm64
 
     steps:
     - name: Checkout Code

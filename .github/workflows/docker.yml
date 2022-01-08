@@ -5,6 +5,7 @@ on:
     - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
   push:
+    branches: main
     paths:
       - '**/.github/workflows/docker.yml'
       - '**/Dockerfile.fortest'
