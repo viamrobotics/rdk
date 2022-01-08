@@ -1,4 +1,4 @@
-FROM ghcr.io/viamrobotics/canon:amd64
+FROM ghcr.io/viamrobotics/canon:arm64
 
 # cache golang dependencies
 COPY go.mod go.sum /tmp/gomod/
