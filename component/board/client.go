@@ -71,18 +71,17 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	info := boardInfo{name: name}
-	return clientFromSvcClient(ctx, sc, info), nil
+	return clientFromSvcClient(ctx, sc, name), nil
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
 func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Board {
 	sc := newSvcClientFromConn(conn, logger)
-	info := boardInfo{name: name}
-	return clientFromSvcClient(ctx, sc, info)
+	return clientFromSvcClient(ctx, sc, name)
 }
 
-func clientFromSvcClient(ctx context.Context, sc *serviceClient, info boardInfo) Board {
+func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Board {
+	info := boardInfo{name: name}
 	c := &client{
 		serviceClient:  sc,
 		info:           info,
