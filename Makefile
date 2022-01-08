@@ -19,6 +19,12 @@ ifeq ("$(shell uname -s)", "Linux")
 	TAGS = -tags="custom_wasmer_runtime"
 endif
 
+ifeq ("aarch64", "$(shell uname -m)")
+	NATIVE_DOCKER := arm64
+else ifeq ("x86_64", "$(shell uname -m)")
+	NATIVE_DOCKER := amd64
+endif
+
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 binsetup:
@@ -75,28 +81,8 @@ test:
 testpi:
 	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
 
-dockerlocal:
-	docker build -f etc/Dockerfile.fortest --no-cache -t 'ghcr.io/viamrobotics/test:latest' .
-
-docker: dockerlocal
-	docker push 'ghcr.io/viamrobotics/test:latest'
-
 server:
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
-
-deb-server: buf-go server
-	rm -rf etc/packaging/work/
-	mkdir etc/packaging/work/
-	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/
-	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/usr/bin/viam-server
-	cd etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/ \
-	&& sed -i "s/viam-server/viam-server-$(SERVER_DEB_PLATFORM)/g" debian/control debian/changelog \
-	&& sed -i "s/viam-camera-servers/viam-camera-servers-$(SERVER_DEB_PLATFORM)/g" debian/control \
-	&& dch --force-distribution -D viam -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
-	&& dpkg-buildpackage -us -uc -b \
-
-deb-install: deb-server
-	sudo dpkg -i etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)_$(SERVER_DEB_VER)+*.deb
 
 boat: samples/boat1/cmd.go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/boat samples/boat1/cmd.go
@@ -111,31 +97,73 @@ gamepad: samples/gamepad/cmd.go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/gamepad samples/gamepad/cmd.go
 
 clean-all:
-	rm -rf etc/packaging/work etc/packaging/appimages/deploy etc/packaging/appimages/appimage-builder-cache etc/packaging/appimages/AppDir
+	git clean -fxd
 
+# Packaging Targets
 appimage: buf-go server
 	cd etc/packaging/appimages && appimage-builder --recipe viam-server-`uname -m`.yml
 	mkdir -p etc/packaging/appimages/deploy/
 	mv etc/packaging/appimages/*.AppImage* etc/packaging/appimages/deploy/
 	chmod 755 etc/packaging/appimages/deploy/*.AppImage
 
-# This sets up multi-arch emulation under linux. Run before using multi-arch targets.
-docker-emulation:
-	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+deb-server: buf-go server
+	rm -rf etc/packaging/work/
+	mkdir etc/packaging/work/
+	cp -r etc/packaging/viam-server-$(SERVER_DEB_VER)/ etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/
+	install -D $(BIN_OUTPUT_PATH)/server etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/usr/bin/viam-server
+	cd etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)-$(SERVER_DEB_VER)/ \
+	&& sed -i "s/viam-server/viam-server-$(SERVER_DEB_PLATFORM)/g" debian/control debian/changelog \
+	&& sed -i "s/viam-camera-servers/viam-camera-servers-$(SERVER_DEB_PLATFORM)/g" debian/control \
+	&& dch --force-distribution -D viam -v $(SERVER_DEB_VER)+`date -u '+%Y%m%d%H%M'` "Auto-build from commit `git log --pretty=format:'%h' -n 1`" \
+	&& dpkg-buildpackage -us -uc -b
 
+deb-install: deb-server
+	sudo dpkg -i etc/packaging/work/viam-server-$(SERVER_DEB_PLATFORM)_$(SERVER_DEB_VER)+*.deb
+
+
+# This sets up multi-arch emulation under linux. Run before using multi-arch targets.
+canon-emulation:
+	docker run --rm --privileged multiarch/qemu-user-static --reset -c yes -p yes
+
+# Canon versions of targets run in the canonical viam docker image
+canon-build:
+	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build
+
+canon-test:
+	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make test
+
+# Canon shells use the raw (non-cached) canon docker image
+canon-shell:
+	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER) $(ENTRYCMD) bash
+
+canon-shell-amd64:
+	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) bash
+
+canon-shell-arm64:
+	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) bash
+
+
+# Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)
+canon-cache: docker-cache-build docker-cache-upload
+
+canon-cache-build:
+	docker build -f etc/Dockerfile.amd64-cache --no-cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
+	docker build -f etc/Dockerfile.arm64-cache --no-cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
+
+canon-cache-upload:
+	docker push 'ghcr.io/viamrobotics/canon:amd64-cache'
+	docker push 'ghcr.io/viamrobotics/canon:arm64-cache'
+
+
+# AppImage packaging targets run in canon docker
 appimage-multiarch: appimage-amd64 appimage-arm64
 
 appimage-amd64:
-	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) make appimage
+	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:amd64-cache $(ENTRYCMD) make appimage
 
 appimage-arm64:
-	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) make appimage
+	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm ghcr.io/viamrobotics/canon:arm64-cache $(ENTRYCMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
 
-buildshell-amd64:
-	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) bash
-
-buildshell-arm64:
-	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) bash
