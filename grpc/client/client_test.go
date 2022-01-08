@@ -328,6 +328,9 @@ func TestClient(t *testing.T) {
 		return true, nil
 	}
 	injectBoard := &inject.Board{}
+	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
+		return nil, errors.New("no status")
+	}
 	injectMotor := &inject.Motor{}
 	injectServo := &inject.Servo{}
 	var capServoAngle uint8
