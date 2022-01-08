@@ -144,11 +144,11 @@ canon-shell-arm64:
 
 
 # Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)
-canon-cache: docker-cache-build docker-cache-upload
+canon-cache: canon-cache-build canon-cache-upload
 
 canon-cache-build:
-	docker build -f etc/Dockerfile.amd64-cache --no-cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
-	docker build -f etc/Dockerfile.arm64-cache --no-cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
+	docker buildx build --load --no-cache --platform linux/amd64 -f etc/Dockerfile.amd64-cache -t 'ghcr.io/viamrobotics/canon:amd64-cache' .
+	docker buildx build --load --no-cache --platform linux/arm64 -f etc/Dockerfile.arm64-cache -t 'ghcr.io/viamrobotics/canon:arm64-cache' .
 
 canon-cache-upload:
 	docker push 'ghcr.io/viamrobotics/canon:amd64-cache'
