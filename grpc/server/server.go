@@ -577,7 +577,7 @@ func (s *Server) ResourceRunCommand(
 ) (*pb.ResourceRunCommandResponse, error) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
 	// we know only gps has this right now, so just look at sensors!
-	resource, ok := s.r.SensorByName(req.ResourceName)
+	resource, ok := s.r.ResourceByName(gps.Named(req.ResourceName))
 	if !ok {
 		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
 	}

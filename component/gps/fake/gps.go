@@ -152,7 +152,7 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if !ok {
 		return nil, errors.Errorf("no base named %q", baseName)
 	}
-	s, ok := r.SensorByName(gpsName)
+	s, ok := r.ResourceByName(gps.Named(gpsName))
 	if !ok {
 		return nil, errors.Errorf("no gps named %q", gpsName)
 	}
