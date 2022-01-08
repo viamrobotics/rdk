@@ -78,7 +78,6 @@ import (
 
 	// register gy511.
 	_ "go.viam.com/rdk/sensor/compass/gy511"
-
 	"go.viam.com/rdk/services"
 
 	// register base remote control.

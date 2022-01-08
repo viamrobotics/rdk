@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -37,7 +38,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -314,8 +314,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
-	case gps.Type:
-		return &gpsClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -386,6 +384,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 			}
 		}
 		return nil, false
+	case gps.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		sc := &sensorClient{rc, name.Name, sensorType}
+		return &gpsClient{sc}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -1099,6 +1101,10 @@ func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
 
 func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
+}
+
+func (gc *gpsClient) Desc() sensor.Description {
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // forcematrixClient satisfies a gRPC based
