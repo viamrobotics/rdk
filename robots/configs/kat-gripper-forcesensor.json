@@ -1,4 +1,7 @@
 {
+  "network": {
+		"bind_address": ":8080"
+	},
   "components": [
     {
       "model": "pi",
@@ -26,8 +29,7 @@
     {
       "model": "forcematrixwithmux_v1",
       "name": "forcematrixWithMuxOnGripper",
-      "type": "sensor",
-      "subtype": "forcematrix",
+      "type": "forcematrix",
       "attributes": {
         "board": "brittany2",
         "column_gpio_pins_left_to_right": [
