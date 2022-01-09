@@ -17,8 +17,8 @@ type Options struct {
 	// SignalingAddress is where to listen to WebRTC call offers at.
 	SignalingAddress string
 
-	// Name is the FQDN of this host.
-	Name string
+	// FQDNs are the FQDNs of this host.
+	FQDNs []string
 
 	// Debug turns on various debugging features. For example, the echo gRPC
 	// service is added.

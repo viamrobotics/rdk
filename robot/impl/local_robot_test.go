@@ -254,14 +254,14 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
-		Case       string
-		Managed    bool
-		EntityName string
+		Case        string
+		Managed     bool
+		EntityNames []string
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "unmanaged and specific host", EntityNames: []string{"something-different", "something-really-different"}},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+		{Case: "managed and specific host", Managed: true, EntityNames: []string{"something-different", "something-really-different"}},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			metadataSvc, err := service.New()
@@ -279,7 +279,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			options := web.NewOptions()
 			options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
 			options.Managed = tc.Managed
-			options.Name = tc.EntityName
+			options.FQDNs = tc.EntityNames
 			apiKey := "sosecret"
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
@@ -308,19 +308,23 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
-			entityName := tc.EntityName
-			if entityName == "" {
-				entityName = web.DefaultEntityName
+			entityNames := tc.EntityNames
+			if len(entityNames) == 0 {
+				entityNames = []string{web.DefaultFQDN}
 			}
-			_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(
-				rpc.WithInsecure(),
-				rpc.WithEntityCredentials(entityName, rpc.Credentials{
-					Type:    rpc.CredentialsTypeAPIKey,
-					Payload: apiKey,
-				}),
-			))
-			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+			for _, entityName := range entityNames {
+				t.Run(fmt.Sprintf("auth required for %s", entityName), func(t *testing.T) {
+					_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(
+						rpc.WithInsecure(),
+						rpc.WithEntityCredentials(entityName, rpc.Credentials{
+							Type:    rpc.CredentialsTypeAPIKey,
+							Payload: apiKey,
+						}),
+					))
+					test.That(t, err, test.ShouldNotBeNil)
+					test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+				})
+			}
 
 			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 				Type:    rpc.CredentialsTypeAPIKey,
@@ -333,9 +337,16 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				remoteConfig.Remotes[0].Auth.Entity = entityName
-				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
-				test.That(t, err, test.ShouldBeNil)
+				for idx, entityName := range entityNames {
+					t.Run(fmt.Sprintf("good auth for %s", entityName), func(t *testing.T) {
+						remoteConfig.Remotes[0].Auth.Entity = entityName
+						r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+						test.That(t, err, test.ShouldBeNil)
+						if idx != len(entityNames)-1 {
+							test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+						}
+					})
+				}
 			} else {
 				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
 				test.That(t, err, test.ShouldBeNil)
