@@ -124,7 +124,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			scheme = "http"
 		}
 		temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
-		temp.WebRTCHost = app.options.Name
+		temp.WebRTCHost = app.options.FQDNs[0]
 	}
 
 	for _, handler := range app.options.Auth.Handlers {
@@ -351,9 +351,9 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
-// DefaultEntityName is the default name that will be used to identify the
+// DefaultFQDN is the default name that will be used to identify the
 // web server when one is not specified.
-const DefaultEntityName = "local"
+const DefaultFQDN = "local"
 
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
@@ -388,15 +388,15 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	options.secureSignaling = !insecureSignaling
 
-	if options.Name == "" {
-		options.Name = DefaultEntityName
+	if len(options.FQDNs) == 0 {
+		options.FQDNs = []string{DefaultFQDN}
 	}
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			ExternalSignalingDialOpts: signalingOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			SignalingHost:             options.Name,
+			SignalingHosts:            options.FQDNs,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
@@ -406,7 +406,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
 	} else {
-		authEntities := []string{options.Name}
+		authEntities := options.FQDNs
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.

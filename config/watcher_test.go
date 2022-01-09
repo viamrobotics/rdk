@@ -201,7 +201,7 @@ func TestNewWatcherCloud(t *testing.T) {
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
 		ID:              "my_id",
 		Secret:          "my_secret",
-		Self:            "woo",
+		FQDNs:           []string{"woo", "yee"},
 		RefreshInterval: time.Second,
 	}
 	confToReturn = Config{
