@@ -30,7 +30,7 @@ import (
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 const modelName = "pi"
@@ -493,7 +493,7 @@ func (pi *piPigpio) Close(ctx context.Context) error {
 	return err
 }
 
-func (pi *piPigpio) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (pi *piPigpio) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, pi)
 }
 
