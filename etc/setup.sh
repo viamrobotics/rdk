@@ -129,17 +129,13 @@ source ~/.viamdevrc
 brew bundle --file=- <<-EOS
 
 # unpinned
-brew "make"
-brew "cmake"
-brew "pkgconfig"
-brew "grpcurl"
 brew "nlopt"
 brew "x264"
 brew "protoc-gen-grpc-web"
 # pinned
 brew "gcc@11"
 brew "go@1.17"
-brew "node@17"
+brew "node@16"
 brew "protobuf@3.19"
 # viam tap
 tap  "viamrobotics/brews"
@@ -150,6 +146,8 @@ EOS
 if [ $? -ne 0 ]; then
 	exit 1
 fi
+
+brew link --overwrite "node@16" || exit 1
 
 echo "Brew installed software versions..."
 brew list --version
