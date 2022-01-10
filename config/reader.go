@@ -152,12 +152,6 @@ func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
 	return nil
 }
 
-var (
-	defaultCloudBasePath = "https://app.viam.com"
-	defaultCloudPath     = defaultCloudBasePath + "/api/json1/config"
-	defaultCoudLogPath   = defaultCloudBasePath + "/api/json1/log"
-)
-
 const (
 	cloudConfigSecretField           = "Secret"
 	cloudConfigUserInfoField         = "User-Info"
@@ -169,13 +163,6 @@ const (
 // CreateCloudRequest makes a request to fetch the robot config
 // from a cloud endpoint.
 func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
-	if cloudCfg.Path == "" {
-		cloudCfg.Path = defaultCloudPath
-	}
-	if cloudCfg.LogPath == "" {
-		cloudCfg.LogPath = defaultCoudLogPath
-	}
-
 	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
