@@ -167,7 +167,7 @@ func plannerRunner(ctx context.Context,
 					}
 				}
 			case finalSteps := <-solutionChan:
-				// We didn't get a solution preview (possible error?), so we get and process the full step set and error.
+				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
 				if finalSteps.err != nil {
 					return nil, finalSteps.err
 				}
