@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -336,7 +337,7 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 		}
 	}
 	if len(status.Boards) != 0 {
-		rewrittenStatus.Boards = make(map[string]*pb.BoardStatus, len(status.Boards))
+		rewrittenStatus.Boards = make(map[string]*commonpb.BoardStatus, len(status.Boards))
 		for k, v := range status.Boards {
 			rewrittenStatus.Boards[rr.prefixName(k)] = v
 		}
