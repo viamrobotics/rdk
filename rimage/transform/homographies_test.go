@@ -44,6 +44,11 @@ func TestEstimateHomographyFrom8Points(t *testing.T) {
 	pts2 := []r2.Point{{9.7324705, 7.2666674}, {28.65283, 9.481666}, {7.4806085, 27.474358}, {26.896238, 29.288015}}
 	H, _ := EstimateExactHomographyFrom8Points(pts1, pts2, false)
 	test.That(t, mat.EqualApprox(H, homography, 0.00001), test.ShouldBeTrue)
+	pts3 := []r2.Point{}
+	panicHomography1 := func() { EstimateExactHomographyFrom8Points(pts1, pts3, false) }
+	test.That(t, panicHomography1, test.ShouldPanic)
+	panicHomography2 := func() { EstimateExactHomographyFrom8Points(pts3, pts2, false) }
+	test.That(t, panicHomography2, test.ShouldPanic)
 }
 
 func repeatedSlice(value float64, n int) []float64 {
