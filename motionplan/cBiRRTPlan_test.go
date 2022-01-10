@@ -27,7 +27,7 @@ var interp = referenceframe.FloatsToInputs([]float64{
 // This should test a simple linear motion.
 func TestSimpleLinearMotion(t *testing.T) {
 	nSolutions := 5
-	inputSteps := []*solution{}
+	inputSteps := []*configuration{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
@@ -55,15 +55,15 @@ func TestSimpleLinearMotion(t *testing.T) {
 		Z:  120.5,
 		OY: -1,
 	}
-	corners := map[*solution]bool{}
+	corners := map[*configuration]bool{}
 
 	solutions, err := getSolutions(ctx, opt, mp.solver, pos, home7, mp.Frame())
 	test.That(t, err, test.ShouldBeNil)
 
-	near1 := &solution{home7}
-	seedMap := make(map[*solution]*solution)
+	near1 := &configuration{home7}
+	seedMap := make(map[*configuration]*configuration)
 	seedMap[near1] = nil
-	target := &solution{interp}
+	target := &configuration{interp}
 
 	keys := make([]float64, 0, len(solutions))
 	for k := range solutions {
@@ -71,14 +71,14 @@ func TestSimpleLinearMotion(t *testing.T) {
 	}
 	sort.Float64s(keys)
 
-	goalMap := make(map[*solution]*solution)
+	goalMap := make(map[*configuration]*configuration)
 
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
 
 	for _, k := range keys[:nSolutions] {
-		goalMap[&solution{solutions[k]}] = nil
+		goalMap[&configuration{solutions[k]}] = nil
 	}
 	nn := &neighborManager{nCPU: nCPU}
 
@@ -117,27 +117,27 @@ func TestSimpleLinearMotion(t *testing.T) {
 
 func TestNearestNeighbor(t *testing.T) {
 	nm := &neighborManager{nCPU: 2}
-	rrtMap := map[*solution]*solution{}
+	rrtMap := map[*configuration]*configuration{}
 
-	j := &solution{[]referenceframe.Input{{0.0}}}
+	j := &configuration{[]referenceframe.Input{{0.0}}}
 	for i := 1.0; i < 110.0; i++ {
-		iSol := &solution{[]referenceframe.Input{{i}}}
+		iSol := &configuration{[]referenceframe.Input{{i}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
 	ctx := context.Background()
 
-	seed := &solution{[]referenceframe.Input{{23.1}}}
+	seed := &configuration{[]referenceframe.Input{{23.1}}}
 	// test serial NN
 	nn := nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 23.0)
 
 	for i := 120.0; i < 1100.0; i++ {
-		iSol := &solution{[]referenceframe.Input{{i}}}
+		iSol := &configuration{[]referenceframe.Input{{i}}}
 		rrtMap[iSol] = j
 		j = iSol
 	}
-	seed = &solution{[]referenceframe.Input{{723.6}}}
+	seed = &configuration{[]referenceframe.Input{{723.6}}}
 	// test parallel NN
 	nn = nm.nearestNeighbor(ctx, seed, rrtMap)
 	test.That(t, nn.inputs[0].Value, test.ShouldAlmostEqual, 724.0)

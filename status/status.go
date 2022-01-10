@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/gantry"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -22,6 +23,8 @@ import (
 func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	var err error
 	var status pb.Status
+
+	status.Services = make(map[string]bool)
 
 	// manually refresh all remotes to get an up to date status
 	for _, name := range r.RemoteNames() {
@@ -37,7 +40,8 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	}
 
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == arm.Subtype {
+		switch {
+		case name.Subtype == arm.Subtype:
 			if status.Arms == nil {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
@@ -80,7 +84,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Arms[name.Name] = armStatus
-		} else if name.Subtype == gantry.Subtype {
+		case name.Subtype == gantry.Subtype:
 			if status.Gantries == nil {
 				status.Gantries = make(map[string]*pb.GantryStatus)
 			}
@@ -107,6 +111,8 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Gantries[name.Name] = gantryStatus
+		case name.ResourceType == resource.ResourceTypeService:
+			status.Services[name.Subtype.String()] = true
 		}
 	}
 
@@ -244,12 +250,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		status.Functions = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Functions[name] = true
-		}
-	}
-	if names := r.ServiceNames(); len(names) != 0 {
-		status.Services = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Services[name] = true
 		}
 	}
 
