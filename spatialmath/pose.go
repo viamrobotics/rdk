@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+const FloatDisc = 1e8
+
 // Translation is the translation between two objects in the grid system. It is always in millimeters.
 type Translation struct {
 	X float64 `json:"x"`
@@ -176,12 +178,11 @@ func PoseAlmostEqual(a, b Pose) bool {
 
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 func PoseAlmostCoincident(a, b Pose) bool {
-	const epsilon = 1e-8
 	ap := a.Point()
 	bp := b.Point()
-	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
-		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
-		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
+	return utils.Float64AlmostEqual(ap.X, bp.X, FloatDisc) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, FloatDisc) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, FloatDisc)
 }
 
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a
