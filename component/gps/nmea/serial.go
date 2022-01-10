@@ -142,7 +142,15 @@ func (g *serialNMEAGPS) Valid(ctx context.Context) (bool, error) {
 func (g *serialNMEAGPS) Close() error {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-	return g.dev.Close()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if g.dev != nil {
+		if err := g.dev.Close(); err != nil {
+			return err
+		}
+		g.dev = nil
+	}
+	return nil
 }
 
 // Desc returns that this is a GPS.
