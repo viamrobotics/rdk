@@ -21,6 +21,7 @@ import (
 	grpcserver "go.viam.com/rdk/grpc/server"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/services/framesystem"
