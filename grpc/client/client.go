@@ -365,12 +365,6 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 	return actual, true
 }
 
-// ServiceByName returns a service by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
-	return nil, false
-}
-
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
@@ -607,13 +601,6 @@ func (rc *RobotClient) FunctionNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.functionNames)
-}
-
-// ServiceNames returns the names of all known services.
-func (rc *RobotClient) ServiceNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.serviceNames)
 }
 
 // ProcessManager returns a useless process manager for the sake of
