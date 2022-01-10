@@ -358,9 +358,7 @@ func (c *client) execCallback(ctx context.Context, event Event) {
 
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
-	c.logger.Error("closing")
 	if c.cancelBackgroundWorkers != nil {
-		c.logger.Info("ggg")
 		c.cancelBackgroundWorkers()
 		c.cancelBackgroundWorkers = nil
 	}
