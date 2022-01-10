@@ -22,12 +22,10 @@ import (
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
@@ -516,12 +514,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := config.Read(ctx, cfgFile)
+	cfg, err := config.Read(ctx, cfgFile, logger)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}

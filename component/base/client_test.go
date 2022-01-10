@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/base"
@@ -118,12 +117,12 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = base.NewClient(cancelCtx, "working", listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = base.NewClient(cancelCtx, "working", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingBaseClient, err := base.NewClient(context.Background(), "working", listener1.Addr().String(), logger, rpc.WithInsecure())
+	workingBaseClient, err := base.NewClient(context.Background(), "working", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), workingBaseClient), test.ShouldBeNil)
@@ -143,7 +142,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("working base client by dialing", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingBaseClient2 := base.NewClientFromConn(context.Background(), conn, "working", logger)
 
@@ -168,7 +167,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("failing base client", func(t *testing.T) {
-		failingBaseClient, err := base.NewClient(context.Background(), "notWorking", listener1.Addr().String(), logger, rpc.WithInsecure())
+		failingBaseClient, err := base.NewClient(context.Background(), "notWorking", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0, false)

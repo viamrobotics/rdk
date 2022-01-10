@@ -678,7 +678,7 @@ func (w *dummyRemoteRobotWrapper) Refresh(ctx context.Context) error {
         }
     ]
 }`
-	conf, err := config.FromReader(ctx, "somepath", strings.NewReader(confRaw))
+	conf, err := config.FromReader(ctx, "somepath", strings.NewReader(confRaw), w.logger)
 	if err != nil {
 		return err
 	}
