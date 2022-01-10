@@ -14,9 +14,9 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	tempDir1 := testutils.TempDirT(t, "", "")
+	tempDir1 := testutils.TempDirT(t, "", "serial-tempdir1")
 	defer os.RemoveAll(tempDir1)
-	tempDir2 := testutils.TempDirT(t, "", "")
+	tempDir2 := testutils.TempDirT(t, "", "serial-tempdir2")
 	defer os.RemoveAll(tempDir2)
 
 	prevSysPaths := usb.SysPaths
@@ -27,7 +27,7 @@ func TestSearch(t *testing.T) {
 	defer func() {
 		devPath = prevDebPath
 	}()
-	devPathDir := testutils.TempDirT(t, "", "")
+	devPathDir := testutils.TempDirT(t, "", "serial-dev")
 	defer os.RemoveAll(devPathDir)
 	jetsonPath := filepath.Join(devPathDir, "ttyTHS0")
 	test.That(t, os.WriteFile(jetsonPath, []byte("a"), 0o666), test.ShouldBeNil)
