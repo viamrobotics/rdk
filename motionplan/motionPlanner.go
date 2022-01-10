@@ -6,7 +6,6 @@ import (
 	"errors"
 	"math"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -14,6 +13,26 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 	vutil "go.viam.com/rdk/utils"
 )
+
+// MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
+// management of the constraints used to plan paths.
+type MotionPlanner interface {
+	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
+	// should be visited in order to arrive at the goal while satisfying all constraints
+	Plan(context.Context, *commonpb.Pose, []referenceframe.Input, *PlannerOptions) ([][]referenceframe.Input, error)
+	Resolution() float64         // Resolution specifies how narrowly to check for constraints
+	Frame() referenceframe.Frame // Frame will return the frame used for planning
+}
+
+// needed to wrap slices so we can use them as map keys.
+type configuration struct {
+	inputs []referenceframe.Input
+}
+
+type planReturn struct {
+	steps []*configuration
+	err   error
+}
 
 // PlannerOptions are a set of options to be passed to a planner which will specify how to solve a motion planning problem.
 type PlannerOptions struct {
@@ -54,106 +73,6 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.minScore = minScore
-}
-
-// MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
-// management of the constraints used to plan paths.
-type MotionPlanner interface {
-	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
-	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *commonpb.Pose, []referenceframe.Input, *PlannerOptions) ([][]referenceframe.Input, error)
-	Resolution() float64         // Resolution specifies how narrowly to check for constraints
-	Frame() referenceframe.Frame // Frame will return the frame used for planning
-}
-
-// NewLinearMotionPlanner returns a linearMotionPlanner. This does a linear IK interpolation from start to goal.
-// Assuming a direct motion is possible, it should find a valid path. It cannot navigate around obstacles.
-// Probably cBiRRT should be used instead- it should give nearly as good results.
-func NewLinearMotionPlanner(frame referenceframe.Frame, logger golog.Logger, nCPU int) (MotionPlanner, error) {
-	ik, err := CreateCombinedIKSolver(frame, logger, nCPU)
-	if err != nil {
-		return nil, err
-	}
-	mp := &linearMotionPlanner{solver: ik, frame: frame, idealMovementScore: 0.3, stepSize: 2., logger: logger}
-	return mp, nil
-}
-
-// A straightforward motion planner that will path a straight line from start to end.
-type linearMotionPlanner struct {
-	constraintHandler
-	solver             InverseKinematics
-	frame              referenceframe.Frame
-	logger             golog.Logger
-	idealMovementScore float64
-	stepSize           float64
-}
-
-func (mp *linearMotionPlanner) Frame() referenceframe.Frame {
-	return mp.frame
-}
-
-func (mp *linearMotionPlanner) Resolution() float64 {
-	return mp.stepSize
-}
-
-func (mp *linearMotionPlanner) Plan(ctx context.Context,
-	goal *commonpb.Pose,
-	seed []referenceframe.Input,
-	opt *PlannerOptions,
-) ([][]referenceframe.Input, error) {
-	// Store copy of planner options for duration of solve
-	var inputSteps [][]referenceframe.Input
-
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-		opt.AddConstraint("interpolationConstraint", NewInterpolatingConstraint(0.1))
-	}
-
-	seedPos, err := mp.frame.Transform(seed)
-	if err != nil {
-		return nil, err
-	}
-	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-
-	// First, we break down the spatial distance and rotational distance from seed to goal, and determine the number
-	// of steps needed to get from one to the other
-	nSteps := getSteps(seedPos, goalPos, mp.stepSize)
-
-	if opt.minScore == 0 {
-		opt.minScore = mp.idealMovementScore
-	}
-
-	// Create the required steps. nSteps is guaranteed to be at least 1.
-STEP:
-	for i := 1; i <= nSteps; i++ {
-		select {
-		case <-ctx.Done():
-			break STEP
-		default:
-		}
-
-		intPos := spatial.Interpolate(seedPos, goalPos, float64(i)/float64(nSteps))
-
-		var step []referenceframe.Input
-
-		solutions, err := getSolutions(ctx, opt, mp.solver, spatial.PoseToProtobuf(intPos), seed, mp.Frame())
-		if err != nil {
-			return nil, err
-		}
-
-		minScore := math.Inf(1)
-		for score, sol := range solutions {
-			if score < minScore {
-				step = sol
-			}
-		}
-
-		seed = step
-		// Append deep copy of result to inputSteps
-		inputSteps = append(inputSteps, append([]referenceframe.Input{}, step...))
-	}
-
-	return inputSteps, nil
 }
 
 // getSteps will determine the number of steps which should be used to get from the seed to the goal.
