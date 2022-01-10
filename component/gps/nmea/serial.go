@@ -31,7 +31,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newSerialNMEAGPS(config, logger)
+			return newSerialNMEAGPS(ctx, config, logger)
 		}})
 }
 
@@ -49,7 +49,7 @@ type serialNMEAGPS struct {
 
 const pathAttrName = "path"
 
-func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.GPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -59,7 +59,7 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 		return nil, err
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(context.Background())
+	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
 	g.Start()
