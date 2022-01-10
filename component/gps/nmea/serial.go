@@ -140,6 +140,8 @@ func (g *serialNMEAGPS) Valid(ctx context.Context) (bool, error) {
 }
 
 func (g *serialNMEAGPS) Close() error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
 	return g.dev.Close()
