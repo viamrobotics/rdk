@@ -529,10 +529,10 @@
 
                     let startedForceAnimation = false;
                     const timeInterval = 10; // in milliseconds
-                    let req = new robotApi.ForceMatrixMatrixRequest();
+                    let req = new forceMatrixApi.ForceMatrixServiceMatrixRequest();
                     req.setName(name);
 
-                    let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
+                    let slipReq = new forceMatrixApi.ForceMatrixServiceSlipDetectionRequest();
                     slipReq.setName(name);
                     
                     isFirstRender = true;
@@ -550,14 +550,14 @@
                         pResolve2 = resolve;
                         pReject2 = reject;
                       });
-                      robotService.forceMatrixMatrix(req, {}, (err, resp) => {
+                      forceMatrixService.matrix(req, {}, (err, resp) => {
                         if (err) {
                           pReject1(err);
                         }
                         pResolve1(null);
                         animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender)
                       });
-                      robotService.forceMatrixSlipDetection(slipReq, {}, (err, resp) => {
+                      forceMatrixService.slipDetection(slipReq, {}, (err, resp) => {
                         if (err) {
                           pReject2(err);
                         }
