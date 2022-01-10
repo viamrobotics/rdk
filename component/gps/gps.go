@@ -27,7 +27,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named IMU's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // A GPS represents a GPS that can report lat/long measurements.

@@ -174,6 +174,15 @@ func TestDesc(t *testing.T) {
 	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 1)
 }
 
+func TestClose(t *testing.T) {
+	actualGPS1 := &mock{Name: "gps1"}
+	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
+
+	test.That(t, actualGPS1.reconfCalls, test.ShouldEqual, 0)
+	test.That(t, reconfGPS1.(*reconfigurableGPS).Close(context.Background()), test.ShouldBeNil)
+	test.That(t, actualGPS1.reconfCalls, test.ShouldEqual, 1)
+}
+
 var (
 	loc        = geo.NewPoint(90, 1)
 	alt        = 50.5
