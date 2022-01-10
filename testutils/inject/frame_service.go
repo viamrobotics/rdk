@@ -11,31 +11,22 @@ import (
 // FrameSystemService is an injected FrameSystem service.
 type FrameSystemService struct {
 	framesystem.Service
-	FrameSystemConfigFunc func(ctx context.Context) ([]*config.FrameSystemPart, error)
-	LocalFrameSystemFunc  func(ctx context.Context, name string) (referenceframe.FrameSystem, error)
-	ModelFrameFunc        func(ctx context.Context, name string) (referenceframe.Model, error)
+	ConfigFunc      func(ctx context.Context) ([]*config.FrameSystemPart, error)
+	FrameSystemFunc func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 }
 
-// FrameSystemConfig calls the injected FrameSystemConfig or the real version.
-func (fss *FrameSystemService) FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error) {
-	if fss.FrameSystemConfigFunc == nil {
-		return fss.FrameSystemConfig(ctx)
+// Config calls the injected Config or the real version.
+func (fss *FrameSystemService) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
+	if fss.ConfigFunc == nil {
+		return fss.Config(ctx)
 	}
-	return fss.FrameSystemConfigFunc(ctx)
+	return fss.ConfigFunc(ctx)
 }
 
-// LocalFrameSystem calls the injected LocalFrameSystem or the real version.
-func (fss *FrameSystemService) LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
-	if fss.LocalFrameSystemFunc == nil {
-		return fss.LocalFrameSystem(ctx, name)
+// FrameSystem calls the injected FrameSystem or the real version.
+func (fss *FrameSystemService) FrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
+	if fss.FrameSystemFunc == nil {
+		return fss.FrameSystem(ctx, name, prefix)
 	}
-	return fss.LocalFrameSystemFunc(ctx, name)
-}
-
-// ModelFrame calls the injected ModelFrame or the real version.
-func (fss *FrameSystemService) ModelFrame(ctx context.Context, name string) (referenceframe.Model, error) {
-	if fss.ModelFrameFunc == nil {
-		return fss.ModelFrame(ctx, name)
-	}
-	return fss.ModelFrameFunc(ctx, name)
+	return fss.FrameSystemFunc(ctx, name, prefix)
 }

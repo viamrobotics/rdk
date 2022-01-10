@@ -69,13 +69,6 @@ service RobotService {
       post: "/api/v1/resource/{resource_name}/run_command"
     };
   }
-
-  // Frame System Service
-  rpc FrameServiceConfig(FrameServiceConfigRequest) returns (FrameServiceConfigResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/frame_system/config"
-    };
-  }
   
   // Navigation Service
   rpc NavigationServiceMode(NavigationServiceModeRequest) returns (NavigationServiceModeResponse) {

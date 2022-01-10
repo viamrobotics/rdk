@@ -437,7 +437,7 @@ func TestClient(t *testing.T) {
 		},
 	}
 	fss := &inject.FrameSystemService{}
-	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+	fss.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 		return fsConfigs, nil
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
@@ -455,27 +455,6 @@ func TestClient(t *testing.T) {
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
-
-	// test robot frame system
-	frameSys, err := client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldBeNil)
-	frame1 := frameSys.GetFrame("frame1")
-	frame1Offset := frameSys.GetFrame("frame1_offset")
-	frame2 := frameSys.GetFrame("frame2")
-	frame2Offset := frameSys.GetFrame("frame2_offset")
-
-	resFrame, err := frameSys.Parent(frame2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame2Offset)
-	resFrame, err = frameSys.Parent(frame2Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1)
-	resFrame, err = frameSys.Parent(frame1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1Offset)
-	resFrame, err = frameSys.Parent(frame1Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frameSys.World())
 
 	// test status
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
