@@ -718,25 +718,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	return int(resp.WidthMillis), nil
 }
 
-// // Status uses the parent robot client's cached status or a newly fetched
-// // board status to return the state of the board.
-// func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
-// 	if status := bc.rc.getCachedStatus(); status != nil {
-// 		boardStatus, ok := status.Boards[bc.info.name]
-// 		if !ok {
-// 			return nil, errors.Errorf("no board with name (%s)", bc.info.name)
-// 		}
-// 		return boardStatus, nil
-// 	}
-// 	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
-// 		Name: bc.info.name,
-// 	})
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return resp.Status, nil
-// }
-
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
 // for descriptions of its methods.
 type sensorClient struct {
