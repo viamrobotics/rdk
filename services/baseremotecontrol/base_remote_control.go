@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -21,16 +22,27 @@ import (
 const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
-	Type      = config.ServiceType("base_remote_control")
-	maxSpeed  = 1000.0
-	maxAngle  = 360.0
-	distRatio = 10
+	SubtypeName = resource.SubtypeName("base_remote_control")
+	maxSpeed    = 1000.0
+	maxAngle    = 360.0
+	distRatio   = 10
 )
 
-func init() {
-	registry.RegisterService(Type, registry.Service{Constructor: New})
+// Subtype is a constant that identifies the remote control resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
 
-	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
+// Name is the BaseRemoteControlService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
+
+func init() {
+	registry.RegisterService(Subtype, registry.Service{Constructor: New})
+	cType := config.ServiceType(SubtypeName)
+
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {

@@ -25,8 +25,6 @@ func TestAdd(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	newMetadata := resource.NewFromSubtype(service.Subtype, "metadata1")
-
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
@@ -42,15 +40,9 @@ func TestAdd(t *testing.T) {
 			"uuid field for resource missing or invalid",
 		},
 		{
-			"add metadata",
-			newMetadata,
-			[]resource.Name{service, newMetadata},
-			"",
-		},
-		{
 			"one addition",
 			arm,
-			[]resource.Name{service, newMetadata, arm},
+			[]resource.Name{service, arm},
 			"",
 		},
 		{
@@ -62,7 +54,7 @@ func TestAdd(t *testing.T) {
 		{
 			"another addition",
 			sensor,
-			[]resource.Name{service, newMetadata, arm, sensor},
+			[]resource.Name{service, arm, sensor},
 			"",
 		},
 	} {
@@ -93,7 +85,7 @@ func TestReplace(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 
-	metadataSvc := resource.NewFromSubtype(service.Subtype, "")
+	metadataSvc := resource.NameFromSubtype(service.Subtype, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {

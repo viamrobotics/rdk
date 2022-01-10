@@ -28,7 +28,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named ForceMatrix's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // MatrixStorageSize determines how many matrices to store in history queue.

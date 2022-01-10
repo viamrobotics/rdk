@@ -25,7 +25,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named input's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // Controller is a logical "container" more than an actual device
