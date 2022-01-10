@@ -1194,68 +1194,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 	})
-
-	t.Run("ForceMatrixMatrix", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		var capMatrix [][]int
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		expectedMatrix := make([][]int, 4)
-		for i := 0; i < len(expectedMatrix); i++ {
-			expectedMatrix[i] = []int{1, 2, 3, 4}
-		}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-			capMatrix = expectedMatrix
-			return expectedMatrix, nil
-		}
-		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
-	})
-
-	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
-		test.That(t, err, test.ShouldBeNil)
-	})
 }
 
 type robotServiceStatusStreamServer struct {
