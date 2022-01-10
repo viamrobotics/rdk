@@ -35,7 +35,6 @@ type robotParts struct {
 	remotes         map[string]*remoteRobot
 	bases           map[string]*proxyBase
 	sensors         map[string]sensor.Sensor
-	services        map[string]interface{}
 	functions       map[string]struct{}
 	resources       map[resource.Name]interface{}
 	processManager  pexec.ProcessManager
@@ -48,7 +47,6 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 		remotes:         map[string]*remoteRobot{},
 		bases:           map[string]*proxyBase{},
 		sensors:         map[string]sensor.Sensor{},
-		services:        map[string]interface{}{},
 		functions:       map[string]struct{}{},
 		resources:       map[resource.Name]interface{}{},
 		processManager:  pexec.NewProcessManager(logger),
@@ -104,11 +102,6 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
 	}
-}
-
-// AddService adds a service to the parts.
-func (parts *robotParts) AddService(svc interface{}, c config.Service) {
-	parts.services[c.Name] = svc
 }
 
 // addFunction adds a function to the parts.
@@ -276,15 +269,6 @@ func (parts *robotParts) FunctionNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
 }
 
-// ServiceNames returns the names of all service in the parts.
-func (parts *robotParts) ServiceNames() []string {
-	names := []string{}
-	for k := range parts.services {
-		names = append(names, k)
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ServiceNames)
-}
-
 // ResourceNames returns the names of all resources in the parts.
 func (parts *robotParts) ResourceNames() []resource.Name {
 	names := []resource.Name{}
@@ -321,12 +305,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.functions[k] = v
 		}
 	}
-	if len(parts.services) != 0 {
-		clonedParts.services = make(map[string]interface{}, len(parts.services))
-		for k, v := range parts.services {
-			clonedParts.services[k] = v
-		}
-	}
 	if len(parts.resources) != 0 {
 		clonedParts.resources = make(map[resource.Name]interface{}, len(parts.resources))
 		for k, v := range parts.resources {
@@ -344,12 +322,6 @@ func (parts *robotParts) Close(ctx context.Context) error {
 	var allErrs error
 	if err := parts.processManager.Stop(); err != nil {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
-	}
-
-	for _, x := range parts.services {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing service"))
-		}
 	}
 
 	for _, x := range parts.remotes {
@@ -425,6 +397,10 @@ func (parts *robotParts) processModifiedConfig(
 	}
 
 	if err := parts.newComponents(ctx, config.Components, robot); err != nil {
+		return err
+	}
+
+	if err := parts.newServices(ctx, config.Services, robot); err != nil {
 		return err
 	}
 
@@ -528,7 +504,7 @@ func (parts *robotParts) newServices(ctx context.Context, services []config.Serv
 		if err != nil {
 			return err
 		}
-		parts.AddService(svc, c)
+		parts.addResource(c.ResourceName(), svc)
 	}
 
 	return nil
@@ -722,20 +698,6 @@ func (parts *robotParts) InputControllerByName(name string) (input.Controller, b
 	return nil, false
 }
 
-func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
-	part, ok := parts.services[name]
-	if ok {
-		return part, true
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ServiceByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -805,15 +767,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 		for k, v := range toAdd.functions {
 			parts.functions[k] = v
-		}
-	}
-
-	if len(toAdd.services) != 0 {
-		if parts.services == nil {
-			parts.services = make(map[string]interface{}, len(toAdd.services))
-		}
-		for k, v := range toAdd.services {
-			parts.services[k] = v
 		}
 	}
 
@@ -895,16 +848,37 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			oldPart, ok := old.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("old type %T is not reconfigurable", old)
-			}
-			newPart, ok := v.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("new type %T is not reconfigurable", v)
-			}
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				return nil, err
+			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
+			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
+
+			switch {
+			case oldIsReconfigurable != newIsReconfigurable:
+				// this is an indicator of a serious constructor problem
+				// for the resource subtype.
+				reconfError := errors.Errorf(
+					"new type %T is reconfigurable whereas old type %T is not",
+					v, old)
+				if oldIsReconfigurable {
+					reconfError = errors.Errorf(
+						"old type %T is reconfigurable whereas new type %T is not",
+						old, v)
+				}
+				return nil, reconfError
+			case oldIsReconfigurable && newIsReconfigurable:
+				// if we are dealing with a reconfigurable resource
+				// use the new resource to reconfigure the old one.
+				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+					return nil, err
+				}
+			case !oldIsReconfigurable && !newIsReconfigurable:
+				// if we are not dealing with a reconfigurable resource
+				// we want to close the old resource and replace it with the
+				// new.
+				if err := utils.TryClose(ctx, old); err != nil {
+					return nil, err
+				}
+				delete(parts.resources, k)
+				parts.resources[k] = v
 			}
 		}
 	}
@@ -936,12 +910,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 	if len(toRemove.functions) != 0 {
 		for k := range toRemove.functions {
 			delete(parts.functions, k)
-		}
-	}
-
-	if len(toRemove.services) != 0 {
-		for k := range toRemove.services {
-			delete(parts.services, k)
 		}
 	}
 
@@ -1009,20 +977,21 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 		}
 	}
 
+	for _, conf := range conf.Services {
+		rName := conf.ResourceName()
+		part, ok := parts.ResourceByName(rName)
+		if !ok {
+			continue
+		}
+		filtered.addResource(rName, part)
+	}
+
 	for _, conf := range conf.Functions {
 		_, ok := parts.functions[conf.Name]
 		if !ok {
 			continue
 		}
 		filtered.addFunction(conf.Name)
-	}
-
-	for _, conf := range conf.Services {
-		part, ok := parts.services[conf.Name]
-		if !ok {
-			continue
-		}
-		filtered.AddService(part, conf)
 	}
 
 	return filtered, nil
