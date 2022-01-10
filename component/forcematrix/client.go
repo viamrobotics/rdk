@@ -123,7 +123,3 @@ func protoToMatrix(matrixResponse *pb.ForceMatrixServiceMatrixResponse) [][]int 
 	}
 	return matrix
 }
-
-// TODO: dunno if I still need this?
-// Ensure implements ForceMatrix.
-// var _ = forcematrix.ForceMatrix(&forcematrixClient{})
