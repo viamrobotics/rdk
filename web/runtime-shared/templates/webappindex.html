@@ -89,6 +89,20 @@
           return n;
       }
 
+      function fixBoards(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              const [boardName, boardValue] = old[i];
+              var newBoard = {
+                  name : boardName,
+                  analogsMap : boardValue.analogsMap || [],
+                  digitalInterruptsMap : boardValue.digitalInterruptsMap || [],
+              };
+              n.push(newBoard);
+          }
+          return n;
+      }
+
       function fixGantries(old) {
           var n = [];
           for (var i=0; i<old.length; i++) {
@@ -133,6 +147,7 @@
           status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
+          status.boardsMap = fixBoards(status.boardsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
 
           if (!firstResult) {
