@@ -805,11 +805,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	sensorDevice, ok := s.r.ResourceByName(gps.Named(name))
+	resource, ok := s.r.ResourceByName(gps.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no gps with name (%s)", name)
 	}
-	return sensorDevice.(gps.GPS), nil
+	return resource.(gps.GPS), nil
 }
 
 // GPSLocation returns the most recent location from the given GPS.
