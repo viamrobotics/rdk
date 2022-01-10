@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -48,10 +49,28 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	solveFrame, goalFrame frame.Frame,
 	opt *PlannerOptions,
 ) ([]map[string][]frame.Input, error) {
-	// Default for opt if nil
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
+	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrame, goalFrame, []*PlannerOptions{opt})
+}
+
+// SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal poses with respect to the goal frame using the provided
+// planning options.
+func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goals []spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+	opts []*PlannerOptions,
+) ([]map[string][]frame.Input, error) {
+	if len(opts) == 0 {
+		for i := 0; i < len(goals); i++ {
+			opts = append(opts, NewDefaultPlannerOptions())
+		}
 	}
+	if len(opts) != len(goals) {
+		return nil, errors.New("goals and options had different lengths")
+	}
+
+	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -81,17 +100,108 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 
 	seed := sf.mapToSlice(seedMap)
 
-	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
-	steps := make([]map[string][]frame.Input, 0, len(resultSlices))
 	for _, resultSlice := range resultSlices {
-		steps = append(steps, sf.sliceToMap(resultSlice))
+		steps = append(steps, sf.sliceToMapConf(resultSlice))
 	}
 
 	return steps, nil
+}
+
+func plannerRunner(ctx context.Context,
+	planner MotionPlanner,
+	goals []spatial.Pose,
+	seed []frame.Input,
+	opts []*PlannerOptions,
+	iter int,
+) ([]*configuration, error) {
+	var err error
+	goal := goals[iter]
+	opt := opts[iter]
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
+	remainingSteps := []*configuration{}
+	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
+		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		endpointPreview := make(chan *configuration, 1)
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, endpointPreview, solutionChan)
+		})
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			select {
+			case nextSeed := <-endpointPreview:
+				// Got a solution preview, start solving the next motion in a new thread.
+				if iter < len(goals)-1 {
+					// In this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it.
+					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for {
+					// Get the step from this runner invocation, and return everything in order.
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					default:
+					}
+
+					select {
+					case finalSteps := <-solutionChan:
+						if finalSteps.err != nil {
+							return nil, finalSteps.err
+						}
+						return append(finalSteps.steps, remainingSteps...), nil
+					default:
+					}
+				}
+			case finalSteps := <-solutionChan:
+				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
+				if finalSteps.err != nil {
+					return nil, finalSteps.err
+				}
+				if iter < len(goals)-1 {
+					// in this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it
+					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				return append(finalSteps.steps, remainingSteps...), nil
+			default:
+			}
+		}
+	} else {
+		resultSlices := []*configuration{}
+		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		if err != nil {
+			return nil, err
+		}
+		for _, step := range resultSlicesRaw {
+			resultSlices = append(resultSlices, &configuration{step})
+		}
+		if iter < len(goals)-2 {
+			// in this case, we create the next step (and thus the remaining steps) and the
+			// step from our iteration hangs out in the channel buffer until we're done with it
+			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return append(resultSlices, remainingSteps...), nil
+	}
 }
 
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
@@ -173,6 +283,17 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	for _, frame := range sf.frames {
 		fLen := i + len(frame.DoF())
 		inputs[frame.Name()] = inputSlice[i:fLen]
+		i = fLen
+	}
+	return inputs
+}
+
+func (sf *solverFrame) sliceToMapConf(inputSlice *configuration) map[string][]frame.Input {
+	inputs := frame.StartPositions(sf.fss)
+	i := 0
+	for _, frame := range sf.frames {
+		fLen := i + len(frame.DoF())
+		inputs[frame.Name()] = inputSlice.inputs[i:fLen]
 		i = fLen
 	}
 	return inputs
