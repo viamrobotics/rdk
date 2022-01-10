@@ -91,7 +91,6 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		imu1Client2 := imu.NewClientFromConn(context.Background(), conn, imu1, logger)
-		test.That(t, err, test.ShouldBeNil)
 
 		av2, err := imu1Client2.AngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
