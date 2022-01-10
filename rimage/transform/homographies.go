@@ -4,10 +4,10 @@ import (
 	"log"
 	"math"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/gonum/floats"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 	"gonum.org/v1/gonum/stat"
 
@@ -336,7 +336,7 @@ func EstimateHomographyRANSAC(pts1, pts2 []r2.Point, thresh float64, nMaxIterati
 }
 
 // ApplyHomography applies a homography on a slice of r2.Vec.
-func ApplyHomography(h rimage.Matrix, pts []r2.Point) []r2.Point {
+func ApplyHomography(h *mat.Dense, pts []r2.Point) []r2.Point {
 	outPoints := make([]r2.Point, len(pts))
 	for i, pt := range pts {
 		x := h.At(0, 0)*pt.X + h.At(0, 1)*pt.Y + h.At(0, 2)
@@ -348,7 +348,7 @@ func ApplyHomography(h rimage.Matrix, pts []r2.Point) []r2.Point {
 }
 
 // ApplyNormalizationMat applies a normalization matrix to a slice of r2.Point.
-func ApplyNormalizationMat(h rimage.Matrix, pts []r2.Point) []r2.Point {
+func ApplyNormalizationMat(h *mat.Dense, pts []r2.Point) []r2.Point {
 	outPoints := make([]r2.Point, len(pts))
 	for i, pt := range pts {
 		x := h.At(0, 0)*pt.X + h.At(0, 1)*pt.Y + h.At(0, 2)
