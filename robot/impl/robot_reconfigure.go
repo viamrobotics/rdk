@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/web"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -37,7 +38,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update web service
-	webSvc, ok := r.ServiceByName(WebSvcName)
+	webSvc, ok := r.ResourceByName(web.Name)
 	if ok {
 		updateable, ok := webSvc.(resource.Updateable)
 		if ok {

@@ -23,7 +23,7 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robots/fake"
-	"go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/objectmanipulation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -934,11 +934,9 @@ func TestPartsAdd(t *testing.T) {
 		cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
 	}
-	parts.AddService(
-		injectObjectManipulationService,
-		config.Service{Name: services.ObjectManipulationServiceName},
-	)
-	objectManipulationService, ok := parts.ServiceByName(services.ObjectManipulationServiceName)
+	objectMResName := objectmanipulation.Name
+	parts.addResource(objectMResName, injectObjectManipulationService)
+	objectManipulationService, ok := parts.ResourceByName(objectMResName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 

@@ -24,7 +24,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -158,18 +159,18 @@ func TestServer(t *testing.T) {
 			return fsConfigs, nil
 		}
 		// set up the robot without a frame system service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
 		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+		test.That(t, err, test.ShouldBeError, errors.New("no framesystem service"))
 
 		// set up the robot with something that is not a framesystem service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -177,9 +178,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
 
 		// set up the robot with the frame system
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = fss
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -233,8 +234,8 @@ func TestServer(t *testing.T) {
 		server, injectRobot := newServer()
 
 		// set up the robot without an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
@@ -242,9 +243,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("no objectmanipulation service"))
 
 		// set up the robot with something that is not an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.ObjectManipulationServiceName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[objectmanipulation.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -254,7 +255,7 @@ func TestServer(t *testing.T) {
 		// pass on dograb error
 		passedErr := errors.New("fake dograb error")
 		omSvc := &inject.ObjectManipulationService{}
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return omSvc, true
 		}
 		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {

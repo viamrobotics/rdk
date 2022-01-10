@@ -382,7 +382,7 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 		}
 		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	if !ok {
 		return errors.New("robot has no web service")
 	}

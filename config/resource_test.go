@@ -9,19 +9,9 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/testutils"
 )
-
-// convertedAttributes is a helper for testing if validation works.
-type convertedAttributes struct {
-	thing string
-}
-
-func (convAttr *convertedAttributes) Validate(path string) error {
-	if convAttr.thing == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "thing")
-	}
-	return nil
-}
 
 func TestComponentValidate(t *testing.T) {
 	t.Run("config invalid", func(t *testing.T) {
@@ -42,21 +32,19 @@ func TestComponentValidate(t *testing.T) {
 	t.Run("ConvertedAttributes", func(t *testing.T) {
 		t.Run("config invalid", func(t *testing.T) {
 			invalidConfig := config.Component{
-				Name: "foo",
-				ConvertedAttributes: &convertedAttributes{
-					thing: "",
-				},
+				Name:                "foo",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
-			test.That(t, err.Error(), test.ShouldContainSubstring, `"thing" is required`)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
 		})
 
 		t.Run("config valid", func(t *testing.T) {
 			invalidConfig := config.Component{
 				Name: "foo",
-				ConvertedAttributes: &convertedAttributes{
-					thing: "i am a thing!",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{
+					Thing: "i am a thing!",
 				},
 			}
 			err := invalidConfig.Validate("path")
@@ -225,6 +213,114 @@ func TestParseComponentFlag(t *testing.T) {
 	test.That(t, comp.Model, test.ShouldEqual, "bar")
 	test.That(t, comp.DependsOn, test.ShouldResemble, []string{"foo", "bar"})
 	test.That(t, comp.Attributes, test.ShouldResemble, config.AttributeMap{
+		"wee": "woo",
+		"one": "two",
+	})
+}
+
+func TestServiceValidate(t *testing.T) {
+	t.Run("config invalid", func(t *testing.T) {
+		var emptyConfig config.Service
+		err := emptyConfig.Validate("path")
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, `"type" is required`)
+	})
+
+	t.Run("config valid", func(t *testing.T) {
+		validConfig := config.Service{
+			Type: "frame_system",
+		}
+		test.That(t, validConfig.Validate("path"), test.ShouldBeNil)
+	})
+
+	t.Run("ConvertedAttributes", func(t *testing.T) {
+		t.Run("config invalid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type:                "frame_system",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{Thing: ""},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
+		})
+
+		t.Run("config valid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type: "frame_system",
+				ConvertedAttributes: &testutils.FakeConvertedAttributes{
+					Thing: "i am a thing!",
+				},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	})
+
+	t.Run("Attributes", func(t *testing.T) {
+		t.Run("config invalid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type:       "frame_system",
+				Attributes: config.AttributeMap{"attr": &testutils.FakeConvertedAttributes{Thing: ""}},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, `"Thing" is required`)
+		})
+
+		t.Run("config valid", func(t *testing.T) {
+			invalidConfig := config.Service{
+				Type: "frame_system",
+				Attributes: config.AttributeMap{
+					"attr": testutils.FakeConvertedAttributes{
+						Thing: "i am a thing!",
+					},
+					"attr2": "boop",
+				},
+			}
+			err := invalidConfig.Validate("path")
+			test.That(t, err, test.ShouldBeNil)
+		})
+	})
+}
+
+func TestServiceResourceName(t *testing.T) {
+	for _, tc := range []struct {
+		Name            string
+		Config          config.Service
+		ExpectedSubtype resource.Subtype
+		ExpectedName    resource.Name
+	}{
+		{
+			"all fields included",
+			config.Service{
+				Type: "frame_system",
+			},
+			framesystem.Subtype,
+			resource.NameFromSubtype(framesystem.Subtype, ""),
+		},
+	} {
+		t.Run(tc.Name, func(t *testing.T) {
+			rName := tc.Config.ResourceName()
+			test.That(t, rName.Subtype, test.ShouldResemble, tc.ExpectedSubtype)
+			test.That(t, rName, test.ShouldResemble, tc.ExpectedName)
+		})
+	}
+}
+
+func TestSet(t *testing.T) {
+	conf := &config.Service{}
+	err := conf.Set("foo")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
+
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee")
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "format")
+
+	err = conf.Set("type=foo,model=bar,name=baz,attr=wee:woo,subtype=who,depends_on=foo|bar,attr=one:two")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, conf.Type, test.ShouldEqual, config.ServiceType("foo"))
+	test.That(t, conf.Attributes, test.ShouldResemble, config.AttributeMap{
 		"wee": "woo",
 		"one": "two",
 	})

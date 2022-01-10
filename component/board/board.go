@@ -29,7 +29,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // A Board represents a physical general purpose board that contains various

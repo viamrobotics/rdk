@@ -44,7 +44,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -601,9 +601,9 @@ func TestClient(t *testing.T) {
 	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 		return fsConfigs, nil
 	}
-	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
-		services := make(map[string]interface{})
-		services[servicepkg.FrameSystemName] = fss
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		services := make(map[resource.Name]interface{})
+		services[framesystem.Name] = fss
 		service, ok := services[name]
 		return service, ok
 	}

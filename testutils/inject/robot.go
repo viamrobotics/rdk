@@ -37,7 +37,6 @@ type Robot struct {
 	ServoByNameFunc           func(name string) (servo.Servo, bool)
 	MotorByNameFunc           func(name string) (motor.Motor, bool)
 	InputControllerByNameFunc func(name string) (input.Controller, bool)
-	ServiceByNameFunc         func(name string) (interface{}, bool)
 	ResourceByNameFunc        func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc           func() []string
 	ArmNamesFunc              func() []string
@@ -50,7 +49,6 @@ type Robot struct {
 	MotorNamesFunc            func() []string
 	InputControllerNamesFunc  func() []string
 	FunctionNamesFunc         func() []string
-	ServiceNamesFunc          func() []string
 	FrameSystemFunc           func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 	ResourceNamesFunc         func() []resource.Name
 	ProcessManagerFunc        func() pexec.ProcessManager
@@ -139,14 +137,6 @@ func (r *Robot) InputControllerByName(name string) (input.Controller, bool) {
 		return r.Robot.InputControllerByName(name)
 	}
 	return r.InputControllerByNameFunc(name)
-}
-
-// ServiceByName calls the injected ServiceByName or the real version.
-func (r *Robot) ServiceByName(name string) (interface{}, bool) {
-	if r.ServiceByNameFunc == nil {
-		return r.Robot.ServiceByName(name)
-	}
-	return r.ServiceByNameFunc(name)
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
@@ -243,14 +233,6 @@ func (r *Robot) FunctionNames() []string {
 		return r.Robot.FunctionNames()
 	}
 	return r.FunctionNamesFunc()
-}
-
-// ServiceNames calls the injected ServiceNames or the real version.
-func (r *Robot) ServiceNames() []string {
-	if r.ServiceNamesFunc == nil {
-		return r.Robot.ServiceNames()
-	}
-	return r.ServiceNamesFunc()
 }
 
 // FrameSystem calls the injected FrameSystemFunc or the real version.
