@@ -356,7 +356,7 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
-	//nolint:gocritic
+
 	switch name.Subtype {
 	case gps.Subtype:
 		sensorType := rc.sensorTypes[name.Name]
