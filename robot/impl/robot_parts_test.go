@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
-	fakeforcematrix "go.viam.com/rdk/component/forcematrix/fake"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -77,7 +76,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor1", "sensor2", "forcematrix"),
+		utils.NewStringSet("sensor1", "sensor2"),
 	)
 	test.That(
 		t,
@@ -145,14 +144,6 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	fsm, ok := parts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
 	_, ok = parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ServoByName("servo1_what")
@@ -247,13 +238,10 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(
@@ -361,30 +349,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
 		test.ShouldEqual,
 		"sensor1_r2",
-	)
-	fsm, ok := parts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
-	fsm, ok = parts.SensorByName("forcematrix_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r1",
-	)
-	fsm, ok = parts.SensorByName("forcematrix_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r2",
 	)
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
@@ -507,10 +471,8 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 		),
 	)
 	test.That(
@@ -650,13 +612,10 @@ func TestPartsClone(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(
@@ -770,30 +729,6 @@ func TestPartsClone(t *testing.T) {
 		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
 		test.ShouldEqual,
 		"sensor1_r2",
-	)
-	fsm, ok := newParts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
-	fsm, ok = newParts.SensorByName("forcematrix_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r1",
-	)
-	fsm, ok = newParts.SensorByName("forcematrix_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r2",
 	)
 	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
@@ -1120,13 +1055,10 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -1286,19 +1218,14 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 			"sensor1_other",
 			"sensor2_other",
-			"forcematrix_other",
 			"sensor1_other1",
 			"sensor2_other1",
-			"forcematrix_other1",
 		),
 	)
 	test.That(
@@ -1443,19 +1370,14 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 			"sensor1_other",
 			"sensor2_other",
-			"forcematrix_other",
 			"sensor1_other1",
 			"sensor2_other1",
-			"forcematrix_other1",
 		),
 	)
 	test.That(
@@ -1630,13 +1552,10 @@ func TestPartsMergeModify(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -1901,13 +1820,10 @@ func TestPartsMergeRemove(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -2379,7 +2295,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2", "forcematrix_r2"),
+		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2"),
 	)
 	test.That(
 		t,
@@ -2636,10 +2552,8 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			"sensor2",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(
