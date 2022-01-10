@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -369,10 +368,6 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
-	case forcematrix.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &forcematrixClient{sc}, true
 	case board.Subtype:
 		for _, info := range rc.boardNames {
 			if info.name == name.Name {
@@ -1086,64 +1081,4 @@ func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
 
 func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
-}
-
-// forcematrixClient satisfies a gRPC based
-// forcematrix.ForceMatrix.
-// Refer to the ForceMatrix interface for descriptions of its methods.
-type forcematrixClient struct {
-	*sensorClient
-}
-
-func (fmc *forcematrixClient) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fmc.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
-}
-
-func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
-	resp, err := fmc.rc.client.ForceMatrixMatrix(ctx,
-		&pb.ForceMatrixMatrixRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return protoToMatrix(resp), nil
-}
-
-func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
-	resp, err := fmc.rc.client.ForceMatrixSlipDetection(ctx,
-		&pb.ForceMatrixSlipDetectionRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return false, err
-	}
-
-	return resp.GetIsSlipping(), nil
-}
-
-func (fmc *forcematrixClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
-}
-
-// Ensure implements ForceMatrix.
-var _ = forcematrix.ForceMatrix(&forcematrixClient{})
-
-// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
-	numRows := matrixResponse.Matrix.Rows
-	numCols := matrixResponse.Matrix.Cols
-
-	matrix := make([][]int, numRows)
-	for row := range matrix {
-		matrix[row] = make([]int, numCols)
-		for col := range matrix[row] {
-			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
-		}
-	}
-	return matrix
 }
