@@ -12,9 +12,9 @@ import (
 )
 
 func TestSearch(t *testing.T) {
-	tempDir1 := testutils.TempDirT(t, "", "")
+	tempDir1 := testutils.TempDirT(t, "", "usb-tempdir1")
 	defer os.RemoveAll(tempDir1) // clean up
-	tempDir2 := testutils.TempDirT(t, "", "")
+	tempDir2 := testutils.TempDirT(t, "", "usb-tempdir2")
 	defer os.RemoveAll(tempDir2) // clean up
 
 	prevSysPaths := SysPaths
