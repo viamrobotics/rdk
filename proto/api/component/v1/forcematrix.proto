@@ -12,14 +12,14 @@ service ForceMatrixService {
   // Matrix returns the matrix of force readings from the force matrix sensor
   rpc Matrix(ForceMatrixServiceMatrixRequest) returns (ForceMatrixServiceMatrixResponse) {
     option (google.api.http) = {
-      get : "/api/v1/component/forcematrix/{name}/matrix"
+      get : "/api/v1/component/force_matrix/{name}/matrix"
     };
   }
 
   // SlipDetection returns whether or not slip is occurring
   rpc SlipDetection(ForceMatrixServiceSlipDetectionRequest) returns (ForceMatrixServiceSlipDetectionResponse) {
     option (google.api.http) = {
-      get : "/api/v1/component/forcematrix/{name}/slip_detection"
+      get : "/api/v1/component/force_matrix/{name}/slip_detection"
     };
   }
 }
