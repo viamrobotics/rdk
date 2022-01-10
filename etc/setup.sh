@@ -10,43 +10,47 @@ if [ "`sudo whoami`x" != "rootx" ]; then
 	exit 1
 fi
 
-if [ "$(uname)" == "Linux" ]; then
+do_bullseye(){
+	# Basic tools
+	apt-get update && apt-get install -y curl wget gpg sudo nano less git file && apt-get clean
 
-	# Try for minimal (no node or web tooling) environment on pi/jetson/similar
-	if [ "$(uname -m)" == "aarch64" ] && [ $(cat /etc/debian_version | cut -d. -f1) -ge 10 ]; then
-		PKG_LIST="build-essential procps curl file git golang-go wasmer-dev libnlopt-dev libx264-dev"
-		if [ -d "/sys/bus/platform/drivers/raspberrypi-firmware" ]; then
-			PKG_LIST="$PKG_LIST libpigpio-dev"
-		fi
+	# Backports repo
+	echo "deb http://deb.debian.org/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports main" > /etc/apt/sources.list.d/backports.list
 
-		INSTALL_CMD="echo 'deb [trusted=yes] http://packages.viam.com/debian viam/' > /etc/apt/sources.list.d/viam.list && \
-		apt-get update && \
-		apt-get install --assume-yes $PKG_LIST"
+	# Viam repo
+	curl -s https://us-apt.pkg.dev/doc/repo-signing-key.gpg | gpg --dearmor -o /usr/share/keyrings/viam-google.gpg
+	echo "deb [signed-by=/usr/share/keyrings/viam-google.gpg] https://us-apt.pkg.dev/projects/static-file-server-310021 $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/viam-google.list
 
-		sudo bash -c "$INSTALL_CMD"
+	# Node repo
+	curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
+	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
-		if [ $? -ne 0 ]; then
-			echo "Package installation failed when running:"
-			echo "sudo bash -c \"$INSTALL_CMD\""
-			exit 1
-		fi
+	# Docker repo
+	curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+	echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) stable" > /etc/apt/sources.list.d/docker.list
 
-		git config --global --get-regexp url. > /dev/null
-		if [ $? -ne 0 ]; then
-			git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-		fi
+	# Install most things
+	apt-get update && apt-get install -y build-essential pkg-config ca-certificates devscripts python3-pip python3-setuptools patchelf desktop-file-utils libgdk-pixbuf2.0-dev gtk-update-icon-cache strace fuse file nodejs docker-ce docker-ce-cli containerd.io libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web wasmer-dev libhttpserver-dev librealsense2-dev libcubeeye-dev libroyale-dev && apt-get clean
 
-		echo -e "\033[41m""Full dev environment is only supported on Linux/x86_64, Darwin (MacOS).""\033[0m"
-		echo -e "\033[0;32m""Minimal environment installed. Go build/run/test should work, but web targets may fail.""\033[0m"
-		exit 0
+	# Install backports
+	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
 
-	elif [ "$(uname -m)" != "x86_64" ]; then
-		echo -e "\033[41m""Automated dev environment (full) setup is only supported on Linux/x86_64 and Darwin (MacOS).""\033[0m"
-		echo "Minimal environment setup is also available for Debian-based aarch64 systems. (Raspberry Pi, Nvidia Jetson, etc.)"
-		exit 1
+	# Raspberry Pi support
+	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi.gpg
+	test "$(uname -m)" != "aarch64" || echo "deb [signed-by=/usr/share/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/raspi.list
+	test "$(uname -m)" != "aarch64" || ( apt-get update && apt-get install -y wiringpi libpigpio-dev && apt-get clean )
+
+	cat > ~/.viamdevrc <<-EOS
+	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
+		export VIAM_DEV_ENV=1
+		export GOPRIVATE=github.com/viamrobotics/*,go.viam.com/*
 	fi
+	EOS
 
-	INSTALL_CMD=""
+	mod_profiles
+}
+
+do_linux(){
 	if apt-get --version > /dev/null 2>&1; then
 		# Debian/Ubuntu
 		INSTALL_CMD="apt-get install --assume-yes build-essential procps curl file git"
@@ -77,10 +81,12 @@ if [ "$(uname)" == "Linux" ]; then
 	fi
 	EOS
 
+	do_brew
+	mod_profiles
+}
 
 
-elif [ "$(uname)" == "Darwin" ]; then
-
+do_darwin(){
 	if ! gcc --version >/dev/null 2>&1; then
 		echo "Please finish the Xcode CLI tools installation then rerun this script."
 		exit 1
@@ -98,7 +104,7 @@ elif [ "$(uname)" == "Darwin" ]; then
 		fi
 		EOS
 
-  else # assuming x86_64, but untested
+  	else # assuming x86_64, but untested
 
 		cat > ~/.viamdevrc <<-EOS
 		if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
@@ -111,50 +117,68 @@ elif [ "$(uname)" == "Darwin" ]; then
 
 	fi
 
-fi
+	do_brew
+	mod_profiles
+}
 
+mod_profiles(){
+	# Add dev environment variables to shells
+	grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile
+	grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
+	grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
 
-# Add dev environment variables to shells
-grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile
-grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
-grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
+	git config --global --get-regexp url. > /dev/null
+	if [ $? -ne 0 ]; then
+		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+	fi
+}
 
+do_brew(){
+	# Install brew
+	brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
 
-# Install brew
-brew --version > /dev/null 2>&1 || bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || exit 1
+	# Has to be after the install so the brew eval can run
+	source ~/.viamdevrc
 
-# Has to be after the install so the brew eval can run
-source ~/.viamdevrc
+	brew bundle --file=- <<-EOS
 
-brew bundle --file=- <<-EOS
+	# unpinned
+	brew "nlopt"
+	brew "x264"
+	brew "protoc-gen-grpc-web"
+	# pinned
+	brew "gcc@11"
+	brew "go@1.17"
+	brew "node@16"
+	brew "protobuf@3.19"
+	# viam tap
+	tap  "viamrobotics/brews"
+	brew "libwasmer@2.1"
 
-# unpinned
-brew "nlopt"
-brew "x264"
-brew "protoc-gen-grpc-web"
-# pinned
-brew "gcc@11"
-brew "go@1.17"
-brew "node@16"
-brew "protobuf@3.19"
-# viam tap
-tap  "viamrobotics/brews"
-brew "libwasmer@2.1"
+	EOS
 
-EOS
+	if [ $? -ne 0 ]; then
+		exit 1
+	fi
 
-if [ $? -ne 0 ]; then
-	exit 1
-fi
+	brew link --overwrite "node@16" || exit 1
 
-brew link --overwrite "node@16" || exit 1
+	echo "Brew installed software versions..."
+	brew list --version
+}
 
-echo "Brew installed software versions..."
-brew list --version
-
-git config --global --get-regexp url. > /dev/null
-if [ $? -ne 0 ]; then
-	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+# Main install routine
+if [ "$(uname)" == "Linux" ]; then
+	if [ "$(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)" == "bullseye" ]; then
+		do_bullseye
+	elif [ "$(uname -m)" == "x86_64" ]; then
+		do_linux
+	else
+		echo -e "\033[41m""Native dev environment is only supported on Debian/Bullseye (x86_64 and aarch64), but brew-based support is avaialble for generic Linux/x86_64 and Darwin (MacOS).""\033[0m"
+		exit 1
+	fi
+elif [ "$(uname)" == "Darwin" ]; then
+	do_darwin
 fi
 
 echo -e "\033[0;32m""Dev environment setup is complete!""\033[0m"
