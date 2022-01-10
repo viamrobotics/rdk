@@ -23,7 +23,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -157,18 +158,18 @@ func TestServer(t *testing.T) {
 			return fsConfigs, nil
 		}
 		// set up the robot without a frame system service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
 		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+		test.That(t, err, test.ShouldBeError, errors.New("no framesystem service"))
 
 		// set up the robot with something that is not a framesystem service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -176,9 +177,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
 
 		// set up the robot with the frame system
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = fss
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -232,8 +233,8 @@ func TestServer(t *testing.T) {
 		server, injectRobot := newServer()
 
 		// set up the robot without an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
@@ -241,9 +242,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("no objectmanipulation service"))
 
 		// set up the robot with something that is not an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.ObjectManipulationServiceName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[objectmanipulation.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -253,7 +254,7 @@ func TestServer(t *testing.T) {
 		// pass on dograb error
 		passedErr := errors.New("fake dograb error")
 		omSvc := &inject.ObjectManipulationService{}
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return omSvc, true
 		}
 		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
@@ -679,68 +680,6 @@ func TestServer(t *testing.T) {
 		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
 			Name: "compass1",
 		})
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("ForceMatrixMatrix", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		var capMatrix [][]int
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		expectedMatrix := make([][]int, 4)
-		for i := 0; i < len(expectedMatrix); i++ {
-			expectedMatrix[i] = []int{1, 2, 3, 4}
-		}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-			capMatrix = expectedMatrix
-			return expectedMatrix, nil
-		}
-		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
-	})
-
-	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
 }

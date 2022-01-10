@@ -24,9 +24,11 @@ type (
 
 // Placeholder definitions for a few known constants.
 const (
-	ResourceNamespaceRDK    = Namespace("rdk")
-	ResourceTypeComponent   = TypeName("component")
-	ResourceTypeService     = TypeName("service")
+	ResourceNamespaceRDK  = Namespace("rdk")
+	ResourceTypeComponent = TypeName("component")
+	ResourceTypeService   = TypeName("service")
+	ResourceTypeFunction  = TypeName("function")
+
 	ResourceSubtypeBase     = SubtypeName("base")
 	ResourceSubtypeBoard    = SubtypeName("board")
 	ResourceSubtypeCompass  = SubtypeName("compass")
@@ -100,20 +102,25 @@ type Name struct {
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
 	i := resourceSubtype.String()
-	if name != "" {
+	if (name != "") && !isService {
 		i = fmt.Sprintf("%s/%s", i, name)
+	}
+	nameIdent := name
+	if isService {
+		nameIdent = ""
 	}
 	return Name{
 		UUID:    uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
 		Subtype: resourceSubtype,
-		Name:    name,
+		Name:    nameIdent,
 	}
 }
 
-// NewFromSubtype creates a new Name based on a Subtype and name string passed in.
-func NewFromSubtype(subtype Subtype, name string) Name {
+// NameFromSubtype creates a new Name based on a Subtype and name string passed in.
+func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
@@ -146,7 +153,7 @@ func (n Name) Validate() error {
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
-	if n.Name == "" {
+	if n.Name == "" || (n.ResourceType == ResourceTypeService) {
 		return n.Subtype.String()
 	}
 	return fmt.Sprintf("%s/%s", n.Subtype, n.Name)

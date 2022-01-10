@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -83,7 +84,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = svc.(web.Service).Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -102,7 +103,6 @@ func TestConfigRemote(t *testing.T) {
 		},
 		Services: []config.Service{
 			{
-				Name: "frame_system",
 				Type: "frame_system",
 			},
 		},
@@ -216,8 +216,8 @@ func TestConfigRemote(t *testing.T) {
 			"bar.func2": true,
 		},
 		Services: map[string]bool{
-			"frame_system": true,
-			"web1":         true,
+			"rdk:service:frame_system": true,
+			"rdk:service:web":          true,
 		},
 	}
 
@@ -289,7 +289,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					},
 				},
 			}
-			svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+			svc, ok := r.ResourceByName(web.Name)
 			test.That(t, ok, test.ShouldBeTrue)
 			err = svc.(web.Service).Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
@@ -387,7 +387,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					"func2": true,
 				},
 				Services: map[string]bool{
-					"web1": true,
+					"rdk:service:web": true,
 				},
 			}
 
@@ -504,7 +504,8 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	test.That(t, len(svc.All()), test.ShouldEqual, 8)
+	// 8 declared resources + default web service
+	test.That(t, len(svc.All()), test.ShouldEqual, 9)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -529,22 +530,22 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "fb2c9071-2700-5474-b8d3-54a3f9d45d17",
+			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
 			Name: "func1",
 		}: {},
 		{
-			UUID: "4f86ef35-a10d-533b-af91-a1e5b83aeb67",
+			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
@@ -576,6 +577,11 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeSensor,
 			},
 			Name: "compass2",
+		}: {},
+		{
+			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
+			Subtype: framesystem.Subtype,
+			Name:    "",
 		}: {},
 	}
 	svcResources := svc.All()

@@ -16,7 +16,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/forcematrix"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -24,7 +23,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/sensor/gps"
-	"go.viam.com/rdk/services"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -435,9 +433,9 @@ func (s *Server) FrameServiceConfig(
 	ctx context.Context,
 	req *pb.FrameServiceConfigRequest,
 ) (*pb.FrameServiceConfigResponse, error) {
-	svc, ok := s.r.ServiceByName(services.FrameSystemName)
+	svc, ok := s.r.ResourceByName(framesystem.Name)
 	if !ok {
-		return nil, errors.Errorf("no service named %q", services.FrameSystemName)
+		return nil, errors.New("no framesystem service")
 	}
 	fsSvc, ok := svc.(framesystem.Service)
 	if !ok {
@@ -467,7 +465,7 @@ func (s *Server) NavigationServiceMode(
 	ctx context.Context,
 	req *pb.NavigationServiceModeRequest,
 ) (*pb.NavigationServiceModeResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -496,7 +494,7 @@ func (s *Server) NavigationServiceSetMode(
 	ctx context.Context,
 	req *pb.NavigationServiceSetModeRequest,
 ) (*pb.NavigationServiceSetModeResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -526,7 +524,7 @@ func (s *Server) NavigationServiceLocation(
 	ctx context.Context,
 	req *pb.NavigationServiceLocationRequest,
 ) (*pb.NavigationServiceLocationResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -548,7 +546,7 @@ func (s *Server) NavigationServiceWaypoints(
 	ctx context.Context,
 	req *pb.NavigationServiceWaypointsRequest,
 ) (*pb.NavigationServiceWaypointsResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -577,7 +575,7 @@ func (s *Server) NavigationServiceAddWaypoint(
 	ctx context.Context,
 	req *pb.NavigationServiceAddWaypointRequest,
 ) (*pb.NavigationServiceAddWaypointResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -594,7 +592,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 	ctx context.Context,
 	req *pb.NavigationServiceRemoveWaypointRequest,
 ) (*pb.NavigationServiceRemoveWaypointResponse, error) {
-	svc, ok := s.r.ServiceByName(services.NavigationServiceName)
+	svc, ok := s.r.ResourceByName(navigation.Name)
 	if !ok {
 		return nil, errors.New("no navigation service")
 	}
@@ -615,7 +613,7 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 	ctx context.Context,
 	req *pb.ObjectManipulationServiceDoGrabRequest,
 ) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
-	svc, ok := s.r.ServiceByName(services.ObjectManipulationServiceName)
+	svc, ok := s.r.ResourceByName(objectmanipulation.Name)
 	if !ok {
 		return nil, errors.New("no objectmanipulation service")
 	}
@@ -746,67 +744,4 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
-}
-
-// matrixToProto is a helper function to convert force matrix values from a 2-dimensional
-// slice into protobuf format.
-func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
-	rows := len(matrix)
-	var cols int
-	if rows != 0 {
-		cols = len(matrix[0])
-	}
-
-	data := make([]uint32, 0, rows*cols)
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-			data = append(data, uint32(matrix[row][col]))
-		}
-	}
-
-	return &pb.ForceMatrixMatrixResponse{Matrix: &pb.Matrix{
-		Rows: uint32(rows),
-		Cols: uint32(cols),
-		Data: data,
-	}}
-}
-
-// ForceMatrixMatrix returns a matrix of measured forces on a matrix force sensor.
-func (s *Server) ForceMatrixMatrix(
-	ctx context.Context,
-	req *pb.ForceMatrixMatrixRequest,
-) (*pb.ForceMatrixMatrixResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	matrix, err := forceMatrixDevice.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return matrixToProto(matrix), nil
-}
-
-// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected.
-func (s *Server) ForceMatrixSlipDetection(
-	ctx context.Context,
-	req *pb.ForceMatrixSlipDetectionRequest,
-) (*pb.ForceMatrixSlipDetectionResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ForceMatrixSlipDetectionResponse{IsSlipping: isSlipping}, nil
-}
-
-func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
-	fm, ok := s.r.ResourceByName(forcematrix.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no force matrix with name (%s)", name)
-	}
-	return fm.(forcematrix.ForceMatrix), nil
 }

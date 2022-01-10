@@ -34,7 +34,7 @@ func (s *subtypeServer) getIMU(name string) (IMU, error) {
 	return imu, nil
 }
 
-// IMUAngularVelocity returns the most recent angular velocity reading from the given IMU.
+// AngularVelocity returns the most recent angular velocity reading from the given IMU.
 func (s *subtypeServer) AngularVelocity(
 	ctx context.Context,
 	req *pb.IMUServiceAngularVelocityRequest,
@@ -56,7 +56,7 @@ func (s *subtypeServer) AngularVelocity(
 	}, nil
 }
 
-// IMUOrientation returns the most recent angular velocity reading from the given IMU.
+// Orientation returns the most recent angular velocity reading from the given IMU.
 func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrientationRequest) (*pb.IMUServiceOrientationResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {

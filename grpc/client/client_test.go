@@ -24,7 +24,6 @@ import (
 	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
-	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
@@ -45,7 +44,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -84,12 +83,6 @@ var emptyStatus = &pb.Status{
 		},
 		"compass2": {
 			Type: compass.RelativeType,
-		},
-		"fsm1": {
-			Type: string(forcematrix.SubtypeName),
-		},
-		"fsm2": {
-			Type: string(forcematrix.SubtypeName),
 		},
 	},
 	Motors: map[string]*pb.MotorStatus{
@@ -175,12 +168,6 @@ var finalStatus = &pb.Status{
 		},
 		"compass4": {
 			Type: compass.RelativeType,
-		},
-		"fsm1": {
-			Type: string(forcematrix.SubtypeName),
-		},
-		"fsm2": {
-			Type: string(forcematrix.SubtypeName),
 		},
 	},
 	Servos: map[string]*pb.ServoStatus{
@@ -354,26 +341,6 @@ func TestClient(t *testing.T) {
 		return img, func() { imageReleased = true }, nil
 	}
 
-	injectFsm := &inject.ForceMatrix{}
-	expectedMatrix := make([][]int, 4)
-	for i := 0; i < len(expectedMatrix); i++ {
-		expectedMatrix[i] = []int{1, 2, 3, 4}
-	}
-	injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-		return expectedMatrix, nil
-	}
-	injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
-	}
-
-	injectFsm2 := &inject.ForceMatrix{}
-	injectFsm2.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-		return nil, errors.New("bad matrix")
-	}
-	injectFsm2.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-		return false, errors.New("slip detection error")
-	}
-
 	injectCompassDev := &inject.Compass{}
 	injectRelCompassDev := &inject.RelativeCompass{}
 	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
@@ -384,18 +351,6 @@ func TestClient(t *testing.T) {
 		default:
 			return injectCompassDev, true
 		}
-	}
-
-	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		if name.Subtype == forcematrix.Subtype {
-			switch name.Name {
-			case "fsm1":
-				return injectFsm, true
-			case "fsm2":
-				return injectFsm2, true
-			}
-		}
-		return nil, false
 	}
 
 	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
@@ -551,9 +506,9 @@ func TestClient(t *testing.T) {
 	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 		return fsConfigs, nil
 	}
-	injectRobot1.ServiceByNameFunc = func(name string) (interface{}, bool) {
-		services := make(map[string]interface{})
-		services[servicepkg.FrameSystemName] = fss
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		services := make(map[resource.Name]interface{})
+		services[framesystem.Name] = fss
 		service, ok := services[name]
 		return service, ok
 	}
@@ -841,26 +796,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	forceMatrixDev, ok := client.ResourceByName(forcematrix.Named("fsm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, forceMatrixDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
-	readings, err = forceMatrixDev.(forcematrix.ForceMatrix).Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings[0], test.ShouldResemble, expectedMatrix)
-	isSlipping, err := forceMatrixDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
-	test.That(t, isSlipping, test.ShouldBeTrue)
-	test.That(t, err, test.ShouldBeNil)
-
-	forceMatrixDev, ok = client.ResourceByName(forcematrix.Named("fsm2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, forceMatrixDev, test.ShouldImplement, (*forcematrix.ForceMatrix)(nil))
-	_, err = forceMatrixDev.(forcematrix.ForceMatrix).Readings(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
-	isSlipping, err = forceMatrixDev.(forcematrix.ForceMatrix).IsSlipping(context.Background())
-	test.That(t, isSlipping, test.ShouldBeFalse)
-	test.That(t, err, test.ShouldNotBeNil)
-
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -957,7 +892,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"),
+		utils.NewStringSet("compass2", "compass3", "compass4"),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -1031,7 +966,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass1", "compass2", "fsm1", "fsm2"),
+		utils.NewStringSet("compass1", "compass2"),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -1087,7 +1022,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4", "fsm1", "fsm2"),
+		utils.NewStringSet("compass2", "compass3", "compass4"),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),

@@ -57,9 +57,8 @@ type Service struct {
 
 // all registries.
 var (
-	baseRegistry    = map[string]Base{}
-	sensorRegistry  = map[sensor.Type]map[string]Sensor{}
-	serviceRegistry = map[config.ServiceType]Service{}
+	baseRegistry   = map[string]Base{}
+	sensorRegistry = map[sensor.Type]map[string]Sensor{}
 )
 
 func getCallerName() string {
@@ -100,16 +99,16 @@ func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
 }
 
 // RegisterService registers a service type to a registration.
-func RegisterService(typeName config.ServiceType, registration Service) {
-	registration.RegistrarLoc = getCallerName()
-	_, old := serviceRegistry[typeName]
+func RegisterService(subtype resource.Subtype, creator Service) {
+	creator.RegistrarLoc = getCallerName()
+	_, old := serviceRegistry[subtype.String()]
 	if old {
-		panic(errors.Errorf("trying to register two sevices with same type %s", typeName))
+		panic(errors.Errorf("trying to register two services with same subtype: %s", subtype))
 	}
-	if registration.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
-	serviceRegistry[typeName] = registration
+	serviceRegistry[subtype.String()] = creator
 }
 
 // BaseLookup looks up a base creator by the given model. nil is returned if
@@ -136,8 +135,9 @@ func SensorLookup(sensorType sensor.Type, model string) *Sensor {
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
-func ServiceLookup(typeName config.ServiceType) *Service {
-	if registration, ok := serviceRegistry[typeName]; ok {
+func ServiceLookup(subtype resource.Subtype) *Service {
+	registration, ok := serviceRegistry[subtype.String()]
+	if ok {
 		return &registration
 	}
 	return nil
@@ -178,6 +178,7 @@ type SubtypeGrpc struct{}
 var (
 	componentRegistry = map[string]Component{}
 	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
+	serviceRegistry   = map[string]Service{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
@@ -244,12 +245,12 @@ func RegisteredSensors() map[sensor.Type]map[string]Sensor {
 }
 
 // RegisteredServices returns a copy of the registered services.
-func RegisteredServices() map[config.ServiceType]Service {
+func RegisteredServices() map[string]Service {
 	copied, err := copystructure.Copy(serviceRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[config.ServiceType]Service)
+	return copied.(map[string]Service)
 }
 
 // RegisteredComponents returns a copy of the registered components.

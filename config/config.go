@@ -217,8 +217,8 @@ type Cloud struct {
 	Secret           string        `json:"secret"`
 	FQDNs            []string      `json:"fqdns"`
 	SignalingAddress string        `json:"signaling_address"`
-	Path             string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
-	LogPath          string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
+	Path             string        `json:"path"`
+	LogPath          string        `json:"log_path"`
 	RefreshInterval  time.Duration `json:"refresh_interval,omitempty"`
 }
 
