@@ -16,6 +16,7 @@ jobs:
     runs-on: [self-hosted, x64]
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
 
     steps:
 
