@@ -89,6 +89,20 @@
           return n;
       }
 
+      function fixBoards(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              const [boardName, boardValue] = old[i];
+              var newBoard = {
+                  name : boardName,
+                  analogsMap : boardValue.analogsMap || [],
+                  digitalInterruptsMap : boardValue.digitalInterruptsMap || [],
+              };
+              n.push(newBoard);
+          }
+          return n;
+      }
+
       function fixGantries(old) {
           var n = [];
           for (var i=0; i<old.length; i++) {
@@ -133,6 +147,7 @@
           status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
+          status.boardsMap = fixBoards(status.boardsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
 
           if (!firstResult) {
@@ -176,6 +191,9 @@
                   },
                   armByName : function(name) {
                     return theData.status.armsMap.find(elem => elem.name == name) || {}
+                  },
+                  boardByName : function(name) {
+                    return theData.status.boardsMap.find(elem => elem.name == name) || {}
                   },
                   gantryByName : function(name) {
                       return theData.status.gantriesMap.find(elem => elem.name == name) || {}
@@ -1473,24 +1491,25 @@
       </div>
 
       <!-- ******* BOARD *******  -->
-
-      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
-        <h3>Board ${board[0]}</h3>
+      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" key="board.name">
+        <h3>Board ${board.name}</h3>
         <table border="1">
 
           <tr><th colspan="2">Analogs</th></tr>
-          <tr v-for="a in board[1].analogsMap" :key="a[0]">
+          <tr v-for="a in boardByName(board.name).analogsMap" :key="a[0]">
             <th>${a[0]}</th>
             <td>${a[1].value}</td>
           </tr>
 
           <tr><th colspan="2">DigitalInterrupts</th></tr>
-          <tr v-for="di in board[1].digitalInterruptsMap" :key="di[0]">
+          <tr v-for="di in boardByName(board.name).digitalInterruptsMap" :key="di[0]">
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
         </table>
-      </div> <!-- end boards -->
+      </div>
+      <!-- end boards -->
+
       <!-- cameras -->
       <table border="1" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
         <tr>
