@@ -364,7 +364,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		options.Auth = cfg.Auth
 	} else {
 		options.Managed = true
-		options.Name = cfg.Cloud.Self
+		options.FQDNs = cfg.Cloud.FQDNs
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}
 	options.Network = cfg.Network

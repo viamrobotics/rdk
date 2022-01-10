@@ -286,10 +286,10 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
-	self := cfg.Cloud.Self
+	fqdns := cfg.Cloud.FQDNs
 	signalingAddress := cfg.Cloud.SignalingAddress
 	*cfg.Cloud = *cloudCfg
-	cfg.Cloud.Self = self
+	cfg.Cloud.FQDNs = fqdns
 	cfg.Cloud.SignalingAddress = signalingAddress
 
 	if err := storeToCache(cloudCfg.ID, cfg); err != nil {

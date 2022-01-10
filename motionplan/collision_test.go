@@ -13,16 +13,16 @@ import (
 
 func TestCheckCollisions(t *testing.T) {
 	// case 1: small collection of custom volumes
-	bc := spatial.NewBox(r3.Vector{0.5, 0.5, 0.5})
+	bc := spatial.NewBox(r3.Vector{1, 1, 1})
 	vols := make(map[string]spatial.Volume)
 	vols["cube000"] = bc.NewVolume(spatial.NewZeroPose())
-	vols["cube222"] = bc.NewVolume(spatial.NewPoseFromPoint(r3.Vector{2, 2, 2}))
-	vols["cube333"] = bc.NewVolume(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
+	vols["cube222"] = bc.NewVolume(spatial.NewPoseFromPoint(r3.Vector{3, 3, 3}))
+	vols["cube333"] = bc.NewVolume(spatial.NewPoseFromPoint(r3.Vector{4, 4, 4}))
 	cg, err := CheckCollisions(vols)
 	test.That(t, err, test.ShouldBeNil)
 	collisions := cg.Collisions()
 	test.That(t, len(collisions), test.ShouldEqual, 1)
-	test.That(t, collisionEqual(collisions[0], Collision{"cube222", "cube333"}), test.ShouldBeTrue)
+	test.That(t, collisionEqual(collisions[0], Collision{"cube222", "cube333", 1}), test.ShouldBeTrue)
 
 	// case 2: zero position of ur5e arm
 	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
@@ -61,9 +61,9 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckUniqueCollisions(vols, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
-	collisions := cg.Collisions()
-	test.That(t, len(collisions), test.ShouldEqual, 2)
-	equal := collisionsEqual(collisions, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link"}, {"UR5e:wrist_1_link", "UR5e:ee_link"}})
+	cols := cg.Collisions()
+	test.That(t, len(cols), test.ShouldEqual, 2)
+	equal := collisionsEqual(cols, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link", 19.5}, {"UR5e:wrist_1_link", "UR5e:ee_link", 0}})
 	test.That(t, equal, test.ShouldBeTrue)
 }
 
@@ -74,5 +74,6 @@ func collisionsEqual(c1 []Collision, c2 [2]Collision) bool {
 
 // collisionEqual is a helper function to compare two Collisions because their strings can be out of order due to random nature of maps.
 func collisionEqual(c1, c2 Collision) bool {
-	return (c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)
+	return ((c1.name1 == c2.name1 && c1.name2 == c2.name2) || (c1.name1 == c2.name2 && c1.name2 == c2.name1)) &&
+		utils.Float64AlmostEqual(c1.penetrationDepth, c2.penetrationDepth, 0.1)
 }

@@ -82,14 +82,14 @@ func TestWebWithAuth(t *testing.T) {
 	ctx, injectRobot := setupRobotCtx()
 
 	for _, tc := range []struct {
-		Case       string
-		Managed    bool
-		EntityName string
+		Case        string
+		Managed     bool
+		EntityNames []string
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityName: "something-different"},
+		{Case: "unmanaged and specific host", EntityNames: []string{"something-different", "something-really-different"}},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
+		{Case: "managed and specific host", Managed: true, EntityNames: []string{"something-different", "something-really-different"}},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			svc, err := New(ctx, injectRobot, config.Service{}, logger)
@@ -101,7 +101,7 @@ func TestWebWithAuth(t *testing.T) {
 			addr := fmt.Sprintf("localhost:%d", port)
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
-			options.Name = tc.EntityName
+			options.FQDNs = tc.EntityNames
 			apiKey := "sosecret"
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
@@ -130,19 +130,23 @@ func TestWebWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				entityName := tc.EntityName
-				if entityName == "" {
-					entityName = DefaultEntityName
+				entityNames := tc.EntityNames
+				if len(entityNames) == 0 {
+					entityNames = []string{DefaultFQDN}
 				}
-				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
-					rpc.WithInsecure(),
-					rpc.WithEntityCredentials(entityName, rpc.Credentials{
-						Type:    rpc.CredentialsTypeAPIKey,
-						Payload: apiKey,
-					}),
-				))
-				test.That(t, err, test.ShouldBeNil)
-				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				for _, entityName := range entityNames {
+					t.Run(entityName, func(t *testing.T) {
+						c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+							rpc.WithInsecure(),
+							rpc.WithEntityCredentials(entityName, rpc.Credentials{
+								Type:    rpc.CredentialsTypeAPIKey,
+								Payload: apiKey,
+							}),
+						))
+						test.That(t, err, test.ShouldBeNil)
+						test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+					})
+				}
 			} else {
 				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
 					rpc.WithInsecure(),
