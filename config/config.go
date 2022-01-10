@@ -215,7 +215,7 @@ func (config *Remote) Validate(path string) error {
 type Cloud struct {
 	ID               string        `json:"id"`
 	Secret           string        `json:"secret"`
-	Self             string        `json:"self"`
+	FQDNs            []string      `json:"fqdns"`
 	SignalingAddress string        `json:"signaling_address"`
 	Path             string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
 	LogPath          string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
@@ -228,13 +228,16 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "id")
 	}
 	if fromCloud {
-		if config.Self == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "self")
+		if len(config.FQDNs) == 0 {
+			return utils.NewConfigValidationFieldRequiredError(path, "fqdns")
 		}
-	} else {
-		if config.Secret == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "secret")
+		for idx, fqdn := range config.FQDNs {
+			if fqdn == "" {
+				return utils.NewConfigValidationFieldRequiredError(path, fmt.Sprintf("%s.%d", "fqdns", idx))
+			}
 		}
+	} else if config.Secret == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "secret")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second

@@ -67,8 +67,8 @@ buf-web: tool-install
 
 lint: tool-install
 	PATH=$(PATH_WITH_TOOLS) buf lint
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs go vet -vettool=bin/combined
-	go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
+	export pkgs=`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto` && echo "$$pkgs" | xargs go vet -vettool=bin/combined
+	export pkgs=`go list -f '{{.Dir}}' ./... | grep -v gen | grep -v proto` && echo "$$pkgs" | xargs bin/golangci-lint run -v --fix --config=./etc/.golangci.yaml
 
 cover:
 	./etc/test.sh cover

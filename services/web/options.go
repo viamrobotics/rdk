@@ -17,8 +17,8 @@ type Options struct {
 	// SignalingAddress is where to listen to WebRTC call offers at.
 	SignalingAddress string
 
-	// Name is the FQDN of this host.
-	Name string
+	// FQDNs are the FQDNs of this host.
+	FQDNs []string
 
 	// Debug turns on various debugging features. For example, the echo gRPC
 	// service is added.
@@ -37,11 +37,11 @@ type Options struct {
 	// Managed signifies if this server is remotely managed (e.g. from some cloud service).
 	Managed bool
 
-	// internalSignaling indicates if an internal WebRTC signaling will be used.
-	internalSignaling bool
-
 	// secure determines if sever communicates are secured or not.
 	secure bool
+
+	// secureSignaling indicates if an WebRTC signaling will be secured by TLS.
+	secureSignaling bool
 }
 
 // NewOptions returns a default set of options which will have the

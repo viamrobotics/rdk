@@ -40,10 +40,12 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	return b
 }
 
+// Pose returns the pose of the box.
 func (b *box) Pose() Pose {
 	return b.pose
 }
 
+// AlmostEqual compares the box with another volume and checks if they are equivalent.
 func (b *box) AlmostEqual(v Volume) bool {
 	other, ok := v.(*box)
 	if !ok {
@@ -52,6 +54,7 @@ func (b *box) AlmostEqual(v Volume) bool {
 	return PoseAlmostEqual(b.pose, other.pose) && utils.R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
 }
 
+// Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
 func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
 }
@@ -64,22 +67,29 @@ func (b *box) CollidesWith(v Volume) (bool, error) {
 	return true, errors.Errorf("collisions between box and %T are not supported", v)
 }
 
-// boxVsBox takes two Boxes as arguments and returns a bool describing if they are in collision,
-// true == collision, false == no collision
-// reference: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
+// CollidesWith checks if the given box collides with the given volume and returns true if it does.
+func (b *box) DistanceFrom(v Volume) (float64, error) {
+	if other, ok := v.(*box); ok {
+		return boxVsBoxDistance(b, other), nil
+	}
+	return math.Inf(-1), errors.Errorf("collisions between box and %T are not supported", v)
+}
+
+// boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
+// true == collision / false == no collision.
 func boxVsBoxCollision(a, b *box) bool {
 	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
 	for i := 0; i < 3; i++ {
-		if hasSeparatingPlane(positionDelta, rmA.Row(i), a, b) {
+		if separatingAxisTest(positionDelta, rmA.Row(i), a, b) > 0 {
 			return false
 		}
-		if hasSeparatingPlane(positionDelta, rmB.Row(i), a, b) {
+		if separatingAxisTest(positionDelta, rmB.Row(i), a, b) > 0 {
 			return false
 		}
 		for j := 0; j < 3; j++ {
-			if hasSeparatingPlane(positionDelta, rmA.Row(i).Cross(rmB.Row(j)), a, b) {
+			if separatingAxisTest(positionDelta, rmA.Row(i).Cross(rmB.Row(j)), a, b) > 0 {
 				return false
 			}
 		}
@@ -87,14 +97,60 @@ func boxVsBoxCollision(a, b *box) bool {
 	return true
 }
 
-// Helper function to check if there is a separating plane in between the selected axes.  Per the separating hyperplane
-// theorem, if such a plane exists (and true is returned) this proves that there is no collision between the boxes
-// references: https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
-//             https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
-func hasSeparatingPlane(positionDelta, plane r3.Vector, a, b *box) bool {
+// boxVsBoxDistance takes two boxes as arguments and returns a floating point number.  If this number is nonpositive it represents
+// the penetration depth for the two boxes, which are in collision.  If the returned float is positive it represents
+// a lower bound on the separation distance for the two boxes, which are not in collision.
+// NOTES: calculating the true separation distance is a computationally infeasible problem
+//        the "minimum translation vector" (MTV) can also be computed here but is not currently as there is no use for it yet
+// references:  https://comp.graphics.algorithms.narkive.com/jRAgjIUh/obb-obb-distance-calculation
+//              https://dyn4j.org/2010/01/sat/#sat-nointer
+func boxVsBoxDistance(a, b *box) float64 {
+	positionDelta := PoseDelta(a.pose, b.pose).Point()
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
-	return math.Abs(positionDelta.Dot(plane)) > (math.Abs(rmA.Row(0).Mul(a.halfSize.X).Dot(plane)) +
+
+	// iterate over axes of box
+	max := math.Inf(-1)
+	for i := 0; i < 3; i++ {
+		// project onto face of box A
+		separation := separatingAxisTest(positionDelta, rmA.Row(i), a, b)
+		if separation > max {
+			max = separation
+		}
+
+		// project onto face of box B
+		separation = separatingAxisTest(positionDelta, rmB.Row(i), a, b)
+		if separation > max {
+			max = separation
+		}
+
+		// project onto a plane created by cross product of two edges from boxes
+		for j := 0; j < 3; j++ {
+			crossProductPlane := rmA.Row(i).Cross(rmB.Row(j))
+
+			// if edges are parallel, this check is already accounted for by one of the face projections, so skip this case
+			if crossProductPlane.Norm() != 0 {
+				separation = separatingAxisTest(positionDelta, crossProductPlane, a, b)
+				if separation > max {
+					max = separation
+				}
+			}
+		}
+	}
+	return max
+}
+
+// separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
+// this plane.  Per the separating hyperplane theorem, if such a plane exists (and a positive number is returned)
+// this proves that there is no collision between the boxes
+// references:  https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
+//              https://gamedev.stackexchange.com/questions/25397/obb-vs-obb-collision-detection
+//              https://www.cs.bgu.ac.il/~vgp192/wiki.files/Separating%20Axis%20Theorem%20for%20Oriented%20Bounding%20Boxes.pdf
+//              https://gamedev.stackexchange.com/questions/112883/simple-3d-obb-collision-directx9-c
+func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
+	rmA := a.pose.Orientation().RotationMatrix()
+	rmB := b.pose.Orientation().RotationMatrix()
+	return math.Abs(positionDelta.Dot(plane)) - (math.Abs(rmA.Row(0).Mul(a.halfSize.X).Dot(plane)) +
 		math.Abs(rmA.Row(1).Mul(a.halfSize.Y).Dot(plane)) +
 		math.Abs(rmA.Row(2).Mul(a.halfSize.Z).Dot(plane)) +
 		math.Abs(rmB.Row(0).Mul(b.halfSize.X).Dot(plane)) +

@@ -21,10 +21,6 @@
       window.webrtcEnabled = {{ .WebRTCEnabled }}
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
-      if (!window.webrtcSignalingAddress) {
-        const url = location.protocol + '//' + location.hostname + (location.port ? ':' + location.port : '80');
-        window.webrtcSignalingAddress = url;
-      }
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
