@@ -20,7 +20,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// use impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -119,7 +119,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
 	// has disconnected components (gps2 misspelled parent as gripperPiece, rather than pieceGripper)
-	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json")
+	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
@@ -130,18 +130,18 @@ func TestWrongFrameSystems(t *testing.T) {
 			"pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm "+
 			"pieceGripper_offset pieceGripper]"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig2.json") // no world node
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig2.json", logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
 		err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig3.json") // one of the nodes was given the name world
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig3.json", logger) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig4.json") // the parent field was left empty for a component
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig4.json", logger) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))

@@ -59,7 +59,6 @@ import (
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 
 	// detect pi.
@@ -254,9 +253,9 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...client.RobotClientOption) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts:  newRobotParts(logger, opts...),
+		parts:  newRobotParts(cfg.Debug, cfg.AllowInsecureCreds, cfg.Network.TLSConfig, logger),
 		logger: logger,
 	}
 

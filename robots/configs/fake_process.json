@@ -1,4 +1,7 @@
 {
+    "network": {
+        "fqdn": "something-unique"
+    },
     "components":
     [
         {

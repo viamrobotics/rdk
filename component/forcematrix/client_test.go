@@ -31,7 +31,7 @@ func TestClientFailing(t *testing.T) {
 	t.Run("cancelled", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = forcematrix.NewClient(cancelCtx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
+		_, err = forcematrix.NewClient(cancelCtx, testForceMatrixName, listener.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -59,7 +59,6 @@ func TestClientFailing(t *testing.T) {
 				testForceMatrixName,
 				listener.Addr().String(),
 				logger,
-				rpc.WithInsecure(),
 			)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -78,7 +77,7 @@ func TestClientFailing(t *testing.T) {
 
 		t.Run("client 2", func(t *testing.T) {
 			conn, err := viamgrpc.Dial(context.Background(),
-				listener.Addr().String(), logger, rpc.WithInsecure())
+				listener.Addr().String(), logger)
 			test.That(t, err, test.ShouldBeNil)
 			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
 				conn, testForceMatrixName, logger)
@@ -133,7 +132,6 @@ func TestClientWorking(t *testing.T) {
 				testForceMatrixName,
 				listener.Addr().String(),
 				logger,
-				rpc.WithInsecure(),
 			)
 			test.That(t, err, test.ShouldBeNil)
 
@@ -154,7 +152,7 @@ func TestClientWorking(t *testing.T) {
 
 		t.Run("client 2", func(t *testing.T) {
 			conn, err := viamgrpc.Dial(context.Background(),
-				listener.Addr().String(), logger, rpc.WithInsecure())
+				listener.Addr().String(), logger)
 			test.That(t, err, test.ShouldBeNil)
 			client := resourceSubtype.RPCClient(context.Background(), conn, testForceMatrixName, logger)
 			forceMatrixClient, ok := client.(forcematrix.ForceMatrix)
@@ -194,11 +192,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
