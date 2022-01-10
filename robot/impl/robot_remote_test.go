@@ -101,9 +101,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
 	}
-	injectRobot.ServiceNamesFunc = func() []string {
-		return []string{fmt.Sprintf("service1%s", suffix), fmt.Sprintf("service2%s", suffix)}
-	}
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return rdktestutils.ConcatResourceNames(
 			armNames,
@@ -198,12 +195,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return &fakeinput.InputController{Name: name}, true
 	}
-	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {
-			return nil, false
-		}
-		return struct{}{}, true
-	}
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
@@ -223,6 +214,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakemotor.Motor{Name: name.Name}, true
 				case input.Subtype:
 					return &fakeinput.InputController{Name: name.Name}, true
+				}
+				if rName.ResourceType == resource.ResourceTypeService {
+					return struct{}{}, true
 				}
 			}
 		}

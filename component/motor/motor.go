@@ -73,7 +73,7 @@ type Motor interface {
 
 // Named is a helper for getting the named Motor's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 var (

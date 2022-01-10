@@ -38,11 +38,21 @@ import (
 	"go.viam.com/rdk/web"
 )
 
-// Type is the type of service.
-const Type = config.ServiceType("web")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("web")
+
+// Subtype is a constant that identifies the web service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the WebService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
@@ -246,7 +256,7 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	return nil
 }
 
-func (svc *webService) Close() {
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -254,6 +264,7 @@ func (svc *webService) Close() {
 		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
