@@ -19,7 +19,6 @@ message DigitalInterruptStatus {
   int64 value = 1;
 }
 
-
 message Pose {
   // millimeters of the end effector from the base
   double x = 1;
