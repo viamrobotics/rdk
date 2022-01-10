@@ -1474,7 +1474,7 @@
 
       <!-- ******* BOARD *******  -->
 
-      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
+      <div class="board" v-for="filterResources('rdk', 'component', 'board')" key="board.name">
         <h3>Board ${board[0]}</h3>
         <table border="1">
 
