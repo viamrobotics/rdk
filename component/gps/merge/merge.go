@@ -10,25 +10,25 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
 
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/gps"
 )
 
 // ModelName is the name of th merge model for gps.
 const ModelName = "merge"
 
 func init() {
-	registry.RegisterSensor(
-		gps.Type,
-		ModelName, registry.Sensor{Constructor: func(
+	registry.RegisterComponent(
+		gps.Subtype,
+		ModelName, registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (sensor.Sensor, error) {
+		) (interface{}, error) {
 			return newMerge(r, config, logger)
 		}})
 }
@@ -42,7 +42,7 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 	m := &mergeGPS{r, nil, logger}
 
 	for _, s := range subs {
-		sensor, ok := r.SensorByName(s)
+		sensor, ok := r.ResourceByName(gps.Named(s))
 		if !ok {
 			return nil, fmt.Errorf("no gps named [%s]", s)
 		}
@@ -156,5 +156,5 @@ func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
 
 // Desc returns a description of this sensor.
 func (m *mergeGPS) Desc() sensor.Description {
-	return sensor.Description{gps.Type, ""}
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }

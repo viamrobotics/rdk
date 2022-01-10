@@ -744,18 +744,14 @@
                     const lng = parseFloat(posSplit[1]);
                     var req = new robotApi.ResourceRunCommandRequest();
                     let gpsName = "";
-                    for (let i = 0; i < theData.status.sensorsMap.length; i++) {
-                      const s = theData.status.sensorsMap[i];
-                      if (s[1].type === 'gps') {
-                        gpsName = s[0];
-                        break;
-                      }
-                    }
-                    if (gpsName === "") {
+                    gpses = theApp.filterResources("rdk", "component", "gps")
+                    if (gpses.length > 0){
+                      gpsName = gpses[0].name
+                    } else {
                       theData.error = "no gps device found";
                       return;
                     }
-                    req.setResourceName("gps1");
+                    req.setResourceName(gpsName);
                     req.setCommandName("set_location");
                     req.setArgs(proto.google.protobuf.Struct.fromJavaScript({
                       latitude: lat,
