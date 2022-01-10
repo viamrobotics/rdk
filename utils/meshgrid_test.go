@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"go.viam.com/test"
 	"testing"
+
+	"go.viam.com/test"
 )
 
 func TestSingle(t *testing.T) {
