@@ -147,7 +147,7 @@ func RegisterForceMatrixServiceHandlerServer(ctx context.Context, mux *runtime.S
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/forcematrix/{name}/matrix"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -170,7 +170,7 @@ func RegisterForceMatrixServiceHandlerServer(ctx context.Context, mux *runtime.S
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/forcematrix/{name}/slip_detection"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -232,7 +232,7 @@ func RegisterForceMatrixServiceHandlerClient(ctx context.Context, mux *runtime.S
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/forcematrix/{name}/matrix"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -252,7 +252,7 @@ func RegisterForceMatrixServiceHandlerClient(ctx context.Context, mux *runtime.S
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/forcematrix/{name}/slip_detection"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -272,9 +272,9 @@ func RegisterForceMatrixServiceHandlerClient(ctx context.Context, mux *runtime.S
 }
 
 var (
-	pattern_ForceMatrixService_Matrix_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "forcematrix", "name", "matrix"}, ""))
+	pattern_ForceMatrixService_Matrix_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "matrix"}, ""))
 
-	pattern_ForceMatrixService_SlipDetection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "forcematrix", "name", "slip_detection"}, ""))
+	pattern_ForceMatrixService_SlipDetection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "slip_detection"}, ""))
 )
 
 var (
