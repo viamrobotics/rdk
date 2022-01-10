@@ -61,13 +61,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = servo.NewClient(cancelCtx, testServoName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = servo.NewClient(cancelCtx, testServoName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("client tests for working servo", func(t *testing.T) {
-		workingServoClient, err := servo.NewClient(context.Background(), testServoName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		workingServoClient, err := servo.NewClient(context.Background(), testServoName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingServoClient.Move(context.Background(), 20)
@@ -81,7 +81,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("client tests for failing servo", func(t *testing.T) {
-		failingServoClient, err := servo.NewClient(context.Background(), failServoName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		failingServoClient, err := servo.NewClient(context.Background(), failServoName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingServoClient.Move(context.Background(), 20)
@@ -94,7 +94,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("dialed client tests for working servo", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, testServoName, logger)
 		workingServoDialedClient, ok := client.(servo.Servo)
@@ -127,11 +127,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := servo.NewClient(ctx, testServoName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := servo.NewClient(ctx, testServoName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := servo.NewClient(ctx, testServoName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := servo.NewClient(ctx, testServoName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

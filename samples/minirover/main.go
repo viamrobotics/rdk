@@ -15,12 +15,10 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/perf"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -317,12 +315,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read(ctx, "samples/minirover/config.json")
+	cfg, err := config.Read(ctx, "samples/minirover/config.json", logger)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}

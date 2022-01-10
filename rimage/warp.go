@@ -137,7 +137,6 @@ func GetPerspectiveTransform(src, dst []image.Point) TransformationMatrix {
 		panic(err)
 	}
 
-	//nolint:makezero
 	raw = append(raw, 1.0)
 	m := mat.NewDense(3, 3, raw)
 

@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
@@ -25,7 +24,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -587,7 +585,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -615,7 +613,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		},
 	})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}

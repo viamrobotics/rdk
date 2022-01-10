@@ -82,7 +82,7 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = input.NewClient(cancelCtx, testInputControllerName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = input.NewClient(cancelCtx, testInputControllerName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -93,7 +93,6 @@ func TestClient(t *testing.T) {
 			testInputControllerName,
 			listener1.Addr().String(),
 			logger,
-			rpc.WithInsecure(),
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -219,7 +218,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("input controller client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failInputControllerName, logger)
 		inputController2Client, ok := client.(input.Controller)
@@ -265,10 +264,15 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 1)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
+	test.That(t, err, test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
 }

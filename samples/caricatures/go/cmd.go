@@ -8,12 +8,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
@@ -73,11 +71,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if false {
 		flag.Parse()
-		cfg, err := config.Read(ctx, flag.Arg(0))
+		cfg, err := config.Read(ctx, flag.Arg(0), logger)
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}

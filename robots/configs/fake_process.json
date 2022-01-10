@@ -1,4 +1,8 @@
 {
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
     "components":
     [
         {
@@ -160,8 +164,5 @@
                 "base": "base1"
             }
         }
-    ],
-    "network": {
-		"bind_address": ":8080"
-	}
+    ]
 }

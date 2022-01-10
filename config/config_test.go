@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
@@ -27,7 +28,8 @@ import (
 )
 
 func TestConfigRobot(t *testing.T) {
-	cfg, err := config.Read(context.Background(), "data/robot.json")
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/robot.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, cfg.Components, test.ShouldHaveLength, 4)
@@ -37,6 +39,7 @@ func TestConfigRobot(t *testing.T) {
 }
 
 func TestConfig3(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	type temp struct {
 		X int
 		Y string
@@ -50,7 +53,7 @@ func TestConfig3(t *testing.T) {
 	)
 
 	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
-	cfg, err := config.Read(context.Background(), "data/config3.json")
+	cfg, err := config.Read(context.Background(), "data/config3.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, len(cfg.Components), test.ShouldEqual, 3)
@@ -135,16 +138,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
 	err = invalidCloud.Ensure(true)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns" is required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdn" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.FQDNs = []string{"wooself", ""}
+	invalidCloud.Cloud.FQDN = "wooself"
 	err = invalidCloud.Ensure(true)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns.1" is required`)
-	invalidCloud.Cloud.FQDNs = []string{"wooself", "yeeself"}
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"local_fqdn" is required`)
+	invalidCloud.Cloud.LocalFQDN = "yeeself"
 	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
@@ -234,7 +237,9 @@ func TestConfigEnsure(t *testing.T) {
 
 	invalidNetwork := config.Config{
 		Network: config.NetworkConfig{
-			TLSCertFile: "hey",
+			NetworkConfigData: config.NetworkConfigData{
+				TLSCertFile: "hey",
+			},
 		},
 	}
 	err = invalidNetwork.Ensure(false)

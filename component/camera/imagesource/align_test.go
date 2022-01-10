@@ -16,7 +16,7 @@ import (
 
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	c := conf.FindComponent("front")
 	test.That(t, c, test.ShouldNotBeNil)
@@ -31,7 +31,7 @@ func TestAlignIntrinsics(t *testing.T) {
 
 func TestAlignWarp(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := conf.FindComponent("combined")
@@ -48,7 +48,7 @@ func TestAlignWarp(t *testing.T) {
 
 func TestAlignHomography(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	conf, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := conf.FindComponent("combined")
@@ -122,8 +122,9 @@ func (h *alignTestHelper) Process(
 }
 
 func TestAlignIntelIntrinsics(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
@@ -137,8 +138,9 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 }
 
 func TestAlignGripperWarp(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
@@ -152,8 +154,9 @@ func TestAlignGripperWarp(t *testing.T) {
 }
 
 func TestAlignGripperHomography(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
