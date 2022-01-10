@@ -15,6 +15,10 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
+// errUnimplemented is used for any unimplemented methods that should
+// eventually be implemented server side or faked client side.
+var errUnimplemented = errors.New("unimplemented")
+
 // serviceClient is a client satisfies the board.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
@@ -337,7 +341,3 @@ func copyStringSlice(src []string) []string {
 	copy(out, src)
 	return out
 }
-
-// errUnimplemented is used for any unimplemented methods that should
-// eventually be implemented server side or faked client side.
-var errUnimplemented = errors.New("unimplemented")
