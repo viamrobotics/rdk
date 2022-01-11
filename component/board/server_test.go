@@ -319,13 +319,13 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		},
 		{
 			injectErr:  errFoo,
-			req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
+			req:        &request{Name: boardName, Pin: "one", FrequencyHz: 123123},
 			expCapArgs: []interface{}{ctx, "one", uint(123123)},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: boardName, Pin: "one", Frequency: 123123},
+			req:        &request{Name: boardName, Pin: "one", FrequencyHz: 123123},
 			expCapArgs: []interface{}{ctx, "one", uint(123123)},
 			expRespErr: nil,
 		},

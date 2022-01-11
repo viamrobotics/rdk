@@ -94,7 +94,7 @@ func (s *subtypeServer) SetPWMFrequency(
 		return nil, err
 	}
 
-	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.Frequency))
+	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.FrequencyHz))
 }
 
 // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
