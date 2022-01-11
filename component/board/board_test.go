@@ -117,24 +117,24 @@ func TestGetGPIO(t *testing.T) {
 	test.That(t, actualBoard.getGPIOCalls, test.ShouldEqual, 1)
 }
 
-func TestPWMSet(t *testing.T) {
+func TestSetPWM(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).PWMSet(context.Background(), "", 0)
+	test.That(t, actualBoard.setPWMCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetPWM(context.Background(), "", 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setPWMCalls, test.ShouldEqual, 1)
 }
 
-func TestPWMSetFreq(t *testing.T) {
+func TestSetPWMFreq(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).PWMSetFreq(context.Background(), "", 0)
+	test.That(t, actualBoard.setPWMFreqCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetPWMFreq(context.Background(), "", 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setPWMFreqCalls, test.ShouldEqual, 1)
 }
 
 func TestStatus(t *testing.T) {
@@ -208,8 +208,8 @@ type mock struct {
 	reconfCalls     int
 	setGPIOCalls    int
 	getGPIOCalls    int
-	pwmSetCalls     int
-	pwmSetFreqCalls int
+	setPWMCalls     int
+	setPWMFreqCalls int
 	statusCalls     int
 }
 
@@ -290,13 +290,13 @@ func (m *mock) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return mockGPIO, nil
 }
 
-func (m *mock) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	m.pwmSetCalls++
+func (m *mock) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+	m.setPWMCalls++
 	return nil
 }
 
-func (m *mock) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	m.pwmSetFreqCalls++
+func (m *mock) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+	m.setPWMFreqCalls++
 	return nil
 }
 

@@ -121,9 +121,9 @@ func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
 	}
 	b.GPIO[pin] = high
 	if high {
-		return b.PWMSet(ctx, pin, 255)
+		return b.SetPWM(ctx, pin, 255)
 	}
-	return b.PWMSet(ctx, pin, 0)
+	return b.SetPWM(ctx, pin, 0)
 }
 
 // GetGPIO returns whether the given pin is either low or high.
@@ -134,8 +134,8 @@ func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return b.GPIO[pin], nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
 	if b.PWM == nil {
 		b.PWM = map[string]byte{}
 	}
@@ -150,8 +150,8 @@ func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
 	if b.PWMFreq == nil {
 		b.PWMFreq = map[string]uint{}
 	}

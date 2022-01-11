@@ -73,28 +73,28 @@ func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.BoardServiceGetGPIO
 	return &pb.BoardServiceGetGPIOResponse{High: high}, nil
 }
 
-// PWMSet sets a given pin of the underlying robot to the given duty cycle.
-func (s *subtypeServer) PWMSet(ctx context.Context, req *pb.BoardServicePWMSetRequest) (*pb.BoardServicePWMSetResponse, error) {
+// SetPWM sets a given pin of the underlying robot to the given duty cycle.
+func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.BoardServiceSetPWMRequest) (*pb.BoardServiceSetPWMResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServicePWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
+	return &pb.BoardServiceSetPWMResponse{}, b.SetPWM(ctx, req.Pin, byte(req.DutyCycle))
 }
 
-// PWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
+// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
 // frequency.
-func (s *subtypeServer) PWMSetFrequency(
+func (s *subtypeServer) SetPWMFrequency(
 	ctx context.Context,
-	req *pb.BoardServicePWMSetFrequencyRequest,
-) (*pb.BoardServicePWMSetFrequencyResponse, error) {
+	req *pb.BoardServiceSetPWMFrequencyRequest,
+) (*pb.BoardServiceSetPWMFrequencyResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServicePWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
+	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.Frequency))
 }
 
 // AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.

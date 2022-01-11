@@ -143,8 +143,8 @@ func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return resp.High, nil
 }
 
-func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	_, err := c.client.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
+func (c *client) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+	_, err := c.client.SetPWM(ctx, &pb.BoardServiceSetPWMRequest{
 		Name:      c.info.name,
 		Pin:       pin,
 		DutyCycle: uint32(dutyCycle),
@@ -152,8 +152,8 @@ func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	return err
 }
 
-func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	_, err := c.client.PWMSetFrequency(ctx, &pb.BoardServicePWMSetFrequencyRequest{
+func (c *client) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+	_, err := c.client.SetPWMFrequency(ctx, &pb.BoardServiceSetPWMFrequencyRequest{
 		Name:      c.info.name,
 		Pin:       pin,
 		Frequency: uint64(freq),

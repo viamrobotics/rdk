@@ -65,11 +65,11 @@ type Board interface {
 	// GetGPIO gets the high/low state of the given pin.
 	GetGPIO(ctx context.Context, pin string) (bool, error)
 
-	// PWMSet sets the given pin to the given duty cycle.
-	PWMSet(ctx context.Context, pin string, dutyCycle byte) error
+	// SetPWM sets the given pin to the given duty cycle.
+	SetPWM(ctx context.Context, pin string, dutyCycle byte) error
 
-	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFreq(ctx context.Context, pin string, freq uint) error
+	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+	SetPWMFreq(ctx context.Context, pin string, freq uint) error
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -206,16 +206,16 @@ func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, er
 	return r.actual.GetGPIO(ctx, pin)
 }
 
-func (r *reconfigurableBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.PWMSet(ctx, pin, dutyCycle)
+	return r.actual.SetPWM(ctx, pin, dutyCycle)
 }
 
-func (r *reconfigurableBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+func (r *reconfigurableBoard) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.PWMSetFreq(ctx, pin, freq)
+	return r.actual.SetPWMFreq(ctx, pin, freq)
 }
 
 func (r *reconfigurableBoard) SPINames() []string {

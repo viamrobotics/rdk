@@ -146,8 +146,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
-		m.Board.PWMSetFreq(ctx, pwmPin, m.pwmFreq),
-		m.Board.PWMSet(ctx, pwmPin, byte(utils.ScaleByPct(255, powerPct))),
+		m.Board.SetPWMFreq(ctx, pwmPin, m.pwmFreq),
+		m.Board.SetPWM(ctx, pwmPin, byte(utils.ScaleByPct(255, powerPct))),
 	)
 }
 

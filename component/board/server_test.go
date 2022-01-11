@@ -238,8 +238,8 @@ func TestServerGetGPIO(t *testing.T) {
 }
 
 //nolint:dupl
-func TestServerPWMSet(t *testing.T) {
-	type request = pb.BoardServicePWMSetRequest
+func TestServerSetPWM(t *testing.T) {
+	type request = pb.BoardServiceSetPWMRequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -279,24 +279,24 @@ func TestServerPWMSet(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
 				return tc.injectErr
 			}
 
-			_, err = server.PWMSet(ctx, tc.req)
+			_, err = server.SetPWM(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.PWMSetCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.SetPWMCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
 
 //nolint:dupl
-func TestServerPWMSetFrequency(t *testing.T) {
-	type request = pb.BoardServicePWMSetFrequencyRequest
+func TestServerSetPWMFrequency(t *testing.T) {
+	type request = pb.BoardServiceSetPWMFrequencyRequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -336,17 +336,17 @@ func TestServerPWMSetFrequency(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freq uint) error {
 				return tc.injectErr
 			}
 
-			_, err = server.PWMSetFrequency(ctx, tc.req)
+			_, err = server.SetPWMFrequency(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.PWMSetFreqCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.SetPWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }

@@ -32,10 +32,10 @@ type Board struct {
 	setGPIOCap                 []interface{}
 	GetGPIOFunc                func(ctx context.Context, pin string) (bool, error)
 	getGPIOCap                 []interface{}
-	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
-	pwmSetCap                  []interface{}
-	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
-	pwmSetFreqCap              []interface{}
+	SetPWMFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
+	setPWMCap                  []interface{}
+	SetPWMFreqFunc             func(ctx context.Context, pin string, freq uint) error
+	setPWMFreqCap              []interface{}
 }
 
 // SPIByName calls the injected SPIByName or the real version.
@@ -186,38 +186,38 @@ func (b *Board) GetGPIOCap() []interface{} {
 	return b.getGPIOCap
 }
 
-// PWMSet calls the injected PWMSet or the real version.
-func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	b.pwmSetCap = []interface{}{ctx, pin, dutyCycle}
-	if b.PWMSetFunc == nil {
-		return b.Board.PWMSet(ctx, pin, dutyCycle)
+// SetPWM calls the injected SetPWM or the real version.
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+	b.setPWMCap = []interface{}{ctx, pin, dutyCycle}
+	if b.SetPWMFunc == nil {
+		return b.Board.SetPWM(ctx, pin, dutyCycle)
 	}
-	return b.PWMSetFunc(ctx, pin, dutyCycle)
+	return b.SetPWMFunc(ctx, pin, dutyCycle)
 }
 
-// PWMSetCap returns the last parameters received by PWMSet, and then clears them.
-func (b *Board) PWMSetCap() []interface{} {
+// SetPWMCap returns the last parameters received by SetPWM, and then clears them.
+func (b *Board) SetPWMCap() []interface{} {
 	if b == nil {
 		return nil
 	}
-	defer func() { b.pwmSetCap = nil }()
-	return b.pwmSetCap
+	defer func() { b.setPWMCap = nil }()
+	return b.setPWMCap
 }
 
-// PWMSetFreq calls the injected PWMSetFreq or the real version.
-func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	b.pwmSetFreqCap = []interface{}{ctx, pin, freq}
-	if b.PWMSetFreqFunc == nil {
-		return b.Board.PWMSetFreq(ctx, pin, freq)
+// SetPWMFreq calls the injected SetPWMFreq or the real version.
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+	b.setPWMFreqCap = []interface{}{ctx, pin, freq}
+	if b.SetPWMFreqFunc == nil {
+		return b.Board.SetPWMFreq(ctx, pin, freq)
 	}
-	return b.PWMSetFreqFunc(ctx, pin, freq)
+	return b.SetPWMFreqFunc(ctx, pin, freq)
 }
 
-// PWMSetFreqCap returns the last parameters received by PWMSetFreq, and then clears them.
-func (b *Board) PWMSetFreqCap() []interface{} {
+// SetPWMFreqCap returns the last parameters received by SetPWMFreq, and then clears them.
+func (b *Board) SetPWMFreqCap() []interface{} {
 	if b == nil {
 		return nil
 	}
-	defer func() { b.pwmSetFreqCap = nil }()
-	return b.pwmSetFreqCap
+	defer func() { b.setPWMFreqCap = nil }()
+	return b.setPWMFreqCap
 }
