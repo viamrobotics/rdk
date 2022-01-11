@@ -6,8 +6,10 @@ on:
     branches: [ main, appimage ]
     paths-ignore:
       - 'README.md'
-      - '**/Dockerfile.fortest'
+      - '**/Dockerfile.*'
       - '**/.github/workflows/docker.yml'
+      - '**/.github/workflows/test.yml'
+      - '**/.github/workflows/packserver.yml'
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"

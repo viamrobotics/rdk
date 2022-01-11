@@ -6,8 +6,11 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - '**/Dockerfile.fortest'
+      - 'README.md'
+      - '**/Dockerfile.*'
       - '**/.github/workflows/docker.yml'
+      - '**/.github/workflows/test.yml'
+      - '**/.github/workflows/packserver.yml'
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
