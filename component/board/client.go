@@ -309,13 +309,8 @@ func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	_, err := dic.client.DigitalInterruptTick(ctx, &pb.BoardServiceDigitalInterruptTickRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-		High:                 high,
-		Nanos:                nanos,
-	})
-	return err
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {

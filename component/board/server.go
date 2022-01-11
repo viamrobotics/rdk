@@ -171,21 +171,3 @@ func (s *subtypeServer) GetDigitalInterruptValue(
 	}
 	return &pb.BoardServiceGetDigitalInterruptValueResponse{Value: val}, nil
 }
-
-// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-func (s *subtypeServer) DigitalInterruptTick(
-	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptTickRequest,
-) (*pb.BoardServiceDigitalInterruptTickResponse, error) {
-	b, err := s.getBoard(req.BoardName)
-	if err != nil {
-		return nil, err
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	return &pb.BoardServiceDigitalInterruptTickResponse{}, interrupt.Tick(ctx, req.High, req.Nanos)
-}
