@@ -540,14 +540,6 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 	r.actual = actual.actual
 }
 
-func (r *reconfigurableDigitalInterrupt) Config(
-	ctx context.Context,
-) (DigitalInterruptConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Config(ctx)
-}
-
 func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

@@ -142,20 +142,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
 
-		// Digital Interrupt:Config
-		digitalIntConfig := board.DigitalInterruptConfig{
-			Name:    "foo",
-			Pin:     "bar",
-			Type:    "baz",
-			Formula: "baf",
-		}
-		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-			return digitalIntConfig, nil
-		}
-		digital1Config, err := digital1.Config(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-
 		// Digital Interrupt:Value
 		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
 			return 287, nil

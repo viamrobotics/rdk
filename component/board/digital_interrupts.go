@@ -19,10 +19,6 @@ const ServoRollingAverageWindow = 10
 // when interrupted, calls the added callbacks. Post processors can also
 // be added to modify what Value ultimately returns.
 type DigitalInterrupt interface {
-
-	// Config returns the config the interrupt was created with.
-	Config(ctx context.Context) (DigitalInterruptConfig, error)
-
 	// Value returns the current value of the interrupt which is
 	// based on the type of interrupt.
 	Value(ctx context.Context) (int64, error)

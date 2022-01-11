@@ -370,10 +370,6 @@ func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
 
 type mockDigitalInterrupt struct{}
 
-func (m *mockDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	return DigitalInterruptConfig{}, nil
-}
-
 func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	return 0, nil
 }
