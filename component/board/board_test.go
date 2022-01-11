@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 )
 
@@ -49,7 +49,7 @@ func TestBoardName(t *testing.T) {
 }
 
 var (
-	mockStatus *pb.BoardStatus
+	mockStatus *commonpb.BoardStatus
 	mockGPIO   bool
 )
 
@@ -300,7 +300,7 @@ func (m *mock) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
 	return nil
 }
 
-func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (m *mock) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	m.statusCalls++
 	return mockStatus, nil
 }

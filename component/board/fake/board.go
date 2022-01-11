@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
@@ -196,7 +196,7 @@ func (b *Board) DigitalInterruptNames() []string {
 }
 
 // Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b)
 }
 
