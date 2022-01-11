@@ -1613,7 +1613,7 @@
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
-      <div id="map-container" v-if="hasKey(status.servicesMap, 'navigation')">
+      <div id="map-container" v-if="hasKey(status.servicesMap, 'rdk:service:navigation')">
         <br />
         <br />
         <button v-on:click="setNavigationMode('manual')">Manual</button>
