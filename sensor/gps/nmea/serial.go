@@ -77,7 +77,7 @@ func newSerialNMEAGPS(config config.Component, logger golog.Logger) (gps.GPS, er
 			g.ntripWritepath = serialPath
 		}
 		g.Start()
-		g.NtripClientRequest()
+		g.startNtripClientRequest()
 	} else {
 		g.Start()
 	}
@@ -122,13 +122,14 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	_, err = io.ReadAll(r)
 
 	if err != nil {
+		slib.Close(options)
 		return multierr.Combine(err, resp.Body.Close())
 	}
 
 	return nil
 }
 
-func (g *serialNMEAGPS) NtripClientRequest() {
+func (g *serialNMEAGPS) startNtripClientRequest() {
 
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
