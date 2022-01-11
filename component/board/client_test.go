@@ -164,14 +164,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
 
-		// Digital Interrupt:Tick
-		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-			return nil
-		}
-		err = digital1.Tick(context.Background(), true, 44)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectDigitalInterrupt.TickCap()[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
-
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
 

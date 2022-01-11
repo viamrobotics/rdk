@@ -76,15 +76,6 @@ type BoardServiceGetDigitalInterruptValue = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse;
 };
 
-type BoardServiceDigitalInterruptTick = {
-  readonly methodName: string;
-  readonly service: typeof BoardService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse;
-};
-
 export class BoardService {
   static readonly serviceName: string;
   static readonly Status: BoardServiceStatus;
@@ -95,7 +86,6 @@ export class BoardService {
   static readonly ReadAnalogReader: BoardServiceReadAnalogReader;
   static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
   static readonly GetDigitalInterruptValue: BoardServiceGetDigitalInterruptValue;
-  static readonly DigitalInterruptTick: BoardServiceDigitalInterruptTick;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -201,15 +191,6 @@ export class BoardServiceClient {
   getDigitalInterruptValue(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptTick(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptTick(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse|null) => void
   ): UnaryResponse;
 }
 

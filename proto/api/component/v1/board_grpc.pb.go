@@ -32,8 +32,6 @@ type BoardServiceClient interface {
 	DigitalInterruptConfig(ctx context.Context, in *BoardServiceDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	GetDigitalInterruptValue(ctx context.Context, in *BoardServiceGetDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceGetDigitalInterruptValueResponse, error)
-	// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-	DigitalInterruptTick(ctx context.Context, in *BoardServiceDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptTickResponse, error)
 }
 
 type boardServiceClient struct {
@@ -116,15 +114,6 @@ func (c *boardServiceClient) GetDigitalInterruptValue(ctx context.Context, in *B
 	return out, nil
 }
 
-func (c *boardServiceClient) DigitalInterruptTick(ctx context.Context, in *BoardServiceDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptTickResponse, error) {
-	out := new(BoardServiceDigitalInterruptTickResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/DigitalInterruptTick", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // BoardServiceServer is the server API for BoardService service.
 // All implementations must embed UnimplementedBoardServiceServer
 // for forward compatibility
@@ -143,8 +132,6 @@ type BoardServiceServer interface {
 	DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error)
-	// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-	DigitalInterruptTick(context.Context, *BoardServiceDigitalInterruptTickRequest) (*BoardServiceDigitalInterruptTickResponse, error)
 	mustEmbedUnimplementedBoardServiceServer()
 }
 
@@ -175,9 +162,6 @@ func (UnimplementedBoardServiceServer) DigitalInterruptConfig(context.Context, *
 }
 func (UnimplementedBoardServiceServer) GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDigitalInterruptValue not implemented")
-}
-func (UnimplementedBoardServiceServer) DigitalInterruptTick(context.Context, *BoardServiceDigitalInterruptTickRequest) (*BoardServiceDigitalInterruptTickResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptTick not implemented")
 }
 func (UnimplementedBoardServiceServer) mustEmbedUnimplementedBoardServiceServer() {}
 
@@ -336,24 +320,6 @@ func _BoardService_GetDigitalInterruptValue_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_DigitalInterruptTick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceDigitalInterruptTickRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BoardServiceServer).DigitalInterruptTick(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/DigitalInterruptTick",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).DigitalInterruptTick(ctx, req.(*BoardServiceDigitalInterruptTickRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // BoardService_ServiceDesc is the grpc.ServiceDesc for BoardService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -392,10 +358,6 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetDigitalInterruptValue",
 			Handler:    _BoardService_GetDigitalInterruptValue_Handler,
-		},
-		{
-			MethodName: "DigitalInterruptTick",
-			Handler:    _BoardService_DigitalInterruptTick_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

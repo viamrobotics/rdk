@@ -66,14 +66,6 @@ service BoardService {
       get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
   }
-
-  // DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-  rpc DigitalInterruptTick(BoardServiceDigitalInterruptTickRequest) returns (BoardServiceDigitalInterruptTickResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
-    };
-  }
-
 }
 
 message BoardServiceStatusRequest {
@@ -154,12 +146,3 @@ message BoardServiceGetDigitalInterruptValueRequest {
 message BoardServiceGetDigitalInterruptValueResponse {
   int64 value = 1;
 }
-
-message BoardServiceDigitalInterruptTickRequest {
-  string board_name = 1;
-  string digital_interrupt_name = 2;
-  bool high = 3;
-  uint64 nanos = 4;
-}
-
-message BoardServiceDigitalInterruptTickResponse {}
