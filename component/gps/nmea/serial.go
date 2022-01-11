@@ -4,9 +4,11 @@ package nmea
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 
 	"github.com/adrianmo/go-nmea"
@@ -108,10 +110,8 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	if err != nil {
 		return err
 	} else if resp.StatusCode != http.StatusOK {
-		g.logger.Errorf("received non-200 response code: %d", resp.StatusCode)
-		return nil
+		return errors.New("received non-200 response code: " + strconv.Itoa(resp.StatusCode))
 	}
-	g.logger.Debugf("ntrip response code: %d", resp.StatusCode)
 
 	// setup port to write to
 	options := slib.OpenOptions{
@@ -139,19 +139,22 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 }
 
 func (g *serialNMEAGPS) startNtripClientRequest() {
-
 	g.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer g.activeBackgroundWorkers.Done()
 
 		// loop to reconnect in case something breaks
 		for {
+			select {
+			case <-g.cancelCtx.Done():
+				return
+			default:
+			}
 			err := g.fetchNtripAndUpdate()
 			if err != nil {
 				g.logger.Errorf("Error with ntrip client %s", err)
 			}
 		}
-
 	})
 }
 
