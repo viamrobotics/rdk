@@ -12,7 +12,7 @@ void interruptCallback(int gpio, int level, uint32_t tick) {
 }
 
 void setupInterrupt(int gpio) {
-    setGPIOMode(gpio, PI_INPUT);
-    setGPIOPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
-    setGPIOAlertFunc(gpio, interruptCallback);
+    gpioSetMode(gpio, PI_INPUT);
+    gpioSetPullUpDown(gpio, PI_PUD_UP); // should this be configurable?
+    gpioSetAlertFunc(gpio, interruptCallback);
 }

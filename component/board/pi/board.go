@@ -206,7 +206,7 @@ func (pi *piPigpio) GetGPIOBcom(bcom int) (bool, error) {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
 		}
-		res := C.setGPIOMode(C.uint(bcom), C.PI_INPUT)
+		res := C.gpioSetMode(C.uint(bcom), C.PI_INPUT)
 		if res != 0 {
 			return false, errors.Errorf("failed to set mode %d", res)
 		}
@@ -225,7 +225,7 @@ func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 		if pi.gpioConfigSet == nil {
 			pi.gpioConfigSet = map[int]bool{}
 		}
-		res := C.setGPIOMode(C.uint(bcom), C.PI_OUTPUT)
+		res := C.gpioSetMode(C.uint(bcom), C.PI_OUTPUT)
 		if res != 0 {
 			return errors.Errorf("failed to set mode %d", res)
 		}
@@ -272,7 +272,7 @@ func (pi *piPigpio) SetPWMFreqBcom(bcom int, freq uint) error {
 	if freq == 0 {
 		freq = 800 // Original default from libpigpio
 	}
-	newRes := C.setGPIOPWMfrequency(C.uint(bcom), C.uint(freq))
+	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freq))
 
 	if newRes != C.int(freq) {
 		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freq, newRes)
