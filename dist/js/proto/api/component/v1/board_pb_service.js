@@ -55,13 +55,13 @@ BoardService.SetPWMFrequency = {
   responseType: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse
 };
 
-BoardService.AnalogReaderRead = {
-  methodName: "AnalogReaderRead",
+BoardService.ReadAnalogReader = {
+  methodName: "ReadAnalogReader",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse
 };
 
 BoardService.DigitalInterruptConfig = {
@@ -253,11 +253,11 @@ BoardServiceClient.prototype.setPWMFrequency = function setPWMFrequency(requestM
   };
 };
 
-BoardServiceClient.prototype.analogReaderRead = function analogReaderRead(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.readAnalogReader = function readAnalogReader(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.AnalogReaderRead, {
+  var client = grpc.unary(BoardService.ReadAnalogReader, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

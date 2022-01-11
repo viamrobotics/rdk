@@ -26,8 +26,8 @@ type BoardServiceClient interface {
 	SetPWM(ctx context.Context, in *BoardServiceSetPWMRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMResponse, error)
 	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
 	SetPWMFrequency(ctx context.Context, in *BoardServiceSetPWMFrequencyRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMFrequencyResponse, error)
-	// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-	AnalogReaderRead(ctx context.Context, in *BoardServiceAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardServiceAnalogReaderReadResponse, error)
+	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
+	ReadAnalogReader(ctx context.Context, in *BoardServiceReadAnalogReaderRequest, opts ...grpc.CallOption) (*BoardServiceReadAnalogReaderResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
 	DigitalInterruptConfig(ctx context.Context, in *BoardServiceDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
@@ -89,9 +89,9 @@ func (c *boardServiceClient) SetPWMFrequency(ctx context.Context, in *BoardServi
 	return out, nil
 }
 
-func (c *boardServiceClient) AnalogReaderRead(ctx context.Context, in *BoardServiceAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardServiceAnalogReaderReadResponse, error) {
-	out := new(BoardServiceAnalogReaderReadResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/AnalogReaderRead", in, out, opts...)
+func (c *boardServiceClient) ReadAnalogReader(ctx context.Context, in *BoardServiceReadAnalogReaderRequest, opts ...grpc.CallOption) (*BoardServiceReadAnalogReaderResponse, error) {
+	out := new(BoardServiceReadAnalogReaderResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/ReadAnalogReader", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -137,8 +137,8 @@ type BoardServiceServer interface {
 	SetPWM(context.Context, *BoardServiceSetPWMRequest) (*BoardServiceSetPWMResponse, error)
 	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
 	SetPWMFrequency(context.Context, *BoardServiceSetPWMFrequencyRequest) (*BoardServiceSetPWMFrequencyResponse, error)
-	// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-	AnalogReaderRead(context.Context, *BoardServiceAnalogReaderReadRequest) (*BoardServiceAnalogReaderReadResponse, error)
+	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
+	ReadAnalogReader(context.Context, *BoardServiceReadAnalogReaderRequest) (*BoardServiceReadAnalogReaderResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
 	DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
@@ -167,8 +167,8 @@ func (UnimplementedBoardServiceServer) SetPWM(context.Context, *BoardServiceSetP
 func (UnimplementedBoardServiceServer) SetPWMFrequency(context.Context, *BoardServiceSetPWMFrequencyRequest) (*BoardServiceSetPWMFrequencyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPWMFrequency not implemented")
 }
-func (UnimplementedBoardServiceServer) AnalogReaderRead(context.Context, *BoardServiceAnalogReaderReadRequest) (*BoardServiceAnalogReaderReadResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AnalogReaderRead not implemented")
+func (UnimplementedBoardServiceServer) ReadAnalogReader(context.Context, *BoardServiceReadAnalogReaderRequest) (*BoardServiceReadAnalogReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadAnalogReader not implemented")
 }
 func (UnimplementedBoardServiceServer) DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptConfig not implemented")
@@ -282,20 +282,20 @@ func _BoardService_SetPWMFrequency_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_AnalogReaderRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceAnalogReaderReadRequest)
+func _BoardService_ReadAnalogReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServiceReadAnalogReaderRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BoardServiceServer).AnalogReaderRead(ctx, in)
+		return srv.(BoardServiceServer).ReadAnalogReader(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/AnalogReaderRead",
+		FullMethod: "/proto.api.component.v1.BoardService/ReadAnalogReader",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).AnalogReaderRead(ctx, req.(*BoardServiceAnalogReaderReadRequest))
+		return srv.(BoardServiceServer).ReadAnalogReader(ctx, req.(*BoardServiceReadAnalogReaderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -382,8 +382,8 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BoardService_SetPWMFrequency_Handler,
 		},
 		{
-			MethodName: "AnalogReaderRead",
-			Handler:    _BoardService_AnalogReaderRead_Handler,
+			MethodName: "ReadAnalogReader",
+			Handler:    _BoardService_ReadAnalogReader_Handler,
 		},
 		{
 			MethodName: "DigitalInterruptConfig",

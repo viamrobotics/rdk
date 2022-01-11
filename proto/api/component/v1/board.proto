@@ -44,8 +44,8 @@ service BoardService {
 
   // Analog Reader
 
-  // AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-  rpc AnalogReaderRead(BoardServiceAnalogReaderReadRequest) returns (BoardServiceAnalogReaderReadResponse) {
+  // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
+  rpc ReadAnalogReader(BoardServiceReadAnalogReaderRequest) returns (BoardServiceReadAnalogReaderResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"
     };
@@ -119,12 +119,12 @@ message BoardServiceSetPWMFrequencyRequest {
 
 // Analog Reader
 
-message BoardServiceAnalogReaderReadRequest {
+message BoardServiceReadAnalogReaderRequest {
   string board_name = 1;
   string analog_reader_name = 2;
 }
 
-message BoardServiceAnalogReaderReadResponse {
+message BoardServiceReadAnalogReaderResponse {
   int32 value = 1;
 }
 

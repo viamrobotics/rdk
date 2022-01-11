@@ -385,61 +385,61 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setPWMFrequency
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest,
- *   !proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest,
+ *   !proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>}
  */
-const methodDescriptor_BoardService_AnalogReaderRead = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/AnalogReaderRead',
+const methodDescriptor_BoardService_ReadAnalogReader = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/ReadAnalogReader',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest,
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse,
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest,
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.analogReaderRead =
+proto.proto.api.component.v1.BoardServiceClient.prototype.readAnalogReader =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/AnalogReaderRead',
+      '/proto.api.component.v1.BoardService/ReadAnalogReader',
       request,
       metadata || {},
-      methodDescriptor_BoardService_AnalogReaderRead,
+      methodDescriptor_BoardService_ReadAnalogReader,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.analogReaderRead =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.readAnalogReader =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/AnalogReaderRead',
+      '/proto.api.component.v1.BoardService/ReadAnalogReader',
       request,
       metadata || {},
-      methodDescriptor_BoardService_AnalogReaderRead);
+      methodDescriptor_BoardService_ReadAnalogReader);
 };
 
 

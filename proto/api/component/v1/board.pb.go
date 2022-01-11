@@ -521,7 +521,7 @@ func (x *BoardServiceSetPWMFrequencyRequest) GetFrequency() uint64 {
 	return 0
 }
 
-type BoardServiceAnalogReaderReadRequest struct {
+type BoardServiceReadAnalogReaderRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -530,8 +530,8 @@ type BoardServiceAnalogReaderReadRequest struct {
 	AnalogReaderName string `protobuf:"bytes,2,opt,name=analog_reader_name,json=analogReaderName,proto3" json:"analog_reader_name,omitempty"`
 }
 
-func (x *BoardServiceAnalogReaderReadRequest) Reset() {
-	*x = BoardServiceAnalogReaderReadRequest{}
+func (x *BoardServiceReadAnalogReaderRequest) Reset() {
+	*x = BoardServiceReadAnalogReaderRequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_v1_board_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -539,13 +539,13 @@ func (x *BoardServiceAnalogReaderReadRequest) Reset() {
 	}
 }
 
-func (x *BoardServiceAnalogReaderReadRequest) String() string {
+func (x *BoardServiceReadAnalogReaderRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BoardServiceAnalogReaderReadRequest) ProtoMessage() {}
+func (*BoardServiceReadAnalogReaderRequest) ProtoMessage() {}
 
-func (x *BoardServiceAnalogReaderReadRequest) ProtoReflect() protoreflect.Message {
+func (x *BoardServiceReadAnalogReaderRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_v1_board_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -557,26 +557,26 @@ func (x *BoardServiceAnalogReaderReadRequest) ProtoReflect() protoreflect.Messag
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BoardServiceAnalogReaderReadRequest.ProtoReflect.Descriptor instead.
-func (*BoardServiceAnalogReaderReadRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use BoardServiceReadAnalogReaderRequest.ProtoReflect.Descriptor instead.
+func (*BoardServiceReadAnalogReaderRequest) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_board_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *BoardServiceAnalogReaderReadRequest) GetBoardName() string {
+func (x *BoardServiceReadAnalogReaderRequest) GetBoardName() string {
 	if x != nil {
 		return x.BoardName
 	}
 	return ""
 }
 
-func (x *BoardServiceAnalogReaderReadRequest) GetAnalogReaderName() string {
+func (x *BoardServiceReadAnalogReaderRequest) GetAnalogReaderName() string {
 	if x != nil {
 		return x.AnalogReaderName
 	}
 	return ""
 }
 
-type BoardServiceAnalogReaderReadResponse struct {
+type BoardServiceReadAnalogReaderResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -584,8 +584,8 @@ type BoardServiceAnalogReaderReadResponse struct {
 	Value int32 `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
 }
 
-func (x *BoardServiceAnalogReaderReadResponse) Reset() {
-	*x = BoardServiceAnalogReaderReadResponse{}
+func (x *BoardServiceReadAnalogReaderResponse) Reset() {
+	*x = BoardServiceReadAnalogReaderResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_v1_board_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -593,13 +593,13 @@ func (x *BoardServiceAnalogReaderReadResponse) Reset() {
 	}
 }
 
-func (x *BoardServiceAnalogReaderReadResponse) String() string {
+func (x *BoardServiceReadAnalogReaderResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BoardServiceAnalogReaderReadResponse) ProtoMessage() {}
+func (*BoardServiceReadAnalogReaderResponse) ProtoMessage() {}
 
-func (x *BoardServiceAnalogReaderReadResponse) ProtoReflect() protoreflect.Message {
+func (x *BoardServiceReadAnalogReaderResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_v1_board_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -611,12 +611,12 @@ func (x *BoardServiceAnalogReaderReadResponse) ProtoReflect() protoreflect.Messa
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BoardServiceAnalogReaderReadResponse.ProtoReflect.Descriptor instead.
-func (*BoardServiceAnalogReaderReadResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use BoardServiceReadAnalogReaderResponse.ProtoReflect.Descriptor instead.
+func (*BoardServiceReadAnalogReaderResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_board_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *BoardServiceAnalogReaderReadResponse) GetValue() int32 {
+func (x *BoardServiceReadAnalogReaderResponse) GetValue() int32 {
 	if x != nil {
 		return x.Value
 	}
@@ -1059,15 +1059,15 @@ var file_proto_api_component_v1_board_proto_rawDesc = []byte{
 	0x09, 0x52, 0x03, 0x70, 0x69, 0x6e, 0x12, 0x1c, 0x0a, 0x09, 0x66, 0x72, 0x65, 0x71, 0x75, 0x65,
 	0x6e, 0x63, 0x79, 0x18, 0x03, 0x20, 0x01, 0x28, 0x04, 0x52, 0x09, 0x66, 0x72, 0x65, 0x71, 0x75,
 	0x65, 0x6e, 0x63, 0x79, 0x22, 0x72, 0x0a, 0x23, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72,
-	0x76, 0x69, 0x63, 0x65, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65, 0x72,
-	0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x62,
+	0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x61, 0x64, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65,
+	0x61, 0x64, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x62,
 	0x6f, 0x61, 0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
 	0x09, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x4e, 0x61, 0x6d, 0x65, 0x12, 0x2c, 0x0a, 0x12, 0x61, 0x6e,
 	0x61, 0x6c, 0x6f, 0x67, 0x5f, 0x72, 0x65, 0x61, 0x64, 0x65, 0x72, 0x5f, 0x6e, 0x61, 0x6d, 0x65,
 	0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x10, 0x61, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65,
 	0x61, 0x64, 0x65, 0x72, 0x4e, 0x61, 0x6d, 0x65, 0x22, 0x3c, 0x0a, 0x24, 0x42, 0x6f, 0x61, 0x72,
-	0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65,
-	0x61, 0x64, 0x65, 0x72, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x61, 0x64, 0x41, 0x6e, 0x61, 0x6c,
+	0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
 	0x12, 0x14, 0x0a, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52,
 	0x05, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22, 0x6c, 0x0a, 0x16, 0x44, 0x69, 0x67, 0x69, 0x74, 0x61,
 	0x6c, 0x49, 0x6e, 0x74, 0x65, 0x72, 0x72, 0x75, 0x70, 0x74, 0x43, 0x6f, 0x6e, 0x66, 0x69, 0x67,
@@ -1171,16 +1171,16 @@ var file_proto_api_component_v1_board_proto_rawDesc = []byte{
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x33, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x2d, 0x1a, 0x2b, 0x2f,
 	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74,
 	0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x73, 0x65,
-	0x74, 0x5f, 0x70, 0x77, 0x6d, 0x5f, 0x66, 0x72, 0x65, 0x71, 0x12, 0xe3, 0x01, 0x0a, 0x10, 0x41,
-	0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x65, 0x61, 0x64, 0x12,
+	0x74, 0x5f, 0x70, 0x77, 0x6d, 0x5f, 0x66, 0x72, 0x65, 0x71, 0x12, 0xe3, 0x01, 0x0a, 0x10, 0x52,
+	0x65, 0x61, 0x64, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65, 0x72, 0x12,
 	0x3b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70,
 	0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65,
-	0x72, 0x76, 0x69, 0x63, 0x65, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65,
-	0x72, 0x52, 0x65, 0x61, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x3c, 0x2e, 0x70,
+	0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x61, 0x64, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52,
+	0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x3c, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65,
 	0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64, 0x65, 0x72, 0x52, 0x65,
-	0x61, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x54, 0x82, 0xd3, 0xe4, 0x93,
+	0x63, 0x65, 0x52, 0x65, 0x61, 0x64, 0x41, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x52, 0x65, 0x61, 0x64,
+	0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x54, 0x82, 0xd3, 0xe4, 0x93,
 	0x02, 0x4e, 0x12, 0x4c, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x6d, 0x70,
 	0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x62, 0x6f, 0x61,
 	0x72, 0x64, 0x5f, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x61, 0x6e, 0x61, 0x6c, 0x6f, 0x67, 0x5f,
@@ -1266,8 +1266,8 @@ var file_proto_api_component_v1_board_proto_goTypes = []interface{}{
 	(*BoardServiceSetPWMResponse)(nil),                 // 7: proto.api.component.v1.BoardServiceSetPWMResponse
 	(*BoardServiceSetPWMFrequencyResponse)(nil),        // 8: proto.api.component.v1.BoardServiceSetPWMFrequencyResponse
 	(*BoardServiceSetPWMFrequencyRequest)(nil),         // 9: proto.api.component.v1.BoardServiceSetPWMFrequencyRequest
-	(*BoardServiceAnalogReaderReadRequest)(nil),        // 10: proto.api.component.v1.BoardServiceAnalogReaderReadRequest
-	(*BoardServiceAnalogReaderReadResponse)(nil),       // 11: proto.api.component.v1.BoardServiceAnalogReaderReadResponse
+	(*BoardServiceReadAnalogReaderRequest)(nil),        // 10: proto.api.component.v1.BoardServiceReadAnalogReaderRequest
+	(*BoardServiceReadAnalogReaderResponse)(nil),       // 11: proto.api.component.v1.BoardServiceReadAnalogReaderResponse
 	(*DigitalInterruptConfig)(nil),                     // 12: proto.api.component.v1.DigitalInterruptConfig
 	(*BoardServiceDigitalInterruptConfigRequest)(nil),  // 13: proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest
 	(*BoardServiceDigitalInterruptConfigResponse)(nil), // 14: proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse
@@ -1285,7 +1285,7 @@ var file_proto_api_component_v1_board_proto_depIdxs = []int32{
 	4,  // 4: proto.api.component.v1.BoardService.GetGPIO:input_type -> proto.api.component.v1.BoardServiceGetGPIORequest
 	6,  // 5: proto.api.component.v1.BoardService.SetPWM:input_type -> proto.api.component.v1.BoardServiceSetPWMRequest
 	9,  // 6: proto.api.component.v1.BoardService.SetPWMFrequency:input_type -> proto.api.component.v1.BoardServiceSetPWMFrequencyRequest
-	10, // 7: proto.api.component.v1.BoardService.AnalogReaderRead:input_type -> proto.api.component.v1.BoardServiceAnalogReaderReadRequest
+	10, // 7: proto.api.component.v1.BoardService.ReadAnalogReader:input_type -> proto.api.component.v1.BoardServiceReadAnalogReaderRequest
 	13, // 8: proto.api.component.v1.BoardService.DigitalInterruptConfig:input_type -> proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest
 	15, // 9: proto.api.component.v1.BoardService.DigitalInterruptValue:input_type -> proto.api.component.v1.BoardServiceDigitalInterruptValueRequest
 	17, // 10: proto.api.component.v1.BoardService.DigitalInterruptTick:input_type -> proto.api.component.v1.BoardServiceDigitalInterruptTickRequest
@@ -1294,7 +1294,7 @@ var file_proto_api_component_v1_board_proto_depIdxs = []int32{
 	5,  // 13: proto.api.component.v1.BoardService.GetGPIO:output_type -> proto.api.component.v1.BoardServiceGetGPIOResponse
 	7,  // 14: proto.api.component.v1.BoardService.SetPWM:output_type -> proto.api.component.v1.BoardServiceSetPWMResponse
 	8,  // 15: proto.api.component.v1.BoardService.SetPWMFrequency:output_type -> proto.api.component.v1.BoardServiceSetPWMFrequencyResponse
-	11, // 16: proto.api.component.v1.BoardService.AnalogReaderRead:output_type -> proto.api.component.v1.BoardServiceAnalogReaderReadResponse
+	11, // 16: proto.api.component.v1.BoardService.ReadAnalogReader:output_type -> proto.api.component.v1.BoardServiceReadAnalogReaderResponse
 	14, // 17: proto.api.component.v1.BoardService.DigitalInterruptConfig:output_type -> proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse
 	16, // 18: proto.api.component.v1.BoardService.DigitalInterruptValue:output_type -> proto.api.component.v1.BoardServiceDigitalInterruptValueResponse
 	18, // 19: proto.api.component.v1.BoardService.DigitalInterruptTick:output_type -> proto.api.component.v1.BoardServiceDigitalInterruptTickResponse
@@ -1432,7 +1432,7 @@ func file_proto_api_component_v1_board_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_board_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BoardServiceAnalogReaderReadRequest); i {
+			switch v := v.(*BoardServiceReadAnalogReaderRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1444,7 +1444,7 @@ func file_proto_api_component_v1_board_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_board_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BoardServiceAnalogReaderReadResponse); i {
+			switch v := v.(*BoardServiceReadAnalogReaderResponse); i {
 			case 0:
 				return &v.state
 			case 1:

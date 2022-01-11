@@ -223,7 +223,7 @@ export namespace BoardServiceSetPWMFrequencyRequest {
   }
 }
 
-export class BoardServiceAnalogReaderReadRequest extends jspb.Message {
+export class BoardServiceReadAnalogReaderRequest extends jspb.Message {
   getBoardName(): string;
   setBoardName(value: string): void;
 
@@ -231,37 +231,37 @@ export class BoardServiceAnalogReaderReadRequest extends jspb.Message {
   setAnalogReaderName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceAnalogReaderReadRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceAnalogReaderReadRequest): BoardServiceAnalogReaderReadRequest.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceReadAnalogReaderRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceReadAnalogReaderRequest): BoardServiceReadAnalogReaderRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceAnalogReaderReadRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceAnalogReaderReadRequest;
-  static deserializeBinaryFromReader(message: BoardServiceAnalogReaderReadRequest, reader: jspb.BinaryReader): BoardServiceAnalogReaderReadRequest;
+  static serializeBinaryToWriter(message: BoardServiceReadAnalogReaderRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceReadAnalogReaderRequest;
+  static deserializeBinaryFromReader(message: BoardServiceReadAnalogReaderRequest, reader: jspb.BinaryReader): BoardServiceReadAnalogReaderRequest;
 }
 
-export namespace BoardServiceAnalogReaderReadRequest {
+export namespace BoardServiceReadAnalogReaderRequest {
   export type AsObject = {
     boardName: string,
     analogReaderName: string,
   }
 }
 
-export class BoardServiceAnalogReaderReadResponse extends jspb.Message {
+export class BoardServiceReadAnalogReaderResponse extends jspb.Message {
   getValue(): number;
   setValue(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceAnalogReaderReadResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceAnalogReaderReadResponse): BoardServiceAnalogReaderReadResponse.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceReadAnalogReaderResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceReadAnalogReaderResponse): BoardServiceReadAnalogReaderResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceAnalogReaderReadResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceAnalogReaderReadResponse;
-  static deserializeBinaryFromReader(message: BoardServiceAnalogReaderReadResponse, reader: jspb.BinaryReader): BoardServiceAnalogReaderReadResponse;
+  static serializeBinaryToWriter(message: BoardServiceReadAnalogReaderResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceReadAnalogReaderResponse;
+  static deserializeBinaryFromReader(message: BoardServiceReadAnalogReaderResponse, reader: jspb.BinaryReader): BoardServiceReadAnalogReaderResponse;
 }
 
-export namespace BoardServiceAnalogReaderReadResponse {
+export namespace BoardServiceReadAnalogReaderResponse {
   export type AsObject = {
     value: number,
   }

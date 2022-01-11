@@ -30,7 +30,7 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BaseWidthMillis(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardAnalogReaderRead(self, stream) -> None:
+    async def BoardReadAnalogReader(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BoardDigitalInterruptConfig(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)

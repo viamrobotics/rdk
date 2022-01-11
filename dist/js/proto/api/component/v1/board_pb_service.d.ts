@@ -49,13 +49,13 @@ type BoardServiceSetPWMFrequency = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse;
 };
 
-type BoardServiceAnalogReaderRead = {
+type BoardServiceReadAnalogReader = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse;
 };
 
 type BoardServiceDigitalInterruptConfig = {
@@ -92,7 +92,7 @@ export class BoardService {
   static readonly GetGPIO: BoardServiceGetGPIO;
   static readonly SetPWM: BoardServiceSetPWM;
   static readonly SetPWMFrequency: BoardServiceSetPWMFrequency;
-  static readonly AnalogReaderRead: BoardServiceAnalogReaderRead;
+  static readonly ReadAnalogReader: BoardServiceReadAnalogReader;
   static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
   static readonly DigitalInterruptValue: BoardServiceDigitalInterruptValue;
   static readonly DigitalInterruptTick: BoardServiceDigitalInterruptTick;
@@ -175,14 +175,14 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse|null) => void
   ): UnaryResponse;
-  analogReaderRead(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,
+  readAnalogReader(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse|null) => void
   ): UnaryResponse;
-  analogReaderRead(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse|null) => void
+  readAnalogReader(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse|null) => void
   ): UnaryResponse;
   digitalInterruptConfig(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
