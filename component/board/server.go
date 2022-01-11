@@ -49,14 +49,14 @@ func (s *subtypeServer) Status(ctx context.Context, req *pb.BoardServiceStatusRe
 	return &pb.BoardServiceStatusResponse{Status: status}, nil
 }
 
-// GPIOSet sets a given pin of a board of the underlying robot to either low or high.
-func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSetRequest) (*pb.BoardServiceGPIOSetResponse, error) {
+// SetGPIO sets a given pin of a board of the underlying robot to either low or high.
+func (s *subtypeServer) SetGPIO(ctx context.Context, req *pb.BoardServiceSetGPIORequest) (*pb.BoardServiceSetGPIOResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServiceGPIOSetResponse{}, b.GPIOSet(ctx, req.Pin, req.High)
+	return &pb.BoardServiceSetGPIOResponse{}, b.SetGPIO(ctx, req.Pin, req.High)
 }
 
 // GetGPIO gets the high/low state of a given pin of a board of the underlying robot.

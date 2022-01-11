@@ -59,8 +59,8 @@ type Board interface {
 	// DigitalInterruptNames returns the name of all known digital interrupts.
 	DigitalInterruptNames() []string
 
-	// GPIOSet sets the given pin to either low or high.
-	GPIOSet(ctx context.Context, pin string, high bool) error
+	// SetGPIO sets the given pin to either low or high.
+	SetGPIO(ctx context.Context, pin string, high bool) error
 
 	// GetGPIO gets the high/low state of the given pin.
 	GetGPIO(ctx context.Context, pin string) (bool, error)
@@ -194,10 +194,10 @@ func (r *reconfigurableBoard) DigitalInterruptByName(name string) (DigitalInterr
 	return d, ok
 }
 
-func (r *reconfigurableBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+func (r *reconfigurableBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GPIOSet(ctx, pin, high)
+	return r.actual.SetGPIO(ctx, pin, high)
 }
 
 func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {

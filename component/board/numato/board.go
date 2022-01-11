@@ -255,8 +255,8 @@ func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *numatoBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	pin = b.fixPin(pin)
 	if high {
 		return b.doSend(ctx, fmt.Sprintf("gpio set %s", pin))

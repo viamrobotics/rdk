@@ -113,8 +113,8 @@ func TestServerStatus(t *testing.T) {
 	}
 }
 
-func TestServerGPIOSet(t *testing.T) {
-	type request = pb.BoardServiceGPIOSetRequest
+func TestServerSetGPIO(t *testing.T) {
+	type request = pb.BoardServiceSetGPIORequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -154,17 +154,17 @@ func TestServerGPIOSet(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+			injectBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 				return tc.injectErr
 			}
 
-			_, err = server.GPIOSet(ctx, tc.req)
+			_, err = server.SetGPIO(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.GPIOSetCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectBoard.SetGPIOCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }

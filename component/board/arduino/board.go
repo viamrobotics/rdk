@@ -218,8 +218,8 @@ func (b *arduinoBoard) DigitalInterruptByName(name string) (board.DigitalInterru
 	return nil, false
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *arduinoBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *arduinoBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	return errors.New("GPIO not supported on arduino yet")
 }
 
