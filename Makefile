@@ -27,8 +27,7 @@ endif
 
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
-binsetup:
-	mkdir -p ${BIN_OUTPUT_PATH}
+default: build lint server
 
 setup:
 	bash etc/setup.sh
@@ -127,10 +126,10 @@ canon-emulation:
 
 # Canon versions of targets run in the canonical viam docker image
 canon-build:
-	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build
+	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build lint
 
 canon-test:
-	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make test
+	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build lint test
 
 # Canon shells use the raw (non-cached) canon docker image
 canon-shell:
