@@ -257,7 +257,7 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.client.AnalogReaderRead(ctx, &pb.BoardServiceAnalogReaderReadRequest{
+	resp, err := arc.client.ReadAnalogReader(ctx, &pb.BoardServiceReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
 	})

@@ -97,11 +97,11 @@ func (s *subtypeServer) SetPWMFrequency(
 	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.Frequency))
 }
 
-// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-func (s *subtypeServer) AnalogReaderRead(
+// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
+func (s *subtypeServer) ReadAnalogReader(
 	ctx context.Context,
-	req *pb.BoardServiceAnalogReaderReadRequest,
-) (*pb.BoardServiceAnalogReaderReadResponse, error) {
+	req *pb.BoardServiceReadAnalogReaderRequest,
+) (*pb.BoardServiceReadAnalogReaderResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -116,7 +116,7 @@ func (s *subtypeServer) AnalogReaderRead(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceAnalogReaderReadResponse{Value: int32(val)}, nil
+	return &pb.BoardServiceReadAnalogReaderResponse{Value: int32(val)}, nil
 }
 
 // DigitalInterruptConfig returns the config the interrupt was created with.

@@ -352,9 +352,9 @@ func TestServerSetPWMFrequency(t *testing.T) {
 }
 
 //nolint:dupl
-func TestServerAnalogReaderRead(t *testing.T) {
-	type request = pb.BoardServiceAnalogReaderReadRequest
-	type response = pb.BoardServiceAnalogReaderReadResponse
+func TestServerReadAnalogReader(t *testing.T) {
+	type request = pb.BoardServiceReadAnalogReaderRequest
+	type response = pb.BoardServiceReadAnalogReaderResponse
 	ctx := context.Background()
 
 	tests := []struct {
@@ -440,7 +440,7 @@ func TestServerAnalogReaderRead(t *testing.T) {
 				}
 			}
 
-			resp, err := server.AnalogReaderRead(ctx, tc.req)
+			resp, err := server.ReadAnalogReader(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)
