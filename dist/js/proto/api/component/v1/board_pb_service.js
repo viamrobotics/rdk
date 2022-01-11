@@ -28,13 +28,13 @@ BoardService.GPIOSet = {
   responseType: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse
 };
 
-BoardService.GPIOGet = {
-  methodName: "GPIOGet",
+BoardService.GetGPIO = {
+  methodName: "GetGPIO",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse
 };
 
 BoardService.PWMSet = {
@@ -160,11 +160,11 @@ BoardServiceClient.prototype.gPIOSet = function gPIOSet(requestMessage, metadata
   };
 };
 
-BoardServiceClient.prototype.gPIOGet = function gPIOGet(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.getGPIO = function getGPIO(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.GPIOGet, {
+  var client = grpc.unary(BoardService.GetGPIO, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

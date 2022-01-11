@@ -60,7 +60,7 @@ func TestNumato1(t *testing.T) {
 	err = b.GPIOSet(ctx, "0", false)
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err := b.GPIOGet(ctx, "1")
+	res, err := b.GetGPIO(ctx, "1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, false)
 
@@ -68,7 +68,7 @@ func TestNumato1(t *testing.T) {
 	err = b.GPIOSet(ctx, "0", true)
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err = b.GPIOGet(ctx, "1")
+	res, err = b.GetGPIO(ctx, "1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, true)
 
@@ -76,7 +76,7 @@ func TestNumato1(t *testing.T) {
 	err = b.GPIOSet(ctx, "0", false)
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err = b.GPIOGet(ctx, "1")
+	res, err = b.GetGPIO(ctx, "1")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, false)
 

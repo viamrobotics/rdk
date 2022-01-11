@@ -106,15 +106,15 @@ func TestGPIOSet(t *testing.T) {
 	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 1)
 }
 
-func TestGPIOGet(t *testing.T) {
+func TestGetGPIO(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 0)
-	result, err := fakeBoard.(*reconfigurableBoard).GPIOGet(context.Background(), "")
+	test.That(t, actualBoard.getGPIOCalls, test.ShouldEqual, 0)
+	result, err := fakeBoard.(*reconfigurableBoard).GetGPIO(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, mockGPIO)
-	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.getGPIOCalls, test.ShouldEqual, 1)
 }
 
 func TestPWMSet(t *testing.T) {
@@ -207,7 +207,7 @@ type mock struct {
 
 	reconfCalls     int
 	gpioSetCalls    int
-	gpioGetCalls    int
+	getGPIOCalls    int
 	pwmSetCalls     int
 	pwmSetFreqCalls int
 	statusCalls     int
@@ -285,8 +285,8 @@ func (m *mock) GPIOSet(ctx context.Context, pin string, high bool) error {
 	return nil
 }
 
-func (m *mock) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	m.gpioGetCalls++
+func (m *mock) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	m.getGPIOCalls++
 	return mockGPIO, nil
 }
 

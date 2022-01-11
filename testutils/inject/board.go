@@ -30,8 +30,8 @@ type Board struct {
 	statusCap                  []interface{}
 	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
 	gpioSetCap                 []interface{}
-	GPIOGetFunc                func(ctx context.Context, pin string) (bool, error)
-	gpioGetCap                 []interface{}
+	GetGPIOFunc                func(ctx context.Context, pin string) (bool, error)
+	getGPIOCap                 []interface{}
 	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
 	pwmSetCap                  []interface{}
 	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
@@ -168,22 +168,22 @@ func (b *Board) GPIOSetCap() []interface{} {
 	return b.gpioSetCap
 }
 
-// GPIOGet calls the injected GPIOGet or the real version.
-func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	b.gpioGetCap = []interface{}{ctx, pin}
-	if b.GPIOGetFunc == nil {
-		return b.Board.GPIOGet(ctx, pin)
+// GetGPIO calls the injected GetGPIO or the real version.
+func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	b.getGPIOCap = []interface{}{ctx, pin}
+	if b.GetGPIOFunc == nil {
+		return b.Board.GetGPIO(ctx, pin)
 	}
-	return b.GPIOGetFunc(ctx, pin)
+	return b.GetGPIOFunc(ctx, pin)
 }
 
-// GPIOGetCap returns the last parameters received by GPIOGet, and then clears them.
-func (b *Board) GPIOGetCap() []interface{} {
+// GetGPIOCap returns the last parameters received by GetGPIO, and then clears them.
+func (b *Board) GetGPIOCap() []interface{} {
 	if b == nil {
 		return nil
 	}
-	defer func() { b.gpioGetCap = nil }()
-	return b.gpioGetCap
+	defer func() { b.getGPIOCap = nil }()
+	return b.getGPIOCap
 }
 
 // PWMSet calls the injected PWMSet or the real version.

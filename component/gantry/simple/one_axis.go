@@ -155,7 +155,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 		offset = 1
 	}
 	pin := g.limitSwitchPins[offset]
-	high, err := g.limitBoard.GPIOGet(ctx, pin)
+	high, err := g.limitBoard.GetGPIO(ctx, pin)
 
 	return high == g.limitHigh, err
 }

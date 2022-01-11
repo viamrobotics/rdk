@@ -21,10 +21,10 @@ service BoardService {
     };  
   }
 
-  // GPIOGet gets the high/low state of the given pin of a board of the underlying robot.
-  rpc GPIOGet(BoardServiceGPIOGetRequest) returns (BoardServiceGPIOGetResponse) {
+  // GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
+  rpc GetGPIO(BoardServiceGetGPIORequest) returns (BoardServiceGetGPIOResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/board/{name}/gpio_get"
+      get: "/api/v1/component/board/{name}/get_gpio"
     };  
   }
 
@@ -92,12 +92,12 @@ message BoardServiceGPIOSetRequest {
 
 message BoardServiceGPIOSetResponse {}
 
-message BoardServiceGPIOGetRequest {
+message BoardServiceGetGPIORequest {
   string name = 1;
   string pin = 2;
 }
 
-message BoardServiceGPIOGetResponse {
+message BoardServiceGetGPIOResponse {
   bool high = 1;
 }
 

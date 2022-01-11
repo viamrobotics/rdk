@@ -189,17 +189,17 @@ func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
 	return pi.GPIOSetBcom(int(bcom), high)
 }
 
-// GPIOGet reads the high/low state of the given pin.
-func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO reads the high/low state of the given pin.
+func (pi *piPigpio) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.GPIOGetBcom(int(bcom))
+	return pi.GetGPIOBcom(int(bcom))
 }
 
-// GPIOGetBcom gets the level of the given broadcom pin
-func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
+// GetGPIOBcom gets the level of the given broadcom pin
+func (pi *piPigpio) GetGPIOBcom(bcom int) (bool, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	if !pi.gpioConfigSet[bcom] {

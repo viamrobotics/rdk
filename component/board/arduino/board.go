@@ -223,8 +223,8 @@ func (b *arduinoBoard) GPIOSet(ctx context.Context, pin string, high bool) error
 	return errors.New("GPIO not supported on arduino yet")
 }
 
-// GPIOGet returns whether the given pin is either low or high.
-func (b *arduinoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO returns whether the given pin is either low or high.
+func (b *arduinoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return false, errors.New("GPIO not supported on arduino yet")
 }
 

@@ -91,14 +91,14 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.GPIOSetCap()[1:], test.ShouldResemble, []interface{}{"one", true})
 
-		// GPIOGet
-		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+		// GetGPIO
+		injectBoard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {
 			return true, nil
 		}
-		isHigh, err := client.GPIOGet(context.Background(), "one")
+		isHigh, err := client.GetGPIO(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, injectBoard.GPIOGetCap()[1:], test.ShouldResemble, []interface{}{"one"})
+		test.That(t, injectBoard.GetGPIOCap()[1:], test.ShouldResemble, []interface{}{"one"})
 
 		// PWMSet
 		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {

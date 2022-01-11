@@ -22,13 +22,13 @@ type BoardServiceGPIOSet = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse;
 };
 
-type BoardServiceGPIOGet = {
+type BoardServiceGetGPIO = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGetGPIORequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse;
 };
 
 type BoardServicePWMSet = {
@@ -89,7 +89,7 @@ export class BoardService {
   static readonly serviceName: string;
   static readonly Status: BoardServiceStatus;
   static readonly GPIOSet: BoardServiceGPIOSet;
-  static readonly GPIOGet: BoardServiceGPIOGet;
+  static readonly GetGPIO: BoardServiceGetGPIO;
   static readonly PWMSet: BoardServicePWMSet;
   static readonly PWMSetFrequency: BoardServicePWMSetFrequency;
   static readonly AnalogReaderRead: BoardServiceAnalogReaderRead;
@@ -148,14 +148,14 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse|null) => void
   ): UnaryResponse;
-  gPIOGet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest,
+  getGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse|null) => void
   ): UnaryResponse;
-  gPIOGet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse|null) => void
+  getGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse|null) => void
   ): UnaryResponse;
   pWMSet(
     requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,

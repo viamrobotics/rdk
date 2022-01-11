@@ -136,7 +136,7 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 			return nil
 		case <-time.After(100 * time.Millisecond):
 		}
-		ready, _ := resetBoard.GPIOGet(ctx, "35")
+		ready, _ := resetBoard.GetGPIO(ctx, "35")
 		if ready {
 			return nil
 		}

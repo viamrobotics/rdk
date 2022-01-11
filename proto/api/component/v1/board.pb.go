@@ -217,7 +217,7 @@ func (*BoardServiceGPIOSetResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_board_proto_rawDescGZIP(), []int{3}
 }
 
-type BoardServiceGPIOGetRequest struct {
+type BoardServiceGetGPIORequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -226,8 +226,8 @@ type BoardServiceGPIOGetRequest struct {
 	Pin  string `protobuf:"bytes,2,opt,name=pin,proto3" json:"pin,omitempty"`
 }
 
-func (x *BoardServiceGPIOGetRequest) Reset() {
-	*x = BoardServiceGPIOGetRequest{}
+func (x *BoardServiceGetGPIORequest) Reset() {
+	*x = BoardServiceGetGPIORequest{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_v1_board_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -235,13 +235,13 @@ func (x *BoardServiceGPIOGetRequest) Reset() {
 	}
 }
 
-func (x *BoardServiceGPIOGetRequest) String() string {
+func (x *BoardServiceGetGPIORequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BoardServiceGPIOGetRequest) ProtoMessage() {}
+func (*BoardServiceGetGPIORequest) ProtoMessage() {}
 
-func (x *BoardServiceGPIOGetRequest) ProtoReflect() protoreflect.Message {
+func (x *BoardServiceGetGPIORequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_v1_board_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -253,26 +253,26 @@ func (x *BoardServiceGPIOGetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BoardServiceGPIOGetRequest.ProtoReflect.Descriptor instead.
-func (*BoardServiceGPIOGetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use BoardServiceGetGPIORequest.ProtoReflect.Descriptor instead.
+func (*BoardServiceGetGPIORequest) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_board_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *BoardServiceGPIOGetRequest) GetName() string {
+func (x *BoardServiceGetGPIORequest) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *BoardServiceGPIOGetRequest) GetPin() string {
+func (x *BoardServiceGetGPIORequest) GetPin() string {
 	if x != nil {
 		return x.Pin
 	}
 	return ""
 }
 
-type BoardServiceGPIOGetResponse struct {
+type BoardServiceGetGPIOResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -280,8 +280,8 @@ type BoardServiceGPIOGetResponse struct {
 	High bool `protobuf:"varint,1,opt,name=high,proto3" json:"high,omitempty"`
 }
 
-func (x *BoardServiceGPIOGetResponse) Reset() {
-	*x = BoardServiceGPIOGetResponse{}
+func (x *BoardServiceGetGPIOResponse) Reset() {
+	*x = BoardServiceGetGPIOResponse{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_proto_api_component_v1_board_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -289,13 +289,13 @@ func (x *BoardServiceGPIOGetResponse) Reset() {
 	}
 }
 
-func (x *BoardServiceGPIOGetResponse) String() string {
+func (x *BoardServiceGetGPIOResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BoardServiceGPIOGetResponse) ProtoMessage() {}
+func (*BoardServiceGetGPIOResponse) ProtoMessage() {}
 
-func (x *BoardServiceGPIOGetResponse) ProtoReflect() protoreflect.Message {
+func (x *BoardServiceGetGPIOResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_api_component_v1_board_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -307,12 +307,12 @@ func (x *BoardServiceGPIOGetResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BoardServiceGPIOGetResponse.ProtoReflect.Descriptor instead.
-func (*BoardServiceGPIOGetResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use BoardServiceGetGPIOResponse.ProtoReflect.Descriptor instead.
+func (*BoardServiceGetGPIOResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_board_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *BoardServiceGPIOGetResponse) GetHigh() bool {
+func (x *BoardServiceGetGPIOResponse) GetHigh() bool {
 	if x != nil {
 		return x.High
 	}
@@ -1034,12 +1034,12 @@ var file_proto_api_component_v1_board_proto_rawDesc = []byte{
 	0x68, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x68, 0x69, 0x67, 0x68, 0x22, 0x1d, 0x0a,
 	0x1b, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x50, 0x49,
 	0x4f, 0x53, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x42, 0x0a, 0x1a,
-	0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x50, 0x49, 0x4f,
-	0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61,
+	0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x65, 0x74, 0x47,
+	0x50, 0x49, 0x4f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61,
 	0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10,
 	0x0a, 0x03, 0x70, 0x69, 0x6e, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x70, 0x69, 0x6e,
 	0x22, 0x31, 0x0a, 0x1b, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
-	0x47, 0x50, 0x49, 0x4f, 0x47, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x47, 0x65, 0x74, 0x47, 0x50, 0x49, 0x4f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
 	0x12, 0x0a, 0x04, 0x68, 0x69, 0x67, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x68,
 	0x69, 0x67, 0x68, 0x22, 0x60, 0x0a, 0x19, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76,
 	0x69, 0x63, 0x65, 0x50, 0x57, 0x4d, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
@@ -1139,17 +1139,17 @@ var file_proto_api_component_v1_board_proto_rawDesc = []byte{
 	0x2f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29, 0x1a, 0x27, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31,
 	0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64,
 	0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x70, 0x69, 0x6f, 0x5f, 0x73, 0x65, 0x74,
-	0x12, 0xa3, 0x01, 0x0a, 0x07, 0x47, 0x50, 0x49, 0x4f, 0x47, 0x65, 0x74, 0x12, 0x32, 0x2e, 0x70,
+	0x12, 0xa3, 0x01, 0x0a, 0x07, 0x47, 0x65, 0x74, 0x47, 0x50, 0x49, 0x4f, 0x12, 0x32, 0x2e, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65,
 	0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x47, 0x50, 0x49, 0x4f, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
+	0x63, 0x65, 0x47, 0x65, 0x74, 0x47, 0x50, 0x49, 0x4f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x33, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d,
 	0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64, 0x53,
-	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x50, 0x49, 0x4f, 0x47, 0x65, 0x74, 0x52, 0x65, 0x73,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x65, 0x74, 0x47, 0x50, 0x49, 0x4f, 0x52, 0x65, 0x73,
 	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x2f, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x29, 0x12, 0x27, 0x2f,
 	0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74,
-	0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x70,
-	0x69, 0x6f, 0x5f, 0x67, 0x65, 0x74, 0x12, 0x9f, 0x01, 0x0a, 0x06, 0x50, 0x57, 0x4d, 0x53, 0x65,
+	0x2f, 0x62, 0x6f, 0x61, 0x72, 0x64, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x65,
+	0x74, 0x5f, 0x67, 0x70, 0x69, 0x6f, 0x12, 0x9f, 0x01, 0x0a, 0x06, 0x50, 0x57, 0x4d, 0x53, 0x65,
 	0x74, 0x12, 0x31, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f,
 	0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x42, 0x6f, 0x61, 0x72, 0x64,
 	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x57, 0x4d, 0x53, 0x65, 0x74, 0x52, 0x65, 0x71,
@@ -1260,8 +1260,8 @@ var file_proto_api_component_v1_board_proto_goTypes = []interface{}{
 	(*BoardServiceStatusResponse)(nil),                 // 1: proto.api.component.v1.BoardServiceStatusResponse
 	(*BoardServiceGPIOSetRequest)(nil),                 // 2: proto.api.component.v1.BoardServiceGPIOSetRequest
 	(*BoardServiceGPIOSetResponse)(nil),                // 3: proto.api.component.v1.BoardServiceGPIOSetResponse
-	(*BoardServiceGPIOGetRequest)(nil),                 // 4: proto.api.component.v1.BoardServiceGPIOGetRequest
-	(*BoardServiceGPIOGetResponse)(nil),                // 5: proto.api.component.v1.BoardServiceGPIOGetResponse
+	(*BoardServiceGetGPIORequest)(nil),                 // 4: proto.api.component.v1.BoardServiceGetGPIORequest
+	(*BoardServiceGetGPIOResponse)(nil),                // 5: proto.api.component.v1.BoardServiceGetGPIOResponse
 	(*BoardServicePWMSetRequest)(nil),                  // 6: proto.api.component.v1.BoardServicePWMSetRequest
 	(*BoardServicePWMSetResponse)(nil),                 // 7: proto.api.component.v1.BoardServicePWMSetResponse
 	(*BoardServicePWMSetFrequencyResponse)(nil),        // 8: proto.api.component.v1.BoardServicePWMSetFrequencyResponse
@@ -1282,7 +1282,7 @@ var file_proto_api_component_v1_board_proto_depIdxs = []int32{
 	12, // 1: proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse.config:type_name -> proto.api.component.v1.DigitalInterruptConfig
 	0,  // 2: proto.api.component.v1.BoardService.Status:input_type -> proto.api.component.v1.BoardServiceStatusRequest
 	2,  // 3: proto.api.component.v1.BoardService.GPIOSet:input_type -> proto.api.component.v1.BoardServiceGPIOSetRequest
-	4,  // 4: proto.api.component.v1.BoardService.GPIOGet:input_type -> proto.api.component.v1.BoardServiceGPIOGetRequest
+	4,  // 4: proto.api.component.v1.BoardService.GetGPIO:input_type -> proto.api.component.v1.BoardServiceGetGPIORequest
 	6,  // 5: proto.api.component.v1.BoardService.PWMSet:input_type -> proto.api.component.v1.BoardServicePWMSetRequest
 	9,  // 6: proto.api.component.v1.BoardService.PWMSetFrequency:input_type -> proto.api.component.v1.BoardServicePWMSetFrequencyRequest
 	10, // 7: proto.api.component.v1.BoardService.AnalogReaderRead:input_type -> proto.api.component.v1.BoardServiceAnalogReaderReadRequest
@@ -1291,7 +1291,7 @@ var file_proto_api_component_v1_board_proto_depIdxs = []int32{
 	17, // 10: proto.api.component.v1.BoardService.DigitalInterruptTick:input_type -> proto.api.component.v1.BoardServiceDigitalInterruptTickRequest
 	1,  // 11: proto.api.component.v1.BoardService.Status:output_type -> proto.api.component.v1.BoardServiceStatusResponse
 	3,  // 12: proto.api.component.v1.BoardService.GPIOSet:output_type -> proto.api.component.v1.BoardServiceGPIOSetResponse
-	5,  // 13: proto.api.component.v1.BoardService.GPIOGet:output_type -> proto.api.component.v1.BoardServiceGPIOGetResponse
+	5,  // 13: proto.api.component.v1.BoardService.GetGPIO:output_type -> proto.api.component.v1.BoardServiceGetGPIOResponse
 	7,  // 14: proto.api.component.v1.BoardService.PWMSet:output_type -> proto.api.component.v1.BoardServicePWMSetResponse
 	8,  // 15: proto.api.component.v1.BoardService.PWMSetFrequency:output_type -> proto.api.component.v1.BoardServicePWMSetFrequencyResponse
 	11, // 16: proto.api.component.v1.BoardService.AnalogReaderRead:output_type -> proto.api.component.v1.BoardServiceAnalogReaderReadResponse
@@ -1360,7 +1360,7 @@ func file_proto_api_component_v1_board_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_board_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BoardServiceGPIOGetRequest); i {
+			switch v := v.(*BoardServiceGetGPIORequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1372,7 +1372,7 @@ func file_proto_api_component_v1_board_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_board_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*BoardServiceGPIOGetResponse); i {
+			switch v := v.(*BoardServiceGetGPIOResponse); i {
 			case 0:
 				return &v.state
 			case 1:

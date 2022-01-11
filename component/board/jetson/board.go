@@ -227,7 +227,7 @@ func (b *jetsonBoard) GPIOSet(ctx context.Context, pinName string, high bool) er
 	return pin.Out(l)
 }
 
-func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error) {
+func (b *jetsonBoard) GetGPIO(ctx context.Context, pinName string) (bool, error) {
 	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return false, err
