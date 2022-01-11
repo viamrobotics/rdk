@@ -5,10 +5,16 @@ on:
   push:
     branches: [ main, appimage ]
     paths-ignore:
-      - '**/Dockerfile.fortest'
+      - 'README.md'
+      - '**/Dockerfile.*'
       - '**/.github/workflows/docker.yml'
+      - '**/.github/workflows/test.yml'
+      - '**/.github/workflows/packserver.yml'
   pull_request:
     branches: [ main ]
+
+env:
+  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
 
 jobs:
   build_and_test:
