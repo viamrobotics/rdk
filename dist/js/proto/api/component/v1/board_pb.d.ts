@@ -345,7 +345,7 @@ export namespace BoardServiceDigitalInterruptConfigResponse {
   }
 }
 
-export class BoardServiceDigitalInterruptValueRequest extends jspb.Message {
+export class BoardServiceGetDigitalInterruptValueRequest extends jspb.Message {
   getBoardName(): string;
   setBoardName(value: string): void;
 
@@ -353,37 +353,37 @@ export class BoardServiceDigitalInterruptValueRequest extends jspb.Message {
   setDigitalInterruptName(value: string): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceDigitalInterruptValueRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceDigitalInterruptValueRequest): BoardServiceDigitalInterruptValueRequest.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceGetDigitalInterruptValueRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceGetDigitalInterruptValueRequest): BoardServiceGetDigitalInterruptValueRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceDigitalInterruptValueRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceDigitalInterruptValueRequest;
-  static deserializeBinaryFromReader(message: BoardServiceDigitalInterruptValueRequest, reader: jspb.BinaryReader): BoardServiceDigitalInterruptValueRequest;
+  static serializeBinaryToWriter(message: BoardServiceGetDigitalInterruptValueRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceGetDigitalInterruptValueRequest;
+  static deserializeBinaryFromReader(message: BoardServiceGetDigitalInterruptValueRequest, reader: jspb.BinaryReader): BoardServiceGetDigitalInterruptValueRequest;
 }
 
-export namespace BoardServiceDigitalInterruptValueRequest {
+export namespace BoardServiceGetDigitalInterruptValueRequest {
   export type AsObject = {
     boardName: string,
     digitalInterruptName: string,
   }
 }
 
-export class BoardServiceDigitalInterruptValueResponse extends jspb.Message {
+export class BoardServiceGetDigitalInterruptValueResponse extends jspb.Message {
   getValue(): number;
   setValue(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceDigitalInterruptValueResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceDigitalInterruptValueResponse): BoardServiceDigitalInterruptValueResponse.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceGetDigitalInterruptValueResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceGetDigitalInterruptValueResponse): BoardServiceGetDigitalInterruptValueResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceDigitalInterruptValueResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceDigitalInterruptValueResponse;
-  static deserializeBinaryFromReader(message: BoardServiceDigitalInterruptValueResponse, reader: jspb.BinaryReader): BoardServiceDigitalInterruptValueResponse;
+  static serializeBinaryToWriter(message: BoardServiceGetDigitalInterruptValueResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceGetDigitalInterruptValueResponse;
+  static deserializeBinaryFromReader(message: BoardServiceGetDigitalInterruptValueResponse, reader: jspb.BinaryReader): BoardServiceGetDigitalInterruptValueResponse;
 }
 
-export namespace BoardServiceDigitalInterruptValueResponse {
+export namespace BoardServiceGetDigitalInterruptValueResponse {
   export type AsObject = {
     value: number,
   }

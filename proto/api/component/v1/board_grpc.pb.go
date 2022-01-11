@@ -30,8 +30,8 @@ type BoardServiceClient interface {
 	ReadAnalogReader(ctx context.Context, in *BoardServiceReadAnalogReaderRequest, opts ...grpc.CallOption) (*BoardServiceReadAnalogReaderResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
 	DigitalInterruptConfig(ctx context.Context, in *BoardServiceDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptConfigResponse, error)
-	// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-	DigitalInterruptValue(ctx context.Context, in *BoardServiceDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptValueResponse, error)
+	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+	GetDigitalInterruptValue(ctx context.Context, in *BoardServiceGetDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceGetDigitalInterruptValueResponse, error)
 	// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
 	DigitalInterruptTick(ctx context.Context, in *BoardServiceDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptTickResponse, error)
 }
@@ -107,9 +107,9 @@ func (c *boardServiceClient) DigitalInterruptConfig(ctx context.Context, in *Boa
 	return out, nil
 }
 
-func (c *boardServiceClient) DigitalInterruptValue(ctx context.Context, in *BoardServiceDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptValueResponse, error) {
-	out := new(BoardServiceDigitalInterruptValueResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/DigitalInterruptValue", in, out, opts...)
+func (c *boardServiceClient) GetDigitalInterruptValue(ctx context.Context, in *BoardServiceGetDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceGetDigitalInterruptValueResponse, error) {
+	out := new(BoardServiceGetDigitalInterruptValueResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/GetDigitalInterruptValue", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,8 +141,8 @@ type BoardServiceServer interface {
 	ReadAnalogReader(context.Context, *BoardServiceReadAnalogReaderRequest) (*BoardServiceReadAnalogReaderResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
 	DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error)
-	// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-	DigitalInterruptValue(context.Context, *BoardServiceDigitalInterruptValueRequest) (*BoardServiceDigitalInterruptValueResponse, error)
+	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+	GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error)
 	// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
 	DigitalInterruptTick(context.Context, *BoardServiceDigitalInterruptTickRequest) (*BoardServiceDigitalInterruptTickResponse, error)
 	mustEmbedUnimplementedBoardServiceServer()
@@ -173,8 +173,8 @@ func (UnimplementedBoardServiceServer) ReadAnalogReader(context.Context, *BoardS
 func (UnimplementedBoardServiceServer) DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptConfig not implemented")
 }
-func (UnimplementedBoardServiceServer) DigitalInterruptValue(context.Context, *BoardServiceDigitalInterruptValueRequest) (*BoardServiceDigitalInterruptValueResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptValue not implemented")
+func (UnimplementedBoardServiceServer) GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetDigitalInterruptValue not implemented")
 }
 func (UnimplementedBoardServiceServer) DigitalInterruptTick(context.Context, *BoardServiceDigitalInterruptTickRequest) (*BoardServiceDigitalInterruptTickResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptTick not implemented")
@@ -318,20 +318,20 @@ func _BoardService_DigitalInterruptConfig_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_DigitalInterruptValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceDigitalInterruptValueRequest)
+func _BoardService_GetDigitalInterruptValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServiceGetDigitalInterruptValueRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BoardServiceServer).DigitalInterruptValue(ctx, in)
+		return srv.(BoardServiceServer).GetDigitalInterruptValue(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/DigitalInterruptValue",
+		FullMethod: "/proto.api.component.v1.BoardService/GetDigitalInterruptValue",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).DigitalInterruptValue(ctx, req.(*BoardServiceDigitalInterruptValueRequest))
+		return srv.(BoardServiceServer).GetDigitalInterruptValue(ctx, req.(*BoardServiceGetDigitalInterruptValueRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -390,8 +390,8 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BoardService_DigitalInterruptConfig_Handler,
 		},
 		{
-			MethodName: "DigitalInterruptValue",
-			Handler:    _BoardService_DigitalInterruptValue_Handler,
+			MethodName: "GetDigitalInterruptValue",
+			Handler:    _BoardService_GetDigitalInterruptValue_Handler,
 		},
 		{
 			MethodName: "DigitalInterruptTick",

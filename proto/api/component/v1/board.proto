@@ -60,8 +60,8 @@ service BoardService {
     };
   }
 
-  // DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-  rpc DigitalInterruptValue(BoardServiceDigitalInterruptValueRequest) returns (BoardServiceDigitalInterruptValueResponse) {
+  // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+  rpc GetDigitalInterruptValue(BoardServiceGetDigitalInterruptValueRequest) returns (BoardServiceGetDigitalInterruptValueResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
@@ -146,12 +146,12 @@ message BoardServiceDigitalInterruptConfigResponse {
   DigitalInterruptConfig config = 1;
 }
 
-message BoardServiceDigitalInterruptValueRequest {
+message BoardServiceGetDigitalInterruptValueRequest {
   string board_name = 1;
   string digital_interrupt_name = 2;
 }
 
-message BoardServiceDigitalInterruptValueResponse {
+message BoardServiceGetDigitalInterruptValueResponse {
   int64 value = 1;
 }
 

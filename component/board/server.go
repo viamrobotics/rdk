@@ -150,11 +150,11 @@ func digitalInterruptConfigToProto(config *DigitalInterruptConfig) *pb.DigitalIn
 	}
 }
 
-// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-func (s *subtypeServer) DigitalInterruptValue(
+// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+func (s *subtypeServer) GetDigitalInterruptValue(
 	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptValueRequest,
-) (*pb.BoardServiceDigitalInterruptValueResponse, error) {
+	req *pb.BoardServiceGetDigitalInterruptValueRequest,
+) (*pb.BoardServiceGetDigitalInterruptValueResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (s *subtypeServer) DigitalInterruptValue(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceDigitalInterruptValueResponse{Value: val}, nil
+	return &pb.BoardServiceGetDigitalInterruptValueResponse{Value: val}, nil
 }
 
 // DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.

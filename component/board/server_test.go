@@ -568,9 +568,9 @@ func TestServerDigitalInterruptConfig(t *testing.T) {
 }
 
 //nolint:dupl
-func TestServerDigitalInterruptValue(t *testing.T) {
-	type request = pb.BoardServiceDigitalInterruptValueRequest
-	type response = pb.BoardServiceDigitalInterruptValueResponse
+func TestServerGetDigitalInterruptValue(t *testing.T) {
+	type request = pb.BoardServiceGetDigitalInterruptValueRequest
+	type response = pb.BoardServiceGetDigitalInterruptValueResponse
 	ctx := context.Background()
 
 	tests := []struct {
@@ -656,7 +656,7 @@ func TestServerDigitalInterruptValue(t *testing.T) {
 				}
 			}
 
-			resp, err := server.DigitalInterruptValue(ctx, tc.req)
+			resp, err := server.GetDigitalInterruptValue(ctx, tc.req)
 			if tc.expRespErr == nil {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, resp, test.ShouldResemble, tc.expResp)

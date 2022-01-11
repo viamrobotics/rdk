@@ -73,13 +73,13 @@ BoardService.DigitalInterruptConfig = {
   responseType: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse
 };
 
-BoardService.DigitalInterruptValue = {
-  methodName: "DigitalInterruptValue",
+BoardService.GetDigitalInterruptValue = {
+  methodName: "GetDigitalInterruptValue",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse
 };
 
 BoardService.DigitalInterruptTick = {
@@ -315,11 +315,11 @@ BoardServiceClient.prototype.digitalInterruptConfig = function digitalInterruptC
   };
 };
 
-BoardServiceClient.prototype.digitalInterruptValue = function digitalInterruptValue(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.getDigitalInterruptValue = function getDigitalInterruptValue(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.DigitalInterruptValue, {
+  var client = grpc.unary(BoardService.GetDigitalInterruptValue, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

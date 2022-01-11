@@ -507,61 +507,61 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterrup
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest,
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest,
+ *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>}
  */
-const methodDescriptor_BoardService_DigitalInterruptValue = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/DigitalInterruptValue',
+const methodDescriptor_BoardService_GetDigitalInterruptValue = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse,
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest,
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.digitalInterruptValue =
+proto.proto.api.component.v1.BoardServiceClient.prototype.getDigitalInterruptValue =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptValue',
+      '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
       request,
       metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptValue,
+      methodDescriptor_BoardService_GetDigitalInterruptValue,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterruptValue =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.getDigitalInterruptValue =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptValue',
+      '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
       request,
       metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptValue);
+      methodDescriptor_BoardService_GetDigitalInterruptValue);
 };
 
 

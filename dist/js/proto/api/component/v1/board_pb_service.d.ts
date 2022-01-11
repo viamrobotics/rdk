@@ -67,13 +67,13 @@ type BoardServiceDigitalInterruptConfig = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse;
 };
 
-type BoardServiceDigitalInterruptValue = {
+type BoardServiceGetDigitalInterruptValue = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse;
 };
 
 type BoardServiceDigitalInterruptTick = {
@@ -94,7 +94,7 @@ export class BoardService {
   static readonly SetPWMFrequency: BoardServiceSetPWMFrequency;
   static readonly ReadAnalogReader: BoardServiceReadAnalogReader;
   static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
-  static readonly DigitalInterruptValue: BoardServiceDigitalInterruptValue;
+  static readonly GetDigitalInterruptValue: BoardServiceGetDigitalInterruptValue;
   static readonly DigitalInterruptTick: BoardServiceDigitalInterruptTick;
 }
 
@@ -193,14 +193,14 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse|null) => void
   ): UnaryResponse;
-  digitalInterruptValue(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest,
+  getDigitalInterruptValue(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse|null) => void
   ): UnaryResponse;
-  digitalInterruptValue(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse|null) => void
+  getDigitalInterruptValue(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse|null) => void
   ): UnaryResponse;
   digitalInterruptTick(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest,
