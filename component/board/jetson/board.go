@@ -88,7 +88,7 @@ func init() {
 			return &jetsonBoard{
 				spis:    spis,
 				analogs: analogs,
-				pwms:    map[string]pwmSetting{},
+				pwms:    map[string]setPWMting{},
 			}, nil
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
@@ -98,10 +98,10 @@ type jetsonBoard struct {
 	mu      sync.Mutex
 	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader
-	pwms    map[string]pwmSetting
+	pwms    map[string]setPWMting
 }
 
-type pwmSetting struct {
+type setPWMting struct {
 	dutyCycle gpio.Duty
 	frequency physic.Frequency
 }
@@ -236,7 +236,7 @@ func (b *jetsonBoard) GetGPIO(ctx context.Context, pinName string) (bool, error)
 	return pin.Read() == gpio.High, nil
 }
 
-func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte) error {
+func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCycle byte) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -257,7 +257,7 @@ func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte
 	return pin.PWM(duty, freq)
 }
 
-func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint) error {
+func (b *jetsonBoard) SetPWMFreq(ctx context.Context, pinName string, freq uint) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

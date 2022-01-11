@@ -31,22 +31,22 @@ type BoardServiceGetGPIO = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse;
 };
 
-type BoardServicePWMSet = {
+type BoardServiceSetPWM = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMResponse;
 };
 
-type BoardServicePWMSetFrequency = {
+type BoardServiceSetPWMFrequency = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse;
 };
 
 type BoardServiceAnalogReaderRead = {
@@ -90,8 +90,8 @@ export class BoardService {
   static readonly Status: BoardServiceStatus;
   static readonly SetGPIO: BoardServiceSetGPIO;
   static readonly GetGPIO: BoardServiceGetGPIO;
-  static readonly PWMSet: BoardServicePWMSet;
-  static readonly PWMSetFrequency: BoardServicePWMSetFrequency;
+  static readonly SetPWM: BoardServiceSetPWM;
+  static readonly SetPWMFrequency: BoardServiceSetPWMFrequency;
   static readonly AnalogReaderRead: BoardServiceAnalogReaderRead;
   static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
   static readonly DigitalInterruptValue: BoardServiceDigitalInterruptValue;
@@ -157,23 +157,23 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse|null) => void
   ): UnaryResponse;
-  pWMSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,
+  setPWM(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMResponse|null) => void
   ): UnaryResponse;
-  pWMSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetResponse|null) => void
+  setPWM(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMResponse|null) => void
   ): UnaryResponse;
-  pWMSetFrequency(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest,
+  setPWMFrequency(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse|null) => void
   ): UnaryResponse;
-  pWMSetFrequency(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse|null) => void
+  setPWMFrequency(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse|null) => void
   ): UnaryResponse;
   analogReaderRead(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,

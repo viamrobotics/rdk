@@ -37,22 +37,22 @@ BoardService.GetGPIO = {
   responseType: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse
 };
 
-BoardService.PWMSet = {
-  methodName: "PWMSet",
+BoardService.SetPWM = {
+  methodName: "SetPWM",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServicePWMSetResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceSetPWMRequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceSetPWMResponse
 };
 
-BoardService.PWMSetFrequency = {
-  methodName: "PWMSetFrequency",
+BoardService.SetPWMFrequency = {
+  methodName: "SetPWMFrequency",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse
 };
 
 BoardService.AnalogReaderRead = {
@@ -191,11 +191,11 @@ BoardServiceClient.prototype.getGPIO = function getGPIO(requestMessage, metadata
   };
 };
 
-BoardServiceClient.prototype.pWMSet = function pWMSet(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.setPWM = function setPWM(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.PWMSet, {
+  var client = grpc.unary(BoardService.SetPWM, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,
@@ -222,11 +222,11 @@ BoardServiceClient.prototype.pWMSet = function pWMSet(requestMessage, metadata, 
   };
 };
 
-BoardServiceClient.prototype.pWMSetFrequency = function pWMSetFrequency(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.setPWMFrequency = function setPWMFrequency(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.PWMSetFrequency, {
+  var client = grpc.unary(BoardService.SetPWMFrequency, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

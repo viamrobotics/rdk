@@ -228,28 +228,28 @@ func (b *arduinoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return false, errors.New("GPIO not supported on arduino yet")
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	return b.pwmSetArduino(pin, dutyCycle)
+// SetPWM sets the given pin to the given duty cycle.
+func (b *arduinoBoard) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+	return b.setPWMArduino(pin, dutyCycle)
 }
 
-func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
+func (b *arduinoBoard) setPWMArduino(pin string, dutyCycle byte) error {
 	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
 	if _, err := b.runCommand(cmd); err != nil {
-		return fmt.Errorf("unexpected return from PWMSet got %w", err)
+		return fmt.Errorf("unexpected return from SetPWM got %w", err)
 	}
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	return b.pwmSetFreqArduino(pin, freq)
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *arduinoBoard) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+	return b.setPWMFreqArduino(pin, freq)
 }
 
-func (b *arduinoBoard) pwmSetFreqArduino(pin string, freq uint) error {
+func (b *arduinoBoard) setPWMFreqArduino(pin string, freq uint) error {
 	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
 	if _, err := b.runCommand(cmd); err != nil {
-		return fmt.Errorf("unexpected return from PWMSetFreq got %w", err)
+		return fmt.Errorf("unexpected return from SetPWMFreq got %w", err)
 	}
 	return nil
 }

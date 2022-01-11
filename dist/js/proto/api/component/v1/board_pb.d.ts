@@ -135,7 +135,7 @@ export namespace BoardServiceGetGPIOResponse {
   }
 }
 
-export class BoardServicePWMSetRequest extends jspb.Message {
+export class BoardServiceSetPWMRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -146,16 +146,16 @@ export class BoardServicePWMSetRequest extends jspb.Message {
   setDutyCycle(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServicePWMSetRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServicePWMSetRequest): BoardServicePWMSetRequest.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetPWMRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetPWMRequest): BoardServiceSetPWMRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServicePWMSetRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServicePWMSetRequest;
-  static deserializeBinaryFromReader(message: BoardServicePWMSetRequest, reader: jspb.BinaryReader): BoardServicePWMSetRequest;
+  static serializeBinaryToWriter(message: BoardServiceSetPWMRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetPWMRequest;
+  static deserializeBinaryFromReader(message: BoardServiceSetPWMRequest, reader: jspb.BinaryReader): BoardServiceSetPWMRequest;
 }
 
-export namespace BoardServicePWMSetRequest {
+export namespace BoardServiceSetPWMRequest {
   export type AsObject = {
     name: string,
     pin: string,
@@ -163,39 +163,39 @@ export namespace BoardServicePWMSetRequest {
   }
 }
 
-export class BoardServicePWMSetResponse extends jspb.Message {
+export class BoardServiceSetPWMResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServicePWMSetResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServicePWMSetResponse): BoardServicePWMSetResponse.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetPWMResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetPWMResponse): BoardServiceSetPWMResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServicePWMSetResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServicePWMSetResponse;
-  static deserializeBinaryFromReader(message: BoardServicePWMSetResponse, reader: jspb.BinaryReader): BoardServicePWMSetResponse;
+  static serializeBinaryToWriter(message: BoardServiceSetPWMResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetPWMResponse;
+  static deserializeBinaryFromReader(message: BoardServiceSetPWMResponse, reader: jspb.BinaryReader): BoardServiceSetPWMResponse;
 }
 
-export namespace BoardServicePWMSetResponse {
+export namespace BoardServiceSetPWMResponse {
   export type AsObject = {
   }
 }
 
-export class BoardServicePWMSetFrequencyResponse extends jspb.Message {
+export class BoardServiceSetPWMFrequencyResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServicePWMSetFrequencyResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServicePWMSetFrequencyResponse): BoardServicePWMSetFrequencyResponse.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetPWMFrequencyResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetPWMFrequencyResponse): BoardServiceSetPWMFrequencyResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServicePWMSetFrequencyResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServicePWMSetFrequencyResponse;
-  static deserializeBinaryFromReader(message: BoardServicePWMSetFrequencyResponse, reader: jspb.BinaryReader): BoardServicePWMSetFrequencyResponse;
+  static serializeBinaryToWriter(message: BoardServiceSetPWMFrequencyResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetPWMFrequencyResponse;
+  static deserializeBinaryFromReader(message: BoardServiceSetPWMFrequencyResponse, reader: jspb.BinaryReader): BoardServiceSetPWMFrequencyResponse;
 }
 
-export namespace BoardServicePWMSetFrequencyResponse {
+export namespace BoardServiceSetPWMFrequencyResponse {
   export type AsObject = {
   }
 }
 
-export class BoardServicePWMSetFrequencyRequest extends jspb.Message {
+export class BoardServiceSetPWMFrequencyRequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -206,16 +206,16 @@ export class BoardServicePWMSetFrequencyRequest extends jspb.Message {
   setFrequency(value: number): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServicePWMSetFrequencyRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServicePWMSetFrequencyRequest): BoardServicePWMSetFrequencyRequest.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetPWMFrequencyRequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetPWMFrequencyRequest): BoardServiceSetPWMFrequencyRequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServicePWMSetFrequencyRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServicePWMSetFrequencyRequest;
-  static deserializeBinaryFromReader(message: BoardServicePWMSetFrequencyRequest, reader: jspb.BinaryReader): BoardServicePWMSetFrequencyRequest;
+  static serializeBinaryToWriter(message: BoardServiceSetPWMFrequencyRequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetPWMFrequencyRequest;
+  static deserializeBinaryFromReader(message: BoardServiceSetPWMFrequencyRequest, reader: jspb.BinaryReader): BoardServiceSetPWMFrequencyRequest;
 }
 
-export namespace BoardServicePWMSetFrequencyRequest {
+export namespace BoardServiceSetPWMFrequencyRequest {
   export type AsObject = {
     name: string,
     pin: string,

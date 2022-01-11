@@ -263,122 +263,122 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.getGPIO =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServicePWMSetRequest,
- *   !proto.proto.api.component.v1.BoardServicePWMSetResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMRequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMResponse>}
  */
-const methodDescriptor_BoardService_PWMSet = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/PWMSet',
+const methodDescriptor_BoardService_SetPWM = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetPWM',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServicePWMSetRequest,
-  proto.proto.api.component.v1.BoardServicePWMSetResponse,
+  proto.proto.api.component.v1.BoardServiceSetPWMRequest,
+  proto.proto.api.component.v1.BoardServiceSetPWMResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServicePWMSetResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetPWMResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServicePWMSetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetPWMResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServicePWMSetResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetPWMResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.pWMSet =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setPWM =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSet',
+      '/proto.api.component.v1.BoardService/SetPWM',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSet,
+      methodDescriptor_BoardService_SetPWM,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServicePWMSetResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetPWMResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.pWMSet =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setPWM =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSet',
+      '/proto.api.component.v1.BoardService/SetPWM',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSet);
+      methodDescriptor_BoardService_SetPWM);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest,
- *   !proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>}
  */
-const methodDescriptor_BoardService_PWMSetFrequency = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/PWMSetFrequency',
+const methodDescriptor_BoardService_SetPWMFrequency = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetPWMFrequency',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest,
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse,
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest,
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.pWMSetFrequency =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setPWMFrequency =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSetFrequency',
+      '/proto.api.component.v1.BoardService/SetPWMFrequency',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSetFrequency,
+      methodDescriptor_BoardService_SetPWMFrequency,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.pWMSetFrequency =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setPWMFrequency =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSetFrequency',
+      '/proto.api.component.v1.BoardService/SetPWMFrequency',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSetFrequency);
+      methodDescriptor_BoardService_SetPWMFrequency);
 };
 
 

@@ -274,13 +274,13 @@ func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return res[len(res)-1] == '1', nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *numatoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
 	return errors.New("numato doesn't support pwm")
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *numatoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
 	return errors.New("numato doesn't support pwm")
 }
 

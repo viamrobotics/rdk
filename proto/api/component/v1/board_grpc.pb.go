@@ -22,10 +22,10 @@ type BoardServiceClient interface {
 	SetGPIO(ctx context.Context, in *BoardServiceSetGPIORequest, opts ...grpc.CallOption) (*BoardServiceSetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(ctx context.Context, in *BoardServiceGetGPIORequest, opts ...grpc.CallOption) (*BoardServiceGetGPIOResponse, error)
-	// PWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
-	PWMSet(ctx context.Context, in *BoardServicePWMSetRequest, opts ...grpc.CallOption) (*BoardServicePWMSetResponse, error)
-	// PWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFrequency(ctx context.Context, in *BoardServicePWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardServicePWMSetFrequencyResponse, error)
+	// SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
+	SetPWM(ctx context.Context, in *BoardServiceSetPWMRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMResponse, error)
+	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	SetPWMFrequency(ctx context.Context, in *BoardServiceSetPWMFrequencyRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMFrequencyResponse, error)
 	// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
 	AnalogReaderRead(ctx context.Context, in *BoardServiceAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardServiceAnalogReaderReadResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
@@ -71,18 +71,18 @@ func (c *boardServiceClient) GetGPIO(ctx context.Context, in *BoardServiceGetGPI
 	return out, nil
 }
 
-func (c *boardServiceClient) PWMSet(ctx context.Context, in *BoardServicePWMSetRequest, opts ...grpc.CallOption) (*BoardServicePWMSetResponse, error) {
-	out := new(BoardServicePWMSetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/PWMSet", in, out, opts...)
+func (c *boardServiceClient) SetPWM(ctx context.Context, in *BoardServiceSetPWMRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMResponse, error) {
+	out := new(BoardServiceSetPWMResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/SetPWM", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *boardServiceClient) PWMSetFrequency(ctx context.Context, in *BoardServicePWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardServicePWMSetFrequencyResponse, error) {
-	out := new(BoardServicePWMSetFrequencyResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/PWMSetFrequency", in, out, opts...)
+func (c *boardServiceClient) SetPWMFrequency(ctx context.Context, in *BoardServiceSetPWMFrequencyRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMFrequencyResponse, error) {
+	out := new(BoardServiceSetPWMFrequencyResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/SetPWMFrequency", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -133,10 +133,10 @@ type BoardServiceServer interface {
 	SetGPIO(context.Context, *BoardServiceSetGPIORequest) (*BoardServiceSetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(context.Context, *BoardServiceGetGPIORequest) (*BoardServiceGetGPIOResponse, error)
-	// PWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
-	PWMSet(context.Context, *BoardServicePWMSetRequest) (*BoardServicePWMSetResponse, error)
-	// PWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFrequency(context.Context, *BoardServicePWMSetFrequencyRequest) (*BoardServicePWMSetFrequencyResponse, error)
+	// SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
+	SetPWM(context.Context, *BoardServiceSetPWMRequest) (*BoardServiceSetPWMResponse, error)
+	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+	SetPWMFrequency(context.Context, *BoardServiceSetPWMFrequencyRequest) (*BoardServiceSetPWMFrequencyResponse, error)
 	// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
 	AnalogReaderRead(context.Context, *BoardServiceAnalogReaderReadRequest) (*BoardServiceAnalogReaderReadResponse, error)
 	// DigitalInterruptConfig returns the config the interrupt was created with.
@@ -161,11 +161,11 @@ func (UnimplementedBoardServiceServer) SetGPIO(context.Context, *BoardServiceSet
 func (UnimplementedBoardServiceServer) GetGPIO(context.Context, *BoardServiceGetGPIORequest) (*BoardServiceGetGPIOResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGPIO not implemented")
 }
-func (UnimplementedBoardServiceServer) PWMSet(context.Context, *BoardServicePWMSetRequest) (*BoardServicePWMSetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PWMSet not implemented")
+func (UnimplementedBoardServiceServer) SetPWM(context.Context, *BoardServiceSetPWMRequest) (*BoardServiceSetPWMResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPWM not implemented")
 }
-func (UnimplementedBoardServiceServer) PWMSetFrequency(context.Context, *BoardServicePWMSetFrequencyRequest) (*BoardServicePWMSetFrequencyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PWMSetFrequency not implemented")
+func (UnimplementedBoardServiceServer) SetPWMFrequency(context.Context, *BoardServiceSetPWMFrequencyRequest) (*BoardServiceSetPWMFrequencyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetPWMFrequency not implemented")
 }
 func (UnimplementedBoardServiceServer) AnalogReaderRead(context.Context, *BoardServiceAnalogReaderReadRequest) (*BoardServiceAnalogReaderReadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AnalogReaderRead not implemented")
@@ -246,38 +246,38 @@ func _BoardService_GetGPIO_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_PWMSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServicePWMSetRequest)
+func _BoardService_SetPWM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServiceSetPWMRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BoardServiceServer).PWMSet(ctx, in)
+		return srv.(BoardServiceServer).SetPWM(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/PWMSet",
+		FullMethod: "/proto.api.component.v1.BoardService/SetPWM",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).PWMSet(ctx, req.(*BoardServicePWMSetRequest))
+		return srv.(BoardServiceServer).SetPWM(ctx, req.(*BoardServiceSetPWMRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_PWMSetFrequency_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServicePWMSetFrequencyRequest)
+func _BoardService_SetPWMFrequency_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServiceSetPWMFrequencyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BoardServiceServer).PWMSetFrequency(ctx, in)
+		return srv.(BoardServiceServer).SetPWMFrequency(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/PWMSetFrequency",
+		FullMethod: "/proto.api.component.v1.BoardService/SetPWMFrequency",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).PWMSetFrequency(ctx, req.(*BoardServicePWMSetFrequencyRequest))
+		return srv.(BoardServiceServer).SetPWMFrequency(ctx, req.(*BoardServiceSetPWMFrequencyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -374,12 +374,12 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BoardService_GetGPIO_Handler,
 		},
 		{
-			MethodName: "PWMSet",
-			Handler:    _BoardService_PWMSet_Handler,
+			MethodName: "SetPWM",
+			Handler:    _BoardService_SetPWM_Handler,
 		},
 		{
-			MethodName: "PWMSetFrequency",
-			Handler:    _BoardService_PWMSetFrequency_Handler,
+			MethodName: "SetPWMFrequency",
+			Handler:    _BoardService_SetPWMFrequency_Handler,
 		},
 		{
 			MethodName: "AnalogReaderRead",

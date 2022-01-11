@@ -42,9 +42,9 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BoardSetGPIO(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardPWMSet(self, stream) -> None:
+    async def BoardSetPWM(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardPWMSetFrequency(self, stream) -> None:
+    async def BoardSetPWMFrequency(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BoardStatus(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
