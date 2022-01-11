@@ -4,15 +4,15 @@ package main
 import (
 	"context"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/core/config"
-	"go.viam.com/core/rimage/imagesource"
-
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/edaniels/gostream/codec/x264"
 	"github.com/edaniels/gostream/media"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/camera/imagesource"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/rimage"
 )
 
 func main() {
@@ -35,7 +35,9 @@ type Arguments struct {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
+	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
+	var argsMap rimage.AttrConfig
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
@@ -51,7 +53,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			for _, p := range info.Properties {
 				logger.Debugf("\t %v %d x %d", p.FrameFormat, p.Width, p.Height)
 			}
-
 		}
 		return nil
 	}
@@ -60,29 +61,33 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if argsParsed.Format != "" {
 		attrs["format"] = argsParsed.Format
+		argsMap.Format = argsParsed.Format
 	}
 
 	if argsParsed.Path != "" {
 		attrs["path"] = argsParsed.Path
+		argsMap.Path = argsParsed.Path
 	}
 
 	if argsParsed.PathPattern != "" {
 		attrs["path_pattern"] = argsParsed.PathPattern
+		argsMap.Format = argsParsed.PathPattern
 	}
 
 	if argsParsed.Debug {
 		attrs["debug"] = true
+		argsMap.Debug = true
 	}
 
 	if argsParsed.Debug {
 		logger.Debugf("attrs: %v", attrs)
 	}
 
-	return viewCamera(ctx, attrs, int(argsParsed.Port), argsParsed.Debug, logger)
+	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug bool, logger golog.Logger) error {
-	webcam, err := imagesource.NewWebcamSource(attrs, logger)
+func viewCamera(ctx context.Context, attrs rimage.AttrConfig, port int, debug bool, logger golog.Logger) error {
+	webcam, err := imagesource.NewWebcamSource(&attrs, logger)
 	if err != nil {
 		return err
 	}
@@ -101,18 +106,21 @@ func viewCamera(ctx context.Context, attrs config.AttributeMap, port int, debug 
 		return err
 	}
 
-	remoteView, err := gostream.NewView(x264.DefaultViewConfig)
+	remoteStream, err := gostream.NewStream(x264.DefaultStreamConfig)
 	if err != nil {
 		return err
 	}
 
-	server := gostream.NewViewServer(port, remoteView, logger)
-	if err := server.Start(); err != nil {
+	server, err := gostream.NewStandaloneStreamServer(port, logger, remoteStream)
+	if err != nil {
+		return err
+	}
+	if err := server.Start(ctx); err != nil {
 		return err
 	}
 
 	utils.ContextMainReadyFunc(ctx)()
-	gostream.StreamSource(ctx, webcam, remoteView)
+	gostream.StreamSource(ctx, webcam, remoteStream)
 
-	return server.Stop(context.Background())
+	return server.Stop(ctx)
 }

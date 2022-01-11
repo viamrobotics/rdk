@@ -7,8 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/vision/segmentation"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 type P func(d *rimage.ImageWithDepth, logger golog.Logger) (image.Image, []image.Point, error)
@@ -17,7 +17,14 @@ type ChessImageProcessDebug struct {
 	p P
 }
 
-func (dd ChessImageProcessDebug) Process(t *testing.T, pCtx *rimage.ProcessorContext, fn string, img image.Image, logger golog.Logger) error {
+func (dd ChessImageProcessDebug) Process(
+	t *testing.T,
+	pCtx *rimage.ProcessorContext,
+	fn string,
+	img image.Image,
+	logger golog.Logger,
+) error {
+	t.Helper()
 	out, corners, err := dd.p(rimage.ConvertToImageWithDepth(img), logger)
 	if err != nil {
 		return err
@@ -61,7 +68,6 @@ func (dd ChessImageProcessDebug) Process(t *testing.T, pCtx *rimage.ProcessorCon
 				}
 
 				out.Circle(p, 20, clr)
-
 			}
 
 			pCtx.GotDebugImage(out, "marked")

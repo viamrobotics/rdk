@@ -11,10 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/go-errors/errors"
-
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-
 	"go.viam.com/utils"
 )
 
@@ -24,7 +22,7 @@ func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 	reader := bufio.NewReader(bytes.NewReader(allData))
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
-		return nil, errors.Errorf("couldn't read depth map (both): %w", err)
+		return nil, errors.Wrap(err, "couldn't read depth map (both)")
 	}
 
 	img, _, err := image.Decode(reader)
@@ -42,6 +40,7 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 		return nil, errors.New("bad extension")
 	}
 
+	//nolint:gosec
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
@@ -56,7 +55,6 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 	defer utils.UncheckedErrorFunc(in.Close)
 
 	allData, err := ioutil.ReadAll(in)
-
 	if err != nil {
 		return nil, err
 	}

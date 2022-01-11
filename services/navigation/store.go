@@ -1,3 +1,4 @@
+// Package navigation implements the navigation service.
 package navigation
 
 import (
@@ -5,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -16,9 +17,7 @@ import (
 	mongoutils "go.viam.com/utils/mongo"
 )
 
-var (
-	errNoMoreWaypoints = errors.New("no more waypoints")
-)
+var errNoMoreWaypoints = errors.New("no more waypoints")
 
 type navStore interface {
 	Waypoints(ctx context.Context) ([]Waypoint, error)
@@ -60,7 +59,7 @@ type Waypoint struct {
 	Long    float64            `bson:"longitude"`
 }
 
-// ToPoint converts the waypoint to a geo.Point
+// ToPoint converts the waypoint to a geo.Point.
 func (wp *Waypoint) ToPoint() *geo.Point {
 	return geo.NewPoint(wp.Lat, wp.Long)
 }
@@ -153,7 +152,6 @@ var (
 )
 
 func newMongoDBNavigationStore(ctx context.Context, config map[string]interface{}) (*mongoDBNavigationStore, error) {
-	// TODO(erd): use config
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -167,7 +165,7 @@ func newMongoDBNavigationStore(ctx context.Context, config map[string]interface{
 		return nil, err
 	}
 	if err := mongoClient.Ping(ctx, readpref.Primary()); err != nil {
-		return nil, multierr.Combine(err, mongoClient.Disconnect(context.Background()))
+		return nil, multierr.Combine(err, mongoClient.Disconnect(ctx))
 	}
 
 	waypoints := mongoClient.Database(MongoDBNavStoreDBName).Collection(MongoDBNavStoreWaypointsCollName)
@@ -186,8 +184,8 @@ type mongoDBNavigationStore struct {
 	waypointsColl *mongo.Collection
 }
 
-func (store *mongoDBNavigationStore) Close() error {
-	return store.mongoClient.Disconnect(context.Background())
+func (store *mongoDBNavigationStore) Close(ctx context.Context) error {
+	return store.mongoClient.Disconnect(ctx)
 }
 
 func (store *mongoDBNavigationStore) Waypoints(ctx context.Context) ([]Waypoint, error) {

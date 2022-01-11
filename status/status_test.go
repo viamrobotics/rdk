@@ -4,34 +4,46 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-errors/errors"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/gripper"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
-	"go.viam.com/core/status"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/board"
+	fakeboard "go.viam.com/rdk/component/board/fake"
+	"go.viam.com/rdk/component/camera"
+	fakecamera "go.viam.com/rdk/component/camera/fake"
+	"go.viam.com/rdk/component/gripper"
+	fakegripper "go.viam.com/rdk/component/gripper/fake"
+	"go.viam.com/rdk/component/input"
+	fakeinput "go.viam.com/rdk/component/input/fake"
+	"go.viam.com/rdk/component/motor"
+	fakemotor "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/component/servo"
+	fakeservo "go.viam.com/rdk/component/servo/fake"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/robots/fake"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/status"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
 	injectRobot := &inject.Robot{}
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+		return []resource.Name{
+			arm.Named("arm1"),
+			arm.Named("arm2"),
+			resource.NameFromSubtype(framesystem.Subtype, ""),
+		}
 	}
 	injectRobot.ArmNamesFunc = func() []string {
 		return []string{"arm1", "arm2"}
@@ -41,9 +53,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
-	}
-	injectRobot.LidarNamesFunc = func() []string {
-		return []string{"lidar1", "lidar2"}
 	}
 	injectRobot.BaseNamesFunc = func() []string {
 		return []string{"base1", "base2"}
@@ -66,45 +75,39 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
 	}
-	injectRobot.ServiceNamesFunc = func() []string {
-		return []string{"service1", "service2"}
-	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
 	}
 
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fake.Arm{Name: name.Name}, true
+		return &fakearm.Arm{Name: name.Name}, true
 	}
 	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return &fake.Arm{Name: name}, true
+		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return &fake.Base{Name: name}, true
 	}
 	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return &fake.Gripper{Name: name}, true
+		return &fakegripper.Gripper{Name: name}, true
 	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		return &fake.Camera{Name: name}, true
-	}
-	injectRobot.LidarByNameFunc = func(name string) (lidar.Lidar, bool) {
-		return &fake.Lidar{Name: name}, true
+		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &fake.Board{Name: name}, true
+		return &fakeboard.Board{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return &fake.Compass{Name: name}, true
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return &fake.Servo{Name: name}, true
+		return &fakeservo.Servo{Name: name}, true
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fake.Motor{Name: name}, true
+		return &fakemotor.Motor{Name: name}, true
 	}
 	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fake.InputController{Name: name}, true
+		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {
@@ -149,6 +152,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status, err := status.Create(context.Background(), robot)
 		test.That(t, err, test.ShouldBeNil)
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},
@@ -162,17 +166,13 @@ func TestCreateStatus(t *testing.T) {
 				"gripper1": true,
 				"gripper2": true,
 			},
-			Boards: map[string]*pb.BoardStatus{
+			Boards: map[string]*commonpb.BoardStatus{
 				"board1": {},
 				"board2": {},
 			},
 			Cameras: map[string]bool{
 				"camera1": true,
 				"camera2": true,
-			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
 			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
@@ -190,17 +190,20 @@ func TestCreateStatus(t *testing.T) {
 				"motor1": {},
 				"motor2": {},
 			},
-			InputControllers: map[string]bool{
-				"inputController1": true,
-				"inputController2": true,
+			InputControllers: map[string]*pb.InputControllerStatus{
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
 			},
 			Services: map[string]bool{
-				"service1": true,
-				"service2": true,
+				"rdk:service:frame_system": true,
 			},
 		})
 	})
@@ -221,6 +224,7 @@ func TestCreateStatus(t *testing.T) {
 		// Status is the same as with no remotes because it's up to the
 		// robot to utilize information from the remotes. We know
 		// Refresh is called due to the failure above.
+		//nolint:dupl
 		test.That(t, status, test.ShouldResemble, &pb.Status{
 			Arms: map[string]*pb.ArmStatus{
 				"arm1": {},
@@ -234,17 +238,13 @@ func TestCreateStatus(t *testing.T) {
 				"gripper1": true,
 				"gripper2": true,
 			},
-			Boards: map[string]*pb.BoardStatus{
+			Boards: map[string]*commonpb.BoardStatus{
 				"board1": {},
 				"board2": {},
 			},
 			Cameras: map[string]bool{
 				"camera1": true,
 				"camera2": true,
-			},
-			Lidars: map[string]bool{
-				"lidar1": true,
-				"lidar2": true,
 			},
 			Sensors: map[string]*pb.SensorStatus{
 				"sensor1": {
@@ -262,17 +262,20 @@ func TestCreateStatus(t *testing.T) {
 				"motor1": {},
 				"motor2": {},
 			},
-			InputControllers: map[string]bool{
-				"inputController1": true,
-				"inputController2": true,
+			InputControllers: map[string]*pb.InputControllerStatus{
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
 			},
 			Services: map[string]bool{
-				"service1": true,
-				"service2": true,
+				"rdk:service:frame_system": true,
 			},
 		})
 	})

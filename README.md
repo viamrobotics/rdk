@@ -1,42 +1,25 @@
-# core
+# RDK (Robot Development Kit)
 
 <p align="center">
-  <a href="https://go.viam.com/pkg/go.viam.com/core/"><img src="https://pkg.go.dev/badge/go.viam.com/core" alt="PkgGoDev"></a>
-  <a href="https://codecov.io/gh/viamrobotics/core"><img src="https://codecov.io/gh/viamrobotics/core/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
+  <a href="https://go.viam.com/pkg/go.viam.com/rdk/"><img src="https://pkg.go.dev/badge/go.viam.com/rdk" alt="PkgGoDev"></a>
+  <a href="https://codecov.io/gh/viamrobotics/rdk"><img src="https://codecov.io/gh/viamrobotics/rdk/branch/master/graph/badge.svg?token=99YH0M8YOA" alt="CodeCov"></a>
 </p>
 
 * [Programs](#programs)
 * [Dependencies](#dependencies)
 * [Development](#development)
 
-## Programs
-* [rimage/cmd/both](./rimage/cmd/both) - Read color/depth data and write to an overlayed image file
-* [rimage/cmd/depth](./rimage/cmd/depth) - Read depth (or color/depth) data and write pretty version to a file
-* [rimage/cmd/stream_camera](./rimage/cmd/stream_camera) - Stream a local camera
-* [web/cmd/server](./web/cmd/server) - Run a robot server
-* [sensor/compass/gy511/cmd/client](./sensor/compass/gy511/cmd/client) - Run a GY511 compass
-
-### Bespoke
-* [samples/boat1](./samples/boat1) - boat1 work in progress
-* [samples/chess](./samples/chess) - Play chess!
-* [samples/vision](./samples/vision) - Utilities for working with images to test out vision library code
-
 ### API Documentation & more devices
-To see more examples, check out the [Wiki](https://github.com/viamrobotics/core/wiki)
+To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/wiki)
 
 ## Dependencies
 
-* make
-* Run `make setup`
+* Run `make setup` or `etc/setup.sh` (if make is not yet installed) to install a full dev environment.
+  * Note that on Raspberry Pi, Nvidia Jetson, etc. only a minimal environment is installed.
 
-### libvpx linux source build
-If libvpx is not available on your distro, run the following:
+### First time run
 
-1. `git clone git@github.com:webmproject/libvpx.git`
-1. `cd libvpx`
-1. `mkdir build; cd build`
-1. `../configure --enable-runtime-cpu-detect --enable-vp8 --enable-postproc --enable-multi-res-encoding --enable-webm-io --enable-better-hw-compatibility --enable-onthefly-bitpacking --enable-pic`
-1. `sudo make install`
+* Try out `go run web/cmd/server/main.go robots/configs/fake.json` and visit http://localhost:8080
 
 ## Development
 
@@ -55,7 +38,7 @@ If libvpx is not available on your distro, run the following:
 
 ### Resources
 
-All resources implemented within core follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go).
+All resources implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go). They should be placed in the corresponding component's register package going forward.
 
 ### Protocol Buffers/gRPC
 
@@ -84,10 +67,3 @@ artifact push
 git add .artifact
 # commit the file at some point
 ```
-
-### Testing from Github Actions
-
-1. First make sure you have docker installed (https://docs.docker.com/get-docker/)
-1. Install `act` with `brew install act`
-1. Add `GIT_ACCESS_TOKEN` which is your GitHub Personal Access Token (repo scope) it to your .secrets file in the repo (see https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token and https://github.com/nektos/act#configuration)
-1. Then just run `act`

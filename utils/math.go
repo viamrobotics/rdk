@@ -6,6 +6,8 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/golang/geo/r3"
 )
 
 // DegToRad converts degrees to radians.
@@ -103,13 +105,13 @@ func CubeRoot(x float64) float64 {
 }
 
 // Square returns the square of the given value.
-// Math.pow( x, 2 ) is slow, this is faster
+// Math.pow( x, 2 ) is slow, this is faster.
 func Square(n float64) float64 {
 	return n * n
 }
 
 // SquareInt returns the square of the given value.
-// Math.pow( x, 2 ) is slow, this is faster
+// Math.pow( x, 2 ) is slow, this is faster.
 func SquareInt(n int) int {
 	return n * n
 }
@@ -125,24 +127,18 @@ func ScaleByPct(n int, pct float64) int {
 	return scaled
 }
 
-// RayToUpwardCWCartesian returns coordinates based off of
-// a coordinate system where the center is x,y=0,0 and
-// zero degrees is pointing up. This is helpful for visualizing
-// measurement devices that scan clockwise.
-// ray is in degrees
-// 0°   -  (0,increasing) // Up
-// 90°  -  (increasing, 0) // Right
-// 180° -  (0, decreasing) // Down
-// 270° -  (decreasing,0) // Left
-func RayToUpwardCWCartesian(angle, distance float64) (float64, float64) {
-	angleRad := DegToRad(angle)
-	x := distance * math.Sin(angleRad)
-	y := distance * math.Cos(angleRad)
-	return x, y
-}
-
 // SampleRandomIntRange samples a random integer within a range given by [min, max]
 // using the given rand.Rand.
 func SampleRandomIntRange(min, max int, r *rand.Rand) int {
 	return r.Intn(max-min+1) + min
+}
+
+// Float64AlmostEqual compares two float64s and returns if the difference between them is less than epsilon.
+func Float64AlmostEqual(a, b, epsilon float64) bool {
+	return (a-b) < epsilon && (b-a) < epsilon
+}
+
+// R3VectorAlmostEqual compares two r3.Vector objects and returns if the all elementwise differences are less than epsilon.
+func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
+	return math.Abs(a.X-b.X) < epsilon && math.Abs(a.Y-b.Y) < epsilon && math.Abs(a.Z-b.Z) < epsilon
 }

@@ -5,14 +5,14 @@ import (
 	"image"
 	"math"
 
-	"go.viam.com/core/utils"
-
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/utils"
 )
 
 // Helper function for convolving depth maps with kernels. When used with i, dx := range makeRangeArray(n)
 // i is the position within the kernel and dx gives the offset within the depth map.
-// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1} (even lengths rarely used)
+// if length is even, then the origin is to the right of middle i.e. 4 -> {-2, -1, 0, 1} (even lengths rarely used).
 func makeRangeArray(length int) []int {
 	if length <= 0 {
 		return make([]int, 0)
@@ -58,7 +58,7 @@ func gaussianFunction2D(sigma float64) func(p1, p2 float64) float64 {
 	}
 }
 
-// gaussianKernel takes characteristic length (sigma) as input and creates the k x k 2D array used to create the Guassian filter
+// gaussianKernel takes characteristic length (sigma) as input and creates the k x k 2D array used to create the Guassian filter.
 func gaussianKernel(sigma float64) [][]float64 {
 	gaus2D := gaussianFunction2D(sigma)
 	// size of the kernel is determined by size of sigma. want to get 3 sigma worth of gaussian function
@@ -77,7 +77,7 @@ func gaussianKernel(sigma float64) [][]float64 {
 
 // Filters for convolutions, used in their corresponding smoothing functions
 
-// using just spatial information to fill the kernel values
+// using just spatial information to fill the kernel values.
 func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	kernel := gaussianKernel(sigma)
 	k := len(kernel)
@@ -104,7 +104,7 @@ func gaussianFilter(sigma float64) func(p image.Point, dm *DepthMap) float64 {
 	return filter
 }
 
-// Uses both spatial and depth information to fill the kernel values
+// Uses both spatial and depth information to fill the kernel values.
 func jointBilateralFilter(spatialSigma, depthSigma float64) func(p image.Point, dm *DepthMap) float64 {
 	spatialFilter := gaussianFunction2D(spatialSigma)
 	depthFilter := gaussianFunction1D(depthSigma)
@@ -216,8 +216,12 @@ func vectorBlurFilter(k int) func(p image.Point, vf *VectorField2D) Vec2D {
 }
 
 // SavitskyGolayFilter algorithm is as follows:
-// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an odd number "windowSize".
-// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... . Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from the SavitskyGolayKernel.
+// 1. for each point of the DepthMap extract a sub-matrix, centered at that point and with a size equal to an
+// odd number "windowSize".
+// 2. For this sub-matrix compute a least-square fit of a polynomial surface, defined as
+// p(x,y) = a0 + a1*x + a2*y + a3*x\^2 + a4*y\^2 + a5*x*y + ... .
+// Note that x and y are equal to zero at the central point. The parameters for the fit are gotten from
+// the SavitskyGolayKernel.
 // 3. The output value is computed with the calculated fit parameters multiplied times the input data.
 func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMap) float64, error) {
 	kernel, err := savitskyGolayKernel(radius, polyOrder)
@@ -252,7 +256,7 @@ func savitskyGolayFilter(radius, polyOrder int) (func(p image.Point, dm *DepthMa
 // which represent a1 and a2 respectively.
 
 // creates a slice of the exponents on the x and y in each term of the polynomial.
-// e.g. image.Point{0,2} -> a4*y^2, image.Point{1,1} -> a5*x*y
+// e.g. image.Point{0,2} -> a4*y^2, image.Point{1,1} -> a5*x*y.
 func polyExponents(order int) []image.Point {
 	exps := make([]image.Point, 0, (order+1)*(order+2)/2)
 	for k := 0; k < order+1; k++ {
@@ -292,8 +296,7 @@ func savitskyGolayKernel(radius, order int) ([][]float64, error) {
 	// calculate pseudo-inverse of A
 	var solution mat.Dense
 	I := eye(nElements)
-	err := solution.Solve(A, I)
-	if err != nil {
+	if err := solution.Solve(A, I); err != nil {
 		return nil, err
 	}
 	// Get the row used to calculate the a0 coefficients and form it back into a square

@@ -4,24 +4,22 @@ package robot
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/sensor"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -42,9 +40,6 @@ type Robot interface {
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
 
-	// LidarByName returns a lidar by name.
-	LidarByName(name string) (lidar.Lidar, bool)
-
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
 
@@ -60,10 +55,6 @@ type Robot interface {
 	// InputControllerByName returns a input.Controller by name.
 	InputControllerByName(name string) (input.Controller, bool)
 
-	// ServiceByName returns a service by name.
-	// TODO(erd): refactor to service resource
-	ServiceByName(name string) (interface{}, bool)
-
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
 
@@ -78,9 +69,6 @@ type Robot interface {
 
 	// CameraNames returns the name of all known cameras.
 	CameraNames() []string
-
-	// LidarNames returns the name of all known lidars.
-	LidarNames() []string
 
 	// BaseNames returns the name of all known bases.
 	BaseNames() []string
@@ -102,9 +90,6 @@ type Robot interface {
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
-
-	// ServiceNames returns the name of all known services.
-	ServiceNames() []string
 
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name
@@ -130,7 +115,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
+	Close(ctx context.Context) error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -148,7 +133,7 @@ type LocalRobot interface {
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
 
-//AllResourcesByName returns an array of all resources that have this simple name
+// AllResourcesByName returns an array of all resources that have this simple name.
 func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
 

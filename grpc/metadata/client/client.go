@@ -4,26 +4,24 @@ package client
 import (
 	"context"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/service/v1"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.
 type MetadataServiceClient struct {
-	conn   dialer.ClientConn
+	conn   rpc.ClientConn
 	client pb.MetadataServiceClient
 
 	logger golog.Logger
 }
 
-// NewClient constructs a new MetadataServiceClient that is served at the given address.
-func NewClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*MetadataServiceClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts, logger)
+// New constructs a new MetadataServiceClient that is served at the given address.
+func New(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*MetadataServiceClient, error) {
+	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -37,12 +35,12 @@ func NewClient(ctx context.Context, address string, opts rpcclient.DialOptions, 
 	return mc, nil
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (mc *MetadataServiceClient) Close() error {
 	return mc.conn.Close()
 }
 
-// Resources either gets the latest version of the list of resources for the remote robot
+// Resources either gets the latest version of the list of resources for the remote robot.
 func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*pb.ResourceName, error) {
 	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {

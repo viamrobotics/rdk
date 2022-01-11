@@ -14,14 +14,13 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	watcher, err := NewWatcher(&Config{}, logger)
+	watcher, err := NewWatcher(context.Background(), &Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	timer := time.NewTimer(time.Second)
@@ -32,7 +31,7 @@ func TestNewWatcherNoop(t *testing.T) {
 	case <-timer.C:
 	}
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 }
 
 func TestNewWatcherFile(t *testing.T) {
@@ -42,13 +41,13 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	watcher, err := NewWatcher(&Config{ConfigFilePath: temp.Name()}, logger)
+	watcher, err := NewWatcher(context.Background(), &Config{ConfigFilePath: temp.Name()}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	writeConf := func(conf *Config) {
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
@@ -73,6 +72,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
@@ -94,6 +94,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
@@ -101,7 +102,7 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	go func() {
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
@@ -134,13 +135,14 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	go writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 }
 
 func TestNewWatcherCloud(t *testing.T) {
@@ -199,7 +201,7 @@ func TestNewWatcherCloud(t *testing.T) {
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
 		ID:              "my_id",
 		Secret:          "my_secret",
-		Self:            "woo",
+		FQDNs:           []string{"woo", "yee"},
 		RefreshInterval: time.Second,
 	}
 	confToReturn = Config{
@@ -218,9 +220,10 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 
-	watcher, err := NewWatcher(&Config{Cloud: cloudConf}, logger)
+	watcher, err := NewWatcher(context.Background(), &Config{Cloud: cloudConf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
@@ -242,6 +245,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	confErrMu.Lock()
 	confErr = false
@@ -274,6 +278,7 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{BindAddress: "localhost:8080"},
 	}
 	confErrMu.Lock()
 	confErr = false
@@ -282,7 +287,7 @@ func TestNewWatcherCloud(t *testing.T) {
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToReturn)
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 	test.That(t, httpServer.Shutdown(context.Background()), test.ShouldBeNil)
 	<-serveDone
 }

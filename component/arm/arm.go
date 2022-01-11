@@ -6,45 +6,46 @@ import (
 	"math"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/utils"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/utils"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "arm"
+// SubtypeName is a constant that identifies the component resource subtype string "arm".
 const SubtypeName = resource.SubtypeName("arm")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
 
-// Named is a helper for getting the named Arm's typed resource name
+// Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 
 	// CurrentPosition returns the current position of the arm.
-	CurrentPosition(ctx context.Context) (*pb.Pose, error)
+	CurrentPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, c *pb.Pose) error
+	MoveToPosition(ctx context.Context, c *commonpb.Pose) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error
+	MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error
 
 	// CurrentJointPositions returns the current joint positions of the arm.
-	CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error)
+	CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
 
 	// JointMoveDelta moves a specific joint of the arm by the given amount.
 	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
@@ -69,25 +70,25 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*pb.Pose, error) {
+func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.CurrentPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *pb.Pose) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToPosition(ctx, c)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.JointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToJointPositions(ctx, pos)
 }
 
-func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.CurrentJointPositions(ctx)
@@ -99,7 +100,7 @@ func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amoun
 	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
 }
 
-func (r *reconfigurableArm) ModelFrame() *referenceframe.Model {
+func (r *reconfigurableArm) ModelFrame() referenceframe.Model {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelFrame()
@@ -117,20 +118,20 @@ func (r *reconfigurableArm) GoToInputs(ctx context.Context, goal []referencefram
 	return r.actual.GoToInputs(ctx, goal)
 }
 
-func (r *reconfigurableArm) Close() error {
+func (r *reconfigurableArm) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return viamutils.TryClose(r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
-func (r *reconfigurableArm) Reconfigure(newArm resource.Reconfigurable) error {
+func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	actual, ok := newArm.(*reconfigurableArm)
 	if !ok {
 		return errors.Errorf("expected new arm to be %T but got %T", r, newArm)
 	}
-	if err := viamutils.TryClose(r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -152,9 +153,9 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // NewPositionFromMetersAndOV returns a three-dimensional arm position
 // defined by a point in space in meters and an orientation defined as an OrientationVector.
-// See robot.proto for a math explanation
-func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.Pose {
-	return &pb.Pose{
+// See robot.proto for a math explanation.
+func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *commonpb.Pose {
+	return &commonpb.Pose{
 		X:     x * 1000,
 		Y:     y * 1000,
 		Z:     z * 1000,
@@ -167,7 +168,7 @@ func NewPositionFromMetersAndOV(x, y, z, th, ox, oy, oz float64) *pb.Pose {
 
 // PositionGridDiff returns the euclidean distance between
 // two arm positions in millimeters.
-func PositionGridDiff(a, b *pb.Pose) float64 {
+func PositionGridDiff(a, b *commonpb.Pose) float64 {
 	diff := utils.Square(a.X-b.X) +
 		utils.Square(a.Y-b.Y) +
 		utils.Square(a.Z-b.Z)
@@ -177,10 +178,21 @@ func PositionGridDiff(a, b *pb.Pose) float64 {
 	return math.Sqrt(diff)
 }
 
-// PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions
-func PositionRotationDiff(a, b *pb.Pose) float64 {
+// PositionRotationDiff returns the sum of the squared differences between the angle axis components of two positions.
+func PositionRotationDiff(a, b *commonpb.Pose) float64 {
 	return utils.Square(a.Theta-b.Theta) +
 		utils.Square(a.OX-b.OX) +
 		utils.Square(a.OY-b.OY) +
 		utils.Square(a.OZ-b.OZ)
+}
+
+// GoToWaypoints will visit in turn each of the joint position waypoints generated by a motion planner.
+func GoToWaypoints(ctx context.Context, a Arm, waypoints [][]referenceframe.Input) error {
+	for _, waypoint := range waypoints {
+		err := a.GoToInputs(ctx, waypoint)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

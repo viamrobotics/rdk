@@ -1,3 +1,4 @@
+// Package server implements the entry point for running a robot web server.
 package server
 
 import (
@@ -10,33 +11,28 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/multierr"
-
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc/dialer"
-
-	"go.viam.com/core/config"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
-
 	"github.com/edaniels/golog"
 	"github.com/erh/egoutil"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
 )
 
 type wrappedLogger struct {
 	base  zapcore.Core
 	extra []zapcore.Field
-}
-
-func (l *wrappedLogger) Close() error {
-	return nil
 }
 
 func (l *wrappedLogger) Enabled(level zapcore.Level) bool {
@@ -52,10 +48,10 @@ func (l *wrappedLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcor
 }
 
 func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
-	new := []zapcore.Field{}
-	new = append(new, l.extra...)
-	new = append(new, f...)
-	return l.base.Write(e, new)
+	field := []zapcore.Field{}
+	field = append(field, l.extra...)
+	field = append(field, f...)
+	return l.base.Write(e, field)
 }
 
 func (l *wrappedLogger) Sync() error {
@@ -76,15 +72,14 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 		cancel:    cancel,
 	}
 	nl.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		nl.backgroundWorker()
-	}, nl.activeBackgroundWorkers.Done)
+	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
 	return nl, nil
 }
 
 type netLogger struct {
-	hostname string
-	cfg      *config.Cloud
+	hostname   string
+	cfg        *config.Cloud
+	httpClient http.Client
 
 	toLogMutex sync.Mutex
 	toLog      []interface{}
@@ -100,7 +95,7 @@ func (nl *netLogger) queueSize() int {
 	return len(nl.toLog)
 }
 
-func (nl *netLogger) Close() error {
+func (nl *netLogger) Close() {
 	// try for up to 10 seconds for log queue to clear before cancelling it
 	for i := 0; i < 1000; i++ {
 		if nl.queueSize() == 0 {
@@ -111,7 +106,7 @@ func (nl *netLogger) Close() error {
 	}
 	nl.cancel()
 	nl.activeBackgroundWorkers.Wait()
-	return nil
+	nl.httpClient.CloseIdleConnections()
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -164,18 +159,18 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 
 	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
-		return errors.Errorf("error creating log request %w", err)
+		return errors.Wrap(err, "error creating log request")
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
 	r = r.WithContext(nl.cancelCtx)
 
-	var client http.Client
-	defer client.CloseIdleConnections()
-	resp, err := client.Do(r)
+	resp, err := nl.httpClient.Do(r)
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 	return nil
 }
 
@@ -188,7 +183,7 @@ func (nl *netLogger) backgroundWorker() {
 			return
 		}
 		err := nl.Sync()
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			// fall back to regular logging
 			rlog.Logger.Infof("error logging to network: %s", err)
@@ -225,45 +220,39 @@ func (nl *netLogger) Sync() error {
 			nl.addToQueue(x) // we'll try again later
 			return err
 		}
-
 	}
-
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func() error, error) {
+func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	l := logger.Desugar()
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nl.Close, nil
+	return l.Sugar(), nil
 }
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string            `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
-	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
-	LogURL     string            `flag:"logurl,usage=url to log messages to"`
-	SharedDir  string            `flag:"shareddir,usage=web resource directory"`
-	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
-	Debug      bool              `flag:"debug"`
-	LocalCloud bool              `flag:"local-cloud"`
-	WebRTC     bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	ConfigFile string `flag:"0,required,usage=robot config file"`
+	NoAutoTile bool   `flag:"noAutoTile,usage=disable auto tiling"`
+	CPUProfile string `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile bool   `flag:"webprofile,usage=include profiler in http server"`
+	LogURL     string `flag:"logurl,usage=url to log messages to"`
+	SharedDir  string `flag:"shareddir,usage=web resource directory"`
+	Debug      bool   `flag:"debug"`
+	WebRTC     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
 }
 
-// RunServer is an entry point to starting the web server that can be called by main in a code sample or otherwise be used to initialize the server.
+// RunServer is an entry point to starting the web server that can be called by main in a code
+// sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
-	}
-	if argsParsed.Port == 0 {
-		argsParsed.Port = 8080
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -282,19 +271,18 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read(argsParsed.ConfigFile)
+	cfg, err := config.Read(ctx, argsParsed.ConfigFile)
 	if err != nil {
 		return err
 	}
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		var cleanup func() error
-		logger, cleanup, err = addCloudLogger(logger, cfg.Cloud)
+		logger, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
 		defer func() {
-			err = multierr.Combine(err, cleanup())
+			err = multierr.Combine(err, utils.TryClose(ctx, logger))
 		}()
 	}
 
@@ -308,32 +296,37 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rpcDialer := dialer.NewCachedDialer()
+	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
-	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
+	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	metadataSvc, err := service.New()
 	if err != nil {
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	// TODO(https://github.com/viamrobotics/rdk/issues/237): configurable
+	dialOpts := []rpc.DialOption{rpc.WithInsecure()}
+	if argsParsed.Debug {
+		dialOpts = append(dialOpts, rpc.WithDialDebug())
+	}
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(dialOpts...))
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close())
+		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(cfg, logger)
+	watcher, err := config.NewWatcher(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, watcher.Close())
+		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
 	}()
 	onWatchDone := make(chan struct{})
 	utils.ManagedGo(func() {
@@ -358,27 +351,27 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	defer func() {
 		<-onWatchDone
 	}()
+	defer cancel()
 
 	options := web.NewOptions()
 	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
-	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil {
-		options.Name = cfg.Cloud.Self
-		options.SignalingAddress = cfg.Cloud.SignalingAddress
-		if argsParsed.LocalCloud {
-			options.Insecure = true
-		}
+	if cfg.Cloud == nil {
+		// for now auth settings only apply to non cloud instances
+		options.Auth = cfg.Auth
 	} else {
-		options.Insecure = true
+		options.Managed = true
+		options.FQDNs = cfg.Cloud.FQDNs
+		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}
+	options.Network = cfg.Network
 	return RunWeb(ctx, myRobot, options, logger)
 }
 
-// RunWeb starts the web server on the web service and blocks until we close it
+// RunWeb starts the web server on the web service and blocks until we close it.
 func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
@@ -387,9 +380,9 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 				logger.Errorw("error running web", "error", err)
 			}
 		}
-		err = multierr.Combine(err, utils.TryClose(r))
+		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	if !ok {
 		return errors.New("robot has no web service")
 	}

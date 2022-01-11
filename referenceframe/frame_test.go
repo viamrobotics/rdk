@@ -4,20 +4,20 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/v1"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
-
-	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
-	frame := &staticFrame{"test", expPose}
+	frame, err := NewStaticFrame("test", expPose)
+	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
 	pose, err := frame.Transform(emptyInput)
@@ -70,30 +70,37 @@ func TestPrismaticFrame(t *testing.T) {
 	// gets the correct limits back
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits, test.ShouldResemble, limits)
+
+	randomInputs := RandomFrameInputs(frame, nil)
+	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
+	restrictRandomInputs := RestrictedRandomFrameInputs(frame, nil, 0.001)
+	test.That(t, len(restrictRandomInputs), test.ShouldEqual, len(frame.DoF()))
+	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeLessThan, 0.03)
+	test.That(t, restrictRandomInputs[0].Value, test.ShouldBeGreaterThan, -0.03)
 }
 
 func TestRevoluteFrame(t *testing.T) {
 	// define a prismatic transform
-	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                     // axis of rotation is x axis
+	axis := r3.Vector{1, 0, 0}                                                    // axis of rotation is x axis
 	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
-	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
+	input := JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45}})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
+	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45, 55}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
+	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
-	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
+	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
@@ -101,6 +108,40 @@ func TestRevoluteFrame(t *testing.T) {
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
 	test.That(t, limit, test.ShouldHaveLength, 1)
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
+func TestVolumes(t *testing.T) {
+	bc := spatial.NewBox(r3.Vector{1, 1, 1})
+	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
+	expectedBox := bc.NewVolume(pose)
+
+	// test creating a new static frame with a volume"
+	sf, err := NewStaticFrameWithVolume("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err := sf.Volumes([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
+
+	// test creating a new translational frame with a volume"
+	tf, err := NewTranslationalFrameWithVolume("", []bool{false, true, false}, []Limit{{Min: -30, Max: 30}}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = tf.Volumes(FloatsToInputs([]float64{10}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
+
+	// test erroring correctly from trying to create a volume for a rotational frame
+	rf, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = rf.Volumes([]Input{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, vols, test.ShouldBeNil)
+
+	// test inheriting a volume creator
+	sf, err = NewStaticFrameFromFrame(tf, pose)
+	test.That(t, err, test.ShouldBeNil)
+	vols, err = sf.Volumes([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
 }
 
 func TestSerializationStatic(t *testing.T) {

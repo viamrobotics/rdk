@@ -6,7 +6,6 @@ type WalkCallback func(x, y int) error
 // Walk starts at the given middle point and walks around increasingly
 // bigger squares based on the given radius growing outwards.
 func Walk(middleX, middleY, maxRadius int, f WalkCallback) error {
-
 	if err := f(middleX, middleY); err != nil {
 		return err
 	}
@@ -31,7 +30,6 @@ func Walk(middleX, middleY, maxRadius int, f WalkCallback) error {
 				return err
 			}
 		}
-
 	}
 
 	return nil

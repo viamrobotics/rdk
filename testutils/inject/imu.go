@@ -5,26 +5,19 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/spatialmath"
 )
 
-// IMU is an injected imu.
+// IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
-	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
 	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
-	CloseFunc           func() error
-}
-
-// Readings calls the injected Readings or the real version.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
-	if i.ReadingsFunc == nil {
-		return i.IMU.Readings(ctx)
-	}
-	return i.ReadingsFunc(ctx)
+	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
+	DescFunc            func() sensor.Description
+	CloseFunc           func(ctx context.Context) error
 }
 
 // AngularVelocity calls the injected AngularVelocity or the real version.
@@ -43,15 +36,26 @@ func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 	return i.OrientationFunc(ctx)
 }
 
+// Readings calls the injected Readings or the real version.
+func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
+	if i.ReadingsFunc == nil {
+		return i.IMU.Readings(ctx)
+	}
+	return i.ReadingsFunc(ctx)
+}
+
 // Desc returns that this is an IMU.
 func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{imu.Type, ""}
+	if i.DescFunc == nil {
+		return i.IMU.Desc()
+	}
+	return i.DescFunc()
 }
 
 // Close calls the injected Close or the real version.
-func (i *IMU) Close() error {
+func (i *IMU) Close(ctx context.Context) error {
 	if i.CloseFunc == nil {
-		return utils.TryClose(i.IMU)
+		return utils.TryClose(ctx, i.IMU)
 	}
-	return i.CloseFunc()
+	return i.CloseFunc(ctx)
 }

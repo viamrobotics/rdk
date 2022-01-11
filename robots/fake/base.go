@@ -5,16 +5,23 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterBase(ModelName, registry.Base{Constructor: func(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
-		return &Base{Name: c.Name}, nil
-	}})
+	registry.RegisterBase(
+		ModelName,
+		registry.Base{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			c config.Component,
+			logger golog.Logger,
+		) (base.Base, error) {
+			return &Base{Name: c.Name}, nil
+		}})
 }
 
 // Base is a fake base that returns what it was provided in each method.
@@ -23,14 +30,19 @@ type Base struct {
 	CloseCount int
 }
 
-// MoveStraight returns that it moved the given distance.
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	return distanceMillis, nil
+// MoveStraight does nothing.
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+	return nil
 }
 
-// Spin returns that it spun the given angle.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	return angleDeg, nil
+// MoveArc does nothing.
+func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+	return nil
+}
+
+// Spin does nothing.
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	return nil
 }
 
 // WidthMillis returns some arbitrary width.
@@ -44,7 +56,6 @@ func (b *Base) Stop(ctx context.Context) error {
 }
 
 // Close does nothing.
-func (b *Base) Close() error {
+func (b *Base) Close() {
 	b.CloseCount++
-	return nil
 }

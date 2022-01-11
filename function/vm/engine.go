@@ -1,3 +1,4 @@
+// Package functionvm defines a means of abstracted code execution across compute engines.
 package functionvm
 
 // EngineName is the name of an engine, typically bound to a single
@@ -27,4 +28,7 @@ type Engine interface {
 
 	// StandardError returns the output so far from the standard error stream.
 	StandardError() string
+
+	// Closes closes the engine and frees any allocated resources.
+	Close() error
 }

@@ -2,43 +2,40 @@
 package resource
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
-	"github.com/go-errors/errors"
-
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
-// define a few typed strings
+// define a few typed strings.
 type (
-	// Namespace identifies the namespaces robot resources can live in
+	// Namespace identifies the namespaces robot resources can live in.
 	Namespace string
 
-	// TypeName identifies the resource types that robot resources can be
+	// TypeName identifies the resource types that robot resources can be.
 	TypeName string
 
-	// SubtypeName identifies the resources subtypes that robot resources can be
+	// SubtypeName identifies the resources subtypes that robot resources can be.
 	SubtypeName string
 )
 
-// Placeholder definitions for a few known constants
+// Placeholder definitions for a few known constants.
 const (
-	ResourceNamespaceCore          = Namespace("core")
-	ResourceTypeComponent          = TypeName("component")
-	ResourceTypeService            = TypeName("service")
-	ResourceSubtypeBase            = SubtypeName("base")
-	ResourceSubtypeBoard           = SubtypeName("board")
-	ResourceSubtypeCamera          = SubtypeName("camera")
-	ResourceSubtypeCompass         = SubtypeName("compass")
-	ResourceSubtypeFunction        = SubtypeName("function")
-	ResourceSubtypeGripper         = SubtypeName("gripper")
-	ResourceSubtypeLidar           = SubtypeName("lidar")
-	ResourceSubtypeRemote          = SubtypeName("remote")
-	ResourceSubtypeSensor          = SubtypeName("sensor")
-	ResourceSubtypeServo           = SubtypeName("servo")
-	ResourceSubtypeMotor           = SubtypeName("motor")
-	ResourceSubtypeInputController = SubtypeName("input_controller")
+	ResourceNamespaceRDK  = Namespace("rdk")
+	ResourceTypeComponent = TypeName("component")
+	ResourceTypeService   = TypeName("service")
+	ResourceTypeFunction  = TypeName("function")
+
+	ResourceSubtypeBase     = SubtypeName("base")
+	ResourceSubtypeBoard    = SubtypeName("board")
+	ResourceSubtypeCompass  = SubtypeName("compass")
+	ResourceSubtypeFunction = SubtypeName("function")
+	ResourceSubtypeLidar    = SubtypeName("lidar")
+	ResourceSubtypeRemote   = SubtypeName("remote")
+	ResourceSubtypeSensor   = SubtypeName("sensor")
 )
 
 // Type represents a known component/service type of a robot.
@@ -105,20 +102,25 @@ type Name struct {
 
 // NewName creates a new Name based on parameters passed in.
 func NewName(namespace Namespace, rType TypeName, subtype SubtypeName, name string) Name {
+	isService := rType == ResourceTypeService
 	resourceSubtype := NewSubtype(namespace, rType, subtype)
 	i := resourceSubtype.String()
-	if name != "" {
+	if (name != "") && !isService {
 		i = fmt.Sprintf("%s/%s", i, name)
+	}
+	nameIdent := name
+	if isService {
+		nameIdent = ""
 	}
 	return Name{
 		UUID:    uuid.NewSHA1(uuid.NameSpaceX500, []byte(i)).String(),
 		Subtype: resourceSubtype,
-		Name:    name,
+		Name:    nameIdent,
 	}
 }
 
-// NewFromSubtype creates a new Name based on a Subtype and name string passed in.
-func NewFromSubtype(subtype Subtype, name string) Name {
+// NameFromSubtype creates a new Name based on a Subtype and name string passed in.
+func NameFromSubtype(subtype Subtype, name string) Name {
 	return NewName(subtype.Namespace, subtype.ResourceType, subtype.ResourceSubtype, name)
 }
 
@@ -151,7 +153,7 @@ func (n Name) Validate() error {
 
 // String returns the fully qualified name for the resource.
 func (n Name) String() string {
-	if n.Name == "" {
+	if n.Name == "" || (n.ResourceType == ResourceTypeService) {
 		return n.Subtype.String()
 	}
 	return fmt.Sprintf("%s/%s", n.Subtype, n.Name)
@@ -160,11 +162,11 @@ func (n Name) String() string {
 // Reconfigurable is implemented when component/service of a robot is reconfigurable.
 type Reconfigurable interface {
 	// Reconfigure reconfigures the resource
-	Reconfigure(newResource Reconfigurable) error
+	Reconfigure(ctx context.Context, newResource Reconfigurable) error
 }
 
 // Updateable is implemented when component/service of a robot should be updated after the robot reconfiguration process is done.
 type Updateable interface {
 	// Update updates the resource
-	Update(resources map[Name]interface{}) error
+	Update(context.Context, map[Name]interface{}) error
 }

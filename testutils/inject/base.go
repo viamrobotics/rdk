@@ -5,21 +5,21 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/core/base"
+	"go.viam.com/rdk/base"
 )
 
 // Base is an injected base.
 type Base struct {
 	base.Base
-	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error)
-	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error)
+	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
+	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
 	WidthMillisFunc  func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
-	CloseFunc        func() error
+	CloseFunc        func(ctx context.Context) error
 }
 
 // MoveStraight calls the injected MoveStraight or the real version.
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
 	if b.MoveStraightFunc == nil {
 		return b.Base.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 	}
@@ -27,7 +27,7 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 }
 
 // Spin calls the injected Spin or the real version.
-func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	if b.SpinFunc == nil {
 		return b.Base.Spin(ctx, angleDeg, degsPerSec, block)
 	}
@@ -51,9 +51,9 @@ func (b *Base) Stop(ctx context.Context) error {
 }
 
 // Close calls the injected Close or the real version.
-func (b *Base) Close() error {
+func (b *Base) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(b.Base)
+		return utils.TryClose(ctx, b.Base)
 	}
-	return b.CloseFunc()
+	return b.CloseFunc(ctx)
 }

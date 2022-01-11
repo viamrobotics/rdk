@@ -35,11 +35,6 @@
         },
         {
             "model": "fake",
-            "name": "lidar1",
-            "type": "lidar"
-        },
-        {
-            "model": "fake",
             "name": "compass1",
             "type": "sensor",
             "subtype": "compass"
@@ -93,8 +88,22 @@
         },
         {
             "name": "gps1",
-            "type": "sensor",
-            "subtype": "gps",
+            "type": "gps",
+            "model": "fake"
+        }, 
+        {
+            "name": "imu1",
+            "type": "imu",
+            "model": "fake"
+        },
+        {
+            "name": "input",
+            "model": "fake",
+            "type": "input_controller"
+        },
+        {
+            "name": "forcematrix1",
+            "type": "forcematrix",
             "model": "fake"
         }
     ],
