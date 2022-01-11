@@ -96,14 +96,14 @@ func TestReconfigurableBoard(t *testing.T) {
 	}
 }
 
-func TestGPIOSet(t *testing.T) {
+func TestSetGPIO(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).GPIOSet(context.Background(), "", false)
+	test.That(t, actualBoard.setGPIOCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetGPIO(context.Background(), "", false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setGPIOCalls, test.ShouldEqual, 1)
 }
 
 func TestGetGPIO(t *testing.T) {
@@ -206,7 +206,7 @@ type mock struct {
 	digitals []string
 
 	reconfCalls     int
-	gpioSetCalls    int
+	setGPIOCalls    int
 	getGPIOCalls    int
 	pwmSetCalls     int
 	pwmSetFreqCalls int
@@ -280,8 +280,8 @@ func (m *mock) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
 }
 
-func (m *mock) GPIOSet(ctx context.Context, pin string, high bool) error {
-	m.gpioSetCalls++
+func (m *mock) SetGPIO(ctx context.Context, pin string, high bool) error {
+	m.setGPIOCalls++
 	return nil
 }
 

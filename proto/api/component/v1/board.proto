@@ -15,9 +15,9 @@ service BoardService {
     };
   }
 
-  rpc GPIOSet(BoardServiceGPIOSetRequest) returns (BoardServiceGPIOSetResponse) {
+  rpc SetGPIO(BoardServiceSetGPIORequest) returns (BoardServiceSetGPIOResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/board/{name}/gpio_set"
+      put: "/api/v1/component/board/{name}/set_gpio"
     };  
   }
 
@@ -84,13 +84,13 @@ message BoardServiceStatusResponse {
   common.v1.BoardStatus status = 1;
 }
 
-message BoardServiceGPIOSetRequest {
+message BoardServiceSetGPIORequest {
   string name = 1;
   string pin = 2;
   bool high = 3;
 }
 
-message BoardServiceGPIOSetResponse {}
+message BoardServiceSetGPIOResponse {}
 
 message BoardServiceGetGPIORequest {
   string name = 1;

@@ -141,61 +141,61 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.status =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceGPIOSetRequest,
- *   !proto.proto.api.component.v1.BoardServiceGPIOSetResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetGPIORequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetGPIOResponse>}
  */
-const methodDescriptor_BoardService_GPIOSet = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/GPIOSet',
+const methodDescriptor_BoardService_SetGPIO = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetGPIO',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceGPIOSetRequest,
-  proto.proto.api.component.v1.BoardServiceGPIOSetResponse,
+  proto.proto.api.component.v1.BoardServiceSetGPIORequest,
+  proto.proto.api.component.v1.BoardServiceSetGPIOResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceGPIOSetResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetGPIOResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGPIOSetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetGPIOResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGPIOSetResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetGPIOResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.gPIOSet =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setGPIO =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOSet',
+      '/proto.api.component.v1.BoardService/SetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOSet,
+      methodDescriptor_BoardService_SetGPIO,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGPIOSetResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetGPIOResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.gPIOSet =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setGPIO =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOSet',
+      '/proto.api.component.v1.BoardService/SetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOSet);
+      methodDescriptor_BoardService_SetGPIO);
 };
 
 

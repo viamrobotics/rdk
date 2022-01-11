@@ -13,13 +13,13 @@ type BoardServiceStatus = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceStatusResponse;
 };
 
-type BoardServiceGPIOSet = {
+type BoardServiceSetGPIO = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetGPIORequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse;
 };
 
 type BoardServiceGetGPIO = {
@@ -88,7 +88,7 @@ type BoardServiceDigitalInterruptTick = {
 export class BoardService {
   static readonly serviceName: string;
   static readonly Status: BoardServiceStatus;
-  static readonly GPIOSet: BoardServiceGPIOSet;
+  static readonly SetGPIO: BoardServiceSetGPIO;
   static readonly GetGPIO: BoardServiceGetGPIO;
   static readonly PWMSet: BoardServicePWMSet;
   static readonly PWMSetFrequency: BoardServicePWMSetFrequency;
@@ -139,14 +139,14 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceStatusRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceStatusResponse|null) => void
   ): UnaryResponse;
-  gPIOSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
+  setGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIORequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse|null) => void
   ): UnaryResponse;
-  gPIOSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse|null) => void
+  setGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIORequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse|null) => void
   ): UnaryResponse;
   getGPIO(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,

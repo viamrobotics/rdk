@@ -84,11 +84,11 @@ func local_request_BoardService_Status_0(ctx context.Context, marshaler runtime.
 }
 
 var (
-	filter_BoardService_GPIOSet_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_BoardService_SetGPIO_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_BoardService_GPIOSet_0(ctx context.Context, marshaler runtime.Marshaler, client BoardServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq BoardServiceGPIOSetRequest
+func request_BoardService_SetGPIO_0(ctx context.Context, marshaler runtime.Marshaler, client BoardServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq BoardServiceSetGPIORequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -111,17 +111,17 @@ func request_BoardService_GPIOSet_0(ctx context.Context, marshaler runtime.Marsh
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BoardService_GPIOSet_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BoardService_SetGPIO_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.GPIOSet(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.SetGPIO(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_BoardService_GPIOSet_0(ctx context.Context, marshaler runtime.Marshaler, server BoardServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq BoardServiceGPIOSetRequest
+func local_request_BoardService_SetGPIO_0(ctx context.Context, marshaler runtime.Marshaler, server BoardServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq BoardServiceSetGPIORequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -144,11 +144,11 @@ func local_request_BoardService_GPIOSet_0(ctx context.Context, marshaler runtime
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BoardService_GPIOSet_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_BoardService_SetGPIO_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.GPIOSet(ctx, &protoReq)
+	msg, err := server.SetGPIO(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -698,18 +698,18 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("PUT", pattern_BoardService_GPIOSet_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_BoardService_SetGPIO_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.BoardService/GPIOSet", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/gpio_set"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_BoardService_GPIOSet_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_BoardService_SetGPIO_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -717,7 +717,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			return
 		}
 
-		forward_BoardService_GPIOSet_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_BoardService_SetGPIO_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -943,23 +943,23 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("PUT", pattern_BoardService_GPIOSet_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_BoardService_SetGPIO_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.BoardService/GPIOSet", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/gpio_set"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BoardService_GPIOSet_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_BoardService_SetGPIO_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BoardService_GPIOSet_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_BoardService_SetGPIO_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -1109,7 +1109,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 var (
 	pattern_BoardService_Status_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "status"}, ""))
 
-	pattern_BoardService_GPIOSet_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "gpio_set"}, ""))
+	pattern_BoardService_SetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "set_gpio"}, ""))
 
 	pattern_BoardService_GetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "get_gpio"}, ""))
 
@@ -1129,7 +1129,7 @@ var (
 var (
 	forward_BoardService_Status_0 = runtime.ForwardResponseMessage
 
-	forward_BoardService_GPIOSet_0 = runtime.ForwardResponseMessage
+	forward_BoardService_SetGPIO_0 = runtime.ForwardResponseMessage
 
 	forward_BoardService_GetGPIO_0 = runtime.ForwardResponseMessage
 

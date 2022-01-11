@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BoardServiceClient interface {
 	Status(ctx context.Context, in *BoardServiceStatusRequest, opts ...grpc.CallOption) (*BoardServiceStatusResponse, error)
-	GPIOSet(ctx context.Context, in *BoardServiceGPIOSetRequest, opts ...grpc.CallOption) (*BoardServiceGPIOSetResponse, error)
+	SetGPIO(ctx context.Context, in *BoardServiceSetGPIORequest, opts ...grpc.CallOption) (*BoardServiceSetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(ctx context.Context, in *BoardServiceGetGPIORequest, opts ...grpc.CallOption) (*BoardServiceGetGPIOResponse, error)
 	// PWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
@@ -53,9 +53,9 @@ func (c *boardServiceClient) Status(ctx context.Context, in *BoardServiceStatusR
 	return out, nil
 }
 
-func (c *boardServiceClient) GPIOSet(ctx context.Context, in *BoardServiceGPIOSetRequest, opts ...grpc.CallOption) (*BoardServiceGPIOSetResponse, error) {
-	out := new(BoardServiceGPIOSetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/GPIOSet", in, out, opts...)
+func (c *boardServiceClient) SetGPIO(ctx context.Context, in *BoardServiceSetGPIORequest, opts ...grpc.CallOption) (*BoardServiceSetGPIOResponse, error) {
+	out := new(BoardServiceSetGPIOResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/SetGPIO", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (c *boardServiceClient) DigitalInterruptTick(ctx context.Context, in *Board
 // for forward compatibility
 type BoardServiceServer interface {
 	Status(context.Context, *BoardServiceStatusRequest) (*BoardServiceStatusResponse, error)
-	GPIOSet(context.Context, *BoardServiceGPIOSetRequest) (*BoardServiceGPIOSetResponse, error)
+	SetGPIO(context.Context, *BoardServiceSetGPIORequest) (*BoardServiceSetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(context.Context, *BoardServiceGetGPIORequest) (*BoardServiceGetGPIOResponse, error)
 	// PWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
@@ -155,8 +155,8 @@ type UnimplementedBoardServiceServer struct {
 func (UnimplementedBoardServiceServer) Status(context.Context, *BoardServiceStatusRequest) (*BoardServiceStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Status not implemented")
 }
-func (UnimplementedBoardServiceServer) GPIOSet(context.Context, *BoardServiceGPIOSetRequest) (*BoardServiceGPIOSetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GPIOSet not implemented")
+func (UnimplementedBoardServiceServer) SetGPIO(context.Context, *BoardServiceSetGPIORequest) (*BoardServiceSetGPIOResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetGPIO not implemented")
 }
 func (UnimplementedBoardServiceServer) GetGPIO(context.Context, *BoardServiceGetGPIORequest) (*BoardServiceGetGPIOResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGPIO not implemented")
@@ -210,20 +210,20 @@ func _BoardService_Status_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_GPIOSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceGPIOSetRequest)
+func _BoardService_SetGPIO_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BoardServiceSetGPIORequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BoardServiceServer).GPIOSet(ctx, in)
+		return srv.(BoardServiceServer).SetGPIO(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/GPIOSet",
+		FullMethod: "/proto.api.component.v1.BoardService/SetGPIO",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).GPIOSet(ctx, req.(*BoardServiceGPIOSetRequest))
+		return srv.(BoardServiceServer).SetGPIO(ctx, req.(*BoardServiceSetGPIORequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -366,8 +366,8 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BoardService_Status_Handler,
 		},
 		{
-			MethodName: "GPIOSet",
-			Handler:    _BoardService_GPIOSet_Handler,
+			MethodName: "SetGPIO",
+			Handler:    _BoardService_SetGPIO_Handler,
 		},
 		{
 			MethodName: "GetGPIO",

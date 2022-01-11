@@ -19,13 +19,13 @@ BoardService.Status = {
   responseType: proto_api_component_v1_board_pb.BoardServiceStatusResponse
 };
 
-BoardService.GPIOSet = {
-  methodName: "GPIOSet",
+BoardService.SetGPIO = {
+  methodName: "SetGPIO",
   service: BoardService,
   requestStream: false,
   responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse
+  requestType: proto_api_component_v1_board_pb.BoardServiceSetGPIORequest,
+  responseType: proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse
 };
 
 BoardService.GetGPIO = {
@@ -129,11 +129,11 @@ BoardServiceClient.prototype.status = function status(requestMessage, metadata, 
   };
 };
 
-BoardServiceClient.prototype.gPIOSet = function gPIOSet(requestMessage, metadata, callback) {
+BoardServiceClient.prototype.setGPIO = function setGPIO(requestMessage, metadata, callback) {
   if (arguments.length === 2) {
     callback = arguments[1];
   }
-  var client = grpc.unary(BoardService.GPIOSet, {
+  var client = grpc.unary(BoardService.SetGPIO, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

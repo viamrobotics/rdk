@@ -114,8 +114,8 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return d, ok
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}
@@ -142,9 +142,9 @@ func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
 	if b.PWM[pin] != dutyCycle {
 		b.PWM[pin] = dutyCycle
 		if dutyCycle == 255 {
-			return b.GPIOSet(ctx, pin, true)
+			return b.SetGPIO(ctx, pin, true)
 		} else if dutyCycle == 0 {
-			return b.GPIOSet(ctx, pin, false)
+			return b.SetGPIO(ctx, pin, false)
 		}
 	}
 	return nil

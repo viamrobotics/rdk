@@ -83,13 +83,13 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-		// GPIOSet
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+		// SetGPIO
+		injectBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
-		err = client.GPIOSet(context.Background(), "one", true)
+		err = client.SetGPIO(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.GPIOSetCap()[1:], test.ShouldResemble, []interface{}{"one", true})
+		test.That(t, injectBoard.SetGPIOCap()[1:], test.ShouldResemble, []interface{}{"one", true})
 
 		// GetGPIO
 		injectBoard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {

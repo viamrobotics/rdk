@@ -123,8 +123,8 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	}, true
 }
 
-func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
-	_, err := c.client.GPIOSet(ctx, &pb.BoardServiceGPIOSetRequest{
+func (c *client) SetGPIO(ctx context.Context, pin string, high bool) error {
+	_, err := c.client.SetGPIO(ctx, &pb.BoardServiceSetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 		High: high,

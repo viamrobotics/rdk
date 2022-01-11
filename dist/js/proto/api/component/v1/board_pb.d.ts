@@ -47,7 +47,7 @@ export namespace BoardServiceStatusResponse {
   }
 }
 
-export class BoardServiceGPIOSetRequest extends jspb.Message {
+export class BoardServiceSetGPIORequest extends jspb.Message {
   getName(): string;
   setName(value: string): void;
 
@@ -58,16 +58,16 @@ export class BoardServiceGPIOSetRequest extends jspb.Message {
   setHigh(value: boolean): void;
 
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceGPIOSetRequest.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceGPIOSetRequest): BoardServiceGPIOSetRequest.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetGPIORequest.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetGPIORequest): BoardServiceSetGPIORequest.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceGPIOSetRequest, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceGPIOSetRequest;
-  static deserializeBinaryFromReader(message: BoardServiceGPIOSetRequest, reader: jspb.BinaryReader): BoardServiceGPIOSetRequest;
+  static serializeBinaryToWriter(message: BoardServiceSetGPIORequest, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetGPIORequest;
+  static deserializeBinaryFromReader(message: BoardServiceSetGPIORequest, reader: jspb.BinaryReader): BoardServiceSetGPIORequest;
 }
 
-export namespace BoardServiceGPIOSetRequest {
+export namespace BoardServiceSetGPIORequest {
   export type AsObject = {
     name: string,
     pin: string,
@@ -75,18 +75,18 @@ export namespace BoardServiceGPIOSetRequest {
   }
 }
 
-export class BoardServiceGPIOSetResponse extends jspb.Message {
+export class BoardServiceSetGPIOResponse extends jspb.Message {
   serializeBinary(): Uint8Array;
-  toObject(includeInstance?: boolean): BoardServiceGPIOSetResponse.AsObject;
-  static toObject(includeInstance: boolean, msg: BoardServiceGPIOSetResponse): BoardServiceGPIOSetResponse.AsObject;
+  toObject(includeInstance?: boolean): BoardServiceSetGPIOResponse.AsObject;
+  static toObject(includeInstance: boolean, msg: BoardServiceSetGPIOResponse): BoardServiceSetGPIOResponse.AsObject;
   static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
   static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
-  static serializeBinaryToWriter(message: BoardServiceGPIOSetResponse, writer: jspb.BinaryWriter): void;
-  static deserializeBinary(bytes: Uint8Array): BoardServiceGPIOSetResponse;
-  static deserializeBinaryFromReader(message: BoardServiceGPIOSetResponse, reader: jspb.BinaryReader): BoardServiceGPIOSetResponse;
+  static serializeBinaryToWriter(message: BoardServiceSetGPIOResponse, writer: jspb.BinaryWriter): void;
+  static deserializeBinary(bytes: Uint8Array): BoardServiceSetGPIOResponse;
+  static deserializeBinaryFromReader(message: BoardServiceSetGPIOResponse, reader: jspb.BinaryReader): BoardServiceSetGPIOResponse;
 }
 
-export namespace BoardServiceGPIOSetResponse {
+export namespace BoardServiceSetGPIOResponse {
   export type AsObject = {
   }
 }
