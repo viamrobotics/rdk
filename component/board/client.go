@@ -298,7 +298,7 @@ func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) DigitalI
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.client.DigitalInterruptValue(ctx, &pb.BoardServiceDigitalInterruptValueRequest{
+	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.BoardServiceGetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 	})
