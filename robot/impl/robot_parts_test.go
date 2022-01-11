@@ -544,10 +544,10 @@ func TestPartsClone(t *testing.T) {
 	parts.sensors = nil
 	delete(parts.functions, "func1")
 	parts.functions = nil
-	delete(parts.resources, arm.Named("arm1"))
-	delete(parts.resources, servo.Named("servo1"))
-	delete(parts.resources, gripper.Named("gripper1"))
-	delete(parts.resources, camera.Named("camera1"))
+	parts.resources.Remove(arm.Named("arm1"))
+	parts.resources.Remove(servo.Named("servo1"))
+	parts.resources.Remove(gripper.Named("gripper1"))
+	parts.resources.Remove(camera.Named("camera1"))
 	parts.resources = nil
 
 	_, ok := parts.processManager.RemoveProcessByID("1")
