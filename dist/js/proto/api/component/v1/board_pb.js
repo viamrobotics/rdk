@@ -1621,7 +1621,7 @@ proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.toObject = funct
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     pin: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    frequency: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    frequencyHz: jspb.Message.getFieldWithDefault(msg, 3, 0)
   };
 
   if (includeInstance) {
@@ -1668,7 +1668,7 @@ proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.deserializeBinar
       break;
     case 3:
       var value = /** @type {number} */ (reader.readUint64());
-      msg.setFrequency(value);
+      msg.setFrequencyHz(value);
       break;
     default:
       reader.skipField();
@@ -1713,7 +1713,7 @@ proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.serializeBinaryT
       f
     );
   }
-  f = message.getFrequency();
+  f = message.getFrequencyHz();
   if (f !== 0) {
     writer.writeUint64(
       3,
@@ -1760,10 +1760,10 @@ proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.setPin
 
 
 /**
- * optional uint64 frequency = 3;
+ * optional uint64 frequency_hz = 3;
  * @return {number}
  */
-proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.getFrequency = function() {
+proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.getFrequencyHz = function() {
   return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
 };
 
@@ -1772,7 +1772,7 @@ proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.getFre
  * @param {number} value
  * @return {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} returns this
  */
-proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.setFrequency = function(value) {
+proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest.prototype.setFrequencyHz = function(value) {
   return jspb.Message.setProto3IntField(this, 3, value);
 };
 

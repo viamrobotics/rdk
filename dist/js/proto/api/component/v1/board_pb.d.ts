@@ -202,8 +202,8 @@ export class BoardServiceSetPWMFrequencyRequest extends jspb.Message {
   getPin(): string;
   setPin(value: string): void;
 
-  getFrequency(): number;
-  setFrequency(value: number): void;
+  getFrequencyHz(): number;
+  setFrequencyHz(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BoardServiceSetPWMFrequencyRequest.AsObject;
@@ -219,7 +219,7 @@ export namespace BoardServiceSetPWMFrequencyRequest {
   export type AsObject = {
     name: string,
     pin: string,
-    frequency: number,
+    frequencyHz: number,
   }
 }
 

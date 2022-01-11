@@ -99,7 +99,7 @@ message BoardServiceSetPWMFrequencyResponse {}
 message BoardServiceSetPWMFrequencyRequest {
   string name = 1;
   string pin = 2;
-  uint64 frequency = 3;
+  uint64 frequency_hz = 3;
 }
 
 // Analog Reader
