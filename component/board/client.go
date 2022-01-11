@@ -132,8 +132,8 @@ func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 	return err
 }
 
-func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	resp, err := c.client.GPIOGet(ctx, &pb.BoardServiceGPIOGetRequest{
+func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	resp, err := c.client.GetGPIO(ctx, &pb.BoardServiceGetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 	})

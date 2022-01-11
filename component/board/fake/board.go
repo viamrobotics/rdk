@@ -126,8 +126,8 @@ func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
 	return b.PWMSet(ctx, pin, 0)
 }
 
-// GPIOGet returns whether the given pin is either low or high.
-func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO returns whether the given pin is either low or high.
+func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}

@@ -264,8 +264,8 @@ func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error 
 	return b.doSend(ctx, fmt.Sprintf("gpio clear %s", pin))
 }
 
-// GPIOGet gets the high/low state of the given pin.
-func (b *numatoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO gets the high/low state of the given pin.
+func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	pin = b.fixPin(pin)
 	res, err := b.doSendReceive(ctx, fmt.Sprintf("gpio read %s", pin))
 	if err != nil {

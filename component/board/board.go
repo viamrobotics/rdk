@@ -62,8 +62,8 @@ type Board interface {
 	// GPIOSet sets the given pin to either low or high.
 	GPIOSet(ctx context.Context, pin string, high bool) error
 
-	// GPIOGet gets the high/low state of the given pin.
-	GPIOGet(ctx context.Context, pin string) (bool, error)
+	// GetGPIO gets the high/low state of the given pin.
+	GetGPIO(ctx context.Context, pin string) (bool, error)
 
 	// PWMSet sets the given pin to the given duty cycle.
 	PWMSet(ctx context.Context, pin string, dutyCycle byte) error
@@ -200,10 +200,10 @@ func (r *reconfigurableBoard) GPIOSet(ctx context.Context, pin string, high bool
 	return r.actual.GPIOSet(ctx, pin, high)
 }
 
-func (r *reconfigurableBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GPIOGet(ctx, pin)
+	return r.actual.GetGPIO(ctx, pin)
 }
 
 func (r *reconfigurableBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
