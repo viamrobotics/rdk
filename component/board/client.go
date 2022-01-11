@@ -275,28 +275,6 @@ type digitalInterruptClient struct {
 	digitalInterruptName string
 }
 
-func (dic *digitalInterruptClient) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	resp, err := dic.client.DigitalInterruptConfig(ctx, &pb.BoardServiceDigitalInterruptConfigRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return DigitalInterruptConfig{}, err
-	}
-	return DigitalInterruptConfigFromProto(resp.Config), nil
-}
-
-// DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
-// codebase specific version.
-func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) DigitalInterruptConfig {
-	return DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
 func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.BoardServiceGetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,

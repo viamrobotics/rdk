@@ -119,37 +119,6 @@ func (s *subtypeServer) ReadAnalogReader(
 	return &pb.BoardServiceReadAnalogReaderResponse{Value: int32(val)}, nil
 }
 
-// DigitalInterruptConfig returns the config the interrupt was created with.
-func (s *subtypeServer) DigitalInterruptConfig(
-	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptConfigRequest,
-) (*pb.BoardServiceDigitalInterruptConfigResponse, error) {
-	b, err := s.getBoard(req.BoardName)
-	if err != nil {
-		return nil, err
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	config, err := interrupt.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardServiceDigitalInterruptConfigResponse{Config: digitalInterruptConfigToProto(&config)}, nil
-}
-
-func digitalInterruptConfigToProto(config *DigitalInterruptConfig) *pb.DigitalInterruptConfig {
-	return &pb.DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
 // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 func (s *subtypeServer) GetDigitalInterruptValue(
 	ctx context.Context,

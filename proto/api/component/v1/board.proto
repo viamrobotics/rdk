@@ -53,13 +53,6 @@ service BoardService {
 
   // Digital Interrupt
 
-  // DigitalInterruptConfig returns the config the interrupt was created with.
-  rpc DigitalInterruptConfig(BoardServiceDigitalInterruptConfigRequest) returns (BoardServiceDigitalInterruptConfigResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/config"
-    };
-  }
-
   // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
   rpc GetDigitalInterruptValue(BoardServiceGetDigitalInterruptValueRequest) returns (BoardServiceGetDigitalInterruptValueResponse) {
     option (google.api.http) = {
@@ -121,22 +114,6 @@ message BoardServiceReadAnalogReaderResponse {
 }
 
 // Digital Interrupt
-
-message DigitalInterruptConfig {
-  string name = 1;
-  string pin = 2;
-  string type = 3;
-  string formula = 4;
-}
-
-message BoardServiceDigitalInterruptConfigRequest {
-  string board_name = 1;
-  string digital_interrupt_name = 2;
-}
-
-message BoardServiceDigitalInterruptConfigResponse {
-  DigitalInterruptConfig config = 1;
-}
 
 message BoardServiceGetDigitalInterruptValueRequest {
   string board_name = 1;

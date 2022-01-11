@@ -446,67 +446,6 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.readAnalogReade
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest,
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>}
- */
-const methodDescriptor_BoardService_DigitalInterruptConfig = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse,
-  /**
-   * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.component.v1.BoardServiceClient.prototype.digitalInterruptConfig =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptConfig,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterruptConfig =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptConfig);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
  *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest,
  *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>}
  */

@@ -58,15 +58,6 @@ type BoardServiceReadAnalogReader = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse;
 };
 
-type BoardServiceDigitalInterruptConfig = {
-  readonly methodName: string;
-  readonly service: typeof BoardService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse;
-};
-
 type BoardServiceGetDigitalInterruptValue = {
   readonly methodName: string;
   readonly service: typeof BoardService;
@@ -84,7 +75,6 @@ export class BoardService {
   static readonly SetPWM: BoardServiceSetPWM;
   static readonly SetPWMFrequency: BoardServiceSetPWMFrequency;
   static readonly ReadAnalogReader: BoardServiceReadAnalogReader;
-  static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
   static readonly GetDigitalInterruptValue: BoardServiceGetDigitalInterruptValue;
 }
 
@@ -173,15 +163,6 @@ export class BoardServiceClient {
   readAnalogReader(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptConfig(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptConfig(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse|null) => void
   ): UnaryResponse;
   getDigitalInterruptValue(
     requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,

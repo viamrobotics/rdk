@@ -9,32 +9,12 @@ import (
 // DigitalInterrupt is an injected digital interrupt.
 type DigitalInterrupt struct {
 	board.DigitalInterrupt
-	ConfigFunc           func(ctx context.Context) (board.DigitalInterruptConfig, error)
-	configCap            []interface{}
 	ValueFunc            func(ctx context.Context) (int64, error)
 	valueCap             []interface{}
 	TickFunc             func(ctx context.Context, high bool, nanos uint64) error
 	tickCap              []interface{}
 	AddCallbackFunc      func(c chan bool)
 	AddPostProcessorFunc func(pp board.PostProcessor)
-}
-
-// Config calls the injected Config or the real version.
-func (d *DigitalInterrupt) Config(ctx context.Context) (board.DigitalInterruptConfig, error) {
-	d.configCap = []interface{}{ctx}
-	if d.ConfigFunc == nil {
-		return d.DigitalInterrupt.Config(ctx)
-	}
-	return d.ConfigFunc(ctx)
-}
-
-// ConfigCap returns the last parameters received by Config, and then clears them.
-func (d *DigitalInterrupt) ConfigCap() []interface{} {
-	if d == nil {
-		return nil
-	}
-	defer func() { d.configCap = nil }()
-	return d.configCap
 }
 
 // Value calls the injected Value or the real version.

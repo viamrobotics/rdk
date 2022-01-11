@@ -64,15 +64,6 @@ BoardService.ReadAnalogReader = {
   responseType: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse
 };
 
-BoardService.DigitalInterruptConfig = {
-  methodName: "DigitalInterruptConfig",
-  service: BoardService,
-  requestStream: false,
-  responseStream: false,
-  requestType: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
-  responseType: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse
-};
-
 BoardService.GetDigitalInterruptValue = {
   methodName: "GetDigitalInterruptValue",
   service: BoardService,
@@ -249,37 +240,6 @@ BoardServiceClient.prototype.readAnalogReader = function readAnalogReader(reques
     callback = arguments[1];
   }
   var client = grpc.unary(BoardService.ReadAnalogReader, {
-    request: requestMessage,
-    host: this.serviceHost,
-    metadata: metadata,
-    transport: this.options.transport,
-    debug: this.options.debug,
-    onEnd: function (response) {
-      if (callback) {
-        if (response.status !== grpc.Code.OK) {
-          var err = new Error(response.statusMessage);
-          err.code = response.status;
-          err.metadata = response.trailers;
-          callback(err, null);
-        } else {
-          callback(null, response.message);
-        }
-      }
-    }
-  });
-  return {
-    cancel: function () {
-      callback = null;
-      client.close();
-    }
-  };
-};
-
-BoardServiceClient.prototype.digitalInterruptConfig = function digitalInterruptConfig(requestMessage, metadata, callback) {
-  if (arguments.length === 2) {
-    callback = arguments[1];
-  }
-  var client = grpc.unary(BoardService.DigitalInterruptConfig, {
     request: requestMessage,
     host: this.serviceHost,
     metadata: metadata,

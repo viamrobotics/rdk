@@ -28,8 +28,6 @@ type BoardServiceClient interface {
 	SetPWMFrequency(ctx context.Context, in *BoardServiceSetPWMFrequencyRequest, opts ...grpc.CallOption) (*BoardServiceSetPWMFrequencyResponse, error)
 	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
 	ReadAnalogReader(ctx context.Context, in *BoardServiceReadAnalogReaderRequest, opts ...grpc.CallOption) (*BoardServiceReadAnalogReaderResponse, error)
-	// DigitalInterruptConfig returns the config the interrupt was created with.
-	DigitalInterruptConfig(ctx context.Context, in *BoardServiceDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	GetDigitalInterruptValue(ctx context.Context, in *BoardServiceGetDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceGetDigitalInterruptValueResponse, error)
 }
@@ -96,15 +94,6 @@ func (c *boardServiceClient) ReadAnalogReader(ctx context.Context, in *BoardServ
 	return out, nil
 }
 
-func (c *boardServiceClient) DigitalInterruptConfig(ctx context.Context, in *BoardServiceDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardServiceDigitalInterruptConfigResponse, error) {
-	out := new(BoardServiceDigitalInterruptConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/DigitalInterruptConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *boardServiceClient) GetDigitalInterruptValue(ctx context.Context, in *BoardServiceGetDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardServiceGetDigitalInterruptValueResponse, error) {
 	out := new(BoardServiceGetDigitalInterruptValueResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BoardService/GetDigitalInterruptValue", in, out, opts...)
@@ -128,8 +117,6 @@ type BoardServiceServer interface {
 	SetPWMFrequency(context.Context, *BoardServiceSetPWMFrequencyRequest) (*BoardServiceSetPWMFrequencyResponse, error)
 	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
 	ReadAnalogReader(context.Context, *BoardServiceReadAnalogReaderRequest) (*BoardServiceReadAnalogReaderResponse, error)
-	// DigitalInterruptConfig returns the config the interrupt was created with.
-	DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error)
 	// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 	GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error)
 	mustEmbedUnimplementedBoardServiceServer()
@@ -156,9 +143,6 @@ func (UnimplementedBoardServiceServer) SetPWMFrequency(context.Context, *BoardSe
 }
 func (UnimplementedBoardServiceServer) ReadAnalogReader(context.Context, *BoardServiceReadAnalogReaderRequest) (*BoardServiceReadAnalogReaderResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadAnalogReader not implemented")
-}
-func (UnimplementedBoardServiceServer) DigitalInterruptConfig(context.Context, *BoardServiceDigitalInterruptConfigRequest) (*BoardServiceDigitalInterruptConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method DigitalInterruptConfig not implemented")
 }
 func (UnimplementedBoardServiceServer) GetDigitalInterruptValue(context.Context, *BoardServiceGetDigitalInterruptValueRequest) (*BoardServiceGetDigitalInterruptValueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetDigitalInterruptValue not implemented")
@@ -284,24 +268,6 @@ func _BoardService_ReadAnalogReader_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BoardService_DigitalInterruptConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardServiceDigitalInterruptConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BoardServiceServer).DigitalInterruptConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BoardService/DigitalInterruptConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BoardServiceServer).DigitalInterruptConfig(ctx, req.(*BoardServiceDigitalInterruptConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _BoardService_GetDigitalInterruptValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BoardServiceGetDigitalInterruptValueRequest)
 	if err := dec(in); err != nil {
@@ -350,10 +316,6 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadAnalogReader",
 			Handler:    _BoardService_ReadAnalogReader_Handler,
-		},
-		{
-			MethodName: "DigitalInterruptConfig",
-			Handler:    _BoardService_DigitalInterruptConfig_Handler,
 		},
 		{
 			MethodName: "GetDigitalInterruptValue",
