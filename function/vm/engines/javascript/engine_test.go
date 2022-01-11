@@ -5,17 +5,20 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	functionvm "go.viam.com/core/function/vm"
-	_ "go.viam.com/core/function/vm/engines/javascript"
+	functionvm "go.viam.com/rdk/function/vm"
+	_ "go.viam.com/rdk/function/vm/engines/javascript"
 )
 
 func TestEngineImport(t *testing.T) {
 	engine, err := functionvm.NewEngine(functionvm.EngineNameJavaScript)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, engine, test.ShouldNotBeNil)
+	defer func() {
+		test.That(t, engine.Close(), test.ShouldBeNil)
+	}()
 
 	engine.ImportFunction("importFunc1", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		var strs []string
@@ -35,6 +38,9 @@ func TestEngineError(t *testing.T) {
 	engine, err := functionvm.NewEngine(functionvm.EngineNameJavaScript)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, engine, test.ShouldNotBeNil)
+	defer func() {
+		test.That(t, engine.Close(), test.ShouldBeNil)
+	}()
 
 	engine.ImportFunction("importFunc1", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		return nil, errors.New("whoops")
@@ -55,6 +61,9 @@ func TestEngineValidateSource(t *testing.T) {
 func TestEngineOutput(t *testing.T) {
 	engine, err := functionvm.NewEngine(functionvm.EngineNameJavaScript)
 	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, engine.Close(), test.ShouldBeNil)
+	}()
 
 	_, err = engine.ExecuteSource(`
 console.log("hello");

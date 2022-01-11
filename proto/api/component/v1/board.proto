@@ -1,0 +1,165 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// BoardService services maintains all Boards associated with a robot
+service BoardService {
+  rpc Status(BoardServiceStatusRequest) returns (BoardServiceStatusResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{name}/status"
+    };
+  }
+
+  rpc GPIOSet(BoardServiceGPIOSetRequest) returns (BoardServiceGPIOSetResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/board/{name}/gpio_set"
+    };  
+  }
+
+  // GPIOGet gets the high/low state of the given pin of a board of the underlying robot.
+  rpc GPIOGet(BoardServiceGPIOGetRequest) returns (BoardServiceGPIOGetResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{name}/gpio_get"
+    };  
+  }
+
+  // PWMSet sets the given pin of a board of the underlying robot to the given duty cycle.
+  rpc PWMSet(BoardServicePWMSetRequest) returns (BoardServicePWMSetResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/board/{name}/pwm_set"
+    };  
+  }
+
+  // PWMSetFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
+  rpc PWMSetFrequency(BoardServicePWMSetFrequencyRequest) returns (BoardServicePWMSetFrequencyResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/board/{name}/pwm_set_freq"
+    };  
+  }
+
+  // Analog Reader
+
+  // AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
+  rpc AnalogReaderRead(BoardServiceAnalogReaderReadRequest) returns (BoardServiceAnalogReaderReadResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"
+    };
+  }
+
+  // Digital Interrupt
+
+  // DigitalInterruptConfig returns the config the interrupt was created with.
+  rpc DigitalInterruptConfig(BoardServiceDigitalInterruptConfigRequest) returns (BoardServiceDigitalInterruptConfigResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/config"
+    };
+  }
+
+  // DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+  rpc DigitalInterruptValue(BoardServiceDigitalInterruptValueRequest) returns (BoardServiceDigitalInterruptValueResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
+    };
+  }
+
+  // DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
+  rpc DigitalInterruptTick(BoardServiceDigitalInterruptTickRequest) returns (BoardServiceDigitalInterruptTickResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
+    };
+  }
+
+}
+
+message BoardServiceStatusRequest {
+  string name = 1;
+}
+
+message BoardServiceStatusResponse {
+  common.v1.BoardStatus status = 1;
+}
+
+message BoardServiceGPIOSetRequest {
+  string name = 1;
+  string pin = 2;
+  bool high = 3;
+}
+
+message BoardServiceGPIOSetResponse {}
+
+message BoardServiceGPIOGetRequest {
+  string name = 1;
+  string pin = 2;
+}
+
+message BoardServiceGPIOGetResponse {
+  bool high = 1;
+}
+
+message BoardServicePWMSetRequest {
+  string name = 1;
+  string pin = 2;
+  uint32 duty_cycle = 3; // (0-255)
+}
+
+message BoardServicePWMSetResponse {}
+
+message BoardServicePWMSetFrequencyResponse {}
+
+message BoardServicePWMSetFrequencyRequest {
+  string name = 1;
+  string pin = 2;
+  uint64 frequency = 3;
+}
+
+// Analog Reader
+
+message BoardServiceAnalogReaderReadRequest {
+  string board_name = 1;
+  string analog_reader_name = 2;
+}
+
+message BoardServiceAnalogReaderReadResponse {
+  int32 value = 1;
+}
+
+// Digital Interrupt
+
+message DigitalInterruptConfig {
+  string name = 1;
+  string pin = 2;
+  string type = 3;
+  string formula = 4;
+}
+
+message BoardServiceDigitalInterruptConfigRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+}
+
+message BoardServiceDigitalInterruptConfigResponse {
+  DigitalInterruptConfig config = 1;
+}
+
+message BoardServiceDigitalInterruptValueRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+}
+
+message BoardServiceDigitalInterruptValueResponse {
+  int64 value = 1;
+}
+
+message BoardServiceDigitalInterruptTickRequest {
+  string board_name = 1;
+  string digital_interrupt_name = 2;
+  bool high = 3;
+  uint64 nanos = 4;
+}
+
+message BoardServiceDigitalInterruptTickResponse {}

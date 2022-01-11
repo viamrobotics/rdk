@@ -4,17 +4,16 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
-	"go.viam.com/core/rimage"
-
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestImageWithDepthToPointCloud(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 
@@ -35,10 +34,10 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, pc, test.ShouldNotBeNil)
 	// the underlying iwd was not changed
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
-	test.That(t, iwd.CameraSystem(), test.ShouldBeNil)
+	test.That(t, iwd.Projector(), test.ShouldBeNil)
 
 	// image with depth with depth missing should return error
-	img, err := rimage.NewImageFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"))
+	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
 	iwdBad := rimage.MakeImageWithDepth(img, nil, false, nil)
@@ -46,11 +45,11 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pcBad, test.ShouldBeNil)
 	test.That(t, iwdBad.IsAligned(), test.ShouldEqual, false)
-
 }
+
 func TestWarpPointsTo3D(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/align-test-1615761790.both.gz"), false)
+	iwd, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
 

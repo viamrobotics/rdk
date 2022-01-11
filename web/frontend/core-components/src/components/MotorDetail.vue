@@ -171,13 +171,14 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
-  DirectionRelative,
-  MotorGoRequest,
-  MotorGoForRequest,
-  MotorGoToRequest,
-  MotorPIDStepRequest,
-  MotorSetPIDConfigRequest,
-} from "proto/robot_pb";
+} from "proto/api/v1/robot_pb";
+import {
+  MotorServiceGoRequest,
+  MotorServiceGoForRequest,
+  MotorServiceGoToRequest,
+  MotorServicePIDStepRequest,
+  MotorServiceSetPIDConfigRequest,
+} from "proto/api/component/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
 import PIDChart from "./PidChart.vue";
 import { Struct } from "google-protobuf/google/protobuf/struct_pb";
@@ -196,7 +197,7 @@ class PIDCommand {
 
   asObject(): {
     type: string;
-    request: MotorPIDStepRequest | MotorSetPIDConfigRequest;
+    request: MotorServicePIDStepRequest | MotorServiceSetPIDConfigRequest;
     chart: PIDChart | undefined;
     setPoint: number;
   } {
@@ -204,12 +205,12 @@ class PIDCommand {
     let obj;
     switch (this.type) {
       case PIDCommandType.Gain:
-        req = new MotorSetPIDConfigRequest();
+        req = new MotorServiceSetPIDConfigRequest();
         obj = { [this.key]: this.gain };
         req.setPidConfig(Struct.fromJavaScript(obj));
         break;
       case PIDCommandType.Step:
-        req = new MotorPIDStepRequest();
+        req = new MotorServicePIDStepRequest();
         req.setSetPoint(this.setPoint);
         break;
     }
@@ -232,12 +233,11 @@ class MotorCommand {
   type = MotorCommandType.Go;
   position = 0;
   speed = 0;
-  direction: 0 | 1 | 2 = DirectionRelative.DIRECTION_RELATIVE_FORWARD;
+  direction: -1 | 1 = 1;
   revolutions = 0;
 
   static get STOP(): MotorCommand {
     const cmd = new MotorCommand();
-    cmd.direction = DirectionRelative.DIRECTION_RELATIVE_UNSPECIFIED;
     return cmd;
   }
 
@@ -245,9 +245,7 @@ class MotorCommand {
     revolutions = Number.parseFloat(revolutions.toString());
     if (Number.isNaN(revolutions)) {
       return "Input is not a number";
-    } else if (revolutions < 0) {
-      return "Number of revolutions cannot be less than zero";
-    }
+    } 
     return "";
   }
 
@@ -255,9 +253,7 @@ class MotorCommand {
     rpm = Number.parseFloat(rpm.toString());
     if (Number.isNaN(rpm)) {
       return "Input is not a number";
-    } else if (rpm < 0) {
-      return "RPM cannot be less than zero";
-    }
+    } 
     return "";
   }
 
@@ -265,10 +261,10 @@ class MotorCommand {
     power = Number.parseFloat(power.toString());
     if (Number.isNaN(power)) {
       return "Input is not a number";
-    } else if (power < 0) {
-      return "Power cannot be less than zero";
     } else if (power > 100) {
       return "Power cannot be greater than 100%";
+    } else if (power < -100) {
+      return "Power cannot be less than -100%";
     }
     return "";
   }
@@ -307,23 +303,21 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest;
+    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorGoRequest();
-        req.setDirection(this.direction);
-        req.setPowerPct(this.speed / 100);
+        req = new MotorServiceGoRequest();
+        req.setPowerPct(this.speed * this.direction / 100);
         break;
       case MotorCommandType.GoFor:
-        req = new MotorGoForRequest();
-        req.setDirection(this.direction);
-        req.setRpm(this.speed);
+        req = new MotorServiceGoForRequest();
+        req.setRpm(this.speed * this.direction);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new MotorGoToRequest();
+        req = new MotorServiceGoToRequest();
         req.setRpm(this.speed);
         req.setPosition(this.position);
         break;
@@ -383,14 +377,14 @@ export default class MotorDetail extends Vue {
 
   get isGoingForward(): boolean {
     return (
-      this.motorCommand.direction ===
-      DirectionRelative.DIRECTION_RELATIVE_FORWARD
+      this.motorCommand.direction === 1
     );
   }
+
   set isGoingForward(forward: boolean) {
     this.motorCommand.direction = forward
-      ? DirectionRelative.DIRECTION_RELATIVE_FORWARD
-      : DirectionRelative.DIRECTION_RELATIVE_BACKWARD;
+      ? 1
+      : -1;
   }
 
   get position(): number {

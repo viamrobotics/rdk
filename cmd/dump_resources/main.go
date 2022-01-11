@@ -10,12 +10,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 
-	// trigger registrations
-	_ "go.viam.com/core/robot/impl"
+	// trigger registrations.
+	_ "go.viam.com/rdk/robot/impl"
 )
 
 var logger = golog.NewDevelopmentLogger("dump_resources")
@@ -27,8 +27,6 @@ func main() {
 	utils.ContextualMain(mainWithArgs, logger)
 }
 
-// TODO(erd):
-//  - Handle services
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
@@ -49,7 +47,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			fmt.Fprintf(os.Stdout, "\nModel: %s", res.Name)
 		}
 
-		fmt.Print("\nAttributes:")
+		fmt.Fprint(os.Stdout, "\nAttributes:")
 		for _, conv := range compAttrConvs {
 			if !(conv.Model == res.Name && conv.CompType == config.ComponentType(res.ResourceSubtype)) {
 				continue
@@ -67,7 +65,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				mapConv = conv.RetType
 				break
 			}
-		case resource.ResourceTypeService:
+		case resource.ResourceTypeService, resource.ResourceTypeFunction:
 			for _, conv := range svcAttrMapConvs {
 				if conv.SvcType != config.ServiceType(res.ResourceSubtype) {
 					continue
@@ -101,6 +99,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				case reflect.Map:
 					fmt.Fprintf(os.Stdout, "map[%s]", t.Key().String())
 					printTypeInfo(t.Elem(), indent+1)
+				case reflect.Array, reflect.Bool, reflect.Chan, reflect.Complex128, reflect.Complex64,
+					reflect.Float32, reflect.Float64, reflect.Func, reflect.Int, reflect.Int16,
+					reflect.Int32, reflect.Int64, reflect.Int8, reflect.Interface, reflect.Invalid,
+					reflect.String, reflect.Uint, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+					reflect.Uint8, reflect.Uintptr, reflect.UnsafePointer:
+					fallthrough
 				default:
 					fmt.Fprint(os.Stdout, t.String())
 				}
@@ -122,7 +126,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 				dumpResourcesInfo(res.Interface(), resType, resource.SubtypeName(fmt.Sprintf("%s/%s", subType, key.String())))
 				continue
 			}
-			resName := resource.NewName(resource.ResourceNamespaceCore, resType, subType, key.String())
+			resName := resource.NewName(resource.ResourceNamespaceRDK, resType, subType, key.String())
 			dumpResourceInfo(resName, res.Interface())
 		}
 	}
@@ -136,7 +140,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		if name.Namespace != resource.ResourceNamespaceCore {
+		if name.Namespace != resource.ResourceNamespaceRDK {
 			continue
 		}
 
@@ -145,19 +149,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		dumpResourceInfo(name, reg)
 	}
 
-	dumpComponentsInfo(registry.RegisteredCameras(), resource.SubtypeName(config.ComponentTypeCamera))
-	dumpComponentsInfo(registry.RegisteredGrippers(), resource.SubtypeName(config.ComponentTypeGripper))
 	dumpComponentsInfo(registry.RegisteredBases(), resource.SubtypeName(config.ComponentTypeBase))
-	dumpComponentsInfo(registry.RegisteredLidars(), resource.SubtypeName(config.ComponentTypeLidar))
 	dumpComponentsInfo(registry.RegisteredSensors(), resource.SubtypeName(config.ComponentTypeSensor))
-	dumpComponentsInfo(registry.RegisteredBoards(), resource.SubtypeName(config.ComponentTypeBoard))
-	dumpComponentsInfo(registry.RegisteredServos(), resource.SubtypeName(config.ComponentTypeServo))
-	dumpComponentsInfo(registry.RegisteredMotors(), resource.SubtypeName(config.ComponentTypeMotor))
-	dumpComponentsInfo(registry.RegisteredInputControllers(), resource.SubtypeName(config.ComponentTypeInputController))
 
 	for svcType, reg := range registry.RegisteredServices() {
 		resName := resource.NewName(
-			resource.ResourceNamespaceCore,
+			resource.ResourceNamespaceRDK,
 			resource.ResourceTypeService,
 			resource.SubtypeName(svcType),
 			"",
@@ -165,6 +162,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		dumpResourceInfo(resName, reg)
 	}
 
-	fmt.Println()
+	fmt.Fprintln(os.Stdout)
 	return nil
 }

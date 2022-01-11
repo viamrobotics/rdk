@@ -9,22 +9,22 @@ import (
 // EulerAngles are three angles (in radians) used to represent the rotation of an object in 3D Euclidean space
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 type EulerAngles struct {
-	Roll  float64 `json:"roll"`  // phi
-	Pitch float64 `json:"pitch"` // theta
-	Yaw   float64 `json:"yaw"`   // psi
+	Roll  float64 `json:"roll"`  // phi, X
+	Pitch float64 `json:"pitch"` // theta, Y
+	Yaw   float64 `json:"yaw"`   // psi, Z
 }
 
-// NewEulerAngles creates an empty EulerAngles struct
+// NewEulerAngles creates an empty EulerAngles struct.
 func NewEulerAngles() *EulerAngles {
 	return &EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
 }
 
-// EulerAngles returns orientation in Euler angle representation
+// EulerAngles returns orientation in Euler angle representation.
 func (ea *EulerAngles) EulerAngles() *EulerAngles {
 	return ea
 }
 
-// Quaternion returns orientation in quaternion representation
+// Quaternion returns orientation in quaternion representation.
 func (ea *EulerAngles) Quaternion() quat.Number {
 	cy := math.Cos(ea.Yaw * 0.5)
 	sy := math.Sin(ea.Yaw * 0.5)
@@ -42,17 +42,22 @@ func (ea *EulerAngles) Quaternion() quat.Number {
 	return q
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+// OrientationVectorRadians returns orientation as an orientation vector (in radians).
 func (ea *EulerAngles) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(ea.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees).
 func (ea *EulerAngles) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(ea.Quaternion())
 }
 
-// AxisAngles returns the orientation in axis angle representation
+// AxisAngles returns the orientation in axis angle representation.
 func (ea *EulerAngles) AxisAngles() *R4AA {
 	return QuatToR4AA(ea.Quaternion())
+}
+
+// RotationMatrix returns the orientation in rotation matrix representation.
+func (ea *EulerAngles) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(ea.Quaternion())
 }

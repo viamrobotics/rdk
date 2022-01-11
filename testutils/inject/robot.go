@@ -4,26 +4,24 @@ package inject
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/config"
-	"go.viam.com/core/gripper"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/servo"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/sensor"
 )
 
 // Robot is an injected robot.
@@ -34,19 +32,16 @@ type Robot struct {
 	BaseByNameFunc            func(name string) (base.Base, bool)
 	GripperByNameFunc         func(name string) (gripper.Gripper, bool)
 	CameraByNameFunc          func(name string) (camera.Camera, bool)
-	LidarByNameFunc           func(name string) (lidar.Lidar, bool)
 	BoardByNameFunc           func(name string) (board.Board, bool)
 	SensorByNameFunc          func(name string) (sensor.Sensor, bool)
 	ServoByNameFunc           func(name string) (servo.Servo, bool)
 	MotorByNameFunc           func(name string) (motor.Motor, bool)
 	InputControllerByNameFunc func(name string) (input.Controller, bool)
-	ServiceByNameFunc         func(name string) (interface{}, bool)
 	ResourceByNameFunc        func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc           func() []string
 	ArmNamesFunc              func() []string
 	GripperNamesFunc          func() []string
 	CameraNamesFunc           func() []string
-	LidarNamesFunc            func() []string
 	BaseNamesFunc             func() []string
 	BoardNamesFunc            func() []string
 	SensorNamesFunc           func() []string
@@ -54,14 +49,13 @@ type Robot struct {
 	MotorNamesFunc            func() []string
 	InputControllerNamesFunc  func() []string
 	FunctionNamesFunc         func() []string
-	ServiceNamesFunc          func() []string
 	FrameSystemFunc           func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 	ResourceNamesFunc         func() []resource.Name
 	ProcessManagerFunc        func() pexec.ProcessManager
 	ConfigFunc                func(ctx context.Context) (*config.Config, error)
 	StatusFunc                func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc                func() golog.Logger
-	CloseFunc                 func() error
+	CloseFunc                 func(ctx context.Context) error
 	RefreshFunc               func(ctx context.Context) error
 }
 
@@ -105,14 +99,6 @@ func (r *Robot) CameraByName(name string) (camera.Camera, bool) {
 	return r.CameraByNameFunc(name)
 }
 
-// LidarByName calls the injected LidarByName or the real version.
-func (r *Robot) LidarByName(name string) (lidar.Lidar, bool) {
-	if r.LidarByNameFunc == nil {
-		return r.Robot.LidarByName(name)
-	}
-	return r.LidarByNameFunc(name)
-}
-
 // BoardByName calls the injected BoardByName or the real version.
 func (r *Robot) BoardByName(name string) (board.Board, bool) {
 	if r.BoardByNameFunc == nil {
@@ -153,14 +139,6 @@ func (r *Robot) InputControllerByName(name string) (input.Controller, bool) {
 	return r.InputControllerByNameFunc(name)
 }
 
-// ServiceByName calls the injected ServiceByName or the real version.
-func (r *Robot) ServiceByName(name string) (interface{}, bool) {
-	if r.ServiceByNameFunc == nil {
-		return r.Robot.ServiceByName(name)
-	}
-	return r.ServiceByNameFunc(name)
-}
-
 // ResourceByName calls the injected ResourceByName or the real version.
 func (r *Robot) ResourceByName(name resource.Name) (interface{}, bool) {
 	if r.ResourceByNameFunc == nil {
@@ -199,14 +177,6 @@ func (r *Robot) CameraNames() []string {
 		return r.Robot.CameraNames()
 	}
 	return r.CameraNamesFunc()
-}
-
-// LidarNames calls the injected LidarNames or the real version.
-func (r *Robot) LidarNames() []string {
-	if r.LidarNamesFunc == nil {
-		return r.Robot.LidarNames()
-	}
-	return r.LidarNamesFunc()
 }
 
 // BaseNames calls the injected BaseNames or the real version.
@@ -265,14 +235,6 @@ func (r *Robot) FunctionNames() []string {
 	return r.FunctionNamesFunc()
 }
 
-// ServiceNames calls the injected ServiceNames or the real version.
-func (r *Robot) ServiceNames() []string {
-	if r.ServiceNamesFunc == nil {
-		return r.Robot.ServiceNames()
-	}
-	return r.ServiceNamesFunc()
-}
-
 // FrameSystem calls the injected FrameSystemFunc or the real version.
 func (r *Robot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	if r.FrameSystemFunc == nil {
@@ -322,11 +284,11 @@ func (r *Robot) Logger() golog.Logger {
 }
 
 // Close calls the injected Close or the real version.
-func (r *Robot) Close() error {
+func (r *Robot) Close(ctx context.Context) error {
 	if r.CloseFunc == nil {
-		return utils.TryClose(r.Robot)
+		return utils.TryClose(ctx, r.Robot)
 	}
-	return r.CloseFunc()
+	return r.CloseFunc(ctx)
 }
 
 // Refresh calls the injected Refresh or the real version.

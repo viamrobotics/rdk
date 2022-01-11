@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"math"
 
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -13,19 +14,7 @@ import (
 // These four numbers can be used as-is (R4), or they can be converted to R3, where theta is multiplied by each of
 // the unit sphere components to give a vector whose length is theta and whose direction is the original axis.
 
-// R3AA represents an R3 axis angle
-type R3AA struct {
-	RX float64
-	RY float64
-	RZ float64
-}
-
-// NewR3AA creates an empty R3AA struct
-func NewR3AA() *R3AA {
-	return &R3AA{RX: 0, RY: 0, RZ: 0}
-}
-
-// R4AA represents an R4 axis angle
+// R4AA represents an R4 axis angle.
 type R4AA struct {
 	Theta float64 `json:"th"`
 	RX    float64 `json:"x"`
@@ -33,39 +22,44 @@ type R4AA struct {
 	RZ    float64 `json:"z"`
 }
 
-// NewR4AA creates an empty R4AA struct
+// NewR4AA creates an empty R4AA struct.
 func NewR4AA() *R4AA {
 	return &R4AA{Theta: 0, RX: 0, RY: 0, RZ: 1}
 }
 
-// AxisAngles returns the orientation in axis angle representation
+// AxisAngles returns the orientation in axis angle representation.
 func (r4 *R4AA) AxisAngles() *R4AA {
 	return r4
 }
 
-// Quaternion returns orientation in quaternion representation
+// Quaternion returns orientation in quaternion representation.
 func (r4 *R4AA) Quaternion() quat.Number {
 	return r4.ToQuat()
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+// OrientationVectorRadians returns orientation as an orientation vector (in radians).
 func (r4 *R4AA) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(r4.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees).
 func (r4 *R4AA) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(r4.Quaternion())
 }
 
-// EulerAngles returns orientation in Euler angle representation
+// EulerAngles returns orientation in Euler angle representation.
 func (r4 *R4AA) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(r4.Quaternion())
 }
 
-// ToR3 converts an R4 angle axis to R3
-func (r4 *R4AA) ToR3() R3AA {
-	return R3AA{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}
+// RotationMatrix returns the orientation in rotation matrix representation.
+func (r4 *R4AA) RotationMatrix() *RotationMatrix {
+	return QuatToRotationMatrix(r4.Quaternion())
+}
+
+// ToR3 converts an R4 angle axis to R3.
+func (r4 *R4AA) ToR3() r3.Vector {
+	return r3.Vector{r4.RX * r4.Theta, r4.RY * r4.Theta, r4.RZ * r4.Theta}
 }
 
 // ToQuat converts an R4 axis angle to a unit quaternion
@@ -83,7 +77,7 @@ func (r4 *R4AA) ToQuat() quat.Number {
 	return quat.Number{w, ax, ay, az}
 }
 
-// Normalize scales the x, y, and z components of a R4 axis angle to be on the unit sphere
+// Normalize scales the x, y, and z components of a R4 axis angle to be on the unit sphere.
 func (r4 *R4AA) Normalize() {
 	norm := math.Sqrt(r4.RX*r4.RX + r4.RY*r4.RY + r4.RZ*r4.RZ)
 	if norm == 0.0 { // prevent division by 0
@@ -94,8 +88,11 @@ func (r4 *R4AA) Normalize() {
 	r4.RZ /= norm
 }
 
-// ToR4 converts an R3 angle axis to R4
-func (r3 *R3AA) ToR4() R4AA {
-	theta := math.Sqrt(r3.RX*r3.RX + r3.RY*r3.RY + r3.RZ*r3.RZ)
-	return R4AA{theta, r3.RX / theta, r3.RY / theta, r3.RZ / theta}
+// R3ToR4 converts an R3 angle axis to R4.
+func R3ToR4(aa r3.Vector) *R4AA {
+	if aa == (r3.Vector{1, 0, 0}) { // zero
+		return NewR4AA()
+	}
+	theta := aa.Norm()
+	return &R4AA{theta, aa.X / theta, aa.Y / theta, aa.Z / theta}
 }

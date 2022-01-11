@@ -10,32 +10,30 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/action"
-	webserver "go.viam.com/core/web/server"
-
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/action"
+	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/robot"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 var (
 	logger         = golog.NewDevelopmentLogger("resetbox1")
-	startPos       = &pb.JointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
-	safeDumpPos    = &pb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	grabReadyPos   = &pb.JointPositions{Degrees: []float64{-180, -26.8, -33, 0.2, 51, 0}}
-	cube1grab      = &pb.JointPositions{Degrees: []float64{-183, 16.9, -41.1, 2, 26.75, 0}}
-	cube2grab      = &pb.JointPositions{Degrees: []float64{-184.8, 20, -30.2, -5.7, -5.7, -0.2}}
-	cube1place     = &pb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -23.27, -2.75}}
-	cube1placePost = &pb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -32.27, -2.75}}
-	cube2place     = &pb.JointPositions{Degrees: []float64{21.4, 41.3, -30.35, -5.7, -53.27, -0.2}}
+	startPos       = &componentpb.ArmJointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
+	safeDumpPos    = &componentpb.ArmJointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
+	grabReadyPos   = &componentpb.ArmJointPositions{Degrees: []float64{-180, -26.8, -33, 0.2, 51, 0}}
+	cube1grab      = &componentpb.ArmJointPositions{Degrees: []float64{-183, 16.9, -41.1, 2, 26.75, 0}}
+	cube2grab      = &componentpb.ArmJointPositions{Degrees: []float64{-184.8, 20, -30.2, -5.7, -5.7, -0.2}}
+	cube1place     = &componentpb.ArmJointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -23.27, -2.75}}
+	cube1placePost = &componentpb.ArmJointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -32.27, -2.75}}
+	cube2place     = &componentpb.ArmJointPositions{Degrees: []float64{21.4, 41.3, -30.35, -5.7, -53.27, -0.2}}
 
-	duckgrabFW   = &pb.JointPositions{Degrees: []float64{-181.9, 20.45, -53.85, -3.5, 44.4, -0.08}}
-	duckplaceFW  = &pb.JointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
-	duckgrabREV  = &pb.JointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
-	duckplaceREV = &pb.JointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
+	duckgrabFW   = &componentpb.ArmJointPositions{Degrees: []float64{-181.9, 20.45, -53.85, -3.5, 44.4, -0.08}}
+	duckplaceFW  = &componentpb.ArmJointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
+	duckgrabREV  = &componentpb.ArmJointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
+	duckplaceREV = &componentpb.ArmJointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
 
 	armName     = "xArm6"
 	gripperName = "vg1"
@@ -70,9 +68,8 @@ func init() {
 	})
 }
 
-// ResetBox will dump the playing field,
+// ResetBox will dump the playing field,.
 func ResetBox(ctx context.Context, theRobot robot.Robot) error {
-
 	waitForResetReady(ctx, theRobot)
 
 	rArm, ok := theRobot.ArmByName(armName)
@@ -104,7 +101,7 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 }
 
 // toggleTrigger will set the pin on which the arduino listens to high for 100ms, then back to low, to signal that the
-// arduino should proceed with whatever the next step
+// arduino should proceed with whatever the next step.
 func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
 	resetBoard, ok := theRobot.BoardByName(boardName)
 	if !ok {

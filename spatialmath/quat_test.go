@@ -5,15 +5,13 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
-	pb "go.viam.com/core/proto/api/v1"
-
 	"gonum.org/v1/gonum/num/quat"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestAngleAxisConversion1(t *testing.T) {
 	// Test that we can convert back and forth losslessly between angle axis and quaternions
-
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
 	quat := startAA.ToQuat()
 	end1 := QuatToR4AA(quat)
@@ -25,19 +23,41 @@ func TestAngleAxisConversion1(t *testing.T) {
 
 func TestAngleAxisConversion2(t *testing.T) {
 	// Test that we can convert back and forth losslessly between r4 and r3 angle axis
-
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
-	r3 := startAA.ToR3()
-	end1 := r3.ToR4()
+	r3aa := startAA.ToR3()
+	end1 := R3ToR4(r3aa)
 	test.That(t, math.Abs(end1.Theta-startAA.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RX-startAA.RX), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RY-startAA.RZ), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RZ-startAA.RZ), test.ShouldBeLessThan, 0.001)
 }
 
+func TestMatrixConversion(t *testing.T) {
+	// Test that lossless conversion between quaternions and rotation matrices is achieved
+	q := quat.Number{0.7071067811865476, 0.7071067811865476, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.7071067811865476, -0.7071067811865476, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.96, 0, -0.28, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+	q = quat.Number{0.96, 0, 0, -0.28}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Should be negative theta
+	q = quat.Number{0.96, -0.28, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Test the complementary angle
+	q = quat.Number{0.96, 0.28, 0, 0}
+	quatCompare(t, q, QuatToRotationMatrix(q).Quaternion())
+
+	// Another odd angle
+	q = quat.Number{0.5, -0.5, -0.5, -0.5}
+	quatCompare(t, q, Flip(QuatToRotationMatrix(q).Quaternion()))
+}
+
 func TestFlip(t *testing.T) {
 	// Test that flipping quaternions to the opposite octant results in the same rotation
-
 	startAA := R4AA{2.5980762, 0.577350, -0.577350, -0.577350}
 	quat1 := startAA.ToQuat()
 	quat2 := startAA.ToQuat()
@@ -56,7 +76,7 @@ func TestDHConversion(t *testing.T) {
 	// Test conversion of a DH param to a dual quaternion
 	dhParam := []float64{-0.425, 0.1333, math.Pi / 2}
 	dq1 := newDualQuaternionFromDH(dhParam[0], dhParam[1], dhParam[2])
-	dq2 := newDualQuaternionFromProtobuf(&pb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
+	dq2 := newDualQuaternionFromProtobuf(&commonpb.Pose{X: -0.425, Y: 0, Z: 0.1333, OY: -1, Theta: 90})
 	quatCompare(t, dq1.Real, dq2.Real)
 	quatCompare(t, dq1.Dual, dq2.Dual)
 }
@@ -110,7 +130,24 @@ func TestOVConversionPoles(t *testing.T) {
 	ovConvert(t, &OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -2.47208, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -0.78, OX: 0, OY: 0, OZ: -1})
+}
 
+func TestQuatNormalize(t *testing.T) {
+	tests := []struct {
+		rotation quat.Number
+		expected quat.Number
+	}{
+		{quat.Number{0, 0, 0, 0}, quat.Number{1, 0, 0, 0}},
+		{quat.Number{0, 1, 0, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{0, 0.0000000000001, 0, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{0, float64(math.MaxFloat64), 1, 0}, quat.Number{0, 1, 0, 0}},
+		{quat.Number{4, 2, 8, 4}, quat.Number{0.4, 0.2, 0.8, 0.4}},
+		{quat.Number{0, 3.0, 4.0, 5.0}, quat.Number{0, 3.0 / math.Sqrt(50), 4.0 / math.Sqrt(50), 5.0 / math.Sqrt(50)}},
+	}
+
+	for _, c := range tests {
+		quatCompare(t, Normalize(c.rotation), c.expected)
+	}
 }
 
 func TestR4Normalize(t *testing.T) {
@@ -140,6 +177,7 @@ func TestOVNormalize(t *testing.T) {
 }
 
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
+	t.Helper()
 	q1 := ov1.ToQuat()
 	ov2 := QuatToOV(q1)
 	q2 := ov2.ToQuat()
@@ -149,6 +187,7 @@ func ovConvert(t *testing.T, ov1 *OrientationVector) {
 }
 
 func quatConvert(t *testing.T, q1 quat.Number) {
+	t.Helper()
 	ov1 := QuatToOV(q1)
 	q2 := ov1.ToQuat()
 	ov2 := QuatToOV(q2)
@@ -157,6 +196,7 @@ func quatConvert(t *testing.T, q1 quat.Number) {
 }
 
 func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
+	t.Helper()
 	test.That(t, ov1.Theta, test.ShouldAlmostEqual, ov2.Theta)
 	test.That(t, ov1.OX, test.ShouldAlmostEqual, ov2.OX)
 	test.That(t, ov1.OY, test.ShouldAlmostEqual, ov2.OY)
@@ -164,8 +204,9 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 }
 
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
-	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real)
-	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag)
-	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag)
-	test.That(t, q1.Kmag, test.ShouldAlmostEqual, q2.Kmag)
+	t.Helper()
+	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real, 1e-8)
+	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag, 1e-8)
+	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag, 1e-8)
+	test.That(t, q1.Kmag, test.ShouldAlmostEqual, q2.Kmag, 1e-8)
 }

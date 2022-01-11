@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestPCRoundTrip(t *testing.T) {
@@ -49,16 +48,18 @@ func TestDefaultToPointCloud(t *testing.T) {
 	test.That(t, int(pc.MaxX()-pc.MinX()), test.ShouldEqual, iwd.Width()-1)
 	test.That(t, int(pc.MaxY()-pc.MinY()), test.ShouldEqual, iwd.Height()-1)
 
-	iwd2, err := NewImageWithDepthFromImages(artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
+	iwd2, err := NewImageWithDepthFromImages(
+		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
 	test.That(t, err, test.ShouldBeNil)
 
 	pc2, err := iwd2.ToPointCloud()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pc2, test.ShouldBeNil)
-
 }
+
 func TestImageWithDepthFromImages(t *testing.T) {
-	iwd, err := NewImageWithDepthFromImages(artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
+	iwd, err := NewImageWithDepthFromImages(
+		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = iwd.WriteTo(outDir + "/shelf.both.gz")
@@ -66,7 +67,8 @@ func TestImageWithDepthFromImages(t *testing.T) {
 }
 
 func TestImageToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := NewImageWithDepth(
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()
@@ -79,7 +81,8 @@ func TestImageToDepthMap(t *testing.T) {
 }
 
 func TestConvertToDepthMap(t *testing.T) {
-	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	iwd, err := NewImageWithDepth(
+		artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray16 image
 	depthImage := iwd.Depth.ToGray16Picture()

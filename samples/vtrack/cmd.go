@@ -6,13 +6,14 @@ import (
 	"flag"
 	"time"
 
-	"go.viam.com/utils"
-
-	"go.viam.com/core/config"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/vision/segmentation"
-
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var logger = golog.NewDevelopmentLogger("vtrack")
@@ -24,16 +25,16 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0))
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

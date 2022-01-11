@@ -1,6 +1,6 @@
 version: v1beta1
 plugins:
   - name: python
-    out: grpc/python/gen
+    out: samples/dishcare/gen
   - name: grpclib_python
-    out: grpc/python/gen
+    out: samples/dishcare/gen

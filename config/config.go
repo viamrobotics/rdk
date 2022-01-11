@@ -3,15 +3,17 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
-	"github.com/go-errors/errors"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
-	functionvm "go.viam.com/core/function/vm"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/rlog"
 )
 
 // SortComponents sorts list of components topologically based off what other components they depend on.
@@ -30,7 +32,10 @@ func SortComponents(components []Component) ([]Component, error) {
 	for name, dps := range dependencies {
 		for _, depName := range dps {
 			if _, ok := componentToConfig[depName]; !ok {
-				return nil, utils.NewConfigValidationError(fmt.Sprintf("%s.%s", "components", name), errors.Errorf("dependency %q does not exist", depName))
+				return nil, utils.NewConfigValidationError(
+					fmt.Sprintf("%s.%s", "components", name),
+					errors.Errorf("dependency %q does not exist", depName),
+				)
 			}
 		}
 	}
@@ -86,6 +91,8 @@ type Config struct {
 	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
 	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
 	Services       []Service                   `json:"services,omitempty"`
+	Network        NetworkConfig               `json:"network"`
+	Auth           AuthConfig                  `json:"auth"`
 }
 
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
@@ -134,6 +141,24 @@ func (c *Config) Ensure(fromCloud bool) error {
 		}
 	}
 
+	if err := c.Network.Validate("network"); err != nil {
+		return err
+	}
+
+	if err := c.Auth.Validate("auth"); err != nil {
+		return err
+	}
+
+	if len(c.Auth.Handlers) == 0 {
+		host, _, err := net.SplitHostPort(c.Network.BindAddress)
+		if err != nil {
+			return err // unexpected since network validation validates this
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			rlog.Logger.Warn("binding to all interfaces without authentication")
+		}
+	}
+
 	return nil
 }
 
@@ -152,10 +177,19 @@ func (c Config) FindComponent(name string) *Component {
 // the current robot. All components of the remote robot who have Parent as "world" will be attached to the parent defined
 // in Frame, and with the given offset as well.
 type Remote struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Prefix  bool   `json:"prefix"`
-	Frame   *Frame `json:"frame,omitempty"`
+	Name    string     `json:"name"`
+	Address string     `json:"address"`
+	Prefix  bool       `json:"prefix"`
+	Frame   *Frame     `json:"frame,omitempty"`
+	Auth    RemoteAuth `json:"auth"`
+}
+
+// RemoteAuth specifies how to authenticate against a remote. If no credentials are
+// specified, authentication does not happen. If an entity is specified, the
+// authentication request will specify it.
+type RemoteAuth struct {
+	Credentials *rpc.Credentials `json:"credentials"`
+	Entity      string           `json:"entity"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -181,10 +215,10 @@ func (config *Remote) Validate(path string) error {
 type Cloud struct {
 	ID               string        `json:"id"`
 	Secret           string        `json:"secret"`
-	Self             string        `json:"self"`
+	FQDNs            []string      `json:"fqdns"`
 	SignalingAddress string        `json:"signaling_address"`
-	Path             string        `json:"path,omitempty"`    // optional, defaults to viam cloud otherwise
-	LogPath          string        `json:"logPath,omitempty"` // optional, defaults to viam cloud otherwise
+	Path             string        `json:"path"`
+	LogPath          string        `json:"log_path"`
 	RefreshInterval  time.Duration `json:"refresh_interval,omitempty"`
 }
 
@@ -194,16 +228,89 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "id")
 	}
 	if fromCloud {
-		if config.Self == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "self")
+		if len(config.FQDNs) == 0 {
+			return utils.NewConfigValidationFieldRequiredError(path, "fqdns")
 		}
-	} else {
-		if config.Secret == "" {
-			return utils.NewConfigValidationFieldRequiredError(path, "secret")
+		for idx, fqdn := range config.FQDNs {
+			if fqdn == "" {
+				return utils.NewConfigValidationFieldRequiredError(path, fmt.Sprintf("%s.%d", "fqdns", idx))
+			}
 		}
+	} else if config.Secret == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "secret")
 	}
 	if config.RefreshInterval == 0 {
 		config.RefreshInterval = 10 * time.Second
+	}
+	return nil
+}
+
+// NetworkConfig describes networking settings for the web server.
+type NetworkConfig struct {
+	// BindAddress is the address that the web server will bind to.
+	// The default behavior is to bind to localhost:8080.
+	BindAddress string `json:"bind_address"`
+
+	// TLSCertFile is used to enable secure communications on the hosted HTTP server.
+	TLSCertFile string `json:"tls_cert_file"`
+
+	// TLSKeyFile is used to enable secure communications on the hosted HTTP server.
+	TLSKeyFile string `json:"tls_key_file"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *NetworkConfig) Validate(path string) error {
+	if config.BindAddress == "" {
+		config.BindAddress = "localhost:8080"
+	}
+	if _, _, err := net.SplitHostPort(config.BindAddress); err != nil {
+		return utils.NewConfigValidationError(path, errors.Wrap(err, "error validating bind_address"))
+	}
+	if (config.TLSCertFile == "") != (config.TLSKeyFile == "") {
+		return utils.NewConfigValidationError(path, errors.New("must provide both tls_cert_file and tls_key_file"))
+	}
+	return nil
+}
+
+// AuthConfig describes authentication and authorization settings for the web server.
+type AuthConfig struct {
+	Handlers []AuthHandlerConfig `json:"handlers"`
+}
+
+// AuthHandlerConfig describes the configuration for a particular auth handler.
+type AuthHandlerConfig struct {
+	Type   rpc.CredentialsType `json:"type"`
+	Config AttributeMap        `json:"config"`
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AuthConfig) Validate(path string) error {
+	seenTypes := make(map[string]struct{}, len(config.Handlers))
+	for idx, handler := range config.Handlers {
+		handlerPath := fmt.Sprintf("%s.%s.%d", path, "handlers", idx)
+		if _, ok := seenTypes[string(handler.Type)]; ok {
+			return utils.NewConfigValidationError(handlerPath, errors.Errorf("duplicate handler type %q", handler.Type))
+		}
+		seenTypes[string(handler.Type)] = struct{}{}
+		if err := handler.Validate(handlerPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Validate ensures all parts of the config are valid.
+func (config *AuthHandlerConfig) Validate(path string) error {
+	if config.Type == "" {
+		return utils.NewConfigValidationError(path, errors.New("handler must have type"))
+	}
+	switch config.Type {
+	case rpc.CredentialsTypeAPIKey:
+		if config.Config.String("key") == "" {
+			return utils.NewConfigValidationFieldRequiredError(fmt.Sprintf("%s.config", path), "key")
+		}
+	default:
+		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
 	return nil
 }

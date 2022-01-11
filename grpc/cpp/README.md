@@ -4,16 +4,12 @@
 
 * C++20
 	* Note: Apple clang version 12.0.5 appears to have issues in `make setup`
-* Core [Dependencies](../../README.md#dependencies)
+* RDK [Dependencies](../../README.md#dependencies)
 * bazel
 * macOS
 	* `brew install openssl`
 	* `export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:/opt/homebrew/opt/openssl/lib/pkgconfig`
-* Run `make setup`
-
-## Run
-
-* Run `make buf`
+* Run `make setup buf`
 
 ### Server
 * Run `make run_server`

@@ -1,19 +1,16 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
 
 func TestBasicPoseConstruction(t *testing.T) {
-
 	p := NewZeroPose()
 	// Should return an identity dual quat
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
@@ -40,15 +37,17 @@ func TestBasicPoseConstruction(t *testing.T) {
 	pComp := Compose(p1, p2)
 	ptCompare(t, pComp.Point(), r3.Vector{0, 5, 5})
 
-	p2 = NewPoseFromOrientationVector(r3.Vector{2, 2, 4}, ov)
+	p2 = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
 	delta := PoseDelta(p1, p2)
-	test.That(t, fmt.Sprintf("%.2f, %.2f, %.2f, %.2f, %.2f, %.2f", delta[0], delta[1], delta[2], delta[3], delta[4], delta[5]), test.ShouldResemble, "1.00, 0.00, 1.00, 0.00, 0.00, 0.00")
+	ptCompare(t, delta.Point(), r3.Vector{1.0, 1.0, 1.0})
+	ovCompare(t, delta.Orientation().OrientationVectorRadians(), NewOrientationVector())
 
 	p = NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{4, 5, 6}, 0)
 	test.That(t, p.Orientation().OrientationVectorRadians(), test.ShouldResemble, &OrientationVector{0, 0, 0, 1})
 }
 
 func ptCompare(t *testing.T, p1, p2 r3.Vector) {
+	t.Helper()
 	test.That(t, p1.X, test.ShouldAlmostEqual, p2.X)
 	test.That(t, p1.Y, test.ShouldAlmostEqual, p2.Y)
 	test.That(t, p1.Z, test.ShouldAlmostEqual, p2.Z)
@@ -58,7 +57,7 @@ func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
 	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
-	tr.SetTranslation(4., 2., 6.)
+	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
@@ -96,4 +95,52 @@ func TestPoseInterpolation(t *testing.T) {
 	p2 = NewPoseFromOrientationVector(r3.Vector{100, 200, 200}, ov)
 	intP = Interpolate(p1, p2, 0.1)
 	ptCompare(t, intP.Point(), r3.Vector{100, 110, 200})
+}
+
+func TestLidarPose(t *testing.T) {
+	ea := NewEulerAngles()
+	// 45 degrees above horizon
+	// Positive pitch rotation rotates from the default of pointing up at the +Z axis, forwards towards the +X axis.
+	ea.Pitch = math.Pi / 4
+	// Point to the left (at positive Y axis)
+	ea.Yaw = math.Pi / 2
+
+	// lidar sees a point 400mm away
+	dist := 400.
+
+	pose1 := NewPoseFromOrientation(r3.Vector{0, 0, 0}, ea)
+	pose2 := NewPoseFromPoint(r3.Vector{0, 0, dist})
+	seenPoint := Compose(pose1, pose2).Point()
+
+	expectPoint := r3.Vector{0, 282.842712474619, 282.842712474619}
+
+	test.That(t, expectPoint.X, test.ShouldAlmostEqual, seenPoint.X)
+	test.That(t, expectPoint.Y, test.ShouldAlmostEqual, seenPoint.Y)
+	test.That(t, expectPoint.Z, test.ShouldAlmostEqual, seenPoint.Z)
+}
+
+func TestPoseAlmostEqual(t *testing.T) {
+	p1 := NewPoseFromPoint(r3.Vector{1.0, 2.0, 3.0})
+	p2 := NewPoseFromPoint(r3.Vector{1.0000000001, 1.999999999, 3.0000000001})
+	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
+	test.That(t, PoseAlmostCoincident(p1, p2), test.ShouldBeTrue)
+	test.That(t, PoseAlmostCoincident(p1, p3), test.ShouldBeFalse)
+}
+
+var (
+	ov  = &OrientationVector{math.Pi / 2, 0, 0, -1}
+	p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+)
+
+func BenchmarkDeltaPose(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseDelta(p1b, p2b)
+	}
+}
+
+func BenchmarkPoseBetween(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseBetween(p1b, p2b)
+	}
 }

@@ -8,13 +8,15 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/action"
-	"go.viam.com/core/config"
-	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
-	webserver "go.viam.com/core/web/server"
+	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 const (
@@ -35,7 +37,7 @@ func init() {
 	}
 }
 
-// drawPoint instructs a robot to draw by moving its arm into specific positions sequentially
+// drawPoint instructs a robot to draw by moving its arm into specific positions sequentially.
 func drawPoint(ctx context.Context, r robot.Robot) error {
 	if len(r.ArmNames()) != 1 {
 		return errors.New("need 1 arm name")
@@ -60,7 +62,6 @@ func main() {
 }
 
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
-
 	// use built-in camera to find a face and create its caricature
 	if err := findFace(personToDraw); err != nil {
 		return err
@@ -71,18 +72,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if false {
 		flag.Parse()
-		cfg, err := config.Read(flag.Arg(0))
+		cfg, err := config.Read(ctx, flag.Arg(0))
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
 		if err != nil {
 			return err
 		}
-		defer myRobot.Close()
-		webOpts := web.NewOptions()
-		webOpts.Insecure = true
-		return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+		defer myRobot.Close(ctx)
+		return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 	}
 	return nil
 }

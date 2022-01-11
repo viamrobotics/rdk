@@ -10,6 +10,11 @@
         height: 400px;
         width: 100%;
       }
+      [v-cloak] { display: none; }
+      #pre-app.connected { display: none; }
+      #connecting { display: none; }
+      #connecting.connecting { display: block; }
+      #connecting-error { color: red };
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -17,19 +22,18 @@
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
-    <script src="/static/core/control.js"></script>
-    <script src="/static/core/third-party/vue.js"></script>
-    <script src="/static/core/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
-    <link rel="stylesheet" href="/static/core/components/coreComponents.css">
+    <script src="/static/rdk/control.js"></script>
+    <script src="/static/rdk/third-party/vue.js"></script>
+    <link rel="stylesheet" href="/static/rdk/components/coreComponents.css">
     <script type="module">
-      import "/static/core/components/coreComponents.umd.min.js";
+      import "/static/rdk/components/coreComponents.umd.min.js";
     </script>
     {{ else }}
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <script src="/static/third-party/ace/ace.js" type="text/javascript" charset="utf-8"></script>
     <link rel="stylesheet" href="/static/components/coreComponents.css">
     <script type="module">
       import "/static/components/coreComponents.umd.min.js";
@@ -60,10 +64,6 @@
         }
       }
 
-      {{ range $view := .Views }}
-        {{ jsSafe $view.JavaScript }}
-      {{ end }}
-
       function fixArms(old) {
           var n = [];
           for (var i=0; i<old.length; i++) {
@@ -85,6 +85,20 @@
               }
 
               n.push(newArm);
+          }
+          return n;
+      }
+
+      function fixBoards(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              const [boardName, boardValue] = old[i];
+              var newBoard = {
+                  name : boardName,
+                  analogsMap : boardValue.analogsMap || [],
+                  digitalInterruptsMap : boardValue.digitalInterruptsMap || [],
+              };
+              n.push(newBoard);
           }
           return n;
       }
@@ -115,28 +129,29 @@
           theData.rawStatus = rawStatus;
           window.rawStatus = rawStatus;
           // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
-          const rawSatusObj = rawStatus.toObject();
+          const rawStatusObj = rawStatus.toObject();
 
           var status = {}
 
           // make vue friendly
-          status.armsMap = rawSatusObj.armsMap;
-          status.basesMap = rawSatusObj.basesMap;
-          status.gantriesMap = rawSatusObj.gantriesMap;
-          status.grippersMap = rawSatusObj.grippersMap;
-          status.boardsMap = rawSatusObj.boardsMap;
-          status.camerasMap = rawSatusObj.camerasMap;
-          status.sensorsMap = rawSatusObj.sensorsMap;
-          status.servosMap = rawSatusObj.servosMap;
-          status.motorsMap = rawSatusObj.motorsMap;
-          status.functionsMap = rawSatusObj.functionsMap;
-          status.servicesMap = rawSatusObj.servicesMap;
+          status.armsMap = rawStatusObj.armsMap;
+          status.basesMap = rawStatusObj.basesMap;
+          status.gantriesMap = rawStatusObj.gantriesMap;
+          status.grippersMap = rawStatusObj.grippersMap;
+          status.boardsMap = rawStatusObj.boardsMap;
+          status.camerasMap = rawStatusObj.camerasMap;
+          status.sensorsMap = rawStatusObj.sensorsMap;
+          status.servosMap = rawStatusObj.servosMap;
+          status.motorsMap = rawStatusObj.motorsMap;
+          status.servicesMap = rawStatusObj.servicesMap;
+          status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
+          status.boardsMap = fixBoards(status.boardsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
 
           if (!firstResult) {
-            console.log(rawSatusObj);
+            console.log(rawStatusObj);
             console.log(status);
             firstResult = true;
           }
@@ -152,18 +167,16 @@
               status : {},
               pcdClick : {},
               resources: [],
+              streamNames: [],
               fullcloud: null,
-              segments : null,
-              segCenters : null,
+              objects: null,
               minPtsPlane : 10000,
               minPtsSegment: 100,
               clusterRad: 5,
               armToggle : {},
-              editor: undefined,
               mapOnce: false,
               chartStream: null,
               value: 0,
-
           };
           theApp = new Vue({
               el: '#app',
@@ -179,6 +192,9 @@
                   armByName : function(name) {
                     return theData.status.armsMap.find(elem => elem.name == name) || {}
                   },
+                  boardByName : function(name) {
+                    return theData.status.boardsMap.find(elem => elem.name == name) || {}
+                  },
                   gantryByName : function(name) {
                       return theData.status.gantriesMap.find(elem => elem.name == name) || {}
                   },
@@ -190,10 +206,10 @@
                       }
                       pos[axis] += amount;
                       
-                      const req = new robotApi.GantryMoveToPositionRequest();
+                      const req = new gantryApi.GantryServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setPositionsList(pos);
-                      robotService.gantryMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armGridInc : function(name, getterSetter, amount) {
                       if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
@@ -201,14 +217,14 @@
                       }
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(commonApi.Pose.prototype), old);
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPosition[setter](newPosition[getter]() + amount);
-                      const req = new robotApi.ArmMoveToPositionRequest();
+                      const req = new armApi.ArmServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorPIDStep: function(motor,req,chart,val){
                       if (theData.chartStream){
@@ -220,7 +236,7 @@
                           }
                       }
                       req.setName(motor);
-                      theData.chartStream = robotService.motorPIDStep(req)
+                      theData.chartStream = motorService.pIDStep(req)
                       chart.unpause();
                       theData.chartStream.on('data', function(resp){
                           this.addData(resp)
@@ -238,28 +254,28 @@
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
                       newList[field] += amount;
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armHome : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
                       for (var i = 0; i < newList.length; i++) {
                         newList[i] = 0;
                       }
                       newPosition.setDegreesList(newList);
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armModifyAll : function(name) {
                       const arm = theApp.armByName(name);
@@ -284,7 +300,7 @@
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getGridPosition();
 
-                      var newPosition = Object.assign(Object.create(robotApi.Pose.prototype), old);
+                      var newPosition = Object.assign(Object.create(commonApi.Pose.prototype), old);
                       var newPieces = theData.armToggle[name].pieces;
 
                       for (var i=0; i < newPieces.length; i++) {
@@ -294,17 +310,17 @@
                           newPosition[setter](newPieces[i].gridValue);
                       }
 
-                      const req = new robotApi.ArmMoveToPositionRequest();
+                      const req = new armApi.ArmServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                       delete theData.armToggle[name];
                   },
                   armModifyAllDoJoint : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
 
-                      var newPosition = Object.assign(Object.create(robotApi.JointPositions.prototype), old);
+                      var newPosition = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
                       var newList = newPosition.getDegreesList();
 
                       var newPieces = theData.armToggle[name].pieces;
@@ -314,10 +330,10 @@
 
                       newPosition.setDegreesList(newList);
 
-                      const req = new robotApi.ArmMoveToJointPositionsRequest();
+                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
                       req.setName(name);
                       req.setTo(newPosition);
-                      robotService.armMoveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                       delete theData.armToggle[name];
                   },
 
@@ -325,25 +341,25 @@
                       let req;
                       switch (action) {
                         case 'open':
-                          req = new robotApi.GripperOpenRequest();
+                          req = new gripperApi.GripperServiceOpenRequest();
                           req.setName(name);
-                          robotService.gripperOpen(req, {}, (err, resp) => grpcCallback(err, resp));
+                          gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'grab':
-                          req = new robotApi.GripperGrabRequest();
+                          req = new gripperApi.GripperServiceGrabRequest();
                           req.setName(name);
-                          robotService.gripperGrab(req, {}, (err, resp) => grpcCallback(err, resp));
+                          gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
                   },
                   servoMove : function(name, amount) {
                       const servo = theData.rawStatus.getServosMap().get(name);
-                      var old = servo.getAngle();
-                      var angle = old + amount;
-                      const req = new robotApi.ServoMoveRequest();
+                      var oldAngle = servo.getAngle();
+                      let angle = oldAngle + amount;
+                      const req = new servoApi.ServoServiceMoveRequest();
                       req.setName(name);
                       req.setAngleDeg(angle);
-                      robotService.servoMove(req, {}, (err, resp) => grpcCallback(err, resp));
+                      servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorCommand: function(motor, cmd) {
                     let req = cmd.request;
@@ -351,22 +367,38 @@
 
                     switch (cmd.type) {
                       case "go":
-                        robotService.motorGo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.go(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                       case "goFor":
-                        robotService.motorGoFor(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                       case "goTo":
-                        robotService.motorGoTo(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.goTo(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                     }
+                  },
+                  inputControllerByName : function(name) {
+                    return theData.status.inputControllersMap.find(elem => elem[0] == name) || {}
+                  },
+                  filteredInputControllerList : function() {
+                    // filters out WebGamepad
+                    return theData.resources.filter(elem => {
+                      return (
+                        elem.namespace == 'rdk'
+                        && elem.type == 'component'
+                        && elem.subtype == 'input_controller'
+                        && elem.name !== 'WebGamepad'
+                      )})
+                  },
+                  inputInject: function(req) {
+                    inputControllerService.injectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
                       req.setName(motor);
                       switch (cmd.type) {
                       case "gain":
-                          robotService.motorSetPIDConfig(req, {}, (err, resp) => grpcCallback(err, resp));
+                          motorService.setPIDConfig(req, {}, (err, resp) => grpcCallback(err, resp));
 
                           break;
                       case "step":
@@ -389,21 +421,30 @@
                           req.setDistanceMillis(document.getElementById("distance").value * amount);
                           robotService.baseMoveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
+                        case 'arc':
+                          req = new robotApi.BaseMoveArcRequest();
+                          req.setName(name);
+                          req.setMillisPerSec(document.getElementById("speed").value)
+                          req.setDistanceMillis(document.getElementById("distance").value * amount);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          robotService.baseMoveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                          break;
                         case 'angle':
                           req = new robotApi.BaseSpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
                           req.setAngleDeg(amount);
+                          req.setAngleDeg(document.getElementById("angle").value * amount);
                           robotService.baseSpin(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new robotApi.CameraFrameRequest();
+                      req = new cameraApi.CameraServiceFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/png';
                       req.setMimeType(mimeType)
-                      robotService.cameraFrame(req,  {}, (err, resp) => {
+                      cameraService.frame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -418,11 +459,11 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      req = new robotApi.PointCloudRequest();
+                      req = new cameraApi.CameraServicePointCloudRequest();
                       req.setName(cameraName);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      robotService.pointCloud(req,  {}, (err, resp) => {
+                      cameraService.pointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -458,49 +499,45 @@
                     resultStr += `StdErr: ${resp.getStdErr()}\n`;
                     document.getElementById("function_results").value = resultStr;
                   },
-                  executeFunction : function(name) {
-                      document.getElementById("function_results").value = "";
-                      var req = new robotApi.ExecuteFunctionRequest();
-                      req.setName(name);
-                      robotService.executeFunction(req, {}, this.processFunctionResults);
-                  },
-                  evalSource : function() {
-                    document.getElementById("function_results").value = "";
-                    var req = new robotApi.ExecuteSourceRequest();
-                    req.setSource(theData.editor.getValue());
-                    req.setEngine('javascript');
-                    robotService.executeSource(req, {}, this.processFunctionResults);
-                  },
-                  visualizeForceMatrix: function(name, type, id) {
-                    document.getElementById('force-button-id-' + id).style.visibility = 'hidden';
+                  visualizeForceMatrix: function(name, id) {
+                    document.getElementById('force-button-id-' + id).style.display = 'none';
 
                     // 2D animation stuff
                     let canvas2D = document.getElementById('force-2d-id-' + id);
                     var animation_stuff_2D = {
                       ctx: canvas2D.getContext('2d'),
                       squareWidth: 50,
-                      maxValue: 1,
+                      maxPressure: 1,
                       canvasId: 'force-2d-id-' + id
                     }
 
                     // 3D animation stuff
-                    var width = 500;
-                    var height = 500;
+                    var canvas3DWidth = 500;
+                    var canvas3DHeight = 500;
 
                     const scene = new THREE.Scene();
                     scene.background = new THREE.Color( 0xFBE7C6 );
-                    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+                    const camera = new THREE.PerspectiveCamera(75, canvas3DWidth / canvas3DHeight, 0.1, 1000);
 
                     const renderer = new THREE.WebGLRenderer();
-                    renderer.setSize(width, height);
+                    renderer.setSize(canvas3DWidth, canvas3DHeight);
                     var div_3d = document.getElementById('force-3d-id-' + id);
                     div_3d.appendChild(renderer.domElement);
-                    camera.position.z = 4;
-                    camera.position.y = -4;
+                    camera.position.z = 6;
+                    camera.position.y = -6;
 
                     var animation_stuff_3D = {
                       cubes: [],
-                      scene: scene
+                      scene: scene,
+                      canvas3DHeight: canvas3DHeight,
+                      canvas3DWidth: canvas3DWidth
+                    }
+
+                    // [kat] TODO(https://github.com/viamrobotics/rdk/issues/336): slip detection works locally, but not on app.viam.com
+                    // Slip detection stuff
+                    let slipCanvas = document.getElementById('slip-id-' + id);
+                    var slip_animation_stuff = {
+                      ctx: slipCanvas.getContext('2d')
                     }
 
                     // Allows moving the 3D scene using the mouse
@@ -510,20 +547,43 @@
 
                     let startedForceAnimation = false;
                     const timeInterval = 10; // in milliseconds
+                    let req = new forceMatrixApi.ForceMatrixServiceMatrixRequest();
+                    req.setName(name);
+
+                    let slipReq = new forceMatrixApi.ForceMatrixServiceSlipDetectionRequest();
+                    slipReq.setName(name);
+                    
+                    isFirstRender = true;
                     // Loop through grabbing data & visualizing it
-                    setTimeout(function getDataAndVisualizeIt(name, id) {
-                      let req = new robotApi.ForceMatrixMatrixRequest();
-                      req.setName(name);
-
-                      let slipReq = new robotApi.ForceMatrixSlipDetectionRequest();
-                      slipReq.setName(name);
-
-                      if (type === "forcematrix") {
-                        robotService.forceMatrixMatrix(req, {}, (err, resp) => animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D));
-                        robotService.forceMatrixSlipDetection(req, {}, (err, resp) => updateSlipDetectionResult(err, resp, id));
-                      } else {
-                        console.log("error: unknown force matrix type");
-                      }
+                    setTimeout(async function getDataAndVisualizeIt(isFirstRender) {
+                      let pResolve1;
+                      let pReject1;
+                      let p1 = new Promise((resolve, reject) => {
+                        pResolve1 = resolve;
+                        pReject1 = reject;
+                      });
+                      let pReject2;
+                      let pResolve2;
+                      let p2 = new Promise((resolve, reject) => {
+                        pResolve2 = resolve;
+                        pReject2 = reject;
+                      });
+                      forceMatrixService.matrix(req, {}, (err, resp) => {
+                        if (err) {
+                          pReject1(err);
+                        }
+                        pResolve1(null);
+                        animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender)
+                      });
+                      forceMatrixService.slipDetection(slipReq, {}, (err, resp) => {
+                        if (err) {
+                          pReject2(err);
+                        }
+                        pResolve2(null);
+                        updateSlipDetectionResult(err, resp, slip_animation_stuff)
+                      });
+                      await p1;
+                      await p2;
 
                       // Start the 3D game engine animation if it hasn't been started yet
                       if (!startedForceAnimation) {
@@ -536,8 +596,8 @@
                         animate();
                       }
 
-                      setTimeout(getDataAndVisualizeIt, 10, name, id);
-                    }, timeInterval, name, id);
+                      setTimeout(getDataAndVisualizeIt, timeInterval, false);
+                    }, timeInterval, isFirstRender);
                   },
                   nonEmpty : function(d) {
                       for ( var k in d ) {
@@ -609,7 +669,7 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new robotApi.ObjectPointCloudsRequest();
+                      req = new cameraApi.CameraServiceObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
@@ -618,7 +678,7 @@
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      robotService.objectPointClouds(req,  {}, (err, resp) => {
+                      cameraService.objectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
@@ -627,29 +687,33 @@
                         }
                         console.log("got pcd segments");
                         theData.pcdClick.foundSegments = true;
-                        theData.segments = resp.getFramesList_asB64();
-                        theData.segCenters = resp.getCentersList();
-                        theData.segBoundingBoxes = resp.getBoundingBoxesList();
+                        theData.objects = resp.getObjectsList();
                         theData.pcdClick.calculatingSegments = false;
                       });
                   },
-                  doSegmentLoad : function(data, i){
-                        var center = theData.segCenters[i];
+                  doSegmentLoad : function(i){
+                        var segment = theData.objects[i];
+                        var data = segment.getFrame_asB64();
+                        var center = segment.getCenter();
+                        var box = segment.getBoundingBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
+                        setBoundingBox(box, p);
                         const mimeType = 'pointcloud/pcd';
                         pcdLoad(`data:${mimeType};base64,${data}`);
                   },
                   doPointLoad : function(i){
-                        var center = theData.segCenters[i];
+                        var segment = theData.objects[i];
+                        var center = segment.getCenter();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
-                        var box = theData.segBoundingBoxes[i];
-                        var center = theData.segCenters[i];
+                        var segment = theData.objects[i];
+                        var center = segment.getCenter();
+                        var box = segment.getBoundingBox();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
@@ -680,28 +744,38 @@
                     const lng = parseFloat(posSplit[1]);
                     var req = new robotApi.ResourceRunCommandRequest();
                     let gpsName = "";
-                    for (let i = 0; i < theData.status.sensorsMap.length; i++) {
-                      const s = theData.status.sensorsMap[i];
-                      if (s[1].type === 'gps') {
-                        gpsName = s[0];
-                        break;
-                      }
-                    }
-                    if (gpsName === "") {
+                    gpses = theApp.filterResources("rdk", "component", "gps")
+                    if (gpses.length > 0){
+                      gpsName = gpses[0].name
+                    } else {
                       theData.error = "no gps device found";
                       return;
                     }
-                    req.setResourceName("gps1");
+                    req.setResourceName(gpsName);
                     req.setCommandName("set_location");
                     req.setArgs(proto.google.protobuf.Struct.fromJavaScript({
                       latitude: lat,
                       longitude: lng,
                     }))
                     robotService.resourceRunCommand(req, {}, (err, resp) => grpcCallback(err, resp));
-                  }
+                  },
+                  viewCamera : function(name) {
+                      const streamContainer = document.getElementById(`stream-${name}`);
+                      const button = streamContainer.getElementsByTagName("button")[0];
+                      button.disabled = true;
+                      const req = new streamApi.AddStreamRequest();
+                      req.setName(name);
+                      streamService.addStream(req, {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          button.disabled = false;
+                          return;
+                        }
+                      });
+                  },
               },
               directives: {
-                // TODO(erd): replace with vue component after naveed work done
+                // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
                 mapMounted (el) {
                   if (theData.mapOnce) {
                     return;
@@ -713,17 +787,55 @@
           })
 
           // query metadata service every 0.5s
-          const metadataCallBack = function(err, resp) {
+          const queryMetadata = async function() {
+            let pResolve;
+            let pReject;
+            let p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            metadataService.resources(new metadataApi.ResourcesRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              resources = resp.toObject().resourcesList
+              theData.resources = resources
+              pResolve(null);
+            });
+            await p;
+            setTimeout(() => queryMetadata(), 500);
+          }
+
+          // query stream service every 0.5s
+          const streamServiceCallback = function(err, resp) {
             grpcCallback(err, resp, false)
             if (err) {
               return;
             }
-            resources = resp.toObject().resourcesList
-            theData.resources = resources
+            let streamNames = resp.toObject().namesList
+            theData.streamNames = streamNames
           }
-          const queryMetadata = async function() {
-            metadataService.resources(new metadataApi.ResourcesRequest(), {}, metadataCallBack);
-            setTimeout(() => queryMetadata(), 500);
+          const queryStreams = async function() {
+            let pResolve;
+            let pReject;
+            let p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            streamService.listStreams(new streamApi.ListStreamsRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              let streamNames = resp.toObject().namesList
+              theData.streamNames = streamNames;
+              pResolve(null);
+            });
+            await p;
+            setTimeout(() => queryStreams(), 500);
           }
 
           const streamReq = new robotApi.StatusStreamRequest();
@@ -745,9 +857,9 @@
               statusStream.cancel();
               try {
                 console.log("reconnecting");
-                await window.reconnect();
-              } catch {
-                console.error("failed to reconnect; retrying");
+                await window.connect();
+              } catch (e) {
+                console.error("failed to reconnect; retrying:", e);
                 setTimeout(() => restartStatusStream(), 1000);
               }
             }
@@ -760,6 +872,9 @@
                 firstData = false;
                 checkLastStatus();
                 queryMetadata();
+                if (window.streamService) {
+                  queryStreams();
+                }
               }
             });
             statusStream.on('status', function(status) {
@@ -773,13 +888,6 @@
             });
           }
           await restartStatusStream();
-
-          const editor = ace.edit("source");
-          editor.setTheme("ace/theme/monokai");
-          editor.session.setMode("ace/mode/javascript");
-          editor.resize();
-          editor.setReadOnly(false);
-          theData.editor = editor;
       }
 
       pcdGlobal = null;
@@ -886,125 +994,203 @@
           pcdGlobal.scene.add(cube);
       }
 
-      function animateForceMatrix(err, resp, anim_2D, anim_3D) {
+
+      function animateForceMatrix(err, resp, anim_2D, anim_3D, isFirstRender) {
           grpcCallback(err, resp);
           if (err) {
             console.log("error getting force sensor readings: ", err);
             return;
           }
-          var [rows, cols, data] = resp.getMatrix().array;
-          if (data.length !== rows * cols) {
+          var [numRows, numCols, data] = resp.getMatrix().array;
+          if (data.length !== numRows * numCols || numRows === 0 || numCols === 0) {
             console.log("corrupt force sensor data");
             return;
           }
 
-          // 3D animation stuff: If this is the first time we're receiving data,
-          // let's add cubes to the 3D view
-          if (anim_3D.cubes.length == 0) {
-              console.log("Initializing cubes array")
-              for (let i = 0; i < rows; i++) {
-                  cubeRow = []
-                  for (let j = 0; j < cols; j++) {
-                      const geometry = new THREE.BoxGeometry(1, 1, 0.1);
-                      const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
-                      const cube = new THREE.Mesh( geometry, material );
-                      cube.translateX(i * 1.1 - rows / 2);
-                      cube.translateY(- j * 1.1 + cols / 2);
-                      cubeRow.push(cube);
-                      anim_3D.scene.add(cube);
-                  }
-                  anim_3D.cubes.push(cubeRow)
-              }
-          }
-          const offset = 100;
-          let canvas2D = document.getElementById(anim_2D.canvasId);
-          let canvasHeight = (50 * rows) + 20;
-          let canvasWidth = 150 * cols + offset;
-          let currentHeight = canvas2D.height;
-          let currentWidth = canvas2D.width;
-          if ((canvasHeight !== currentHeight) || (canvasWidth !== currentWidth)) {
-            canvas2D.height = canvasHeight;
-            canvas2D.width = canvasWidth;
-          }
-
-
-          // TODO: The placing & sizing of everything that's displayed is hardcoded
-          // e.g. the canvas size, location of boxes, etc.
-          // To allow for any size of sensor, and to use the space on the screen
-          // more efficiently (plus make a mobile version available), changing to
-          // adaptive sizing would be great.
           const gradientRate = 10;
           const gradientHeight = 20;
+          const gradientWidth = 40;
           const spaceBetweenTextAndGradient = 35;
-          for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < cols; j++) {
-              let value = data[i * cols + j];
-              if (value > anim_2D.maxValue) {
-                  anim_2D.maxValue = value
+          const offsetToLeftMatrix = 120;
+          const offsetBetweenMatrices = 30;
+          const squareSize = anim_2D.squareWidth
+
+          let canvas2D = document.getElementById(anim_2D.canvasId);
+          // if this is the first render, initialize the 2D and 3D scene
+          if (isFirstRender || anim_3D.cubes.length == 0) {
+            // let's add cubes to the 3D view
+            for (let row = 0; row < numRows; row++) {
+                cubeRow = []
+                for (let col = 0; col < numCols; col++) {
+                    const geometry = new THREE.BoxGeometry(1, 1, 0.1);
+                    const material = new THREE.MeshBasicMaterial( { color: 0xffaebc} );
+                    const cube = new THREE.Mesh( geometry, material );
+                    cube.translateX((col - (numCols-1)/2) * 1.1);
+                    cube.translateY((- row + (numRows-1)/2) * 1.1);
+                    cubeRow.push(cube);
+                    anim_3D.scene.add(cube);
+                }
+                anim_3D.cubes.push(cubeRow)
+
+                // [Debug] This helps for debugging & understanding the 3D space:
+                // var axesHelper = new THREE.AxesHelper( 5 );
+                // anim_3D.scene.add( axesHelper );
+
+            }
+            // resize the canvas to fit any size of matrix
+            canvas2D.height = Math.max(squareSize * numRows + 20, gradientRate * gradientHeight + 20);
+            canvas2D.width = Math.max(2 * squareSize * numCols + offsetToLeftMatrix + offsetBetweenMatrices, anim_3D.canvas3DWidth + 100);
+          }
+
+          for (let row = 0; row < numRows; row++) {
+            for (let col = 0; col < numCols; col++) {
+              let pressure = data[row * numCols + col];
+              if (pressure > anim_2D.maxPressure) {
+                  anim_2D.maxPressure = pressure
               }
 
-              greenShade = 255/anim_2D.maxValue * value;
               // --- 2D animation stuff ---
-              anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
-              anim_2D.ctx.fillRect(offset + i * anim_2D.squareWidth, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-
-              // Write out raw values
-              anim_2D.ctx.fillStyle = 'white'
-              anim_2D.ctx.font = '20px sans-serif';
-              anim_2D.ctx.fillText(value, offset + i * anim_2D.squareWidth, (j+0.6) * anim_2D.squareWidth);
-
-              // Add gradient to the left of 2D animation stuff
+              // Visualize gradient to the left of 2D animation stuff
               for (let g = 0; g < gradientRate; g++) {
                 // Create colored boxes
-                let greenShade = 255/gradientRate * g;
-                anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)'; // old version with just green color
-                anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, 40, gradientHeight);
+                let greenShadeGradient = 255/gradientRate * g;
+                anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShadeGradient + ', 0)'; // old version with just green color
+                anim_2D.ctx.fillRect(spaceBetweenTextAndGradient, g * gradientHeight, gradientWidth, gradientHeight);
 
                 // Label the boxes
                 anim_2D.ctx.fillStyle = 'white';
                 anim_2D.ctx.fillRect(0, g * gradientHeight, spaceBetweenTextAndGradient, gradientHeight);
                 anim_2D.ctx.fillStyle = 'black'
                 anim_2D.ctx.font = '15px sans-serif';
-                anim_2D.ctx.fillText(Math.floor(anim_2D.maxValue/(gradientRate - 1) * g) ,0, gradientHeight * (g + 1));
+                anim_2D.ctx.fillText(Math.floor(anim_2D.maxPressure/(gradientRate - 1) * g) ,0, gradientHeight * (g + 1));
               }
 
-              // Write the out separately in black so it's easy to read
+              // greenShade is the color used to represent the pressure in both the 2D and 3D visualization
+              let greenShade = 255/anim_2D.maxPressure * pressure;
+
+              let xPos = offsetToLeftMatrix + col * squareSize;
+              let yPos = row * squareSize;
+              let yTextOffset = 0.6 * squareSize;
+              // Visualize black box with green colors indicating the pressure
+              anim_2D.ctx.fillStyle = 'rgb(0, ' + greenShade + ', 0)';
+              anim_2D.ctx.fillRect(xPos, yPos, squareSize, squareSize);
+
+              // Inscribe raw pressure values in white
               anim_2D.ctx.fillStyle = 'white'
-              anim_2D.ctx.fillRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-              anim_2D.ctx.fillStyle = 'black'
               anim_2D.ctx.font = '20px sans-serif';
-              anim_2D.ctx.strokeRect(offset + (i + 2) * anim_2D.squareWidth + 300, j * anim_2D.squareWidth, anim_2D.squareWidth, anim_2D.squareWidth);
-              anim_2D.ctx.fillText(value, offset + (i + 2) * anim_2D.squareWidth + 300, (j+0.6) * anim_2D.squareWidth);
+              anim_2D.ctx.fillText(pressure, xPos, yPos + yTextOffset);
+
+
+              let offsetToRightMatrix = offsetBetweenMatrices + numCols * squareSize;
+              // Visualize pressure values only in a separate matrix for better reading of raw values
+              anim_2D.ctx.fillStyle = 'white'
+              anim_2D.ctx.fillRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
+              anim_2D.ctx.fillStyle = 'black'
+              anim_2D.ctx.strokeRect(xPos + offsetToRightMatrix, yPos, squareSize, squareSize);
+
+              // Inscribe raw pressure values in black
+              anim_2D.ctx.font = '20px sans-serif';
+              anim_2D.ctx.fillText(pressure, xPos + offsetToRightMatrix, yPos + yTextOffset);
 
               // --- 3D animation stuff ---
-              anim_3D.cubes[i][j].material.color.setRGB(0, greenShade/255, 0)
-              anim_3D.cubes[i][j].scale.setZ(value / anim_2D.maxValue * 14)
-              anim_3D.cubes[i][j].position.setZ(0)
-              anim_3D.cubes[i][j].translateZ(value/anim_2D.maxValue * 7 * 0.1)
+              anim_3D.cubes[row][col].material.color.setRGB(0, greenShade/255, 0)
+              anim_3D.cubes[row][col].scale.setZ(pressure/anim_2D.maxPressure * 14)
+              anim_3D.cubes[row][col].position.setZ(0)
+              anim_3D.cubes[row][col].translateZ(pressure/anim_2D.maxPressure * 7 * 0.1)
             }
           }
       }
 
-      function updateSlipDetectionResult (err, resp, id) {
+      function updateSlipDetectionResult (err, resp, slip_animation_stuff) {
         grpcCallback(err, resp);
         if (err) {
           console.log("error getting slip detection readings: ", err);
           return;
         }
+
+        if (resp === null) {
+          slip_animation_stuff.ctx.fillStyle = 'orange';
+          slip_animation_stuff.ctx.fillRect(0, 0, 200, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'black'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("response is invalid", 0, 0);
+          console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
+        }
+
         let isSlipping = resp.getIsSlipping()
-        let dispEl = document.getElementById("force-is-slipping-" + id);
         if (isSlipping) {
-          dispEl.innerText = "SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'red';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("SLIPPING", 5, 25);
         } else {
-          dispEl.innerText = "NOT SLIPPING";
+          slip_animation_stuff.ctx.fillStyle = 'green';
+          slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
+          slip_animation_stuff.ctx.fillStyle = 'white'
+          slip_animation_stuff.ctx.font = '20px sans-serif';
+          slip_animation_stuff.ctx.fillText("NOT SLIPPING", 5, 25);
         }
       }
 
-      async function waitForClientAndStart() {
-        console.debug("waiting for robot service to be ready");
-        await window.robotServiceReady;
-        console.debug("ready");
+      async function doConnect(creds, onError) {
+        console.debug("connecting");
+        document.getElementById("connecting-error").innerHTML = "";
+        document.getElementById("connecting").classList.add("connecting");
+        try {
+            await window.connect(creds);
+        } catch (e) {
+          const msg = `failed to connect: ${e}`;
+          console.error(msg);
+          document.getElementById("connecting-error").innerHTML = msg;
+          document.getElementById("connecting").classList.remove("connecting");
+          if (onError) {
+            setTimeout(onError, 1000);
+          }
+          return;
+        }
+        console.debug("connected");
+        document.getElementById("pre-app").classList.add("connected");
         await startup();
+      }
+
+      async function waitForClientAndStart() {
+        if (window.supportedAuthTypes.length == 0) {
+          doConnect(undefined, waitForClientAndStart);
+          return;
+        }
+
+        const authElems = [];
+        const disableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = true;
+          }
+        };
+        const enableAll = () => {
+          for (elem of authElems) {
+            elem.disabled = false;
+          }
+        };
+        for (authType of window.supportedAuthTypes) {
+          const authDiv = document.getElementById(`auth-${authType}`);
+          const input = authDiv.getElementsByTagName('input')[0];
+          const button = authDiv.getElementsByTagName('button')[0];
+          authElems.push(input, button);
+          const doLogin = () => {
+            disableAll();
+            const creds = { type: authType, payload: input.value };
+            doConnect(creds, () => enableAll());
+          }
+          button.addEventListener("click", () => doLogin());
+          input.addEventListener("keyup", (event) => {
+            if (event.keyCode !== 13) {
+              return;
+            }
+            doLogin();
+          });
+        }
       }
 
       async function initNavigation() {
@@ -1107,7 +1293,18 @@
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
-    <div id="app">
+    <div id="pre-app">
+      <div id="connecting-error"></div>
+      <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
+      {{range $authType := .SupportedAuthTypes }}    
+          <span>{{ $authType }}: </span>
+          <div id="auth-{{ $authType }}">
+            <input type="password"/>
+            <button>Login</button>
+          </div>
+      {{ end }}
+    </div>
+    <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
         <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
@@ -1122,16 +1319,19 @@
         <ul>
           <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
           <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 15)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -15)">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Counterclockwise</button></li>
         </ul>
 
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-        Distances (mm): <input id="distance" name="speed" value="500"/><br>
+        Distances (mm): <input id="distance" name="distance" value="500"/><br>
+        Angle (degree): <input id="angle" name="angle" value="0"/><br>
       </div>
 
       <!-- ******* GANTRY *******  -->
-      <div class="gantry" v-for="gantry in filterResources('core', 'component', 'gantry')" :key="gantry.name">
+      <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name">
         <h3>Gantry ${gantry.name}</h3>
         <table>
           <tr>
@@ -1152,9 +1352,25 @@
           </tr>
         </table>
       </div>
+
+      <!-- ******* ForceMatrix *******  -->
+      <div>
+        <div v-for="(forcematrix, x) in filterResources('rdk', 'component', 'forcematrix').entries()" :key="forcematrix[1].name">
+          <hr>
+          <h2>ForceMatrix: ${forcematrix[1].name}</h2>
+          <template>
+            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
+            <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+            <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
+            <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
+            <div :id="'force-3d-id-' + x"></div>
+          </template>
+        </div>
+        <hr>
+      </div>
       
       <!-- ******* ARM *******  -->
-      <div class="arm" v-for="arm in filterResources('core', 'component', 'arm')" :key="arm.name">
+      <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
         <table v-if="armToggle[arm.name]" border="1">
           <tr>
@@ -1210,26 +1426,26 @@
       </div>
 
       <!-- ******* GRIPPER *******  -->
-      <div class="gripper" v-for="gripper in status.grippersMap" :key="gripper[0]">
-        <h3>Gripper ${ gripper[0] }</h3>
+      <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
+        <h3>Gripper ${ gripper.name }</h3>
         <ul>
-          <li><button v-on:click="gripperAction( gripper[0], 'open')">Open</button></li>
-          <li><button v-on:click="gripperAction( gripper[0], 'grab')">Grab</button></li>
+          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
+          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
         </ul>
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in status.servosMap" :key="servo[0]" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo[0] }</h3>
+      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
+        <h3>Servo ${ servo.name }</h3>
         <table border="1">
-          <tr><th>Angle</th><td>${servo[1].angle}</td></tr>
+          <tr><th>Angle</th><td>${servo.angle}</td></tr>
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo[0], -10)">-10</button>
-              <button v-on:click="servoMove(servo[0], -1)">-1</button>
-              <button v-on:click="servoMove(servo[0], 1)">1</button>
-              <button v-on:click="servoMove(servo[0], 10)">10</button>
+              <button v-on:click="servoMove(servo.name, -10)">-10</button>
+              <button v-on:click="servoMove(servo.name, -1)">-1</button>
+              <button v-on:click="servoMove(servo.name, 1)">1</button>
+              <button v-on:click="servoMove(servo.name, 10)">10</button>
             </td>
           </tr>
         </table>
@@ -1246,39 +1462,52 @@
         style="max-width: 1080px;">
       </motor-detail>
 
-      <table>
-        <tr>
-          <td><img id="i0" src=""/></td>
-          <td><img id="i1" src=""/></td>
-          {{ range $view := .Views }}
-          <td>
-            {{ htmlSafe $view.Body }}
-          </td>
-          {{ end }}
-        </tr>
-      </table>
+      <!-- ******* INPUT VIEW *******  -->
+      <input-controller
+        v-for="controller in filteredInputControllerList()"
+        :key="'new-' + controller.name"
+        v-bind:controller-name="controller.name"
+        v-bind:controller-status="inputControllerByName(controller.name)[1]"
+        style="max-width: 1080px;">
+      </input-controller>
+
+      <!-- ******* WEB CONTROLS *******  -->
+      <web-gamepad
+        v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
+        v-on:execute="inputInject($event)"
+        style="max-width: 1080px;">
+      </web-gamepad>
+
+      <!-- ******* CAMERAS *******  -->
+      <div class="camera" v-for="streamName in streamNames" :key="streamName">
+        <h3>Camera ${streamName}</h3>
+        <div :id="'stream-' + streamName">
+          <button v-on:click="viewCamera(streamName)">View</button>
+        </div>
+      </div>
 
       <!-- ******* BOARD *******  -->
-
-      <div class="board" v-for="(board, boardIndex) in status.boardsMap" :key="board[0]">
-        <h3>Board ${board[0]}</h3>
+      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" key="board.name">
+        <h3>Board ${board.name}</h3>
         <table border="1">
 
           <tr><th colspan="2">Analogs</th></tr>
-          <tr v-for="a in board[1].analogsMap" :key="a[0]">
+          <tr v-for="a in boardByName(board.name).analogsMap" :key="a[0]">
             <th>${a[0]}</th>
             <td>${a[1].value}</td>
           </tr>
 
           <tr><th colspan="2">DigitalInterrupts</th></tr>
-          <tr v-for="di in board[1].digitalInterruptsMap" :key="di[0]">
+          <tr v-for="di in boardByName(board.name).digitalInterruptsMap" :key="di[0]">
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
         </table>
-      </div> <!-- end boards -->
+      </div>
+      <!-- end boards -->
+
       <!-- cameras -->
-      <table border="1" v-if="nonEmpty(status.camerasMap)">
+      <table border="1" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
         <tr>
           <th colspan="3">
             Cameras
@@ -1289,10 +1518,10 @@
           <th>Frame</th>
           <th>PCD</th>
         </tr>
-        <tr v-for="(cam,x) in status.camerasMap">
-          <td>${cam[0]}</td>
-          <td><a href="#" v-on:click.prevent="renderFrame(cam[0])">frame</a></td>
-          <td><button v-on:click="renderPCD(cam[0])">GO</button></td>
+        <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
+          <td>${camera.name}</td>
+          <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">frame</a></td>
+          <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
         </tr>
       </table>
 
@@ -1310,34 +1539,11 @@
           <td>${sensor[0]}</td>
           <td>${sensor[1].type}</td>
           <td>
-            <template v-if="sensor[1].type === 'forcematrix'">
-              <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(sensor[0], sensor[1].type, x)">Visualize Force Matrix</button>
-              <!-- canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
-              <canvas :id="'force-2d-id-' + x" width="1000" height="300" style="margin-top: 20px;"></canvas>
-              <div :id="'force-3d-id-' + x"></div>
-              <div :id="'force-is-slipping-' + x">NO VALUE</div>
-            </template>
-            <button v-else v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
+            <button v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>
         </tr>
-      </table>
 
-      <div>${res}</div>
-      <div>
-        <h3>Functions</h3>
-        <div id="named_functions" v-if="nonEmpty(status.functionsMap)">
-          <h4>Named</h4>
-          <div v-for="(func, x) in status.functionsMap">
-            <button v-on:click="executeFunction(func[0])">${func[0]}</button>
-          </div>
-        </div>
-        <h4>Evaluate</h4>
-        <div id="source">console.log("hello world")</div>
-        <br/>
-        <button v-on:click="evalSource()">Run</button>
-        <br/>
-        <textarea disabled id="function_results" rows="10" cols="80"></textarea>
-      </div>
+      </table>
 
       <div id="pcd_wrapper">
         <table>
@@ -1400,9 +1606,9 @@
           <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
           <td>--</td>
         </tr>
-        <tr v-for="(seg, i) in segments">
+        <tr v-for="(seg, i) in objects">
             <td>Object ${i}</td>
-            <td><button v-on:click="doSegmentLoad(seg, i)">GO</button></td>
+            <td><button v-on:click="doSegmentLoad(i)">GO</button></td>
             <td><button v-on:click="doPointLoad(i)">GO</button></td>
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
@@ -1419,7 +1625,7 @@
       </div>
     </div> <!-- end vue app -->
 
-    <!-- TODO(https://github.com/viamrobotics/core/issues/202): remove api key once going into production -->
+    <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
       async

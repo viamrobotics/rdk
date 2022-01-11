@@ -1,15 +1,14 @@
-// Package spatialmath defines spatial mathematical operations
 package spatialmath
 
 import (
 	"math"
 
-	pb "go.viam.com/core/proto/api/v1"
-
 	"github.com/go-gl/mathgl/mgl64"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 const radToDeg = 180 / math.Pi
@@ -21,7 +20,7 @@ const angleEpsilon = 0.0001
 
 // dualQuaternion defines functions to perform rigid dualQuaternionformations in 3D.
 // If you find yourself importing gonum.org/v1/gonum/num/dualquat in some other package, you should probably be
-// using these instead
+// using these instead.
 type dualQuaternion struct {
 	dualquat.Number
 }
@@ -36,7 +35,8 @@ func newDualQuaternion() *dualQuaternion {
 	}}
 }
 
-// newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided orientation.
+// newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation
+// quaternion is set from a provided orientation.
 func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	ov := o.OrientationVectorRadians()
 	// Handle the zero case
@@ -50,7 +50,7 @@ func newDualQuaternionFromRotation(o Orientation) *dualQuaternion {
 	}}
 }
 
-// newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter
+// newDualQuaternionFromDH returns a pointer to a new dualQuaternion object created from a DH parameter.
 func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m := mgl64.Ident4()
 
@@ -64,15 +64,15 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	qRot := mgl64.Mat4ToQuat(m)
 	q := newDualQuaternion()
 	q.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
-	q.SetTranslation(a, 0, d)
+	q.SetTranslation(r3.Vector{a, 0, d})
 	return q
 }
 
 // newDualQuaternionFromProtobuf returns a pointer to a new dualQuaternion object whose rotation quaternion is set from a provided
 // protobuf pose.
-func newDualQuaternionFromProtobuf(pos *pb.Pose) *dualQuaternion {
+func newDualQuaternionFromProtobuf(pos *commonpb.Pose) *dualQuaternion {
 	q := newDualQuaternionFromRotation(&OrientationVectorDegrees{pos.Theta, pos.OX, pos.OY, pos.OZ})
-	q.SetTranslation(pos.X, pos.Y, pos.Z)
+	q.SetTranslation(r3.Vector{pos.X, pos.Y, pos.Z})
 	return q
 }
 
@@ -83,8 +83,7 @@ func newDualQuaternionFromPose(p Pose) *dualQuaternion {
 		return q.Clone()
 	}
 	q := newDualQuaternionFromRotation(p.Orientation())
-	pt := p.Point()
-	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	q.SetTranslation(p.Point())
 	return q
 }
 
@@ -95,14 +94,13 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 		return q
 	}
 	q := newDualQuaternionFromRotation(p.Orientation().OrientationVectorRadians())
-	pt := p.Point()
-	q.SetTranslation(pt.X, pt.Y, pt.Z)
+	q.SetTranslation(p.Point())
 	return q
 }
 
-// ToProtobuf converts a dualQuaternion to a protobuf pose
-func (q *dualQuaternion) ToProtobuf() *pb.Pose {
-	final := &pb.Pose{}
+// ToProtobuf converts a dualQuaternion to a protobuf pose.
+func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
+	final := &commonpb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
 	final.Y = cartQuat.Dual.Jmag
@@ -132,13 +130,12 @@ func (q *dualQuaternion) Point() r3.Vector {
 
 // Orientation returns the rotation quaternion as an Orientation.
 func (q *dualQuaternion) Orientation() Orientation {
-	qq := quaternion(q.Real)
-	return &qq
+	return (*quaternion)(&q.Real)
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
-func (q *dualQuaternion) SetTranslation(x, y, z float64) {
-	q.Dual = quat.Number{0, x / 2, y / 2, z / 2}
+func (q *dualQuaternion) SetTranslation(pt r3.Vector) {
+	q.Dual = quat.Number{0, pt.X / 2, pt.Y / 2, pt.Z / 2}
 	q.rotate()
 }
 
@@ -148,7 +145,7 @@ func (q *dualQuaternion) rotate() {
 }
 
 // Invert returns a dualQuaternion representing the opposite transformation. So if the input q would transform a -> b,
-// then Invert(p) will transform b -> a
+// then Invert(p) will transform b -> a.
 func (q *dualQuaternion) Invert() Pose {
 	return &dualQuaternion{dualquat.ConjQuat(q.Number)}
 }
@@ -161,8 +158,11 @@ func (q *dualQuaternion) SetZ(z float64) {
 // Transformation multiplies the dual quat contained in this dualQuaternion by another dual quat.
 func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 	// Ensure we are multiplying by a unit dual quaternion
-	if vecLen := quat.Abs(by.Real); vecLen != 1 {
-		by.Real = quat.Scale(1/vecLen, by.Real)
+	if vecLen := 1 / quat.Abs(by.Real); vecLen != 1 {
+		by.Real.Real *= vecLen
+		by.Real.Imag *= vecLen
+		by.Real.Jmag *= vecLen
+		by.Real.Kmag *= vecLen
 	}
 
 	return dualquat.Mul(q.Number, by)
@@ -172,9 +172,8 @@ func (q *dualQuaternion) Transformation(by dualquat.Number) dualquat.Number {
 // Euler angles are terrible, don't use them.
 func MatToEuler(mat mgl64.Mat4) []float64 {
 	sy := math.Sqrt(mat.At(0, 0)*mat.At(0, 0) + mat.At(1, 0)*mat.At(1, 0))
-	singular := sy < 1e-6
 	var angles []float64
-	if singular {
+	if sy < 1e-6 { // singular
 		angles = append(angles, math.Atan2(-mat.At(1, 2), mat.At(1, 1)))
 		angles = append(angles, math.Atan2(-mat.At(2, 0), sy))
 		angles = append(angles, 0)
@@ -189,35 +188,8 @@ func MatToEuler(mat mgl64.Mat4) []float64 {
 	return angles
 }
 
-// Norm returns the norm of the quaternion, i.e. the sqrt of the sum of the squares of the imaginary parts.
-func Norm(q quat.Number) float64 {
-	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
-}
-
-// Flip will multiply a quaternion by -1, returning a quaternion representing the same orientation but in the opposing octant.
-func Flip(q quat.Number) quat.Number {
-	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
-}
-
-// AlmostEqual is an equality test for all the float components of a quaternion
-func AlmostEqual(a, b quat.Number, tol float64) bool {
-	if math.Abs(a.Real-b.Real) > tol {
-		return false
-	}
-	if math.Abs(a.Imag-b.Imag) > tol {
-		return false
-	}
-	if math.Abs(a.Jmag-b.Jmag) > tol {
-		return false
-	}
-	if math.Abs(a.Kmag-b.Kmag) > tol {
-		return false
-	}
-	return true
-}
-
 // OffsetBy takes two offsets and computes the final position.
-func OffsetBy(a, b *pb.Pose) *pb.Pose {
+func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q1 := newDualQuaternionFromProtobuf(a)
 	q2 := newDualQuaternionFromProtobuf(b)
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}

@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
@@ -174,27 +175,15 @@ func TestScaleByPct(t *testing.T) {
 	test.That(t, ScaleByPct(255, 1), test.ShouldEqual, 255)
 	test.That(t, ScaleByPct(255, .5), test.ShouldEqual, 127)
 	test.That(t, ScaleByPct(255, -2), test.ShouldEqual, 0)
+	test.That(t, ScaleByPct(255, 2), test.ShouldEqual, 255)
 }
 
-func TestRayToUpwardCWCartesian(t *testing.T) {
-	tt := func(angle, distance, X, Y float64) {
-		x, y := RayToUpwardCWCartesian(angle, 1)
-		test.That(t, x, test.ShouldAlmostEqual, X, .00001)
-		test.That(t, y, test.ShouldAlmostEqual, Y, .00001)
-	}
+func TestFloat64AlmostEqual(t *testing.T) {
+	test.That(t, Float64AlmostEqual(1, 1.001, 1e-4), test.ShouldBeFalse)
+	test.That(t, Float64AlmostEqual(1, 1.001, 1e-2), test.ShouldBeTrue)
+}
 
-	tt(0, 1, 0, 1)
-	tt(90, 1, 1, 0)
-	tt(180, 1, 0, -1)
-	tt(270, 1, -1, 0)
-
-	tt(360, 1, 0, 1)
-	tt(90+90, 1, 0, -1)
-	tt(360+180, 1, 0, -1)
-	tt(360+270, 1, -1, 0)
-
-	tt(45, 1, math.Sqrt(2)/2, math.Sqrt(2)/2)
-	tt(135, 1, math.Sqrt(2)/2, -math.Sqrt(2)/2)
-	tt(225, 1, -math.Sqrt(2)/2, -math.Sqrt(2)/2)
-	tt(315, 1, -math.Sqrt(2)/2, math.Sqrt(2)/2)
+func TestR3VectorAlmostEqual(t *testing.T) {
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2, 3}, 1e-4), test.ShouldBeFalse)
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2.001, 3.001}, 1e-2), test.ShouldBeTrue)
 }

@@ -3,12 +3,8 @@
 ## Dependencies
 
 * JDK 8+
-* Core [Dependencies](../../README.md#dependencies)
-* Run `make setup`
-
-## Run
-
-* Run `make buf`
+* RDK [Dependencies](../../README.md#dependencies)
+* Run `make setup buf`
 
 ### Server
 * Run `make run_server`
