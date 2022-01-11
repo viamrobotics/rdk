@@ -11,8 +11,9 @@ if [ "`sudo whoami`x" != "rootx" ]; then
 fi
 
 do_bullseye(){
+	sudo bash <<-EOS
 	# Basic tools
-	apt-get update && apt-get install -y curl wget gpg sudo nano less git file && apt-get clean
+	apt-get update && apt-get install -y curl wget gpg sudo nano less git file fuse && apt-get clean
 
 	# Backports repo
 	echo "deb http://deb.debian.org/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports main" > /etc/apt/sources.list.d/backports.list
@@ -25,12 +26,8 @@ do_bullseye(){
 	curl -s https://deb.nodesource.com/gpgkey/nodesource.gpg.key | gpg --dearmor -o /usr/share/keyrings/nodesource.gpg
 	echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_16.x $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/nodesource.list
 
-	# Docker repo
-	curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-	echo "deb [signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) stable" > /etc/apt/sources.list.d/docker.list
-
 	# Install most things
-	apt-get update && apt-get install -y build-essential pkg-config ca-certificates devscripts python3-pip python3-setuptools patchelf desktop-file-utils libgdk-pixbuf2.0-dev gtk-update-icon-cache strace fuse file nodejs docker-ce docker-ce-cli containerd.io libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web wasmer-dev libhttpserver-dev librealsense2-dev libcubeeye-dev libroyale-dev && apt-get clean
+	apt-get update && apt-get install -y build-essential nodejs libnlopt-dev libx264-dev protobuf-compiler protoc-gen-grpc-web wasmer-dev && apt-get clean
 
 	# Install backports
 	apt-get install -y -t $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2)-backports golang-go
@@ -39,6 +36,12 @@ do_bullseye(){
 	test "$(uname -m)" != "aarch64" || curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi.gpg.key | gpg --dearmor -o /usr/share/keyrings/raspberrypi.gpg
 	test "$(uname -m)" != "aarch64" || echo "deb [signed-by=/usr/share/keyrings/raspberrypi.gpg] http://archive.raspberrypi.org/debian/ $(grep VERSION_CODENAME /etc/os-release | cut -d= -f2) main" > /etc/apt/sources.list.d/raspi.list
 	test "$(uname -m)" != "aarch64" || ( apt-get update && apt-get install -y wiringpi libpigpio-dev && apt-get clean )
+	EOS
+
+	if [ $? -ne 0 ]; then
+		echo "Package installation failed when running"
+		exit 1
+	fi
 
 	cat > ~/.viamdevrc <<-EOS
 	if [[ "\$VIAM_DEV_ENV"x == "x" ]]; then
@@ -127,10 +130,11 @@ mod_profiles(){
 	grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
 	grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
 
-	git config --global --get-regexp url. > /dev/null
-	if [ $? -ne 0 ]; then
-		git config --global url.ssh://git@github.com/.insteadOf https://github.com/
-	fi
+	# No longer seems to be needed. Can build/lint/test without this
+	# git config --global --get-regexp url. > /dev/null
+	# if [ $? -ne 0 ]; then
+	# 	git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+	# fi
 }
 
 do_brew(){
