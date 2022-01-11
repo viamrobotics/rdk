@@ -1,3 +1,4 @@
+// Package fake implements a fake GPS.
 package fake
 
 import (
@@ -9,24 +10,24 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterSensor(
-		gps.Type,
+	registry.RegisterComponent(
+		gps.Subtype,
 		"fake",
-		registry.Sensor{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (sensor.Sensor, error) {
+		) (interface{}, error) {
 			return &GPS{Name: config.Name}, nil
 		}})
 	registry.RegisterBase(
@@ -107,7 +108,7 @@ func (g *GPS) Valid(ctx context.Context) (bool, error) {
 
 // Desc returns that this is a GPS.
 func (g *GPS) Desc() sensor.Description {
-	return sensor.Description{gps.Type, ""}
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // RunCommand runs an arbitrary command.
@@ -151,7 +152,7 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if !ok {
 		return nil, errors.Errorf("no base named %q", baseName)
 	}
-	s, ok := r.SensorByName(gpsName)
+	s, ok := r.ResourceByName(gps.Named(gpsName))
 	if !ok {
 		return nil, errors.Errorf("no gps named %q", gpsName)
 	}

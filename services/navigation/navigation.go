@@ -15,11 +15,11 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor/gps"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -111,7 +111,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
 	}
-	s, ok := r.SensorByName(svcConfig.GPSName)
+	s, ok := r.ResourceByName(gps.Named(svcConfig.GPSName))
 	if !ok {
 		return nil, errors.Errorf("no gps named %q", svcConfig.GPSName)
 	}

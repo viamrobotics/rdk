@@ -22,7 +22,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -37,7 +37,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -55,7 +54,6 @@ type RobotClient struct {
 
 	namesMu       *sync.RWMutex
 	baseNames     []string
-	boardNames    []boardInfo
 	sensorNames   []string
 	functionNames []string
 	serviceNames  []string
@@ -72,14 +70,6 @@ type RobotClient struct {
 	cachedStatusMu *sync.Mutex
 
 	closeContext context.Context
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
 }
 
 // New constructs a new RobotClient that is served at the given address. The given
@@ -314,8 +304,6 @@ func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 		return &compassClient{sc}, true
 	case compass.RelativeType:
 		return &relativeCompassClient{&compassClient{sc}}, true
-	case gps.Type:
-		return &gpsClient{sc}, true
 	default:
 		return sc, true
 	}
@@ -368,18 +356,12 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
+
 	switch name.Subtype {
-	case forcematrix.Subtype:
+	case gps.Subtype:
 		sensorType := rc.sensorTypes[name.Name]
 		sc := &sensorClient{rc, name.Name, sensorType}
-		return &forcematrixClient{sc}, true
-	case board.Subtype:
-		for _, info := range rc.boardNames {
-			if info.name == name.Name {
-				return &boardClient{rc, info}, true
-			}
-		}
-		return nil, false
+		return &gpsClient{sc}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -435,26 +417,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		}
 	}
 
-	rc.boardNames = nil
-	if len(status.Boards) != 0 {
-		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
-		for name, boardStatus := range status.Boards {
-			info := boardInfo{name: name}
-			if len(boardStatus.Analogs) != 0 {
-				info.analogReaderNames = make([]string, 0, len(boardStatus.Analogs))
-				for name := range boardStatus.Analogs {
-					info.analogReaderNames = append(info.analogReaderNames, name)
-				}
-			}
-			if len(boardStatus.DigitalInterrupts) != 0 {
-				info.digitalInterruptNames = make([]string, 0, len(boardStatus.DigitalInterrupts))
-				for name := range boardStatus.DigitalInterrupts {
-					info.digitalInterruptNames = append(info.digitalInterruptNames, name)
-				}
-			}
-			rc.boardNames = append(rc.boardNames, info)
-		}
-	}
 	rc.sensorNames = nil
 	if len(status.Sensors) != 0 {
 		rc.sensorNames = make([]string, 0, len(status.Sensors))
@@ -543,11 +505,13 @@ func (rc *RobotClient) BaseNames() []string {
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	out := make([]string, 0, len(rc.boardNames))
-	for _, info := range rc.boardNames {
-		out = append(out, info.name)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == board.Subtype {
+			names = append(names, v.Name)
+		}
 	}
-	return out
+	return copyStringSlice(names)
 }
 
 // SensorNames returns the names of all known sensors.
@@ -739,196 +703,6 @@ func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
 	return int(resp.WidthMillis), nil
 }
 
-// boardClient satisfies a gRPC based board.Board. Refer to the interface
-// for descriptions of its methods.
-type boardClient struct {
-	rc   *RobotClient
-	info boardInfo
-}
-
-// SPIByName may need to be implemented.
-func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName may need to be implemented.
-func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
-func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return &analogReaderClient{
-		rc:               bc.rc,
-		boardName:        bc.info.name,
-		analogReaderName: name,
-	}, true
-}
-
-func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	return &digitalInterruptClient{
-		rc:                   bc.rc,
-		boardName:            bc.info.name,
-		digitalInterruptName: name,
-	}, true
-}
-
-func (bc *boardClient) GPIOSet(ctx context.Context, pin string, high bool) error {
-	_, err := bc.rc.client.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-		Name: bc.info.name,
-		Pin:  pin,
-		High: high,
-	})
-	return err
-}
-
-func (bc *boardClient) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	resp, err := bc.rc.client.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-		Name: bc.info.name,
-		Pin:  pin,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.High, nil
-}
-
-func (bc *boardClient) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	_, err := bc.rc.client.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-		Name:      bc.info.name,
-		Pin:       pin,
-		DutyCycle: uint32(dutyCycle),
-	})
-	return err
-}
-
-func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	_, err := bc.rc.client.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-		Name:      bc.info.name,
-		Pin:       pin,
-		Frequency: uint64(freq),
-	})
-	return err
-}
-
-func (bc *boardClient) SPINames() []string {
-	return copyStringSlice(bc.info.spiNames)
-}
-
-func (bc *boardClient) I2CNames() []string {
-	return copyStringSlice(bc.info.i2cNames)
-}
-
-func (bc *boardClient) AnalogReaderNames() []string {
-	return copyStringSlice(bc.info.analogReaderNames)
-}
-
-func (bc *boardClient) DigitalInterruptNames() []string {
-	return copyStringSlice(bc.info.digitalInterruptNames)
-}
-
-// Status uses the parent robot client's cached status or a newly fetched
-// board status to return the state of the board.
-func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	if status := bc.rc.getCachedStatus(); status != nil {
-		boardStatus, ok := status.Boards[bc.info.name]
-		if !ok {
-			return nil, errors.Errorf("no board with name (%s)", bc.info.name)
-		}
-		return boardStatus, nil
-	}
-	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
-		Name: bc.info.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-func (bc *boardClient) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{Remote: true}
-}
-
-// analogReaderClient satisfies a gRPC based motor.Motor. Refer to the interface
-// for descriptions of its methods.
-type analogReaderClient struct {
-	rc               *RobotClient
-	boardName        string
-	analogReaderName string
-}
-
-func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.rc.client.BoardAnalogReaderRead(ctx, &pb.BoardAnalogReaderReadRequest{
-		BoardName:        arc.boardName,
-		AnalogReaderName: arc.analogReaderName,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.Value), nil
-}
-
-// digitalInterruptClient satisfies a gRPC based motor.Motor. Refer to the interface
-// for descriptions of its methods.
-type digitalInterruptClient struct {
-	rc                   *RobotClient
-	boardName            string
-	digitalInterruptName string
-}
-
-func (dic *digitalInterruptClient) Config(ctx context.Context) (board.DigitalInterruptConfig, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptConfig(ctx, &pb.BoardDigitalInterruptConfigRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return board.DigitalInterruptConfig{}, err
-	}
-	return DigitalInterruptConfigFromProto(resp.Config), nil
-}
-
-// DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
-// codebase specific version.
-func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) board.DigitalInterruptConfig {
-	return board.DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
-func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptValue(ctx, &pb.BoardDigitalInterruptValueRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return resp.Value, nil
-}
-
-func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	_, err := dic.rc.client.BoardDigitalInterruptTick(ctx, &pb.BoardDigitalInterruptTickRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-		High:                 high,
-		Nanos:                nanos,
-	})
-	return err
-}
-
-func (dic *digitalInterruptClient) AddCallback(c chan bool) {
-	debug.PrintStack()
-	panic(errUnimplemented)
-}
-
-func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
-	debug.PrintStack()
-	panic(errUnimplemented)
-}
-
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
 // for descriptions of its methods.
 type sensorClient struct {
@@ -1088,62 +862,6 @@ func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// forcematrixClient satisfies a gRPC based
-// forcematrix.ForceMatrix.
-// Refer to the ForceMatrix interface for descriptions of its methods.
-type forcematrixClient struct {
-	*sensorClient
-}
-
-func (fmc *forcematrixClient) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fmc.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
-}
-
-func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
-	resp, err := fmc.rc.client.ForceMatrixMatrix(ctx,
-		&pb.ForceMatrixMatrixRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return protoToMatrix(resp), nil
-}
-
-func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
-	resp, err := fmc.rc.client.ForceMatrixSlipDetection(ctx,
-		&pb.ForceMatrixSlipDetectionRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return false, err
-	}
-
-	return resp.GetIsSlipping(), nil
-}
-
-func (fmc *forcematrixClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
-}
-
-// Ensure implements ForceMatrix.
-var _ = forcematrix.ForceMatrix(&forcematrixClient{})
-
-// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
-	numRows := matrixResponse.Matrix.Rows
-	numCols := matrixResponse.Matrix.Cols
-
-	matrix := make([][]int, numRows)
-	for row := range matrix {
-		matrix[row] = make([]int, numCols)
-		for col := range matrix[row] {
-			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
-		}
-	}
-	return matrix
+func (gc *gpsClient) Desc() sensor.Description {
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }

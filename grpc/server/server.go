@@ -16,15 +16,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -241,174 +239,6 @@ func (s *Server) BaseWidthMillis(
 	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
 }
 
-// BoardStatus returns the status of a board of the underlying robot.
-func (s *Server) BoardStatus(
-	ctx context.Context,
-	req *pb.BoardStatusRequest,
-) (*pb.BoardStatusResponse, error) {
-	b, ok := s.r.BoardByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.Name)
-	}
-
-	status, err := b.Status(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.BoardStatusResponse{Status: status}, nil
-}
-
-// BoardGPIOSet sets a given pin of a board of the underlying robot to either low or high.
-func (s *Server) BoardGPIOSet(
-	ctx context.Context,
-	req *pb.BoardGPIOSetRequest,
-) (*pb.BoardGPIOSetResponse, error) {
-	b, ok := s.r.BoardByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.Name)
-	}
-
-	return &pb.BoardGPIOSetResponse{}, b.GPIOSet(ctx, req.Pin, req.High)
-}
-
-// BoardGPIOGet gets the high/low state of a given pin of a board of the underlying robot.
-func (s *Server) BoardGPIOGet(
-	ctx context.Context,
-	req *pb.BoardGPIOGetRequest,
-) (*pb.BoardGPIOGetResponse, error) {
-	b, ok := s.r.BoardByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.Name)
-	}
-
-	high, err := b.GPIOGet(ctx, req.Pin)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardGPIOGetResponse{High: high}, nil
-}
-
-// BoardPWMSet sets a given pin of the underlying robot to the given duty cycle.
-func (s *Server) BoardPWMSet(
-	ctx context.Context,
-	req *pb.BoardPWMSetRequest,
-) (*pb.BoardPWMSetResponse, error) {
-	b, ok := s.r.BoardByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.Name)
-	}
-
-	return &pb.BoardPWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
-}
-
-// BoardPWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency.
-// 0 will use the board's default PWM frequency.
-func (s *Server) BoardPWMSetFrequency(
-	ctx context.Context,
-	req *pb.BoardPWMSetFrequencyRequest,
-) (*pb.BoardPWMSetFrequencyResponse, error) {
-	b, ok := s.r.BoardByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.Name)
-	}
-
-	return &pb.BoardPWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
-}
-
-// BoardAnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-func (s *Server) BoardAnalogReaderRead(
-	ctx context.Context,
-	req *pb.BoardAnalogReaderReadRequest,
-) (*pb.BoardAnalogReaderReadResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	theReader, ok := b.AnalogReaderByName(req.AnalogReaderName)
-	if !ok {
-		return nil, errors.Errorf("unknown analog reader: %s", req.AnalogReaderName)
-	}
-
-	val, err := theReader.Read(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardAnalogReaderReadResponse{Value: int32(val)}, nil
-}
-
-// BoardDigitalInterruptConfig returns the config the interrupt was created with.
-func (s *Server) BoardDigitalInterruptConfig(
-	ctx context.Context,
-	req *pb.BoardDigitalInterruptConfigRequest,
-) (*pb.BoardDigitalInterruptConfigResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	config, err := interrupt.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardDigitalInterruptConfigResponse{Config: digitalInterruptConfigToProto(&config)}, nil
-}
-
-func digitalInterruptConfigToProto(config *board.DigitalInterruptConfig) *pb.DigitalInterruptConfig {
-	return &pb.DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
-// BoardDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-func (s *Server) BoardDigitalInterruptValue(
-	ctx context.Context,
-	req *pb.BoardDigitalInterruptValueRequest,
-) (*pb.BoardDigitalInterruptValueResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	val, err := interrupt.Value(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardDigitalInterruptValueResponse{Value: val}, nil
-}
-
-// BoardDigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-func (s *Server) BoardDigitalInterruptTick(
-	ctx context.Context,
-	req *pb.BoardDigitalInterruptTickRequest,
-) (*pb.BoardDigitalInterruptTickResponse, error) {
-	b, ok := s.r.BoardByName(req.BoardName)
-	if !ok {
-		return nil, errors.Errorf("no board with name (%s)", req.BoardName)
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	return &pb.BoardDigitalInterruptTickResponse{}, interrupt.Tick(ctx, req.High, req.Nanos)
-}
-
 // SensorReadings returns the readings of a sensor of the underlying robot.
 func (s *Server) SensorReadings(
 	ctx context.Context,
@@ -576,7 +406,7 @@ func (s *Server) ResourceRunCommand(
 ) (*pb.ResourceRunCommandResponse, error) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
 	// we know only gps has this right now, so just look at sensors!
-	resource, ok := s.r.SensorByName(req.ResourceName)
+	resource, ok := s.r.ResourceByName(gps.Named(req.ResourceName))
 	if !ok {
 		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
 	}
@@ -805,11 +635,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	resource, ok := s.r.ResourceByName(gps.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no gps with name (%s)", name)
 	}
-	return sensorDevice.(gps.GPS), nil
+	return resource.(gps.GPS), nil
 }
 
 // GPSLocation returns the most recent location from the given GPS.
@@ -914,67 +744,4 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 		StdOut:  execResult.StdOut,
 		StdErr:  execResult.StdErr,
 	}, nil
-}
-
-// matrixToProto is a helper function to convert force matrix values from a 2-dimensional
-// slice into protobuf format.
-func matrixToProto(matrix [][]int) *pb.ForceMatrixMatrixResponse {
-	rows := len(matrix)
-	var cols int
-	if rows != 0 {
-		cols = len(matrix[0])
-	}
-
-	data := make([]uint32, 0, rows*cols)
-	for row := 0; row < rows; row++ {
-		for col := 0; col < cols; col++ {
-			data = append(data, uint32(matrix[row][col]))
-		}
-	}
-
-	return &pb.ForceMatrixMatrixResponse{Matrix: &pb.Matrix{
-		Rows: uint32(rows),
-		Cols: uint32(cols),
-		Data: data,
-	}}
-}
-
-// ForceMatrixMatrix returns a matrix of measured forces on a matrix force sensor.
-func (s *Server) ForceMatrixMatrix(
-	ctx context.Context,
-	req *pb.ForceMatrixMatrixRequest,
-) (*pb.ForceMatrixMatrixResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	matrix, err := forceMatrixDevice.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return matrixToProto(matrix), nil
-}
-
-// ForceMatrixSlipDetection returns a boolean representing whether a slip has been detected.
-func (s *Server) ForceMatrixSlipDetection(
-	ctx context.Context,
-	req *pb.ForceMatrixSlipDetectionRequest,
-) (*pb.ForceMatrixSlipDetectionResponse, error) {
-	forceMatrixDevice, err := s.forceMatrixByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ForceMatrixSlipDetectionResponse{IsSlipping: isSlipping}, nil
-}
-
-func (s *Server) forceMatrixByName(name string) (forcematrix.ForceMatrix, error) {
-	fm, ok := s.r.ResourceByName(forcematrix.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no force matrix with name (%s)", name)
-	}
-	return fm.(forcematrix.ForceMatrix), nil
 }

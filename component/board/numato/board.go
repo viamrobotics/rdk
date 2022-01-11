@@ -21,7 +21,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/serial"
@@ -287,7 +287,7 @@ func (b *numatoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) err
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (b *numatoBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *numatoBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b)
 }
 

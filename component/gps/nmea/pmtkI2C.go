@@ -11,23 +11,23 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/gps"
 )
 
 func init() {
-	registry.RegisterSensor(
-		gps.Type,
+	registry.RegisterComponent(
+		gps.Subtype,
 		"nmea-pmtkI2C",
-		registry.Sensor{Constructor: func(
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (sensor.Sensor, error) {
+		) (interface{}, error) {
 			return newPmtkI2CNMEAGPS(ctx, r, config, logger)
 		}})
 }
@@ -191,7 +191,7 @@ func (g *pmtkI2CNMEAGPS) Close() {
 
 // Desc returns that this is a GPS.
 func (g *pmtkI2CNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{gps.Type, ""}
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // PMTK checksums commands by XORing together each byte.
