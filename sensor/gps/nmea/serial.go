@@ -101,6 +101,7 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		g.logger.Errorf("received non-200 response code: %d", resp.StatusCode)
 		return nil
 	}
+	g.logger.Debugf("ntrip response code: %d",resp.StatusCode)
 
 	// setup port to write to
 	options := slib.OpenOptions{
@@ -109,7 +110,6 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
-
 	options.PortName = g.ntripWritepath
 	port, err := slib.Open(options)
 	if err != nil {
@@ -122,7 +122,6 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	_, err = io.ReadAll(r)
 
 	if err != nil {
-		slib.Close(options)
 		return multierr.Combine(err, resp.Body.Close())
 	}
 
