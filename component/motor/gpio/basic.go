@@ -107,26 +107,26 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 
 	if math.Abs(powerPct) <= 0.001 {
 		if m.En != "" {
-			errs = m.Board.GPIOSet(ctx, m.En, true)
+			errs = m.Board.SetGPIO(ctx, m.En, true)
 		}
 
 		if m.A != "" && m.B != "" {
 			errs = multierr.Combine(
 				errs,
-				m.Board.GPIOSet(ctx, m.A, false),
-				m.Board.GPIOSet(ctx, m.B, false),
+				m.Board.SetGPIO(ctx, m.A, false),
+				m.Board.SetGPIO(ctx, m.B, false),
 			)
 		}
 
 		if m.PWM != "" {
-			errs = multierr.Combine(errs, m.Board.GPIOSet(ctx, m.PWM, false))
+			errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.PWM, false))
 		}
 		return errs
 	}
 
 	m.on = true
 	if m.En != "" {
-		errs = multierr.Combine(errs, m.Board.GPIOSet(ctx, m.En, false))
+		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.En, false))
 	}
 
 	var pwmPin string
@@ -146,8 +146,8 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
-		m.Board.PWMSetFreq(ctx, pwmPin, m.pwmFreq),
-		m.Board.PWMSet(ctx, pwmPin, byte(utils.ScaleByPct(255, powerPct))),
+		m.Board.SetPWMFreq(ctx, pwmPin, m.pwmFreq),
+		m.Board.SetPWM(ctx, pwmPin, float64(utils.ScaleByPct(255, powerPct))),
 	)
 }
 
@@ -168,14 +168,14 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 			x = !x
 		}
 		return multierr.Combine(
-			m.Board.GPIOSet(ctx, m.Dir, x),
+			m.Board.SetGPIO(ctx, m.Dir, x),
 			m.SetPower(ctx, powerPct),
 		)
 	}
 	if m.A != "" && m.B != "" {
 		return multierr.Combine(
-			m.Board.GPIOSet(ctx, m.A, !math.Signbit(powerPct)),
-			m.Board.GPIOSet(ctx, m.B, math.Signbit(powerPct)),
+			m.Board.SetGPIO(ctx, m.A, !math.Signbit(powerPct)),
+			m.Board.SetGPIO(ctx, m.B, math.Signbit(powerPct)),
 			m.SetPower(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}

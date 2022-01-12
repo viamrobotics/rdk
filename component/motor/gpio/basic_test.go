@@ -108,7 +108,7 @@ func TestMotorABPWM(t *testing.T) {
 
 	t.Run("motor (A/B/PWM) Set PWM frequency testing", func(t *testing.T) {
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
-		test.That(t, b.PWMSetFreq(ctx, "3", 8000), test.ShouldBeNil)
+		test.That(t, b.SetPWMFreq(ctx, "3", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
 	})
 }
@@ -215,7 +215,7 @@ func TestMotorDirPWM(t *testing.T) {
 
 	t.Run("motor (DIR/PWM) Set PWM frequency testing", func(t *testing.T) {
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
-		test.That(t, b.PWMSetFreq(ctx, "3", 8000), test.ShouldBeNil)
+		test.That(t, b.SetPWMFreq(ctx, "3", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
 	})
 }
@@ -318,7 +318,7 @@ func TestMotorAB(t *testing.T) {
 
 	t.Run("motor (A/B) Set PWM frequency testing", func(t *testing.T) {
 		test.That(t, b.PWMFreq["2"], test.ShouldEqual, 4000)
-		test.That(t, b.PWMSetFreq(ctx, "2", 8000), test.ShouldBeNil)
+		test.That(t, b.SetPWMFreq(ctx, "2", 8000), test.ShouldBeNil)
 		test.That(t, b.PWMFreq["2"], test.ShouldEqual, 8000)
 	})
 }
