@@ -84,7 +84,7 @@ type Board struct {
 	Digitals map[string]board.DigitalInterrupt
 
 	GPIO    map[string]bool
-	PWM     map[string]byte
+	PWM     map[string]float64
 	PWMFreq map[string]uint
 
 	CloseCount int
@@ -114,48 +114,48 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return d, ok
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}
 	b.GPIO[pin] = high
 	if high {
-		return b.PWMSet(ctx, pin, 255)
+		return b.SetPWM(ctx, pin, 255)
 	}
-	return b.PWMSet(ctx, pin, 0)
+	return b.SetPWM(ctx, pin, 0)
 }
 
-// GPIOGet returns whether the given pin is either low or high.
-func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO returns whether the given pin is either low or high.
+func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}
 	return b.GPIO[pin], nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	if b.PWM == nil {
-		b.PWM = map[string]byte{}
+		b.PWM = map[string]float64{}
 	}
-	if b.PWM[pin] != dutyCycle {
-		b.PWM[pin] = dutyCycle
-		if dutyCycle == 255 {
-			return b.GPIOSet(ctx, pin, true)
-		} else if dutyCycle == 0 {
-			return b.GPIOSet(ctx, pin, false)
+	if b.PWM[pin] != dutyCyclePct {
+		b.PWM[pin] = dutyCyclePct
+		if dutyCyclePct == 1.0 {
+			return b.SetGPIO(ctx, pin, true)
+		} else if dutyCyclePct == 0 {
+			return b.SetGPIO(ctx, pin, false)
 		}
 	}
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	if b.PWMFreq == nil {
 		b.PWMFreq = map[string]uint{}
 	}
-	b.PWMFreq[pin] = freq
+	b.PWMFreq[pin] = freqHz
 	return nil
 }
 

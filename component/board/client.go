@@ -123,8 +123,8 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	}, true
 }
 
-func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
-	_, err := c.client.GPIOSet(ctx, &pb.BoardServiceGPIOSetRequest{
+func (c *client) SetGPIO(ctx context.Context, pin string, high bool) error {
+	_, err := c.client.SetGPIO(ctx, &pb.BoardServiceSetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 		High: high,
@@ -132,8 +132,8 @@ func (c *client) GPIOSet(ctx context.Context, pin string, high bool) error {
 	return err
 }
 
-func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	resp, err := c.client.GPIOGet(ctx, &pb.BoardServiceGPIOGetRequest{
+func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	resp, err := c.client.GetGPIO(ctx, &pb.BoardServiceGetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 	})
@@ -143,20 +143,20 @@ func (c *client) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	return resp.High, nil
 }
 
-func (c *client) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	_, err := c.client.PWMSet(ctx, &pb.BoardServicePWMSetRequest{
-		Name:      c.info.name,
-		Pin:       pin,
-		DutyCycle: uint32(dutyCycle),
+func (c *client) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	_, err := c.client.SetPWM(ctx, &pb.BoardServiceSetPWMRequest{
+		Name:         c.info.name,
+		Pin:          pin,
+		DutyCyclePct: dutyCyclePct,
 	})
 	return err
 }
 
-func (c *client) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	_, err := c.client.PWMSetFrequency(ctx, &pb.BoardServicePWMSetFrequencyRequest{
-		Name:      c.info.name,
-		Pin:       pin,
-		Frequency: uint64(freq),
+func (c *client) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
+	_, err := c.client.SetPWMFrequency(ctx, &pb.BoardServiceSetPWMFrequencyRequest{
+		Name:        c.info.name,
+		Pin:         pin,
+		FrequencyHz: uint64(freqHz),
 	})
 	return err
 }
@@ -257,7 +257,7 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.client.AnalogReaderRead(ctx, &pb.BoardServiceAnalogReaderReadRequest{
+	resp, err := arc.client.ReadAnalogReader(ctx, &pb.BoardServiceReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
 	})
@@ -275,30 +275,8 @@ type digitalInterruptClient struct {
 	digitalInterruptName string
 }
 
-func (dic *digitalInterruptClient) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	resp, err := dic.client.DigitalInterruptConfig(ctx, &pb.BoardServiceDigitalInterruptConfigRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return DigitalInterruptConfig{}, err
-	}
-	return DigitalInterruptConfigFromProto(resp.Config), nil
-}
-
-// DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
-// codebase specific version.
-func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) DigitalInterruptConfig {
-	return DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
 func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.client.DigitalInterruptValue(ctx, &pb.BoardServiceDigitalInterruptValueRequest{
+	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.BoardServiceGetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 	})
@@ -309,13 +287,8 @@ func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
 }
 
 func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	_, err := dic.client.DigitalInterruptTick(ctx, &pb.BoardServiceDigitalInterruptTickRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-		High:                 high,
-		Nanos:                nanos,
-	})
-	return err
+	debug.PrintStack()
+	panic(errUnimplemented)
 }
 
 func (dic *digitalInterruptClient) AddCallback(c chan bool) {
