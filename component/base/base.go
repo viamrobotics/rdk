@@ -22,7 +22,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named Arm's typed resource name.
+// Named is a helper for getting the named Base's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
