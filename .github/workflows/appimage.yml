@@ -21,6 +21,7 @@ jobs:
     container:
       image: ghcr.io/viamrobotics/canon:amd64-cache
       options: --platform linux/amd64
+    timeout-minutes: 15
 
     steps:
     - name: Checkout Code
@@ -52,6 +53,7 @@ jobs:
     container:
       image: ghcr.io/viamrobotics/canon:arm64-cache
       options: --platform linux/arm64
+    timeout-minutes: 15
 
     steps:
     - name: Checkout Code
