@@ -237,7 +237,6 @@ func TestServerGetGPIO(t *testing.T) {
 	}
 }
 
-
 func TestServerSetPWM(t *testing.T) {
 	type request = pb.BoardServiceSetPWMRequest
 	ctx := context.Background()
@@ -293,7 +292,6 @@ func TestServerSetPWM(t *testing.T) {
 		})
 	}
 }
-
 
 func TestServerSetPWMFrequency(t *testing.T) {
 	type request = pb.BoardServiceSetPWMFrequencyRequest
