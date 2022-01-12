@@ -88,8 +88,7 @@
         },
         {
             "name": "gps1",
-            "type": "sensor",
-            "subtype": "gps",
+            "type": "gps",
             "model": "fake"
         }, 
         {

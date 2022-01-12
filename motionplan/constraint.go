@@ -141,11 +141,15 @@ func NewCollisionConstraint(reference *CollisionGraph) Constraint {
 		if err != nil {
 			return false, 0
 		}
-		numCollisions := len(cg.Collisions())
-		if numCollisions > 0 {
+		collisions := cg.Collisions()
+		if len(collisions) > 0 {
 			return false, 0
 		}
-		return true, 0
+		sum := 0.
+		for _, collision := range collisions {
+			sum += collision.penetrationDepth
+		}
+		return true, sum
 	}
 	return f
 }
@@ -231,12 +235,12 @@ func NewPoseFlexOVMetric(goal spatial.Pose, alpha float64) Metric {
 	}
 }
 
-// NewPlaneConstraintAndGradient is used to define a constraint space for a plane, and will return 1) a constraint
+// NewPlaneConstraint is used to define a constraint space for a plane, and will return 1) a constraint
 // function which will determine whether a point is on the plane and in a valid orientation, and 2) a distance function
 // which will bring a pose into the valid constraint space. The plane normal is assumed to point towards the valid area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the plane necessary to be a valid pose.
-func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, Metric) {
+func NewPlaneConstraint(pNorm, pt r3.Vector, writingAngle, epsilon float64) (Constraint, Metric) {
 	// get the constant value for the plane
 	pConst := -pt.Dot(pNorm)
 
@@ -273,12 +277,12 @@ func NewPlaneConstraintAndGradient(pNorm, pt r3.Vector, writingAngle, epsilon fl
 	return validFunc, gradFunc
 }
 
-// NewLineConstraintAndGradient is used to define a constraint space for a line, and will return 1) a constraint
+// NewLineConstraint is used to define a constraint space for a line, and will return 1) a constraint
 // function which will determine whether a point is on the line and in a valid orientation, and 2) a distance function
 // which will bring a pose into the valid constraint space. The OV passed in defines the center of the valid orientation area.
 // angle refers to the maximum unit sphere arc length deviation from the ov
 // epsilon refers to the closeness to the line necessary to be a valid pose.
-func NewLineConstraintAndGradient(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, Metric) {
+func NewLineConstraint(pt1, pt2 r3.Vector, orient spatial.Orientation, writingAngle, epsilon float64) (Constraint, Metric) {
 	// invert the normal to get the valid AOA OV
 	ov := orient.OrientationVectorRadians()
 

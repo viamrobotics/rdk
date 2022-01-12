@@ -3,17 +3,18 @@ package objectmanipulation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -21,7 +22,7 @@ import (
 const frameSystemName = "move_gripper"
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
@@ -33,8 +34,18 @@ type Service interface {
 	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
 }
 
-// Type is the type of service.
-const Type = config.ServiceType("object_manipulation")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("object_manipulation")
+
+// Subtype is a constant that identifies the object manipulation service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the ObjectManipulationService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {

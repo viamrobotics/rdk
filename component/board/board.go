@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
@@ -29,7 +29,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // A Board represents a physical general purpose board that contains various
@@ -74,7 +74,7 @@ type Board interface {
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*pb.BoardStatus, error)
+	Status(ctx context.Context) (*commonpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -258,7 +258,7 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	return names
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {

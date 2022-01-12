@@ -55,9 +55,6 @@ type Robot interface {
 	// InputControllerByName returns a input.Controller by name.
 	InputControllerByName(name string) (input.Controller, bool)
 
-	// ServiceByName returns a service by name.
-	ServiceByName(name string) (interface{}, bool)
-
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
 
@@ -93,9 +90,6 @@ type Robot interface {
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
-
-	// ServiceNames returns the name of all known services.
-	ServiceNames() []string
 
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name

@@ -28,8 +28,8 @@ func init() {
 				componentpb.RegisterGantryServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return gantry.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return gantry.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

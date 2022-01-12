@@ -19,7 +19,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -278,8 +278,8 @@ func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint)
 	return pin.PWM(duty, frequency)
 }
 
-func (b *jetsonBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	return &pb.BoardStatus{}, nil
+func (b *jetsonBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+	return &commonpb.BoardStatus{}, nil
 }
 
 func (b *jetsonBoard) ModelAttributes() board.ModelAttributes {
