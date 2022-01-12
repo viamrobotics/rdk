@@ -20,7 +20,7 @@ require (
 	github.com/fsnotify/fsnotify v1.5.1
 	github.com/fullstorydev/grpcurl v1.8.0
 	github.com/go-gl/mathgl v1.0.0
-	github.com/go-gnss/ntrip v0.0.8 
+	github.com/go-gnss/ntrip v0.0.8
 	github.com/go-nlopt/nlopt v0.0.0-20210501073024-ea36b13dd737
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551
