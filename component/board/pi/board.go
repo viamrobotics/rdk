@@ -241,7 +241,7 @@ func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 }
 
 // SetPWM sets the given pin to the given PWM duty cycle.
-func (pi *piPigpio) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+func (pi *piPigpio) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
@@ -250,8 +250,9 @@ func (pi *piPigpio) SetPWM(ctx context.Context, pin string, dutyCycle byte) erro
 }
 
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
-func (pi *piPigpio) SetPWMBcom(bcom int, dutyCycle byte) error {
-	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
+func (pi *piPigpio) SetPWMBcom(bcom int, dutyCycle float64) error {
+	dutyCycleUInt8 := rdkutils.ScaleByPct(255, dutyCycle)
+	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycleUInt8))
 	if res != 0 {
 		return errors.Errorf("pwm set fail %d", res)
 	}

@@ -66,7 +66,7 @@ type Board interface {
 	GetGPIO(ctx context.Context, pin string) (bool, error)
 
 	// SetPWM sets the given pin to the given duty cycle.
-	SetPWM(ctx context.Context, pin string, dutyCycle byte) error
+	SetPWM(ctx context.Context, pin string, dutyCycle float64) error
 
 	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 	SetPWMFreq(ctx context.Context, pin string, freq uint) error
@@ -206,7 +206,7 @@ func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, er
 	return r.actual.GetGPIO(ctx, pin)
 }
 
-func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.SetPWM(ctx, pin, dutyCycle)
