@@ -156,8 +156,7 @@
 
         {
             "name": "gps",
-            "type": "sensor",
-            "subtype": "gps",
+            "type": "gps",
             "model": "nmea-serial",
             "attributes" : {
                 "path" : "/dev/ttyAMA0"
@@ -166,8 +165,7 @@
         },
         {
             "name" : "imu",
-            "type" : "sensor",
-            "subtype" : "imu",
+            "type" : "imu",
             "model" : "wit",
             "attributes" : {
                 "port" : "/dev/ttyUSB1"

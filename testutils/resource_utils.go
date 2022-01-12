@@ -44,7 +44,7 @@ func AddSuffixes(values []resource.Name, suffixes ...string) []resource.Name {
 
 	for _, s := range suffixes {
 		for _, v := range values {
-			newName := resource.NewFromSubtype(v.Subtype, v.Name+s)
+			newName := resource.NameFromSubtype(v.Subtype, v.Name+s)
 			rNames = append(rNames, newName)
 		}
 	}

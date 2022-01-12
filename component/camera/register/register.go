@@ -9,16 +9,9 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 
-	// for camera.
+	// for cameras.
 	_ "go.viam.com/rdk/component/camera/fake"
-
-	// for camera.
-	_ "go.viam.com/rdk/component/camera/gopro"
-
-	// for camera.
 	_ "go.viam.com/rdk/component/camera/imagesource"
-
-	// for camera.
 	_ "go.viam.com/rdk/component/camera/velodyne"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
@@ -36,8 +29,8 @@ func init() {
 				pb.RegisterCameraServiceHandlerFromEndpoint,
 			)
 		},
-		RPCClient: func(conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
-			return camera.NewClientFromConn(conn, name, logger)
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return camera.NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
 }

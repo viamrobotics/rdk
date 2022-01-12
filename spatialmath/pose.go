@@ -6,13 +6,12 @@
 package spatialmath
 
 import (
-	"math"
-
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/utils"
 )
 
 // Translation is the translation between two objects in the grid system. It is always in millimeters.
@@ -170,12 +169,19 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	return intQ
 }
 
-// AlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
-func AlmostCoincident(a, b Pose) bool {
+// PoseAlmostEqual will return a bool describing whether 2 poses are approximately the same.
+func PoseAlmostEqual(a, b Pose) bool {
+	return PoseAlmostCoincident(a, b) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
+}
+
+// PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+func PoseAlmostCoincident(a, b Pose) bool {
 	const epsilon = 1e-8
 	ap := a.Point()
 	bp := b.Point()
-	return math.Abs(ap.X-bp.X) < epsilon && math.Abs(ap.Y-bp.Y) < epsilon && math.Abs(ap.Z-bp.Z) < epsilon
+	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
 }
 
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a

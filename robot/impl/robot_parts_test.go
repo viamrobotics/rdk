@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
-	fakeforcematrix "go.viam.com/rdk/component/forcematrix/fake"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -23,7 +22,7 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robots/fake"
-	"go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/objectmanipulation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -77,7 +76,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor1", "sensor2", "forcematrix"),
+		utils.NewStringSet("sensor1", "sensor2"),
 	)
 	test.That(
 		t,
@@ -145,14 +144,6 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	fsm, ok := parts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
 	_, ok = parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ServoByName("servo1_what")
@@ -247,13 +238,10 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(
@@ -291,7 +279,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
-			inputNames,
 			inputNames,
 		)...),
 	)
@@ -363,30 +350,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		test.ShouldEqual,
 		"sensor1_r2",
 	)
-	fsm, ok := parts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
-	fsm, ok = parts.SensorByName("forcematrix_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r1",
-	)
-	fsm, ok = parts.SensorByName("forcematrix_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r2",
-	)
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -434,6 +397,122 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.ResourceByName(servo.Named("servo1_what"))
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+	armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1")...)
+	boardNames := []resource.Name{board.Named("board1"), board.Named("board2")}
+	boardNames = append(boardNames, rdktestutils.AddSuffixes(boardNames, "_r1")...)
+	gripperNames := []resource.Name{gripper.Named("gripper1"), gripper.Named("gripper2")}
+	gripperNames = append(gripperNames, rdktestutils.AddSuffixes(gripperNames, "_r1")...)
+	cameraNames := []resource.Name{camera.Named("camera1"), camera.Named("camera2")}
+	cameraNames = append(cameraNames, rdktestutils.AddSuffixes(cameraNames, "_r1")...)
+	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
+	servoNames = append(servoNames, rdktestutils.AddSuffixes(servoNames, "_r1")...)
+	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
+	motorNames = append(motorNames, rdktestutils.AddSuffixes(motorNames, "_r1")...)
+	inputNames := []resource.Name{input.Named("inputController1"), input.Named("inputController2")}
+	inputNames = append(inputNames, rdktestutils.AddSuffixes(inputNames, "_r1")...)
+
+	test.That(
+		t,
+		utils.NewStringSet(parts.RemoteNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("remote1", "remote2"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.ArmNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.GripperNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.CameraNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(cameraNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.BaseNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.BoardNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1"),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.SensorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(
+			"sensor1",
+			"sensor2",
+			"sensor1_r1",
+			"sensor2_r1",
+		),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.ServoNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.MotorNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.InputControllerNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
+	)
+	test.That(
+		t,
+		utils.NewStringSet(parts.FunctionNames()...),
+		test.ShouldResemble,
+		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1"),
+	)
+	test.That(
+		t,
+		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		test.ShouldResemble,
+		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
+			armNames,
+			boardNames,
+			gripperNames,
+			cameraNames,
+			servoNames,
+			motorNames,
+			inputNames,
+		)...),
+	)
 }
 
 func TestPartsClone(t *testing.T) {
@@ -533,13 +612,10 @@ func TestPartsClone(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(
@@ -653,30 +729,6 @@ func TestPartsClone(t *testing.T) {
 		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
 		test.ShouldEqual,
 		"sensor1_r2",
-	)
-	fsm, ok := newParts.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix",
-	)
-	fsm, ok = newParts.SensorByName("forcematrix_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r1",
-	)
-	fsm, ok = newParts.SensorByName("forcematrix_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name,
-		test.ShouldEqual,
-		"forcematrix_r2",
 	)
 	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
@@ -817,11 +869,9 @@ func TestPartsAdd(t *testing.T) {
 		cameraPoint *r3.Vector) (bool, error) {
 		return false, nil
 	}
-	parts.AddService(
-		injectObjectManipulationService,
-		config.Service{Name: services.ObjectManipulationServiceName},
-	)
-	objectManipulationService, ok := parts.ServiceByName(services.ObjectManipulationServiceName)
+	objectMResName := objectmanipulation.Name
+	parts.addResource(objectMResName, injectObjectManipulationService)
+	objectManipulationService, ok := parts.ResourceByName(objectMResName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
@@ -1005,13 +1055,10 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -1171,19 +1218,14 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 			"sensor1_other",
 			"sensor2_other",
-			"forcematrix_other",
 			"sensor1_other1",
 			"sensor2_other1",
-			"forcematrix_other1",
 		),
 	)
 	test.That(
@@ -1328,19 +1370,14 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet(
 			"sensor1",
 			"sensor2",
-			"forcematrix",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 			"sensor1_other",
 			"sensor2_other",
-			"forcematrix_other",
 			"sensor1_other1",
 			"sensor2_other1",
-			"forcematrix_other1",
 		),
 	)
 	test.That(
@@ -1515,13 +1552,10 @@ func TestPartsMergeModify(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -1786,13 +1820,10 @@ func TestPartsMergeRemove(t *testing.T) {
 			utils.NewStringSet(
 				"sensor1",
 				"sensor2",
-				"forcematrix",
 				"sensor1_r1",
 				"sensor2_r1",
-				"forcematrix_r1",
 				"sensor1_r2",
 				"sensor2_r2",
-				"forcematrix_r2",
 			),
 		)
 		test.That(
@@ -2264,7 +2295,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2", "forcematrix_r2"),
+		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2"),
 	)
 	test.That(
 		t,
@@ -2521,10 +2552,8 @@ func TestPartsFilterFromConfig(t *testing.T) {
 			"sensor2",
 			"sensor1_r1",
 			"sensor2_r1",
-			"forcematrix_r1",
 			"sensor1_r2",
 			"sensor2_r2",
-			"forcematrix_r2",
 		),
 	)
 	test.That(

@@ -30,21 +30,17 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BaseWidthMillis(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardAnalogReaderRead(self, stream) -> None:
+    async def BoardReadAnalogReader(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardDigitalInterruptConfig(self, stream) -> None:
+    async def BoardGetDigitalInterruptValue(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardDigitalInterruptTick(self, stream) -> None:
+    async def BoardGetGPIO(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardDigitalInterruptValue(self, stream) -> None:
+    async def BoardSetGPIO(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardGPIOGet(self, stream) -> None:
+    async def BoardSetPWM(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardGPIOSet(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardPWMSet(self, stream) -> None:
-        raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def BoardPWMSetFrequency(self, stream) -> None:
+    async def BoardSetPWMFrequency(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def BoardStatus(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)

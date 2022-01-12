@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -65,6 +64,34 @@ func TestFourWheelBase1(t *testing.T) {
 		rpm, rotations = base.straightDistanceToMotorInfo(-1000, -1000)
 		test.That(t, rpm, test.ShouldEqual, -60.0)
 		test.That(t, rotations, test.ShouldEqual, -1.0)
+	})
+
+	t.Run("straight no speed", func(t *testing.T) {
+		err := base.MoveStraight(ctx, 1000, 0, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = base.WaitForMotorsToStop(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		for _, m := range base.allMotors {
+			isOn, err := m.IsOn(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
+		}
+	})
+
+	t.Run("straight no distance", func(t *testing.T) {
+		err := base.MoveStraight(ctx, 0, 1000, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = base.WaitForMotorsToStop(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		for _, m := range base.allMotors {
+			isOn, err := m.IsOn(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
+		}
 	})
 
 	t.Run("WaitForMotorsToStop", func(t *testing.T) {
@@ -177,6 +204,20 @@ func TestFourWheelBase1(t *testing.T) {
 		}
 	})
 	// Arc tests
+
+	t.Run("arc no speed", func(t *testing.T) {
+		err := base.MoveArc(ctx, 1000, 0, 10, true)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = base.WaitForMotorsToStop(ctx)
+		test.That(t, err, test.ShouldBeNil)
+
+		for _, m := range base.allMotors {
+			isOn, err := m.IsOn(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, isOn, test.ShouldBeFalse)
+		}
+	})
 	t.Run("arc math", func(t *testing.T) {
 		rpms, rotations := base.arcMath(1000, 1000, 10)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.052, 0.01)
@@ -253,11 +294,6 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, rotations[0], test.ShouldEqual, 1.0)
 		test.That(t, rpms[1], test.ShouldEqual, -60.0)
 		test.That(t, rotations[1], test.ShouldEqual, 1.0)
-	})
-
-	t.Run("arc math zero speed", func(t *testing.T) {
-		err := base.MoveArc(ctx, 1, 0, 1, true)
-		test.That(t, err, test.ShouldBeError, errors.New("cannot block unless you have a speed"))
 	})
 }
 

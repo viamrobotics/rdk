@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io/fs"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"sync"
@@ -37,11 +38,21 @@ import (
 	"go.viam.com/rdk/web"
 )
 
-// Type is the type of service.
-const Type = config.ServiceType("web")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("web")
+
+// Subtype is a constant that identifies the web service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the WebService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
@@ -107,6 +118,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCSignalingAddress     string
 		WebRTCAdditionalICEServers []map[string]interface{}
 		Actions                    []string
+		SupportedAuthTypes         []string
 	}
 
 	temp := Temp{
@@ -115,10 +127,18 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		if !app.options.internalSignaling || app.options.secure {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("https://%s", app.options.SignalingAddress)
+		var scheme string
+		if app.options.secureSignaling {
+			scheme = "https"
+		} else {
+			scheme = "http"
 		}
-		temp.WebRTCHost = app.options.Name
+		temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
+		temp.WebRTCHost = app.options.FQDNs[0]
+	}
+
+	for _, handler := range app.options.Auth.Handlers {
+		temp.SupportedAuthTypes = append(temp.SupportedAuthTypes, string(handler.Type))
 	}
 
 	err := app.template.Execute(w, temp)
@@ -236,7 +256,7 @@ func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	return nil
 }
 
-func (svc *webService) Close() {
+func (svc *webService) Close(ctx context.Context) error {
 	svc.mu.Lock()
 	defer svc.mu.Unlock()
 	if svc.cancelFunc != nil {
@@ -244,6 +264,7 @@ func (svc *webService) Close() {
 		svc.cancelFunc = nil
 	}
 	svc.activeBackgroundWorkers.Wait()
+	return nil
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
@@ -341,6 +362,10 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
+// DefaultFQDN is the default name that will be used to identify the
+// web server when one is not specified.
+const DefaultFQDN = "local"
+
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
@@ -356,25 +381,63 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	options.secure = secure
 
 	var signalingOpts []rpc.DialOption
-	if options.SignalingAddress == "" && !secure {
-		signalingOpts = append(signalingOpts, rpc.WithInsecure())
+	var insecureSignaling bool
+	if options.SignalingAddress == "" {
+		if !secure {
+			signalingOpts = append(signalingOpts, rpc.WithInsecure())
+			insecureSignaling = true
+		}
+	} else {
+		_, port, err := net.SplitHostPort(options.SignalingAddress)
+		if err != nil {
+			return err
+		}
+		if port != "443" {
+			signalingOpts = append(signalingOpts, rpc.WithInsecure())
+			insecureSignaling = true
+		}
 	}
+	options.secureSignaling = !insecureSignaling
 
+	if len(options.FQDNs) == 0 {
+		options.FQDNs = []string{DefaultFQDN}
+	}
 	rpcOpts := []rpc.ServerOption{
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
 			ExternalSignalingDialOpts: signalingOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			SignalingHost:             options.Name,
+			SignalingHosts:            options.FQDNs,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 	}
-	// TODO(erd): later: add command flags to enable auth
-	if true {
+	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
+	} else {
+		authEntities := options.FQDNs
+		if !options.Managed {
+			// allow authentication for non-unique entities.
+			// This eases direct connections via address.
+			authEntities = append(authEntities, listenerAddr, options.Network.BindAddress)
+		}
+		for _, handler := range options.Auth.Handlers {
+			switch handler.Type {
+			case rpc.CredentialsTypeAPIKey:
+				apiKey := handler.Config.String("key")
+				if apiKey == "" {
+					return errors.Errorf("%q handler requires non-empty API key", rpc.CredentialsTypeAPIKey)
+				}
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
+					rpc.CredentialsTypeAPIKey,
+					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+				))
+			default:
+				return errors.Errorf("do not know how to handle auth for %q", handler.Type)
+			}
+		}
 	}
 	rpcServer, err := rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
@@ -382,11 +445,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	svc.server = rpcServer
 	if options.SignalingAddress == "" {
-		options.internalSignaling = true
 		options.SignalingAddress = listenerAddr
-	}
-	if options.Name == "" {
-		options.Name = rpcServer.SignalingHost()
 	}
 
 	if err := rpcServer.RegisterServiceServer(

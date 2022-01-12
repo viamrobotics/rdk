@@ -13,11 +13,11 @@ import (
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	fakearm "go.viam.com/rdk/component/arm/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
 	fakecamera "go.viam.com/rdk/component/camera/fake"
-	fakeforcematrix "go.viam.com/rdk/component/forcematrix/fake"
 	"go.viam.com/rdk/component/gripper"
 	fakegripper "go.viam.com/rdk/component/gripper/fake"
 	"go.viam.com/rdk/component/input"
@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -76,6 +77,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.BoardNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(boardNames...)
 	}
+	injectRobot.BoardNamesFunc = func() []string {
+		return rdktestutils.ExtractNames(boardNames...)
+	}
 	injectRobot.GripperNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(gripperNames...)
 	}
@@ -86,7 +90,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return []string{fmt.Sprintf("base1%s", suffix), fmt.Sprintf("base2%s", suffix)}
 	}
 	injectRobot.SensorNamesFunc = func() []string {
-		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix), fmt.Sprintf("forcematrix%s", suffix)}
+		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix)}
 	}
 	injectRobot.ServoNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(servoNames...)
@@ -99,9 +103,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
-	}
-	injectRobot.ServiceNamesFunc = func() []string {
-		return []string{fmt.Sprintf("service1%s", suffix), fmt.Sprintf("service2%s", suffix)}
 	}
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
 		return rdktestutils.ConcatResourceNames(
@@ -128,7 +129,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.ArmNames()...)[name]; !ok {
 			return nil, false
 		}
-		return &fake.Arm{Name: name}, true
+		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
@@ -174,9 +175,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {
 			return nil, false
 		}
-		if strings.HasPrefix(name, "forcematrix") {
-			return &fakeforcematrix.ForceMatrix{Name: name}, true
-		}
 		return &fake.Compass{Name: name}, true
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
@@ -197,19 +195,13 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return &fakeinput.InputController{Name: name}, true
 	}
-	injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.ServiceNames()...)[name]; !ok {
-			return nil, false
-		}
-		return struct{}{}, true
-	}
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
 				// TODO: some kind of mapping based on resource name may be needed
 				switch name.Subtype {
 				case arm.Subtype:
-					return &fake.Arm{Name: name.Name}, true
+					return &fakearm.Arm{Name: name.Name}, true
 				case board.Subtype:
 					return injectRobot.BoardByNameFunc(name.Name)
 				case servo.Subtype:
@@ -222,6 +214,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakemotor.Motor{Name: name.Name}, true
 				case input.Subtype:
 					return &fakeinput.InputController{Name: name.Name}, true
+				}
+				if rName.ResourceType == resource.ResourceTypeService {
+					return struct{}{}, true
 				}
 			}
 		}
@@ -327,13 +322,13 @@ func TestRemoteRobot(t *testing.T) {
 	)
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2", "forcematrix"))
+	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2"))
 	robot.conf.Prefix = true
 	test.That(
 		t,
 		utils.NewStringSet(robot.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("one.sensor1", "one.sensor2", "one.forcematrix"),
+		utils.NewStringSet("one.sensor1", "one.sensor2"),
 	)
 
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
@@ -510,7 +505,7 @@ func TestRemoteRobot(t *testing.T) {
 			"gripper1": true,
 			"gripper2": true,
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"board1": {},
 			"board2": {},
 		},
@@ -519,9 +514,8 @@ func TestRemoteRobot(t *testing.T) {
 			"camera2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"sensor1":     {},
-			"sensor2":     {},
-			"forcematrix": {},
+			"sensor1": {},
+			"sensor2": {},
 		},
 		Servos: map[string]*pb.ServoStatus{
 			"servo1": {},
@@ -555,7 +549,7 @@ func TestRemoteRobot(t *testing.T) {
 			"one.gripper1": true,
 			"one.gripper2": true,
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"one.board1": {},
 			"one.board2": {},
 		},
@@ -564,9 +558,8 @@ func TestRemoteRobot(t *testing.T) {
 			"one.camera2": true,
 		},
 		Sensors: map[string]*pb.SensorStatus{
-			"one.sensor1":     {},
-			"one.sensor2":     {},
-			"one.forcematrix": {},
+			"one.sensor1": {},
+			"one.sensor2": {},
 		},
 		Servos: map[string]*pb.ServoStatus{
 			"one.servo1": {},
@@ -637,9 +630,6 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = robot.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	fsm, ok := robot.SensorByName("forcematrix")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fsm.(*proxySensor).actual.(*fakeforcematrix.ForceMatrix).Name, test.ShouldEqual, "forcematrix")
 
 	robot.conf.Prefix = false
 	_, ok = robot.ServoByName("servo1")

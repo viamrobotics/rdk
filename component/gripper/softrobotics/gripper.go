@@ -72,17 +72,17 @@ func newGripper(b board.Board, config config.Component, logger golog.Logger) (*s
 // Stop TODO.
 func (g *softGripper) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinOpen, false),
-		g.theBoard.GPIOSet(ctx, g.pinClose, false),
-		g.theBoard.GPIOSet(ctx, g.pinPower, false),
+		g.theBoard.SetGPIO(ctx, g.pinOpen, false),
+		g.theBoard.SetGPIO(ctx, g.pinClose, false),
+		g.theBoard.SetGPIO(ctx, g.pinPower, false),
 	)
 }
 
 // Open TODO.
 func (g *softGripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinOpen, true),
-		g.theBoard.GPIOSet(ctx, g.pinPower, true),
+		g.theBoard.SetGPIO(ctx, g.pinOpen, true),
+		g.theBoard.SetGPIO(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return err
@@ -113,8 +113,8 @@ func (g *softGripper) Open(ctx context.Context) error {
 // Grab TODO.
 func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinClose, true),
-		g.theBoard.GPIOSet(ctx, g.pinPower, true),
+		g.theBoard.SetGPIO(ctx, g.pinClose, true),
+		g.theBoard.SetGPIO(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return false, err

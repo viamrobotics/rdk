@@ -81,7 +81,7 @@ func TestClient(t *testing.T) {
 	t.Run("gripper client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		gripper2Client := gripper.NewClientFromConn(conn, gripper2, logger)
+		gripper2Client := gripper.NewClientFromConn(context.Background(), conn, gripper2, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = gripper2Client.Open(context.Background())

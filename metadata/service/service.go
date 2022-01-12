@@ -40,7 +40,7 @@ type Service struct {
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
 func New() (Metadata, error) {
-	metadata := resource.NewFromSubtype(Subtype, "")
+	metadata := resource.NameFromSubtype(Subtype, "")
 	resources := []resource.Name{metadata}
 
 	return &Service{resources: resources}, nil

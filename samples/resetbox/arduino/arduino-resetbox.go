@@ -107,14 +107,14 @@ func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
-	if err := resetBoard.GPIOSet(ctx, "37", true); err != nil {
+	if err := resetBoard.SetGPIO(ctx, "37", true); err != nil {
 		return err
 	}
 	select {
 	case <-ctx.Done():
 	case <-time.After(100 * time.Millisecond):
 	}
-	return resetBoard.GPIOSet(ctx, "37", false)
+	return resetBoard.SetGPIO(ctx, "37", false)
 }
 
 // waitForReady waits for the arduino controlling the reset box to signal it is an item is available (first cubes,
@@ -136,7 +136,7 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 			return nil
 		case <-time.After(100 * time.Millisecond):
 		}
-		ready, _ := resetBoard.GPIOGet(ctx, "35")
+		ready, _ := resetBoard.GetGPIO(ctx, "35")
 		if ready {
 			return nil
 		}

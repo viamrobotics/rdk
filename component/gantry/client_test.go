@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client2 := gantry.NewClientFromConn(conn, gantry1, logger)
+		gantry1Client2 := gantry.NewClientFromConn(context.Background(), conn, gantry1, logger)
 		test.That(t, err, test.ShouldBeNil)
 		pos, err := gantry1Client2.CurrentPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)

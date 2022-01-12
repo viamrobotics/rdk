@@ -18,4 +18,4 @@ package: setup buf
 	rm -rf tmp
 
 run_client:
-	python3 client.py local.jetson.unyyjqwtoa.viam.cloud 8080
+	python3 dump.py local.jetson.unyyjqwtoa.viam.cloud 8080
