@@ -290,7 +290,7 @@ func (m *mock) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return mockGPIO, nil
 }
 
-func (m *mock) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
+func (m *mock) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	m.setPWMCalls++
 	return nil
 }

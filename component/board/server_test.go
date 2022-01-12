@@ -278,7 +278,7 @@ func TestServerSetPWM(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCycle float64) error {
+			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCyclePct float64) error {
 				return tc.injectErr
 			}
 

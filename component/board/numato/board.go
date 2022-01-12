@@ -275,7 +275,7 @@ func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 }
 
 // SetPWM sets the given pin to the given duty cycle.
-func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
+func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	return errors.New("numato doesn't support pwm")
 }
 

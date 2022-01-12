@@ -135,15 +135,15 @@ func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 }
 
 // SetPWM sets the given pin to the given duty cycle.
-func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	if b.PWM == nil {
 		b.PWM = map[string]float64{}
 	}
-	if b.PWM[pin] != dutyCycle {
-		b.PWM[pin] = dutyCycle
-		if dutyCycle == 1.0 {
+	if b.PWM[pin] != dutyCyclePct {
+		b.PWM[pin] = dutyCyclePct
+		if dutyCyclePct == 1.0 {
 			return b.SetGPIO(ctx, pin, true)
-		} else if dutyCycle == 0 {
+		} else if dutyCyclePct == 0 {
 			return b.SetGPIO(ctx, pin, false)
 		}
 	}
