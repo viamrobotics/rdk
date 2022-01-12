@@ -180,26 +180,26 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 	return piInstance, nil
 }
 
-// GPIOSet sets the given pin to high or low.
-func (pi *piPigpio) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to high or low.
+func (pi *piPigpio) SetGPIO(ctx context.Context, pin string, high bool) error {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.GPIOSetBcom(int(bcom), high)
+	return pi.SetGPIOBcom(int(bcom), high)
 }
 
-// GPIOGet reads the high/low state of the given pin.
-func (pi *piPigpio) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO reads the high/low state of the given pin.
+func (pi *piPigpio) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return false, errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.GPIOGetBcom(int(bcom))
+	return pi.GetGPIOBcom(int(bcom))
 }
 
-// GPIOGetBcom gets the level of the given broadcom pin
-func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
+// GetGPIOBcom gets the level of the given broadcom pin
+func (pi *piPigpio) GetGPIOBcom(bcom int) (bool, error) {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	if !pi.gpioConfigSet[bcom] {
@@ -217,8 +217,8 @@ func (pi *piPigpio) GPIOGetBcom(bcom int) (bool, error) {
 	return C.gpioRead(C.uint(bcom)) != 0, nil
 }
 
-// GPIOSetBcom sets the given broadcom pin to high or low.
-func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
+// SetGPIOBcom sets the given broadcom pin to high or low.
+func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 	pi.mu.Lock()
 	defer pi.mu.Unlock()
 	if !pi.gpioConfigSet[bcom] {
@@ -240,17 +240,18 @@ func (pi *piPigpio) GPIOSetBcom(bcom int, high bool) error {
 	return nil
 }
 
-// PWMSet sets the given pin to the given PWM duty cycle.
-func (pi *piPigpio) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given PWM duty cycle.
+func (pi *piPigpio) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.PWMSetBcom(int(bcom), dutyCycle)
+	return pi.SetPWMBcom(int(bcom), dutyCyclePct)
 }
 
-// PWMSetBcom sets the given broadcom pin to the given PWM duty cycle.
-func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
+// SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
+func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
+	dutyCycle := rdkutils.ScaleByPct(255, dutyCyclePct)
 	res := C.gpioPWM(C.uint(bcom), C.uint(dutyCycle))
 	if res != 0 {
 		return errors.Errorf("pwm set fail %d", res)
@@ -258,24 +259,24 @@ func (pi *piPigpio) PWMSetBcom(bcom int, dutyCycle byte) error {
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency.
-func (pi *piPigpio) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency.
+func (pi *piPigpio) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.PWMSetFreqBcom(int(bcom), freq)
+	return pi.SetPWMFreqBcom(int(bcom), freqHz)
 }
 
-// PWMSetFreqBcom sets the given broadcom pin to the given PWM frequency.
-func (pi *piPigpio) PWMSetFreqBcom(bcom int, freq uint) error {
-	if freq == 0 {
-		freq = 800 // Original default from libpigpio
+// SetPWMFreqBcom sets the given broadcom pin to the given PWM frequency.
+func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
+	if freqHz == 0 {
+		freqHz = 800 // Original default from libpigpio
 	}
-	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freq))
+	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
-	if newRes != C.int(freq) {
-		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freq, newRes)
+	if newRes != C.int(freqHz) {
+		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
 	}
 	return nil
 }
@@ -364,7 +365,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		// We're going to directly control chip select (not using CE0/CE1/CE2 from SPI controller.)
 		// This allows us to use a large number of chips on a single bus.
 		// Per "seen" checks above, cannot be mixed with the native CE0/CE1/CE2
-		err := s.bus.pi.GPIOSet(ctx, chipSelect, false)
+		err := s.bus.pi.SetGPIO(ctx, chipSelect, false)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +374,7 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
 
 	if gpioCS {
-		err := s.bus.pi.GPIOSet(ctx, chipSelect, true)
+		err := s.bus.pi.SetGPIO(ctx, chipSelect, true)
 		if err != nil {
 			return nil, err
 		}

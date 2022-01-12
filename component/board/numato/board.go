@@ -255,8 +255,8 @@ func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *numatoBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	pin = b.fixPin(pin)
 	if high {
 		return b.doSend(ctx, fmt.Sprintf("gpio set %s", pin))
@@ -264,8 +264,8 @@ func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error 
 	return b.doSend(ctx, fmt.Sprintf("gpio clear %s", pin))
 }
 
-// GPIOGet gets the high/low state of the given pin.
-func (b *numatoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO gets the high/low state of the given pin.
+func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	pin = b.fixPin(pin)
 	res, err := b.doSendReceive(ctx, fmt.Sprintf("gpio read %s", pin))
 	if err != nil {
@@ -274,13 +274,13 @@ func (b *numatoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	return res[len(res)-1] == '1', nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *numatoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	return errors.New("numato doesn't support pwm")
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *numatoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	return errors.New("numato doesn't support pwm")
 }
 
