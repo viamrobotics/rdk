@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
@@ -537,7 +538,7 @@ func (s *Server) NavigationServiceLocation(
 		return nil, err
 	}
 	return &pb.NavigationServiceLocationResponse{
-		Location: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		Location: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
 
@@ -562,7 +563,7 @@ func (s *Server) NavigationServiceWaypoints(
 	for _, wp := range wps {
 		pbWps = append(pbWps, &pb.NavigationServiceWaypoint{
 			Id:       wp.ID.Hex(),
-			Location: &pb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
+			Location: &commonpb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
 		})
 	}
 	return &pb.NavigationServiceWaypointsResponse{
@@ -632,87 +633,6 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 		return nil, err
 	}
 	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
-func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	resource, ok := s.r.ResourceByName(gps.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no gps with name (%s)", name)
-	}
-	return resource.(gps.GPS), nil
-}
-
-// GPSLocation returns the most recent location from the given GPS.
-func (s *Server) GPSLocation(
-	ctx context.Context,
-	req *pb.GPSLocationRequest,
-) (*pb.GPSLocationResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	loc, err := gpsDevice.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSLocationResponse{
-		Coordinate: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
-	}, nil
-}
-
-// GPSAltitude returns the most recent location from the given GPS.
-func (s *Server) GPSAltitude(
-	ctx context.Context,
-	req *pb.GPSAltitudeRequest,
-) (*pb.GPSAltitudeResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gpsDevice.Altitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSAltitudeResponse{
-		Altitude: alt,
-	}, nil
-}
-
-// GPSSpeed returns the most recent location from the given GPS.
-func (s *Server) GPSSpeed(
-	ctx context.Context,
-	req *pb.GPSSpeedRequest,
-) (*pb.GPSSpeedResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gpsDevice.Speed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSSpeedResponse{
-		SpeedKph: speed,
-	}, nil
-}
-
-// GPSAccuracy returns the most recent location from the given GPS.
-func (s *Server) GPSAccuracy(
-	ctx context.Context,
-	req *pb.GPSAccuracyRequest,
-) (*pb.GPSAccuracyResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	horz, vert, err := gpsDevice.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSAccuracyResponse{
-		HorizontalAccuracy: horz,
-		VerticalAccuracy:   vert,
-	}, nil
 }
 
 type executionResultRPC struct {
