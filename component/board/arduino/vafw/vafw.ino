@@ -57,8 +57,7 @@ void configureMotorDC(Buffer* b, const char* name, PinNumber pwm, PinNumber pinA
     motors[motor].encA = encA;
     motors[motor].encB = encB;
 
-    motors[motor].motor->encoder()->setA(digitalRead(encA));
-    motors[motor].motor->encoder()->setB(digitalRead(encB));
+    motors[motor].motor->setHallEncoder(new HallEncoder(encA, encB));
 
     if (!setupInterruptForMotor(encA) || !setupInterruptForMotor(encB)) {
         b->println("#encoder setup fail");
@@ -340,12 +339,8 @@ void setupInterruptBasic(PinNumber pin, void (*ISR)(), PinStatus what) {
 
 void motorEncoder(PinNumber pin) {
     for (int i = 0; i < MAX_MOTORS; i++) {
-        if (motors[i].encA == pin) {
-            motors[i].motor->encoder()->encoderTick(true);
-            return;
-        }
-        if (motors[i].encB == pin) {
-            motors[i].motor->encoder()->encoderTick(false);
+        if (motors[i].encA == pin || motors[i].encB == pin) {
+            motors[i].motor->encoder()->encoderTick();
             return;
         }
     }
