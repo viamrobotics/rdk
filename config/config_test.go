@@ -124,12 +124,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
 	err = invalidCloud.Ensure(true)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"self" is required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.Self = "wooself"
+	invalidCloud.Cloud.FQDNs = []string{"wooself", ""}
+	err = invalidCloud.Ensure(true)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns.1" is required`)
+	invalidCloud.Cloud.FQDNs = []string{"wooself", "yeeself"}
 	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{

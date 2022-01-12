@@ -8,6 +8,7 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
 
 
 // A RobotService encompasses all functionality of some robot comprised of parts, local and remote.
@@ -82,83 +83,6 @@ service RobotService {
     };  
   }
 
-  // Board
-
-  // BoardStatus returns the status of a board of the underlying robot.
-  rpc BoardStatus(BoardStatusRequest) returns (BoardStatusResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{name}/status"
-    };  
-  }
-
-  // BoardGPIOSet sets a given pin on a robot's board to either high or low
-  rpc BoardGPIOSet(BoardGPIOSetRequest) returns (BoardGPIOSetResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{name}/gpio_set"
-    };  
-  }
-
-  // BoardGPIOGet gets the high/low state of a given pin on a robot's board
-  rpc BoardGPIOGet(BoardGPIOGetRequest) returns (BoardGPIOGetResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{name}/gpio_get"
-    };  
-  }
-
-  // BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin 
-  // is high 100% of the time
-  rpc BoardPWMSet(BoardPWMSetRequest) returns (BoardPWMSetResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{name}/pwm_set"
-    };  
-  }
-
-  // BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz 
-  // (cycles per second). 0 will use the board's default PWM frequency
-  rpc BoardPWMSetFrequency(BoardPWMSetFrequencyRequest) returns (BoardPWMSetFrequencyResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{name}/pwm_set_freq"
-    };  
-  }
-
-  // Analog Reader
-
-  // BoardAnalogReaderRead returns the value at the time that the request was recieved
-  // of a specified analog reader on the robot's board
-  rpc BoardAnalogReaderRead(BoardAnalogReaderReadRequest) returns (BoardAnalogReaderReadResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/analog_reader/{analog_reader_name}/read"
-    };
-  }
-
-  // Digital Interrupt
-
-  // BoardDigitalInterruptConfig returns the config the interrupt was created with.
-  rpc BoardDigitalInterruptConfig(BoardDigitalInterruptConfigRequest) returns (BoardDigitalInterruptConfigResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/config"
-    };
-  }
-
-  // BoardDigitalInterruptValue returns the value of the interrupt based on the driver. Very often, this is the number of ticks that have 
-  // occurred since startup. To Do (FA): This will be removed from proto
-
-  rpc BoardDigitalInterruptValue(BoardDigitalInterruptValueRequest) returns (BoardDigitalInterruptValueResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
-    };
-  }
-
-  // BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the 
-  // interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
-  rpc BoardDigitalInterruptTick(BoardDigitalInterruptTickRequest) returns (BoardDigitalInterruptTickResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/board/{board_name}/digital_interrupt/{digital_interrupt_name}/tick"
-    };
-  }
-
-  // Sensor
-
   // SensorReadings returns the readings of a sensor of the underlying robot.
   rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
     option (google.api.http) = {
@@ -198,21 +122,6 @@ service RobotService {
     };
   }
 
-  // Force Sensor Matrix
-
-  // ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
-  rpc ForceMatrixMatrix(ForceMatrixMatrixRequest) returns (ForceMatrixMatrixResponse) {
-    option (google.api.http) = {
-      get : "/api/v1/sensors/forcematrix/{name}/matrix"
-    };
-  }
-
-  rpc ForceMatrixSlipDetection(ForceMatrixSlipDetectionRequest) returns (ForceMatrixSlipDetectionResponse) {
-    option (google.api.http) = {
-      get : "/api/v1/sensors/forcematrix/{name}/slip_detection"
-    };
-  }
-
   // TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -224,34 +133,6 @@ service RobotService {
     option (google.api.http) = {
       post: "/api/v1/functions/execute_code"
     }; 
-  }
-
-  rpc InputControllerControls(InputControllerControlsRequest) returns (InputControllerControlsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/controls"
-    };
-  }
-
-  // InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-  rpc InputControllerLastEvents(InputControllerLastEventsRequest) returns (InputControllerLastEventsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/last_events"
-    };
-  }
-
-  // InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
-  rpc InputControllerEventStream(InputControllerEventStreamRequest) returns (stream InputControllerEvent) {
-    option (google.api.http) = {
-      get: "/api/v1/input/{controller}/event_stream"
-    };
-  }
-
-  // InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
-  // like button presses or axis movements  
-  rpc InputControllerInjectEvent(InputControllerInjectEventRequest) returns (InputControllerInjectEventResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/input/{controller}/inject_event"
-    };
   }
 
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
@@ -362,7 +243,7 @@ message Status {
   map<string, ArmStatus> arms = 1;
   map<string, bool> bases = 2;
   map<string, bool> grippers = 3;
-  map<string, BoardStatus> boards = 4;
+  map<string, common.v1.BoardStatus> boards = 4;
   map<string, bool> cameras = 5;
   map<string, SensorStatus> sensors = 6;
   map<string, bool> functions = 7;
@@ -522,139 +403,11 @@ message Vector3 {
   double z = 3;
 }
 
-// Board
-
-message BoardStatus {
-  map<string, AnalogStatus> analogs = 1;
-  map<string, DigitalInterruptStatus> digital_interrupts = 2;
-}
-
-message AnalogStatus {
-  int32 value = 1;
-}
-
-message DigitalInterruptStatus {
-  int64 value = 1;
-}
+// Sensor
 
 message SensorStatus {
   string type = 1;
 }
-
-message BoardStatusRequest {
-  string name = 1;
-}
-
-message BoardStatusResponse {
-  BoardStatus status = 1;
-}
-
-message BoardGPIOSetRequest {
-// Name of a board
-  string name = 1;
-// Name of a pin
-  string pin = 2;
-// Defines whether the pin will be set high or low
-  bool high = 3;
-}
-
-message BoardGPIOSetResponse {}
-
-message BoardGPIOGetRequest {
-// Name of a board
-  string name = 1;
-// Name of a pin
-  string pin = 2;
-}
-
-message BoardGPIOGetResponse {
-// Returns true if the given GPIO pin is high at the time that the request was recieved
-  bool high = 1;
-}
-
-message BoardPWMSetRequest {
-// Name of a board
-  string name = 1;
-// Name of a pin
-  string pin = 2;
-// A value between 0-255, where 255 is equivalent to being high 100% of the time 
-  uint32 duty_cycle = 3; 
-}
-
-message BoardPWMSetResponse {}
-
-message BoardPWMSetFrequencyResponse {}
-
-message BoardPWMSetFrequencyRequest {
-  // Name of a board
-  string name = 1;
-  // Name of a pin
-  string pin = 2;
-  // Frequency in hertz (cycles/second)
-  uint64 frequency = 3;
-}
-
-// Analog Reader
-
-message BoardAnalogReaderReadRequest {
-  // Name of a board
-  string board_name = 1;
-  // Name of an analog reader on the robot's board 
-  string analog_reader_name = 2;
-}
-
-message BoardAnalogReaderReadResponse {
-  // Returns the value of the analog reader based on when the request was recieved 
-  int32 value = 1;
-}
-
-// Digital Interrupt
-
-message DigitalInterruptConfig {
-  string name = 1;
-  string pin = 2;
-  string type = 3;
-  string formula = 4;
-}
-
-message BoardDigitalInterruptConfigRequest {
-  // Name of a board
-  string board_name = 1;
-  // Name of a digital interrupt on the robot's board 
-  string digital_interrupt_name = 2;
-}
-
-message BoardDigitalInterruptConfigResponse {
-  // Returns the specified configuration of a digital interrupt on the robot's board
-  DigitalInterruptConfig config = 1;
-}
-
-message BoardDigitalInterruptValueRequest {
-  // Name of a board
-  string board_name = 1;
-  // Name of a digital interrupt on the robot's board 
-  string digital_interrupt_name = 2;
-}
-
-message BoardDigitalInterruptValueResponse {
-  // Returns the returns the value of the interrupt based on the driver
-  int64 value = 1;
-}
-
-message BoardDigitalInterruptTickRequest {
-  // Name of a board
-  string board_name = 1;
-  // Name of a digital interrupt on the robot's board 
-  string digital_interrupt_name = 2;
-  // Sets whether the digital interrupt is high or low
-  bool high = 3;
-  // A number that counts up from an arbitrary point in time 
-  uint64 nanos = 4;
-}
-
-message BoardDigitalInterruptTickResponse {}
-
-// Sensor
 
 message SensorReadingsRequest {
   string name = 1;
@@ -819,42 +572,6 @@ message ObjectManipulationServiceDoGrabResponse {
 
 // End Object Manipulation Service
 
-message InputControllerControlsRequest {
-  // Name of an input controller 
-  string controller = 1;
-}
-
-message InputControllerControlsResponse {
-  // Returns a list of all the controls (buttons and axes) that are
-  // available to a given Input Controller 
-  repeated string controls = 1;
-}
-
-message InputControllerLastEventsRequest {
-  // Name of an input controller 
-  string controller = 1;
-}
-
-message InputControllerLastEventsResponse {
-  // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
-  // buttons/axes on a given input controller 
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerStatus {
-  repeated InputControllerEvent events = 1;
-}
-
-message InputControllerInjectEventRequest {
-  // Name of an input controller 
-  string controller = 1;
-  // Digitally assert a given event 
-  InputControllerEvent event = 2;
-}
-
-message InputControllerInjectEventResponse {
-}
-
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;
   // An event type (eg: ButtonPress, ButtonRelease)
@@ -865,21 +582,8 @@ message InputControllerEvent {
   double value = 4;
 }
 
-message InputControllerEventStreamRequest {
-  message Events {
-    // Name of a control (button or axis)
-    string control = 1;
-    // Specify which event types to recieve events for
-    // To Do (FA): Right now this can be an empty list, but we should error in this case as opening a stream with no messages is expensive
-    repeated string events = 2;
-    // Specify which event types to stop recieving events for
-    // This can be an empty list 
-    repeated string cancelled_events = 3;
-  }
-  // Name of an input controller 
-  string controller = 1;
-  // A list of Events
-  repeated Events events = 2;
+message InputControllerStatus {
+  repeated InputControllerEvent events = 1;
 }
 
 message GPSLocationRequest {
@@ -913,29 +617,4 @@ message GPSAccuracyRequest {
 message GPSAccuracyResponse {
   double horizontal_accuracy = 1;
   double vertical_accuracy = 2;
-}
-
-
-// Matrix
-message Matrix {
-	uint32 rows = 1;
-	uint32 cols = 2;
-	repeated uint32 data = 3;
-}
-
-// ForceMatrix
-message ForceMatrixMatrixRequest {
-	string name = 1;
-}
-
-message ForceMatrixMatrixResponse {
-	Matrix matrix = 1;
-}
-
-message ForceMatrixSlipDetectionRequest {
-  string name = 1;
-}
-
-message ForceMatrixSlipDetectionResponse {
-  bool is_slipping = 1;
 }

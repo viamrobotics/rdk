@@ -41,27 +41,6 @@ type RobotServiceClient interface {
 	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
-	// BoardStatus returns the status of a board of the underlying robot.
-	BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error)
-	// BoardGPIOSet sets a given pin on a robot's board to either high or low
-	BoardGPIOSet(ctx context.Context, in *BoardGPIOSetRequest, opts ...grpc.CallOption) (*BoardGPIOSetResponse, error)
-	// BoardGPIOGet gets the high/low state of a given pin on a robot's board
-	BoardGPIOGet(ctx context.Context, in *BoardGPIOGetRequest, opts ...grpc.CallOption) (*BoardGPIOGetResponse, error)
-	// BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin
-	// is high 100% of the time
-	BoardPWMSet(ctx context.Context, in *BoardPWMSetRequest, opts ...grpc.CallOption) (*BoardPWMSetResponse, error)
-	// BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz
-	// (cycles per second). 0 will use the board's default PWM frequency
-	BoardPWMSetFrequency(ctx context.Context, in *BoardPWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardPWMSetFrequencyResponse, error)
-	// BoardAnalogReaderRead returns the value at the time that the request was recieved
-	// of a specified analog reader on the robot's board
-	BoardAnalogReaderRead(ctx context.Context, in *BoardAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardAnalogReaderReadResponse, error)
-	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
-	BoardDigitalInterruptConfig(ctx context.Context, in *BoardDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptConfigResponse, error)
-	BoardDigitalInterruptValue(ctx context.Context, in *BoardDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptValueResponse, error)
-	// BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the
-	// interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
-	BoardDigitalInterruptTick(ctx context.Context, in *BoardDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -72,20 +51,9 @@ type RobotServiceClient interface {
 	CompassStopCalibration(ctx context.Context, in *CompassStopCalibrationRequest, opts ...grpc.CallOption) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(ctx context.Context, in *CompassMarkRequest, opts ...grpc.CallOption) (*CompassMarkResponse, error)
-	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
-	ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error)
-	ForceMatrixSlipDetection(ctx context.Context, in *ForceMatrixSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixSlipDetectionResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
-	InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error)
-	// InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-	InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error)
-	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error)
-	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	// like button presses or axis movements
-	InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -220,87 +188,6 @@ func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthM
 	return out, nil
 }
 
-func (c *robotServiceClient) BoardStatus(ctx context.Context, in *BoardStatusRequest, opts ...grpc.CallOption) (*BoardStatusResponse, error) {
-	out := new(BoardStatusResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardStatus", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardGPIOSet(ctx context.Context, in *BoardGPIOSetRequest, opts ...grpc.CallOption) (*BoardGPIOSetResponse, error) {
-	out := new(BoardGPIOSetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardGPIOSet", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardGPIOGet(ctx context.Context, in *BoardGPIOGetRequest, opts ...grpc.CallOption) (*BoardGPIOGetResponse, error) {
-	out := new(BoardGPIOGetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardGPIOGet", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardPWMSet(ctx context.Context, in *BoardPWMSetRequest, opts ...grpc.CallOption) (*BoardPWMSetResponse, error) {
-	out := new(BoardPWMSetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardPWMSet", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardPWMSetFrequency(ctx context.Context, in *BoardPWMSetFrequencyRequest, opts ...grpc.CallOption) (*BoardPWMSetFrequencyResponse, error) {
-	out := new(BoardPWMSetFrequencyResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardPWMSetFrequency", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardAnalogReaderRead(ctx context.Context, in *BoardAnalogReaderReadRequest, opts ...grpc.CallOption) (*BoardAnalogReaderReadResponse, error) {
-	out := new(BoardAnalogReaderReadResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardAnalogReaderRead", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardDigitalInterruptConfig(ctx context.Context, in *BoardDigitalInterruptConfigRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptConfigResponse, error) {
-	out := new(BoardDigitalInterruptConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardDigitalInterruptValue(ctx context.Context, in *BoardDigitalInterruptValueRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptValueResponse, error) {
-	out := new(BoardDigitalInterruptValueResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptValue", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BoardDigitalInterruptTick(ctx context.Context, in *BoardDigitalInterruptTickRequest, opts ...grpc.CallOption) (*BoardDigitalInterruptTickResponse, error) {
-	out := new(BoardDigitalInterruptTickResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BoardDigitalInterruptTick", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error) {
 	out := new(SensorReadingsResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/SensorReadings", in, out, opts...)
@@ -346,24 +233,6 @@ func (c *robotServiceClient) CompassMark(ctx context.Context, in *CompassMarkReq
 	return out, nil
 }
 
-func (c *robotServiceClient) ForceMatrixMatrix(ctx context.Context, in *ForceMatrixMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixMatrixResponse, error) {
-	out := new(ForceMatrixMatrixResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ForceMatrixMatrix", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) ForceMatrixSlipDetection(ctx context.Context, in *ForceMatrixSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixSlipDetectionResponse, error) {
-	out := new(ForceMatrixSlipDetectionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ForceMatrixSlipDetection", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error) {
 	out := new(ExecuteFunctionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteFunction", in, out, opts...)
@@ -376,65 +245,6 @@ func (c *robotServiceClient) ExecuteFunction(ctx context.Context, in *ExecuteFun
 func (c *robotServiceClient) ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error) {
 	out := new(ExecuteSourceResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ExecuteSource", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) InputControllerControls(ctx context.Context, in *InputControllerControlsRequest, opts ...grpc.CallOption) (*InputControllerControlsResponse, error) {
-	out := new(InputControllerControlsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerControls", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) InputControllerLastEvents(ctx context.Context, in *InputControllerLastEventsRequest, opts ...grpc.CallOption) (*InputControllerLastEventsResponse, error) {
-	out := new(InputControllerLastEventsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerLastEvents", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) InputControllerEventStream(ctx context.Context, in *InputControllerEventStreamRequest, opts ...grpc.CallOption) (RobotService_InputControllerEventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &RobotService_ServiceDesc.Streams[1], "/proto.api.v1.RobotService/InputControllerEventStream", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &robotServiceInputControllerEventStreamClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type RobotService_InputControllerEventStreamClient interface {
-	Recv() (*InputControllerEvent, error)
-	grpc.ClientStream
-}
-
-type robotServiceInputControllerEventStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *robotServiceInputControllerEventStreamClient) Recv() (*InputControllerEvent, error) {
-	m := new(InputControllerEvent)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *robotServiceClient) InputControllerInjectEvent(ctx context.Context, in *InputControllerInjectEventRequest, opts ...grpc.CallOption) (*InputControllerInjectEventResponse, error) {
-	out := new(InputControllerInjectEventResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/InputControllerInjectEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -585,27 +395,6 @@ type RobotServiceServer interface {
 	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
 	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
 	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
-	// BoardStatus returns the status of a board of the underlying robot.
-	BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error)
-	// BoardGPIOSet sets a given pin on a robot's board to either high or low
-	BoardGPIOSet(context.Context, *BoardGPIOSetRequest) (*BoardGPIOSetResponse, error)
-	// BoardGPIOGet gets the high/low state of a given pin on a robot's board
-	BoardGPIOGet(context.Context, *BoardGPIOGetRequest) (*BoardGPIOGetResponse, error)
-	// BoardPWMSet sets a given pin on a robot's board to a given duty cycle expressed as a value between 0-255 where 255 means that the pin
-	// is high 100% of the time
-	BoardPWMSet(context.Context, *BoardPWMSetRequest) (*BoardPWMSetResponse, error)
-	// BoardPWMSetFrequency sets a given pin of a robot's board to a specified PWM frequency expressed in hertz
-	// (cycles per second). 0 will use the board's default PWM frequency
-	BoardPWMSetFrequency(context.Context, *BoardPWMSetFrequencyRequest) (*BoardPWMSetFrequencyResponse, error)
-	// BoardAnalogReaderRead returns the value at the time that the request was recieved
-	// of a specified analog reader on the robot's board
-	BoardAnalogReaderRead(context.Context, *BoardAnalogReaderReadRequest) (*BoardAnalogReaderReadResponse, error)
-	// BoardDigitalInterruptConfig returns the config the interrupt was created with.
-	BoardDigitalInterruptConfig(context.Context, *BoardDigitalInterruptConfigRequest) (*BoardDigitalInterruptConfigResponse, error)
-	BoardDigitalInterruptValue(context.Context, *BoardDigitalInterruptValueRequest) (*BoardDigitalInterruptValueResponse, error)
-	// BoardDigitalInterruptTick manually signals the given interrupt is high or low at a given time to be called either manually if the
-	// interrupt is a proxy to some real hardware interrupt or for tests . To Do: This will be removed from proto
-	BoardDigitalInterruptTick(context.Context, *BoardDigitalInterruptTickRequest) (*BoardDigitalInterruptTickResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	// CompassHeading returns the heading of a compass of the underlying robot.
@@ -616,20 +405,9 @@ type RobotServiceServer interface {
 	CompassStopCalibration(context.Context, *CompassStopCalibrationRequest) (*CompassStopCalibrationResponse, error)
 	// CompassMark requests the relative compass of the underlying robot to mark its position.
 	CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error)
-	// ForceMatrixMatrix returns the matrix of force readings from the force matrix sensor
-	ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error)
-	ForceMatrixSlipDetection(context.Context, *ForceMatrixSlipDetectionRequest) (*ForceMatrixSlipDetectionResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
-	InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error)
-	// InputControllerLastEvents returns a list of events representing the last event on each control of a give Input Controller
-	InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error)
-	// InputControllerEventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error
-	// InputControllerInjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
-	// like button presses or axis movements
-	InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
 	// Frame System Service
@@ -684,33 +462,6 @@ func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopReques
 func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
 }
-func (UnimplementedRobotServiceServer) BoardStatus(context.Context, *BoardStatusRequest) (*BoardStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardStatus not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardGPIOSet(context.Context, *BoardGPIOSetRequest) (*BoardGPIOSetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardGPIOSet not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardGPIOGet(context.Context, *BoardGPIOGetRequest) (*BoardGPIOGetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardGPIOGet not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardPWMSet(context.Context, *BoardPWMSetRequest) (*BoardPWMSetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardPWMSet not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardPWMSetFrequency(context.Context, *BoardPWMSetFrequencyRequest) (*BoardPWMSetFrequencyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardPWMSetFrequency not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardAnalogReaderRead(context.Context, *BoardAnalogReaderReadRequest) (*BoardAnalogReaderReadResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardAnalogReaderRead not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardDigitalInterruptConfig(context.Context, *BoardDigitalInterruptConfigRequest) (*BoardDigitalInterruptConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptConfig not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardDigitalInterruptValue(context.Context, *BoardDigitalInterruptValueRequest) (*BoardDigitalInterruptValueResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptValue not implemented")
-}
-func (UnimplementedRobotServiceServer) BoardDigitalInterruptTick(context.Context, *BoardDigitalInterruptTickRequest) (*BoardDigitalInterruptTickResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BoardDigitalInterruptTick not implemented")
-}
 func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
 }
@@ -726,29 +477,11 @@ func (UnimplementedRobotServiceServer) CompassStopCalibration(context.Context, *
 func (UnimplementedRobotServiceServer) CompassMark(context.Context, *CompassMarkRequest) (*CompassMarkResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CompassMark not implemented")
 }
-func (UnimplementedRobotServiceServer) ForceMatrixMatrix(context.Context, *ForceMatrixMatrixRequest) (*ForceMatrixMatrixResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ForceMatrixMatrix not implemented")
-}
-func (UnimplementedRobotServiceServer) ForceMatrixSlipDetection(context.Context, *ForceMatrixSlipDetectionRequest) (*ForceMatrixSlipDetectionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ForceMatrixSlipDetection not implemented")
-}
 func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
 }
 func (UnimplementedRobotServiceServer) ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteSource not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerControls(context.Context, *InputControllerControlsRequest) (*InputControllerControlsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerControls not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerLastEvents(context.Context, *InputControllerLastEventsRequest) (*InputControllerLastEventsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerLastEvents not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerEventStream(*InputControllerEventStreamRequest, RobotService_InputControllerEventStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method InputControllerEventStream not implemented")
-}
-func (UnimplementedRobotServiceServer) InputControllerInjectEvent(context.Context, *InputControllerInjectEventRequest) (*InputControllerInjectEventResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InputControllerInjectEvent not implemented")
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
@@ -967,168 +700,6 @@ func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_BoardStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardStatusRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardStatus(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardStatus",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardStatus(ctx, req.(*BoardStatusRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardGPIOSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardGPIOSetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardGPIOSet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardGPIOSet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardGPIOSet(ctx, req.(*BoardGPIOSetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardGPIOGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardGPIOGetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardGPIOGet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardGPIOGet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardGPIOGet(ctx, req.(*BoardGPIOGetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardPWMSet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardPWMSetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardPWMSet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardPWMSet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardPWMSet(ctx, req.(*BoardPWMSetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardPWMSetFrequency_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardPWMSetFrequencyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardPWMSetFrequency(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardPWMSetFrequency",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardPWMSetFrequency(ctx, req.(*BoardPWMSetFrequencyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardAnalogReaderRead_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardAnalogReaderReadRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardAnalogReaderRead(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardAnalogReaderRead",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardAnalogReaderRead(ctx, req.(*BoardAnalogReaderReadRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardDigitalInterruptConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardDigitalInterruptConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardDigitalInterruptConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardDigitalInterruptConfig(ctx, req.(*BoardDigitalInterruptConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardDigitalInterruptValue_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardDigitalInterruptValueRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardDigitalInterruptValue(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptValue",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardDigitalInterruptValue(ctx, req.(*BoardDigitalInterruptValueRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BoardDigitalInterruptTick_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BoardDigitalInterruptTickRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BoardDigitalInterruptTick(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BoardDigitalInterruptTick",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BoardDigitalInterruptTick(ctx, req.(*BoardDigitalInterruptTickRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_SensorReadings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SensorReadingsRequest)
 	if err := dec(in); err != nil {
@@ -1219,42 +790,6 @@ func _RobotService_CompassMark_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ForceMatrixMatrix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ForceMatrixMatrixRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ForceMatrixMatrix(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ForceMatrixMatrix",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ForceMatrixMatrix(ctx, req.(*ForceMatrixMatrixRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_ForceMatrixSlipDetection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ForceMatrixSlipDetectionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ForceMatrixSlipDetection(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ForceMatrixSlipDetection",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ForceMatrixSlipDetection(ctx, req.(*ForceMatrixSlipDetectionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _RobotService_ExecuteFunction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ExecuteFunctionRequest)
 	if err := dec(in); err != nil {
@@ -1287,81 +822,6 @@ func _RobotService_ExecuteSource_Handler(srv interface{}, ctx context.Context, d
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).ExecuteSource(ctx, req.(*ExecuteSourceRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_InputControllerControls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerControlsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerControls(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerControls",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerControls(ctx, req.(*InputControllerControlsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_InputControllerLastEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerLastEventsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerLastEvents(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerLastEvents",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerLastEvents(ctx, req.(*InputControllerLastEventsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_InputControllerEventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(InputControllerEventStreamRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(RobotServiceServer).InputControllerEventStream(m, &robotServiceInputControllerEventStreamServer{stream})
-}
-
-type RobotService_InputControllerEventStreamServer interface {
-	Send(*InputControllerEvent) error
-	grpc.ServerStream
-}
-
-type robotServiceInputControllerEventStreamServer struct {
-	grpc.ServerStream
-}
-
-func (x *robotServiceInputControllerEventStreamServer) Send(m *InputControllerEvent) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func _RobotService_InputControllerInjectEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerInjectEventRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/InputControllerInjectEvent",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).InputControllerInjectEvent(ctx, req.(*InputControllerInjectEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1640,42 +1100,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_BaseWidthMillis_Handler,
 		},
 		{
-			MethodName: "BoardStatus",
-			Handler:    _RobotService_BoardStatus_Handler,
-		},
-		{
-			MethodName: "BoardGPIOSet",
-			Handler:    _RobotService_BoardGPIOSet_Handler,
-		},
-		{
-			MethodName: "BoardGPIOGet",
-			Handler:    _RobotService_BoardGPIOGet_Handler,
-		},
-		{
-			MethodName: "BoardPWMSet",
-			Handler:    _RobotService_BoardPWMSet_Handler,
-		},
-		{
-			MethodName: "BoardPWMSetFrequency",
-			Handler:    _RobotService_BoardPWMSetFrequency_Handler,
-		},
-		{
-			MethodName: "BoardAnalogReaderRead",
-			Handler:    _RobotService_BoardAnalogReaderRead_Handler,
-		},
-		{
-			MethodName: "BoardDigitalInterruptConfig",
-			Handler:    _RobotService_BoardDigitalInterruptConfig_Handler,
-		},
-		{
-			MethodName: "BoardDigitalInterruptValue",
-			Handler:    _RobotService_BoardDigitalInterruptValue_Handler,
-		},
-		{
-			MethodName: "BoardDigitalInterruptTick",
-			Handler:    _RobotService_BoardDigitalInterruptTick_Handler,
-		},
-		{
 			MethodName: "SensorReadings",
 			Handler:    _RobotService_SensorReadings_Handler,
 		},
@@ -1696,32 +1120,12 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _RobotService_CompassMark_Handler,
 		},
 		{
-			MethodName: "ForceMatrixMatrix",
-			Handler:    _RobotService_ForceMatrixMatrix_Handler,
-		},
-		{
-			MethodName: "ForceMatrixSlipDetection",
-			Handler:    _RobotService_ForceMatrixSlipDetection_Handler,
-		},
-		{
 			MethodName: "ExecuteFunction",
 			Handler:    _RobotService_ExecuteFunction_Handler,
 		},
 		{
 			MethodName: "ExecuteSource",
 			Handler:    _RobotService_ExecuteSource_Handler,
-		},
-		{
-			MethodName: "InputControllerControls",
-			Handler:    _RobotService_InputControllerControls_Handler,
-		},
-		{
-			MethodName: "InputControllerLastEvents",
-			Handler:    _RobotService_InputControllerLastEvents_Handler,
-		},
-		{
-			MethodName: "InputControllerInjectEvent",
-			Handler:    _RobotService_InputControllerInjectEvent_Handler,
 		},
 		{
 			MethodName: "ResourceRunCommand",
@@ -1780,11 +1184,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "StatusStream",
 			Handler:       _RobotService_StatusStream_Handler,
-			ServerStreams: true,
-		},
-		{
-			StreamName:    "InputControllerEventStream",
-			Handler:       _RobotService_InputControllerEventStream_Handler,
 			ServerStreams: true,
 		},
 	},

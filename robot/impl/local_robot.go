@@ -35,6 +35,9 @@ import (
 
 	// register gantry.
 	_ "go.viam.com/rdk/component/gantry/register"
+
+	// register gps.
+	_ "go.viam.com/rdk/component/gps/register"
 	"go.viam.com/rdk/component/gripper"
 
 	// register gripper.
@@ -76,13 +79,6 @@ import (
 	// register gy511.
 	_ "go.viam.com/rdk/sensor/compass/gy511"
 
-	// register merge gps.
-	_ "go.viam.com/rdk/sensor/gps/merge"
-
-	// register NMEA gps.
-	_ "go.viam.com/rdk/sensor/gps/nmea"
-	"go.viam.com/rdk/services"
-
 	// register base remote control.
 	_ "go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/services/framesystem"
@@ -94,9 +90,6 @@ import (
 )
 
 var _ = robot.LocalRobot(&localRobot{})
-
-// WebSvcName defines the name of the web service.
-const WebSvcName = "web1"
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
@@ -167,10 +160,6 @@ func (r *localRobot) InputControllerByName(name string) (input.Controller, bool)
 	return r.parts.InputControllerByName(name)
 }
 
-func (r *localRobot) ServiceByName(name string) (interface{}, bool) {
-	return r.parts.ServiceByName(name)
-}
-
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -232,11 +221,6 @@ func (r *localRobot) FunctionNames() []string {
 	return r.parts.FunctionNames()
 }
 
-// ServiceNames returns the name of all known services.
-func (r *localRobot) ServiceNames() []string {
-	return r.parts.ServiceNames()
-}
-
 // ResourceNames returns the name of all known resources.
 func (r *localRobot) ResourceNames() []resource.Name {
 	return r.parts.ResourceNames()
@@ -295,7 +279,7 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	service, ok := r.ServiceByName(services.FrameSystemName)
+	service, ok := r.ResourceByName(framesystem.Name)
 	if !ok {
 		return nil, errors.New("service frame_system not found")
 	}
@@ -365,12 +349,12 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
-	webConfig := config.Service{Name: WebSvcName, Type: web.Type}
-	web, err := r.newService(ctx, webConfig)
+	webConfig := config.Service{Type: config.ServiceType(web.SubtypeName)}
+	webSvc, err := r.newService(ctx, webConfig)
 	if err != nil {
 		return nil, err
 	}
-	r.parts.AddService(web, webConfig)
+	r.parts.addResource(web.Name, webSvc)
 	successful = true
 	return r, nil
 }
@@ -392,9 +376,10 @@ func (r *localRobot) newSensor(ctx context.Context, config config.Component, sen
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
-	f := registry.ServiceLookup(config.Type)
+	rName := config.ResourceName()
+	f := registry.ServiceLookup(rName.Subtype)
 	if f == nil {
-		return nil, errors.Errorf("unknown service type: %s", config.Type)
+		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
 	}
 	return f.Constructor(ctx, r, config, r.logger)
 }
@@ -426,7 +411,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	// TODO: Currently just a placeholder implementation, this should be rewritten once robot/parts have more metadata about themselves
 	var resources []resource.Name
 
-	metadata := resource.NewFromSubtype(service.Subtype, "")
+	metadata := resource.NameFromSubtype(service.Subtype, "")
 	resources = append(resources, metadata)
 
 	for _, name := range r.BaseNames() {
@@ -441,7 +426,7 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeService,
+			resource.ResourceTypeFunction,
 			resource.ResourceSubtypeFunction,
 			name,
 		)

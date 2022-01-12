@@ -143,7 +143,6 @@ func diffRemote(left, right Remote, diff *Diff) bool {
 	return true
 }
 
-//nolint:dupl
 func diffComponents(left, right []Component, diff *Diff) (bool, error) {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Component)
@@ -275,21 +274,20 @@ func diffFunction(left, right functionvm.FunctionConfig, diff *Diff) bool {
 	return true
 }
 
-//nolint:dupl
 func diffServices(left, right []Service, diff *Diff) (bool, error) {
 	leftIndex := make(map[string]int)
 	leftM := make(map[string]Service)
 	for idx, l := range left {
-		leftM[l.Name] = l
-		leftIndex[l.Name] = idx
+		leftM[string(l.Type)] = l
+		leftIndex[string(l.Type)] = idx
 	}
 
 	var removed []int
 
 	var different bool
 	for _, r := range right {
-		l, ok := leftM[r.Name]
-		delete(leftM, r.Name)
+		l, ok := leftM[string(r.Type)]
+		delete(leftM, string(r.Type))
 		if ok {
 			serviceDifferent, err := diffService(l, r, diff)
 			if err != nil {

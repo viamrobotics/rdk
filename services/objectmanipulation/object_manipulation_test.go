@@ -19,7 +19,7 @@ import (
 )
 
 func TestDoGrabFailures(t *testing.T) {
-	cfgService := config.Service{Name: "objectmanipulation", Type: objectmanipulation.Type}
+	cfgService := config.Service{Name: "objectmanipulation"}
 	logger := golog.NewTestLogger(t)
 
 	var r *inject.Robot

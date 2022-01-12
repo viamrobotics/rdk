@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
@@ -23,11 +24,13 @@ import (
 	fakemotor "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -36,7 +39,11 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot := &inject.Robot{}
 
 	injectRobot.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
+		return []resource.Name{
+			arm.Named("arm1"),
+			arm.Named("arm2"),
+			resource.NameFromSubtype(framesystem.Subtype, ""),
+		}
 	}
 	injectRobot.ArmNamesFunc = func() []string {
 		return []string{"arm1", "arm2"}
@@ -67,9 +74,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
-	}
-	injectRobot.ServiceNamesFunc = func() []string {
-		return []string{"service1", "service2"}
 	}
 	injectRobot.LoggerFunc = func() golog.Logger {
 		return logger
@@ -162,7 +166,7 @@ func TestCreateStatus(t *testing.T) {
 				"gripper1": true,
 				"gripper2": true,
 			},
-			Boards: map[string]*pb.BoardStatus{
+			Boards: map[string]*commonpb.BoardStatus{
 				"board1": {},
 				"board2": {},
 			},
@@ -187,16 +191,19 @@ func TestCreateStatus(t *testing.T) {
 				"motor2": {},
 			},
 			InputControllers: map[string]*pb.InputControllerStatus{
-				"inputController1": {},
-				"inputController2": {},
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
 			},
 			Services: map[string]bool{
-				"service1": true,
-				"service2": true,
+				"rdk:service:frame_system": true,
 			},
 		})
 	})
@@ -231,7 +238,7 @@ func TestCreateStatus(t *testing.T) {
 				"gripper1": true,
 				"gripper2": true,
 			},
-			Boards: map[string]*pb.BoardStatus{
+			Boards: map[string]*commonpb.BoardStatus{
 				"board1": {},
 				"board2": {},
 			},
@@ -256,16 +263,19 @@ func TestCreateStatus(t *testing.T) {
 				"motor2": {},
 			},
 			InputControllers: map[string]*pb.InputControllerStatus{
-				"inputController1": {},
-				"inputController2": {},
+				"inputController1": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
+				"inputController2": {Events: []*pb.InputControllerEvent{
+					{Time: &timestamppb.Timestamp{Seconds: -62135596800}, Event: "PositionChangeAbs", Control: "AbsoluteX", Value: 0.7},
+				}},
 			},
 			Functions: map[string]bool{
 				"func1": true,
 				"func2": true,
 			},
 			Services: map[string]bool{
-				"service1": true,
-				"service2": true,
+				"rdk:service:frame_system": true,
 			},
 		})
 	})

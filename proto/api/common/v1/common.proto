@@ -5,6 +5,20 @@ option java_package = "com.viam.rdk.proto.api.common.v1";
 
 package proto.api.common.v1;
 
+
+message BoardStatus {
+  map<string, AnalogStatus> analogs = 1;
+  map<string, DigitalInterruptStatus> digital_interrupts = 2;
+}
+
+message AnalogStatus {
+  int32 value = 1;
+}
+
+message DigitalInterruptStatus {
+  int64 value = 1;
+}
+
 message Pose {
   // millimeters of the end effector from the base
   double x = 1;
@@ -38,3 +52,4 @@ message BoxGeometry {
   double length = 2;
   double depth = 3;
 }
+

@@ -44,9 +44,9 @@ import { Component, Vue } from "vue-property-decorator";
 import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
 
 import {
-  InputControllerInjectEventRequest,
-  InputControllerEvent,
-} from "proto/api/v1/robot_pb";
+  InputControllerServiceInjectEventRequest,
+  InputControllerServiceEvent,
+} from "proto/api/component/v1/input_controller_pb";
 
 import RadioButtons from "./RadioButtons.vue";
 
@@ -129,7 +129,7 @@ export default class WebGamepad extends Vue {
       ) {
         continue;
       }
-      let newEvent = new InputControllerEvent();
+      let newEvent = new InputControllerServiceEvent();
       newEvent.setTime(Timestamp.fromDate(new Date()));
       if (ctrl.match(/X|Y|Z$/)) {
         newEvent.setControl("Absolute" + ctrl);
@@ -160,7 +160,7 @@ export default class WebGamepad extends Vue {
     }
 
     for (const ctrl in this.curStates) {
-      let newEvent = new InputControllerEvent();
+      let newEvent = new InputControllerServiceEvent();
       newEvent.setTime(Timestamp.fromDate(new Date()));
       newEvent.setEvent(con ? "Connect" : "Disconnect");
       newEvent.setValue(0);
@@ -173,9 +173,9 @@ export default class WebGamepad extends Vue {
     }
   }
 
-  sendEvent(newEvent: InputControllerEvent): void {
+  sendEvent(newEvent: InputControllerServiceEvent): void {
     if (this.enabled) {
-      let req = new InputControllerInjectEventRequest();
+      let req = new InputControllerServiceInjectEventRequest();
       req.setController("WebGamepad");
       req.setEvent(newEvent);
       this.$emit("execute", req);

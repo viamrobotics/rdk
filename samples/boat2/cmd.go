@@ -632,7 +632,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
 	}
 
-	navServiceTemp, ok := myRobot.ServiceByName("navigation")
+	navServiceTemp, ok := myRobot.ResourceByName(navigation.Name)
 	if !ok {
 		return errors.New("no navigation service")
 	}

@@ -6,8 +6,8 @@ from typing import List
 from grpclib.client import Channel
 
 import gen
-from proto.api.v1.robot_pb2 import ForceMatrixMatrixRequest, ForceMatrixMatrixResponse
-from proto.api.v1.robot_grpc import RobotServiceStub
+from proto.api.component.v1.forcematrix_pb2 import ForceMatrixServiceMatrixRequest
+from proto.api.component.v1.forcematrix_grpc import ForceMatrixServiceStub
 
 async def main(args: List[str]) -> int:
     if len(args) < 2:
@@ -19,14 +19,14 @@ async def main(args: List[str]) -> int:
         grpc_port = args[2]
     try:
         async with Channel(grpc_addr, grpc_port) as channel:
-            client = RobotServiceStub(channel)
+            client = ForceMatrixServiceStub(channel)
 
             print('Time\t\t\tTop\t\t\t\t\t\t\tBottom')
             while True:
                 async def getMatrix(name: str):
-                    req = ForceMatrixMatrixRequest()
+                    req = ForceMatrixServiceMatrixRequest()
                     req.name = name
-                    resp = await client.ForceMatrixMatrix(req)
+                    resp = await client.Matrix(req)
                     print('\t[', end='')
                     for rowNum in range(resp.matrix.rows):
                         print('[', end='')

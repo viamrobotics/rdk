@@ -32,6 +32,7 @@ vendor/
 bin
 dist/*
 node_modules/
+docs/
 
 # Test data
 coverage.txt

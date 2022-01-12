@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const model = "wit"
@@ -148,9 +149,9 @@ func (i *wit) parseWIT(line string) error {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
 		}
 
-		i.orientation.Roll = scale(line[1], line[2], 180)
-		i.orientation.Pitch = scale(line[3], line[4], 180)
-		i.orientation.Yaw = scale(line[5], line[6], 180)
+		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
+		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
+		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
 	}
 
 	return nil
