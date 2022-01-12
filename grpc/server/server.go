@@ -16,13 +16,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -406,7 +406,7 @@ func (s *Server) ResourceRunCommand(
 ) (*pb.ResourceRunCommandResponse, error) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
 	// we know only gps has this right now, so just look at sensors!
-	resource, ok := s.r.SensorByName(req.ResourceName)
+	resource, ok := s.r.ResourceByName(gps.Named(req.ResourceName))
 	if !ok {
 		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
 	}
@@ -635,11 +635,11 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 }
 
 func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	resource, ok := s.r.ResourceByName(gps.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no gps with name (%s)", name)
 	}
-	return sensorDevice.(gps.GPS), nil
+	return resource.(gps.GPS), nil
 }
 
 // GPSLocation returns the most recent location from the given GPS.
