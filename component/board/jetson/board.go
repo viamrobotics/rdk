@@ -236,7 +236,7 @@ func (b *jetsonBoard) GetGPIO(ctx context.Context, pinName string) (bool, error)
 	return pin.Read() == gpio.High, nil
 }
 
-func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCycle float64) error {
+func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCyclePct float64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -250,7 +250,7 @@ func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCycle floa
 	if last.frequency != 0 {
 		freq = last.frequency
 	}
-	duty := gpio.Duty(dutyCycle * float64(gpio.DutyMax))
+	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
 	last.dutyCycle = duty
 	b.pwms[pinName] = last
 

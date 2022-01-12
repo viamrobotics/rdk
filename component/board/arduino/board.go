@@ -229,13 +229,13 @@ func (b *arduinoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 }
 
 // SetPWM sets the given pin to the given duty cycle.
-func (b *arduinoBoard) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
-	return b.setPWMArduino(pin, dutyCycle)
+func (b *arduinoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	return b.setPWMArduino(pin, dutyCyclePct)
 }
 
-func (b *arduinoBoard) setPWMArduino(pin string, dutyCycle float64) error {
-	dutyCycleUInt8 := utils.ScaleByPct(255, dutyCycle)
-	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycleUInt8)
+func (b *arduinoBoard) setPWMArduino(pin string, dutyCyclePct float64) error {
+	dutyCycle := utils.ScaleByPct(255, dutyCyclePct)
+	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
 	if _, err := b.runCommand(cmd); err != nil {
 		return fmt.Errorf("unexpected return from SetPWM got %w", err)
 	}

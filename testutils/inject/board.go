@@ -32,7 +32,7 @@ type Board struct {
 	setGPIOCap                 []interface{}
 	GetGPIOFunc                func(ctx context.Context, pin string) (bool, error)
 	getGPIOCap                 []interface{}
-	SetPWMFunc                 func(ctx context.Context, pin string, dutyCycle float64) error
+	SetPWMFunc                 func(ctx context.Context, pin string, dutyCyclePct float64) error
 	setPWMCap                  []interface{}
 	SetPWMFreqFunc             func(ctx context.Context, pin string, freq uint) error
 	setPWMFreqCap              []interface{}
@@ -187,12 +187,12 @@ func (b *Board) GetGPIOCap() []interface{} {
 }
 
 // SetPWM calls the injected SetPWM or the real version.
-func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
-	b.setPWMCap = []interface{}{ctx, pin, dutyCycle}
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	b.setPWMCap = []interface{}{ctx, pin, dutyCyclePct}
 	if b.SetPWMFunc == nil {
-		return b.Board.SetPWM(ctx, pin, dutyCycle)
+		return b.Board.SetPWM(ctx, pin, dutyCyclePct)
 	}
-	return b.SetPWMFunc(ctx, pin, dutyCycle)
+	return b.SetPWMFunc(ctx, pin, dutyCyclePct)
 }
 
 // SetPWMCap returns the last parameters received by SetPWM, and then clears them.

@@ -101,7 +101,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, injectBoard.GetGPIOCap()[1:], test.ShouldResemble, []interface{}{"one"})
 
 		// SetPWM
-		injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCycle float64) error {
+		injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCyclePct float64) error {
 			return nil
 		}
 		err = client.SetPWM(context.Background(), "one", 0.03)
