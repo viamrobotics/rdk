@@ -215,5 +215,3 @@ func (g *ResourceGraph) TopologicalSort() []Name {
 
 	return ordered
 }
-
-Go finished at Tue Jan 11 18:06:39
