@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -88,16 +87,12 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 		parts.sensors[c.Name] = newProxyCompass(pType.actual)
 	case *proxyRelativeCompass:
 		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
-	case *proxyGPS:
-		parts.sensors[c.Name] = newProxyGPS(pType.actual)
 	default:
 		switch s.Desc().Type {
 		case compass.Type:
 			parts.sensors[c.Name] = newProxyCompass(s.(compass.Compass))
 		case compass.RelativeType:
 			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
-		case gps.Type:
-			parts.sensors[c.Name] = newProxyGPS(s.(gps.GPS))
 		default:
 			parts.sensors[c.Name] = &proxySensor{actual: s}
 		}
