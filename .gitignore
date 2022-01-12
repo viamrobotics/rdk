@@ -31,9 +31,8 @@ vendor/
 # gRPC/Protocol Buffers
 bin
 dist/*
-proto/api/*
-!proto/api/*/*.proto
 node_modules/
+docs/
 
 # Test data
 coverage.txt

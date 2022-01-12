@@ -21,7 +21,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/serial"
@@ -255,8 +255,8 @@ func (b *numatoBoard) DigitalInterruptNames() []string {
 	return nil
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *numatoBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	pin = b.fixPin(pin)
 	if high {
 		return b.doSend(ctx, fmt.Sprintf("gpio set %s", pin))
@@ -264,8 +264,8 @@ func (b *numatoBoard) GPIOSet(ctx context.Context, pin string, high bool) error 
 	return b.doSend(ctx, fmt.Sprintf("gpio clear %s", pin))
 }
 
-// GPIOGet gets the high/low state of the given pin.
-func (b *numatoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO gets the high/low state of the given pin.
+func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	pin = b.fixPin(pin)
 	res, err := b.doSendReceive(ctx, fmt.Sprintf("gpio read %s", pin))
 	if err != nil {
@@ -274,20 +274,20 @@ func (b *numatoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
 	return res[len(res)-1] == '1', nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *numatoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	return errors.New("numato doesn't support pwm")
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *numatoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	return errors.New("numato doesn't support pwm")
 }
 
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (b *numatoBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *numatoBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b)
 }
 

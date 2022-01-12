@@ -359,8 +359,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil {
-		options.Name = cfg.Cloud.Self
+	if cfg.Cloud == nil {
+		// for now auth settings only apply to non cloud instances
+		options.Auth = cfg.Auth
+	} else {
+		options.Managed = true
+		options.FQDNs = cfg.Cloud.FQDNs
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}
 	options.Network = cfg.Network
@@ -378,7 +382,7 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 		}
 		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	if !ok {
 		return errors.New("robot has no web service")
 	}

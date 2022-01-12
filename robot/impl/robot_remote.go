@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
@@ -195,12 +196,6 @@ func (rr *remoteRobot) FunctionNames() []string {
 	return rr.prefixNames(rr.parts.FunctionNames())
 }
 
-func (rr *remoteRobot) ServiceNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.ServiceNames())
-}
-
 func (rr *remoteRobot) ResourceNames() []resource.Name {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -269,12 +264,6 @@ func (rr *remoteRobot) InputControllerByName(name string) (input.Controller, boo
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.InputControllerByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) ServiceByName(name string) (interface{}, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.ServiceByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -348,7 +337,7 @@ func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
 		}
 	}
 	if len(status.Boards) != 0 {
-		rewrittenStatus.Boards = make(map[string]*pb.BoardStatus, len(status.Boards))
+		rewrittenStatus.Boards = make(map[string]*commonpb.BoardStatus, len(status.Boards))
 		for k, v := range status.Boards {
 			rewrittenStatus.Boards[rr.prefixName(k)] = v
 		}
@@ -430,13 +419,6 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
-	for _, name := range robot.ServiceNames() {
-		part, ok := robot.ServiceByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddService(part, config.Service{Name: name})
-	}
 
 	for _, name := range robot.ResourceNames() {
 		part, ok := robot.ResourceByName(name)
@@ -453,7 +435,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
-	var oldServiceNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
 
 	if len(parts.bases) != 0 {
@@ -472,12 +453,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
 		for name := range parts.functions {
 			oldFunctionNames[name] = struct{}{}
-		}
-	}
-	if len(parts.services) != 0 {
-		oldServiceNames = make(map[string]struct{}, len(parts.services))
-		for name := range parts.services {
-			oldServiceNames[name] = struct{}{}
 		}
 	}
 
@@ -516,35 +491,43 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 		parts.functions[name] = newPart
 	}
-	for name, newPart := range newParts.services {
-		oldPart, ok := parts.services[name]
-		delete(oldServiceNames, name)
+	for name, newR := range newParts.resources {
+		old, ok := parts.resources[name]
 		if ok {
-			_ = oldPart
-			// TODO(erd): how to handle service replacement?
-			// oldPart.replace(newPart)
-			continue
+			delete(oldResources, name)
+			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
+			newPart, newIsReconfigurable := newR.(resource.Reconfigurable)
+
+			switch {
+			case oldIsReconfigurable != newIsReconfigurable:
+				// this is an indicator of a serious constructor problem
+				// for the resource subtype.
+				if oldIsReconfigurable {
+					panic(fmt.Errorf(
+						"old type %T is reconfigurable whereas new type %T is not",
+						old, newR))
+				}
+				panic(fmt.Errorf(
+					"new type %T is reconfigurable whereas old type %T is not",
+					newR, old))
+			case oldIsReconfigurable && newIsReconfigurable:
+				// if we are dealing with a reconfigurable resource
+				// use the new resource to reconfigure the old one.
+				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+					panic(err)
+				}
+				continue
+			case !oldIsReconfigurable && !newIsReconfigurable:
+				// if we are not dealing with a reconfigurable resource
+				// we want to close the old resource and replace it with the
+				// new.
+				if err := utils.TryClose(ctx, old); err != nil {
+					panic(err)
+				}
+			}
 		}
-		parts.services[name] = newPart
-	}
-	for name, newPart := range newParts.resources {
-		oldPart, ok := parts.resources[name]
-		delete(oldResources, name)
-		if ok {
-			oldPart, ok := oldPart.(resource.Reconfigurable)
-			if !ok {
-				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", oldPart))
-			}
-			newPart, ok := newPart.(resource.Reconfigurable)
-			if !ok {
-				panic(fmt.Errorf("expected type %T to be reconfigurable but it was not", newPart))
-			}
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				panic(err)
-			}
-			continue
-		}
-		parts.resources[name] = newPart
+
+		parts.resources[name] = newR
 	}
 
 	for name := range oldBaseNames {
@@ -555,9 +538,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 	}
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)
-	}
-	for name := range oldServiceNames {
-		delete(parts.services, name)
 	}
 	for name := range oldResources {
 		delete(parts.resources, name)

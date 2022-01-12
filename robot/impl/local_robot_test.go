@@ -27,6 +27,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -83,7 +84,7 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = svc.(web.Service).Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
@@ -102,7 +103,6 @@ func TestConfigRemote(t *testing.T) {
 		},
 		Services: []config.Service{
 			{
-				Name: "frame_system",
 				Type: "frame_system",
 			},
 		},
@@ -216,8 +216,8 @@ func TestConfigRemote(t *testing.T) {
 			"bar.func2": true,
 		},
 		Services: map[string]bool{
-			"frame_system": true,
-			"web1":         true,
+			"rdk:service:frame_system": true,
+			"rdk:service:web":          true,
 		},
 	}
 
@@ -246,6 +246,157 @@ func TestConfigRemote(t *testing.T) {
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+}
+
+func TestConfigRemoteWithAuth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json")
+	test.That(t, err, test.ShouldBeNil)
+
+	for _, tc := range []struct {
+		Case        string
+		Managed     bool
+		EntityNames []string
+	}{
+		{Case: "unmanaged and default host"},
+		{Case: "unmanaged and specific host", EntityNames: []string{"something-different", "something-really-different"}},
+		{Case: "managed and default host", Managed: true},
+		{Case: "managed and specific host", Managed: true, EntityNames: []string{"something-different", "something-really-different"}},
+	} {
+		t.Run(tc.Case, func(t *testing.T) {
+			metadataSvc, err := service.New()
+			test.That(t, err, test.ShouldBeNil)
+			ctx := service.ContextWithService(context.Background(), metadataSvc)
+
+			r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+			test.That(t, err, test.ShouldBeNil)
+			defer func() {
+				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+			}()
+
+			port, err := utils.TryReserveRandomPort()
+			test.That(t, err, test.ShouldBeNil)
+			options := web.NewOptions()
+			options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+			options.Managed = tc.Managed
+			options.FQDNs = tc.EntityNames
+			apiKey := "sosecret"
+			options.Auth.Handlers = []config.AuthHandlerConfig{
+				{
+					Type: rpc.CredentialsTypeAPIKey,
+					Config: config.AttributeMap{
+						"key": apiKey,
+					},
+				},
+			}
+			svc, ok := r.ResourceByName(web.Name)
+			test.That(t, ok, test.ShouldBeTrue)
+			err = svc.(web.Service).Start(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+
+			addr := fmt.Sprintf("localhost:%d", port)
+			remoteConfig := &config.Config{
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: addr,
+					},
+				},
+			}
+
+			_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+			entityNames := tc.EntityNames
+			if len(entityNames) == 0 {
+				entityNames = []string{web.DefaultFQDN}
+			}
+			for _, entityName := range entityNames {
+				t.Run(fmt.Sprintf("auth required for %s", entityName), func(t *testing.T) {
+					_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(
+						rpc.WithInsecure(),
+						rpc.WithEntityCredentials(entityName, rpc.Credentials{
+							Type:    rpc.CredentialsTypeAPIKey,
+							Payload: apiKey,
+						}),
+					))
+					test.That(t, err, test.ShouldNotBeNil)
+					test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+				})
+			}
+
+			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
+				Type:    rpc.CredentialsTypeAPIKey,
+				Payload: apiKey,
+			}
+
+			var r2 robot.LocalRobot
+			if tc.Managed {
+				_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
+
+				for idx, entityName := range entityNames {
+					t.Run(fmt.Sprintf("good auth for %s", entityName), func(t *testing.T) {
+						remoteConfig.Remotes[0].Auth.Entity = entityName
+						r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+						test.That(t, err, test.ShouldBeNil)
+						if idx != len(entityNames)-1 {
+							test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+						}
+					})
+				}
+			} else {
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				test.That(t, err, test.ShouldBeNil)
+			}
+
+			status, err := r2.Status(context.Background())
+			test.That(t, err, test.ShouldBeNil)
+
+			expectedStatus := &pb.Status{
+				Arms: map[string]*pb.ArmStatus{
+					"pieceArm": {
+						GridPosition: &pb.Pose{
+							X: 0.0,
+							Y: 0.0,
+							Z: 0.0,
+						},
+						JointPositions: &pb.JointPositions{
+							Degrees: []float64{0, 0, 0, 0, 0, 0},
+						},
+					},
+				},
+				Grippers: map[string]bool{
+					"pieceGripper": true,
+				},
+				Cameras: map[string]bool{
+					"cameraOver": true,
+				},
+				Sensors: map[string]*pb.SensorStatus{
+					"compass1": {
+						Type: "compass",
+					},
+					"compass2": {
+						Type: "relative_compass",
+					},
+				},
+				Functions: map[string]bool{
+					"func1": true,
+					"func2": true,
+				},
+				Services: map[string]bool{
+					"rdk:service:web": true,
+				},
+			}
+
+			test.That(t, status, test.ShouldResemble, expectedStatus)
+
+			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+		})
+	}
 }
 
 type dummyBoard struct {
@@ -353,7 +504,8 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	test.That(t, len(svc.All()), test.ShouldEqual, 8)
+	// 8 declared resources + default web service
+	test.That(t, len(svc.All()), test.ShouldEqual, 9)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -378,22 +530,22 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "fb2c9071-2700-5474-b8d3-54a3f9d45d17",
+			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
 			Name: "func1",
 		}: {},
 		{
-			UUID: "4f86ef35-a10d-533b-af91-a1e5b83aeb67",
+			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
+					ResourceType: resource.ResourceTypeFunction,
 				},
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
@@ -425,6 +577,11 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeSensor,
 			},
 			Name: "compass2",
+		}: {},
+		{
+			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
+			Subtype: framesystem.Subtype,
+			Name:    "",
 		}: {},
 	}
 	svcResources := svc.All()

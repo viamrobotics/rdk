@@ -6,31 +6,41 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 // Board is an injected board.
 type Board struct {
 	board.Board
 	SPIByNameFunc              func(name string) (board.SPI, bool)
+	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
+	i2cByNameCap               []interface{}
 	AnalogReaderByNameFunc     func(name string) (board.AnalogReader, bool)
+	analogReaderByNameCap      []interface{}
 	DigitalInterruptByNameFunc func(name string) (board.DigitalInterrupt, bool)
+	digitalInterruptByNameCap  []interface{}
 	SPINamesFunc               func() []string
 	I2CNamesFunc               func() []string
 	AnalogReaderNamesFunc      func() []string
 	DigitalInterruptNamesFunc  func() []string
 	CloseFunc                  func(ctx context.Context) error
 	ConfigFunc                 func(ctx context.Context) (board.Config, error)
-	StatusFunc                 func(ctx context.Context) (*pb.BoardStatus, error)
-	GPIOSetFunc                func(ctx context.Context, pin string, high bool) error
-	GPIOGetFunc                func(ctx context.Context, pin string) (bool, error)
-	PWMSetFunc                 func(ctx context.Context, pin string, dutyCycle byte) error
-	PWMSetFreqFunc             func(ctx context.Context, pin string, freq uint) error
+	StatusFunc                 func(ctx context.Context) (*commonpb.BoardStatus, error)
+	statusCap                  []interface{}
+	SetGPIOFunc                func(ctx context.Context, pin string, high bool) error
+	setGPIOCap                 []interface{}
+	GetGPIOFunc                func(ctx context.Context, pin string) (bool, error)
+	getGPIOCap                 []interface{}
+	SetPWMFunc                 func(ctx context.Context, pin string, dutyCyclePct float64) error
+	setPWMCap                  []interface{}
+	SetPWMFreqFunc             func(ctx context.Context, pin string, freqHz uint) error
+	setPWMFreqCap              []interface{}
 }
 
 // SPIByName calls the injected SPIByName or the real version.
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
+	b.spiByNameCap = []interface{}{name}
 	if b.SPIByNameFunc == nil {
 		return b.Board.SPIByName(name)
 	}
@@ -39,6 +49,7 @@ func (b *Board) SPIByName(name string) (board.SPI, bool) {
 
 // I2CByName calls the injected I2CByName or the real version.
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
+	b.i2cByNameCap = []interface{}{name}
 	if b.I2CByNameFunc == nil {
 		return b.Board.I2CByName(name)
 	}
@@ -47,18 +58,38 @@ func (b *Board) I2CByName(name string) (board.I2C, bool) {
 
 // AnalogReaderByName calls the injected AnalogReaderByName or the real version.
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
+	b.analogReaderByNameCap = []interface{}{name}
 	if b.AnalogReaderByNameFunc == nil {
 		return b.Board.AnalogReaderByName(name)
 	}
 	return b.AnalogReaderByNameFunc(name)
 }
 
+// AnalogReaderByNameCap returns the last parameters received by AnalogReaderByName, and then clears them.
+func (b *Board) AnalogReaderByNameCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.analogReaderByNameCap = nil }()
+	return b.analogReaderByNameCap
+}
+
 // DigitalInterruptByName calls the injected DigitalInterruptByName or the real version.
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
+	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
 		return b.Board.DigitalInterruptByName(name)
 	}
 	return b.DigitalInterruptByNameFunc(name)
+}
+
+// DigitalInterruptByNameCap returns the last parameters received by DigitalInterruptByName, and then clears them.
+func (b *Board) DigitalInterruptByNameCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.digitalInterruptByNameCap = nil }()
+	return b.digitalInterruptByNameCap
 }
 
 // SPINames calls the injected SPINames or the real version.
@@ -102,41 +133,91 @@ func (b *Board) Close(ctx context.Context) error {
 }
 
 // Status calls the injected Status or the real version.
-func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
+	b.statusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
 		return b.Board.Status(ctx)
 	}
 	return b.StatusFunc(ctx)
 }
 
-// GPIOSet calls the injected GPIOSet or the real version.
-func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
-	if b.GPIOSetFunc == nil {
-		return b.Board.GPIOSet(ctx, pin, high)
+// StatusCap returns the last parameters received by Status, and then clears them.
+func (b *Board) StatusCap() []interface{} {
+	if b == nil {
+		return nil
 	}
-	return b.GPIOSetFunc(ctx, pin, high)
+	defer func() { b.statusCap = nil }()
+	return b.statusCap
 }
 
-// GPIOGet calls the injected GPIOGet or the real version.
-func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	if b.GPIOGetFunc == nil {
-		return b.Board.GPIOGet(ctx, pin)
+// SetGPIO calls the injected SetGPIO or the real version.
+func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
+	b.setGPIOCap = []interface{}{ctx, pin, high}
+	if b.SetGPIOFunc == nil {
+		return b.Board.SetGPIO(ctx, pin, high)
 	}
-	return b.GPIOGetFunc(ctx, pin)
+	return b.SetGPIOFunc(ctx, pin, high)
 }
 
-// PWMSet calls the injected PWMSet or the real version.
-func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	if b.PWMSetFunc == nil {
-		return b.Board.PWMSet(ctx, pin, dutyCycle)
+// SetGPIOCap returns the last parameters received by SetGPIO, and then clears them.
+func (b *Board) SetGPIOCap() []interface{} {
+	if b == nil {
+		return nil
 	}
-	return b.PWMSetFunc(ctx, pin, dutyCycle)
+	defer func() { b.setGPIOCap = nil }()
+	return b.setGPIOCap
 }
 
-// PWMSetFreq calls the injected PWMSetFreq or the real version.
-func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	if b.PWMSetFreqFunc == nil {
-		return b.Board.PWMSetFreq(ctx, pin, freq)
+// GetGPIO calls the injected GetGPIO or the real version.
+func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	b.getGPIOCap = []interface{}{ctx, pin}
+	if b.GetGPIOFunc == nil {
+		return b.Board.GetGPIO(ctx, pin)
 	}
-	return b.PWMSetFreqFunc(ctx, pin, freq)
+	return b.GetGPIOFunc(ctx, pin)
+}
+
+// GetGPIOCap returns the last parameters received by GetGPIO, and then clears them.
+func (b *Board) GetGPIOCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.getGPIOCap = nil }()
+	return b.getGPIOCap
+}
+
+// SetPWM calls the injected SetPWM or the real version.
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	b.setPWMCap = []interface{}{ctx, pin, dutyCyclePct}
+	if b.SetPWMFunc == nil {
+		return b.Board.SetPWM(ctx, pin, dutyCyclePct)
+	}
+	return b.SetPWMFunc(ctx, pin, dutyCyclePct)
+}
+
+// SetPWMCap returns the last parameters received by SetPWM, and then clears them.
+func (b *Board) SetPWMCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.setPWMCap = nil }()
+	return b.setPWMCap
+}
+
+// SetPWMFreq calls the injected SetPWMFreq or the real version.
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
+	b.setPWMFreqCap = []interface{}{ctx, pin, freqHz}
+	if b.SetPWMFreqFunc == nil {
+		return b.Board.SetPWMFreq(ctx, pin, freqHz)
+	}
+	return b.SetPWMFreqFunc(ctx, pin, freqHz)
+}
+
+// SetPWMFreqCap returns the last parameters received by SetPWMFreq, and then clears them.
+func (b *Board) SetPWMFreqCap() []interface{} {
+	if b == nil {
+		return nil
+	}
+	defer func() { b.setPWMFreqCap = nil }()
+	return b.setPWMFreqCap
 }

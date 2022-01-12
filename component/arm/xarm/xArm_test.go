@@ -26,7 +26,7 @@ func TestWriteViam(t *testing.T) {
 
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -81,7 +81,7 @@ func TestWriteViam(t *testing.T) {
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
+		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
 		opt := motionplan.NewDefaultPlannerOptions()
