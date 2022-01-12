@@ -177,6 +177,7 @@
               mapOnce: false,
               chartStream: null,
               value: 0,
+              imuData: {},
           };
           theApp = new Vue({
               el: '#app',
@@ -1290,6 +1291,44 @@
       let mapReady = new Promise(resolve => {
         mapReadyResolve = resolve;
       });
+
+      function imuRefresh() {
+          if (window.theApp) {
+              var all = theApp.filterResources("rdk", "component", "imu");
+              all.forEach(function(x) {
+                  var name = x.name;
+
+                  if (!theData.imuData[name]) {
+                      theData.imuData[name] = {};
+                  }
+                  
+                  var req = new imuApi.IMUServiceOrientationRequest();
+                  req.setName(name);
+                  
+                  imuService.orientation(req, {}, (err, resp) => {
+                      if (err) {
+                          console.log(err);
+                          return;
+                      }
+                      theData.imuData[name].orientation = resp.toObject().orientation;
+                  });
+
+                  var req = new imuApi.IMUServiceAngularVelocityRequest();
+                  req.setName(name);
+                  
+                  imuService.angularVelocity(req, {}, (err, resp) => {
+                      if (err) {
+                          console.log(err);
+                          return;
+                      }
+                      theData.imuData[name].angularVelocity = resp.toObject().angularVelocity;
+                  });
+
+              });
+          }
+          setTimeout(imuRefresh, 500);
+      }
+      imuRefresh();
     </script>
   </head>
   <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
@@ -1321,8 +1360,8 @@
           <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
           <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
           <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</button></li>
         </ul>
 
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
@@ -1368,6 +1407,26 @@
         </div>
         <hr>
       </div>
+
+      <!-- ******* IMU *******  -->
+      <div>
+        <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
+          <hr>
+          <h2>IMU: ${imu[1].name}</h2>
+          <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+            <tr><th colspan="2">Orientation (radians)</th></tr>
+            <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.roll.toFixed(2)}</td></tr>
+            <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitch.toFixed(2)}</td></tr>
+            <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yaw.toFixed(2)}</td></tr>
+            <tr><th colspan="2">Angular Celocity</th></tr>
+            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.x.toFixed(2)}</td></tr>
+            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.y.toFixed(2)}</td></tr>
+            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.z.toFixed(2)}</td></tr>
+          </table>
+        </div>
+        <hr>
+      </div>
+
       
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">

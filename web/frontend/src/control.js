@@ -9,6 +9,8 @@ window.armApi = require('./gen/proto/api/component/v1/arm_pb.js');
 const { ArmServiceClient } = require('./gen/proto/api/component/v1/arm_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/v1/gantry_pb.js');
 const { GantryServiceClient } = require('./gen/proto/api/component/v1/gantry_pb_service.js');
+window.imuApi = require('./gen/proto/api/component/v1/imu_pb.js');
+const { IMUServiceClient } = require('./gen/proto/api/component/v1/imu_pb_service.js');
 window.gripperApi = require('./gen/proto/api/component/v1/gripper_pb.js');
 const { GripperServiceClient } = require('./gen/proto/api/component/v1/gripper_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/v1/servo_pb.js');
@@ -71,6 +73,7 @@ let connect = async (creds) => {
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.forceMatrixService = new ForceMatrixServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
