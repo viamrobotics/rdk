@@ -149,7 +149,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		dumpResourceInfo(name, reg)
 	}
 
-	dumpComponentsInfo(registry.RegisteredBases(), resource.SubtypeName(config.ComponentTypeBase))
 	dumpComponentsInfo(registry.RegisteredSensors(), resource.SubtypeName(config.ComponentTypeSensor))
 
 	for svcType, reg := range registry.RegisteredServices() {
