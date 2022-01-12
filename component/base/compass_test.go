@@ -9,14 +9,14 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestAugmentReduce(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	dev.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	test.That(t, base.AugmentWithCompass(dev, nil, logger), test.ShouldEqual, dev)
@@ -33,7 +33,7 @@ func TestAugmentReduce(t *testing.T) {
 func TestDeviceWithCompass(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	dev.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	comp := &inject.Compass{}

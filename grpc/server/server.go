@@ -232,7 +232,7 @@ func (s *Server) BaseWidthMillis(
 	if !ok {
 		return nil, errors.Errorf("no base with name (%s)", req.Name)
 	}
-	width, err := base.WidthMillis(ctx)
+	width, err := base.WidthGet(ctx)
 	if err != nil {
 		return nil, err
 	}
