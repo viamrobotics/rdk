@@ -80,7 +80,7 @@ func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.BoardServiceSetPWMRe
 		return nil, err
 	}
 
-	return &pb.BoardServiceSetPWMResponse{}, b.SetPWM(ctx, req.Pin, byte(req.DutyCycle))
+	return &pb.BoardServiceSetPWMResponse{}, b.SetPWM(ctx, req.Pin, req.DutyCyclePct)
 }
 
 // SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM

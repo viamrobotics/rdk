@@ -142,8 +142,8 @@ export class BoardServiceSetPWMRequest extends jspb.Message {
   getPin(): string;
   setPin(value: string): void;
 
-  getDutyCycle(): number;
-  setDutyCycle(value: number): void;
+  getDutyCyclePct(): number;
+  setDutyCyclePct(value: number): void;
 
   serializeBinary(): Uint8Array;
   toObject(includeInstance?: boolean): BoardServiceSetPWMRequest.AsObject;
@@ -159,7 +159,7 @@ export namespace BoardServiceSetPWMRequest {
   export type AsObject = {
     name: string,
     pin: string,
-    dutyCycle: number,
+    dutyCyclePct: number,
   }
 }
 

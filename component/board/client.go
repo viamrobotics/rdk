@@ -143,11 +143,11 @@ func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return resp.High, nil
 }
 
-func (c *client) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+func (c *client) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
 	_, err := c.client.SetPWM(ctx, &pb.BoardServiceSetPWMRequest{
-		Name:      c.info.name,
-		Pin:       pin,
-		DutyCycle: uint32(dutyCycle),
+		Name:         c.info.name,
+		Pin:          pin,
+		DutyCyclePct: dutyCycle,
 	})
 	return err
 }

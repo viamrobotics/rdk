@@ -237,7 +237,7 @@ func TestServerGetGPIO(t *testing.T) {
 	}
 }
 
-//nolint:dupl
+
 func TestServerSetPWM(t *testing.T) {
 	type request = pb.BoardServiceSetPWMRequest
 	ctx := context.Background()
@@ -262,14 +262,14 @@ func TestServerSetPWM(t *testing.T) {
 		},
 		{
 			injectErr:  errFoo,
-			req:        &request{Name: boardName, Pin: "one", DutyCycle: 7},
-			expCapArgs: []interface{}{ctx, "one", byte(7)},
+			req:        &request{Name: boardName, Pin: "one", DutyCyclePct: 0.03},
+			expCapArgs: []interface{}{ctx, "one", 0.03},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: boardName, Pin: "one", DutyCycle: 7},
-			expCapArgs: []interface{}{ctx, "one", byte(7)},
+			req:        &request{Name: boardName, Pin: "one", DutyCyclePct: 0.03},
+			expCapArgs: []interface{}{ctx, "one", 0.03},
 			expRespErr: nil,
 		},
 	}
@@ -279,7 +279,7 @@ func TestServerSetPWM(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCycle float64) error {
 				return tc.injectErr
 			}
 
@@ -294,7 +294,7 @@ func TestServerSetPWM(t *testing.T) {
 	}
 }
 
-//nolint:dupl
+
 func TestServerSetPWMFrequency(t *testing.T) {
 	type request = pb.BoardServiceSetPWMFrequencyRequest
 	ctx := context.Background()

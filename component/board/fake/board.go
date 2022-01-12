@@ -84,7 +84,7 @@ type Board struct {
 	Digitals map[string]board.DigitalInterrupt
 
 	GPIO    map[string]bool
-	PWM     map[string]byte
+	PWM     map[string]float64
 	PWMFreq map[string]uint
 
 	CloseCount int
@@ -135,13 +135,13 @@ func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 }
 
 // SetPWM sets the given pin to the given duty cycle.
-func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle byte) error {
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCycle float64) error {
 	if b.PWM == nil {
-		b.PWM = map[string]byte{}
+		b.PWM = map[string]float64{}
 	}
 	if b.PWM[pin] != dutyCycle {
 		b.PWM[pin] = dutyCycle
-		if dutyCycle == 255 {
+		if dutyCycle == 1.0 {
 			return b.SetGPIO(ctx, pin, true)
 		} else if dutyCycle == 0 {
 			return b.SetGPIO(ctx, pin, false)

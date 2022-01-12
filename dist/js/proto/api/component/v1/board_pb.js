@@ -1229,7 +1229,7 @@ proto.proto.api.component.v1.BoardServiceSetPWMRequest.toObject = function(inclu
   var f, obj = {
     name: jspb.Message.getFieldWithDefault(msg, 1, ""),
     pin: jspb.Message.getFieldWithDefault(msg, 2, ""),
-    dutyCycle: jspb.Message.getFieldWithDefault(msg, 3, 0)
+    dutyCyclePct: jspb.Message.getFloatingPointFieldWithDefault(msg, 3, 0.0)
   };
 
   if (includeInstance) {
@@ -1275,8 +1275,8 @@ proto.proto.api.component.v1.BoardServiceSetPWMRequest.deserializeBinaryFromRead
       msg.setPin(value);
       break;
     case 3:
-      var value = /** @type {number} */ (reader.readUint32());
-      msg.setDutyCycle(value);
+      var value = /** @type {number} */ (reader.readDouble());
+      msg.setDutyCyclePct(value);
       break;
     default:
       reader.skipField();
@@ -1321,9 +1321,9 @@ proto.proto.api.component.v1.BoardServiceSetPWMRequest.serializeBinaryToWriter =
       f
     );
   }
-  f = message.getDutyCycle();
-  if (f !== 0) {
-    writer.writeUint32(
+  f = message.getDutyCyclePct();
+  if (f !== 0.0) {
+    writer.writeDouble(
       3,
       f
     );
@@ -1368,11 +1368,11 @@ proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.setPin = functi
 
 
 /**
- * optional uint32 duty_cycle = 3;
+ * optional double duty_cycle_pct = 3;
  * @return {number}
  */
-proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.getDutyCycle = function() {
-  return /** @type {number} */ (jspb.Message.getFieldWithDefault(this, 3, 0));
+proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.getDutyCyclePct = function() {
+  return /** @type {number} */ (jspb.Message.getFloatingPointFieldWithDefault(this, 3, 0.0));
 };
 
 
@@ -1380,8 +1380,8 @@ proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.getDutyCycle = 
  * @param {number} value
  * @return {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} returns this
  */
-proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.setDutyCycle = function(value) {
-  return jspb.Message.setProto3IntField(this, 3, value);
+proto.proto.api.component.v1.BoardServiceSetPWMRequest.prototype.setDutyCyclePct = function(value) {
+  return jspb.Message.setProto3FloatField(this, 3, value);
 };
 
 

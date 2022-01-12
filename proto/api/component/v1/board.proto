@@ -89,7 +89,7 @@ message BoardServiceGetGPIOResponse {
 message BoardServiceSetPWMRequest {
   string name = 1;
   string pin = 2;
-  uint32 duty_cycle = 3; // (0-255)
+  double duty_cycle_pct = 3; // 0-1
 }
 
 message BoardServiceSetPWMResponse {}
