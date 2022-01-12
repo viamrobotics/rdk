@@ -280,7 +280,7 @@ func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	return errors.New("numato doesn't support pwm")
 }
 

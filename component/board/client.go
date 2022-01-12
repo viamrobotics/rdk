@@ -152,11 +152,11 @@ func (c *client) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) e
 	return err
 }
 
-func (c *client) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (c *client) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	_, err := c.client.SetPWMFrequency(ctx, &pb.BoardServiceSetPWMFrequencyRequest{
 		Name:        c.info.name,
 		Pin:         pin,
-		FrequencyHz: uint64(freq),
+		FrequencyHz: uint64(freqHz),
 	})
 	return err
 }

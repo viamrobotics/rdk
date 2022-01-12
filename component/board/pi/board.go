@@ -260,23 +260,23 @@ func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency.
-func (pi *piPigpio) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (pi *piPigpio) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
 		return errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.SetPWMFreqBcom(int(bcom), freq)
+	return pi.SetPWMFreqBcom(int(bcom), freqHz)
 }
 
 // SetPWMFreqBcom sets the given broadcom pin to the given PWM frequency.
-func (pi *piPigpio) SetPWMFreqBcom(bcom int, freq uint) error {
-	if freq == 0 {
-		freq = 800 // Original default from libpigpio
+func (pi *piPigpio) SetPWMFreqBcom(bcom int, freqHz uint) error {
+	if freqHz == 0 {
+		freqHz = 800 // Original default from libpigpio
 	}
-	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freq))
+	newRes := C.gpioSetPWMfrequency(C.uint(bcom), C.uint(freqHz))
 
-	if newRes != C.int(freq) {
-		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freq, newRes)
+	if newRes != C.int(freqHz) {
+		return errors.Errorf("pwm set freq fail Tried: %d, got: %d", freqHz, newRes)
 	}
 	return nil
 }

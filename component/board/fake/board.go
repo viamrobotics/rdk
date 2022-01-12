@@ -151,11 +151,11 @@ func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) er
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *Board) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	if b.PWMFreq == nil {
 		b.PWMFreq = map[string]uint{}
 	}
-	b.PWMFreq[pin] = freq
+	b.PWMFreq[pin] = freqHz
 	return nil
 }
 

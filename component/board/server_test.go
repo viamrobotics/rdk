@@ -334,7 +334,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+			injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freqHz uint) error {
 				return tc.injectErr
 			}
 

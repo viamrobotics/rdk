@@ -295,7 +295,7 @@ func (m *mock) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) err
 	return nil
 }
 
-func (m *mock) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (m *mock) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	m.setPWMFreqCalls++
 	return nil
 }

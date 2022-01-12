@@ -109,7 +109,7 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, injectBoard.SetPWMCap()[1:], test.ShouldResemble, []interface{}{"one", 0.03})
 
 		// SetPWMFreq
-		injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+		injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freqHz uint) error {
 			return nil
 		}
 		err = client.SetPWMFreq(context.Background(), "one", 11233)
