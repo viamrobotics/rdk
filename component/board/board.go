@@ -69,7 +69,7 @@ type Board interface {
 	SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error
 
 	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	SetPWMFreq(ctx context.Context, pin string, freq uint) error
+	SetPWMFreq(ctx context.Context, pin string, freqHz uint) error
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -212,10 +212,10 @@ func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCycleP
 	return r.actual.SetPWM(ctx, pin, dutyCyclePct)
 }
 
-func (r *reconfigurableBoard) SetPWMFreq(ctx context.Context, pin string, freq uint) error {
+func (r *reconfigurableBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.SetPWMFreq(ctx, pin, freq)
+	return r.actual.SetPWMFreq(ctx, pin, freqHz)
 }
 
 func (r *reconfigurableBoard) SPINames() []string {

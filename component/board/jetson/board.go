@@ -246,18 +246,18 @@ func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCyclePct f
 	}
 
 	last := b.pwms[pinName]
-	var freq physic.Frequency
+	var freqHz physic.Frequency
 	if last.frequency != 0 {
-		freq = last.frequency
+		freqHz = last.frequency
 	}
 	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
 	last.dutyCycle = duty
 	b.pwms[pinName] = last
 
-	return pin.PWM(duty, freq)
+	return pin.PWM(duty, freqHz)
 }
 
-func (b *jetsonBoard) SetPWMFreq(ctx context.Context, pinName string, freq uint) error {
+func (b *jetsonBoard) SetPWMFreq(ctx context.Context, pinName string, freqHz uint) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -271,7 +271,7 @@ func (b *jetsonBoard) SetPWMFreq(ctx context.Context, pinName string, freq uint)
 	if last.dutyCycle != 0 {
 		duty = last.dutyCycle
 	}
-	frequency := physic.Hertz * physic.Frequency(freq)
+	frequency := physic.Hertz * physic.Frequency(freqHz)
 	last.frequency = frequency
 	b.pwms[pinName] = last
 
