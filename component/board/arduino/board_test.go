@@ -140,12 +140,21 @@ func TestArduinoPWM(t *testing.T) {
 				return
 			}
 			test.That(t, b, test.ShouldNotBeNil)
+
 			err = b.SetPWMFreq(ctx, "7", 2000)
 			test.That(t, err, test.ShouldBeNil)
 			err = b.SetPWMFreq(ctx, "45", 2000)
 			test.That(t, err, test.ShouldNotBeNil)
 			err = b.SetPWMFreq(ctx, "-5", 2000)
 			test.That(t, err, test.ShouldNotBeNil)
+
+			err = b.SetPWM(ctx, "7", 0.03)
+			test.That(t, err, test.ShouldBeNil)
+			err = b.SetPWM(ctx, "45", 0.03)
+			test.That(t, err, test.ShouldNotBeNil)
+			err = b.SetPWM(ctx, "-5", 0.03)
+			test.That(t, err, test.ShouldNotBeNil)
+
 			defer b.Close()
 		})
 	}
