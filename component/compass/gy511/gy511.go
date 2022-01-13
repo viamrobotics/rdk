@@ -17,11 +17,11 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/serial"
 )
 
@@ -35,13 +35,13 @@ type AttrConfig struct {
 
 // init registers the gy511 compass type.
 func init() {
-	registry.RegisterSensor(compass.Type, ModelName,
-		registry.Sensor{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (sensor.Sensor, error) {
+	registry.RegisterComponent(compass.Subtype, ModelName,
+		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
+			config config.Component, logger golog.Logger) (interface{}, error) {
 			return New(ctx, config.ConvertedAttributes.(*AttrConfig).Host, logger)
 		}})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeSensor, ModelName,
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCompass, ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -133,7 +133,7 @@ func New(ctx context.Context, path string, logger golog.Logger) (dev *GY511, err
 
 // Desc returns that this is a compass.
 func (gy *GY511) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
+	return sensor.Description{sensor.Type(compass.SubtypeName), ""}
 }
 
 // StartCalibration asks the device to start calibrating.

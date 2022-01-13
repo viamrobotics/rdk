@@ -1,3 +1,4 @@
+// Package fake implements a fake compass.
 package fake
 
 import (
@@ -5,23 +6,23 @@ import (
 
 	"github.com/edaniels/golog"
 
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 )
 
 func init() {
-	registry.RegisterSensor(
-		compass.Type,
-		ModelName,
-		registry.Sensor{Constructor: func(
+	registry.RegisterComponent(
+		compass.Subtype,
+		"fake",
+		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
-		) (sensor.Sensor, error) {
+		) (interface{}, error) {
 			if config.Attributes.Bool("relative", false) {
 				return &RelativeCompass{&Compass{Name: config.Name}}, nil
 			}
@@ -56,7 +57,7 @@ func (c *Compass) StopCalibration(ctx context.Context) error {
 
 // Desc returns that this is a traditional compass.
 func (c *Compass) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
+	return sensor.Description{sensor.Type(compass.SubtypeName), ""}
 }
 
 // RelativeCompass is a fake relative compass that always returns the same readings.
@@ -71,5 +72,5 @@ func (rc *RelativeCompass) Mark(ctx context.Context) error {
 
 // Desc returns that this is a relative compass.
 func (rc *RelativeCompass) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeType, ""}
+	return sensor.Description{sensor.Type(compass.SubtypeName), "relative"}
 }
