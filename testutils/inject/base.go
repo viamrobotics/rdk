@@ -5,7 +5,7 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 )
 
 // Base is an injected base.
@@ -13,7 +13,7 @@ type Base struct {
 	base.Base
 	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
-	WidthMillisFunc  func(ctx context.Context) (int, error)
+	WidthGetFunc     func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
 	CloseFunc        func(ctx context.Context) error
 }
@@ -34,12 +34,12 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return b.SpinFunc(ctx, angleDeg, degsPerSec, block)
 }
 
-// WidthMillis calls the injected WidthMillis or the real version.
-func (b *Base) WidthMillis(ctx context.Context) (int, error) {
-	if b.WidthMillisFunc == nil {
-		return b.Base.WidthMillis(ctx)
+// WidthGet calls the injected WidthGet or the real version.
+func (b *Base) WidthGet(ctx context.Context) (int, error) {
+	if b.WidthGetFunc == nil {
+		return b.Base.WidthGet(ctx)
 	}
-	return b.WidthMillisFunc(ctx)
+	return b.WidthGetFunc(ctx)
 }
 
 // Stop calls the injected Stop or the real version.

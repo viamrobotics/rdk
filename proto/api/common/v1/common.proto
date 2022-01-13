@@ -53,3 +53,7 @@ message BoxGeometry {
   double depth = 3;
 }
 
+message GeoPoint {
+  double latitude = 1;
+  double longitude = 2;
+}

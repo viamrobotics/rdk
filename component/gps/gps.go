@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/sensor"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "imu".
+// SubtypeName is a constant that identifies the component resource subtype string "gps".
 const SubtypeName = resource.SubtypeName("gps")
 
 // Subtype is a constant that identifies the component resource subtype.
@@ -25,7 +25,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named IMU's typed resource name.
+// Named is a helper for getting the named GPS's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -36,19 +36,24 @@ type GPS interface {
 	Location(ctx context.Context) (*geo.Point, error)       // The current latitude and longitude
 	Altitude(ctx context.Context) (float64, error)          // The current altitude in meters
 	Speed(ctx context.Context) (float64, error)             // Current ground speed in kph
-	Satellites(ctx context.Context) (int, int, error)       // Number of satellites used for fix, and total in view
 	Accuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error
-	Valid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
+}
+
+// A LocalGPS represents a GPS that can report Satellites and Valid measurements.
+type LocalGPS interface {
+	GPS
+	Satellites(ctx context.Context) (int, int, error) // Number of satellites used for fix, and total in view
+	Valid(ctx context.Context) (bool, error)          // Whether or not the GPS chip had a valid fix for the most recent dataset
 }
 
 var (
-	_ = GPS(&reconfigurableGPS{})
+	_ = LocalGPS(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
 
 type reconfigurableGPS struct {
 	mu     sync.RWMutex
-	actual GPS
+	actual LocalGPS
 }
 
 func (r *reconfigurableGPS) Close(ctx context.Context) error {
@@ -125,10 +130,10 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 	return nil
 }
 
-// WrapWithReconfigurable converts a regular GPS implementation to a reconfigurableGPS.
+// WrapWithReconfigurable converts a regular LocalGPS implementation to a reconfigurableGPS.
 // If GPS is already a reconfigurableGPS, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	gps, ok := r.(GPS)
+	gps, ok := r.(LocalGPS)
 	if !ok {
 		return nil, errors.Errorf("expected resource to be GPS but got %T", r)
 	}
