@@ -516,7 +516,7 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 
-		device := &inject.Compass{}
+		device := &inject.Sensor{}
 		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 			return device, true
 		}
@@ -525,14 +525,14 @@ func TestServer(t *testing.T) {
 			return nil, err1
 		}
 		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
-			Name: "compass1",
+			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return []interface{}{1.2, 2.3}, nil
 		}
 		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
-			Name: "compass1",
+			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		readings := make([]interface{}, 0, len(resp.Readings))
@@ -545,8 +545,8 @@ func TestServer(t *testing.T) {
 	t.Run("Compass", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			capName = name.Name
 			return nil, false
 		}
 
@@ -554,13 +554,13 @@ func TestServer(t *testing.T) {
 			Name: "compass1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no compass")
 		test.That(t, capName, test.ShouldEqual, "compass1")
 
 		err1 := errors.New("whoops")
 
 		device := &inject.Compass{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return device, true
 		}
 
@@ -617,7 +617,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not relative")
 
 		relDevice := &inject.RelativeCompass{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return relDevice, true
 		}
 
