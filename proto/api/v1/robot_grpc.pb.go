@@ -66,14 +66,6 @@ type RobotServiceClient interface {
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error)
-	// GPSLocation returns the most recent location from the given GPS.
-	GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error)
-	// GPSAltitude returns the most recent altitude from the given GPS.
-	GPSAltitude(ctx context.Context, in *GPSAltitudeRequest, opts ...grpc.CallOption) (*GPSAltitudeResponse, error)
-	// GPSSpeed returns the most recent speed from the given GPS.
-	GPSSpeed(ctx context.Context, in *GPSSpeedRequest, opts ...grpc.CallOption) (*GPSSpeedResponse, error)
-	// GPSAccuracy returns the most recent location accuracy from the given GPS.
-	GPSAccuracy(ctx context.Context, in *GPSAccuracyRequest, opts ...grpc.CallOption) (*GPSAccuracyResponse, error)
 }
 
 type robotServiceClient struct {
@@ -332,42 +324,6 @@ func (c *robotServiceClient) ObjectManipulationServiceDoGrab(ctx context.Context
 	return out, nil
 }
 
-func (c *robotServiceClient) GPSLocation(ctx context.Context, in *GPSLocationRequest, opts ...grpc.CallOption) (*GPSLocationResponse, error) {
-	out := new(GPSLocationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSLocation", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GPSAltitude(ctx context.Context, in *GPSAltitudeRequest, opts ...grpc.CallOption) (*GPSAltitudeResponse, error) {
-	out := new(GPSAltitudeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSAltitude", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GPSSpeed(ctx context.Context, in *GPSSpeedRequest, opts ...grpc.CallOption) (*GPSSpeedResponse, error) {
-	out := new(GPSSpeedResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSSpeed", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) GPSAccuracy(ctx context.Context, in *GPSAccuracyRequest, opts ...grpc.CallOption) (*GPSAccuracyResponse, error) {
-	out := new(GPSAccuracyResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/GPSAccuracy", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -420,14 +376,6 @@ type RobotServiceServer interface {
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
 	ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error)
-	// GPSLocation returns the most recent location from the given GPS.
-	GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error)
-	// GPSAltitude returns the most recent altitude from the given GPS.
-	GPSAltitude(context.Context, *GPSAltitudeRequest) (*GPSAltitudeResponse, error)
-	// GPSSpeed returns the most recent speed from the given GPS.
-	GPSSpeed(context.Context, *GPSSpeedRequest) (*GPSSpeedResponse, error)
-	// GPSAccuracy returns the most recent location accuracy from the given GPS.
-	GPSAccuracy(context.Context, *GPSAccuracyRequest) (*GPSAccuracyResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -509,18 +457,6 @@ func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.C
 }
 func (UnimplementedRobotServiceServer) ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ObjectManipulationServiceDoGrab not implemented")
-}
-func (UnimplementedRobotServiceServer) GPSLocation(context.Context, *GPSLocationRequest) (*GPSLocationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GPSLocation not implemented")
-}
-func (UnimplementedRobotServiceServer) GPSAltitude(context.Context, *GPSAltitudeRequest) (*GPSAltitudeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GPSAltitude not implemented")
-}
-func (UnimplementedRobotServiceServer) GPSSpeed(context.Context, *GPSSpeedRequest) (*GPSSpeedResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GPSSpeed not implemented")
-}
-func (UnimplementedRobotServiceServer) GPSAccuracy(context.Context, *GPSAccuracyRequest) (*GPSAccuracyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GPSAccuracy not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -988,78 +924,6 @@ func _RobotService_ObjectManipulationServiceDoGrab_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_GPSLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSLocationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GPSLocation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GPSLocation",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GPSLocation(ctx, req.(*GPSLocationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GPSAltitude_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSAltitudeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GPSAltitude(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GPSAltitude",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GPSAltitude(ctx, req.(*GPSAltitudeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GPSSpeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSSpeedRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GPSSpeed(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GPSSpeed",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GPSSpeed(ctx, req.(*GPSSpeedRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_GPSAccuracy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSAccuracyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).GPSAccuracy(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/GPSAccuracy",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).GPSAccuracy(ctx, req.(*GPSAccuracyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1162,22 +1026,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ObjectManipulationServiceDoGrab",
 			Handler:    _RobotService_ObjectManipulationServiceDoGrab_Handler,
-		},
-		{
-			MethodName: "GPSLocation",
-			Handler:    _RobotService_GPSLocation_Handler,
-		},
-		{
-			MethodName: "GPSAltitude",
-			Handler:    _RobotService_GPSAltitude_Handler,
-		},
-		{
-			MethodName: "GPSSpeed",
-			Handler:    _RobotService_GPSSpeed_Handler,
-		},
-		{
-			MethodName: "GPSAccuracy",
-			Handler:    _RobotService_GPSAccuracy_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
