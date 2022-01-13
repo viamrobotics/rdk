@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/framesystem"
@@ -115,13 +116,13 @@ func TestComponentResourceName(t *testing.T) {
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.ResourceSubtypeCompass,
+				ResourceSubtype: compass.SubtypeName,
 			},
 			resource.Name{
 				UUID: "bd405f3f-da99-5adb-8637-1f914454da88",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.ResourceSubtypeCompass,
+					ResourceSubtype: compass.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -135,13 +136,13 @@ func TestComponentResourceName(t *testing.T) {
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.ResourceSubtypeCompass,
+				ResourceSubtype: compass.SubtypeName,
 			},
 			resource.Name{
 				UUID: "3c4145b6-aff8-52b9-9b06-778abc940d0f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.ResourceSubtypeCompass,
+					ResourceSubtype: compass.SubtypeName,
 				},
 				Name: "",
 			},
