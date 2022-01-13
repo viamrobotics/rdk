@@ -252,9 +252,7 @@ func TestClient(t *testing.T) {
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	var (
-		capBaseName string
-	)
+	var capBaseName string
 	injectBase := &inject.Base{}
 	injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 15, nil
