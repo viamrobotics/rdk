@@ -13,7 +13,6 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/utils"
 )
 
 // NewMotor constructs a new GPIO based motor on the given board using the
@@ -147,7 +146,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return multierr.Combine(
 		errs,
 		m.Board.SetPWMFreq(ctx, pwmPin, m.pwmFreq),
-		m.Board.SetPWM(ctx, pwmPin, float64(utils.ScaleByPct(255, powerPct))),
+		m.Board.SetPWM(ctx, pwmPin, powerPct),
 	)
 }
 
