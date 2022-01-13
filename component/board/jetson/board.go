@@ -88,7 +88,7 @@ func init() {
 			return &jetsonBoard{
 				spis:    spis,
 				analogs: analogs,
-				pwms:    map[string]pwmSetting{},
+				pwms:    map[string]setPWMting{},
 			}, nil
 		}})
 	board.RegisterConfigAttributeConverter(modelName)
@@ -98,10 +98,10 @@ type jetsonBoard struct {
 	mu      sync.Mutex
 	spis    map[string]*spiBus
 	analogs map[string]board.AnalogReader
-	pwms    map[string]pwmSetting
+	pwms    map[string]setPWMting
 }
 
-type pwmSetting struct {
+type setPWMting struct {
 	dutyCycle gpio.Duty
 	frequency physic.Frequency
 }
@@ -214,7 +214,7 @@ func (b *jetsonBoard) getGPIOLine(hwPin string) (gpio.PinIO, error) {
 	return pin, nil
 }
 
-func (b *jetsonBoard) GPIOSet(ctx context.Context, pinName string, high bool) error {
+func (b *jetsonBoard) SetGPIO(ctx context.Context, pinName string, high bool) error {
 	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return err
@@ -227,7 +227,7 @@ func (b *jetsonBoard) GPIOSet(ctx context.Context, pinName string, high bool) er
 	return pin.Out(l)
 }
 
-func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error) {
+func (b *jetsonBoard) GetGPIO(ctx context.Context, pinName string) (bool, error) {
 	pin, err := b.getGPIOLine(pinName)
 	if err != nil {
 		return false, err
@@ -236,7 +236,7 @@ func (b *jetsonBoard) GPIOGet(ctx context.Context, pinName string) (bool, error)
 	return pin.Read() == gpio.High, nil
 }
 
-func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte) error {
+func (b *jetsonBoard) SetPWM(ctx context.Context, pinName string, dutyCyclePct float64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -246,18 +246,18 @@ func (b *jetsonBoard) PWMSet(ctx context.Context, pinName string, dutyCycle byte
 	}
 
 	last := b.pwms[pinName]
-	var freq physic.Frequency
+	var freqHz physic.Frequency
 	if last.frequency != 0 {
-		freq = last.frequency
+		freqHz = last.frequency
 	}
-	duty := gpio.Duty((float64(dutyCycle) / 255) * float64(gpio.DutyMax))
+	duty := gpio.Duty(dutyCyclePct * float64(gpio.DutyMax))
 	last.dutyCycle = duty
 	b.pwms[pinName] = last
 
-	return pin.PWM(duty, freq)
+	return pin.PWM(duty, freqHz)
 }
 
-func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint) error {
+func (b *jetsonBoard) SetPWMFreq(ctx context.Context, pinName string, freqHz uint) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -271,7 +271,7 @@ func (b *jetsonBoard) PWMSetFreq(ctx context.Context, pinName string, freq uint)
 	if last.dutyCycle != 0 {
 		duty = last.dutyCycle
 	}
-	frequency := physic.Hertz * physic.Frequency(freq)
+	frequency := physic.Hertz * physic.Frequency(freqHz)
 	last.frequency = frequency
 	b.pwms[pinName] = last
 

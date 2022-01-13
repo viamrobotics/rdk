@@ -49,59 +49,59 @@ func (s *subtypeServer) Status(ctx context.Context, req *pb.BoardServiceStatusRe
 	return &pb.BoardServiceStatusResponse{Status: status}, nil
 }
 
-// GPIOSet sets a given pin of a board of the underlying robot to either low or high.
-func (s *subtypeServer) GPIOSet(ctx context.Context, req *pb.BoardServiceGPIOSetRequest) (*pb.BoardServiceGPIOSetResponse, error) {
+// SetGPIO sets a given pin of a board of the underlying robot to either low or high.
+func (s *subtypeServer) SetGPIO(ctx context.Context, req *pb.BoardServiceSetGPIORequest) (*pb.BoardServiceSetGPIOResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServiceGPIOSetResponse{}, b.GPIOSet(ctx, req.Pin, req.High)
+	return &pb.BoardServiceSetGPIOResponse{}, b.SetGPIO(ctx, req.Pin, req.High)
 }
 
-// GPIOGet gets the high/low state of a given pin of a board of the underlying robot.
-func (s *subtypeServer) GPIOGet(ctx context.Context, req *pb.BoardServiceGPIOGetRequest) (*pb.BoardServiceGPIOGetResponse, error) {
+// GetGPIO gets the high/low state of a given pin of a board of the underlying robot.
+func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.BoardServiceGetGPIORequest) (*pb.BoardServiceGetGPIOResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	high, err := b.GPIOGet(ctx, req.Pin)
+	high, err := b.GetGPIO(ctx, req.Pin)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceGPIOGetResponse{High: high}, nil
+	return &pb.BoardServiceGetGPIOResponse{High: high}, nil
 }
 
-// PWMSet sets a given pin of the underlying robot to the given duty cycle.
-func (s *subtypeServer) PWMSet(ctx context.Context, req *pb.BoardServicePWMSetRequest) (*pb.BoardServicePWMSetResponse, error) {
+// SetPWM sets a given pin of the underlying robot to the given duty cycle.
+func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.BoardServiceSetPWMRequest) (*pb.BoardServiceSetPWMResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServicePWMSetResponse{}, b.PWMSet(ctx, req.Pin, byte(req.DutyCycle))
+	return &pb.BoardServiceSetPWMResponse{}, b.SetPWM(ctx, req.Pin, req.DutyCyclePct)
 }
 
-// PWMSetFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
+// SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
 // frequency.
-func (s *subtypeServer) PWMSetFrequency(
+func (s *subtypeServer) SetPWMFrequency(
 	ctx context.Context,
-	req *pb.BoardServicePWMSetFrequencyRequest,
-) (*pb.BoardServicePWMSetFrequencyResponse, error) {
+	req *pb.BoardServiceSetPWMFrequencyRequest,
+) (*pb.BoardServiceSetPWMFrequencyResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServicePWMSetFrequencyResponse{}, b.PWMSetFreq(ctx, req.Pin, uint(req.Frequency))
+	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.FrequencyHz))
 }
 
-// AnalogReaderRead reads off the current value of an analog reader of a board of the underlying robot.
-func (s *subtypeServer) AnalogReaderRead(
+// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
+func (s *subtypeServer) ReadAnalogReader(
 	ctx context.Context,
-	req *pb.BoardServiceAnalogReaderReadRequest,
-) (*pb.BoardServiceAnalogReaderReadResponse, error) {
+	req *pb.BoardServiceReadAnalogReaderRequest,
+) (*pb.BoardServiceReadAnalogReaderResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -116,45 +116,14 @@ func (s *subtypeServer) AnalogReaderRead(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceAnalogReaderReadResponse{Value: int32(val)}, nil
+	return &pb.BoardServiceReadAnalogReaderResponse{Value: int32(val)}, nil
 }
 
-// DigitalInterruptConfig returns the config the interrupt was created with.
-func (s *subtypeServer) DigitalInterruptConfig(
+// GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
+func (s *subtypeServer) GetDigitalInterruptValue(
 	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptConfigRequest,
-) (*pb.BoardServiceDigitalInterruptConfigResponse, error) {
-	b, err := s.getBoard(req.BoardName)
-	if err != nil {
-		return nil, err
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	config, err := interrupt.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BoardServiceDigitalInterruptConfigResponse{Config: digitalInterruptConfigToProto(&config)}, nil
-}
-
-func digitalInterruptConfigToProto(config *DigitalInterruptConfig) *pb.DigitalInterruptConfig {
-	return &pb.DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
-// DigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
-func (s *subtypeServer) DigitalInterruptValue(
-	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptValueRequest,
-) (*pb.BoardServiceDigitalInterruptValueResponse, error) {
+	req *pb.BoardServiceGetDigitalInterruptValueRequest,
+) (*pb.BoardServiceGetDigitalInterruptValueResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -169,23 +138,5 @@ func (s *subtypeServer) DigitalInterruptValue(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceDigitalInterruptValueResponse{Value: val}, nil
-}
-
-// DigitalInterruptTick is to be called either manually if the interrupt is a proxy to some real hardware interrupt or for tests.
-func (s *subtypeServer) DigitalInterruptTick(
-	ctx context.Context,
-	req *pb.BoardServiceDigitalInterruptTickRequest,
-) (*pb.BoardServiceDigitalInterruptTickResponse, error) {
-	b, err := s.getBoard(req.BoardName)
-	if err != nil {
-		return nil, err
-	}
-
-	interrupt, ok := b.DigitalInterruptByName(req.DigitalInterruptName)
-	if !ok {
-		return nil, errors.Errorf("unknown digital interrupt: %s", req.DigitalInterruptName)
-	}
-
-	return &pb.BoardServiceDigitalInterruptTickResponse{}, interrupt.Tick(ctx, req.High, req.Nanos)
+	return &pb.BoardServiceGetDigitalInterruptValueResponse{Value: val}, nil
 }

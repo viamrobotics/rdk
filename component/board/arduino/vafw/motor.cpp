@@ -79,7 +79,7 @@ void Motor::go(bool forward, int power) {
 }
 
 void Motor::goFor(long ticksPerSecond, long ticks) {
-    auto currentPosition = _encoder.position();
+    auto currentPosition = _encoder->position();
     _lastRPMCheck = millis();
     _lastRPMEncoderCount = currentPosition;
 
@@ -93,13 +93,12 @@ void Motor::goTo(long ticksPerSecond, long ticks) {
     _regulated = true;
 }
 
-
 void Motor::checkEncoder(long unsigned int now) {
     if (!_regulated) {
         return;
     }
 
-    auto currentPosition = _encoder.position();
+    auto currentPosition = _encoder->position();
 
     if ((_moving > 0 && currentPosition >= _goal) ||
         (_moving < 0 && currentPosition <= _goal)) {

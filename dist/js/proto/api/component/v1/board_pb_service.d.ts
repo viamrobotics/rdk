@@ -13,89 +13,69 @@ type BoardServiceStatus = {
   readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceStatusResponse;
 };
 
-type BoardServiceGPIOSet = {
+type BoardServiceSetGPIO = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetGPIORequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse;
 };
 
-type BoardServiceGPIOGet = {
+type BoardServiceGetGPIO = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGetGPIORequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse;
 };
 
-type BoardServicePWMSet = {
+type BoardServiceSetPWM = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMResponse;
 };
 
-type BoardServicePWMSetFrequency = {
+type BoardServiceSetPWMFrequency = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse;
 };
 
-type BoardServiceAnalogReaderRead = {
+type BoardServiceReadAnalogReader = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse;
 };
 
-type BoardServiceDigitalInterruptConfig = {
+type BoardServiceGetDigitalInterruptValue = {
   readonly methodName: string;
   readonly service: typeof BoardService;
   readonly requestStream: false;
   readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse;
-};
-
-type BoardServiceDigitalInterruptValue = {
-  readonly methodName: string;
-  readonly service: typeof BoardService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse;
-};
-
-type BoardServiceDigitalInterruptTick = {
-  readonly methodName: string;
-  readonly service: typeof BoardService;
-  readonly requestStream: false;
-  readonly responseStream: false;
-  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest;
-  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse;
+  readonly requestType: typeof proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest;
+  readonly responseType: typeof proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse;
 };
 
 export class BoardService {
   static readonly serviceName: string;
   static readonly Status: BoardServiceStatus;
-  static readonly GPIOSet: BoardServiceGPIOSet;
-  static readonly GPIOGet: BoardServiceGPIOGet;
-  static readonly PWMSet: BoardServicePWMSet;
-  static readonly PWMSetFrequency: BoardServicePWMSetFrequency;
-  static readonly AnalogReaderRead: BoardServiceAnalogReaderRead;
-  static readonly DigitalInterruptConfig: BoardServiceDigitalInterruptConfig;
-  static readonly DigitalInterruptValue: BoardServiceDigitalInterruptValue;
-  static readonly DigitalInterruptTick: BoardServiceDigitalInterruptTick;
+  static readonly SetGPIO: BoardServiceSetGPIO;
+  static readonly GetGPIO: BoardServiceGetGPIO;
+  static readonly SetPWM: BoardServiceSetPWM;
+  static readonly SetPWMFrequency: BoardServiceSetPWMFrequency;
+  static readonly ReadAnalogReader: BoardServiceReadAnalogReader;
+  static readonly GetDigitalInterruptValue: BoardServiceGetDigitalInterruptValue;
 }
 
 export type ServiceError = { message: string, code: number; metadata: grpc.Metadata }
@@ -139,77 +119,59 @@ export class BoardServiceClient {
     requestMessage: proto_api_component_v1_board_pb.BoardServiceStatusRequest,
     callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceStatusResponse|null) => void
   ): UnaryResponse;
-  gPIOSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
+  setGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIORequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse|null) => void
   ): UnaryResponse;
-  gPIOSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOSetResponse|null) => void
+  setGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIORequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetGPIOResponse|null) => void
   ): UnaryResponse;
-  gPIOGet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest,
+  getGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse|null) => void
   ): UnaryResponse;
-  gPIOGet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGPIOGetResponse|null) => void
+  getGPIO(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIORequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetGPIOResponse|null) => void
   ): UnaryResponse;
-  pWMSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,
+  setPWM(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMResponse|null) => void
   ): UnaryResponse;
-  pWMSet(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetResponse|null) => void
+  setPWM(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMResponse|null) => void
   ): UnaryResponse;
-  pWMSetFrequency(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest,
+  setPWMFrequency(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse|null) => void
   ): UnaryResponse;
-  pWMSetFrequency(
-    requestMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServicePWMSetFrequencyResponse|null) => void
+  setPWMFrequency(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceSetPWMFrequencyResponse|null) => void
   ): UnaryResponse;
-  analogReaderRead(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,
+  readAnalogReader(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse|null) => void
   ): UnaryResponse;
-  analogReaderRead(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceAnalogReaderReadResponse|null) => void
+  readAnalogReader(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceReadAnalogReaderResponse|null) => void
   ): UnaryResponse;
-  digitalInterruptConfig(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
+  getDigitalInterruptValue(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
     metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse|null) => void
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse|null) => void
   ): UnaryResponse;
-  digitalInterruptConfig(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptConfigResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptValue(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptValue(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptValueResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptTick(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest,
-    metadata: grpc.Metadata,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse|null) => void
-  ): UnaryResponse;
-  digitalInterruptTick(
-    requestMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickRequest,
-    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceDigitalInterruptTickResponse|null) => void
+  getDigitalInterruptValue(
+    requestMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueRequest,
+    callback: (error: ServiceError|null, responseMessage: proto_api_component_v1_board_pb.BoardServiceGetDigitalInterruptValueResponse|null) => void
   ): UnaryResponse;
 }
 
