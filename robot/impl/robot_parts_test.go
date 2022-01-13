@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/services/objectmanipulation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -141,9 +141,8 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	sensor1, ok := parts.SensorByName("sensor1")
+	_, ok = parts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.ServoByName("servo1")
@@ -333,25 +332,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	sensor1, ok := parts.SensorByName("sensor1")
+	_, ok = parts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	sensor1, ok = parts.SensorByName("sensor1_r1")
+	_, ok = parts.SensorByName("sensor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r1",
-	)
-	sensor1, ok = parts.SensorByName("sensor1_r2")
+	_, ok = parts.SensorByName("sensor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r2",
-	)
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -714,25 +700,12 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	sensor1, ok := newParts.SensorByName("sensor1")
+	_, ok = newParts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	sensor1, ok = newParts.SensorByName("sensor1_r1")
+	_, ok = newParts.SensorByName("sensor1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r1",
-	)
-	sensor1, ok = newParts.SensorByName("sensor1_r2")
+	_, ok = newParts.SensorByName("sensor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r2",
-	)
 	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -851,20 +824,20 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
 
 	injectCompass := &inject.Compass{}
-	parts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
-	sensor1, ok = parts.SensorByName("sensor1")
+	cfg = &config.Component{Type: config.ComponentTypeCompass, Name: "compass1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectCompass)
+	compass1, ok := parts.ResourceByName(compass.Named("compass1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
-	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
-	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
+	test.That(t, compass1, test.ShouldEqual, injectCompass)
 
 	injectRelativeCompass := &inject.RelativeCompass{}
-	parts.AddSensor(injectRelativeCompass, config.Component{Name: "sensor1"})
-	sensor1, ok = parts.SensorByName("sensor1")
+	cfg = &config.Component{Type: config.ComponentTypeCompass, Name: "compass1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectRelativeCompass)
+	compass1, ok = parts.ResourceByName(compass.Named("compass1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
-	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
-	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
+	test.That(t, compass1, test.ShouldEqual, injectRelativeCompass)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(

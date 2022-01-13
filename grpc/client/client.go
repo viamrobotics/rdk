@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -34,7 +35,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -297,14 +297,7 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 	sensorType := rc.sensorTypes[name]
 	sc := &sensorClient{rc, name, sensorType}
-	switch sensorType {
-	case compass.Type:
-		return &compassClient{sc}, true
-	case compass.RelativeType:
-		return &relativeCompassClient{&compassClient{sc}}, true
-	default:
-		return sc, true
-	}
+	return sc, true
 }
 
 // ServoByName returns a servo by name. It is assumed to exist on the
@@ -357,6 +350,10 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
 	case base.Subtype:
 		return &baseClient{rc, name.Name}, true
+	case compass.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		sc := &sensorClient{rc, name.Name, sensorType}
+		return &compassClient{sc}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -763,22 +760,5 @@ func (cc *compassClient) StopCalibration(ctx context.Context) error {
 }
 
 func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
-}
-
-// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
-// for descriptions of its methods.
-type relativeCompassClient struct {
-	*compassClient
-}
-
-func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
-	_, err := rcc.rc.client.CompassMark(ctx, &pb.CompassMarkRequest{
-		Name: rcc.name,
-	})
-	return err
-}
-
-func (rcc *relativeCompassClient) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeType, ""}
+	return sensor.Description{sensor.Type(compass.SubtypeName), ""}
 }

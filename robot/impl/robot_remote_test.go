@@ -19,6 +19,8 @@ import (
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
 	fakecamera "go.viam.com/rdk/component/camera/fake"
+	"go.viam.com/rdk/component/compass"
+	fakecompass "go.viam.com/rdk/component/compass/fake"
 	"go.viam.com/rdk/component/gripper"
 	fakegripper "go.viam.com/rdk/component/gripper/fake"
 	"go.viam.com/rdk/component/input"
@@ -32,7 +34,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/sensor"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -178,10 +179,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.SensorNames()...)[name]; !ok {
-			return nil, false
-		}
-		return &fake.Compass{Name: name}, true
+		return nil, false
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ServoNames()...)[name]; !ok {
@@ -222,6 +220,8 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakemotor.Motor{Name: name.Name}, true
 				case input.Subtype:
 					return &fakeinput.InputController{Name: name.Name}, true
+				case compass.Subtype:
+					return &fakecompass.Compass{Name: name.Name}, true
 				}
 				if rName.ResourceType == resource.ResourceTypeService {
 					return struct{}{}, true
@@ -646,13 +646,11 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	sensor1, ok := robot.SensorByName("sensor1")
+	_, ok = robot.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	robot.conf.Prefix = true
-	sensor1, ok = robot.SensorByName("one.sensor1")
+	_, ok = robot.SensorByName("one.sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
 	_, ok = robot.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

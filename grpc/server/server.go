@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
@@ -23,7 +24,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -327,7 +327,7 @@ func (s *Server) CompassMark(
 	if err != nil {
 		return nil, err
 	}
-	rel, ok := compassDevice.(compass.RelativeCompass)
+	rel, ok := compassDevice.(compass.Markable)
 	if !ok {
 		return nil, errors.New("compass is not relative")
 	}

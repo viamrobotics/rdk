@@ -25,6 +25,7 @@ import (
 	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
@@ -44,7 +45,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -80,10 +80,7 @@ var emptyStatus = &pb.Status{
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass1": {
-			Type: compass.Type,
-		},
-		"compass2": {
-			Type: compass.RelativeType,
+			Type: string(compass.SubtypeName),
 		},
 	},
 	Motors: map[string]*pb.MotorStatus{
@@ -162,13 +159,10 @@ var finalStatus = &pb.Status{
 	},
 	Sensors: map[string]*pb.SensorStatus{
 		"compass2": {
-			Type: compass.Type,
+			Type: string(compass.SubtypeName),
 		},
 		"compass3": {
-			Type: compass.Type,
-		},
-		"compass4": {
-			Type: compass.RelativeType,
+			Type: string(compass.SubtypeName),
 		},
 	},
 	Servos: map[string]*pb.ServoStatus{
@@ -755,11 +749,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
-	sensorDev, ok := client.SensorByName("compass1")
+	sensorDev, ok := client.ResourceByName(compass.Named("compass1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldNotImplement, (*compass.RelativeCompass)(nil))
-	readings, err := sensorDev.Readings(context.Background())
+	test.That(t, sensorDev, test.ShouldNotImplement, (*compass.Markable)(nil))
+	readings, err := sensorDev.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
 	compassDev := sensorDev.(compass.Compass)
@@ -771,25 +765,6 @@ func TestClient(t *testing.T) {
 	err = compassDev.StopCalibration(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capSensorName, test.ShouldEqual, "compass1")
-
-	sensorDev, ok = client.SensorByName("compass2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.RelativeCompass)(nil))
-	readings, err = sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	compassRelDev := sensorDev.(compass.RelativeCompass)
-	heading, err = compassRelDev.Heading(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, heading, test.ShouldEqual, 4.5)
-	err = compassRelDev.StartCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.StopCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.Mark(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
