@@ -774,6 +774,16 @@
                         }
                       });
                   },
+                  displayRadiansInDegrees :function(r) {
+                      var d = r * 180;
+                      while (d < 0) {
+                          d += 360;
+                      }
+                      while (d > 360) {
+                          d -= 360;
+                      }
+                      return d.toFixed(1);
+                  },
               },
               directives: {
                 // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
@@ -1414,10 +1424,10 @@
           <hr>
           <h2>IMU: ${imu[1].name}</h2>
           <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-            <tr><th colspan="2">Orientation (radians)</th></tr>
-            <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.roll.toFixed(2)}</td></tr>
-            <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitch.toFixed(2)}</td></tr>
-            <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yaw.toFixed(2)}</td></tr>
+            <tr><th colspan="2">Orientation (degrees)</th></tr>
+            <tr><th>Roll</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.roll)}</td></tr>
+            <tr><th>Pitch</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.pitch)}</td></tr>
+            <tr><th>Yaw</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.yaw)}</td></tr>
             <tr><th colspan="2">Angular Velocity</th></tr>
             <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.x.toFixed(2)}</td></tr>
             <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.y.toFixed(2)}</td></tr>
