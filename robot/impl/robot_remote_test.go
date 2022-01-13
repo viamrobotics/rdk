@@ -96,7 +96,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return rdktestutils.ExtractNames(baseNames...)
 	}
 	injectRobot.SensorNamesFunc = func() []string {
-		return []string{fmt.Sprintf("sensor1%s", suffix), fmt.Sprintf("sensor2%s", suffix)}
+		return []string{}
 	}
 	injectRobot.ServoNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(servoNames...)
@@ -330,13 +330,13 @@ func TestRemoteRobot(t *testing.T) {
 	)
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet("sensor1", "sensor2"))
+	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet())
 	robot.conf.Prefix = true
 	test.That(
 		t,
 		utils.NewStringSet(robot.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("one.sensor1", "one.sensor2"),
+		utils.NewStringSet(),
 	)
 
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
@@ -540,10 +540,7 @@ func TestRemoteRobot(t *testing.T) {
 			"camera1": true,
 			"camera2": true,
 		},
-		Sensors: map[string]*pb.SensorStatus{
-			"sensor1": {},
-			"sensor2": {},
-		},
+		Sensors: nil,
 		Servos: map[string]*pb.ServoStatus{
 			"servo1": {},
 			"servo2": {},
@@ -584,10 +581,7 @@ func TestRemoteRobot(t *testing.T) {
 			"one.camera1": true,
 			"one.camera2": true,
 		},
-		Sensors: map[string]*pb.SensorStatus{
-			"one.sensor1": {},
-			"one.sensor2": {},
-		},
+		Sensors: nil,
 		Servos: map[string]*pb.ServoStatus{
 			"one.servo1": {},
 			"one.servo2": {},
@@ -647,10 +641,10 @@ func TestRemoteRobot(t *testing.T) {
 
 	robot.conf.Prefix = false
 	_, ok = robot.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ok, test.ShouldBeFalse)
 	robot.conf.Prefix = true
 	_, ok = robot.SensorByName("one.sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = robot.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 

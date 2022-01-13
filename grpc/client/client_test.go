@@ -78,11 +78,7 @@ var emptyStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera1": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass1": {
-			Type: string(compass.SubtypeName),
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Motors: map[string]*pb.MotorStatus{
 		"motor1": {},
 		"motor2": {},
@@ -157,14 +153,7 @@ var finalStatus = &pb.Status{
 		"camera2": true,
 		"camera3": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass2": {
-			Type: string(compass.SubtypeName),
-		},
-		"compass3": {
-			Type: string(compass.SubtypeName),
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Servos: map[string]*pb.ServoStatus{
 		"servo2": {},
 		"servo3": {},
@@ -868,7 +857,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -942,7 +931,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass1", "compass2"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -998,7 +987,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
