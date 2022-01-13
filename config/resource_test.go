@@ -110,9 +110,8 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with subtype",
 			config.Component{
-				Type:    "sensor",
-				SubType: "compass",
-				Name:    "foo",
+				Type: "compass",
+				Name: "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
@@ -130,9 +129,8 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor missing name",
 			config.Component{
-				Type:    "sensor",
-				SubType: "compass",
-				Name:    "",
+				Type: "compass",
+				Name: "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},

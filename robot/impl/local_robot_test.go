@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -187,26 +188,7 @@ func TestConfigRemote(t *testing.T) {
 			"foo.cameraOver": true,
 			"bar.cameraOver": true,
 		},
-		Sensors: map[string]*pb.SensorStatus{
-			"compass1": {
-				Type: "compass",
-			},
-			"foo.compass1": {
-				Type: "compass",
-			},
-			"bar.compass1": {
-				Type: "compass",
-			},
-			"compass2": {
-				Type: "relative_compass",
-			},
-			"foo.compass2": {
-				Type: "relative_compass",
-			},
-			"bar.compass2": {
-				Type: "relative_compass",
-			},
-		},
+		Sensors: nil,
 		Functions: map[string]bool{
 			"func1":     true,
 			"foo.func1": true,
@@ -374,14 +356,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Cameras: map[string]bool{
 					"cameraOver": true,
 				},
-				Sensors: map[string]*pb.SensorStatus{
-					"compass1": {
-						Type: "compass",
-					},
-					"compass2": {
-						Type: "relative_compass",
-					},
-				},
+				Sensors: nil,
 				Functions: map[string]bool{
 					"func1": true,
 					"func2": true,
@@ -557,24 +532,24 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "pieceGripper",
 		}: {},
 		{
-			UUID: "8e3685f9-5a0a-51c2-80ae-78b00c2c11f5",
+			UUID: "286ec871-7aa7-5eba-98c0-6c3da28cdccb",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
-				ResourceSubtype: resource.ResourceSubtypeSensor,
+				ResourceSubtype: compass.SubtypeName,
 			},
 			Name: "compass1",
 		}: {},
 		{
-			UUID: "04e93e08-ddf9-540c-8837-c5514d11710c",
+			UUID: "4310ade7-fc0e-534d-b4ae-e38c934b6ea9",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
-				ResourceSubtype: resource.ResourceSubtypeSensor,
+				ResourceSubtype: compass.SubtypeName,
 			},
 			Name: "compass2",
 		}: {},

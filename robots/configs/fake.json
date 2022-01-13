@@ -24,8 +24,7 @@
         {
             "model": "fake",
             "name": "compass1",
-            "type": "sensor",
-            "subtype": "compass"
+            "type": "compass"
         },
         {
             "model": "fake",

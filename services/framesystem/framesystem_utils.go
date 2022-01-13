@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/config"
@@ -249,7 +250,16 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 			return framer.ModelFrame(), nil
 		}
 		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-	case config.ComponentTypeInputController, config.ComponentTypeCompass:
+	case config.ComponentTypeCompass:
+		part, ok := r.ResourceByName(compass.Named(name))
+		if !ok {
+			return nil, errors.Errorf("no compass found with name %q when extracting model frame json", name)
+		}
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+			return framer.ModelFrame(), nil
+		}
+		return nil, referenceframe.ErrNoModelInformation
+	case config.ComponentTypeInputController:
 		fallthrough
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
