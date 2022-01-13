@@ -30,10 +30,7 @@ const (
 	ResourceTypeFunction  = TypeName("function")
 
 	ResourceSubtypeBase     = SubtypeName("base")
-	ResourceSubtypeBoard    = SubtypeName("board")
-	ResourceSubtypeCompass  = SubtypeName("compass")
 	ResourceSubtypeFunction = SubtypeName("function")
-	ResourceSubtypeLidar    = SubtypeName("lidar")
 	ResourceSubtypeRemote   = SubtypeName("remote")
 	ResourceSubtypeSensor   = SubtypeName("sensor")
 )
