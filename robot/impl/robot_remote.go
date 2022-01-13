@@ -12,8 +12,8 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
@@ -402,13 +402,6 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	parts := newRobotParts(robot.Logger().Named("parts"))
-	for _, name := range robot.BaseNames() {
-		part, ok := robot.BaseByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddBase(part, config.Component{Name: name})
-	}
 	for _, name := range robot.SensorNames() {
 		part, ok := robot.SensorByName(name)
 		if !ok {
@@ -432,17 +425,10 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
-	var oldBaseNames map[string]struct{}
 	var oldSensorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
 
-	if len(parts.bases) != 0 {
-		oldBaseNames = make(map[string]struct{}, len(parts.bases))
-		for name := range parts.bases {
-			oldBaseNames[name] = struct{}{}
-		}
-	}
 	if len(parts.sensors) != 0 {
 		oldSensorNames = make(map[string]struct{}, len(parts.sensors))
 		for name := range parts.sensors {
@@ -463,15 +449,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 	}
 
-	for name, newPart := range newParts.bases {
-		oldPart, ok := parts.bases[name]
-		delete(oldBaseNames, name)
-		if ok {
-			oldPart.replace(ctx, newPart)
-			continue
-		}
-		parts.bases[name] = newPart
-	}
 	for name, newPart := range newParts.sensors {
 		oldPart, ok := parts.sensors[name]
 		delete(oldSensorNames, name)
@@ -530,9 +507,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		parts.resources[name] = newR
 	}
 
-	for name := range oldBaseNames {
-		delete(parts.bases, name)
-	}
 	for name := range oldSensorNames {
 		delete(parts.sensors, name)
 	}

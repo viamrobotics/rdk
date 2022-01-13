@@ -8,7 +8,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -22,22 +21,11 @@ func TestRegistry(t *testing.T) {
 		return nil, nil
 	}
 
-	bf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
-		return nil, nil
-	}
-
 	// test panics
-	test.That(t, func() { RegisterBase("x", Base{}) }, test.ShouldPanic)
 	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
 
 	// test register
-	RegisterBase("x", Base{Constructor: bf})
 	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf})
-
-	// test look up
-	test.That(t, BaseLookup("x"), test.ShouldNotBeNil)
-	test.That(t, BaseLookup("z"), test.ShouldBeNil)
-	test.That(t, BaseLookup("x").Constructor, test.ShouldNotBeNil)
 
 	test.That(t, SensorLookup(sensor.Type("x"), "y"), test.ShouldNotBeNil)
 	test.That(t, SensorLookup(sensor.Type("x"), "z"), test.ShouldBeNil)

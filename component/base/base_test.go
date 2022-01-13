@@ -7,13 +7,20 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/testutils/inject"
 )
 
+func TestBaseNamed(t *testing.T) {
+	baseName := base.Named("test_base")
+	test.That(t, baseName.String(), test.ShouldResemble, "rdk:component:base/test_base")
+	test.That(t, baseName.Subtype, test.ShouldResemble, base.Subtype)
+	test.That(t, baseName.UUID, test.ShouldResemble, "026551c7-e5d4-55bd-ba08-61bcdc643bce")
+}
+
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthMillisFunc = func(ctx context.Context) (int, error) {
+	dev.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	err := base.DoMove(context.Background(), base.Move{}, dev)

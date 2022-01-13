@@ -9,9 +9,10 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/base"
+	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -86,7 +87,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fake.Base{Name: name}, true
+		return &fakebase.Base{Name: name}, true
 	}
 	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
 		return &fakegripper.Gripper{Name: name}, true

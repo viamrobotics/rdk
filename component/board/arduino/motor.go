@@ -106,18 +106,18 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 	if motorConfig.Pins["pwm"] != "-1" && motorConfig.PWMFreq > 0 {
 		// When the motor controller has a PWM pin exposed (either (A && B && PWM) || (DIR && PWM))
 		// We control the motor speed with the PWM pin
-		err = b.PWMSetFreq(ctx, motorConfig.Pins["pwm"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins["pwm"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
 	} else if (motorConfig.Pins["a"] != "-1" && motorConfig.Pins["b"] != "-1") && motorConfig.PWMFreq > 0 {
 		// When the motor controller only exposes A & B pin
 		// We control the motor speed with both pins
-		err = b.PWMSetFreq(ctx, motorConfig.Pins["a"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins["a"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
-		err = b.PWMSetFreq(ctx, motorConfig.Pins["b"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins["b"], motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}

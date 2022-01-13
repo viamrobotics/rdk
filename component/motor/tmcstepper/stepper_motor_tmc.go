@@ -382,7 +382,7 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip.
 func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
-	return m.board.GPIOSet(ctx, m.enPin, !turnOn)
+	return m.board.SetGPIO(ctx, m.enPin, !turnOn)
 }
 
 // Stop stops the motor.
