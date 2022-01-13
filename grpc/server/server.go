@@ -265,9 +265,9 @@ func (s *Server) SensorReadings(
 }
 
 func (s *Server) compassByName(name string) (compass.Compass, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
+	sensorDevice, ok := s.r.ResourceByName(compass.Named(name))
 	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
+		return nil, errors.Errorf("no compass with name (%s)", name)
 	}
 	return sensorDevice.(compass.Compass), nil
 }
