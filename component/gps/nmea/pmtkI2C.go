@@ -46,7 +46,7 @@ type pmtkI2CNMEAGPS struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.GPS, error) {
+func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	b, ok := r.BoardByName(config.Attributes.String("board"))
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
