@@ -105,9 +105,14 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		return err
 	}
 	req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
+	req = req.WithContext(g.cancelCtx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		err = utils.FilterOutError(err, context.Canceled)
+		if err == nil {
+			g.logger.Debug("error send ntrip request: context cancelled")
+		}
 		return err
 	} else if resp.StatusCode != http.StatusOK {
 		return errors.New("received non-200 response code: " + strconv.Itoa(resp.StatusCode))
