@@ -28,19 +28,6 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
-	// and a given speed, expressed in millimeters per second
-	BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
-	BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
-	// angular speed, expressed in degrees per second
-	BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error)
-	// BaseStop stops a robot's base
-	BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
-	BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
@@ -121,51 +108,6 @@ func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
 	out := new(DoActionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/DoAction", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BaseMoveStraight(ctx context.Context, in *BaseMoveStraightRequest, opts ...grpc.CallOption) (*BaseMoveStraightResponse, error) {
-	out := new(BaseMoveStraightResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveStraight", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BaseMoveArc(ctx context.Context, in *BaseMoveArcRequest, opts ...grpc.CallOption) (*BaseMoveArcResponse, error) {
-	out := new(BaseMoveArcResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseMoveArc", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BaseSpin(ctx context.Context, in *BaseSpinRequest, opts ...grpc.CallOption) (*BaseSpinResponse, error) {
-	out := new(BaseSpinResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseSpin", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BaseStop(ctx context.Context, in *BaseStopRequest, opts ...grpc.CallOption) (*BaseStopResponse, error) {
-	out := new(BaseStopResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseStop", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) BaseWidthMillis(ctx context.Context, in *BaseWidthMillisRequest, opts ...grpc.CallOption) (*BaseWidthMillisResponse, error) {
-	out := new(BaseWidthMillisResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/BaseWidthMillis", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -294,19 +236,6 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
-	// and a given speed, expressed in millimeters per second
-	BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error)
-	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
-	BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error)
-	// BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given
-	// angular speed, expressed in degrees per second
-	BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error)
-	// BaseStop stops a robot's base
-	BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error)
-	// BaseWidthMillis returns the width of a robot's base expressed in millimeters
-	BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error)
 	// SensorReadings returns the readings of a sensor of the underlying robot.
 	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
@@ -342,21 +271,6 @@ func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
-}
-func (UnimplementedRobotServiceServer) BaseMoveStraight(context.Context, *BaseMoveStraightRequest) (*BaseMoveStraightResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveStraight not implemented")
-}
-func (UnimplementedRobotServiceServer) BaseMoveArc(context.Context, *BaseMoveArcRequest) (*BaseMoveArcResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BaseMoveArc not implemented")
-}
-func (UnimplementedRobotServiceServer) BaseSpin(context.Context, *BaseSpinRequest) (*BaseSpinResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BaseSpin not implemented")
-}
-func (UnimplementedRobotServiceServer) BaseStop(context.Context, *BaseStopRequest) (*BaseStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BaseStop not implemented")
-}
-func (UnimplementedRobotServiceServer) BaseWidthMillis(context.Context, *BaseWidthMillisRequest) (*BaseWidthMillisResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method BaseWidthMillis not implemented")
 }
 func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
@@ -478,96 +392,6 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BaseMoveStraight_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseMoveStraightRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BaseMoveStraight(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BaseMoveStraight",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BaseMoveStraight(ctx, req.(*BaseMoveStraightRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BaseMoveArc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseMoveArcRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BaseMoveArc(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BaseMoveArc",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BaseMoveArc(ctx, req.(*BaseMoveArcRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BaseSpin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseSpinRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BaseSpin(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BaseSpin",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BaseSpin(ctx, req.(*BaseSpinRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BaseStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BaseStop(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BaseStop",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BaseStop(ctx, req.(*BaseStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_BaseWidthMillis_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseWidthMillisRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).BaseWidthMillis(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/BaseWidthMillis",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).BaseWidthMillis(ctx, req.(*BaseWidthMillisRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -806,26 +630,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
-		},
-		{
-			MethodName: "BaseMoveStraight",
-			Handler:    _RobotService_BaseMoveStraight_Handler,
-		},
-		{
-			MethodName: "BaseMoveArc",
-			Handler:    _RobotService_BaseMoveArc_Handler,
-		},
-		{
-			MethodName: "BaseSpin",
-			Handler:    _RobotService_BaseSpin_Handler,
-		},
-		{
-			MethodName: "BaseStop",
-			Handler:    _RobotService_BaseStop_Handler,
-		},
-		{
-			MethodName: "BaseWidthMillis",
-			Handler:    _RobotService_BaseWidthMillis_Handler,
 		},
 		{
 			MethodName: "SensorReadings",

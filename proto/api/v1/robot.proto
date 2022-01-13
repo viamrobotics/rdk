@@ -43,46 +43,6 @@ service RobotService {
     };  
   }
 
-  // Base
-
-  // BaseMoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters
-  // and a given speed, expressed in millimeters per second 
-  rpc BaseMoveStraight(BaseMoveStraightRequest) returns (BaseMoveStraightResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/base/{name}/move_straight"
-    };  
-  }
-
-// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
-  rpc BaseMoveArc(BaseMoveArcRequest) returns (BaseMoveArcResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/base/{name}/move_arc"
-    };  
-  }
-
-  // BaseSpin spins a robot's base by an given angle, expressed in degrees, and a given 
-  // angular speed, expressed in degrees per second
-  rpc BaseSpin(BaseSpinRequest) returns (BaseSpinResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/base/{name}/spin"
-    };  
-  }
-
-  // BaseStop stops a robot's base 
-  rpc BaseStop(BaseStopRequest) returns (BaseStopResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/base/{name}/stop"
-    };  
-  }
-
-  // BaseWidthMillis returns the width of a robot's base expressed in millimeters
-  rpc BaseWidthMillis(BaseWidthMillisRequest) returns (BaseWidthMillisResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/base/{name}/width_millis"
-    };  
-  }
-
   // SensorReadings returns the readings of a sensor of the underlying robot.
   rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
     option (google.api.http) = {
@@ -264,75 +224,6 @@ message FrameServiceConfigRequest {}
 
 message FrameServiceConfigResponse {
   repeated FrameSystemConfig frame_system_configs = 1;
-}
-
-// Base
-
-message BaseMoveStraightRequest {
-  // Name of a base
-  string name = 1;
-  // Desired travel distance in millimeters
-  int64 distance_millis = 2;
-  // Desired travel velocity in millimeters/second
-  double millis_per_sec = 3;
-}
-
-message BaseMoveStraightResponse {
-  // Returns true if robot completed the requested method
-  bool success = 1;
-  // If success = false, this provides a description of the error 
-  string error = 2;
-}
-
-message BaseMoveArcRequest {
-  // Name of a base
-  string name = 1;
-  // Desired travel distance in millimeters
-  int64 distance_millis = 2;
-  // Desired speed in millimeters per second 
-  double millis_per_sec = 3;
-  // Desired angle in degrees
-  double angle_deg = 4;
-}
-
-message BaseMoveArcResponse {
-  // Returns true if robot completed the requested method
-  bool success = 1;
-  // If success = false, this provides a description of the error 
-  string error = 2;
-}
-
-message BaseSpinRequest {
-  // Name of a base
-  string name = 1;
-  // Desired angle
-  double angle_deg = 2;
-  // Desired angular velocity
-  double degs_per_sec = 3;
-}
-
-message BaseSpinResponse {
-  // Returns true if robot completed the requested method
-  bool success = 1;
-  // If success = false, this provides a description of the error 
-  string error = 2;
-}
-
-message BaseStopRequest {
-  // Name of a base
-  string name = 1;
-}
-
-message BaseStopResponse {}
-
-message BaseWidthMillisRequest {
-  // Name of a base
-  string name = 1;
-}
-
-message BaseWidthMillisResponse {
-  // Width of the base represented in millimeters 
-  int64 width_millis = 1;
 }
 
 message Vector3 {
