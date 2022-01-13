@@ -1,3 +1,4 @@
+// Package fake implements a fake base.
 package fake
 
 import (
@@ -5,23 +6,27 @@ import (
 
 	"github.com/edaniels/golog"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
 
 func init() {
-	registry.RegisterBase(
-		ModelName,
-		registry.Base{Constructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			c config.Component,
-			logger golog.Logger,
-		) (base.Base, error) {
-			return &Base{Name: c.Name}, nil
-		}})
+	registry.RegisterComponent(
+		base.Subtype,
+		"fake",
+		registry.Component{
+			Constructor: func(
+				ctx context.Context,
+				r robot.Robot,
+				config config.Component,
+				logger golog.Logger,
+			) (interface{}, error) {
+				return &Base{Name: config.Name}, nil
+			},
+		},
+	)
 }
 
 // Base is a fake base that returns what it was provided in each method.
@@ -45,8 +50,8 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-// WidthMillis returns some arbitrary width.
-func (b *Base) WidthMillis(ctx context.Context) (int, error) {
+// WidthGet returns some arbitrary width.
+func (b *Base) WidthGet(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
