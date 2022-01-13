@@ -21,6 +21,8 @@ import (
 	"go.viam.com/utils"
 )
 
+var version = ""
+
 // An AttributeConverter converts a single attribute into a possibly
 // different representation.
 type AttributeConverter func(val interface{}) (interface{}, error)
@@ -158,6 +160,7 @@ const (
 	cloudConfigUserInfoHostField     = "host"
 	cloudConfigUserInfoOSField       = "os"
 	cloudConfigUserInfoLocalIPsField = "ips"
+	cloudConfigVersionField 		 = "version"
 )
 
 // CreateCloudRequest makes a request to fetch the robot config
@@ -184,6 +187,8 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 		return nil, err
 	}
 	userInfo[cloudConfigUserInfoLocalIPsField] = ips
+	userInfo[cloudConfigVersionField] = version
+	fmt.Println(version)
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
