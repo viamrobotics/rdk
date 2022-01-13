@@ -51,7 +51,7 @@
             }
     },
     {
-        "model": "simpleoneaxis",
+        "model": "oneAxis",
         "name": "armmover",
         "type": "gantry",
         "attributes": {
