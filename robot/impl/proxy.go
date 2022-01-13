@@ -7,71 +7,10 @@ import (
 
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/sensor/compass"
 )
-
-type proxyBase struct {
-	mu     sync.RWMutex
-	actual base.Base
-}
-
-func (p *proxyBase) ProxyFor() interface{} {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual
-}
-
-func (p *proxyBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
-}
-
-func (p *proxyBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
-}
-
-func (p *proxyBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Spin(ctx, angleDeg, degsPerSec, block)
-}
-
-func (p *proxyBase) Stop(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.Stop(ctx)
-}
-
-func (p *proxyBase) WidthMillis(ctx context.Context) (int, error) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return p.actual.WidthMillis(ctx)
-}
-
-func (p *proxyBase) Close(ctx context.Context) error {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	return utils.TryClose(ctx, p.actual)
-}
-
-func (p *proxyBase) replace(ctx context.Context, newBase base.Base) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	actual, ok := newBase.(*proxyBase)
-	if !ok {
-		panic(fmt.Errorf("expected new base to be %T but got %T", actual, newBase))
-	}
-	if err := utils.TryClose(ctx, p.actual); err != nil {
-		rlog.Logger.Errorw("error closing old", "error", err)
-	}
-	p.actual = actual.actual
-}
 
 type proxySensor struct {
 	mu     sync.RWMutex
