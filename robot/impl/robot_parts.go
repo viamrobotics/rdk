@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -72,19 +71,8 @@ func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
 	switch pType := s.(type) {
 	case *proxySensor:
 		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
-	case *proxyCompass:
-		parts.sensors[c.Name] = newProxyCompass(pType.actual)
-	case *proxyRelativeCompass:
-		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
 	default:
-		switch s.Desc().Type {
-		case compass.Type:
-			parts.sensors[c.Name] = newProxyCompass(s.(compass.Compass))
-		case compass.RelativeType:
-			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
-		default:
-			parts.sensors[c.Name] = &proxySensor{actual: s}
-		}
+		parts.sensors[c.Name] = &proxySensor{actual: s}
 	}
 }
 
@@ -448,7 +436,7 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera, config.ComponentTypeCompass,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
 			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
 			config.ComponentTypeBase:
@@ -904,7 +892,7 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 				continue
 			}
 			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCompass, config.ComponentTypeCamera,
 			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
 			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
 			config.ComponentTypeBase:

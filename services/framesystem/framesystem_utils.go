@@ -249,7 +249,7 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 			return framer.ModelFrame(), nil
 		}
 		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-	case config.ComponentTypeInputController:
+	case config.ComponentTypeInputController, config.ComponentTypeCompass:
 		fallthrough
 	default:
 		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)

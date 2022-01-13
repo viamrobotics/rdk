@@ -30,6 +30,9 @@ import (
 	// register camera.
 	_ "go.viam.com/rdk/component/camera/register"
 
+	// register compass.
+	_ "go.viam.com/rdk/component/compass/register"
+
 	// register force matrix.
 	_ "go.viam.com/rdk/component/forcematrix/register"
 
@@ -71,13 +74,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-
-	// register fake.
-	_ "go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/sensor"
-
-	// register gy511.
-	_ "go.viam.com/rdk/sensor/compass/gy511"
 
 	// register base remote control.
 	_ "go.viam.com/rdk/services/baseremotecontrol"
