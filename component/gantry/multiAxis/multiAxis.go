@@ -1,4 +1,4 @@
-package multiaxisgantry
+package multiAxis
 
 import (
 	"context"
@@ -48,8 +48,8 @@ func (config *MultiAxisConfig) Validate(path string) error {
 	}
 
 	for idx := range config.LengthMillimeters {
-		if config.LengthMillimeters[idx] == 0 {
-			return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero length"))
+		if config.LengthMillimeters[idx] <= 0 {
+			return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
 		}
 	}
 
@@ -57,7 +57,7 @@ func (config *MultiAxisConfig) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, "multiaxis", registry.Component{
+	registry.RegisterComponent(gantry.Subtype, "multiAxis", registry.Component{
 		Constructor: func(ctx context.Context,
 			r robot.Robot,
 			config config.Component,
@@ -81,11 +81,7 @@ const (
 )
 
 // NewMultiAxis creates a new-multi axis gantry.
-func NewMultiAxis(ctx context.Context,
-	r robot.Robot,
-	config config.Component,
-	logger golog.Logger,
-) (gantry.Gantry, error) {
+func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &multiAxis{
 		logger: logger,
 		name:   config.Name,
@@ -151,7 +147,7 @@ func NewMultiAxis(ctx context.Context,
 }
 
 // Multiaxis is a gantry type that includes lists of motor names, a list of motor objects, a limit board with enable pins,
-// motor directionpins, limit positionpins and a descriptive name based on the type of limit used.
+// motor direction pins, limit position pins and a descriptive name based on the type of limit used.
 // It also includes motor initial speeds, and each axes' length as descriptors.
 // AxesList is not doing much now.
 type multiAxis struct {
@@ -173,6 +169,13 @@ type multiAxis struct {
 
 	logger golog.Logger
 }
+
+/*
+type multiAxis struct {
+	name string
+	axes []gantry.OneAXis
+}
+*/
 
 // Initialization function differs based on gantry type, one limit switch and length,
 // two limit switch pins and an encoder
@@ -372,7 +375,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 
 	switch g.limitType {
 	// Moving should be the same for single limit switch logic and two limit switch logic
-	case "oneLimSwitch", "twoLimSwitch":
+	case switchLimitTypeOnePin, switchLimitTypetwoPin:
 		for idx := range g.motorList {
 			theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
 
@@ -390,7 +393,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			if hit {
 				if targetPos < g.positionLimits[2*idx] {
 					dir := float64(1)
-					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
+					return g.motors[idx].GoTo(ctx, dir*g.rpm[idx], .2*theRange)
 				}
 				return g.motors[idx].Stop(ctx)
 			}
@@ -403,7 +406,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			if hit {
 				if targetPos > g.positionLimits[2*idx+1] {
 					dir := float64(-1)
-					return g.motors[idx].GoFor(ctx, dir*g.rpm[idx], 2)
+					return g.motors[idx].GoTo(ctx, dir*g.rpm[idx], .2*theRange)
 				}
 				return g.motors[idx].Stop(ctx)
 			}
@@ -414,7 +417,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			}
 		}
 
-	case "encoder":
+	case switchLimiTypeEncoder:
 		// TODO: implementation.
 		return errors.New("no encoders supported")
 	}

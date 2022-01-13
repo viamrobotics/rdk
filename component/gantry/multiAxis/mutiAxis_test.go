@@ -1,4 +1,4 @@
-package multiaxisgantry
+package multiAxis
 
 import (
 	"context"

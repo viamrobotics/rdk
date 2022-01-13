@@ -1,14 +1,15 @@
-// Package simple implements a one axis gantry.
-package simple
+// Package oneAxis implements a one-axis gantry.
+package oneAxis
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/utils"
+	"github.com/pkg/errors"
+	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
@@ -19,13 +20,93 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
+const (
+	modelname = "oneAxis"
+)
+
+// OneAxisConfig is used for converting config attributes.
+type OneAxisConfig struct {
+	LimitBoard      string   `json:"limitBoard"` // used to read limit switch pins and control motor with gpio pins
+	LimitSwitchPins string   `json:"limitPins"`
+	LimitHigh       string   `json:"limitHigh"`
+	MotorList       string   `json:"motor"`
+	Axes            []string `json:"axes"`
+	Length_mm       float64  `json:"length_mm"`
+	PulleyR_mm      string   `json:"pulleyRadius_mm"`
+	RPM             float64  `json:"rpm"`
+}
+
+var oneaxismodel []byte
+
+func (config *OneAxisConfig) Validate(path string) error {
+	if config.LimitBoard == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "limitBoard")
+	}
+
+	if len(config.MotorList) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("cannot find motors for gantry"))
+	}
+
+	if config.Length_mm <= 0 {
+		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
+	}
+
+	if config.LimitHigh == "" {
+		return utils.NewConfigValidationFieldRequiredError(path, "limitHigh")
+	}
+
+	if len(config.Axes) != 3 {
+		return utils.NewConfigValidationError(path, errors.New(""))
+	}
+
+	return nil
+}
+
 func init() {
-	registry.RegisterComponent(gantry.Subtype, "simpleoneaxis", registry.Component{
+	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			return NewOneAxis(ctx, r, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf OneAxisConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&OneAxisConfig{})
 }
+
+// oneAxisModel() returns the kinematics model of the oneAxisGantry with all the frame information.
+func OneAxisModel() (referenceframe.Model, error) {
+	return referenceframe.ParseJSON(oneaxismodel, "")
+}
+
+type oneAxis struct {
+	name string
+
+	limitBoard      board.Board
+	limitSwitchPins []string
+	limitHigh       bool
+	motor           motor.Motor
+	axes            []bool
+	length_mm       float64
+	pulleyR_mm      float64
+	rpm             float64
+
+	limitType      switchLimitType
+	positionLimits []float64
+
+	logger golog.Logger
+}
+
+type switchLimitType string
+
+const (
+	switchLimiTypeEncoder = switchLimitType("encoder")
+	switchLimitTypeOnePin = switchLimitType("onePinOneLength")
+	switchLimitTypetwoPin = switchLimitType("twoPin")
+)
 
 // NewOneAxis creates a new one axis gantry.
 func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
@@ -42,17 +123,26 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	g.limitSwitchPins = config.Attributes.StringSlice("limitPins")
-	if len(g.limitSwitchPins) != 2 {
-		return nil, errors.New("need 2 limitPins")
+	if len(g.limitSwitchPins) == 1 {
+		g.limitType = switchLimitTypeOnePin
+	} else if len(g.limitSwitchPins) == 2 {
+		g.limitType = switchLimitTypetwoPin
+	} else if len(g.limitSwitchPins) == 0 {
+		g.limitType = switchLimiTypeEncoder
+		// encoder not supported currently.
+	} else {
+		np := len(g.limitSwitchPins)
+		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
+
 	g.limitBoard, ok = r.BoardByName(config.Attributes.String("limitBoard"))
 	if !ok {
 		return nil, errors.New("cannot find board for gantry")
 	}
 	g.limitHigh = config.Attributes.Bool("limitHigh", true)
 
-	g.lengthMeters = config.Attributes.Float64("lengthMeters", 0.0)
-	if g.lengthMeters <= 0 {
+	g.length_mm = config.Attributes.Float64("length_mm", 0.0)
+	if g.length_mm <= 0 {
 		return nil, errors.New("gantry length has to be >= 0")
 	}
 
@@ -65,23 +155,32 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	return g, nil
 }
 
-type oneAxis struct {
-	name  string
-	motor motor.Motor
-
-	limitSwitchPins []string
-	limitBoard      board.Board
-	limitHigh       bool
-
-	lengthMeters float64
-	rpm          float64
-
-	positionLimits []float64
-
-	logger golog.Logger
+func (g *oneAxis) init(ctx context.Context) error {
+	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
+	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
+	switch g.limitType {
+	case switchLimitTypeOnePin:
+		//limitIDs := []int{0, 1}
+		err := g.homeOneLimSwitch(ctx) //, limitIDs)
+		if err != nil {
+			return err
+		}
+	case switchLimitTypetwoPin:
+		//limitIDs := []int{0, 1}
+		err := g.homeTwoLimSwitch(ctx) //, limitIDs)
+		if err != nil {
+			return err
+		}
+	case switchLimiTypeEncoder:
+		err := g.homeEncoder(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (g *oneAxis) init(ctx context.Context) error {
+func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	ok, err := g.motor.PositionSupported(ctx)
 	if err != nil {
 		return err
@@ -108,6 +207,37 @@ func (g *oneAxis) init(ctx context.Context) error {
 	g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
 
 	return nil
+}
+
+func (g *oneAxis) homeOneLimSwitch(ctx context.Context, motorID int, limitID []int) error {
+	ok, err := g.motor.PositionSupported(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !ok {
+		return errors.New("gantry motor needs to support position")
+	}
+
+	// One pin always and only should go backwards.
+	positionA, err := g.testLimit(ctx, motorID, limitID, true)
+	if err != nil {
+		return err
+	}
+
+	radius := g.pulleyR_mm
+	stepsPerLength := g.length_mm / (radius * 2 * math.Pi)
+
+	positionB := positionA + stepsPerLength
+
+	g.positionLimits = []float64{positionA, positionB}
+
+	return nil
+}
+
+// Not yet implemented.
+func (g *oneAxis) homeEncoder(ctx context.Context, motorID int) error {
+	return errors.New("encoder currently not supported")
 }
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
@@ -172,7 +302,7 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
-	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
+	x := g.length_mm * ((pos - g.positionLimits[0]) / theRange)
 
 	limitAtZero, err := g.limitHit(ctx, true)
 
@@ -184,8 +314,13 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	return []float64{x}, nil
 }
 
+<<<<<<< HEAD:component/gantry/simple/one_axis.go
 func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
+=======
+func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
+	return []float64{g.length_mm}, nil
+>>>>>>> bef53fc4 (renamed and reorganized files):component/gantry/oneAxis/oneAxis.go
 }
 
 // Position is in meters.
@@ -194,13 +329,13 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %.02f", positions)
 	}
 
-	if positions[0] < 0 || positions[0] > g.lengthMeters {
-		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.lengthMeters)
+	if positions[0] < 0 || positions[0] > g.length_mm {
+		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.length_mm)
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 
-	x := positions[0] / g.lengthMeters
+	x := positions[0] / g.length_mm
 	x = g.positionLimits[0] + (x * theRange)
 
 	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions[0], x)
@@ -242,7 +377,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 	f, err := referenceframe.NewTranslationalFrame(
 		g.name,
 		[]bool{true},
-		[]referenceframe.Limit{{0, g.lengthMeters}},
+		[]referenceframe.Limit{{0, g.length_mm}},
 	)
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
