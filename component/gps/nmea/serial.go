@@ -48,7 +48,6 @@ type serialNMEAGPS struct {
 
 	data                    gpsData
 	ntripClient             ntripInfo
-	test                    int
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
@@ -88,7 +87,7 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	// g.ntripURL = config.Attributes.String(ntripAddrAttrName)
+
 	g.ntripClient.url = config.Attributes.String(ntripAddrAttrName)
 	if g.ntripClient.url != "" {
 		g.ntripClient.username = config.Attributes.String(ntripUserAttrName)
@@ -109,24 +108,11 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	return g, nil
 }
 
-func (g *serialNMEAGPS) myNewClientRequest() (*http.Request, error) {
-
-	req, err := http.NewRequestWithContext(g.cancelCtx, http.MethodGet, g.ntripClient.url, g.ntripClient.nmeaR)
-	if err != nil {
-		return req, err
-	}
-	req.Header.Set("User-Agent", "NTRIP go-gnss/ntrip/client")
-	req.Header.Set(ntrip.NTRIPVersionHeaderKey, ntrip.NTRIPVersionHeaderValueV2)
-	return req, err
-}
-
 func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	// setup the ntrip client and write the RTCM data stream to the gps
 	// talk to the gps network, looking for mount points
 	g.ntripClient.nmeaR, g.ntripClient.nmeaW = io.Pipe()
-	// req, err = ntrip.NewClientRequest(g.ntripClient.url)
-	req, err := g.myNewClientRequest()
-
+	req, err := ntrip.NewClientRequest(g.ntripClient.url)
 	if err != nil {
 		return err
 	}
@@ -144,6 +130,23 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		return errors.New("received non-200 response code: " + strconv.Itoa(resp.StatusCode))
 	}
 
+	reqPost, err := ntrip.NewServerRequest(g.ntripClient.url, g.ntripClient.nmeaR)
+	if err != nil {
+		return multierr.Combine(err, resp.Body.Close())
+	}
+	reqPost = reqPost.WithContext(g.cancelCtx)
+
+	respPost, err := http.DefaultClient.Do(reqPost)
+	if err != nil {
+		err = utils.FilterOutError(err, context.Canceled)
+		if err == nil {
+			g.logger.Debug("error send ntrip request: context cancelled")
+		}
+		return multierr.Combine(err, resp.Body.Close())
+	} else if respPost.StatusCode != http.StatusOK {
+		return multierr.Combine(err, errors.New("received non-200 response code: "+strconv.Itoa(respPost.StatusCode)), resp.Body.Close())
+	}
+
 	// setup port to write to
 	options := slib.OpenOptions{
 		BaudRate:        uint(g.ntripClient.wbaud),
@@ -154,16 +157,15 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	options.PortName = g.ntripClient.writepath
 	port, err := slib.Open(options)
 	if err != nil {
-		return multierr.Combine(err, resp.Body.Close())
+		return multierr.Combine(err, resp.Body.Close(), respPost.Body.Close())
 	}
 	w := bufio.NewWriter(port)
 
 	// Read from resp.Body until EOF
 	r := io.TeeReader(resp.Body, w)
 	_, err = io.ReadAll(r)
-
 	if err != nil {
-		return multierr.Combine(err, resp.Body.Close())
+		return multierr.Combine(err, resp.Body.Close(), respPost.Body.Close())
 	}
 
 	return nil
@@ -181,9 +183,10 @@ func (g *serialNMEAGPS) startNtripClientRequest() {
 				return
 			default:
 			}
+
 			err := g.fetchNtripAndUpdate()
 			if err != nil {
-				g.logger.Errorf("Error with ntrip client %s", multierr.Combine(err, g.ntripClient.nmeaW.Close()))
+				g.logger.Errorf("Error with ntrip client %s", err)
 			}
 		}
 	})
@@ -197,6 +200,10 @@ func (g *serialNMEAGPS) Start() {
 		for {
 			select {
 			case <-g.cancelCtx.Done():
+				err := g.ntripClient.nmeaW.Close()
+				if err != nil {
+					g.logger.Debugf("can't close ntrip writer %s", err)
+				}
 				return
 			default:
 			}

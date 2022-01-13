@@ -1,8 +1,6 @@
 package nmea
 
 import (
-	"fmt"
-
 	"github.com/adrianmo/go-nmea"
 	geo "github.com/kellydunn/golang-geo"
 )
@@ -72,18 +70,14 @@ func parseAndUpdate(line string, g *gpsData, n ntripInfo) error {
 			g.satsInUse = int(gga.NumSatellites)
 			g.hDOP = gga.HDOP
 			g.alt = gga.Altitude
-			fmt.Println(n.sendNMEA)
+			// Send gga to ntrip server if using server
+
 			if n.sendNMEA {
 				_, err := n.nmeaW.Write([]byte(line))
 				if err != nil {
 					return err
 				}
-				// err = n.nmeaW.Close()
-				// if err != nil {
-				// 	return err
-				// }
 			}
-			// fmt.Println("Yo")
 		}
 	} else if gll, ok := s.(nmea.GLL); ok {
 		// GLL provides just lat/lon
