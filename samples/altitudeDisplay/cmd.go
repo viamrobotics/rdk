@@ -73,9 +73,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	for {
 		meters := -9999.
-		valid, _ := gpsDevice.Valid(ctx)
-		if valid {
-			meters, _ = gpsDevice.Altitude(ctx)
+		localGps, ok := gpsDevice.(gps.LocalGPS)
+		if ok {
+			valid, _ := localGps.Valid(ctx)
+			if valid {
+				meters, _ = gpsDevice.Altitude(ctx)
+			}
 		}
 		feet := int(meters * 3.28084)
 		meterStr := strconv.Itoa(int(meters))

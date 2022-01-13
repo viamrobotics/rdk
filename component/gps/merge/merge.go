@@ -33,7 +33,7 @@ func init() {
 		}})
 }
 
-func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.GPS, error) {
+func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	subs := config.Attributes.StringSlice("subs")
 	if len(subs) == 0 {
 		return nil, errors.New("no subs for merge gps")
@@ -106,7 +106,11 @@ func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
 func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		a, b, err := g.Satellites(ctx)
+		localG, ok := g.(gps.LocalGPS)
+		if !ok {
+			continue
+		}
+		a, b, err := localG.Satellites(ctx)
 		if err == nil {
 			return a, b, nil
 		}
@@ -132,7 +136,11 @@ func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 func (m *mergeGPS) Valid(ctx context.Context) (bool, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		v, err := g.Valid(ctx)
+		localG, ok := g.(gps.LocalGPS)
+		if !ok {
+			continue
+		}
+		v, err := localG.Valid(ctx)
 		if err == nil {
 			return v, nil
 		}

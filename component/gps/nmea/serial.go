@@ -74,7 +74,7 @@ const (
 	ntripSendNmeaName = "ntripSendNMEA"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.GPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
