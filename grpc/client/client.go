@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -22,7 +21,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -356,12 +354,7 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
-
 	switch name.Subtype {
-	case gps.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &gpsClient{sc}, true
 	case base.Subtype:
 		return &baseClient{rc, name.Name}, true
 	default:
@@ -788,82 +781,4 @@ func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
 
 func (rcc *relativeCompassClient) Desc() sensor.Description {
 	return sensor.Description{compass.RelativeType, ""}
-}
-
-// gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
-// for descriptions of its methods.
-type gpsClient struct {
-	*sensorClient
-}
-
-func (gc *gpsClient) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := gc.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gc.Altitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gc.Speed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	horzAcc, vertAcc, err := gc.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
-}
-
-func (gc *gpsClient) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := gc.rc.client.GPSLocation(ctx, &pb.GPSLocationRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
-}
-
-func (gc *gpsClient) Altitude(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSAltitude(ctx, &pb.GPSAltitudeRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Altitude, nil
-}
-
-func (gc *gpsClient) Speed(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSSpeed(ctx, &pb.GPSSpeedRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.SpeedKph, nil
-}
-
-func (gc *gpsClient) Satellites(ctx context.Context) (int, int, error) {
-	return 0, 0, nil
-}
-
-func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
-	resp, err := gc.rc.client.GPSAccuracy(ctx, &pb.GPSAccuracyRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), math.NaN(), err
-	}
-	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
-}
-
-func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
-	return true, nil
-}
-
-func (gc *gpsClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
