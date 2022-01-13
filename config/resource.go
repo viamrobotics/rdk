@@ -35,6 +35,7 @@ const (
 	ComponentTypeGripper         = ComponentType("gripper")
 	ComponentTypeCamera          = ComponentType("camera")
 	ComponentTypeSensor          = ComponentType("sensor")
+	ComponentTypeCompass         = ComponentType("compass")
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")
 	ComponentTypeMotor           = ComponentType("motor")

@@ -8,7 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	goutils "go.viam.com/utils"
 
-	"go.viam.com/rdk/sensor/compass"
+	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/utils"
 )
 
@@ -42,7 +42,7 @@ type baseWithCompass struct {
 // Spin attempts to perform an accurate spin by utilizing the underlying compass. In short,
 // the base makes small spins until it gets very close to the target angle.
 func (wc baseWithCompass) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	rel, _ := wc.compass.(compass.RelativeCompass)
+	rel, _ := wc.compass.(compass.Markable)
 	if rel != nil {
 		if err := rel.Mark(ctx); err != nil {
 			return err
