@@ -39,7 +39,8 @@ type pmtkI2CNMEAGPS struct {
 	addr   byte
 	logger golog.Logger
 
-	data gpsData
+	data        gpsData
+	ntripClient ntripInfo
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -62,7 +63,10 @@ func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Compone
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &pmtkI2CNMEAGPS{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &pmtkI2CNMEAGPS{
+		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
+		ntripClient: ntripInfo{sendNMEA: false},
+	}
 	g.Start(ctx)
 
 	return g, nil
@@ -129,7 +133,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
-						err = parseAndUpdate(strBuf, &g.data)
+						err = parseAndUpdate(strBuf, &g.data, g.ntripClient)
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
