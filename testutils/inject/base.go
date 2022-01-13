@@ -12,6 +12,7 @@ import (
 type Base struct {
 	base.Base
 	MoveStraightFunc func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
+	MoveArcFunc      func(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error
 	SpinFunc         func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error
 	WidthGetFunc     func(ctx context.Context) (int, error)
 	StopFunc         func(ctx context.Context) error
@@ -24,6 +25,14 @@ func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		return b.Base.MoveStraight(ctx, distanceMillis, millisPerSec, block)
 	}
 	return b.MoveStraightFunc(ctx, distanceMillis, millisPerSec, block)
+}
+
+// MoveArc calls the injected MoveArc or the real version.
+func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
+	if b.MoveArcFunc == nil {
+		return b.Base.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
+	}
+	return b.MoveArcFunc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
 }
 
 // Spin calls the injected Spin or the real version.
