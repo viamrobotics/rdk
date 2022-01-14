@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"sync"
 
 	"github.com/Masterminds/sprig"
@@ -133,7 +134,11 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			scheme = "http"
 		}
-		temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
+		// we will rely on pages host and port if we are listening everywhere
+		if !(strings.HasPrefix(app.options.SignalingAddress, "0.0.0.0:") ||
+			strings.HasPrefix(app.options.SignalingAddress, "[::]:")) {
+			temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
+		}
 		temp.WebRTCHost = app.options.FQDNs[0]
 	}
 
