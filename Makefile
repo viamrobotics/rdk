@@ -62,7 +62,10 @@ testpi:
 	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
 
 server:
-	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
+	VERSION="git tag --sort=-version:refname | head -n 1"
+	GIT_REVISION="git rev-parse HEAD | tr -d '\n'"
+	LDFLAGS="-X 'go.viam.com/rdk/config.version=${VERSION}' -X 'go.viam.com/rdk/config.gitRevision=${GIT_REVISION}'"
+	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) -ldflags $(LDFLAGS) -o $(BIN_OUTPUT_PATH)/server web/cmd/server/main.go
 
 clean-all:
 	git clean -fxd
