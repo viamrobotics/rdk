@@ -4,11 +4,7 @@ on:
   schedule:
     - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
-  push:
-    branches: [main, appimage]
-    paths:
-      - '**/.github/workflows/docker.yml'
-      - '**/Dockerfile.*'
+  workflow_call:
 
 jobs:
   build_docker_images:
