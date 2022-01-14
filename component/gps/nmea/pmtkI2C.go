@@ -12,10 +12,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 )
 
 func init() {

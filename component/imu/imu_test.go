@@ -6,8 +6,8 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 

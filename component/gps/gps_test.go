@@ -7,8 +7,8 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 )
 
 func TestGPSName(t *testing.T) {
