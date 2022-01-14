@@ -13,14 +13,14 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/base"
-
-	// register base.
-	_ "go.viam.com/rdk/base/impl"
 	"go.viam.com/rdk/component/arm"
 
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
+	"go.viam.com/rdk/component/base"
+
+	// register base.
+	_ "go.viam.com/rdk/component/base/register"
 	"go.viam.com/rdk/component/board"
 
 	// register board.
@@ -357,14 +357,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	r.parts.addResource(web.Name, webSvc)
 	successful = true
 	return r, nil
-}
-
-func (r *localRobot) newBase(ctx context.Context, config config.Component) (base.Base, error) {
-	f := registry.BaseLookup(config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown base model: %s", config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {

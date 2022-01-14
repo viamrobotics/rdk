@@ -14,7 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -477,7 +477,7 @@ func TestServer(t *testing.T) {
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
 		test.That(t, spinResp.Success, test.ShouldBeTrue)
 
-		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
 			capArgs = []interface{}{ctx}
 			return 0, err1
 		}
@@ -487,7 +487,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
 
-		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
+		injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
 			capArgs = []interface{}{ctx}
 			return 2, nil
 		}

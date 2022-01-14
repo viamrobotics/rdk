@@ -181,7 +181,7 @@ func TestMatrixAndSlip(t *testing.T) {
 			}
 			return fakeAR, true
 		}
-		fakeBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+		fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
 		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {

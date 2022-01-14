@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )

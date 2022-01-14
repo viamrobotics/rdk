@@ -1,5 +1,5 @@
-// Package baseimpl implements some bases, like a wheeled base.
-package baseimpl
+// Package wheeled implements some bases, like a wheeled base.
+package wheeled
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -20,8 +20,22 @@ import (
 )
 
 func init() {
-	registry.RegisterBase("four-wheel", registry.Base{Constructor: CreateFourWheelBase})
-	registry.RegisterBase("wheeled", registry.Base{Constructor: CreateWheeledBase})
+	fourWheelComp := registry.Component{
+		Constructor: func(
+			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+		) (interface{}, error) {
+			return CreateFourWheelBase(ctx, r, config, logger)
+		},
+	}
+	wheeledBaseComp := registry.Component{
+		Constructor: func(
+			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
+		) (interface{}, error) {
+			return CreateFourWheelBase(ctx, r, config, logger)
+		},
+	}
+	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
 }
 
 type wheeledBase struct {
@@ -234,7 +248,7 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx)
 }
 
-func (base *wheeledBase) WidthMillis(ctx context.Context) (int, error) {
+func (base *wheeledBase) WidthGet(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
