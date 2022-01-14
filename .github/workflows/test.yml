@@ -3,6 +3,14 @@ name: Test
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS:
+        required: true
+      TEST_MONGODB_URI:
+        required: true
+      CODECOV_TOKEN:
+        required: true
+
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
