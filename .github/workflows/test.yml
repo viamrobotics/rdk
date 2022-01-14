@@ -2,16 +2,7 @@ name: Test
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, appimage ]
-    paths-ignore:
-      - 'README.md'
-      - '**/Dockerfile.*'
-      - '**/.github/workflows/docker.yml'
-      - '**/.github/workflows/test.yml'
-      - '**/.github/workflows/packserver.yml'
-  pull_request:
-    branches: [ main ]
+  workflow_call:
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"

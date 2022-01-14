@@ -1,0 +1,20 @@
+name: Main Branch Update
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, appimage ]
+    paths-ignore:
+      - 'README.md'
+
+jobs:
+  test:
+    uses: viamrobotics/rdk/.github/workflows/test.yml
+
+  appimage:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml
+
+  debian:
+    needs: test
+    uses: viamrobotics/rdk/.github/workflows/packserver.yml
