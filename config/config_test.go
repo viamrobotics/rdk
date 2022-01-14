@@ -96,9 +96,9 @@ func TestConfig3(t *testing.T) {
 
 func TestCreateCloudRequest(t *testing.T) {
 	cfg := config.Cloud{
-		ID:      "a",
-		Secret:  "b",
-		Path:    "c",
+		ID:     "a",
+		Secret: "b",
+		Path:   "c",
 	}
 	r, err := config.CreateCloudRequest(context.Background(), &cfg)
 	test.That(t, err, test.ShouldBeNil)
