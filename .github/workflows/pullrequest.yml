@@ -9,4 +9,4 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml
+    uses: viamrobotics/rdk/.github/workflows/test.yml@appimage

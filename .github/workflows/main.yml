@@ -9,12 +9,12 @@ on:
 
 jobs:
   test:
-    uses: viamrobotics/rdk/.github/workflows/test.yml
+    uses: viamrobotics/rdk/.github/workflows/test.yml@appimage
 
   appimage:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/appimage.yml
+    uses: viamrobotics/rdk/.github/workflows/appimage.yml@appimage
 
   debian:
     needs: test
-    uses: viamrobotics/rdk/.github/workflows/packserver.yml
+    uses: viamrobotics/rdk/.github/workflows/packserver.yml@appimage
