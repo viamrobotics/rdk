@@ -53,6 +53,10 @@ import (
 
 	// register motor.
 	_ "go.viam.com/rdk/component/motor/register"
+	"go.viam.com/rdk/component/sensor"
+
+	// register sensor.
+	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 
 	// register servo.
@@ -71,7 +75,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 
 	// register base remote control.
 	_ "go.viam.com/rdk/services/baseremotecontrol"
@@ -351,14 +354,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	r.parts.addResource(web.Name, webSvc)
 	successful = true
 	return r, nil
-}
-
-func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
-	f := registry.SensorLookup(sensorType, config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
