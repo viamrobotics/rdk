@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
-	github.com/RobinUS2/golang-moving-average v1.0.0
 	github.com/a8m/envsubst v1.3.0
 	github.com/adrianmo/go-nmea v1.3.0
 	github.com/alessio/shellescape v1.4.1
@@ -55,7 +54,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.3-0.20220110155539-b8d84012226d
+	go.viam.com/utils v0.0.3-0.20220114223938-88ff764015b0
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	gonum.org/v1/gonum v0.8.2
