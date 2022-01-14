@@ -1,13 +1,11 @@
-# See https://github.com/mvdan/github-actions-golang for golang nuances
 name: Package Viam-Server
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - '**/Dockerfile.fortest'
-      - '**/.github/workflows/docker.yml'
+  workflow_call:
+    secrets:
+      GIT_ACCESS_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
