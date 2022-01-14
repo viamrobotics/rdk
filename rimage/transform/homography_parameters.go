@@ -1,8 +1,6 @@
 package transform
 
 import (
-	"log"
-
 	"github.com/golang/geo/r2"
 	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
@@ -135,7 +133,8 @@ func EstimateExactHomographyFrom8Points(s1, s2 []r2.Point, normalize bool) (*Hom
 		var svd mat.SVD
 		ok := svd.Factorize(A, mat.SVDFull)
 		if !ok {
-			log.Fatal("failed to factorize A")
+			err := errors.New("failed to factorize A")
+			return nil, err
 		}
 
 		// Determine the rank of the A matrix with a near zero condition threshold.
