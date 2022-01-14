@@ -11,10 +11,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/slipdetection"
 	rdkutils "go.viam.com/rdk/utils"
 )
