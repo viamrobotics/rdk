@@ -335,13 +335,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 		return nil, err
 	}
 
-	// if metadata exists, update it
-	if svc := service.ContextService(ctx); svc != nil {
-		if err := r.UpdateMetadata(svc); err != nil {
-			return nil, err
-		}
-	}
-
 	// default services
 
 	// create web service here
@@ -352,6 +345,13 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 		return nil, err
 	}
 	r.parts.addResource(web.Name, webSvc)
+
+	// if metadata exists, update it
+	if svc := service.ContextService(ctx); svc != nil {
+		if err := r.UpdateMetadata(svc); err != nil {
+			return nil, err
+		}
+	}
 	successful = true
 	return r, nil
 }
