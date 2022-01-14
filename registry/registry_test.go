@@ -12,25 +12,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/subtype"
 )
-
-func TestRegistry(t *testing.T) {
-	sf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error) {
-		return nil, nil
-	}
-
-	// test panics
-	test.That(t, func() { RegisterSensor(sensor.Type("x"), "y", Sensor{}) }, test.ShouldPanic)
-
-	// test register
-	RegisterSensor(sensor.Type("x"), "y", Sensor{Constructor: sf})
-
-	test.That(t, SensorLookup(sensor.Type("x"), "y"), test.ShouldNotBeNil)
-	test.That(t, SensorLookup(sensor.Type("x"), "z"), test.ShouldBeNil)
-	test.That(t, SensorLookup(sensor.Type("x"), "y").Constructor, test.ShouldNotBeNil)
-}
 
 func TestComponentRegistry(t *testing.T) {
 	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {

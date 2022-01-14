@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -32,7 +33,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -346,6 +346,9 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case sensor.Subtype:
+		sensorType := rc.sensorTypes[name.Name]
+		return &sensorClient{rc, name.Name, sensorType}, true
 	case base.Subtype:
 		return &baseClient{rc, name.Name}, true
 	default:

@@ -91,6 +91,11 @@
             "model": "fake"
         },
         {
+            "name": "sensor1",
+            "type": "sensor",
+            "model": "fake"
+        },
+        {
             "name": "input",
             "model": "fake",
             "type": "input_controller"
