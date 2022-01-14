@@ -45,12 +45,6 @@
         },
         {
             "model": "fake",
-            "name": "compass1",
-            "type": "sensor",
-            "subtype": "compass"
-        },
-        {
-            "model": "fake",
             "name": "board1",
             "type": "board",
             "attributes":

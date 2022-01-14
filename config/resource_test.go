@@ -7,6 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/framesystem"
@@ -109,19 +110,18 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor with subtype",
 			config.Component{
-				Type:    "sensor",
-				SubType: "compass",
-				Name:    "foo",
+				Type: "gps",
+				Name: "foo",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.ResourceSubtypeCompass,
+				ResourceSubtype: gps.SubtypeName,
 			},
 			resource.Name{
-				UUID: "bd405f3f-da99-5adb-8637-1f914454da88",
+				UUID: "dc913831-ca57-5b12-a8ae-1813cf2cd0d9",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.ResourceSubtypeCompass,
+					ResourceSubtype: gps.SubtypeName,
 				},
 				Name: "foo",
 			},
@@ -129,19 +129,18 @@ func TestComponentResourceName(t *testing.T) {
 		{
 			"sensor missing name",
 			config.Component{
-				Type:    "sensor",
-				SubType: "compass",
-				Name:    "",
+				Type: "gps",
+				Name: "",
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.ResourceSubtypeCompass,
+				ResourceSubtype: gps.SubtypeName,
 			},
 			resource.Name{
-				UUID: "3c4145b6-aff8-52b9-9b06-778abc940d0f",
+				UUID: "047fe0db-e1e8-5b26-b7a6-6e5814eaf4b3",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.ResourceSubtypeCompass,
+					ResourceSubtype: gps.SubtypeName,
 				},
 				Name: "",
 			},

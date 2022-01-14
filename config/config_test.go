@@ -22,9 +22,6 @@ import (
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
-
-	// attribute converters.
-	_ "go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/testutils/inject"
 )
 
