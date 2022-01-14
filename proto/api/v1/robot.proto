@@ -90,38 +90,6 @@ service RobotService {
     };  
   }
 
-  // Compass
-
-  // CompassHeading returns the heading of a compass of the underlying robot.
-  rpc CompassHeading(CompassHeadingRequest) returns (CompassHeadingResponse) {
-      option (google.api.http) = {
-      get: "/api/v1/sensors/compass/{name}/heading"
-    };
-  }
-
-  // CompassStartCalibration requests the compass of the underlying robot to start calibration.
-  rpc CompassStartCalibration(CompassStartCalibrationRequest) returns (CompassStartCalibrationResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/sensors/compass/{name}/start_calibration"
-    };
-  }
-
-  // CompassStopCalibration requests the compass of the underlying robot to stop calibration.
-  rpc CompassStopCalibration(CompassStopCalibrationRequest) returns (CompassStopCalibrationResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/sensors/compass/{name}/stop_calibration"
-    };
-  }
-
-  // Relative Compass
-
-  // CompassMark requests the relative compass of the underlying robot to mark its position.
-  rpc CompassMark(CompassMarkRequest) returns (CompassMarkResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/sensors/compass/{name}/mark"
-    };
-  }
-
   // TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -386,36 +354,6 @@ message SensorReadingsRequest {
 message SensorReadingsResponse {
   repeated google.protobuf.Value readings = 1;
 }
-
-// Compass
-
-message CompassHeadingRequest {
-  string name = 1;
-}
-
-message CompassHeadingResponse {
-  double heading = 1;
-}
-
-message CompassStartCalibrationRequest {
-  string name = 1;
-}
-
-message CompassStartCalibrationResponse {}
-
-message CompassStopCalibrationRequest {
-  string name = 1;
-}
-
-message CompassStopCalibrationResponse {}
-
-// Relative Compass
-
-message CompassMarkRequest {
-  string name = 1;
-}
-
-message CompassMarkResponse {}
 
 message ExecuteFunctionRequest {
   string name = 1;

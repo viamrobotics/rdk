@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -793,22 +792,6 @@ func TestPartsAdd(t *testing.T) {
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
 
-	injectCompass := &inject.Compass{}
-	cfg = &config.Component{Type: config.ComponentTypeCompass, Name: "compass1"}
-	rName = cfg.ResourceName()
-	parts.addResource(rName, injectCompass)
-	compass1, ok := parts.ResourceByName(compass.Named("compass1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, compass1, test.ShouldEqual, injectCompass)
-
-	injectRelativeCompass := &inject.RelativeCompass{}
-	cfg = &config.Component{Type: config.ComponentTypeCompass, Name: "compass1"}
-	rName = cfg.ResourceName()
-	parts.addResource(rName, injectRelativeCompass)
-	compass1, ok = parts.ResourceByName(compass.Named("compass1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, compass1, test.ShouldEqual, injectRelativeCompass)
-
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(
 		ctx context.Context,
@@ -1560,7 +1543,6 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
 
-	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
@@ -1601,10 +1583,6 @@ func TestPartsMergeModify(t *testing.T) {
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	replacementParts.addResource(rName, &inject.Arm{})
-
-	cfg = config.Component{Type: config.ComponentTypeCompass, Name: "compass1"}
-	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Compass{})
 
 	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base1"}
 	rName = cfg.ResourceName()

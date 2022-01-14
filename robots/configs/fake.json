@@ -23,11 +23,6 @@
         },
         {
             "model": "fake",
-            "name": "compass1",
-            "type": "compass"
-        },
-        {
-            "model": "fake",
             "name": "board1",
             "type": "board",
             "attributes":

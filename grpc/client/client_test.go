@@ -25,7 +25,6 @@ import (
 	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
-	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
@@ -320,24 +319,6 @@ func TestClient(t *testing.T) {
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
-	}
-
-	injectCompassDev := &inject.Compass{}
-	injectRobot2.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return injectCompassDev, true
-	}
-
-	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
-		return 4.5, nil
-	}
-	injectCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
-		return nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -712,22 +693,6 @@ func TestClient(t *testing.T) {
 	controlList, err := inputDev.Controls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
-
-	sensorDev, ok := client.ResourceByName(compass.Named("compass1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	compass1, ok := sensorDev.(compass.Compass)
-	test.That(t, ok, test.ShouldBeTrue)
-	readings, err := compass1.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	// compassDev := sensorDev.(compass.Compass)
-	// heading, err := compassDev.Heading(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
-	// test.That(t, heading, test.ShouldEqual, 4.5)
-	// err = compassDev.StartCalibration(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
-	// err = compassDev.StopCalibration(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)

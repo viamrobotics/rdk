@@ -19,8 +19,6 @@ import (
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
 	fakecamera "go.viam.com/rdk/component/camera/fake"
-	"go.viam.com/rdk/component/compass"
-	fakecompass "go.viam.com/rdk/component/compass/fake"
 	"go.viam.com/rdk/component/gripper"
 	fakegripper "go.viam.com/rdk/component/gripper/fake"
 	"go.viam.com/rdk/component/input"
@@ -220,8 +218,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					return &fakemotor.Motor{Name: name.Name}, true
 				case input.Subtype:
 					return &fakeinput.InputController{Name: name.Name}, true
-				case compass.Subtype:
-					return &fakecompass.Compass{Name: name.Name}, true
 				}
 				if rName.ResourceType == resource.ResourceTypeService {
 					return struct{}{}, true

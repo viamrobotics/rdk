@@ -30,9 +30,6 @@ import (
 	// register camera.
 	_ "go.viam.com/rdk/component/camera/register"
 
-	// register compass.
-	_ "go.viam.com/rdk/component/compass/register"
-
 	// register force matrix.
 	_ "go.viam.com/rdk/component/forcematrix/register"
 
