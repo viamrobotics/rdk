@@ -4,39 +4,33 @@ on:
   schedule:
     - cron: '0 6 * * *' # once a day at 6AM UTC (1AM/EST, 2AM/EDT)
   workflow_dispatch:
-  push:
-    paths:
-      - '**/.github/workflows/docker.yml'
-      - '**/Dockerfile.fortest'
+  workflow_call:
 
 jobs:
-  build_docker_image:
-    name: Build Docker Image
-    runs-on: [self-hosted, x64]
+  canon-cache:
+    name: Build Canon Cache Docker Images
+    runs-on: [x64, qemu-host]
     container:
-      image: ubuntu:20.04
+      image: ghcr.io/viamrobotics/canon:amd64
+      options: --platform linux/amd64
+    timeout-minutes: 15
     steps:
-    - name: Base Setup
-      run: |
-        apt-get update
-        apt install -y ca-certificates curl gpg lsb-release make sudo
-        DEBIAN_FRONTEND="noninteractive" TZ="Etc/UTC" apt-get -y install tzdata
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-          $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-        apt-get update
-        apt-get install -y docker-ce docker-ce-cli containerd.io
-    - name: Login to GHCR
-      run: |
-        echo ${{ secrets.GIT_ACCESS_TOKEN }} | docker login ghcr.io -u viambot --password-stdin
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Check out code
       uses: actions/checkout@v2
     - name: Build and push
       run: |
-        make docker
-    - name: Invoke test workflow
-      uses: benc-uk/workflow-dispatch@v1
-      with:
-        workflow: Test
-        token: ${{ secrets.GIT_ACCESS_TOKEN }}
+        make canon-cache
+
+  test:
+    needs: canon-cache
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
+      TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
