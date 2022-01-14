@@ -22,6 +22,7 @@ import (
 )
 
 var version = ""
+var gitRevision     = ""
 
 // An AttributeConverter converts a single attribute into a possibly
 // different representation.
@@ -160,7 +161,8 @@ const (
 	cloudConfigUserInfoHostField     = "host"
 	cloudConfigUserInfoOSField       = "os"
 	cloudConfigUserInfoLocalIPsField = "ips"
-	cloudConfigVersionField 		 = "version"
+	cloudConfigVersionField          = "version"
+	cloudConfigGitRevisionField      = "gitRevision"
 )
 
 // CreateCloudRequest makes a request to fetch the robot config
@@ -175,6 +177,7 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
 	userInfo := map[string]interface{}{}
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -188,7 +191,7 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	}
 	userInfo[cloudConfigUserInfoLocalIPsField] = ips
 	userInfo[cloudConfigVersionField] = version
-	fmt.Println(version)
+	userInfo[cloudConfigGitRevisionField] = gitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {

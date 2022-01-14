@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"testing"
 
@@ -105,9 +104,6 @@ func TestCreateCloudRequest(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
-	var userInfo map[string]string
-	json.Unmarshal([]byte(r.Header.Get("User-Info")), &userInfo)
-	test.That(t, userInfo["version"], test.ShouldEqual, "")
 	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
 }
 
