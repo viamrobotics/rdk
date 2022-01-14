@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/resource"
 )
 
@@ -237,17 +238,17 @@ func TestResourceNameNewFromString(t *testing.T) {
 		},
 		{
 			"all fields included 2",
-			"rdk:component:compass/compass1",
+			"rdk:component:gps/gps1",
 			resource.Name{
-				UUID: "286ec871-7aa7-5eba-98c0-6c3da28cdccb",
+				UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 				Subtype: resource.Subtype{
 					Type: resource.Type{
 						Namespace:    resource.ResourceNamespaceRDK,
 						ResourceType: resource.ResourceTypeComponent,
 					},
-					ResourceSubtype: "compass",
+					ResourceSubtype: gps.SubtypeName,
 				},
-				Name: "compass1",
+				Name: "gps1",
 			},
 			"",
 		},
