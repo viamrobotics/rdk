@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/services/objectmanipulation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -78,7 +77,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor1", "sensor2"),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -141,10 +140,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
-	sensor1, ok := parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	_, ok = parts.SensorByName("sensor1_what")
+	_, ok = parts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.ServoByName("servo1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -239,14 +235,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-			"sensor1_r2",
-			"sensor2_r2",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -333,25 +322,12 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.BoardByName("board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
-	sensor1, ok := parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	sensor1, ok = parts.SensorByName("sensor1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r1",
-	)
-	sensor1, ok = parts.SensorByName("sensor1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r2",
-	)
+	_, ok = parts.SensorByName("sensor1")
+	test.That(t, ok, test.ShouldBeFalse)
+	_, ok = parts.SensorByName("sensor1_r1")
+	test.That(t, ok, test.ShouldBeFalse)
+	_, ok = parts.SensorByName("sensor1_r2")
+	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
@@ -472,12 +448,7 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -614,14 +585,7 @@ func TestPartsClone(t *testing.T) {
 		t,
 		utils.NewStringSet(newParts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-			"sensor1_r2",
-			"sensor2_r2",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -712,28 +676,6 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.BoardByName("board1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = newParts.BoardByName("board1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
-	sensor1, ok := newParts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual.(*fake.Compass).Name, test.ShouldEqual, "sensor1")
-	sensor1, ok = newParts.SensorByName("sensor1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r1",
-	)
-	sensor1, ok = newParts.SensorByName("sensor1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(
-		t,
-		sensor1.(*proxyCompass).actual.(*fake.Compass).Name,
-		test.ShouldEqual,
-		"sensor1_r2",
-	)
-	_, ok = newParts.SensorByName("sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, ok = newParts.ServoByName("servo1")
@@ -849,22 +791,6 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
 	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
 	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
-
-	injectCompass := &inject.Compass{}
-	parts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
-	sensor1, ok = parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
-	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
-	test.That(t, sensor1.(*proxyCompass).actual, test.ShouldEqual, injectCompass)
-
-	injectRelativeCompass := &inject.RelativeCompass{}
-	parts.AddSensor(injectRelativeCompass, config.Component{Name: "sensor1"})
-	sensor1, ok = parts.SensorByName("sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
-	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
-	test.That(t, sensor1.(*proxyRelativeCompass).actual, test.ShouldEqual, injectRelativeCompass)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(
@@ -1060,14 +986,7 @@ func TestPartsMergeAdd(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.SensorNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet(
-				"sensor1",
-				"sensor2",
-				"sensor1_r1",
-				"sensor2_r1",
-				"sensor1_r2",
-				"sensor2_r2",
-			),
+			utils.NewStringSet(),
 		)
 		test.That(
 			t,
@@ -1217,18 +1136,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-			"sensor1_r2",
-			"sensor2_r2",
-			"sensor1_other",
-			"sensor2_other",
-			"sensor1_other1",
-			"sensor2_other1",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -1359,18 +1267,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-			"sensor1_r2",
-			"sensor2_r2",
-			"sensor1_other",
-			"sensor2_other",
-			"sensor1_other1",
-			"sensor2_other1",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -1544,14 +1441,7 @@ func TestPartsMergeModify(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.SensorNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet(
-				"sensor1",
-				"sensor2",
-				"sensor1_r1",
-				"sensor2_r1",
-				"sensor1_r2",
-				"sensor2_r2",
-			),
+			utils.NewStringSet(),
 		)
 		test.That(
 			t,
@@ -1653,7 +1543,6 @@ func TestPartsMergeModify(t *testing.T) {
 	replacementParts := newRobotParts(logger)
 	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
 
-	robotForRemote.parts.AddSensor(&inject.Compass{}, config.Component{Name: "sensor2_r1"})
 	robotForRemote.parts.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
@@ -1690,9 +1579,6 @@ func TestPartsMergeModify(t *testing.T) {
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
 	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
-
-	injectCompass := &inject.Compass{}
-	replacementParts.AddSensor(injectCompass, config.Component{Name: "sensor1"})
 
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
@@ -1820,14 +1706,7 @@ func TestPartsMergeRemove(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.SensorNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet(
-				"sensor1",
-				"sensor2",
-				"sensor1_r1",
-				"sensor2_r1",
-				"sensor1_r2",
-				"sensor2_r2",
-			),
+			utils.NewStringSet(),
 		)
 		test.That(
 			t,
@@ -2123,7 +2002,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor2"),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -2306,7 +2185,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("sensor2", "sensor1_r2", "sensor2_r2"),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,
@@ -2561,14 +2440,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"sensor1",
-			"sensor2",
-			"sensor1_r1",
-			"sensor2_r1",
-			"sensor1_r2",
-			"sensor2_r2",
-		),
+		utils.NewStringSet(),
 	)
 	test.That(
 		t,

@@ -29,7 +29,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
@@ -99,7 +98,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakeboard.Board{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return &fake.Compass{Name: name}, true
+		return nil, false
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		return &fakeservo.Servo{Name: name}, true
@@ -175,14 +174,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{
-				"sensor1": {
-					Type: "compass",
-				},
-				"sensor2": {
-					Type: "compass",
-				},
-			},
+			Sensors: map[string]*pb.SensorStatus{},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},
@@ -247,14 +239,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{
-				"sensor1": {
-					Type: "compass",
-				},
-				"sensor2": {
-					Type: "compass",
-				},
-			},
+			Sensors: map[string]*pb.SensorStatus{},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},
