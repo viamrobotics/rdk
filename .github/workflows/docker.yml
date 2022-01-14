@@ -7,7 +7,7 @@ on:
   workflow_call:
 
 jobs:
-  build_docker_images:
+  canon-cache:
     name: Build Canon Cache Docker Images
     runs-on: [x64, qemu-host]
     container:
@@ -26,8 +26,7 @@ jobs:
     - name: Build and push
       run: |
         make canon-cache
-    - name: Invoke test workflow
-      uses: benc-uk/workflow-dispatch@v1
-      with:
-        workflow: Test
-        token: ${{ secrets.GIT_ACCESS_TOKEN }}
+
+  test:
+    needs: canon-cache
+    uses: viamrobotics/rdk/.github/workflows/test.yml
