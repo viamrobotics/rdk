@@ -128,6 +128,7 @@ mod_profiles(){
 	# Add dev environment variables to shells
 	grep -q viamdevrc ~/.bash_profile || echo "source ~/.viamdevrc" >> ~/.bash_profile
 	grep -q viamdevrc ~/.bashrc || echo "source ~/.viamdevrc" >> ~/.bashrc
+	grep -q viamdevrc ~/.zprofile || echo "source ~/.viamdevrc" >> ~/.zprofile
 	grep -q viamdevrc ~/.zshrc || echo "source ~/.viamdevrc" >> ~/.zshrc
 
 	# No longer seems to be needed. Can build/lint/test without this
