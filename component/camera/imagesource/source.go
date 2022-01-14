@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 )
 
