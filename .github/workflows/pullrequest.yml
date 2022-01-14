@@ -1,0 +1,16 @@
+name: Pull Request Update
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ 'main' ]
+  push:
+    branches: [ '!main' ]
+
+jobs:
+  test:
+    uses: viamrobotics/rdk/.github/workflows/test.yml@main
+    secrets:
+      ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS }}
+      TEST_MONGODB_URI: ${{ secrets.TEST_MONGODB_URI }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

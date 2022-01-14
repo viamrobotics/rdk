@@ -15,6 +15,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "fake"
@@ -136,12 +137,13 @@ func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 
 // SetPWM sets the given pin to the given duty cycle.
 func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	dutyCycle := float64(rdkutils.ScaleByPct(255, dutyCyclePct))
 	if b.PWM == nil {
 		b.PWM = map[string]float64{}
 	}
-	if b.PWM[pin] != dutyCyclePct {
-		b.PWM[pin] = dutyCyclePct
-		if dutyCyclePct == 1.0 {
+	if b.PWM[pin] != dutyCycle {
+		b.PWM[pin] = dutyCycle
+		if dutyCycle == 255 {
 			return b.SetGPIO(ctx, pin, true)
 		} else if dutyCyclePct == 0 {
 			return b.SetGPIO(ctx, pin, false)
