@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"math"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -34,7 +33,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -297,14 +295,7 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
 	sensorType := rc.sensorTypes[name]
 	sc := &sensorClient{rc, name, sensorType}
-	switch sensorType {
-	case compass.Type:
-		return &compassClient{sc}, true
-	case compass.RelativeType:
-		return &relativeCompassClient{&compassClient{sc}}, true
-	default:
-		return sc, true
-	}
+	return sc, true
 }
 
 // ServoByName returns a servo by name. It is assumed to exist on the
@@ -722,63 +713,4 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 
 func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
-}
-
-// compassClient satisfies a gRPC based compass.Compass. Refer to the interface
-// for descriptions of its methods.
-type compassClient struct {
-	*sensorClient
-}
-
-func (cc *compassClient) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := cc.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{heading}, nil
-}
-
-func (cc *compassClient) Heading(ctx context.Context) (float64, error) {
-	resp, err := cc.rc.client.CompassHeading(ctx, &pb.CompassHeadingRequest{
-		Name: cc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Heading, nil
-}
-
-func (cc *compassClient) StartCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStartCalibration(ctx, &pb.CompassStartCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) StopCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStopCalibration(ctx, &pb.CompassStopCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
-}
-
-// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
-// for descriptions of its methods.
-type relativeCompassClient struct {
-	*compassClient
-}
-
-func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
-	_, err := rcc.rc.client.CompassMark(ctx, &pb.CompassMarkRequest{
-		Name: rcc.name,
-	})
-	return err
-}
-
-func (rcc *relativeCompassClient) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeType, ""}
 }

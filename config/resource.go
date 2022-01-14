@@ -33,6 +33,7 @@ const (
 	ComponentTypeArm             = ComponentType("arm")
 	ComponentTypeGantry          = ComponentType("gantry")
 	ComponentTypeGripper         = ComponentType("gripper")
+	ComponentTypeGPS             = ComponentType("gps")
 	ComponentTypeCamera          = ComponentType("camera")
 	ComponentTypeSensor          = ComponentType("sensor")
 	ComponentTypeBoard           = ComponentType("board")

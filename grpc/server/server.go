@@ -23,7 +23,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -262,79 +261,6 @@ func (s *Server) SensorReadings(
 		readingsP = append(readingsP, v)
 	}
 	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
-}
-
-func (s *Server) compassByName(name string) (compass.Compass, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
-	}
-	return sensorDevice.(compass.Compass), nil
-}
-
-// CompassHeading returns the heading of a compass of the underlying robot.
-func (s *Server) CompassHeading(
-	ctx context.Context,
-	req *pb.CompassHeadingRequest,
-) (*pb.CompassHeadingResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	heading, err := compassDevice.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.CompassHeadingResponse{Heading: heading}, nil
-}
-
-// CompassStartCalibration requests the compass of the underlying robot to start calibration.
-func (s *Server) CompassStartCalibration(
-	ctx context.Context,
-	req *pb.CompassStartCalibrationRequest,
-) (*pb.CompassStartCalibrationResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if err := compassDevice.StartCalibration(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassStartCalibrationResponse{}, nil
-}
-
-// CompassStopCalibration requests the compass of the underlying robot to stop calibration.
-func (s *Server) CompassStopCalibration(
-	ctx context.Context,
-	req *pb.CompassStopCalibrationRequest,
-) (*pb.CompassStopCalibrationResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if err := compassDevice.StopCalibration(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassStopCalibrationResponse{}, nil
-}
-
-// CompassMark requests the relative compass of the underlying robot to mark its position.
-func (s *Server) CompassMark(
-	ctx context.Context,
-	req *pb.CompassMarkRequest,
-) (*pb.CompassMarkResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	rel, ok := compassDevice.(compass.RelativeCompass)
-	if !ok {
-		return nil, errors.New("compass is not relative")
-	}
-	if err := rel.Mark(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassMarkResponse{}, nil
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.

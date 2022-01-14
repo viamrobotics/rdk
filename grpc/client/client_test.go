@@ -44,7 +44,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -78,14 +77,7 @@ var emptyStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera1": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass1": {
-			Type: compass.Type,
-		},
-		"compass2": {
-			Type: compass.RelativeType,
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Motors: map[string]*pb.MotorStatus{
 		"motor1": {},
 		"motor2": {},
@@ -160,17 +152,7 @@ var finalStatus = &pb.Status{
 		"camera2": true,
 		"camera3": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass2": {
-			Type: compass.Type,
-		},
-		"compass3": {
-			Type: compass.Type,
-		},
-		"compass4": {
-			Type: compass.RelativeType,
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Servos: map[string]*pb.ServoStatus{
 		"servo2": {},
 		"servo3": {},
@@ -269,10 +251,7 @@ func TestClient(t *testing.T) {
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	var (
-		capBaseName   string
-		capSensorName string
-	)
+	var capBaseName string
 	injectBase := &inject.Base{}
 	injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
 		return 15, nil
@@ -340,46 +319,6 @@ func TestClient(t *testing.T) {
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
-	}
-
-	injectCompassDev := &inject.Compass{}
-	injectRelCompassDev := &inject.RelativeCompass{}
-	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		capSensorName = name
-		switch name {
-		case "compass2":
-			return injectRelCompassDev, true
-		default:
-			return injectCompassDev, true
-		}
-	}
-
-	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
-		return 4.5, nil
-	}
-	injectCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectRelCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
-		return 4.5, nil
-	}
-	injectRelCompassDev.MarkFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
-		return nil
 	}
 
 	injectInputDev := &inject.InputController{}
@@ -755,42 +694,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
-	sensorDev, ok := client.SensorByName("compass1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldNotImplement, (*compass.RelativeCompass)(nil))
-	readings, err := sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	compassDev := sensorDev.(compass.Compass)
-	heading, err := compassDev.Heading(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, heading, test.ShouldEqual, 4.5)
-	err = compassDev.StartCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassDev.StopCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capSensorName, test.ShouldEqual, "compass1")
-
-	sensorDev, ok = client.SensorByName("compass2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.RelativeCompass)(nil))
-	readings, err = sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	compassRelDev := sensorDev.(compass.RelativeCompass)
-	heading, err = compassRelDev.Heading(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, heading, test.ShouldEqual, 4.5)
-	err = compassRelDev.StartCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.StopCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.Mark(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capSensorName, test.ShouldEqual, "compass2")
-
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
@@ -893,7 +796,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -967,7 +870,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass1", "compass2"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -1023,7 +926,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
