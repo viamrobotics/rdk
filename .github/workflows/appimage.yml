@@ -3,6 +3,9 @@ name: Build AppImage
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"

@@ -3,6 +3,9 @@ name: Package Viam-Server
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      GIT_ACCESS_TOKEN:
+        required: true
 
 env:
   GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
