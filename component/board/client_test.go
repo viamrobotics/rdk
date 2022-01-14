@@ -83,38 +83,38 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectBoard.StatusCap()[1:], test.ShouldResemble, []interface{}{})
 
-		// GPIOSet
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
+		// SetGPIO
+		injectBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
-		err = client.GPIOSet(context.Background(), "one", true)
+		err = client.SetGPIO(context.Background(), "one", true)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.GPIOSetCap()[1:], test.ShouldResemble, []interface{}{"one", true})
+		test.That(t, injectBoard.SetGPIOCap()[1:], test.ShouldResemble, []interface{}{"one", true})
 
-		// GPIOGet
-		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+		// GetGPIO
+		injectBoard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {
 			return true, nil
 		}
-		isHigh, err := client.GPIOGet(context.Background(), "one")
+		isHigh, err := client.GetGPIO(context.Background(), "one")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isHigh, test.ShouldBeTrue)
-		test.That(t, injectBoard.GPIOGetCap()[1:], test.ShouldResemble, []interface{}{"one"})
+		test.That(t, injectBoard.GetGPIOCap()[1:], test.ShouldResemble, []interface{}{"one"})
 
-		// PWMSet
-		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
+		// SetPWM
+		injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCyclePct float64) error {
 			return nil
 		}
-		err = client.PWMSet(context.Background(), "one", 7)
+		err = client.SetPWM(context.Background(), "one", 0.03)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.PWMSetCap()[1:], test.ShouldResemble, []interface{}{"one", byte(7)})
+		test.That(t, injectBoard.SetPWMCap()[1:], test.ShouldResemble, []interface{}{"one", 0.03})
 
-		// PWMSetFreq
-		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
+		// SetPWMFreq
+		injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freqHz uint) error {
 			return nil
 		}
-		err = client.PWMSetFreq(context.Background(), "one", 11233)
+		err = client.SetPWMFreq(context.Background(), "one", 11233)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectBoard.PWMSetFreqCap()[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
+		test.That(t, injectBoard.SetPWMFreqCap()[1:], test.ShouldResemble, []interface{}{"one", uint(11233)})
 
 		// Analog
 		injectAnalogReader := &inject.AnalogReader{}
@@ -142,20 +142,6 @@ func TestWorkingClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, injectBoard.DigitalInterruptByNameCap(), test.ShouldResemble, []interface{}{"digital1"})
 
-		// Digital Interrupt:Config
-		digitalIntConfig := board.DigitalInterruptConfig{
-			Name:    "foo",
-			Pin:     "bar",
-			Type:    "baz",
-			Formula: "baf",
-		}
-		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-			return digitalIntConfig, nil
-		}
-		digital1Config, err := digital1.Config(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, digital1Config, test.ShouldResemble, digitalIntConfig)
-
 		// Digital Interrupt:Value
 		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
 			return 287, nil
@@ -163,14 +149,6 @@ func TestWorkingClient(t *testing.T) {
 		digital1Val, err := digital1.Value(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, digital1Val, test.ShouldEqual, 287)
-
-		// Digital Interrupt:Tick
-		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-			return nil
-		}
-		err = digital1.Tick(context.Background(), true, 44)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, injectDigitalInterrupt.TickCap()[1:], test.ShouldResemble, []interface{}{true, uint64(44)})
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	}
