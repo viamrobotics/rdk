@@ -21,8 +21,10 @@ import (
 	"go.viam.com/utils"
 )
 
-var version = ""
-var gitRevision     = ""
+var (
+	version     = ""
+	gitRevision = ""
+)
 
 // An AttributeConverter converts a single attribute into a possibly
 // different representation.
@@ -177,7 +179,6 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
 
 	userInfo := map[string]interface{}{}
-
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
