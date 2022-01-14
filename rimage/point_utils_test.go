@@ -69,3 +69,30 @@ func TestR2ToImage(t *testing.T) {
 
 	test.That(t, R2RectToImageRect(resultR2Rect), test.ShouldResemble, resultImageRect)
 }
+
+func TestSliceVecsToXsYs(t *testing.T) {
+	pts := []r2.Point{
+		{0, 0},
+		{1, 2},
+		{3, 4},
+	}
+	xs, ys := SliceVecsToXsYs(pts)
+	test.That(t, xs[0], test.ShouldEqual, 0)
+	test.That(t, xs[1], test.ShouldEqual, 1)
+	test.That(t, xs[2], test.ShouldEqual, 3)
+	test.That(t, ys[0], test.ShouldEqual, 0)
+	test.That(t, ys[1], test.ShouldEqual, 2)
+	test.That(t, ys[2], test.ShouldEqual, 4)
+}
+
+func TestAreCollinear(t *testing.T) {
+	a := r2.Point{0, 0}
+	b := r2.Point{1, 1}
+	c := r2.Point{2, 2}
+	d := r2.Point{0, 2}
+
+	areColl := AreCollinear(a, b, c, 0.1)
+	test.That(t, areColl, test.ShouldBeTrue)
+	areColl = AreCollinear(a, b, d, 0.1)
+	test.That(t, areColl, test.ShouldBeFalse)
+}
