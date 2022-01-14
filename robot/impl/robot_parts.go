@@ -436,8 +436,8 @@ func (parts *robotParts) newComponents(ctx context.Context, components []config.
 				return err
 			}
 			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera, config.ComponentTypeCompass,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeGPS, config.ComponentTypeInputController,
 			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
 			config.ComponentTypeBase:
 			fallthrough
@@ -892,8 +892,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 				continue
 			}
 			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCompass, config.ComponentTypeCamera,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
+		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
+			config.ComponentTypeGantry, config.ComponentTypeGPS, config.ComponentTypeGripper, config.ComponentTypeInputController,
 			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix,
 			config.ComponentTypeBase:
 			fallthrough

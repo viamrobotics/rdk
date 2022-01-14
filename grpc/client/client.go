@@ -3,7 +3,6 @@ package client
 
 import (
 	"context"
-	"math"
 	"runtime/debug"
 	"sync"
 	"time"
@@ -21,7 +20,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/compass"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -350,10 +348,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	switch name.Subtype {
 	case base.Subtype:
 		return &baseClient{rc, name.Name}, true
-	case compass.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &compassClient{sc}, true
 	default:
 		c := registry.ResourceSubtypeLookup(name.Subtype)
 		if c == nil || c.RPCClient == nil {
@@ -719,46 +713,4 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 
 func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
-}
-
-// compassClient satisfies a gRPC based compass.Compass. Refer to the interface
-// for descriptions of its methods.
-type compassClient struct {
-	*sensorClient
-}
-
-func (cc *compassClient) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := cc.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{heading}, nil
-}
-
-func (cc *compassClient) Heading(ctx context.Context) (float64, error) {
-	resp, err := cc.rc.client.CompassHeading(ctx, &pb.CompassHeadingRequest{
-		Name: cc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Heading, nil
-}
-
-func (cc *compassClient) StartCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStartCalibration(ctx, &pb.CompassStartCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) StopCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStopCalibration(ctx, &pb.CompassStopCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(compass.SubtypeName), ""}
 }

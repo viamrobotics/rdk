@@ -22,19 +22,6 @@
             "model": "fake",
             "name": "pieceArm",
             "type": "arm"
-        },
-        {
-          "model": "fake",
-          "name": "compass1",
-          "type": "compass"
-        },
-        {
-          "model": "fake",
-          "name": "compass2",
-          "type": "compass",
-          "attributes": {
-            "relative": true
-          }
         }
     ]
 }

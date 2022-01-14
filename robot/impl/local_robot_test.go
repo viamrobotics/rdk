@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/compass"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -532,26 +532,26 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "pieceGripper",
 		}: {},
 		{
-			UUID: "286ec871-7aa7-5eba-98c0-6c3da28cdccb",
+			UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
-				ResourceSubtype: compass.SubtypeName,
+				ResourceSubtype: gps.SubtypeName,
 			},
-			Name: "compass1",
+			Name: "gps1",
 		}: {},
 		{
-			UUID: "4310ade7-fc0e-534d-b4ae-e38c934b6ea9",
+			UUID: "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
 			Subtype: resource.Subtype{
 				Type: resource.Type{
 					Namespace:    resource.ResourceNamespaceRDK,
 					ResourceType: resource.ResourceTypeComponent,
 				},
-				ResourceSubtype: compass.SubtypeName,
+				ResourceSubtype: gps.SubtypeName,
 			},
-			Name: "compass2",
+			Name: "gps2",
 		}: {},
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
