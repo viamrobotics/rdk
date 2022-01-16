@@ -21,6 +21,7 @@ type AttrConfig struct {
 	Path               string      `json:"path"`
 	PathPattern        string      `json:"path_pattern"`
 	Dump               bool        `json:"dump"`
+	Hide               bool        `json:"hide"`
 	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
 	Homography         interface{} `json:"homography"`
 	Warp               interface{} `json:"warp"`
