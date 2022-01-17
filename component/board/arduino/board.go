@@ -13,13 +13,13 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/utils"
 )
 

@@ -18,13 +18,13 @@ import (
 	goserial "github.com/jacobsa/go-serial/serial"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/serial"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
