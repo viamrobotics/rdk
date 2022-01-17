@@ -54,7 +54,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.3-0.20220114223938-88ff764015b0
+	go.viam.com/utils v0.0.3-0.20220117204101-db3a961d8eea
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	gonum.org/v1/gonum v0.8.2
@@ -63,7 +63,6 @@ require (
 	google.golang.org/grpc v1.43.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.1.0
 	google.golang.org/protobuf v1.27.1
-	howett.net/plist v0.0.0-20201203080718-1454fab16a06
 	periph.io/x/conn/v3 v3.6.9
 	periph.io/x/host/v3 v3.7.1
 )
@@ -285,6 +284,7 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	honnef.co/go/tools v0.2.1 // indirect
+	howett.net/plist v1.0.0 // indirect
 	mvdan.cc/gofumpt v0.1.1 // indirect
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
