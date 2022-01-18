@@ -44,16 +44,16 @@ func (f *Frame) StaticFrame(name string) (ref.Frame, error) {
 // UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage.
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := struct {
-		Parent      string                 `json:"parent"`
-		Translation spatial.Translation    `json:"translation"`
-		Orientation spatial.RawOrientation `json:"orientation"`
+		Parent      string                    `json:"parent"`
+		Translation spatial.Translation       `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
 	}{}
 
 	err := json.Unmarshal(b, &temp)
 	if err != nil {
 		return err
 	}
-	orientation, err := spatial.ParseOrientation(temp.Orientation)
+	orientation, err := temp.Orientation.Unmarshal()
 	if err != nil {
 		return err
 	}

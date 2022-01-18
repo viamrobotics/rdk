@@ -14,13 +14,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Translation is the translation between two objects in the grid system. It is always in millimeters.
-type Translation struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
-
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
 // and the Orientation() method returns an Orientation object, which has methods to parametrize

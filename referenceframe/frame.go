@@ -436,8 +436,7 @@ func decodePose(m map[string]interface{}) (spatial.Pose, error) {
 		return nil, err
 	}
 
-	ro := spatial.RawOrientation{oType, jsonValue}
-	orientation, err := spatial.ParseOrientation(ro)
+	orientation, err := spatial.OrientationConfig{oType, jsonValue}.Unmarshal()
 	if err != nil {
 		return nil, err
 	}

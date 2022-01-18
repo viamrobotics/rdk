@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 var blankPos map[string][]Input
@@ -283,7 +282,7 @@ func TestVolumesOfFrame(t *testing.T) {
 	objectFromFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
 	vols, _ := fs.VolumesOfFrame(blankPos, fs.GetFrame("object"), fs.GetFrame("frame2"))
 	test.That(t, vols, test.ShouldNotBeNil)
-	test.That(t, utils.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {
