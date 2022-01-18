@@ -44,7 +44,11 @@ if (window.webrtcAdditionalICEServers) {
 let connect = async (creds) => {
 	let transportFactory;
 	const opts = { credentials: creds, webrtcOptions: { rtcConfig: rtcConfig } };
+	const impliedURL = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 	if (window.webrtcEnabled) {
+		if (!window.webrtcSignalingAddress) {
+			window.webrtcSignalingAddress = impliedURL;
+		}
 		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
 		transportFactory = webRTCConn.transportFactory
 		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -60,8 +64,7 @@ let connect = async (creds) => {
 			streamContainer.appendChild(video);
 		}
 	} else {
-		const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
-		transportFactory = await dialDirect(url, opts);
+		transportFactory = await dialDirect(impliedURL, opts);
 	}
 
 	window.connect = () => connect(creds); // save creds
