@@ -514,8 +514,6 @@ func TestPartsClone(t *testing.T) {
 	// remove and delete parts to prove clone
 	delete(parts.remotes, "remote1")
 	parts.remotes = nil
-	delete(parts.sensors, "sensor1")
-	parts.sensors = nil
 	delete(parts.functions, "func1")
 	parts.functions = nil
 	delete(parts.resources, arm.Named("arm1"))
@@ -785,12 +783,15 @@ func TestPartsAdd(t *testing.T) {
 	test.That(t, resource1, test.ShouldEqual, injectBase)
 
 	injectSensor := &inject.Sensor{}
-	parts.AddSensor(injectSensor, config.Component{Name: "sensor1"})
+	cfg = &config.Component{Type: config.ComponentTypeSensor, Name: "sensor1"}
+	rName = cfg.ResourceName()
+	parts.addResource(rName, injectSensor)
 	sensor1, ok := parts.SensorByName("sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
-	parts.AddSensor(sensor1, config.Component{Name: "sensor1"})
-	test.That(t, sensor1.(*proxySensor).actual, test.ShouldEqual, injectSensor)
+	test.That(t, sensor1, test.ShouldEqual, injectSensor)
+	resource1, ok = parts.ResourceByName(rName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, resource1, test.ShouldEqual, injectSensor)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(

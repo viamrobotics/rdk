@@ -25,6 +25,7 @@ import (
 	fakeinput "go.viam.com/rdk/component/input/fake"
 	"go.viam.com/rdk/component/motor"
 	fakemotor "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	"go.viam.com/rdk/config"
@@ -32,7 +33,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )

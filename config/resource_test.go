@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/framesystem"
@@ -96,13 +97,13 @@ func TestComponentResourceName(t *testing.T) {
 			},
 			resource.Subtype{
 				Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-				ResourceSubtype: resource.SubtypeName(""),
+				ResourceSubtype: sensor.SubtypeName,
 			},
 			resource.Name{
-				UUID: "51782993-c1f4-5e87-9fd8-be561f2444a2",
+				UUID: "e36e9d80-c608-5b27-9f5f-11f735c60242",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: resource.SubtypeName(""),
+					ResourceSubtype: sensor.SubtypeName,
 				},
 				Name: "foo",
 			},

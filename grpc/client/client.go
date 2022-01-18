@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -32,7 +33,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -50,12 +50,9 @@ type RobotClient struct {
 
 	namesMu       *sync.RWMutex
 	baseNames     []string
-	sensorNames   []string
 	functionNames []string
 	serviceNames  []string
 	resourceNames []resource.Name
-
-	sensorTypes map[string]sensor.Type
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -93,7 +90,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		conn:                    conn,
 		client:                  client,
 		metadataClient:          metadataClient,
-		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -293,8 +289,7 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 // sensor is attempted to be returned; otherwise it's a general purpose
 // sensor.
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	sensorType := rc.sensorTypes[name]
-	sc := &sensorClient{rc, name, sensorType}
+	sc := &sensorClient{rc, name, ""}
 	return sc, true
 }
 
@@ -346,6 +341,8 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
 	switch name.Subtype {
+	case sensor.Subtype:
+		return &sensorClient{rc, name.Name, ""}, true
 	case base.Subtype:
 		return &baseClient{rc, name.Name}, true
 	default:
@@ -403,14 +400,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		}
 	}
 
-	rc.sensorNames = nil
-	if len(status.Sensors) != 0 {
-		rc.sensorNames = make([]string, 0, len(status.Sensors))
-		for name, sensorStatus := range status.Sensors {
-			rc.sensorNames = append(rc.sensorNames, name)
-			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -504,7 +493,13 @@ func (rc *RobotClient) BoardNames() []string {
 func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.sensorNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == sensor.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // ServoNames returns the names of all known servos.

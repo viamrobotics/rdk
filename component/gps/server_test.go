@@ -9,10 +9,10 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 )
