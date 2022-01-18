@@ -8,7 +8,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 type vectorJSON struct {
@@ -22,13 +22,11 @@ type ModelJSON struct {
 	Name         string `json:"name"`
 	KinParamType string `json:"kinematic_param_type"`
 	Links        []struct {
-		ID          string                     `json:"id"`
-		Parent      string                     `json:"parent"`
-		Translation spatialmath.Translation    `json:"translation"`
-		Orientation spatialmath.RawOrientation `json:"orientation"`
-
-		// Box represents the diagonal vector for a rectangular prism comprising the volume around the link
-		BoxVolume vectorJSON `json:"volume"`
+		ID          string                 `json:"id"`
+		Parent      string                 `json:"parent"`
+		Translation spatial.Translation    `json:"translation"`
+		Orientation spatial.RawOrientation `json:"orientation"`
+		Volume      spatial.VolumeConfig   `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
 		ID     string     `json:"id"`
@@ -39,14 +37,14 @@ type ModelJSON struct {
 		Min    float64    `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
-		ID        string     `json:"id"`
-		Parent    string     `json:"parent"`
-		A         float64    `json:"a"`
-		D         float64    `json:"d"`
-		Alpha     float64    `json:"alpha"`
-		Max       float64    `json:"max"`
-		Min       float64    `json:"min"`
-		BoxVolume vectorJSON `json:"volume"`
+		ID     string               `json:"id"`
+		Parent string               `json:"parent"`
+		A      float64              `json:"a"`
+		D      float64              `json:"d"`
+		Alpha  float64              `json:"alpha"`
+		Max    float64              `json:"max"`
+		Min    float64              `json:"min"`
+		Volume spatial.VolumeConfig `json:"volume"`
 	} `json:"dhParams"`
 	RawFrames []map[string]interface{} `json:"frames"`
 }
@@ -81,32 +79,22 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 		for _, link := range m.Links {
 			parentMap[link.ID] = link.Parent
-			orientation, err := spatialmath.ParseOrientation(link.Orientation)
+			orientation, err := spatial.ParseOrientation(link.Orientation)
 			if err != nil {
 				return nil, err
 			}
 			ov := orientation.OrientationVectorRadians()
 			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
-			pose := spatialmath.NewPoseFromOrientationVector(pt, ov)
-
-			var vol spatialmath.VolumeCreator
-			if link.BoxVolume.X != 0 && link.BoxVolume.Y != 0 && link.BoxVolume.Z != 0 {
-				dims := r3.Vector{link.BoxVolume.X, link.BoxVolume.Y, link.BoxVolume.Z}.Mul(0.5)
-				offset := spatialmath.Invert(spatialmath.NewPoseFromOrientation(pt.Mul(0.5), ov))
-				vol = spatialmath.NewBoxFromOffset(dims, offset)
-			}
-			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, vol)
-
-			if err != nil {
-				return nil, err
-			}
+			pose := spatial.NewPoseFromOrientationVector(pt, ov)
+			offset := spatial.Invert(spatial.NewPoseFromOrientation(pt.Mul(0.5), ov))
+			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, link.Volume.VolumeCreator(offset))
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range m.Joints {
 			// TODO(pl): Make this a switch once we support more than one joint type
 			if joint.Type == "revolute" {
-				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
+				aa := spatial.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
 
 				rev, err := NewRotationalFrame(joint.ID, aa, Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
 				if err != nil {
@@ -126,7 +114,7 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 			parentMap[jointID] = dh.Parent
 			j, err := NewRotationalFrame(
 				jointID,
-				spatialmath.R4AA{RX: 0, RY: 0, RZ: 1},
+				spatial.R4AA{RX: 0, RY: 0, RZ: 1},
 				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180},
 			)
 			if err != nil {
@@ -136,7 +124,7 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 			// Link part of DH param
 			linkID := dh.ID
-			linkQuat := spatialmath.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
+			linkQuat := spatial.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
 
 			transforms[linkID], err = NewStaticFrame(linkID, linkQuat)
 			if err != nil {
