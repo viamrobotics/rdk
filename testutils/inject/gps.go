@@ -7,7 +7,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/component/sensor"
 )
 
 // GPS is an injected GPS.

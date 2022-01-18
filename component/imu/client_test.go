@@ -12,10 +12,10 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
