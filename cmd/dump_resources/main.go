@@ -130,9 +130,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 			dumpResourceInfo(resName, res.Interface())
 		}
 	}
-	dumpComponentsInfo := func(components interface{}, subType resource.SubtypeName) {
-		dumpResourcesInfo(components, resource.ResourceTypeComponent, subType)
-	}
 
 	components := registry.RegisteredComponents()
 	for qModel, reg := range components {
@@ -148,8 +145,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		// this will break.
 		dumpResourceInfo(name, reg)
 	}
-
-	dumpComponentsInfo(registry.RegisteredSensors(), resource.SubtypeName(config.ComponentTypeSensor))
 
 	for svcType, reg := range registry.RegisteredServices() {
 		resName := resource.NewName(

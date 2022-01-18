@@ -479,8 +479,8 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web service
-	test.That(t, len(svc.All()), test.ShouldEqual, 9)
+	// 8 declared resources + default web and metadata service
+	test.That(t, len(svc.All()), test.ShouldEqual, 10)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -556,6 +556,11 @@ func TestMetadataUpdate(t *testing.T) {
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
 			Subtype: framesystem.Subtype,
+			Name:    "",
+		}: {},
+		{
+			UUID:    "6b2d25f5-81ee-5386-8db8-42a0c5a29df3",
+			Subtype: web.Subtype,
 			Name:    "",
 		}: {},
 	}

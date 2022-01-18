@@ -9,9 +9,9 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	"go.viam.com/rdk/sensor"
 )
 
 // serviceClient is a client satisfies the gps.proto contract.

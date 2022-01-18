@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/component/sensor"
 )
 
 // ForceMatrix is an injected ForceMatrix.
