@@ -53,6 +53,10 @@ import (
 
 	// register motor.
 	_ "go.viam.com/rdk/component/motor/register"
+	"go.viam.com/rdk/component/sensor"
+
+	// register sensor.
+	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 
 	// register servo.
@@ -71,7 +75,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 
 	// register base remote control.
 	_ "go.viam.com/rdk/services/baseremotecontrol"
@@ -332,13 +335,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 		return nil, err
 	}
 
-	// if metadata exists, update it
-	if svc := service.ContextService(ctx); svc != nil {
-		if err := r.UpdateMetadata(svc); err != nil {
-			return nil, err
-		}
-	}
-
 	// default services
 
 	// create web service here
@@ -349,16 +345,15 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 		return nil, err
 	}
 	r.parts.addResource(web.Name, webSvc)
+
+	// if metadata exists, update it
+	if svc := service.ContextService(ctx); svc != nil {
+		if err := r.UpdateMetadata(svc); err != nil {
+			return nil, err
+		}
+	}
 	successful = true
 	return r, nil
-}
-
-func (r *localRobot) newSensor(ctx context.Context, config config.Component, sensorType sensor.Type) (sensor.Sensor, error) {
-	f := registry.SensorLookup(sensorType, config.Model)
-	if f == nil {
-		return nil, errors.Errorf("unknown sensor model (type=%s): %s", sensorType, config.Model)
-	}
-	return f.Constructor(ctx, r, config, r.logger)
 }
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
@@ -400,15 +395,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	metadata := resource.NameFromSubtype(service.Subtype, "")
 	resources = append(resources, metadata)
 
-	for _, name := range r.BaseNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeBase,
-			name,
-		)
-		resources = append(resources, res)
-	}
 	for _, name := range r.FunctionNames() {
 		res := resource.NewName(
 			resource.ResourceNamespaceRDK,
@@ -425,16 +411,6 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 			resource.ResourceSubtypeRemote,
 			name,
 		)
-		resources = append(resources, res)
-	}
-	for _, name := range r.SensorNames() {
-		res := resource.NewName(
-			resource.ResourceNamespaceRDK,
-			resource.ResourceTypeComponent,
-			resource.ResourceSubtypeSensor,
-			name,
-		)
-
 		resources = append(resources, res)
 	}
 

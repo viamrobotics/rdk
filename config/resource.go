@@ -68,9 +68,6 @@ func (config *Component) String() string {
 // ResourceName returns the  ResourceName for the component.
 func (config *Component) ResourceName() resource.Name {
 	cType := string(config.Type)
-	if config.Type == ComponentTypeSensor {
-		cType = config.SubType
-	}
 	return resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.SubtypeName(cType), config.Name)
 }
 

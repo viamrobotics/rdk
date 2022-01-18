@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -26,7 +27,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 )
 
 var errUnimplemented = errors.New("unimplemented")
@@ -402,13 +402,6 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	parts := newRobotParts(robot.Logger().Named("parts"))
-	for _, name := range robot.SensorNames() {
-		part, ok := robot.SensorByName(name)
-		if !ok {
-			continue
-		}
-		parts.AddSensor(part, config.Component{Name: name})
-	}
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
@@ -425,16 +418,9 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
-	var oldSensorNames map[string]struct{}
 	var oldFunctionNames map[string]struct{}
 	var oldResources map[resource.Name]struct{}
 
-	if len(parts.sensors) != 0 {
-		oldSensorNames = make(map[string]struct{}, len(parts.sensors))
-		for name := range parts.sensors {
-			oldSensorNames[name] = struct{}{}
-		}
-	}
 	if len(parts.functions) != 0 {
 		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
 		for name := range parts.functions {
@@ -449,17 +435,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 	}
 
-	for name, newPart := range newParts.sensors {
-		oldPart, ok := parts.sensors[name]
-		delete(oldSensorNames, name)
-		if ok {
-			oldPart.(interface {
-				replace(ctx context.Context, newSensor sensor.Sensor)
-			}).replace(ctx, newPart)
-			continue
-		}
-		parts.sensors[name] = newPart
-	}
 	for name, newPart := range newParts.functions {
 		_, ok := parts.functions[name]
 		delete(oldFunctionNames, name)
@@ -507,9 +482,6 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		parts.resources[name] = newR
 	}
 
-	for name := range oldSensorNames {
-		delete(parts.sensors, name)
-	}
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)
 	}

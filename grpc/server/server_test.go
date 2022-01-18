@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -22,7 +23,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
