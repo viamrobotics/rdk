@@ -21,16 +21,13 @@ type box struct {
 	halfSize r3.Vector
 }
 
-// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose.
-// These boxes have dimensions given by the provided halfSize vector.
-func NewBox(halfSize r3.Vector) VolumeCreator {
-	return &boxCreator{halfSize, NewZeroPose()}
-}
-
-// NewBoxFromOffset instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
+// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBoxFromOffset(halfSize r3.Vector, offset Pose) VolumeCreator {
-	return &boxCreator{halfSize, offset}
+func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
+	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
+		return nil, errors.Errorf("box dimensions can not be zero")
+	}
+	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
 
 // NewVolume instantiates a new box from a BoxCreator class.
