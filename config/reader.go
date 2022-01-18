@@ -21,9 +21,10 @@ import (
 	"go.viam.com/utils"
 )
 
+// RDK versioning variables which are replaced by LD flags.
 var (
-	version     = ""
-	gitRevision = ""
+	Version     = ""
+	GitRevision = ""
 )
 
 // An AttributeConverter converts a single attribute into a possibly
@@ -191,8 +192,8 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 		return nil, err
 	}
 	userInfo[cloudConfigUserInfoLocalIPsField] = ips
-	userInfo[cloudConfigVersionField] = version
-	userInfo[cloudConfigGitRevisionField] = gitRevision
+	userInfo[cloudConfigVersionField] = Version
+	userInfo[cloudConfigGitRevisionField] = GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
