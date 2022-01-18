@@ -458,6 +458,61 @@ func (x *GeoPoint) GetLongitude() float64 {
 	return 0
 }
 
+type SensorDescription struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Path string `protobuf:"bytes,2,opt,name=path,proto3" json:"path,omitempty"`
+}
+
+func (x *SensorDescription) Reset() {
+	*x = SensorDescription{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[7]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *SensorDescription) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SensorDescription) ProtoMessage() {}
+
+func (x *SensorDescription) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[7]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SensorDescription.ProtoReflect.Descriptor instead.
+func (*SensorDescription) Descriptor() ([]byte, []int) {
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *SensorDescription) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SensorDescription) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
 var File_proto_api_common_v1_common_proto protoreflect.FileDescriptor
 
 var file_proto_api_common_v1_common_proto_rawDesc = []byte{
@@ -515,12 +570,16 @@ var file_proto_api_common_v1_common_proto_rawDesc = []byte{
 	0x1a, 0x0a, 0x08, 0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
 	0x01, 0x52, 0x08, 0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x6c,
 	0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x09,
-	0x6c, 0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x42, 0x47, 0x0a, 0x20, 0x63, 0x6f, 0x6d,
-	0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x72, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e,
-	0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x5a, 0x23, 0x67,
-	0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x64, 0x6b, 0x2f, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f,
-	0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6c, 0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x22, 0x3b, 0x0a, 0x11, 0x53, 0x65, 0x6e,
+	0x73, 0x6f, 0x72, 0x44, 0x65, 0x73, 0x63, 0x72, 0x69, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x12, 0x12,
+	0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x74, 0x79,
+	0x70, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09,
+	0x52, 0x04, 0x70, 0x61, 0x74, 0x68, 0x42, 0x47, 0x0a, 0x20, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69,
+	0x61, 0x6d, 0x2e, 0x72, 0x64, 0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x5a, 0x23, 0x67, 0x6f, 0x2e, 0x76,
+	0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x72, 0x64, 0x6b, 0x2f, 0x70, 0x72, 0x6f, 0x74,
+	0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x76, 0x31, 0x62,
+	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -535,7 +594,7 @@ func file_proto_api_common_v1_common_proto_rawDescGZIP() []byte {
 	return file_proto_api_common_v1_common_proto_rawDescData
 }
 
-var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*BoardStatus)(nil),            // 0: proto.api.common.v1.BoardStatus
 	(*AnalogStatus)(nil),           // 1: proto.api.common.v1.AnalogStatus
@@ -544,12 +603,13 @@ var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*Vector3)(nil),                // 4: proto.api.common.v1.Vector3
 	(*BoxGeometry)(nil),            // 5: proto.api.common.v1.BoxGeometry
 	(*GeoPoint)(nil),               // 6: proto.api.common.v1.GeoPoint
-	nil,                            // 7: proto.api.common.v1.BoardStatus.AnalogsEntry
-	nil,                            // 8: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	(*SensorDescription)(nil),      // 7: proto.api.common.v1.SensorDescription
+	nil,                            // 8: proto.api.common.v1.BoardStatus.AnalogsEntry
+	nil,                            // 9: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 }
 var file_proto_api_common_v1_common_proto_depIdxs = []int32{
-	7, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
-	8, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	8, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
+	9, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 	1, // 2: proto.api.common.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.common.v1.AnalogStatus
 	2, // 3: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.common.v1.DigitalInterruptStatus
 	4, // [4:4] is the sub-list for method output_type
@@ -649,6 +709,18 @@ func file_proto_api_common_v1_common_proto_init() {
 				return nil
 			}
 		}
+		file_proto_api_common_v1_common_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*SensorDescription); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -656,7 +728,7 @@ func file_proto_api_common_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_common_v1_common_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

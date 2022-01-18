@@ -57,3 +57,8 @@ message GeoPoint {
   double latitude = 1;
   double longitude = 2;
 }
+
+message SensorDescription {
+  string type = 1;
+  string path = 2;
+}
