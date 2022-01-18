@@ -5,8 +5,6 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/utils"
 )
 
 // BoxCreator implements the VolumeCreator interface for box structs.
@@ -48,7 +46,7 @@ func (b *box) AlmostEqual(v Volume) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(b.pose, other.pose) && utils.R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
+	return PoseAlmostEqual(b.pose, other.pose) && R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.

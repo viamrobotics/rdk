@@ -5,36 +5,29 @@ import (
 	"io/ioutil"
 	"math"
 
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
 )
-
-type vectorJSON struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
 
 // ModelJSON represents all supported fields in a kinematics JSON file.
 type ModelJSON struct {
 	Name         string `json:"name"`
 	KinParamType string `json:"kinematic_param_type"`
 	Links        []struct {
-		ID          string                 `json:"id"`
-		Parent      string                 `json:"parent"`
-		Translation spatial.Translation    `json:"translation"`
-		Orientation spatial.RawOrientation `json:"orientation"`
-		Volume      spatial.VolumeConfig   `json:"volume"`
+		ID          string                    `json:"id"`
+		Parent      string                    `json:"parent"`
+		Translation spatial.Translation       `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
+		Volume      spatial.VolumeConfig      `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string     `json:"id"`
-		Type   string     `json:"type"`
-		Parent string     `json:"parent"`
-		Axis   vectorJSON `json:"axis"`
-		Max    float64    `json:"max"`
-		Min    float64    `json:"min"`
+		ID     string       `json:"id"`
+		Type   string       `json:"type"`
+		Parent string       `json:"parent"`
+		Axis   spatial.Axis `json:"axis"`
+		Max    float64      `json:"max"`
+		Min    float64      `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
 		ID     string               `json:"id"`
@@ -79,15 +72,18 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 		for _, link := range m.Links {
 			parentMap[link.ID] = link.Parent
-			orientation, err := spatial.ParseOrientation(link.Orientation)
+			orientation, err := link.Orientation.Unmarshal()
 			if err != nil {
 				return nil, err
 			}
 			ov := orientation.OrientationVectorRadians()
-			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
+			pt := link.Translation.Unmarshal()
 			pose := spatial.NewPoseFromOrientationVector(pt, ov)
 			offset := spatial.Invert(spatial.NewPoseFromOrientation(pt.Mul(0.5), ov))
 			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, link.Volume.VolumeCreator(offset))
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"

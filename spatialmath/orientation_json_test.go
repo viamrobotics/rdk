@@ -26,14 +26,14 @@ func TestOrientation(t *testing.T) {
 	// go through each test case
 
 	// Config with unknown orientation
-	ro := RawOrientation{}
+	ro := OrientationConfig{}
 	err = json.Unmarshal(testMap["wrong"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ParseOrientation(ro)
 	test.That(t, err, test.ShouldBeError, errors.New("orientation type oiler_angles not recognized"))
 
 	// Config with good type, but bad value
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["wrongvalue"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ParseOrientation(ro)
@@ -41,7 +41,7 @@ func TestOrientation(t *testing.T) {
 		errors.New("json: cannot unmarshal string into Go struct field OrientationVectorDegrees.th of type float64"))
 
 	// Empty Config
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["empty"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	o, err := ParseOrientation(ro)
@@ -51,7 +51,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("do not know how to map Orientation type %T to json fields", o))
 
 	// OrientationVectorDegrees Config
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["ovdegrees"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	o, err = ParseOrientation(ro)
@@ -63,7 +63,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, om["value"], test.ShouldResemble, o)
 
 	// OrientationVector Radians Config
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["ovradians"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	o, err = ParseOrientation(ro)
@@ -75,7 +75,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, om["value"], test.ShouldResemble, o)
 
 	// Euler Angles
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["euler"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	o, err = ParseOrientation(ro)
@@ -87,7 +87,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, om["value"], test.ShouldResemble, o)
 
 	// Axis angles Config
-	ro = RawOrientation{}
+	ro = OrientationConfig{}
 	err = json.Unmarshal(testMap["axisangle"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	o, err = ParseOrientation(ro)
