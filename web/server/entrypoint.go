@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -267,7 +267,7 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := egoutil.NewNiceLoggingSpanExporter()
+	exp := perf.NewNiceLoggingSpanExporter()
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
