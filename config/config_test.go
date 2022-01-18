@@ -98,6 +98,12 @@ func TestCreateCloudRequest(t *testing.T) {
 		Secret: "b",
 		Path:   "c",
 	}
+
+	version := "test-version"
+	gitRevision := "test-git-revision"
+	config.Version = version
+	config.GitRevision = gitRevision
+
 	r, err := config.CreateCloudRequest(context.Background(), &cfg)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -108,8 +114,8 @@ func TestCreateCloudRequest(t *testing.T) {
 	userInfoJSON := r.Header.Get("User-Info")
 	json.Unmarshal([]byte(userInfoJSON), &userInfo)
 
-	test.That(t, userInfo["version"], test.ShouldNotBeNil)
-	test.That(t, userInfo["gitRevision"], test.ShouldNotBeNil)
+	test.That(t, userInfo["version"], test.ShouldEqual, version)
+	test.That(t, userInfo["gitRevision"], test.ShouldEqual, gitRevision)
 }
 
 func TestConfigEnsure(t *testing.T) {

@@ -10,7 +10,7 @@ PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
 
 VERSION := $(shell git tag --sort=-version:refname | head -n 1)
 GIT_REVISION := $(shell git rev-parse HEAD | tr -d '\n')
-LDFLAGS = -ldflags "-X 'go.viam.com/rdk/config.version=${VERSION}' -X 'go.viam.com/rdk/config.gitRevision=${GIT_REVISION}'"
+LDFLAGS = -ldflags "-X 'go.viam.com/rdk/config.Version=${VERSION}' -X 'go.viam.com/rdk/config.GitRevision=${GIT_REVISION}'"
 
 default: build lint server
 
