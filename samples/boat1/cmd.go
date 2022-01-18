@@ -19,6 +19,7 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
@@ -30,7 +31,6 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/services/web"
 	rdkutils "go.viam.com/rdk/utils"
 	webserver "go.viam.com/rdk/web/server"
