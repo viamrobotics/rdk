@@ -146,12 +146,14 @@
       "type": "gripper"
     },
     {
-      "model": "intel",
+      "model": "single_stream",
       "name": "depth",
       "type": "camera",
       "attributes": {
           "host": "127.0.0.1",
-          "port": 8181
+          "port": 8181,
+          "args": "both?num=0",
+          "stream": "both"
       }
     }
   ],

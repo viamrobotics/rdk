@@ -28,12 +28,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 )
-
-//go:embed intel515_parameters.json
-var intel515json []byte
 
 func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
@@ -70,24 +66,6 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&rimage.AttrConfig{})
-
-	registry.RegisterComponent(camera.Subtype, "intel",
-		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
-			config config.Component, logger golog.Logger) (interface{}, error) {
-			source, err := NewIntelServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
-			if err != nil {
-				return nil, err
-			}
-			return &camera.ImageSource{ImageSource: source}, nil
-		}})
-	registry.RegisterComponent(camera.Subtype, "eliot", *registry.ComponentLookup(camera.Subtype, "intel"))
-
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "intel",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -299,23 +277,4 @@ func NewServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream.Imag
 		isAligned: cfg.Aligned,
 		camera:    camera,
 	}, nil
-}
-
-// NewIntelServerSource is the ImageSource for an Intel515 RGBD camera that streams both
-// color and depth information.
-// Deprecated: use NewServerSource directly instead with 'single_stream' model.
-func NewIntelServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
-	if cfg.Num == "" {
-		cfg.Num = "0"
-	}
-
-	camera, err := transform.NewDepthColorIntrinsicsExtrinsicsFromBytes(intel515json)
-	if err != nil {
-		return nil, err
-	}
-	cfg.IntrinsicExtrinsic = camera
-	cfg.Stream = "both"
-	cfg.Args = fmt.Sprintf("both?num=%s", cfg.Num)
-
-	return NewServerSource(cfg, logger)
 }

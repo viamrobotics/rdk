@@ -9,11 +9,12 @@
         },
         { "name" : "table-view",
           "type" : "camera",
-          "model" : "intel",
+          "model" : "single_stream",
           "attributes" : {
               "host": "10.237.115.131",
               "port": 8181,
-              "num" : "0"
+              "args": "both?num=0",
+              "stream": "both"
           }
         },
         { "name" : "robotiq-2finger",
@@ -25,11 +26,12 @@
         },
         { "name" : "chess-over",
           "type" : "camera",
-          "model" : "intel",
+          "model" : "single_stream",
           "attributes" : {
               "host": "10.237.115.131",
               "port": 8181,
-              "num" : "1"
+              "args": "both?num=1",
+              "stream": "both"
           }
         },
         { "name" : "eva-1",
