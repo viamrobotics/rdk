@@ -1,0 +1,18 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/config/v1";
+option java_package = "com.viam.rdk.proto.api.config.v1";
+
+package proto.api.config.v1;
+
+import "google/protobuf/duration.proto";
+import "proto/tagger/v1/tagger.proto";
+
+message Cloud {
+  string id = 1 [(tagger.v1.tags) = "bson:\"id\" json:\"id\""];
+  string secret = 2 [(tagger.v1.tags) = "bson:\"secret\" json:\"secret\""];
+  repeated string fqdns = 3  [(tagger.v1.tags) = "bson:\"fqdns\" json:\"fqdns\""];
+  string signaling_address = 4 [(tagger.v1.tags) = "bson:\"signaling_address\" json:\"signaling_address\""];
+  string path = 5;             
+  string log_path = 6 [(tagger.v1.tags) = "bson:\"log_path\" json:\"log_path\""];
+  google.protobuf.Duration refresh_interval = 7 [(tagger.v1.tags) = "bson:\"refresh_interval\" json:\"refresh_interval,omitempty\""];
+}

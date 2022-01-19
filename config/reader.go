@@ -171,7 +171,7 @@ const (
 // CreateCloudRequest makes a request to fetch the robot config
 // from a cloud endpoint.
 func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
-	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
+	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.Id)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -264,7 +264,7 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 			return nil, err
 		}
 		var cacheErr error
-		configReader, cacheErr = openFromCache(cloudCfg.ID)
+		configReader, cacheErr = openFromCache(cloudCfg.Id)
 		if cacheErr != nil {
 			if os.IsNotExist(cacheErr) {
 				return nil, err
@@ -283,13 +283,13 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
-	fqdns := cfg.Cloud.FQDNs
+	fqdns := cfg.Cloud.Fqdns
 	signalingAddress := cfg.Cloud.SignalingAddress
 	*cfg.Cloud = *cloudCfg
-	cfg.Cloud.FQDNs = fqdns
+	cfg.Cloud.Fqdns = fqdns
 	cfg.Cloud.SignalingAddress = signalingAddress
 
-	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
+	if err := storeToCache(cloudCfg.Id, cfg); err != nil {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
