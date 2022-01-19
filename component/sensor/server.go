@@ -26,11 +26,11 @@ func NewServer(s subtype.Service) pb.SensorServiceServer {
 func (s *subtypeServer) getSensor(name string) (Sensor, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no Sensor with name (%s)", name)
+		return nil, errors.Errorf("no generic sensor with name (%s)", name)
 	}
 	sensor, ok := resource.(Sensor)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not a Sensor", name)
+		return nil, errors.Errorf("resource with name (%s) is not a generic sensor", name)
 	}
 	return sensor, nil
 }

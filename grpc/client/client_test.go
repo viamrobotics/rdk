@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
+	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
@@ -372,6 +373,10 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
 
+	sensorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
@@ -552,7 +557,7 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
