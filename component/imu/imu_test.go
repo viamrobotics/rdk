@@ -6,7 +6,6 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -50,9 +49,8 @@ func TestIMUName(t *testing.T) {
 }
 
 var (
-	av   = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
-	ea   = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
-	desc = sensor.Description{sensor.Type("imu"), ""}
+	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -124,24 +122,12 @@ func TestReadings(t *testing.T) {
 	test.That(t, actualIMU1.readingsCalls, test.ShouldEqual, 1)
 }
 
-func TestDesc(t *testing.T) {
-	actualIMU1 := &mock{Name: "imu1"}
-	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
-
-	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 0)
-	result, err := fakeIMU1.(*reconfigurableIMU).Desc(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, desc)
-	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 1)
-}
-
 type mock struct {
 	IMU
 	Name                 string
 	angularVelocityCalls int
 	orientationCalls     int
 	readingsCalls        int
-	descCalls            int
 	reconfCalls          int
 }
 
@@ -160,8 +146,4 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{av, ea}, nil
 }
 
-func (m *mock) Desc(ctx context.Context) (sensor.Description, error) {
-	m.descCalls++
-	return desc, nil
-}
 func (m *mock) Close() { m.reconfCalls++ }
