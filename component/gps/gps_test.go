@@ -7,7 +7,6 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 )
 
@@ -164,17 +163,6 @@ func TestReadings(t *testing.T) {
 	test.That(t, actualGPS1.readingsCalls, test.ShouldEqual, 1)
 }
 
-func TestDesc(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
-	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 0)
-	result, err := reconfGPS1.(*reconfigurableGPS).Desc(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, desc)
-	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 1)
-}
-
 func TestClose(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
@@ -193,7 +181,6 @@ var (
 	hAcc       = 0.7
 	vAcc       = 0.8
 	valid      = true
-	desc       = sensor.Description{sensor.Type("gps"), ""}
 )
 
 type mock struct {
@@ -206,7 +193,6 @@ type mock struct {
 	accCalls      int
 	validCalls    int
 	readingsCalls int
-	descCalls     int
 	reconfCalls   int
 }
 
@@ -251,8 +237,4 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{loc}, nil
 }
 
-func (m *mock) Desc(ctx context.Context) (sensor.Description, error) {
-	m.descCalls++
-	return desc, nil
-}
 func (m *mock) Close() { m.reconfCalls++ }
