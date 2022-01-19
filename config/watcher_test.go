@@ -16,6 +16,8 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
@@ -199,10 +201,10 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	cloudConf := &Cloud{
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
-		ID:              "my_id",
+		Id:              "my_id",
 		Secret:          "my_secret",
-		FQDNs:           []string{"woo", "yee"},
-		RefreshInterval: time.Second,
+		Fqdns:           []string{"woo", "yee"},
+		RefreshInterval: durationpb.New(time.Second),
 	}
 	confToReturn = Config{
 		Cloud: cloudConf,

@@ -14,6 +14,10 @@ import (
 
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/rlog"
+
+	configpb "go.viam.com/rdk/proto/api/config/v1"
+	 "google.golang.org/protobuf/types/known/durationpb"
+
 )
 
 // SortComponents sorts list of components topologically based off what other components they depend on.
@@ -212,26 +216,18 @@ func (config *Remote) Validate(path string) error {
 // cloud.
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
-type Cloud struct {
-	ID               string        `json:"id"`
-	Secret           string        `json:"secret"`
-	FQDNs            []string      `json:"fqdns"`
-	SignalingAddress string        `json:"signaling_address"`
-	Path             string        `json:"path"`
-	LogPath          string        `json:"log_path"`
-	RefreshInterval  time.Duration `json:"refresh_interval,omitempty"`
-}
+type Cloud configpb.Cloud
 
 // Validate ensures all parts of the config are valid.
 func (config *Cloud) Validate(path string, fromCloud bool) error {
-	if config.ID == "" {
+	if config.Id == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "id")
 	}
 	if fromCloud {
-		if len(config.FQDNs) == 0 {
+		if len(config.Fqdns) == 0 {
 			return utils.NewConfigValidationFieldRequiredError(path, "fqdns")
 		}
-		for idx, fqdn := range config.FQDNs {
+		for idx, fqdn := range config.Fqdns {
 			if fqdn == "" {
 				return utils.NewConfigValidationFieldRequiredError(path, fmt.Sprintf("%s.%d", "fqdns", idx))
 			}
@@ -239,8 +235,8 @@ func (config *Cloud) Validate(path string, fromCloud bool) error {
 	} else if config.Secret == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "secret")
 	}
-	if config.RefreshInterval == 0 {
-		config.RefreshInterval = 10 * time.Second
+	if config.RefreshInterval.AsDuration() == 0 {
+		config.RefreshInterval = durationpb.New(10 * time.Second)
 	}
 	return nil
 }

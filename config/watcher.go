@@ -48,10 +48,10 @@ func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *c
 	// TODO(https://github.com/viamrobotics/rdk/issues/45): in the future when the web app
 	// supports gRPC streams, use that instead for pushed config updates;
 	// for now just do a small interval.
-	ticker := time.NewTicker(config.RefreshInterval)
+	ticker := time.NewTicker(config.RefreshInterval.AsDuration())
 	utils.ManagedGo(func() {
 		for {
-			if !utils.SelectContextOrWait(cancelCtx, config.RefreshInterval) {
+			if !utils.SelectContextOrWait(cancelCtx, config.RefreshInterval.AsDuration()) {
 				return
 			}
 			newConfig, err := ReadFromCloud(cancelCtx, config, false)
