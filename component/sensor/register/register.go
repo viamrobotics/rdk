@@ -5,14 +5,15 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/subtype"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/component/sensor"
 
 	// for Sensors.
 	_ "go.viam.com/rdk/component/sensor/fake"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/subtype"
 )
 
 func init() {
