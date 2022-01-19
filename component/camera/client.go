@@ -92,6 +92,9 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	case utils.MimeTypeRawIWD:
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
 		return img, func() {}, err
+	case utils.MimeTypeBoth:
+		img, err := rimage.ReadBothFromBytes(resp.Frame, true)
+		return img, func() {}, err
 	default:
 		return nil, nil, errors.Errorf("do not how to decode MimeType %s", resp.MimeType)
 	}

@@ -29,7 +29,7 @@ cmake -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
       -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
       -DCMAKE_CXX_STANDARD=20 \
       ../..
-make -j
+make -j1
 sudo make install
 popd
 
@@ -39,7 +39,7 @@ cmake -DgRPC_INSTALL=ON \
       -DgRPC_BUILD_TESTS=OFF \
       -DCMAKE_INSTALL_PREFIX=$INSTALL_DIR \
       ../..
-make -j
+make -j1
 sudo make install
 
 sudo ln -s `which grpc_cpp_plugin` /usr/local/bin/protoc-gen-grpc-cpp
