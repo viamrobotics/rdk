@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -187,11 +186,6 @@ func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (bool, error) {
 func (g *pmtkI2CNMEAGPS) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-}
-
-// Desc returns that this is a GPS.
-func (g *pmtkI2CNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // PMTK checksums commands by XORing together each byte.

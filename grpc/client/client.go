@@ -291,13 +291,18 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 	return actualBoard, true
 }
 
-// SensorByName returns a sensor by name. It is assumed to exist on the
-// other end. Based on the known sensor names and types, a type specific
-// sensor is attempted to be returned; otherwise it's a general purpose
-// sensor.
+// SensorByName returns a generic sensor by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	sc := &sensorClient{rc, name, ""}
-	return sc, true
+	resource, ok := rc.ResourceByName(sensor.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualSensor, ok := resource.(sensor.Sensor)
+	if !ok {
+		return nil, false
+	}
+	return actualSensor, true
 }
 
 // ServoByName returns a servo by name. It is assumed to exist on the
@@ -346,10 +351,6 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this conditio after the V2 migration is done
-	if name.Subtype == sensor.Subtype {
-		return &sensorClient{rc, name.Name, ""}, true
-	}
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		// registration doesn't exist
@@ -613,30 +614,4 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 		}
 	}
 	return fs, nil
-}
-
-// sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
-// for descriptions of its methods.
-type sensorClient struct {
-	rc         *RobotClient
-	name       string
-	sensorType sensor.Type
-}
-
-func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
-	resp, err := sc.rc.client.SensorReadings(ctx, &pb.SensorReadingsRequest{
-		Name: sc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	readings := make([]interface{}, 0, len(resp.Readings))
-	for _, r := range resp.Readings {
-		readings = append(readings, r.AsInterface())
-	}
-	return readings, nil
-}
-
-func (sc *sensorClient) Desc() sensor.Description {
-	return sensor.Description{sc.sensorType, ""}
 }

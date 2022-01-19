@@ -6,7 +6,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/imu"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -16,7 +15,6 @@ type IMU struct {
 	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
 	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
-	DescFunc            func() sensor.Description
 	CloseFunc           func(ctx context.Context) error
 }
 
@@ -42,14 +40,6 @@ func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
 		return i.IMU.Readings(ctx)
 	}
 	return i.ReadingsFunc(ctx)
-}
-
-// Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
-	if i.DescFunc == nil {
-		return i.IMU.Desc()
-	}
-	return i.DescFunc()
 }
 
 // Close calls the injected Close or the real version.

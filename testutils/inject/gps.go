@@ -7,7 +7,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 )
 
 // GPS is an injected GPS.
@@ -20,7 +19,6 @@ type GPS struct {
 	AccuracyFunc   func(ctx context.Context) (float64, float64, error)
 	ValidFunc      func(ctx context.Context) (bool, error)
 	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
-	DescFunc       func() sensor.Description
 	CloseFunc      func(ctx context.Context) error
 }
 
@@ -78,14 +76,6 @@ func (i *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 		return i.LocalGPS.Readings(ctx)
 	}
 	return i.ReadingsFunc(ctx)
-}
-
-// Desc returns that this is an GPS.
-func (i *GPS) Desc() sensor.Description {
-	if i.DescFunc == nil {
-		return i.LocalGPS.Desc()
-	}
-	return i.DescFunc()
 }
 
 // Close calls the injected Close or the real version.
