@@ -250,8 +250,8 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{loc}, nil
 }
 
-func (m *mock) Desc() sensor.Description {
+func (m *mock) Desc(ctx context.Context) (sensor.Description, error) {
 	m.descCalls++
-	return desc
+	return desc, nil
 }
 func (m *mock) Close() { m.reconfCalls++ }

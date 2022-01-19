@@ -250,8 +250,8 @@ func (g *serialNMEAGPS) Close() error {
 }
 
 // Desc returns that this is a GPS.
-func (g *serialNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
+func (g *serialNMEAGPS) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}, nil
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.

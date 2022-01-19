@@ -194,6 +194,6 @@ func (fsm *ForceMatrixTraditional) IsSlipping(ctx context.Context) (bool, error)
 }
 
 // Desc returns that this is a forcematrix sensor type.
-func (fsm *ForceMatrixTraditional) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
+func (fsm *ForceMatrixTraditional) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}, nil
 }

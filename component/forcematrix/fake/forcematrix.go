@@ -67,6 +67,6 @@ func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns that this is a force matrix.
-func (fsm *ForceMatrix) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
+func (fsm *ForceMatrix) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}, nil
 }

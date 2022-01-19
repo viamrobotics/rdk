@@ -81,7 +81,7 @@ func (i *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns that this is an GPS.
-func (i *GPS) Desc() sensor.Description {
+func (i *GPS) Desc(ctx context.Context) (sensor.Description, error) {
 	if i.DescFunc == nil {
 		return i.LocalGPS.Desc()
 	}

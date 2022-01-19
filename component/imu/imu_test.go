@@ -129,7 +129,8 @@ func TestDesc(t *testing.T) {
 	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
 
 	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 0)
-	result := fakeIMU1.(*reconfigurableIMU).Desc()
+	result, err := fakeIMU1.(*reconfigurableIMU).Desc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, desc)
 	test.That(t, actualIMU1.descCalls, test.ShouldEqual, 1)
 }
@@ -159,8 +160,8 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{av, ea}, nil
 }
 
-func (m *mock) Desc() sensor.Description {
+func (m *mock) Desc(ctx context.Context) (sensor.Description, error) {
 	m.descCalls++
-	return desc
+	return desc, nil
 }
 func (m *mock) Close() { m.reconfCalls++ }

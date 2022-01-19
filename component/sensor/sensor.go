@@ -34,7 +34,7 @@ type Sensor interface {
 	Readings(ctx context.Context) ([]interface{}, error)
 
 	// Desc returns a description of this sensor.
-	Desc() Description
+	Desc(ctx context.Context) (Description, error)
 }
 
 // Type specifies the type of sensor.
@@ -76,10 +76,10 @@ func (r *reconfigurableSensor) Readings(ctx context.Context) ([]interface{}, err
 	return r.actual.Readings(ctx)
 }
 
-func (r *reconfigurableSensor) Desc() Description {
+func (r *reconfigurableSensor) Desc(ctx context.Context) (Description, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Desc()
+	return r.actual.Desc(ctx)
 }
 
 func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resource.Reconfigurable) error {

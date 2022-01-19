@@ -23,8 +23,12 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return &Sensor{Name: config.Name}, nil
+			return newSensor(config.Name), nil
 		}})
+}
+
+func newSensor(name string) sensor.Sensor {
+	return &Sensor{Name: name}
 }
 
 // Sensor is a fake Sensor device that always returns the set location.
@@ -41,6 +45,6 @@ func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns that this is a Sensor.
-func (s *Sensor) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(sensor.SubtypeName), ""}
+func (s *Sensor) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(sensor.SubtypeName), ""}, nil
 }

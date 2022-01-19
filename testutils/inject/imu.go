@@ -45,7 +45,7 @@ func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
+func (i *IMU) Desc(ctx context.Context) (sensor.Description, error) {
 	if i.DescFunc == nil {
 		return i.IMU.Desc()
 	}
