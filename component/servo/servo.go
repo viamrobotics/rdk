@@ -33,7 +33,7 @@ type Servo interface {
 
 // Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 var (

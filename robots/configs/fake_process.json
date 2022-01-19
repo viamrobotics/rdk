@@ -35,12 +35,6 @@
         },
         {
             "model": "fake",
-            "name": "compass1",
-            "type": "sensor",
-            "subtype": "compass"
-        },
-        {
-            "model": "fake",
             "name": "board1",
             "type": "board",
             "attributes":
@@ -88,13 +82,17 @@
         },
         {
             "name": "gps1",
-            "type": "sensor",
-            "subtype": "gps",
+            "type": "gps",
             "model": "fake"
         }, 
         {
             "name": "imu1",
             "type": "imu",
+            "model": "fake"
+        },
+        {
+            "name": "sensor1",
+            "type": "sensor",
             "model": "fake"
         },
         {

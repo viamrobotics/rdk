@@ -12,9 +12,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelName = "fake"
@@ -84,7 +85,7 @@ type Board struct {
 	Digitals map[string]board.DigitalInterrupt
 
 	GPIO    map[string]bool
-	PWM     map[string]byte
+	PWM     map[string]float64
 	PWMFreq map[string]uint
 
 	CloseCount int
@@ -114,48 +115,49 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return d, ok
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *Board) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}
 	b.GPIO[pin] = high
 	if high {
-		return b.PWMSet(ctx, pin, 255)
+		return b.SetPWM(ctx, pin, 255)
 	}
-	return b.PWMSet(ctx, pin, 0)
+	return b.SetPWM(ctx, pin, 0)
 }
 
-// GPIOGet returns whether the given pin is either low or high.
-func (b *Board) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO returns whether the given pin is either low or high.
+func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	if b.GPIO == nil {
 		b.GPIO = map[string]bool{}
 	}
 	return b.GPIO[pin], nil
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *Board) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+// SetPWM sets the given pin to the given duty cycle.
+func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	dutyCycle := float64(rdkutils.ScaleByPct(255, dutyCyclePct))
 	if b.PWM == nil {
-		b.PWM = map[string]byte{}
+		b.PWM = map[string]float64{}
 	}
 	if b.PWM[pin] != dutyCycle {
 		b.PWM[pin] = dutyCycle
 		if dutyCycle == 255 {
-			return b.GPIOSet(ctx, pin, true)
-		} else if dutyCycle == 0 {
-			return b.GPIOSet(ctx, pin, false)
+			return b.SetGPIO(ctx, pin, true)
+		} else if dutyCyclePct == 0 {
+			return b.SetGPIO(ctx, pin, false)
 		}
 	}
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *Board) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	if b.PWMFreq == nil {
 		b.PWMFreq = map[string]uint{}
 	}
-	b.PWMFreq[pin] = freq
+	b.PWMFreq[pin] = freqHz
 	return nil
 }
 
@@ -196,7 +198,7 @@ func (b *Board) DigitalInterruptNames() []string {
 }
 
 // Status returns the current status of the board.
-func (b *Board) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return board.CreateStatus(ctx, b)
 }
 

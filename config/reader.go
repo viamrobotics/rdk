@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -9,16 +10,21 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
-	"strings"
 
+	"github.com/a8m/envsubst"
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+)
+
+// RDK versioning variables which are replaced by LD flags.
+var (
+	Version     = ""
+	GitRevision = ""
 )
 
 // An AttributeConverter converts a single attribute into a possibly
@@ -152,69 +158,19 @@ func findServiceMapConverter(svcType ServiceType) AttributeMapConverter {
 	return nil
 }
 
-func openSub(original, target string) (*os.File, error) {
-	//nolint:gosec
-	targetFile, err := os.Open(target)
-	if err == nil {
-		return targetFile, nil
-	}
-
-	// try finding it through the original path
-	//nolint:gosec
-	targetFile, err = os.Open(path.Join(path.Dir(original), target))
-	if err == nil {
-		return targetFile, nil
-	}
-
-	return nil, errors.Errorf("cannot find file: %s", target)
-}
-
-func loadSubFromFile(original, cmd string) (interface{}, bool, error) {
-	if !strings.HasPrefix(cmd, "$load{") {
-		return cmd, false, nil
-	}
-
-	cmd = cmd[6:]             // [$load{|...]
-	cmd = cmd[0 : len(cmd)-1] // [...|}]
-
-	subFile, err := openSub(original, cmd)
-	if err != nil {
-		return cmd, false, err
-	}
-	defer utils.UncheckedErrorFunc(subFile.Close)
-
-	var sub map[string]interface{}
-	decoder := json.NewDecoder(subFile)
-	if err := decoder.Decode(&sub); err != nil {
-		return nil, false, err
-	}
-	return sub, true, nil
-}
-
-var (
-	defaultCloudBasePath = "https://app.viam.com"
-	defaultCloudPath     = defaultCloudBasePath + "/api/json1/config"
-	defaultCoudLogPath   = defaultCloudBasePath + "/api/json1/log"
-)
-
 const (
 	cloudConfigSecretField           = "Secret"
 	cloudConfigUserInfoField         = "User-Info"
 	cloudConfigUserInfoHostField     = "host"
 	cloudConfigUserInfoOSField       = "os"
 	cloudConfigUserInfoLocalIPsField = "ips"
+	cloudConfigVersionField          = "version"
+	cloudConfigGitRevisionField      = "gitRevision"
 )
 
 // CreateCloudRequest makes a request to fetch the robot config
 // from a cloud endpoint.
 func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
-	if cloudCfg.Path == "" {
-		cloudCfg.Path = defaultCloudPath
-	}
-	if cloudCfg.LogPath == "" {
-		cloudCfg.LogPath = defaultCoudLogPath
-	}
-
 	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.ID)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -236,6 +192,8 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 		return nil, err
 	}
 	userInfo[cloudConfigUserInfoLocalIPsField] = ips
+	userInfo[cloudConfigVersionField] = Version
+	userInfo[cloudConfigGitRevisionField] = GitRevision
 
 	userInfoBytes, err := json.Marshal(userInfo)
 	if err != nil {
@@ -325,10 +283,10 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 	if cfg.Cloud == nil {
 		return nil, errors.New("expected config to have cloud section")
 	}
-	self := cfg.Cloud.Self
+	fqdns := cfg.Cloud.FQDNs
 	signalingAddress := cfg.Cloud.SignalingAddress
 	*cfg.Cloud = *cloudCfg
-	cfg.Cloud.Self = self
+	cfg.Cloud.FQDNs = fqdns
 	cfg.Cloud.SignalingAddress = signalingAddress
 
 	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
@@ -340,14 +298,12 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 
 // Read reads a config from the given file.
 func Read(ctx context.Context, filePath string) (*Config, error) {
-	//nolint:gosec
-	file, err := os.Open(filePath)
+	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
-	defer utils.UncheckedErrorFunc(file.Close)
 
-	return FromReader(ctx, filePath, file)
+	return FromReader(ctx, filePath, bytes.NewReader(buf))
 }
 
 // FromReader reads a config from the given reader and specifies
@@ -375,28 +331,14 @@ func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud
 
 	for idx, c := range cfg.Components {
 		conv := findMapConverter(c.Type, c.Model)
-		// inner attributes may have their own converters, and file substitutions
+		// inner attributes may have their own converters
 		for k, v := range c.Attributes {
-			s, ok := v.(string)
-			if ok {
-				cfg.Components[idx].Attributes[k] = os.ExpandEnv(s)
-				var loaded bool
-				var err error
-				v, loaded, err = loadSubFromFile(originalPath, s)
-				if err != nil {
-					return nil, err
-				}
-				if loaded {
-					cfg.Components[idx].Attributes[k] = v
-				}
-			}
-
-			aconv := findConverter(c.Type, c.Model, k)
-			if aconv == nil {
+			attrConv := findConverter(c.Type, c.Model, k)
+			if attrConv == nil {
 				continue
 			}
 
-			n, err := aconv(v)
+			n, err := attrConv(v)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
 			}

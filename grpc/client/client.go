@@ -3,13 +3,11 @@ package client
 
 import (
 	"context"
-	"math"
 	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -17,16 +15,15 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -36,9 +33,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -54,16 +48,10 @@ type RobotClient struct {
 	client         pb.RobotServiceClient
 	metadataClient *metadataclient.MetadataServiceClient
 
-	namesMu              *sync.RWMutex
-	baseNames            []string
-	boardNames           []boardInfo
-	sensorNames          []string
-	inputControllerNames []string
-	functionNames        []string
-	serviceNames         []string
-	resourceNames        []resource.Name
-
-	sensorTypes map[string]sensor.Type
+	namesMu       *sync.RWMutex
+	functionNames []string
+	serviceNames  []string
+	resourceNames []resource.Name
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -74,14 +62,6 @@ type RobotClient struct {
 	cachedStatusMu *sync.Mutex
 
 	closeContext context.Context
-}
-
-type boardInfo struct {
-	name                  string
-	spiNames              []string
-	i2cNames              []string
-	analogReaderNames     []string
-	digitalInterruptNames []string
 }
 
 // New constructs a new RobotClient that is served at the given address. The given
@@ -109,7 +89,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		conn:                    conn,
 		client:                  client,
 		metadataClient:          metadataClient,
-		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -119,7 +98,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	}
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, err
+		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
 	}
 	if rOpts.refreshEvery != 0 {
 		rc.cachingStatus = true
@@ -259,7 +238,15 @@ func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
-	return &baseClient{rc, name}, true
+	resource, ok := rc.ResourceByName(base.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualBase, ok := resource.(base.Base)
+	if !ok {
+		return nil, false
+	}
+	return actualBase, true
 }
 
 // GripperByName returns a gripper by name. It is assumed to exist on the
@@ -309,18 +296,8 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 // sensor is attempted to be returned; otherwise it's a general purpose
 // sensor.
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	sensorType := rc.sensorTypes[name]
-	sc := &sensorClient{rc, name, sensorType}
-	switch sensorType {
-	case compass.Type:
-		return &compassClient{sc}, true
-	case compass.RelativeType:
-		return &relativeCompassClient{&compassClient{sc}}, true
-	case gps.Type:
-		return &gpsClient{sc}, true
-	default:
-		return sc, true
-	}
+	sc := &sensorClient{rc, name, ""}
+	return sc, true
 }
 
 // ServoByName returns a servo by name. It is assumed to exist on the
@@ -356,45 +333,31 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 // InputControllerByName returns an input.Controller by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) InputControllerByName(name string) (input.Controller, bool) {
-	return &inputControllerClient{
-		rc:   rc,
-		name: name,
-	}, true
-}
-
-// ServiceByName returns a service by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ServiceByName(name string) (interface{}, bool) {
-	return nil, false
+	resource, ok := rc.ResourceByName(input.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actual, ok := resource.(input.Controller)
+	if !ok {
+		return nil, false
+	}
+	return actual, true
 }
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
-	switch name.Subtype {
-	case forcematrix.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &forcematrixClient{sc}, true
-	case board.Subtype:
-		for _, info := range rc.boardNames {
-			if info.name == name.Name {
-				return &boardClient{rc, info}, true
-			}
-		}
-		return nil, false
-	case input.Subtype:
-		return &inputControllerClient{rc: rc, name: name.Name}, true
-	default:
-		c := registry.ResourceSubtypeLookup(name.Subtype)
-		if c == nil || c.RPCClient == nil {
-			// registration doesn't exist
-			return nil, false
-		}
-		// pass in conn
-		resourceClient := c.RPCClient(rc.conn, name.Name, rc.Logger())
-		return resourceClient, true
+	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this conditio after the V2 migration is done
+	if name.Subtype == sensor.Subtype {
+		return &sensorClient{rc, name.Name, ""}, true
 	}
+	c := registry.ResourceSubtypeLookup(name.Subtype)
+	if c == nil || c.RPCClient == nil {
+		// registration doesn't exist
+		return nil, false
+	}
+	// pass in conn
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -432,42 +395,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		}
 	}
 
-	rc.baseNames = nil
-	if len(status.Bases) != 0 {
-		rc.baseNames = make([]string, 0, len(status.Bases))
-		for name := range status.Bases {
-			rc.baseNames = append(rc.baseNames, name)
-		}
-	}
-
-	rc.boardNames = nil
-	if len(status.Boards) != 0 {
-		rc.boardNames = make([]boardInfo, 0, len(status.Boards))
-		for name, boardStatus := range status.Boards {
-			info := boardInfo{name: name}
-			if len(boardStatus.Analogs) != 0 {
-				info.analogReaderNames = make([]string, 0, len(boardStatus.Analogs))
-				for name := range boardStatus.Analogs {
-					info.analogReaderNames = append(info.analogReaderNames, name)
-				}
-			}
-			if len(boardStatus.DigitalInterrupts) != 0 {
-				info.digitalInterruptNames = make([]string, 0, len(boardStatus.DigitalInterrupts))
-				for name := range boardStatus.DigitalInterrupts {
-					info.digitalInterruptNames = append(info.digitalInterruptNames, name)
-				}
-			}
-			rc.boardNames = append(rc.boardNames, info)
-		}
-	}
-	rc.sensorNames = nil
-	if len(status.Sensors) != 0 {
-		rc.sensorNames = make([]string, 0, len(status.Sensors))
-		for name, sensorStatus := range status.Sensors {
-			rc.sensorNames = append(rc.sensorNames, name)
-			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -541,25 +468,39 @@ func (rc *RobotClient) CameraNames() []string {
 func (rc *RobotClient) BaseNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.baseNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == base.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // BoardNames returns the names of all known boards.
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	out := make([]string, 0, len(rc.boardNames))
-	for _, info := range rc.boardNames {
-		out = append(out, info.name)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == board.Subtype {
+			names = append(names, v.Name)
+		}
 	}
-	return out
+	return copyStringSlice(names)
 }
 
 // SensorNames returns the names of all known sensors.
 func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.sensorNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == sensor.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // ServoNames returns the names of all known servos.
@@ -592,7 +533,13 @@ func (rc *RobotClient) MotorNames() []string {
 func (rc *RobotClient) InputControllerNames() []string {
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.inputControllerNames)
+	names := []string{}
+	for _, res := range rc.ResourceNames() {
+		if res.Subtype == input.Subtype {
+			names = append(names, res.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // FunctionNames returns the names of all known functions.
@@ -600,13 +547,6 @@ func (rc *RobotClient) FunctionNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
 	return copyStringSlice(rc.functionNames)
-}
-
-// ServiceNames returns the names of all known services.
-func (rc *RobotClient) ServiceNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	return copyStringSlice(rc.serviceNames)
 }
 
 // ProcessManager returns a useless process manager for the sake of
@@ -675,266 +615,6 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 	return fs, nil
 }
 
-// baseClient satisfies a gRPC based base.Base. Refer to the interface
-// for descriptions of its methods.
-type baseClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		AngleDeg:       degsPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
-		Name:       bc.name,
-		AngleDeg:   angleDeg,
-		DegsPerSec: degsPerSec,
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Stop(ctx context.Context) error {
-	_, err := bc.rc.client.BaseStop(ctx, &pb.BaseStopRequest{
-		Name: bc.name,
-	})
-	return err
-}
-
-func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
-	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-		Name: bc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.WidthMillis), nil
-}
-
-// boardClient satisfies a gRPC based board.Board. Refer to the interface
-// for descriptions of its methods.
-type boardClient struct {
-	rc   *RobotClient
-	info boardInfo
-}
-
-// SPIByName may need to be implemented.
-func (bc *boardClient) SPIByName(name string) (board.SPI, bool) {
-	return nil, false
-}
-
-// I2CByName may need to be implemented.
-func (bc *boardClient) I2CByName(name string) (board.I2C, bool) {
-	return nil, false
-}
-
-func (bc *boardClient) AnalogReaderByName(name string) (board.AnalogReader, bool) {
-	return &analogReaderClient{
-		rc:               bc.rc,
-		boardName:        bc.info.name,
-		analogReaderName: name,
-	}, true
-}
-
-func (bc *boardClient) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
-	return &digitalInterruptClient{
-		rc:                   bc.rc,
-		boardName:            bc.info.name,
-		digitalInterruptName: name,
-	}, true
-}
-
-func (bc *boardClient) GPIOSet(ctx context.Context, pin string, high bool) error {
-	_, err := bc.rc.client.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-		Name: bc.info.name,
-		Pin:  pin,
-		High: high,
-	})
-	return err
-}
-
-func (bc *boardClient) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	resp, err := bc.rc.client.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-		Name: bc.info.name,
-		Pin:  pin,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.High, nil
-}
-
-func (bc *boardClient) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	_, err := bc.rc.client.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-		Name:      bc.info.name,
-		Pin:       pin,
-		DutyCycle: uint32(dutyCycle),
-	})
-	return err
-}
-
-func (bc *boardClient) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	_, err := bc.rc.client.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-		Name:      bc.info.name,
-		Pin:       pin,
-		Frequency: uint64(freq),
-	})
-	return err
-}
-
-func (bc *boardClient) SPINames() []string {
-	return copyStringSlice(bc.info.spiNames)
-}
-
-func (bc *boardClient) I2CNames() []string {
-	return copyStringSlice(bc.info.i2cNames)
-}
-
-func (bc *boardClient) AnalogReaderNames() []string {
-	return copyStringSlice(bc.info.analogReaderNames)
-}
-
-func (bc *boardClient) DigitalInterruptNames() []string {
-	return copyStringSlice(bc.info.digitalInterruptNames)
-}
-
-// Status uses the parent robot client's cached status or a newly fetched
-// board status to return the state of the board.
-func (bc *boardClient) Status(ctx context.Context) (*pb.BoardStatus, error) {
-	if status := bc.rc.getCachedStatus(); status != nil {
-		boardStatus, ok := status.Boards[bc.info.name]
-		if !ok {
-			return nil, errors.Errorf("no board with name (%s)", bc.info.name)
-		}
-		return boardStatus, nil
-	}
-	resp, err := bc.rc.client.BoardStatus(ctx, &pb.BoardStatusRequest{
-		Name: bc.info.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-func (bc *boardClient) ModelAttributes() board.ModelAttributes {
-	return board.ModelAttributes{Remote: true}
-}
-
-// analogReaderClient satisfies a gRPC based motor.Motor. Refer to the interface
-// for descriptions of its methods.
-type analogReaderClient struct {
-	rc               *RobotClient
-	boardName        string
-	analogReaderName string
-}
-
-func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.rc.client.BoardAnalogReaderRead(ctx, &pb.BoardAnalogReaderReadRequest{
-		BoardName:        arc.boardName,
-		AnalogReaderName: arc.analogReaderName,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.Value), nil
-}
-
-// digitalInterruptClient satisfies a gRPC based motor.Motor. Refer to the interface
-// for descriptions of its methods.
-type digitalInterruptClient struct {
-	rc                   *RobotClient
-	boardName            string
-	digitalInterruptName string
-}
-
-func (dic *digitalInterruptClient) Config(ctx context.Context) (board.DigitalInterruptConfig, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptConfig(ctx, &pb.BoardDigitalInterruptConfigRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return board.DigitalInterruptConfig{}, err
-	}
-	return DigitalInterruptConfigFromProto(resp.Config), nil
-}
-
-// DigitalInterruptConfigFromProto converts a proto based digital interrupt config to the
-// codebase specific version.
-func DigitalInterruptConfigFromProto(config *pb.DigitalInterruptConfig) board.DigitalInterruptConfig {
-	return board.DigitalInterruptConfig{
-		Name:    config.Name,
-		Pin:     config.Pin,
-		Type:    config.Type,
-		Formula: config.Formula,
-	}
-}
-
-func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.rc.client.BoardDigitalInterruptValue(ctx, &pb.BoardDigitalInterruptValueRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return resp.Value, nil
-}
-
-func (dic *digitalInterruptClient) Tick(ctx context.Context, high bool, nanos uint64) error {
-	_, err := dic.rc.client.BoardDigitalInterruptTick(ctx, &pb.BoardDigitalInterruptTickRequest{
-		BoardName:            dic.boardName,
-		DigitalInterruptName: dic.digitalInterruptName,
-		High:                 high,
-		Nanos:                nanos,
-	})
-	return err
-}
-
-func (dic *digitalInterruptClient) AddCallback(c chan bool) {
-	debug.PrintStack()
-	panic(errUnimplemented)
-}
-
-func (dic *digitalInterruptClient) AddPostProcessor(pp board.PostProcessor) {
-	debug.PrintStack()
-	panic(errUnimplemented)
-}
-
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
 // for descriptions of its methods.
 type sensorClient struct {
@@ -959,484 +639,4 @@ func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
 
 func (sc *sensorClient) Desc() sensor.Description {
 	return sensor.Description{sc.sensorType, ""}
-}
-
-// compassClient satisfies a gRPC based compass.Compass. Refer to the interface
-// for descriptions of its methods.
-type compassClient struct {
-	*sensorClient
-}
-
-func (cc *compassClient) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := cc.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{heading}, nil
-}
-
-func (cc *compassClient) Heading(ctx context.Context) (float64, error) {
-	resp, err := cc.rc.client.CompassHeading(ctx, &pb.CompassHeadingRequest{
-		Name: cc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Heading, nil
-}
-
-func (cc *compassClient) StartCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStartCalibration(ctx, &pb.CompassStartCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) StopCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStopCalibration(ctx, &pb.CompassStopCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
-}
-
-// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
-// for descriptions of its methods.
-type relativeCompassClient struct {
-	*compassClient
-}
-
-func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
-	_, err := rcc.rc.client.CompassMark(ctx, &pb.CompassMarkRequest{
-		Name: rcc.name,
-	})
-	return err
-}
-
-func (rcc *relativeCompassClient) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeType, ""}
-}
-
-// gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
-// for descriptions of its methods.
-type gpsClient struct {
-	*sensorClient
-}
-
-func (gc *gpsClient) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := gc.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gc.Altitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gc.Speed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	horzAcc, vertAcc, err := gc.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
-}
-
-func (gc *gpsClient) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := gc.rc.client.GPSLocation(ctx, &pb.GPSLocationRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
-}
-
-func (gc *gpsClient) Altitude(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSAltitude(ctx, &pb.GPSAltitudeRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Altitude, nil
-}
-
-func (gc *gpsClient) Speed(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSSpeed(ctx, &pb.GPSSpeedRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.SpeedKph, nil
-}
-
-func (gc *gpsClient) Satellites(ctx context.Context) (int, int, error) {
-	return 0, 0, nil
-}
-
-func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
-	resp, err := gc.rc.client.GPSAccuracy(ctx, &pb.GPSAccuracyRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), math.NaN(), err
-	}
-	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
-}
-
-func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
-	return true, nil
-}
-
-// inputControllerClient satisfies a gRPC based input.Controller. Refer to the interface
-// for descriptions of its methods.
-type inputControllerClient struct {
-	rc            *RobotClient
-	name          string
-	streamCancel  context.CancelFunc
-	streamHUP     bool
-	streamRunning bool
-	streamReady   bool
-	streamMu      sync.Mutex
-	mu            sync.RWMutex
-	callbackWait  sync.WaitGroup
-	callbacks     map[input.Control]map[input.EventType]input.ControlFunction
-}
-
-func (cc *inputControllerClient) Controls(ctx context.Context) ([]input.Control, error) {
-	resp, err := cc.rc.client.InputControllerControls(ctx, &pb.InputControllerControlsRequest{
-		Controller: cc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var controls []input.Control
-	for _, control := range resp.Controls {
-		controls = append(controls, input.Control(control))
-	}
-	return controls, nil
-}
-
-func (cc *inputControllerClient) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	resp, err := cc.rc.client.InputControllerLastEvents(ctx, &pb.InputControllerLastEventsRequest{
-		Controller: cc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	eventsOut := make(map[input.Control]input.Event)
-	for _, eventIn := range resp.Events {
-		eventsOut[input.Control(eventIn.Control)] = input.Event{
-			Time:    eventIn.Time.AsTime(),
-			Event:   input.EventType(eventIn.Event),
-			Control: input.Control(eventIn.Control),
-			Value:   eventIn.Value,
-		}
-	}
-	return eventsOut, nil
-}
-
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (cc *inputControllerClient) InjectEvent(ctx context.Context, event input.Event) error {
-	eventMsg := &pb.InputControllerEvent{
-		Time:    timestamppb.New(event.Time),
-		Event:   string(event.Event),
-		Control: string(event.Control),
-		Value:   event.Value,
-	}
-
-	_, err := cc.rc.client.InputControllerInjectEvent(ctx, &pb.InputControllerInjectEventRequest{
-		Controller: cc.name,
-		Event:      eventMsg,
-	})
-
-	return err
-}
-
-func (cc *inputControllerClient) RegisterControlCallback(
-	ctx context.Context,
-	control input.Control,
-	triggers []input.EventType,
-	ctrlFunc input.ControlFunction,
-) error {
-	cc.mu.Lock()
-	if cc.callbacks == nil {
-		cc.callbacks = make(map[input.Control]map[input.EventType]input.ControlFunction)
-	}
-
-	_, ok := cc.callbacks[control]
-	if !ok {
-		cc.callbacks[control] = make(map[input.EventType]input.ControlFunction)
-	}
-
-	for _, trigger := range triggers {
-		if trigger == input.ButtonChange {
-			cc.callbacks[control][input.ButtonRelease] = ctrlFunc
-			cc.callbacks[control][input.ButtonPress] = ctrlFunc
-		} else {
-			cc.callbacks[control][trigger] = ctrlFunc
-		}
-	}
-	cc.mu.Unlock()
-
-	// We want to start one and only one connectStream()
-	cc.streamMu.Lock()
-	defer cc.streamMu.Unlock()
-	if cc.streamRunning {
-		for !cc.streamReady {
-			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return ctx.Err()
-			}
-		}
-		cc.streamHUP = true
-		cc.streamReady = false
-		cc.streamCancel()
-	} else {
-		cc.streamRunning = true
-		cc.rc.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer cc.rc.activeBackgroundWorkers.Done()
-			cc.connectStream(cc.rc.closeContext)
-		})
-		cc.mu.RLock()
-		ready := cc.streamReady
-		cc.mu.RUnlock()
-		for !ready {
-			cc.mu.RLock()
-			ready = cc.streamReady
-			cc.mu.RUnlock()
-			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return ctx.Err()
-			}
-		}
-	}
-
-	return nil
-}
-
-func (cc *inputControllerClient) connectStream(ctx context.Context) {
-	defer func() {
-		cc.streamMu.Lock()
-		defer cc.streamMu.Unlock()
-		cc.mu.Lock()
-		defer cc.mu.Unlock()
-		cc.streamCancel = nil
-		cc.streamRunning = false
-		cc.streamHUP = false
-		cc.streamReady = false
-		cc.callbackWait.Wait()
-	}()
-
-	// Will retry on connection errors and disconnects
-	for {
-		cc.mu.Lock()
-		cc.streamReady = false
-		cc.mu.Unlock()
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		var haveCallbacks bool
-		cc.mu.RLock()
-		req := &pb.InputControllerEventStreamRequest{
-			Controller: cc.name,
-		}
-
-		for control, v := range cc.callbacks {
-			outEvent := &pb.InputControllerEventStreamRequest_Events{
-				Control: string(control),
-			}
-
-			for event, ctrlFunc := range v {
-				if ctrlFunc != nil {
-					haveCallbacks = true
-					outEvent.Events = append(outEvent.Events, string(event))
-				} else {
-					outEvent.CancelledEvents = append(outEvent.CancelledEvents, string(event))
-				}
-			}
-			req.Events = append(req.Events, outEvent)
-		}
-		cc.mu.RUnlock()
-
-		if !haveCallbacks {
-			return
-		}
-
-		streamCtx, cancel := context.WithCancel(ctx)
-		cc.streamCancel = cancel
-
-		stream, err := cc.rc.client.InputControllerEventStream(streamCtx, req)
-		if err != nil {
-			cc.rc.Logger().Error(err)
-			if utils.SelectContextOrWait(ctx, 3*time.Second) {
-				continue
-			} else {
-				return
-			}
-		}
-
-		cc.mu.RLock()
-		hup := cc.streamHUP
-		cc.mu.RUnlock()
-		if !hup {
-			cc.sendConnectionStatus(ctx, true)
-		}
-
-		// Handle the rest of the stream
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			cc.mu.Lock()
-			cc.streamHUP = false
-			cc.streamReady = true
-			cc.mu.Unlock()
-			eventIn, err := stream.Recv()
-			if err != nil && eventIn == nil {
-				cc.mu.RLock()
-				hup := cc.streamHUP
-				cc.mu.RUnlock()
-				if hup {
-					break
-				}
-				cc.sendConnectionStatus(ctx, false)
-				if utils.SelectContextOrWait(ctx, 3*time.Second) {
-					cc.rc.Logger().Error(err)
-					break
-				} else {
-					return
-				}
-			}
-			if err != nil {
-				cc.rc.Logger().Error(err)
-			}
-
-			eventOut := input.Event{
-				Time:    eventIn.Time.AsTime(),
-				Event:   input.EventType(eventIn.Event),
-				Control: input.Control(eventIn.Control),
-				Value:   eventIn.Value,
-			}
-			cc.execCallback(ctx, eventOut)
-		}
-	}
-}
-
-func (cc *inputControllerClient) sendConnectionStatus(ctx context.Context, connected bool) {
-	cc.mu.RLock()
-	defer cc.mu.RUnlock()
-	evType := input.Disconnect
-	now := time.Now()
-	if connected {
-		evType = input.Connect
-	}
-
-	for control := range cc.callbacks {
-		eventOut := input.Event{
-			Time:    now,
-			Event:   evType,
-			Control: control,
-			Value:   0,
-		}
-		cc.execCallback(ctx, eventOut)
-	}
-}
-
-func (cc *inputControllerClient) execCallback(ctx context.Context, event input.Event) {
-	cc.mu.RLock()
-	defer cc.mu.RUnlock()
-	callbackMap, ok := cc.callbacks[event.Control]
-	if !ok {
-		return
-	}
-
-	callback, ok := callbackMap[event.Event]
-	if ok && callback != nil {
-		cc.callbackWait.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer cc.callbackWait.Done()
-			callback(ctx, event)
-		})
-	}
-	callbackAll, ok := callbackMap[input.AllEvents]
-	if ok && callbackAll != nil {
-		cc.callbackWait.Add(1)
-		utils.PanicCapturingGo(func() {
-			defer cc.callbackWait.Done()
-			callbackAll(ctx, event)
-		})
-	}
-}
-
-// forcematrixClient satisfies a gRPC based
-// forcematrix.ForceMatrix.
-// Refer to the ForceMatrix interface for descriptions of its methods.
-type forcematrixClient struct {
-	*sensorClient
-}
-
-func (fmc *forcematrixClient) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fmc.Matrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
-}
-
-func (fmc *forcematrixClient) Matrix(ctx context.Context) ([][]int, error) {
-	resp, err := fmc.rc.client.ForceMatrixMatrix(ctx,
-		&pb.ForceMatrixMatrixRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return protoToMatrix(resp), nil
-}
-
-func (fmc *forcematrixClient) IsSlipping(ctx context.Context) (bool, error) {
-	resp, err := fmc.rc.client.ForceMatrixSlipDetection(ctx,
-		&pb.ForceMatrixSlipDetectionRequest{
-			Name: fmc.name,
-		})
-	if err != nil {
-		return false, err
-	}
-
-	return resp.GetIsSlipping(), nil
-}
-
-func (fmc *forcematrixClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
-}
-
-// Ensure implements ForceMatrix.
-var _ = forcematrix.ForceMatrix(&forcematrixClient{})
-
-// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixMatrixResponse) [][]int {
-	numRows := matrixResponse.Matrix.Rows
-	numCols := matrixResponse.Matrix.Cols
-
-	matrix := make([][]int, numRows)
-	for row := range matrix {
-		matrix[row] = make([]int, numCols)
-		for col := range matrix[row] {
-			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
-		}
-	}
-	return matrix
 }

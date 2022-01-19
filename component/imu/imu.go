@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -27,7 +27,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named IMU's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // An IMU represents a sensor that can report AngularVelocity and Orientation measurements.

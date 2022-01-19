@@ -10,9 +10,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
-
-	// attr converters.
-	_ "go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/testutils/inject"
 )
 

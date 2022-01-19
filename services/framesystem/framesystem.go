@@ -11,14 +11,25 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
-// Type is the name of the type of service.
-const Type = config.ServiceType("frame_system")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("frame_system")
+
+// Subtype is a constant that identifies the frame system resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the FrameSystemService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
