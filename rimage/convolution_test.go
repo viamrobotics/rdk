@@ -1,15 +1,17 @@
 package rimage
 
 import (
-	"go.viam.com/utils/artifact"
 	"image"
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestConvolveGray(t *testing.T) {
+	// test that image test files are in artifacts
 	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
+	test.That(t, err, test.ShouldBeNil)
 	gt, err := NewImageFromFile(artifact.MustPath("rimage/sobelx.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// Create a new grayscale image
@@ -40,5 +42,4 @@ func TestConvolveGray(t *testing.T) {
 	// compare 2 non zero pixel values
 	test.That(t, convolved.At(97, 47), test.ShouldResemble, imGTGray.At(97, 47))
 	test.That(t, convolved.At(536, 304), test.ShouldResemble, imGTGray.At(536, 304))
-
 }
