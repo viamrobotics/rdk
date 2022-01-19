@@ -564,10 +564,6 @@ func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
-func (i *myIMU) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}, nil
-}
-
 func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 	go func() {
 		for {

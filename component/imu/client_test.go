@@ -60,6 +60,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
+	//nolint:dupl
 	t.Run("IMU client 1", func(t *testing.T) {
 		// working
 		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
@@ -131,6 +132,7 @@ func TestClientZeroValues(t *testing.T) {
 	go gServer.Serve(listener1)
 	defer gServer.Stop()
 
+	//nolint:dupl
 	t.Run("IMU client", func(t *testing.T) {
 		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
