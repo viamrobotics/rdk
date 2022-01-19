@@ -93,7 +93,7 @@ func TestClientFailing(t *testing.T) {
 			test.That(t, isSlipping, test.ShouldBeFalse)
 
 			desc, err := forceMatrixClient.Desc(context.Background())
-			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})
@@ -150,7 +150,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
 			desc, err := forceMatrixClient.Desc(context.Background())
-			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, utils.TryClose(context.Background(), forceMatrixClient), test.ShouldBeNil)
 		})
@@ -175,7 +175,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
 			desc, err := forceMatrixClient.Desc(context.Background())
-			test.That(t, err, test.ShouldNotBeNil)
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})
