@@ -43,7 +43,7 @@ func TestClient(t *testing.T) {
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
-	injectGPS.DescFunc = func() sensor.Description { return desc }
+	injectGPS.DescFunc = func(ctx context.Context) (sensor.Description, error) { return desc, nil }
 
 	gps2 := "gps2"
 	injectGPS2 := &inject.GPS{}
@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
-	injectGPS2.DescFunc = func() sensor.Description { return desc }
+	injectGPS2.DescFunc = func(ctx context.Context) (sensor.Description, error) { return desc, nil }
 
 	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(gps1): injectGPS, gps.Named(gps2): injectGPS2}))
 	test.That(t, err, test.ShouldBeNil)
@@ -95,7 +95,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		desc1 := gps1Client.Desc()
+		desc1, err := gps1Client.Desc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, desc1, test.ShouldResemble, desc)
 
 		test.That(t, utils.TryClose(context.Background(), gps1Client), test.ShouldBeNil)
@@ -126,7 +127,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		desc2 := gps2Client.Desc()
+		desc2, err := gps2Client.Desc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, desc2, test.ShouldResemble, desc)
 
 		test.That(t, utils.TryClose(context.Background(), gps2Client), test.ShouldBeNil)

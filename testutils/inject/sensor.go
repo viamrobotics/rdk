@@ -10,6 +10,7 @@ import (
 type Sensor struct {
 	sensor.Sensor
 	ReadingsFunc func(ctx context.Context) ([]interface{}, error)
+	DescFunc     func(ctx context.Context) (sensor.Description, error)
 }
 
 // Readings calls the injected Readings or the real version.
@@ -22,8 +23,8 @@ func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 
 // Desc returns the description if available.
 func (s *Sensor) Desc(ctx context.Context) (sensor.Description, error) {
-	if s.Sensor == nil {
-		return sensor.Description{}
+	if s.DescFunc == nil {
+		return s.Sensor.Desc(ctx)
 	}
-	return s.Sensor.Desc()
+	return sensor.Description{Type: sensor.Type("sensor")}, nil
 }

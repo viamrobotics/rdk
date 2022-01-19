@@ -54,13 +54,13 @@ func TestServer(t *testing.T) {
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
-	injectGPS.DescFunc = func() sensor.Description { return desc }
+	injectGPS.DescFunc = func(ctx context.Context) (sensor.Description, error) { return desc, nil }
 
 	injectGPS2.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
-	injectGPS2.DescFunc = func() sensor.Description { return desc }
+	injectGPS2.DescFunc = func(ctx context.Context) (sensor.Description, error) { return desc, nil }
 
 	t.Run("Location", func(t *testing.T) {
 		resp, err := gpsServer.Location(context.Background(), &pb.GPSServiceLocationRequest{Name: testGPSName})

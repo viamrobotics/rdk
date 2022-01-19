@@ -20,7 +20,7 @@ type GPS struct {
 	AccuracyFunc   func(ctx context.Context) (float64, float64, error)
 	ValidFunc      func(ctx context.Context) (bool, error)
 	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
-	DescFunc       func() sensor.Description
+	DescFunc       func(ctx context.Context) (sensor.Description, error)
 	CloseFunc      func(ctx context.Context) error
 }
 
@@ -83,9 +83,9 @@ func (i *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 // Desc returns that this is an GPS.
 func (i *GPS) Desc(ctx context.Context) (sensor.Description, error) {
 	if i.DescFunc == nil {
-		return i.LocalGPS.Desc()
+		return i.LocalGPS.Desc(ctx)
 	}
-	return i.DescFunc()
+	return i.DescFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

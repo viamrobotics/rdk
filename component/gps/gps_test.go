@@ -169,7 +169,8 @@ func TestDesc(t *testing.T) {
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 0)
-	result := reconfGPS1.(*reconfigurableGPS).Desc()
+	result, err := reconfGPS1.(*reconfigurableGPS).Desc(context.Background())
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, desc)
 	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 1)
 }
