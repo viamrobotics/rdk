@@ -49,7 +49,6 @@ type RobotClient struct {
 	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu       *sync.RWMutex
-	baseNames     []string
 	functionNames []string
 	serviceNames  []string
 	resourceNames []resource.Name
@@ -239,7 +238,15 @@ func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
-	return &baseClient{rc, name}, true
+	resource, ok := rc.ResourceByName(base.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualBase, ok := resource.(base.Base)
+	if !ok {
+		return nil, false
+	}
+	return actualBase, true
 }
 
 // GripperByName returns a gripper by name. It is assumed to exist on the
@@ -339,22 +346,18 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
-	switch name.Subtype {
-	case sensor.Subtype:
+	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this conditio after the V2 migration is done
+	if name.Subtype == sensor.Subtype {
 		return &sensorClient{rc, name.Name, ""}, true
-	case base.Subtype:
-		return &baseClient{rc, name.Name}, true
-	default:
-		c := registry.ResourceSubtypeLookup(name.Subtype)
-		if c == nil || c.RPCClient == nil {
-			// registration doesn't exist
-			return nil, false
-		}
-		// pass in conn
-		resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
-		return resourceClient, true
 	}
+	c := registry.ResourceSubtypeLookup(name.Subtype)
+	if c == nil || c.RPCClient == nil {
+		// registration doesn't exist
+		return nil, false
+	}
+	// pass in conn
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -389,14 +392,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 				name.Name,
 			)
 			rc.resourceNames = append(rc.resourceNames, newName)
-		}
-	}
-
-	rc.baseNames = nil
-	if len(status.Bases) != 0 {
-		rc.baseNames = make([]string, 0, len(status.Bases))
-		for name := range status.Bases {
-			rc.baseNames = append(rc.baseNames, name)
 		}
 	}
 
@@ -473,7 +468,13 @@ func (rc *RobotClient) CameraNames() []string {
 func (rc *RobotClient) BaseNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.baseNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == base.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // BoardNames returns the names of all known boards.
@@ -612,76 +613,6 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 		}
 	}
 	return fs, nil
-}
-
-// baseClient satisfies a gRPC based base.Base. Refer to the interface
-// for descriptions of its methods.
-type baseClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		AngleDeg:       degsPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
-		Name:       bc.name,
-		AngleDeg:   angleDeg,
-		DegsPerSec: degsPerSec,
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Stop(ctx context.Context) error {
-	_, err := bc.rc.client.BaseStop(ctx, &pb.BaseStopRequest{
-		Name: bc.name,
-	})
-	return err
-}
-
-func (bc *baseClient) WidthGet(ctx context.Context) (int, error) {
-	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-		Name: bc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.WidthMillis), nil
 }
 
 // sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
