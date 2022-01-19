@@ -110,12 +110,6 @@ func (r *reconfigurableGPS) Readings(ctx context.Context) ([]interface{}, error)
 	return r.actual.Readings(ctx)
 }
 
-func (r *reconfigurableGPS) Desc(ctx context.Context) (sensor.Description, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc(ctx)
-}
-
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

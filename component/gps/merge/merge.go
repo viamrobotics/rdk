@@ -11,7 +11,6 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -160,9 +159,4 @@ func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
 		allErrors = multierr.Combine(allErrors, err)
 	}
 	return nil, allErrors
-}
-
-// Desc returns a description of this sensor.
-func (m *mergeGPS) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}, nil
 }
