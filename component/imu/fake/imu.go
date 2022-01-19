@@ -71,7 +71,7 @@ func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 
 // Desc returns that this is an IMU.
 func (i *IMU) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
+	return sensor.Description{sensor.Type(imu.SubtypeName), ""}, nil
 }
 
 // Readings always returns the set values.

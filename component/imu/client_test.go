@@ -45,8 +45,8 @@ func TestClient(t *testing.T) {
 	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
 	}
-	injectIMU.DescFunc = func() sensor.Description {
-		return desc
+	injectIMU.DescFunc = func(ctx context.Context) (sensor.Description, error) {
+		return desc, nil
 	}
 
 	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
@@ -82,7 +82,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		desc1 := imu1Client.Desc()
+		desc1, err := imu1Client.Desc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, desc1, test.ShouldResemble, desc)
 		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
 	})
@@ -104,7 +105,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
 
-		desc2 := imu1Client2.Desc()
+		desc2, err := imu1Client2.Desc(context.Background())
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, desc2, test.ShouldResemble, desc)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)

@@ -159,8 +159,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if !ok {
 				continue
 			}
+			desc, err := sensorDevice.Desc(ctx)
+			if err != nil {
+				return nil, err
+			}
 			status.Sensors[name] = &pb.SensorStatus{
-				Type: string(sensorDevice.Desc().Type),
+				Type: string(desc.Type),
 			}
 		}
 	}

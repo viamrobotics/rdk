@@ -101,7 +101,7 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 func (c *client) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(SubtypeName), ""}
+	return sensor.Description{sensor.Type(SubtypeName), ""}, nil
 }
 
 // Close cleanly closes the underlying connections.
