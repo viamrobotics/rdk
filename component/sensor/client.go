@@ -1,5 +1,5 @@
-// Package forcematrix contains a gRPC based forcematrix client.
-package forcematrix
+// Package sensor contains a gRPC based sensor client.
+package sensor
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
-// serviceClient satisfies the forcematrix.proto contract.
+// serviceClient is a client satisfies the sensor.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
-	client pb.ForceMatrixServiceClient
+	client pb.SensorServiceClient
 	logger golog.Logger
 }
 
@@ -30,7 +30,7 @@ func newServiceClient(ctx context.Context, address string, logger golog.Logger, 
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
-	client := pb.NewForceMatrixServiceClient(conn)
+	client := pb.NewSensorServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
 		client: client,
@@ -44,14 +44,14 @@ func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is a ForceMatrix client.
+// client is a Sensor client.
 type client struct {
 	*serviceClient
 	name string
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (ForceMatrix, error) {
+func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Sensor, error) {
 	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
@@ -60,61 +60,30 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) ForceMatrix {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Sensor {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
 
-func clientFromSvcClient(sc *serviceClient, name string) ForceMatrix {
+func clientFromSvcClient(sc *serviceClient, name string) Sensor {
 	return &client{sc, name}
 }
 
-func (c *client) Matrix(ctx context.Context) ([][]int, error) {
-	resp, err := c.client.Matrix(ctx,
-		&pb.ForceMatrixServiceMatrixRequest{
-			Name: c.name,
-		})
-	if err != nil {
-		return nil, err
-	}
-	return protoToMatrix(resp), nil
-}
-
-func (c *client) IsSlipping(ctx context.Context) (bool, error) {
-	resp, err := c.client.SlipDetection(ctx,
-		&pb.ForceMatrixServiceSlipDetectionRequest{
-			Name: c.name,
-		})
-	if err != nil {
-		return false, err
-	}
-	return resp.GetIsSlipping(), nil
-}
-
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := c.Matrix(ctx)
+	resp, err := c.client.Readings(ctx, &pb.SensorServiceReadingsRequest{
+		Name: c.name,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{matrix}, nil
+	readings := make([]interface{}, 0, len(resp.Readings))
+	for _, r := range resp.Readings {
+		readings = append(readings, r.AsInterface())
+	}
+	return readings, nil
 }
 
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()
-}
-
-// protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixServiceMatrixResponse) [][]int {
-	numRows := matrixResponse.Matrix.Rows
-	numCols := matrixResponse.Matrix.Cols
-
-	matrix := make([][]int, numRows)
-	for row := range matrix {
-		matrix[row] = make([]int, numCols)
-		for col := range matrix[row] {
-			matrix[row][col] = int(matrixResponse.Matrix.Data[row*int(numCols)+col])
-		}
-	}
-	return matrix
 }
