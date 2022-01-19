@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -241,9 +240,4 @@ func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
 // with the sensor matrix is slipping.
 func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fmsm, &(fmsm.mu), 0, fmsm.noiseThreshold, fmsm.slipDetectionWindow)
-}
-
-// Desc returns that this is a forcematrix mux sensor type.
-func (fmsm *ForceMatrixWithMux) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
 }

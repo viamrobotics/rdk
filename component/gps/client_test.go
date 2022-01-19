@@ -14,7 +14,6 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
@@ -35,7 +34,6 @@ func TestClient(t *testing.T) {
 	hAcc := 0.7
 	vAcc := 0.8
 	rs := []interface{}{loc.Lat(), loc.Lng(), alt, speed, hAcc, vAcc}
-	desc := sensor.Description{sensor.Type("gps"), ""}
 
 	gps1 := "gps1"
 	injectGPS := &inject.GPS{}
@@ -43,7 +41,6 @@ func TestClient(t *testing.T) {
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
-	injectGPS.DescFunc = func() sensor.Description { return desc }
 
 	gps2 := "gps2"
 	injectGPS2 := &inject.GPS{}
@@ -51,7 +48,6 @@ func TestClient(t *testing.T) {
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
-	injectGPS2.DescFunc = func() sensor.Description { return desc }
 
 	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(gps1): injectGPS, gps.Named(gps2): injectGPS2}))
 	test.That(t, err, test.ShouldBeNil)
@@ -95,9 +91,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		desc1 := gps1Client.Desc()
-		test.That(t, desc1, test.ShouldResemble, desc)
-
 		test.That(t, utils.TryClose(context.Background(), gps1Client), test.ShouldBeNil)
 	})
 
@@ -125,9 +118,6 @@ func TestClient(t *testing.T) {
 		_, err = gps2Client.Readings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
-
-		desc2 := gps2Client.Desc()
-		test.That(t, desc2, test.ShouldResemble, desc)
 
 		test.That(t, utils.TryClose(context.Background(), gps2Client), test.ShouldBeNil)
 	})
