@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -55,19 +54,4 @@ func (s *subtypeServer) Readings(ctx context.Context, req *pb.SensorServiceReadi
 		readingsP = append(readingsP, v)
 	}
 	return &pb.SensorServiceReadingsResponse{Readings: readingsP}, nil
-}
-
-// Desc returns the most recent Desc from the given Sensor.
-func (s *subtypeServer) Desc(ctx context.Context, req *pb.SensorServiceDescRequest) (*pb.SensorServiceDescResponse, error) {
-	sensorDevice, err := s.getSensor(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	desc, err := sensorDevice.Desc(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.SensorServiceDescResponse{
-		Desc: &commonpb.SensorDescription{Type: string(desc.Type), Path: desc.Path},
-	}, nil
 }

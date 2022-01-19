@@ -94,17 +94,6 @@ func TestReadings(t *testing.T) {
 	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 1)
 }
 
-func TestDesc(t *testing.T) {
-	actualSensor1 := &mock{Name: "sensor1"}
-	reconfSensor1, _ := WrapWithReconfigurable(actualSensor1)
-
-	test.That(t, actualSensor1.descCalls, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(*reconfigurableSensor).Desc(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, desc)
-	test.That(t, actualSensor1.descCalls, test.ShouldEqual, 1)
-}
-
 func TestClose(t *testing.T) {
 	actualSensor1 := &mock{Name: "sensor1"}
 	reconfSensor1, _ := WrapWithReconfigurable(actualSensor1)
@@ -114,16 +103,12 @@ func TestClose(t *testing.T) {
 	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 1)
 }
 
-var (
-	reading = 1.5
-	desc    = Description{Type("sensor"), ""}
-)
+var reading = 1.5
 
 type mock struct {
 	Sensor
 	Name          string
 	readingsCalls int
-	descCalls     int
 	reconfCalls   int
 }
 
@@ -132,8 +117,4 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{reading}, nil
 }
 
-func (m *mock) Desc(context.Context) (Description, error) {
-	m.descCalls++
-	return desc, nil
-}
 func (m *mock) Close() { m.reconfCalls++ }

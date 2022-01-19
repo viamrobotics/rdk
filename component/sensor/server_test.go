@@ -9,7 +9,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/sensor"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -43,15 +42,10 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	rs := []interface{}{1.1, 2.2}
-	desc := sensor.Description{sensor.Type("sensor"), ""}
 
 	injectSensor.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
-	injectSensor.DescFunc = func(context.Context) (sensor.Description, error) { return desc, nil }
 
 	injectSensor2.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
-	injectSensor2.DescFunc = func(context.Context) (sensor.Description, error) {
-		return sensor.Description{}, errors.New("can't get desc")
-	}
 
 	t.Run("Readings", func(t *testing.T) {
 		expected := make([]*structpb.Value, 0, len(rs))
@@ -73,24 +67,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Sensor")
 
 		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: missingSensorName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Sensor")
-	})
-
-	t.Run("Desc", func(t *testing.T) {
-		resp, err := sensorServer.Desc(context.Background(), &pb.SensorServiceDescRequest{Name: testSensorName})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Desc, test.ShouldResemble, &commonpb.SensorDescription{Type: string(desc.Type), Path: desc.Path})
-
-		_, err = sensorServer.Desc(context.Background(), &pb.SensorServiceDescRequest{Name: failSensorName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get desc")
-
-		_, err = sensorServer.Desc(context.Background(), &pb.SensorServiceDescRequest{Name: fakeSensorName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Sensor")
-
-		_, err = sensorServer.Desc(context.Background(), &pb.SensorServiceDescRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no Sensor")
 	})
