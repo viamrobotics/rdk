@@ -2,6 +2,8 @@ package config_test
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
@@ -9,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
 
@@ -20,9 +23,6 @@ import (
 	_ "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
-
-	// attribute converters.
-	_ "go.viam.com/rdk/robots/fake"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -49,6 +49,7 @@ func TestConfig3(t *testing.T) {
 	},
 	)
 
+	test.That(t, os.Setenv("TEST_THING_FOO", "5"), test.ShouldBeNil)
 	cfg, err := config.Read(context.Background(), "data/config3.json")
 	test.That(t, err, test.ShouldBeNil)
 
@@ -91,34 +92,30 @@ func TestConfig3(t *testing.T) {
 	})
 }
 
-func TestConfigLoad1(t *testing.T) {
-	cfg, err := config.Read(context.Background(), "data/cfg3.json")
-	test.That(t, err, test.ShouldBeNil)
-
-	c1 := cfg.FindComponent("c1")
-	test.That(t, c1, test.ShouldNotBeNil)
-
-	_, ok := c1.Attributes["matrics"].(string)
-	test.That(t, ok, test.ShouldBeFalse)
-
-	c2 := cfg.FindComponent("c2")
-	test.That(t, c2, test.ShouldNotBeNil)
-	test.That(t, c2.DependsOn, test.ShouldResemble, []string{"c1"})
-
-	test.That(t, c2.Attributes["matrics"].(map[string]interface{})["a"], test.ShouldEqual, 5.1)
-}
-
 func TestCreateCloudRequest(t *testing.T) {
 	cfg := config.Cloud{
 		ID:     "a",
 		Secret: "b",
 		Path:   "c",
 	}
+
+	version := "test-version"
+	gitRevision := "test-git-revision"
+	config.Version = version
+	config.GitRevision = gitRevision
+
 	r, err := config.CreateCloudRequest(context.Background(), &cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
 	test.That(t, r.URL.String(), test.ShouldEqual, "c?id=a")
+
+	userInfo := map[string]interface{}{}
+	userInfoJSON := r.Header.Get("User-Info")
+	json.Unmarshal([]byte(userInfoJSON), &userInfo)
+
+	test.That(t, userInfo["version"], test.ShouldEqual, version)
+	test.That(t, userInfo["gitRevision"], test.ShouldEqual, gitRevision)
 }
 
 func TestConfigEnsure(t *testing.T) {
@@ -138,12 +135,16 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, `"secret" is required`)
 	err = invalidCloud.Ensure(true)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, `"self" is required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns" is required`)
 	invalidCloud.Cloud.Secret = "my_secret"
 	test.That(t, invalidCloud.Ensure(false), test.ShouldBeNil)
 	test.That(t, invalidCloud.Ensure(true), test.ShouldNotBeNil)
 	invalidCloud.Cloud.Secret = ""
-	invalidCloud.Cloud.Self = "wooself"
+	invalidCloud.Cloud.FQDNs = []string{"wooself", ""}
+	err = invalidCloud.Ensure(true)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `"fqdns.1" is required`)
+	invalidCloud.Cloud.FQDNs = []string{"wooself", "yeeself"}
 	test.That(t, invalidCloud.Ensure(true), test.ShouldBeNil)
 
 	invalidRemotes := config.Config{
@@ -254,6 +255,58 @@ func TestConfigEnsure(t *testing.T) {
 	invalidNetwork.Network.TLSCertFile = ""
 	invalidNetwork.Network.TLSKeyFile = ""
 	test.That(t, invalidNetwork.Ensure(false), test.ShouldBeNil)
+
+	invalidNetwork.Network.BindAddress = "woop"
+	err = invalidNetwork.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `bind_address`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `missing port`)
+
+	invalidAuthConfig := config.Config{
+		Auth: config.AuthConfig{},
+	}
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
+
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		{Type: rpc.CredentialsTypeAPIKey},
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.0`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `required`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `key`)
+
+	validAPIKeyHandler := config.AuthHandlerConfig{
+		Type: rpc.CredentialsTypeAPIKey,
+		Config: config.AttributeMap{
+			"key": "foo",
+		},
+	}
+
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+		validAPIKeyHandler,
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `duplicate`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `api-key`)
+
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+		{Type: "unknown"},
+	}
+	err = invalidAuthConfig.Ensure(false)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `auth.handlers.1`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `do not know how`)
+	test.That(t, err.Error(), test.ShouldContainSubstring, `unknown`)
+
+	invalidAuthConfig.Auth.Handlers = []config.AuthHandlerConfig{
+		validAPIKeyHandler,
+	}
+	test.That(t, invalidAuthConfig.Ensure(false), test.ShouldBeNil)
 }
 
 func TestConfigSortComponents(t *testing.T) {

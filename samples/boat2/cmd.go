@@ -17,18 +17,18 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/serial"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
@@ -190,7 +190,7 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	)
 }
 
-func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
+func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Base, error) {
 	var err error
 	b := &boat{myRobot: r}
 
@@ -366,7 +366,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-func (b *boat) WidthMillis(ctx context.Context) (int, error) {
+func (b *boat) WidthGet(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
@@ -601,7 +601,16 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	// register boat as base properly
-	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
+	registry.RegisterComponent(base.Subtype, "viam-boat2", registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newBoat(ctx, r, logger)
+		},
+	})
 
 	registry.RegisterComponent(imu.Subtype, "temp-imu", registry.Component{
 		Constructor: func(
@@ -632,7 +641,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
 	}
 
-	navServiceTemp, ok := myRobot.ServiceByName("navigation")
+	navServiceTemp, ok := myRobot.ResourceByName(navigation.Name)
 	if !ok {
 		return errors.New("no navigation service")
 	}

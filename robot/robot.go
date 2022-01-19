@@ -7,19 +7,19 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -54,9 +54,6 @@ type Robot interface {
 
 	// InputControllerByName returns a input.Controller by name.
 	InputControllerByName(name string) (input.Controller, bool)
-
-	// ServiceByName returns a service by name.
-	ServiceByName(name string) (interface{}, bool)
 
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
@@ -93,9 +90,6 @@ type Robot interface {
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
-
-	// ServiceNames returns the name of all known services.
-	ServiceNames() []string
 
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name

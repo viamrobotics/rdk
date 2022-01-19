@@ -12,21 +12,18 @@ import (
 	"go.viam.com/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
-	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	grpcserver "go.viam.com/rdk/grpc/server"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	servicepkg "go.viam.com/rdk/services"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -72,12 +69,12 @@ var emptyStatus = &pb.StatusResponse{
 		InputControllers: map[string]*pb.InputControllerStatus{
 			"inputController1": {},
 		},
-		Boards: map[string]*pb.BoardStatus{
+		Boards: map[string]*commonpb.BoardStatus{
 			"board1": {
-				Analogs: map[string]*pb.AnalogStatus{
+				Analogs: map[string]*commonpb.AnalogStatus{
 					"analog1": {},
 				},
-				DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
+				DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 					"encoder": {},
 				},
 			},
@@ -160,18 +157,18 @@ func TestServer(t *testing.T) {
 			return fsConfigs, nil
 		}
 		// set up the robot without a frame system service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
 		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("no service named \"frame_system\""))
+		test.That(t, err, test.ShouldBeError, errors.New("no framesystem service"))
 
 		// set up the robot with something that is not a framesystem service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -179,9 +176,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
 
 		// set up the robot with the frame system
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.FrameSystemName] = fss
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[framesystem.Name] = fss
 			service, ok := services[name]
 			return service, ok
 		}
@@ -235,8 +232,8 @@ func TestServer(t *testing.T) {
 		server, injectRobot := newServer()
 
 		// set up the robot without an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
 			service, ok := services[name]
 			return service, ok
 		}
@@ -244,9 +241,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New("no objectmanipulation service"))
 
 		// set up the robot with something that is not an objectmanipulation service
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
-			services := make(map[string]interface{})
-			services[servicepkg.ObjectManipulationServiceName] = nil
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			services := make(map[resource.Name]interface{})
+			services[objectmanipulation.Name] = nil
 			service, ok := services[name]
 			return service, ok
 		}
@@ -256,7 +253,7 @@ func TestServer(t *testing.T) {
 		// pass on dograb error
 		passedErr := errors.New("fake dograb error")
 		omSvc := &inject.ObjectManipulationService{}
-		injectRobot.ServiceByNameFunc = func(name string) (interface{}, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return omSvc, true
 		}
 		omSvc.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
@@ -377,641 +374,6 @@ func TestServer(t *testing.T) {
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
 	})
 
-	t.Run("Base", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BaseMoveStraight(context.Background(), &pb.BaseMoveStraightRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		_, err = server.BaseSpin(context.Background(), &pb.BaseSpinRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		_, err = server.BaseStop(context.Background(), &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		injectBase := &inject.Base{}
-		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-			return injectBase, true
-		}
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectBase.StopFunc = func(ctx context.Context) error {
-			capCtx = ctx
-			return err1
-		}
-
-		ctx := context.Background()
-		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectBase.StopFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		var capArgs []interface{}
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return err1
-		}
-		_, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-			Name:           "base1",
-			DistanceMillis: 1,
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return nil
-		}
-		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-			Name:           "base1",
-			MillisPerSec:   2.3,
-			DistanceMillis: 1,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 2.3, false})
-		test.That(t, resp.Success, test.ShouldBeTrue)
-
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return err1
-		}
-		_, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
-			Name:     "base1",
-			AngleDeg: 4.5,
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return nil
-		}
-		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
-			Name:       "base1",
-			AngleDeg:   4.5,
-			DegsPerSec: 20.3,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
-		test.That(t, spinResp.Success, test.ShouldBeTrue)
-
-		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
-			capArgs = []interface{}{ctx}
-			return 0, err1
-		}
-		_, err = server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectBase.WidthMillisFunc = func(ctx context.Context) (int, error) {
-			capArgs = []interface{}{ctx}
-			return 2, nil
-		}
-		widthResp, err := server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
-	})
-
-	t.Run("BoardStatus", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		err1 := errors.New("whoops")
-		status := &pb.BoardStatus{
-			Analogs: map[string]*pb.AnalogStatus{
-				"analog1": {},
-			},
-			DigitalInterrupts: map[string]*pb.DigitalInterruptStatus{
-				"encoder": {},
-			},
-		}
-		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
-			return nil, err1
-		}
-		_, err = server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		injectBoard.StatusFunc = func(ctx context.Context) (*pb.BoardStatus, error) {
-			return status, nil
-		}
-		resp, err := server.BoardStatus(context.Background(), &pb.BoardStatusRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Status, test.ShouldResemble, status)
-	})
-
-	t.Run("BoardGPIOSet", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardGPIOSet(context.Background(), &pb.BoardGPIOSetRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		var capArgs []interface{}
-		ctx := context.Background()
-
-		err1 := errors.New("whoops")
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-			capArgs = []interface{}{ctx, pin, high}
-			return err1
-		}
-		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-			Name: "board1",
-			Pin:  "one",
-			High: true,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
-
-		injectBoard.GPIOSetFunc = func(ctx context.Context, pin string, high bool) error {
-			capArgs = []interface{}{ctx, pin, high}
-			return nil
-		}
-		_, err = server.BoardGPIOSet(ctx, &pb.BoardGPIOSetRequest{
-			Name: "board1",
-			Pin:  "one",
-			High: true,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", true})
-	})
-
-	t.Run("BoardGPIOGet", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardGPIOGet(context.Background(), &pb.BoardGPIOGetRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		var capArgs []interface{}
-		ctx := context.Background()
-
-		err1 := errors.New("whoops")
-		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-			capArgs = []interface{}{ctx, pin}
-			return false, err1
-		}
-		_, err = server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-			Name: "board1",
-			Pin:  "one",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
-
-		injectBoard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-			capArgs = []interface{}{ctx, pin}
-			return true, nil
-		}
-		getResp, err := server.BoardGPIOGet(ctx, &pb.BoardGPIOGetRequest{
-			Name: "board1",
-			Pin:  "one",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one"})
-		test.That(t, getResp.High, test.ShouldBeTrue)
-	})
-
-	//nolint:dupl
-	t.Run("BoardPWMSet", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardPWMSet(context.Background(), &pb.BoardPWMSetRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		var capArgs []interface{}
-		ctx := context.Background()
-
-		err1 := errors.New("whoops")
-		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-			capArgs = []interface{}{ctx, pin, dutyCycle}
-			return err1
-		}
-		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-			Name:      "board1",
-			Pin:       "one",
-			DutyCycle: 7,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-
-		injectBoard.PWMSetFunc = func(ctx context.Context, pin string, dutyCycle byte) error {
-			capArgs = []interface{}{ctx, pin, dutyCycle}
-			return nil
-		}
-		_, err = server.BoardPWMSet(ctx, &pb.BoardPWMSetRequest{
-			Name:      "board1",
-			Pin:       "one",
-			DutyCycle: 7,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", byte(7)})
-	})
-
-	//nolint:dupl
-	t.Run("BoardPWMSetFrequency", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardPWMSetFrequency(context.Background(), &pb.BoardPWMSetFrequencyRequest{
-			Name: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-
-		var capArgs []interface{}
-		ctx := context.Background()
-
-		err1 := errors.New("whoops")
-		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-			capArgs = []interface{}{ctx, pin, freq}
-			return err1
-		}
-		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-			Name:      "board1",
-			Pin:       "one",
-			Frequency: 123123,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
-
-		injectBoard.PWMSetFreqFunc = func(ctx context.Context, pin string, freq uint) error {
-			capArgs = []interface{}{ctx, pin, freq}
-			return nil
-		}
-		_, err = server.BoardPWMSetFrequency(ctx, &pb.BoardPWMSetFrequencyRequest{
-			Name:      "board1",
-			Pin:       "one",
-			Frequency: 123123,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, "one", uint(123123)})
-	})
-
-	//nolint:dupl
-	t.Run("BoardAnalogReaderRead", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
-			AnalogReaderName: "analog1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown analog reader")
-		test.That(t, capName, test.ShouldEqual, "analog1")
-
-		injectAnalogReader := &inject.AnalogReader{}
-		injectBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
-			return injectAnalogReader, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-			capCtx = ctx
-			return 0, err1
-		}
-		ctx := context.Background()
-		_, err = server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
-			AnalogReaderName: "analog1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectAnalogReader.ReadFunc = func(ctx context.Context) (int, error) {
-			capCtx = ctx
-			return 8, nil
-		}
-		readResp, err := server.BoardAnalogReaderRead(context.Background(), &pb.BoardAnalogReaderReadRequest{
-			BoardName:        "board1",
-			AnalogReaderName: "analog1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, readResp.Value, test.ShouldEqual, 8)
-	})
-
-	t.Run("BoardDigitalInterruptConfig", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
-		test.That(t, capName, test.ShouldEqual, "digital1")
-
-		injectDigitalInterrupt := &inject.DigitalInterrupt{}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			return injectDigitalInterrupt, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-			capCtx = ctx
-			return board.DigitalInterruptConfig{}, err1
-		}
-		ctx := context.Background()
-		_, err = server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		theConfig := board.DigitalInterruptConfig{
-			Name:    "foo",
-			Pin:     "bar",
-			Type:    "baz",
-			Formula: "baf",
-		}
-		injectDigitalInterrupt.ConfigFunc = func(ctx context.Context) (board.DigitalInterruptConfig, error) {
-			capCtx = ctx
-			return theConfig, nil
-		}
-		configResp, err := server.BoardDigitalInterruptConfig(context.Background(), &pb.BoardDigitalInterruptConfigRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, client.DigitalInterruptConfigFromProto(configResp.Config), test.ShouldResemble, theConfig)
-	})
-
-	//nolint:dupl
-	t.Run("BoardDigitalInterruptValue", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
-		test.That(t, capName, test.ShouldEqual, "digital1")
-
-		injectDigitalInterrupt := &inject.DigitalInterrupt{}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			return injectDigitalInterrupt, true
-		}
-
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-			capCtx = ctx
-			return 0, err1
-		}
-		ctx := context.Background()
-		_, err = server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectDigitalInterrupt.ValueFunc = func(ctx context.Context) (int64, error) {
-			capCtx = ctx
-			return 42, nil
-		}
-		valueResp, err := server.BoardDigitalInterruptValue(context.Background(), &pb.BoardDigitalInterruptValueRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-		test.That(t, valueResp.Value, test.ShouldEqual, 42)
-	})
-
-	t.Run("BoardDigitalInterruptTick", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName: "board1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-		test.That(t, capName, test.ShouldEqual, "board1")
-
-		injectBoard := &inject.Board{}
-		injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return injectBoard, true
-		}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "unknown digital interrupt")
-		test.That(t, capName, test.ShouldEqual, "digital1")
-
-		injectDigitalInterrupt := &inject.DigitalInterrupt{}
-		injectBoard.DigitalInterruptByNameFunc = func(name string) (board.DigitalInterrupt, bool) {
-			return injectDigitalInterrupt, true
-		}
-
-		var capArgs []interface{}
-		err1 := errors.New("whoops")
-		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-			capArgs = []interface{}{ctx, high, nanos}
-			return err1
-		}
-		ctx := context.Background()
-		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-			High:                 true,
-			Nanos:                1028,
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
-
-		injectDigitalInterrupt.TickFunc = func(ctx context.Context, high bool, nanos uint64) error {
-			capArgs = []interface{}{ctx, high, nanos}
-			return nil
-		}
-		_, err = server.BoardDigitalInterruptTick(context.Background(), &pb.BoardDigitalInterruptTickRequest{
-			BoardName:            "board1",
-			DigitalInterruptName: "digital1",
-			High:                 true,
-			Nanos:                1028,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, true, uint64(1028)})
-	})
-
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName string
@@ -1029,7 +391,7 @@ func TestServer(t *testing.T) {
 
 		err1 := errors.New("whoops")
 
-		device := &inject.Compass{}
+		device := &inject.Sensor{}
 		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 			return device, true
 		}
@@ -1038,14 +400,14 @@ func TestServer(t *testing.T) {
 			return nil, err1
 		}
 		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
-			Name: "compass1",
+			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
 		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return []interface{}{1.2, 2.3}, nil
 		}
 		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
-			Name: "compass1",
+			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldBeNil)
 		readings := make([]interface{}, 0, len(resp.Readings))
@@ -1054,387 +416,6 @@ func TestServer(t *testing.T) {
 		}
 		test.That(t, readings, test.ShouldResemble, []interface{}{1.2, 2.3})
 	})
-
-	t.Run("Compass", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
-		test.That(t, capName, test.ShouldEqual, "compass1")
-
-		err1 := errors.New("whoops")
-
-		device := &inject.Compass{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			return device, true
-		}
-
-		device.HeadingFunc = func(ctx context.Context) (float64, error) {
-			return math.NaN(), err1
-		}
-		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.HeadingFunc = func(ctx context.Context) (float64, error) {
-			return 1.2, nil
-		}
-		resp, err := server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Heading, test.ShouldResemble, 1.2)
-
-		device.StartCalibrationFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.StartCalibrationFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		device.StopCalibrationFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		device.StopCalibrationFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not relative")
-
-		relDevice := &inject.RelativeCompass{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-			return relDevice, true
-		}
-
-		relDevice.HeadingFunc = func(ctx context.Context) (float64, error) {
-			return math.NaN(), err1
-		}
-		_, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		relDevice.HeadingFunc = func(ctx context.Context) (float64, error) {
-			return 1.2, nil
-		}
-		resp, err = server.CompassHeading(context.Background(), &pb.CompassHeadingRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Heading, test.ShouldResemble, 1.2)
-
-		relDevice.StartCalibrationFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		relDevice.StartCalibrationFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.CompassStartCalibration(context.Background(), &pb.CompassStartCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		relDevice.StopCalibrationFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		relDevice.StopCalibrationFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.CompassStopCalibration(context.Background(), &pb.CompassStopCalibrationRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		relDevice.MarkFunc = func(ctx context.Context) error {
-			return err1
-		}
-		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		relDevice.MarkFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.CompassMark(context.Background(), &pb.CompassMarkRequest{
-			Name: "compass1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-	})
-
-	t.Run("Input", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
-			Controller: "inputController1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
-		test.That(t, capName, test.ShouldEqual, "inputController1")
-
-		err1 := errors.New("whoops")
-
-		device := &inject.InputController{}
-		injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-			if name == "inputController1" {
-				return device, true
-			}
-
-			return nil, false
-		}
-
-		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
-			return nil, err1
-		}
-		_, err = server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
-			Controller: "inputController1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		device.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
-			eventsOut := make(map[input.Control]input.Event)
-			eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
-			eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
-			return eventsOut, nil
-		}
-		device.RegisterControlCallbackFunc = func(
-			ctx context.Context,
-			control input.Control,
-			triggers []input.EventType,
-			ctrlFunc input.ControlFunction,
-		) error {
-			outEvent := input.Event{Time: time.Now(), Event: triggers[0], Control: input.ButtonStart, Value: 0.0}
-			ctrlFunc(ctx, outEvent)
-			return nil
-		}
-		device.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
-			return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
-		}
-
-		resp, err := server.InputControllerControls(context.Background(), &pb.InputControllerControlsRequest{
-			Controller: "inputController1",
-		})
-
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
-
-		startTime := time.Now()
-		time.Sleep(time.Second)
-		resp2, err := server.InputControllerLastEvents(context.Background(), &pb.InputControllerLastEventsRequest{
-			Controller: "inputController1",
-		})
-
-		test.That(t, err, test.ShouldBeNil)
-
-		var absEv, buttonEv *pb.InputControllerEvent
-		if resp2.Events[0].Control == "AbsoluteX" {
-			absEv = resp2.Events[0]
-			buttonEv = resp2.Events[1]
-		} else {
-			absEv = resp2.Events[1]
-			buttonEv = resp2.Events[0]
-		}
-
-		test.That(t, absEv.Event, test.ShouldEqual, input.PositionChangeAbs)
-		test.That(t, absEv.Control, test.ShouldEqual, input.AbsoluteX)
-		test.That(t, absEv.Value, test.ShouldEqual, 0.7)
-		test.That(t, absEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
-		test.That(t, absEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
-
-		test.That(t, buttonEv.Event, test.ShouldEqual, input.ButtonPress)
-		test.That(t, buttonEv.Control, test.ShouldEqual, input.ButtonStart)
-		test.That(t, buttonEv.Value, test.ShouldEqual, 1)
-		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
-		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
-
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		messageCh := make(chan *pb.InputControllerEvent, 1024)
-		streamServer := &robotServiceInputControllerEventStreamServer{
-			ctx:       cancelCtx,
-			messageCh: messageCh,
-		}
-
-		eventReqList := &pb.InputControllerEventStreamRequest{
-			Controller: "inputController2",
-			Events: []*pb.InputControllerEventStreamRequest_Events{
-
-				{
-					Control: string(input.ButtonStart),
-					Events: []string{
-						string(input.ButtonRelease),
-					},
-				},
-			},
-		}
-
-		err = server.InputControllerEventStream(eventReqList, streamServer)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
-
-		relayFunc := func(ctx context.Context, event input.Event) {
-			messageCh <- &pb.InputControllerEvent{
-				Time:    timestamppb.New(event.Time),
-				Event:   string(event.Event),
-				Control: string(event.Control),
-				Value:   event.Value,
-			}
-		}
-
-		err = device.RegisterControlCallback(cancelCtx, input.ButtonStart, []input.EventType{input.ButtonRelease}, relayFunc)
-		test.That(t, err, test.ShouldBeNil)
-
-		streamServer.fail = true
-
-		eventReqList.Controller = "inputController1"
-
-		err = server.InputControllerEventStream(eventReqList, streamServer)
-
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
-
-		var streamErr error
-		done := make(chan struct{})
-		streamServer.fail = false
-		go func() {
-			streamErr = server.InputControllerEventStream(eventReqList, streamServer)
-			close(done)
-		}()
-
-		resp3 := <-messageCh
-		test.That(t, resp3.Control, test.ShouldEqual, string(input.ButtonStart))
-		test.That(t, resp3.Event, test.ShouldEqual, input.ButtonRelease)
-		test.That(t, resp3.Value, test.ShouldEqual, 0)
-		test.That(t, resp3.Time.AsTime().After(startTime), test.ShouldBeTrue)
-		test.That(t, resp3.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
-
-		cancel()
-		<-done
-		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
-	})
-
-	t.Run("ForceMatrixMatrix", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-
-		_, err := server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no force matrix")
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		var capMatrix [][]int
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		expectedMatrix := make([][]int, 4)
-		for i := 0; i < len(expectedMatrix); i++ {
-			expectedMatrix[i] = []int{1, 2, 3, 4}
-		}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
-			capMatrix = expectedMatrix
-			return expectedMatrix, nil
-		}
-		_, err = server.ForceMatrixMatrix(context.Background(), &pb.ForceMatrixMatrixRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
-	})
-
-	t.Run("ForceMatrixSlipDetection", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			capName = name.Name
-			return nil, false
-		}
-		_, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, capName, test.ShouldEqual, "fsm1")
-
-		injectFsm := &inject.ForceMatrix{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectFsm, true
-		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
-			return true, nil
-		}
-		resp, err := server.ForceMatrixSlipDetection(context.Background(), &pb.ForceMatrixSlipDetectionRequest{
-			Name: "fsm1",
-		})
-		test.That(t, resp.IsSlipping, test.ShouldBeTrue)
-		test.That(t, err, test.ShouldBeNil)
-	})
-}
-
-type robotServiceInputControllerEventStreamServer struct {
-	grpc.ServerStream // not set
-	ctx               context.Context
-	messageCh         chan<- *pb.InputControllerEvent
-	fail              bool
-}
-
-func (x *robotServiceInputControllerEventStreamServer) Context() context.Context {
-	return x.ctx
-}
-
-func (x *robotServiceInputControllerEventStreamServer) Send(m *pb.InputControllerEvent) error {
-	if x.fail {
-		return errors.New("send fail")
-	}
-	if x.messageCh == nil {
-		return nil
-	}
-	x.messageCh <- m
-	return nil
 }
 
 type robotServiceStatusStreamServer struct {

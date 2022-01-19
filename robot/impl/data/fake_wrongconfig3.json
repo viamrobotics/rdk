@@ -56,15 +56,13 @@
         },
         {
           "model": "fake",
-          "name": "compass1",
-          "type": "sensor",
-          "subtype": "compass"
+          "name": "gps1",
+          "type": "gps"
         },
         {
           "model": "fake",
           "name": "world",
-          "type": "sensor",
-          "subtype": "compass",
+          "type": "gps",
           "frame": {
               "parent": "pieceGripper"
           },

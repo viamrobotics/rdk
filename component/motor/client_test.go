@@ -198,7 +198,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		workingMotorDialedClient := motor.NewClientFromConn(conn, "workingMotor", logger)
+		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "workingMotor", logger)
 
 		err = workingMotorDialedClient.SetPower(context.Background(), 42.0)
 		test.That(t, err, test.ShouldBeNil)
@@ -244,7 +244,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		failingMotorDialedClient := motor.NewClientFromConn(conn, "failingMotor", logger)
+		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "failingMotor", logger)
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 42.0)
 		test.That(t, err, test.ShouldNotBeNil)

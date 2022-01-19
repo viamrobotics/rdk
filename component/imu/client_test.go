@@ -12,10 +12,10 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -90,8 +90,7 @@ func TestClient(t *testing.T) {
 	t.Run("IMU client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		imu1Client2 := imu.NewClientFromConn(conn, imu1, logger)
-		test.That(t, err, test.ShouldBeNil)
+		imu1Client2 := imu.NewClientFromConn(context.Background(), conn, imu1, logger)
 
 		av2, err := imu1Client2.AngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)

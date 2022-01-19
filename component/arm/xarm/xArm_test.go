@@ -81,7 +81,7 @@ func TestWriteViam(t *testing.T) {
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
 		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
-		validFunc, gradFunc := motionplan.NewLineConstraintAndGradient(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
+		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, 0.3, 0.05)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, 0.2)
 
 		opt := motionplan.NewDefaultPlannerOptions()

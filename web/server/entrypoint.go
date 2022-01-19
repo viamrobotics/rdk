@@ -12,13 +12,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -267,7 +267,7 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := egoutil.NewNiceLoggingSpanExporter()
+	exp := perf.NewNiceLoggingSpanExporter()
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
@@ -359,8 +359,12 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud != nil {
-		options.Name = cfg.Cloud.Self
+	if cfg.Cloud == nil {
+		// for now auth settings only apply to non cloud instances
+		options.Auth = cfg.Auth
+	} else {
+		options.Managed = true
+		options.FQDNs = cfg.Cloud.FQDNs
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}
 	options.Network = cfg.Network
@@ -378,7 +382,7 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 		}
 		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
+	svc, ok := r.ResourceByName(web.Name)
 	if !ok {
 		return errors.New("robot has no web service")
 	}

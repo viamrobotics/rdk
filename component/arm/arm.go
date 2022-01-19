@@ -29,7 +29,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // An Arm represents a physical robotic arm that exists in three-dimensional space.

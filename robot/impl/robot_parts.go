@@ -2,7 +2,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/alessio/shellescape"
@@ -11,30 +10,26 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
+	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
-	"go.viam.com/rdk/sensor/gps"
 )
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
 	remotes         map[string]*remoteRobot
-	bases           map[string]*proxyBase
-	sensors         map[string]sensor.Sensor
-	services        map[string]interface{}
 	functions       map[string]struct{}
 	resources       map[resource.Name]interface{}
 	processManager  pexec.ProcessManager
@@ -45,9 +40,6 @@ type robotParts struct {
 func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
-		bases:           map[string]*proxyBase{},
-		sensors:         map[string]sensor.Sensor{},
-		services:        map[string]interface{}{},
 		functions:       map[string]struct{}{},
 		resources:       map[resource.Name]interface{}{},
 		processManager:  pexec.NewProcessManager(logger),
@@ -55,59 +47,9 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 	}
 }
 
-// fixType ensures that the component has correct type information.
-func fixType(c config.Component, whichType config.ComponentType) config.Component {
-	if c.Type == "" {
-		c.Type = whichType
-	} else if c.Type != whichType {
-		panic(fmt.Sprintf("different types (%s) != (%s)", whichType, c.Type))
-	}
-	return c
-}
-
 // addRemote adds a remote to the parts.
 func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
-}
-
-// AddBase adds a base to the parts.
-func (parts *robotParts) AddBase(b base.Base, c config.Component) {
-	c = fixType(c, config.ComponentTypeBase)
-	if proxy, ok := b.(*proxyBase); ok {
-		b = proxy.actual
-	}
-	parts.bases[c.Name] = &proxyBase{actual: b}
-}
-
-// AddSensor adds a sensor to the parts.
-func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
-	c = fixType(c, config.ComponentTypeSensor)
-	switch pType := s.(type) {
-	case *proxySensor:
-		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
-	case *proxyCompass:
-		parts.sensors[c.Name] = newProxyCompass(pType.actual)
-	case *proxyRelativeCompass:
-		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
-	case *proxyGPS:
-		parts.sensors[c.Name] = newProxyGPS(pType.actual)
-	default:
-		switch s.Desc().Type {
-		case compass.Type:
-			parts.sensors[c.Name] = newProxyCompass(s.(compass.Compass))
-		case compass.RelativeType:
-			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
-		case gps.Type:
-			parts.sensors[c.Name] = newProxyGPS(s.(gps.GPS))
-		default:
-			parts.sensors[c.Name] = &proxySensor{actual: s}
-		}
-	}
-}
-
-// AddService adds a service to the parts.
-func (parts *robotParts) AddService(svc interface{}, c config.Service) {
-	parts.services[c.Name] = svc
 }
 
 // addFunction adds a function to the parts.
@@ -207,8 +149,10 @@ func (parts *robotParts) CameraNames() []string {
 // BaseNames returns the names of all bases in the parts.
 func (parts *robotParts) BaseNames() []string {
 	names := []string{}
-	for k := range parts.bases {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == base.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BaseNames)
 }
@@ -227,8 +171,10 @@ func (parts *robotParts) BoardNames() []string {
 // SensorNames returns the names of all sensors in the parts.
 func (parts *robotParts) SensorNames() []string {
 	names := []string{}
-	for k := range parts.sensors {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == sensor.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.SensorNames)
 }
@@ -275,15 +221,6 @@ func (parts *robotParts) FunctionNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.FunctionNames)
 }
 
-// ServiceNames returns the names of all service in the parts.
-func (parts *robotParts) ServiceNames() []string {
-	names := []string{}
-	for k := range parts.services {
-		names = append(names, k)
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ServiceNames)
-}
-
 // ResourceNames returns the names of all resources in the parts.
 func (parts *robotParts) ResourceNames() []resource.Name {
 	names := []resource.Name{}
@@ -302,28 +239,10 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.remotes[k] = v
 		}
 	}
-	if len(parts.bases) != 0 {
-		clonedParts.bases = make(map[string]*proxyBase, len(parts.bases))
-		for k, v := range parts.bases {
-			clonedParts.bases[k] = v
-		}
-	}
-	if len(parts.sensors) != 0 {
-		clonedParts.sensors = make(map[string]sensor.Sensor, len(parts.sensors))
-		for k, v := range parts.sensors {
-			clonedParts.sensors[k] = v
-		}
-	}
 	if len(parts.functions) != 0 {
 		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
 		for k, v := range parts.functions {
 			clonedParts.functions[k] = v
-		}
-	}
-	if len(parts.services) != 0 {
-		clonedParts.services = make(map[string]interface{}, len(parts.services))
-		for k, v := range parts.services {
-			clonedParts.services[k] = v
 		}
 	}
 	if len(parts.resources) != 0 {
@@ -345,27 +264,9 @@ func (parts *robotParts) Close(ctx context.Context) error {
 		allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error stopping process manager"))
 	}
 
-	for _, x := range parts.services {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing service"))
-		}
-	}
-
 	for _, x := range parts.remotes {
 		if err := utils.TryClose(ctx, x); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing remote"))
-		}
-	}
-
-	for _, x := range parts.bases {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing base"))
-		}
-	}
-
-	for _, x := range parts.sensors {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing sensor"))
 		}
 	}
 
@@ -427,6 +328,10 @@ func (parts *robotParts) processModifiedConfig(
 		return err
 	}
 
+	if err := parts.newServices(ctx, config.Services, robot); err != nil {
+		return err
+	}
+
 	for _, f := range config.Functions {
 		parts.addFunction(f.Name)
 	}
@@ -456,7 +361,24 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		robotClient, err := client.New(ctx, config.Address, logger, parts.robotClientOpts...)
+		opts := make([]client.RobotClientOption, len(parts.robotClientOpts))
+		copy(opts, parts.robotClientOpts)
+		dialOpts := client.ExtractDialOptions(opts...)
+
+		if config.Auth.Credentials != nil {
+			if config.Auth.Entity == "" {
+				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
+			} else {
+				dialOpts = append(dialOpts, rpc.WithEntityCredentials(config.Auth.Entity, *config.Auth.Credentials))
+			}
+		} else {
+			// explicitly unset credentials so they are not fed to remotes unintentionally.
+			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
+		}
+		//nolint:makezero
+		opts = append(opts, client.WithDialOptions(dialOpts...))
+
+		robotClient, err := client.New(ctx, config.Address, logger, opts...)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
@@ -470,34 +392,12 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 // newComponents constructs all components defined.
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
 	for _, c := range components {
-		switch c.Type {
-		case config.ComponentTypeBase:
-			b, err := r.newBase(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddBase(b, c)
-		case config.ComponentTypeSensor:
-			if c.SubType == "" {
-				return errors.New("sensor component requires subtype")
-			}
-			sensorDevice, err := r.newSensor(ctx, c, sensor.Type(c.SubType))
-			if err != nil {
-				return err
-			}
-			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
-			fallthrough
-		default:
-			r, err := r.newResource(ctx, c)
-			if err != nil {
-				return err
-			}
-			rName := c.ResourceName()
-			parts.addResource(rName, r)
+		r, err := r.newResource(ctx, c)
+		if err != nil {
+			return err
 		}
+		rName := c.ResourceName()
+		parts.addResource(rName, r)
 	}
 
 	return nil
@@ -510,7 +410,7 @@ func (parts *robotParts) newServices(ctx context.Context, services []config.Serv
 		if err != nil {
 			return err
 		}
-		parts.AddService(svc, c)
+		parts.addResource(c.ResourceName(), svc)
 	}
 
 	return nil
@@ -575,9 +475,13 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns the given base by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
-	part, ok := parts.bases[name]
+	rName := base.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(base.Base)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BaseByName(name)
@@ -631,9 +535,13 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 // SensorByName returns the given sensor by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
-	part, ok := parts.sensors[name]
+	rName := sensor.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(sensor.Sensor)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.SensorByName(name)
@@ -704,20 +612,6 @@ func (parts *robotParts) InputControllerByName(name string) (input.Controller, b
 	return nil, false
 }
 
-func (parts *robotParts) ServiceByName(name string) (interface{}, bool) {
-	part, ok := parts.services[name]
-	if ok {
-		return part, true
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ServiceByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -763,39 +657,12 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.bases) != 0 {
-		if parts.bases == nil {
-			parts.bases = make(map[string]*proxyBase, len(toAdd.bases))
-		}
-		for k, v := range toAdd.bases {
-			parts.bases[k] = v
-		}
-	}
-
-	if len(toAdd.sensors) != 0 {
-		if parts.sensors == nil {
-			parts.sensors = make(map[string]sensor.Sensor, len(toAdd.sensors))
-		}
-		for k, v := range toAdd.sensors {
-			parts.sensors[k] = v
-		}
-	}
-
 	if len(toAdd.functions) != 0 {
 		if parts.functions == nil {
 			parts.functions = make(map[string]struct{}, len(toAdd.functions))
 		}
 		for k, v := range toAdd.functions {
 			parts.functions[k] = v
-		}
-	}
-
-	if len(toAdd.services) != 0 {
-		if parts.services == nil {
-			parts.services = make(map[string]interface{}, len(toAdd.services))
-		}
-		for k, v := range toAdd.services {
-			parts.services[k] = v
 		}
 	}
 
@@ -848,28 +715,6 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.bases) != 0 {
-		for k, v := range toModify.bases {
-			old, ok := parts.bases[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(ctx, v)
-		}
-	}
-
-	if len(toModify.sensors) != 0 {
-		for k, v := range toModify.sensors {
-			old, ok := parts.sensors[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.(interface{ replace(newSensor sensor.Sensor) }).replace(v)
-		}
-	}
-
 	if len(toModify.resources) != 0 {
 		for k, v := range toModify.resources {
 			old, ok := parts.resources[k]
@@ -877,16 +722,37 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				// should not happen
 				continue
 			}
-			oldPart, ok := old.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("old type %T is not reconfigurable", old)
-			}
-			newPart, ok := v.(resource.Reconfigurable)
-			if !ok {
-				return nil, errors.Errorf("new type %T is not reconfigurable", v)
-			}
-			if err := oldPart.Reconfigure(ctx, newPart); err != nil {
-				return nil, err
+			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
+			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
+
+			switch {
+			case oldIsReconfigurable != newIsReconfigurable:
+				// this is an indicator of a serious constructor problem
+				// for the resource subtype.
+				reconfError := errors.Errorf(
+					"new type %T is reconfigurable whereas old type %T is not",
+					v, old)
+				if oldIsReconfigurable {
+					reconfError = errors.Errorf(
+						"old type %T is reconfigurable whereas new type %T is not",
+						old, v)
+				}
+				return nil, reconfError
+			case oldIsReconfigurable && newIsReconfigurable:
+				// if we are dealing with a reconfigurable resource
+				// use the new resource to reconfigure the old one.
+				if err := oldPart.Reconfigure(ctx, newPart); err != nil {
+					return nil, err
+				}
+			case !oldIsReconfigurable && !newIsReconfigurable:
+				// if we are not dealing with a reconfigurable resource
+				// we want to close the old resource and replace it with the
+				// new.
+				if err := utils.TryClose(ctx, old); err != nil {
+					return nil, err
+				}
+				delete(parts.resources, k)
+				parts.resources[k] = v
 			}
 		}
 	}
@@ -903,27 +769,9 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.bases) != 0 {
-		for k := range toRemove.bases {
-			delete(parts.bases, k)
-		}
-	}
-
-	if len(toRemove.sensors) != 0 {
-		for k := range toRemove.sensors {
-			delete(parts.sensors, k)
-		}
-	}
-
 	if len(toRemove.functions) != 0 {
 		for k := range toRemove.functions {
 			delete(parts.functions, k)
-		}
-	}
-
-	if len(toRemove.services) != 0 {
-		for k := range toRemove.services {
-			delete(parts.services, k)
 		}
 	}
 
@@ -964,31 +812,21 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 	}
 
 	for _, compConf := range conf.Components {
-		switch compConf.Type {
-		case config.ComponentTypeBase:
-			part, ok := parts.BaseByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddBase(part, compConf)
-		case config.ComponentTypeSensor:
-			part, ok := parts.SensorByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
-			fallthrough
-		default:
-			rName := compConf.ResourceName()
-			resource, ok := parts.ResourceByName(rName)
-			if !ok {
-				continue
-			}
-			filtered.addResource(rName, resource)
+		rName := compConf.ResourceName()
+		resource, ok := parts.ResourceByName(rName)
+		if !ok {
+			continue
 		}
+		filtered.addResource(rName, resource)
+	}
+
+	for _, conf := range conf.Services {
+		rName := conf.ResourceName()
+		part, ok := parts.ResourceByName(rName)
+		if !ok {
+			continue
+		}
+		filtered.addResource(rName, part)
 	}
 
 	for _, conf := range conf.Functions {
@@ -997,14 +835,6 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 			continue
 		}
 		filtered.addFunction(conf.Name)
-	}
-
-	for _, conf := range conf.Services {
-		part, ok := parts.services[conf.Name]
-		if !ok {
-			continue
-		}
-		filtered.AddService(part, conf)
 	}
 
 	return filtered, nil
