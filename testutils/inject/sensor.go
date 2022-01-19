@@ -26,5 +26,5 @@ func (s *Sensor) Desc(ctx context.Context) (sensor.Description, error) {
 	if s.DescFunc == nil {
 		return s.Sensor.Desc(ctx)
 	}
-	return sensor.Description{Type: sensor.Type("sensor")}, nil
+	return s.DescFunc(ctx)
 }
