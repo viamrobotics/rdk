@@ -155,16 +155,8 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	if names := r.SensorNames(); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {
-			sensorDevice, ok := r.SensorByName(name)
-			if !ok {
-				continue
-			}
-			desc, err := sensorDevice.Desc(ctx)
-			if err != nil {
-				return nil, err
-			}
 			status.Sensors[name] = &pb.SensorStatus{
-				Type: string(desc.Type),
+				Type: "sensor",
 			}
 		}
 	}

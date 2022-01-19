@@ -43,8 +43,3 @@ func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 	defer s.mu.Unlock()
 	return []interface{}{1}, nil
 }
-
-// Desc returns that this is a Sensor.
-func (s *Sensor) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(sensor.SubtypeName), ""}, nil
-}

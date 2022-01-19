@@ -83,16 +83,6 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	return readings, nil
 }
 
-func (c *client) Desc(ctx context.Context) (Description, error) {
-	resp, err := c.client.Desc(ctx, &pb.SensorServiceDescRequest{
-		Name: c.name,
-	})
-	if err != nil {
-		return Description{}, err
-	}
-	return Description{Type: Type(resp.Desc.Type), Path: resp.Desc.Path}, nil
-}
-
 // Close cleanly closes the underlying connections.
 func (c *client) Close() error {
 	return c.serviceClient.Close()

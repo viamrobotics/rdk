@@ -28,19 +28,14 @@ func TestClient(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	rs := []interface{}{1.1, 2.2}
-	desc := sensor.Description{sensor.Type("sensor"), ""}
 
 	sensor1 := "sensor1"
 	injectSensor := &inject.Sensor{}
 	injectSensor.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
-	injectSensor.DescFunc = func(context.Context) (sensor.Description, error) { return desc, nil }
 
 	sensor2 := "sensor2"
 	injectSensor2 := &inject.Sensor{}
 	injectSensor2.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
-	injectSensor2.DescFunc = func(context.Context) (sensor.Description, error) {
-		return sensor.Description{}, errors.New("can't get desc")
-	}
 
 	sensorSvc, err := subtype.New((map[resource.Name]interface{}{sensor.Named(sensor1): injectSensor, sensor.Named(sensor2): injectSensor2}))
 	test.That(t, err, test.ShouldBeNil)
@@ -67,10 +62,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		desc1, err := sensor1Client.Desc(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, desc1, test.ShouldResemble, desc)
-
 		test.That(t, utils.TryClose(context.Background(), sensor1Client), test.ShouldBeNil)
 	})
 
@@ -82,10 +73,6 @@ func TestClient(t *testing.T) {
 		_, err = sensor2Client.Readings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
-
-		_, err = sensor2Client.Desc(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get desc")
 
 		test.That(t, utils.TryClose(context.Background(), sensor2Client), test.ShouldBeNil)
 	})
