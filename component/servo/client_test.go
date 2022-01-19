@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 	t.Run("dialed client tests for working servo", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		workingServoDialedClient := servo.NewClientFromConn(conn, "workingServo", logger)
+		workingServoDialedClient := servo.NewClientFromConn(context.Background(), conn, "workingServo", logger)
 
 		err = workingServoDialedClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)

@@ -11,10 +11,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/slipdetection"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -135,14 +135,14 @@ func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) 
 	}
 	for col := 0; col < len(fsm.columnGpioPins); col++ {
 		// set the correct GPIO to high
-		if err := fsm.board.GPIOSet(ctx, fsm.columnGpioPins[col], true); err != nil {
+		if err := fsm.board.SetGPIO(ctx, fsm.columnGpioPins[col], true); err != nil {
 			return nil, err
 		}
 
 		// set all other GPIO pins to low
 		for c, pin := range fsm.columnGpioPins {
 			if c != col {
-				err := fsm.board.GPIOSet(ctx, pin, false)
+				err := fsm.board.SetGPIO(ctx, pin, false)
 				if err != nil {
 					return nil, err
 				}

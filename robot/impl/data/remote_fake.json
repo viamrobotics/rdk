@@ -22,21 +22,6 @@
             "model": "fake",
             "name": "pieceArm",
             "type": "arm"
-        },
-        {
-          "model": "fake",
-          "name": "compass1",
-          "type": "sensor",
-          "subtype": "compass"
-        },
-        {
-          "model": "fake",
-          "name": "compass2",
-          "type": "sensor",
-          "subtype": "compass",
-          "attributes": {
-            "relative": true
-          }
         }
     ]
 }

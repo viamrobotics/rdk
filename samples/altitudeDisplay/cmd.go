@@ -11,10 +11,10 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/sensor/gps"
 )
 
 const (
@@ -49,7 +49,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	i2c, _ := gpsBoard.I2CByName("bus1")
 
-	s, ok := myRobot.SensorByName(gpsName)
+	s, ok := myRobot.ResourceByName(gps.Named(gpsName))
 	if !ok {
 		return fmt.Errorf("no gps named %q", gpsName)
 	}
@@ -73,9 +73,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	for {
 		meters := -9999.
-		valid, _ := gpsDevice.Valid(ctx)
-		if valid {
-			meters, _ = gpsDevice.Altitude(ctx)
+		localGps, ok := gpsDevice.(gps.LocalGPS)
+		if ok {
+			valid, _ := localGps.Valid(ctx)
+			if valid {
+				meters, _ = gpsDevice.Altitude(ctx)
+			}
 		}
 		feet := int(meters * 3.28084)
 		meterStr := strconv.Itoa(int(meters))

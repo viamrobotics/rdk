@@ -26,7 +26,7 @@ func TestBoxAlmostEqual(t *testing.T) {
 	test.That(t, original.AlmostEqual(bad), test.ShouldBeFalse)
 }
 
-func TestBoxVsBox(t *testing.T) {
+func TestBoxVsBoxCollision(t *testing.T) {
 	cases := []struct {
 		testname string
 		a        Volume
@@ -122,6 +122,48 @@ func TestBoxVsBox(t *testing.T) {
 			collides, err := c.a.CollidesWith(c.b)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, collides, fn)
+		})
+	}
+}
+
+func TestBoxVsBoxDistance(t *testing.T) {
+	cases := []struct {
+		testname string
+		a        Volume
+		b        Volume
+		expected float64
+	}{
+		{
+			"test two identical boxes",
+			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 2, 3}),
+			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 2, 3}),
+			-2,
+		},
+		{
+			"test axis aligned no collision",
+			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
+			makeBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{1, 1, 1}),
+			4, // upper bound on separation distance
+		},
+		{
+			"test axis aligned collision",
+			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{10, 10, 10}),
+			makeBox(NewZeroOrientation(), r3.Vector{20, 20, 20}, r3.Vector{12, 13, 14}),
+			-2,
+		},
+		{
+			"test face to face",
+			makeBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
+			makeBox(NewZeroOrientation(), r3.Vector{2, 0, 0}, r3.Vector{1, 1, 1}),
+			0,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.testname, func(t *testing.T) {
+			distance, err := c.a.DistanceFrom(c.b)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, distance, test.ShouldAlmostEqual, c.expected)
 		})
 	}
 }

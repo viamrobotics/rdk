@@ -7,9 +7,9 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -62,7 +62,7 @@ func NewClient(ctx context.Context, name string, address string, logger golog.Lo
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn rpc.ClientConn, name string, logger golog.Logger) IMU {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) IMU {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }

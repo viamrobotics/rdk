@@ -54,3 +54,12 @@ func WithDialOptions(opts ...rpc.DialOption) RobotClientOption {
 		o.dialOptions = opts
 	})
 }
+
+// ExtractDialOptions extracts RPC dial options from the given options, if any exist.
+func ExtractDialOptions(opts ...RobotClientOption) []rpc.DialOption {
+	var rOpts robotClientOpts
+	for _, opt := range opts {
+		opt.apply(&rOpts)
+	}
+	return rOpts.dialOptions
+}

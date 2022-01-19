@@ -14,23 +14,24 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor/gps"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
 	},
 	)
-
-	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
+	cType := config.ServiceType(SubtypeName)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
@@ -66,8 +67,18 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
 
-// Type is the type of service.
-const Type = config.ServiceType("navigation")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("navigation")
+
+// Subtype is a constant that identifies the navigation service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the NavigationService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
 type Config struct {
@@ -100,7 +111,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
 	}
-	s, ok := r.SensorByName(svcConfig.GPSName)
+	s, ok := r.ResourceByName(gps.Named(svcConfig.GPSName))
 	if !ok {
 		return nil, errors.Errorf("no gps named %q", svcConfig.GPSName)
 	}

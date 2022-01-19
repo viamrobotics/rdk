@@ -11,10 +11,10 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/slipdetection"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -154,7 +154,7 @@ func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) e
 	}
 
 	for i, muxGpioPin := range fmsm.muxGpioPins {
-		if err := fmsm.board.GPIOSet(ctx, muxGpioPin, logicTable[i]); err != nil {
+		if err := fmsm.board.SetGPIO(ctx, muxGpioPin, logicTable[i]); err != nil {
 			return err
 		}
 	}
@@ -182,14 +182,14 @@ func (fmsm *ForceMatrixWithMux) Matrix(ctx context.Context) ([][]int, error) {
 
 	for col := 0; col < numCols; col++ {
 		// set the correct GPIO to high
-		if err := fmsm.board.GPIOSet(ctx, fmsm.columnGpioPins[col], true); err != nil {
+		if err := fmsm.board.SetGPIO(ctx, fmsm.columnGpioPins[col], true); err != nil {
 			return nil, err
 		}
 
 		// set all other GPIO pins to low
 		for c, pin := range fmsm.columnGpioPins {
 			if c != col {
-				err := fmsm.board.GPIOSet(ctx, pin, false)
+				err := fmsm.board.SetGPIO(ctx, pin, false)
 				if err != nil {
 					return nil, err
 				}
