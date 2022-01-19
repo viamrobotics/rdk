@@ -99,7 +99,7 @@ func TestClient(t *testing.T) {
 	t.Run("camera client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		camera2Client := camera.NewClientFromConn(conn, camera2, logger)
+		camera2Client := camera.NewClientFromConn(context.Background(), conn, camera2, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, _, err = camera2Client.Next(context.Background())

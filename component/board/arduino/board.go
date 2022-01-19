@@ -13,13 +13,13 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/utils"
 )
 
@@ -218,38 +218,39 @@ func (b *arduinoBoard) DigitalInterruptByName(name string) (board.DigitalInterru
 	return nil, false
 }
 
-// GPIOSet sets the given pin to either low or high.
-func (b *arduinoBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+// SetGPIO sets the given pin to either low or high.
+func (b *arduinoBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	return errors.New("GPIO not supported on arduino yet")
 }
 
-// GPIOGet returns whether the given pin is either low or high.
-func (b *arduinoBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+// GetGPIO returns whether the given pin is either low or high.
+func (b *arduinoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	return false, errors.New("GPIO not supported on arduino yet")
 }
 
-// PWMSet sets the given pin to the given duty cycle.
-func (b *arduinoBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	return b.pwmSetArduino(pin, dutyCycle)
+// SetPWM sets the given pin to the given duty cycle.
+func (b *arduinoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	return b.setPWMArduino(pin, dutyCyclePct)
 }
 
-func (b *arduinoBoard) pwmSetArduino(pin string, dutyCycle byte) error {
+func (b *arduinoBoard) setPWMArduino(pin string, dutyCyclePct float64) error {
+	dutyCycle := utils.ScaleByPct(255, dutyCyclePct)
 	cmd := fmt.Sprintf("set-pwm-duty %s %d", pin, dutyCycle)
 	if _, err := b.runCommand(cmd); err != nil {
-		return fmt.Errorf("unexpected return from PWMSet got %w", err)
+		return fmt.Errorf("unexpected return from SetPWM got %w", err)
 	}
 	return nil
 }
 
-// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *arduinoBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	return b.pwmSetFreqArduino(pin, freq)
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (b *arduinoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
+	return b.setPWMFreqArduino(pin, freqHz)
 }
 
-func (b *arduinoBoard) pwmSetFreqArduino(pin string, freq uint) error {
-	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freq)
+func (b *arduinoBoard) setPWMFreqArduino(pin string, freqHz uint) error {
+	cmd := fmt.Sprintf("set-pwm-freq %s %d", pin, freqHz)
 	if _, err := b.runCommand(cmd); err != nil {
-		return fmt.Errorf("unexpected return from PWMSetFreq got %w", err)
+		return fmt.Errorf("unexpected return from SetPWMFreq got %w", err)
 	}
 	return nil
 }
@@ -281,7 +282,7 @@ func (b *arduinoBoard) DigitalInterruptNames() []string {
 // Status returns the current status of the board. Usually you
 // should use the CreateStatus helper instead of directly calling
 // this.
-func (b *arduinoBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (b *arduinoBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	return nil, errors.New("finish me")
 }
 

@@ -4,6 +4,7 @@ package fake
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -52,16 +53,18 @@ type Config struct {
 
 // An InputController fakes an input.Controller.
 type InputController struct {
-	Name       string
-	mu         sync.Mutex
-	controls   []input.Control
-	lastEvents map[input.Control]input.Event
+	Name     string
+	mu       sync.Mutex
+	controls []input.Control
 }
 
 // Controls lists the inputs of the gamepad.
 func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	if len(c.controls) == 0 {
+		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
+	}
 	return c.controls, nil
 }
 
@@ -69,7 +72,9 @@ func (c *InputController) Controls(ctx context.Context) ([]input.Control, error)
 func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.lastEvents, nil
+	eventsOut := make(map[input.Control]input.Event)
+	eventsOut[input.AbsoluteX] = input.Event{Time: time.Time{}, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+	return eventsOut, nil
 }
 
 // RegisterControlCallback registers a callback function to be executed on the specified trigger Event.

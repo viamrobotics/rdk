@@ -8,7 +8,7 @@
 
 class Motor {
    public:
-    Motor(const char* name, int in1, int in2, int inDir, int inEn, int pwm);
+    Motor(const char* name, int in1, int in2, int indir, int inen, int pwm);
 
     void stop();
 
@@ -21,8 +21,9 @@ class Motor {
 
     void checkEncoder(long unsigned int now);
 
-    HallEncoder* encoder() { return &_encoder; }
-    const HallEncoder* encoder() const { return &_encoder; }
+    HallEncoder* encoder() { return _encoder; }
+    const HallEncoder* encoder() const { return _encoder; }
+    void setHallEncoder(HallEncoder* e) { _encoder = e; }
 
     bool moving() const { return _moving != 0; }
 
@@ -39,7 +40,7 @@ class Motor {
     int _moving;  // 0: no, -1: backwards, 1: forwards
     int _power;   // 0 -> 255
 
-    HallEncoder _encoder;
+    HallEncoder* _encoder;
 
     bool _regulated;
     EncoderCount _goal;

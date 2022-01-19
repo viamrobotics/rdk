@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
@@ -29,7 +29,7 @@ var Subtype = resource.NewSubtype(
 
 // Named is a helper for getting the named board's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 // A Board represents a physical general purpose board that contains various
@@ -59,22 +59,22 @@ type Board interface {
 	// DigitalInterruptNames returns the name of all known digital interrupts.
 	DigitalInterruptNames() []string
 
-	// GPIOSet sets the given pin to either low or high.
-	GPIOSet(ctx context.Context, pin string, high bool) error
+	// SetGPIO sets the given pin to either low or high.
+	SetGPIO(ctx context.Context, pin string, high bool) error
 
-	// GPIOGet gets the high/low state of the given pin.
-	GPIOGet(ctx context.Context, pin string) (bool, error)
+	// GetGPIO gets the high/low state of the given pin.
+	GetGPIO(ctx context.Context, pin string) (bool, error)
 
-	// PWMSet sets the given pin to the given duty cycle.
-	PWMSet(ctx context.Context, pin string, dutyCycle byte) error
+	// SetPWM sets the given pin to the given duty cycle.
+	SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error
 
-	// PWMSetFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	PWMSetFreq(ctx context.Context, pin string, freq uint) error
+	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+	SetPWMFreq(ctx context.Context, pin string, freqHz uint) error
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
 	// this.
-	Status(ctx context.Context) (*pb.BoardStatus, error)
+	Status(ctx context.Context) (*commonpb.BoardStatus, error)
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
@@ -194,28 +194,28 @@ func (r *reconfigurableBoard) DigitalInterruptByName(name string) (DigitalInterr
 	return d, ok
 }
 
-func (r *reconfigurableBoard) GPIOSet(ctx context.Context, pin string, high bool) error {
+func (r *reconfigurableBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GPIOSet(ctx, pin, high)
+	return r.actual.SetGPIO(ctx, pin, high)
 }
 
-func (r *reconfigurableBoard) GPIOGet(ctx context.Context, pin string) (bool, error) {
+func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GPIOGet(ctx, pin)
+	return r.actual.GetGPIO(ctx, pin)
 }
 
-func (r *reconfigurableBoard) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
+func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.PWMSet(ctx, pin, dutyCycle)
+	return r.actual.SetPWM(ctx, pin, dutyCyclePct)
 }
 
-func (r *reconfigurableBoard) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
+func (r *reconfigurableBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.PWMSetFreq(ctx, pin, freq)
+	return r.actual.SetPWMFreq(ctx, pin, freqHz)
 }
 
 func (r *reconfigurableBoard) SPINames() []string {
@@ -258,7 +258,7 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 	return names
 }
 
-func (r *reconfigurableBoard) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (r *reconfigurableBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	if r.actual.ModelAttributes().Remote {
@@ -538,14 +538,6 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
-}
-
-func (r *reconfigurableDigitalInterrupt) Config(
-	ctx context.Context,
-) (DigitalInterruptConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Config(ctx)
 }
 
 func (r *reconfigurableDigitalInterrupt) Value(ctx context.Context) (int64, error) {

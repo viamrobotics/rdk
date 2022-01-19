@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
@@ -217,6 +218,15 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 		part, ok := r.ServoByName(name)
 		if !ok {
 			return nil, errors.Errorf("no servo found with name %q when extracting model frame json", name)
+		}
+		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+			return framer.ModelFrame(), nil
+		}
+		return nil, referenceframe.ErrNoModelInformation
+	case config.ComponentTypeGPS:
+		part, ok := r.ResourceByName(gps.Named(name))
+		if !ok {
+			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 		}
 		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 			return framer.ModelFrame(), nil

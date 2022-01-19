@@ -20,9 +20,6 @@ func TestBasicDigitalInterrupt1(t *testing.T) {
 
 	i, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
-	intConfig, err := i.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, intConfig.Name, test.ShouldEqual, "i1")
 
 	intVal, err := i.Value(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -56,9 +53,6 @@ func TestServoInterrupt(t *testing.T) {
 
 	s, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
-	intConfig, err := s.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, intConfig.Name, test.ShouldEqual, "s1")
 
 	now := uint64(0)
 	for i := 0; i < 20; i++ {
@@ -82,9 +76,6 @@ func TestServoInterruptWithPP(t *testing.T) {
 
 	s, err := CreateDigitalInterrupt(config)
 	test.That(t, err, test.ShouldBeNil)
-	intConfig, err := s.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, intConfig.Name, test.ShouldEqual, "s1")
 
 	now := uint64(0)
 	for i := 0; i < 20; i++ {

@@ -24,11 +24,14 @@
       "type": "gripper"
     },
     {
-      "host": "10.237.115.131",
-      "model": "eliot",
+      "model": "single_stream",
       "name": "cameraOver",
-      "port": 8181,
-      "type": "camera"
+      "type": "camera",
+      "attributes": {
+          "host": "10.237.115.131",
+          "port": 8181,
+          "stream": "both"
+      }
     },
     {
       "attributes": {

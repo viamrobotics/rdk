@@ -62,16 +62,6 @@ func TestDualServerSource(t *testing.T) {
 	doServerSourceTest(t, s)
 }
 
-func TestIntelServerSource(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	attrs := rimage.AttrConfig{}
-	attrs.Host = "127.0.0.1"
-	attrs.Port = 8181
-	s, err := NewIntelServerSource(&attrs, logger)
-	test.That(t, err, test.ShouldBeNil)
-	doServerSourceTest(t, s)
-}
-
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	attrs := rimage.AttrConfig{}

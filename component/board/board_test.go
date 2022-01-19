@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 )
 
@@ -49,7 +49,7 @@ func TestBoardName(t *testing.T) {
 }
 
 var (
-	mockStatus *pb.BoardStatus
+	mockStatus *commonpb.BoardStatus
 	mockGPIO   bool
 )
 
@@ -96,45 +96,45 @@ func TestReconfigurableBoard(t *testing.T) {
 	}
 }
 
-func TestGPIOSet(t *testing.T) {
+func TestSetGPIO(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).GPIOSet(context.Background(), "", false)
+	test.That(t, actualBoard.setGPIOCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetGPIO(context.Background(), "", false)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.gpioSetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setGPIOCalls, test.ShouldEqual, 1)
 }
 
-func TestGPIOGet(t *testing.T) {
+func TestGetGPIO(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 0)
-	result, err := fakeBoard.(*reconfigurableBoard).GPIOGet(context.Background(), "")
+	test.That(t, actualBoard.getGPIOCalls, test.ShouldEqual, 0)
+	result, err := fakeBoard.(*reconfigurableBoard).GetGPIO(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, mockGPIO)
-	test.That(t, actualBoard.gpioGetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.getGPIOCalls, test.ShouldEqual, 1)
 }
 
-func TestPWMSet(t *testing.T) {
+func TestSetPWM(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).PWMSet(context.Background(), "", 0)
+	test.That(t, actualBoard.setPWMCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetPWM(context.Background(), "", 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.pwmSetCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setPWMCalls, test.ShouldEqual, 1)
 }
 
-func TestPWMSetFreq(t *testing.T) {
+func TestSetPWMFreq(t *testing.T) {
 	actualBoard := newBoard("board1")
 	fakeBoard, _ := WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 0)
-	err := fakeBoard.(*reconfigurableBoard).PWMSetFreq(context.Background(), "", 0)
+	test.That(t, actualBoard.setPWMFreqCalls, test.ShouldEqual, 0)
+	err := fakeBoard.(*reconfigurableBoard).SetPWMFreq(context.Background(), "", 0)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.pwmSetFreqCalls, test.ShouldEqual, 1)
+	test.That(t, actualBoard.setPWMFreqCalls, test.ShouldEqual, 1)
 }
 
 func TestStatus(t *testing.T) {
@@ -206,10 +206,10 @@ type mock struct {
 	digitals []string
 
 	reconfCalls     int
-	gpioSetCalls    int
-	gpioGetCalls    int
-	pwmSetCalls     int
-	pwmSetFreqCalls int
+	setGPIOCalls    int
+	getGPIOCalls    int
+	setPWMCalls     int
+	setPWMFreqCalls int
 	statusCalls     int
 }
 
@@ -280,27 +280,27 @@ func (m *mock) ModelAttributes() ModelAttributes {
 	return ModelAttributes{Remote: true}
 }
 
-func (m *mock) GPIOSet(ctx context.Context, pin string, high bool) error {
-	m.gpioSetCalls++
+func (m *mock) SetGPIO(ctx context.Context, pin string, high bool) error {
+	m.setGPIOCalls++
 	return nil
 }
 
-func (m *mock) GPIOGet(ctx context.Context, pin string) (bool, error) {
-	m.gpioGetCalls++
+func (m *mock) GetGPIO(ctx context.Context, pin string) (bool, error) {
+	m.getGPIOCalls++
 	return mockGPIO, nil
 }
 
-func (m *mock) PWMSet(ctx context.Context, pin string, dutyCycle byte) error {
-	m.pwmSetCalls++
+func (m *mock) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	m.setPWMCalls++
 	return nil
 }
 
-func (m *mock) PWMSetFreq(ctx context.Context, pin string, freq uint) error {
-	m.pwmSetFreqCalls++
+func (m *mock) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
+	m.setPWMFreqCalls++
 	return nil
 }
 
-func (m *mock) Status(ctx context.Context) (*pb.BoardStatus, error) {
+func (m *mock) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	m.statusCalls++
 	return mockStatus, nil
 }
@@ -369,10 +369,6 @@ func (m *mockAnalogReader) Read(ctx context.Context) (int, error) {
 // Mock DigitalInterrupt
 
 type mockDigitalInterrupt struct{}
-
-func (m *mockDigitalInterrupt) Config(ctx context.Context) (DigitalInterruptConfig, error) {
-	return DigitalInterruptConfig{}, nil
-}
 
 func (m *mockDigitalInterrupt) Value(ctx context.Context) (int64, error) {
 	return 0, nil
