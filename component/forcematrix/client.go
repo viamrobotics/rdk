@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
@@ -98,10 +97,6 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{matrix}, nil
-}
-
-func (c *client) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(SubtypeName), ""}, nil
 }
 
 // Close cleanly closes the underlying connections.
