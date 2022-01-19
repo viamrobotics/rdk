@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/sensor"
 )
 
 // ForceMatrix is an injected ForceMatrix.
@@ -13,7 +12,6 @@ type ForceMatrix struct {
 	MatrixFunc     func(ctx context.Context) ([][]int, error)
 	IsSlippingFunc func(ctx context.Context) (bool, error)
 	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
-	DescFunc       func(ctx context.Context) (sensor.Description, error)
 }
 
 // Matrix calls the injected MatrixFunc or the real variant.
@@ -38,12 +36,4 @@ func (m *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 		return m.ForceMatrix.Readings(ctx)
 	}
 	return m.ReadingsFunc(ctx)
-}
-
-// Desc returns that this is a force matrix.
-func (m *ForceMatrix) Desc(ctx context.Context) (sensor.Description, error) {
-	if m.DescFunc == nil {
-		return m.ForceMatrix.Desc(ctx)
-	}
-	return m.DescFunc(ctx)
 }
