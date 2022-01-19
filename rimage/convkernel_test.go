@@ -23,6 +23,6 @@ func TestNewKernel(t *testing.T) {
 	k.Set(1, 2, -1)
 	test.That(t, k.AbSum(), test.ShouldEqual, 2)
 	// test Normalize
-	kNormalized := k.Normalize()
-	test.That(t, kNormalized.At(3, 2), test.ShouldEqual, 0.5)
+	normalized := k.Normalize()
+	test.That(t, normalized.At(3, 2), test.ShouldEqual, 0.5)
 }
