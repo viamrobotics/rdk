@@ -20,8 +20,6 @@ const _ = grpc.SupportPackageIsVersion7
 type SensorServiceClient interface {
 	// Readings returns the readings of a sensor of the underlying robot.
 	Readings(ctx context.Context, in *SensorServiceReadingsRequest, opts ...grpc.CallOption) (*SensorServiceReadingsResponse, error)
-	// Desc returns the description of a sensor of the underlying robot.
-	Desc(ctx context.Context, in *SensorServiceDescRequest, opts ...grpc.CallOption) (*SensorServiceDescResponse, error)
 }
 
 type sensorServiceClient struct {
@@ -41,23 +39,12 @@ func (c *sensorServiceClient) Readings(ctx context.Context, in *SensorServiceRea
 	return out, nil
 }
 
-func (c *sensorServiceClient) Desc(ctx context.Context, in *SensorServiceDescRequest, opts ...grpc.CallOption) (*SensorServiceDescResponse, error) {
-	out := new(SensorServiceDescResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.SensorService/Desc", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // SensorServiceServer is the server API for SensorService service.
 // All implementations must embed UnimplementedSensorServiceServer
 // for forward compatibility
 type SensorServiceServer interface {
 	// Readings returns the readings of a sensor of the underlying robot.
 	Readings(context.Context, *SensorServiceReadingsRequest) (*SensorServiceReadingsResponse, error)
-	// Desc returns the description of a sensor of the underlying robot.
-	Desc(context.Context, *SensorServiceDescRequest) (*SensorServiceDescResponse, error)
 	mustEmbedUnimplementedSensorServiceServer()
 }
 
@@ -67,9 +54,6 @@ type UnimplementedSensorServiceServer struct {
 
 func (UnimplementedSensorServiceServer) Readings(context.Context, *SensorServiceReadingsRequest) (*SensorServiceReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Readings not implemented")
-}
-func (UnimplementedSensorServiceServer) Desc(context.Context, *SensorServiceDescRequest) (*SensorServiceDescResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Desc not implemented")
 }
 func (UnimplementedSensorServiceServer) mustEmbedUnimplementedSensorServiceServer() {}
 
@@ -102,24 +86,6 @@ func _SensorService_Readings_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _SensorService_Desc_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SensorServiceDescRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(SensorServiceServer).Desc(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.SensorService/Desc",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SensorServiceServer).Desc(ctx, req.(*SensorServiceDescRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // SensorService_ServiceDesc is the grpc.ServiceDesc for SensorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -130,10 +96,6 @@ var SensorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Readings",
 			Handler:    _SensorService_Readings_Handler,
-		},
-		{
-			MethodName: "Desc",
-			Handler:    _SensorService_Desc_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
