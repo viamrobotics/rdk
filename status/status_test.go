@@ -174,7 +174,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{},
+			Sensors: map[string]*pb.SensorStatus{"sensor1": {Type: "sensor"}, "sensor2": {Type: "sensor"}},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},
@@ -239,7 +239,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{},
+			Sensors: map[string]*pb.SensorStatus{"sensor1": {Type: "sensor"}, "sensor2": {Type: "sensor"}},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},

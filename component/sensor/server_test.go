@@ -64,10 +64,10 @@ func TestServer(t *testing.T) {
 
 		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: fakeSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a Sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a generic sensor")
 
 		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no Sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 	})
 }
