@@ -41,7 +41,7 @@ func (m *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns that this is a force matrix.
-func (m *ForceMatrix) Desc() sensor.Description {
+func (m *ForceMatrix) Desc(ctx context.Context) (sensor.Description, error) {
 	if m.DescFunc == nil {
 		return m.ForceMatrix.Desc()
 	}

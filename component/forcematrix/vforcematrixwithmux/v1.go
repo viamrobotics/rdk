@@ -244,6 +244,6 @@ func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
 }
 
 // Desc returns that this is a forcematrix mux sensor type.
-func (fmsm *ForceMatrixWithMux) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}
+func (fmsm *ForceMatrixWithMux) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(forcematrix.SubtypeName), model}, nil
 }

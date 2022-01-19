@@ -67,8 +67,8 @@ func (i *wit) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
-func (i *wit) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), model}
+func (i *wit) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(imu.SubtypeName), model}, nil
 }
 
 // NewWit creates a new Wit IMU.

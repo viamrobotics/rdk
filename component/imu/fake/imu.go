@@ -70,7 +70,7 @@ func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 }
 
 // Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
+func (i *IMU) Desc(ctx context.Context) (sensor.Description, error) {
 	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 

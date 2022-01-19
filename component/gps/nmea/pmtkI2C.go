@@ -190,8 +190,8 @@ func (g *pmtkI2CNMEAGPS) Close() {
 }
 
 // Desc returns that this is a GPS.
-func (g *pmtkI2CNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
+func (g *pmtkI2CNMEAGPS) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}, nil
 }
 
 // PMTK checksums commands by XORing together each byte.

@@ -163,6 +163,6 @@ func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
 }
 
 // Desc returns a description of this sensor.
-func (m *mergeGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
+func (m *mergeGPS) Desc(ctx context.Context) (sensor.Description, error) {
+	return sensor.Description{sensor.Type(gps.SubtypeName), ""}, nil
 }
