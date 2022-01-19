@@ -12,7 +12,6 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/imu"
-	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
@@ -33,7 +32,6 @@ func TestClient(t *testing.T) {
 	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
-	desc := sensor.Description{sensor.Type("imu"), ""}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -44,9 +42,6 @@ func TestClient(t *testing.T) {
 	}
 	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
-	}
-	injectIMU.DescFunc = func(ctx context.Context) (sensor.Description, error) {
-		return desc, nil
 	}
 
 	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
@@ -82,9 +77,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
-		desc1, err := imu1Client.Desc(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, desc1, test.ShouldResemble, desc)
 		test.That(t, utils.TryClose(context.Background(), imu1Client), test.ShouldBeNil)
 	})
 
@@ -104,10 +96,6 @@ func TestClient(t *testing.T) {
 		rs2, err := imu1Client2.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
-
-		desc2, err := imu1Client2.Desc(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, desc2, test.ShouldResemble, desc)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
