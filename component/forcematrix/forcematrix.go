@@ -76,12 +76,6 @@ func (r *reconfigurableForceMatrix) Readings(ctx context.Context) ([]interface{}
 	return r.actual.Readings(ctx)
 }
 
-func (r *reconfigurableForceMatrix) Desc(ctx context.Context) (sensor.Description, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc(ctx)
-}
-
 func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,
 	newForceMatrix resource.Reconfigurable) error {
 	r.mu.Lock()

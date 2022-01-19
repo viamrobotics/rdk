@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -64,9 +63,4 @@ func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{matrix}, nil
-}
-
-// Desc returns that this is a force matrix.
-func (fsm *ForceMatrix) Desc(ctx context.Context) (sensor.Description, error) {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}, nil
 }
