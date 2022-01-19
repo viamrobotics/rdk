@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
@@ -373,130 +372,6 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
-	})
-
-	t.Run("Base", func(t *testing.T) {
-		server, injectRobot := newServer()
-		var capName string
-		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-			capName = name
-			return nil, false
-		}
-
-		_, err := server.BaseMoveStraight(context.Background(), &pb.BaseMoveStraightRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		_, err = server.BaseSpin(context.Background(), &pb.BaseSpinRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		_, err = server.BaseStop(context.Background(), &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-		test.That(t, capName, test.ShouldEqual, "base1")
-
-		injectBase := &inject.Base{}
-		injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-			return injectBase, true
-		}
-		var capCtx context.Context
-		err1 := errors.New("whoops")
-		injectBase.StopFunc = func(ctx context.Context) error {
-			capCtx = ctx
-			return err1
-		}
-
-		ctx := context.Background()
-		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capCtx, test.ShouldEqual, ctx)
-
-		injectBase.StopFunc = func(ctx context.Context) error {
-			return nil
-		}
-		_, err = server.BaseStop(ctx, &pb.BaseStopRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-
-		var capArgs []interface{}
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return err1
-		}
-		_, err = server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-			Name:           "base1",
-			DistanceMillis: 1,
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, distanceMillis, millisPerSec, block}
-			return nil
-		}
-		resp, err := server.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-			Name:           "base1",
-			MillisPerSec:   2.3,
-			DistanceMillis: 1,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 1, 2.3, false})
-		test.That(t, resp.Success, test.ShouldBeTrue)
-
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return err1
-		}
-		_, err = server.BaseSpin(ctx, &pb.BaseSpinRequest{
-			Name:     "base1",
-			AngleDeg: 4.5,
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-
-		injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-			capArgs = []interface{}{ctx, angleDeg, degsPerSec, block}
-			return nil
-		}
-		spinResp, err := server.BaseSpin(ctx, &pb.BaseSpinRequest{
-			Name:       "base1",
-			AngleDeg:   4.5,
-			DegsPerSec: 20.3,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx, 4.5, 20.3, false})
-		test.That(t, spinResp.Success, test.ShouldBeTrue)
-
-		injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-			capArgs = []interface{}{ctx}
-			return 0, err1
-		}
-		_, err = server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldEqual, err1)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-
-		injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-			capArgs = []interface{}{ctx}
-			return 2, nil
-		}
-		widthResp, err := server.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-			Name: "base1",
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArgs, test.ShouldResemble, []interface{}{ctx})
-		test.That(t, widthResp.WidthMillis, test.ShouldEqual, 2)
 	})
 
 	t.Run("Sensor", func(t *testing.T) {

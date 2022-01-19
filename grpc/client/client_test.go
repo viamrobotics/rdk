@@ -103,6 +103,7 @@ var emptyStatus = &pb.Status{
 
 var emptyResources = []resource.Name{
 	arm.Named("arm1"),
+	base.Named("base1"),
 	board.Named("board1"),
 	board.Named("board3"),
 	gripper.Named("gripper1"),
@@ -190,6 +191,8 @@ var finalStatus = &pb.Status{
 var finalResources = []resource.Name{
 	arm.Named("arm2"),
 	arm.Named("arm3"),
+	base.Named("base2"),
+	base.Named("base3"),
 	board.Named("board2"),
 	board.Named("board3"),
 	servo.Named("servo2"),
@@ -251,30 +254,8 @@ func TestClient(t *testing.T) {
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	var capBaseName string
 	injectBase := &inject.Base{}
-	injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-		return 15, nil
-	}
-	var baseStopCalled bool
-	injectBase.StopFunc = func(ctx context.Context) error {
-		baseStopCalled = true
-		return nil
-	}
-	var capBaseMoveArgs []interface{}
-	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-		capBaseMoveArgs = []interface{}{distanceMillis, millisPerSec, block}
-		return nil
-	}
-	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-		capBaseSpinArgs = []interface{}{angleDeg, degsPerSec, block}
-		return nil
-	}
-	injectRobot2.BaseByNameFunc = func(name string) (base.Base, bool) {
-		capBaseName = name
-		return injectBase, true
-	}
+
 	injectArm := &inject.Arm{}
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
@@ -334,6 +315,14 @@ func TestClient(t *testing.T) {
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+
+	baseSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+
+	baseSvc2, err := subtype.New((map[resource.Name]interface{}{base.Named("base1"): injectBase}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
 
 	boardSvc1, err := subtype.New((map[resource.Name]interface{}{}))
 	test.That(t, err, test.ShouldBeNil)
@@ -491,22 +480,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	base1, ok := client.BaseByName("base1")
+	_, ok := client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base1.Stop(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	err = base1.MoveStraight(context.Background(), 5, 0, false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	err = base1.Spin(context.Background(), 5.2, 0, false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	_, err = base1.WidthGet(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
 	arm1, ok := client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -612,31 +587,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	base1, ok = client.BaseByName("base1")
+	_, ok = client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	widthMillis, err := base1.WidthGet(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, widthMillis, test.ShouldEqual, 15)
-
-	err = base1.Stop(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, baseStopCalled, test.ShouldBeTrue)
-	test.That(t, capBaseName, test.ShouldEqual, "base1")
-
-	base2, ok := client.BaseByName("base2")
+	_, ok = client.BaseByName("base2")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base2.MoveStraight(context.Background(), 5, 6.2, false)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capBaseMoveArgs, test.ShouldResemble, []interface{}{5, 6.2, false})
-	test.That(t, capBaseName, test.ShouldEqual, "base2")
 
-	base3, ok := client.BaseByName("base3")
+	_, ok = client.BaseByName("base3")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base3.Spin(context.Background(), 7.2, 33, false)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 33.0, false})
-	test.That(t, capBaseName, test.ShouldEqual, "base3")
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
@@ -762,6 +720,7 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
+	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
 
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
@@ -786,7 +745,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base2", "base3"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -816,6 +775,7 @@ func TestClientRefresh(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
+			baseNames,
 		)...))
 
 	err = client.Close(context.Background())
@@ -839,6 +799,7 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm1")}
 	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
+	baseNames = []resource.Name{base.Named("base1")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
@@ -860,7 +821,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base1"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -883,6 +844,7 @@ func TestClientRefresh(t *testing.T) {
 			boardNames,
 			gripperNames,
 			cameraNames,
+			baseNames,
 		)...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -894,6 +856,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+	baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
 	boardNames = []resource.Name{board.Named("board2"), board.Named("board3")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
@@ -916,7 +879,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base2", "base3"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -946,6 +909,7 @@ func TestClientRefresh(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
+			baseNames,
 		)...))
 
 	err = client.Close(context.Background())
