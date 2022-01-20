@@ -31,7 +31,7 @@ import (
 type robotParts struct {
 	remotes         map[string]*remoteRobot
 	functions       map[string]struct{}
-	resources       *resource.ResourceGraph
+	resources       *resource.Graph
 	processManager  pexec.ProcessManager
 	robotClientOpts []client.RobotClientOption
 }
@@ -41,7 +41,7 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
 		functions:       map[string]struct{}{},
-		resources:       resource.NewResourceGraph(),
+		resources:       resource.NewGraph(),
 		processManager:  pexec.NewProcessManager(logger),
 		robotClientOpts: opts,
 	}

@@ -419,7 +419,7 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
 	var oldFunctionNames map[string]struct{}
-	var oldResources *resource.ResourceGraph
+	var oldResources *resource.Graph
 
 	if len(parts.functions) != 0 {
 		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
@@ -429,7 +429,7 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 	}
 
 	if len(parts.resources.Nodes) != 0 {
-		oldResources = resource.NewResourceGraph()
+		oldResources = resource.NewGraph()
 		for name := range parts.resources.Nodes {
 			oldResources.AddNode(name, struct{}{})
 		}

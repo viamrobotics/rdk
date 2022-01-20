@@ -8,18 +8,17 @@ type resourceNode map[Name]interface{}
 
 type resourceDependencies map[Name]resourceNode
 
-// ResourceGraph The ResourceGraph maintains a collection of resources and their dependencies between each other.
-// nolint: revive
-type ResourceGraph struct {
+// Graph The Graph maintains a collection of resources and their dependencies between each other.
+type Graph struct {
 	Nodes    resourceNode // list of nodes
 	children resourceDependencies
 	parents  resourceDependencies
 	visited  map[Name]bool
 }
 
-// NewResourceGraph creates a new resource graph.
-func NewResourceGraph() *ResourceGraph {
-	return &ResourceGraph{
+// NewGraph creates a new resource graph.
+func NewGraph() *Graph {
+	return &Graph{
 		children: resourceDependencies{},
 		parents:  resourceDependencies{},
 		Nodes:    resourceNode{},
@@ -27,29 +26,7 @@ func NewResourceGraph() *ResourceGraph {
 	}
 }
 
-func (g *ResourceGraph) getAllDependenciesOf(node Name) resourceNode {
-	// if the node doesn't exists then it cannot have dependencies
-	if _, ok := g.Nodes[node]; !ok {
-		return nil
-	}
-	out := make(resourceNode)
-	next := []Name{node}
-	for len(next) > 0 {
-		found := []Name{}
-		for _, n := range next {
-			for nn := range g.children[n] {
-				if _, ok := out[nn]; !ok {
-					out[nn] = struct{}{}
-					found = append(found, nn)
-				}
-			}
-		}
-		next = found
-	}
-	return out
-}
-
-func (g *ResourceGraph) getAllParentsOf(node Name) resourceNode {
+func (g *Graph) getAllParentsOf(node Name) resourceNode {
 	if _, ok := g.Nodes[node]; !ok {
 		return nil
 	}
@@ -86,7 +63,7 @@ func removeNodeFromNodeMap(dm resourceDependencies, key, node Name) {
 	}
 }
 
-func (g *ResourceGraph) leaves() []Name {
+func (g *Graph) leaves() []Name {
 	leaves := make([]Name, 0)
 
 	for node := range g.Nodes {
@@ -99,8 +76,8 @@ func (g *ResourceGraph) leaves() []Name {
 }
 
 // Clone deep copy of the resource graph.
-func (g *ResourceGraph) Clone() *ResourceGraph {
-	return &ResourceGraph{
+func (g *Graph) Clone() *Graph {
+	return &Graph{
 		children: copyNodeMap(g.children),
 		Nodes:    copyNodes(g.Nodes),
 		parents:  copyNodeMap(g.parents),
@@ -119,13 +96,13 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 }
 
 // AddNode adds a node to the graph.
-func (g *ResourceGraph) AddNode(node Name, iface interface{}) {
+func (g *Graph) AddNode(node Name, iface interface{}) {
 	g.Nodes[node] = iface
 	g.visited[node] = false
 }
 
 // AddChildren add a dependency to a parent, create the parent if it doesn't exists yet.
-func (g *ResourceGraph) AddChildren(child, parent Name) error {
+func (g *Graph) AddChildren(child, parent Name) error {
 	if child == parent {
 		return errors.Errorf("%q cannot depend on itself", child.Name)
 	}
@@ -141,7 +118,7 @@ func (g *ResourceGraph) AddChildren(child, parent Name) error {
 	return nil
 }
 
-func (g *ResourceGraph) pathFromToExists(source Name, goal Name) bool {
+func (g *Graph) pathFromToExists(source Name, goal Name) bool {
 	for node := range g.Nodes {
 		g.visited[node] = false
 	}
@@ -158,15 +135,8 @@ func (g *ResourceGraph) pathFromToExists(source Name, goal Name) bool {
 	return false
 }
 
-// IsDependingOn return wether or not a child depends on a given parent.
-func (g *ResourceGraph) IsDependingOn(child, parent Name) bool {
-	deps := g.getAllDependenciesOf(parent)
-	_, ok := deps[child]
-	return ok
-}
-
 // Remove remove a given node and all it's dependencies.
-func (g *ResourceGraph) Remove(node Name) {
+func (g *Graph) Remove(node Name) {
 	for k, vertice := range g.children {
 		if _, ok := vertice[node]; ok {
 			removeNodeFromNodeMap(g.children, k, node)
@@ -184,14 +154,14 @@ func (g *ResourceGraph) Remove(node Name) {
 }
 
 // MergeRemove remove comons nodes in both graphs.
-func (g *ResourceGraph) MergeRemove(toRemove *ResourceGraph) {
+func (g *Graph) MergeRemove(toRemove *Graph) {
 	for k := range toRemove.Nodes {
 		g.Remove(k)
 	}
 }
 
-// MergeAdd merges two ResourceGraphs, if a node exists in both graphs, then it is silently replaced.
-func (g *ResourceGraph) MergeAdd(toAdd *ResourceGraph) error {
+// MergeAdd merges two Graphs, if a node exists in both graphs, then it is silently replaced.
+func (g *Graph) MergeAdd(toAdd *Graph) error {
 	for node, r := range toAdd.Nodes {
 		if i, ok := g.Nodes[node]; ok && i != nil {
 			g.Remove(node)
@@ -207,8 +177,8 @@ func (g *ResourceGraph) MergeAdd(toAdd *ResourceGraph) error {
 	return nil
 }
 
-// MergeNode adds a Node and copies it's dpendencies from a ResourceGraphs to another. The children nodes won't added.
-func (g *ResourceGraph) MergeNode(node Name, origin *ResourceGraph) error {
+// MergeNode adds a Node and copies it's dpendencies from a Graphs to another. The children nodes won't added.
+func (g *Graph) MergeNode(node Name, origin *Graph) error {
 	if r, ok := origin.Nodes[node]; ok {
 		g.AddNode(node, r)
 		parents := origin.getAllParentsOf(node)
@@ -222,7 +192,7 @@ func (g *ResourceGraph) MergeNode(node Name, origin *ResourceGraph) error {
 }
 
 // TopologicalSort returns an array of nodes' Name ordered by fewest edges first.
-func (g *ResourceGraph) TopologicalSort() []Name {
+func (g *Graph) TopologicalSort() []Name {
 	ordered := []Name{}
 	temp := g.Clone()
 	for {
