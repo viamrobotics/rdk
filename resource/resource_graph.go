@@ -20,9 +20,9 @@ type ResourceGraph struct {
 // NewResourceGraph creates a new resource graph.
 func NewResourceGraph() *ResourceGraph {
 	return &ResourceGraph{
-		children: make(resourceDependencies),
-		parents:  make(resourceDependencies),
-		Nodes:    make(resourceNode),
+		children: resourceDependencies{},
+		parents:  resourceDependencies{},
+		Nodes:    resourceNode{},
 		visited:  map[Name]bool{},
 	}
 }
@@ -53,7 +53,7 @@ func (g *ResourceGraph) getAllParentsOf(node Name) resourceNode {
 	if _, ok := g.Nodes[node]; !ok {
 		return nil
 	}
-	out := make(resourceNode)
+	out := resourceNode{}
 	for k, children := range g.children {
 		if _, ok := children[node]; ok {
 			out[k] = struct{}{}
@@ -103,6 +103,8 @@ func (g *ResourceGraph) Clone() *ResourceGraph {
 	return &ResourceGraph{
 		children: copyNodeMap(g.children),
 		Nodes:    copyNodes(g.Nodes),
+		parents:  copyNodeMap(g.parents),
+		visited:  map[Name]bool{},
 	}
 }
 
@@ -110,7 +112,7 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 	// check if a resourceNode exists for a key, otherwise create one
 	nodes, ok := rd[key]
 	if !ok {
-		nodes = make(resourceNode)
+		nodes = resourceNode{}
 		rd[key] = nodes
 	}
 	nodes[node] = struct{}{}
