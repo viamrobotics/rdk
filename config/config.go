@@ -89,7 +89,7 @@ func SortComponents(components []Component) ([]Component, error) {
 // A Config describes the configuration of a robot.
 type Config struct {
 	ConfigFilePath string
-	Cloud          *Cloud                      `json:"cloud,omitempty"`
+	Cloud          *configpb.Cloud                      `json:"cloud,omitempty"`
 	Remotes        []Remote                    `json:"remotes,omitempty"`
 	Components     []Component                 `json:"components,omitempty"`
 	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
@@ -102,7 +102,7 @@ type Config struct {
 // Ensure ensures all parts of the config are valid and sorts components based on what they depend on.
 func (c *Config) Ensure(fromCloud bool) error {
 	if c.Cloud != nil {
-		if err := c.Cloud.Validate("cloud", fromCloud); err != nil {
+		if err := ValidateCloudConfig(c.Cloud, "cloud", fromCloud); err != nil {
 			return err
 		}
 	}
@@ -212,14 +212,8 @@ func (config *Remote) Validate(path string) error {
 	return nil
 }
 
-// A Cloud describes how to configure a robot controlled by the
-// cloud.
-// The cloud source could be anything that supports http.
-// URL is constructed as $Path?id=ID and secret is put in a http header.
-type Cloud configpb.Cloud
-
 // Validate ensures all parts of the config are valid.
-func (config *Cloud) Validate(path string, fromCloud bool) error {
+func ValidateCloudConfig(config *configpb.Cloud, path string, fromCloud bool) error {
 	if config.Id == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "id")
 	}

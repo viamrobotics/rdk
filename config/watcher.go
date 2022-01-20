@@ -7,6 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/fsnotify/fsnotify"
 	"go.viam.com/utils"
+
+	configpb "go.viam.com/rdk/proto/api/config/v1"
 )
 
 // A Watcher is responsible for watching for changes
@@ -40,7 +42,7 @@ type cloudWatcher struct {
 
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
-func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *cloudWatcher {
+func newCloudWatcher(ctx context.Context, config *configpb.Cloud, logger golog.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
