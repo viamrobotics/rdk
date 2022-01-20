@@ -32,7 +32,7 @@ class RobotServiceImpl final : public RobotService::Service {
 return grpc::Status::OK;
  }
   grpc::Status Status(ServerContext* context, const StatusRequest* request, StatusResponse* response) override {
-    (*response->mutable_status()->mutable_cameras())["base1"] = true;
+    (*response->mutable_status()->mutable_cameras())["camera"] = true;
     return grpc::Status::OK;
   }
 
@@ -43,13 +43,14 @@ class MetadataServiceImpl final : public MetadataService::Service  {
   grpc::Status Resources(ServerContext* context, const ResourcesRequest* request, ResourcesResponse* response) override{
 
     ResourceName* name = response->add_resources();    
-    name->set_namespace_("core");
+    name->set_namespace_("rdk");
     name->set_type("component");
     name->set_subtype("camera");
-    name->set_name("camera1");
+    name->set_name("myCam");
     return grpc::Status::OK;
   }
 };
+
 int main(const int argc, const char** argv) {
   if (argc < 2) {
     std::cerr << "must supply grpc address" << std::endl;
