@@ -16,6 +16,7 @@ func OverlayDetections(img image.Image, dets []*Detection) image.Image {
 
 // drawBox draws a red box over the image
 func drawBox(img *rimage.Image, rec *image.Rectangle) {
+	x0, y0, x1, y1 := rec.Min.X, rec.Min.Y, rec.Max.X, rec.Max.Y
 	horizontal(x0, y0, x1, img, rimage.Red)
 	horizontal(x0, y1, x1, img, rimage.Red)
 	vertical(x0, y0, y1, img, rimage.Red)
