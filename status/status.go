@@ -225,7 +225,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if !ok {
 				return nil, fmt.Errorf("input controller %q not found", name)
 			}
-			eventsIn, err := controller.LastEvents(ctx)
+			eventsIn, err := controller.GetEvents(ctx)
 			if err != nil {
 				return nil, err
 			}
