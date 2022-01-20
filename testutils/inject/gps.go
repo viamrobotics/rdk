@@ -12,14 +12,14 @@ import (
 // GPS is an injected GPS.
 type GPS struct {
 	gps.LocalGPS
-	LocationFunc   func(ctx context.Context) (*geo.Point, error)
-	AltitudeFunc   func(ctx context.Context) (float64, error)
-	SpeedFunc      func(ctx context.Context) (float64, error)
-	SatellitesFunc func(ctx context.Context) (int, int, error)
-	AccuracyFunc   func(ctx context.Context) (float64, float64, error)
-	ValidFunc      func(ctx context.Context) (bool, error)
-	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
-	CloseFunc      func(ctx context.Context) error
+	LocationFunc     func(ctx context.Context) (*geo.Point, error)
+	AltitudeFunc     func(ctx context.Context) (float64, error)
+	SpeedFunc        func(ctx context.Context) (float64, error)
+	SatellitesFunc   func(ctx context.Context) (int, int, error)
+	ReadAccuracyFunc func(ctx context.Context) (float64, float64, error)
+	ValidFunc        func(ctx context.Context) (bool, error)
+	ReadingsFunc     func(ctx context.Context) ([]interface{}, error)
+	CloseFunc        func(ctx context.Context) error
 }
 
 // Location calls the injected Location or the real version.
@@ -54,12 +54,12 @@ func (i *GPS) Satellites(ctx context.Context) (int, int, error) {
 	return i.SatellitesFunc(ctx)
 }
 
-// Accuracy calls the injected Accuracy or the real version.
-func (i *GPS) Accuracy(ctx context.Context) (float64, float64, error) {
-	if i.AccuracyFunc == nil {
-		return i.LocalGPS.Accuracy(ctx)
+// ReadAccuracy calls the injected ReadAccuracy or the real version.
+func (i *GPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
+	if i.ReadAccuracyFunc == nil {
+		return i.LocalGPS.ReadAccuracy(ctx)
 	}
-	return i.AccuracyFunc(ctx)
+	return i.ReadAccuracyFunc(ctx)
 }
 
 // Valid calls the injected Valid or the real version.

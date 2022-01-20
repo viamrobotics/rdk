@@ -95,8 +95,8 @@ func (g *GPS) Satellites(ctx context.Context) (int, int, error) {
 	return g.activeSats, g.totalSats, nil
 }
 
-// Accuracy returns the set values.
-func (g *GPS) Accuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy returns the set values.
+func (g *GPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.hAcc, g.vAcc, nil
