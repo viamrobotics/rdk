@@ -13,7 +13,7 @@ type fakeComponent struct {
 }
 
 func TestResourceGraphConstruct(t *testing.T) {
-	for j, c := range []struct {
+	for idx, c := range []struct {
 		conf []fakeComponent
 		err  string
 	}{
@@ -61,7 +61,7 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
 				},
 			},
-			"circular dependency - A already depends on B",
+			"circular dependency - \"A\" already depends on \"B\"",
 		},
 		{
 			[]fakeComponent{
@@ -74,10 +74,10 @@ func TestResourceGraphConstruct(t *testing.T) {
 					DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
 				},
 			},
-			"B cannot depend on itself",
+			"\"B\" cannot depend on itself",
 		},
 	} {
-		t.Run(fmt.Sprintf("Test Graph Buiding %d", j), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%d", idx), func(t *testing.T) {
 			g := NewResourceGraph()
 			test.That(t, g, test.ShouldNotBeNil)
 			for i, component := range c.conf {
@@ -93,6 +93,51 @@ func TestResourceGraphConstruct(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestResourceGraphDepTree(t *testing.T) {
+	cfg := []fakeComponent{
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "A"),
+			DependsOn: []Name{},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "B"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "A")},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "C"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name: NewName("namespace", "atype", "asubtype", "D"),
+			DependsOn: []Name{
+				NewName("namespace", "atype", "asubtype", "B"),
+				NewName("namespace", "atype", "asubtype", "E"),
+			},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "E"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "B")},
+		},
+		{
+			Name:      NewName("namespace", "atype", "asubtype", "F"),
+			DependsOn: []Name{NewName("namespace", "atype", "asubtype", "E")},
+		},
+	}
+	g := NewResourceGraph()
+	test.That(t, g, test.ShouldNotBeNil)
+	for _, component := range cfg {
+		g.AddNode(component.Name, struct{}{})
+		for _, dep := range component.DependsOn {
+			test.That(t, g.AddChildren(component.Name, dep), test.ShouldBeNil)
+		}
+	}
+	err := g.AddChildren(NewName("namespace", "atype", "asubtype", "A"),
+		NewName("namespace", "atype", "asubtype", "F"))
+	test.That(t, err.Error(), test.ShouldEqual, "circular dependency - \"F\" already depends on \"A\"")
+	test.That(t, g.AddChildren(NewName("namespace", "atype", "asubtype", "D"),
+		NewName("namespace", "atype", "asubtype", "F")), test.ShouldBeNil)
 }
 
 func TestResourceGraphTopologicalSort(t *testing.T) {
@@ -131,8 +176,7 @@ func TestResourceGraphTopologicalSort(t *testing.T) {
 	for _, component := range cfg {
 		g.AddNode(component.Name, struct{}{})
 		for _, dep := range component.DependsOn {
-			err := g.AddChildren(component.Name, dep)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, g.AddChildren(component.Name, dep), test.ShouldBeNil)
 		}
 	}
 	out := g.TopologicalSort()
@@ -189,8 +233,7 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 	for _, component := range cfgA {
 		gA.AddNode(component.Name, struct{}{})
 		for _, dep := range component.DependsOn {
-			err := gA.AddChildren(component.Name, dep)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gA.AddChildren(component.Name, dep), test.ShouldBeNil)
 		}
 	}
 	out := gA.TopologicalSort()
@@ -204,8 +247,7 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 	for _, component := range cfgB {
 		gB.AddNode(component.Name, struct{}{})
 		for _, dep := range component.DependsOn {
-			err := gB.AddChildren(component.Name, dep)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gB.AddChildren(component.Name, dep), test.ShouldBeNil)
 		}
 	}
 	out = gB.TopologicalSort()
@@ -214,10 +256,9 @@ func TestResourceGraphMergeAdd(t *testing.T) {
 		NewName("namespace", "atype", "asubtype", "E"),
 		NewName("namespace", "atype", "asubtype", "D"),
 	})
-	err := gA.MergeAdd(gB)
-	test.That(t, err, test.ShouldBeNil)
-	err = gA.AddChildren(NewName("namespace", "atype", "asubtype", "D"), NewName("namespace", "atype", "asubtype", "C"))
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, gA.MergeAdd(gB), test.ShouldBeNil)
+	test.That(t, gA.AddChildren(NewName("namespace", "atype", "asubtype", "D"),
+		NewName("namespace", "atype", "asubtype", "C")), test.ShouldBeNil)
 	out = gA.TopologicalSort()
 	test.That(t, out, test.ShouldResemble, []Name{
 		NewName("namespace", "atype", "asubtype", "F"),
@@ -261,8 +302,7 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 	for _, component := range cfgA {
 		gA.AddNode(component.Name, struct{}{})
 		for _, dep := range component.DependsOn {
-			err := gA.AddChildren(component.Name, dep)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gA.AddChildren(component.Name, dep), test.ShouldBeNil)
 		}
 	}
 	out := gA.TopologicalSort()
@@ -293,8 +333,7 @@ func TestResourceGraphMergeRemove(t *testing.T) {
 	for _, component := range cfgB {
 		gB.AddNode(component.Name, struct{}{})
 		for _, dep := range component.DependsOn {
-			err := gB.AddChildren(component.Name, dep)
-			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gB.AddChildren(component.Name, dep), test.ShouldBeNil)
 		}
 	}
 	gA.MergeRemove(gB)
