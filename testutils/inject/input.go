@@ -48,16 +48,16 @@ func (s *InputController) RegisterControlCallback(
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
 }
 
-// InjectableInputController is an injected injectable InputController.
-type InjectableInputController struct {
+// TriggerableInputController is an injected injectable InputController.
+type TriggerableInputController struct {
 	InputController
-	input.Injectable
+	input.Triggerable
 
 	TriggerEventFunc func(ctx context.Context, event input.Event) error
 }
 
 // TriggerEvent calls the injected function or the real version.
-func (s *InjectableInputController) TriggerEvent(ctx context.Context, event input.Event) error {
+func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event input.Event) error {
 	if s.TriggerEventFunc == nil {
 		return s.TriggerEvent(ctx, event)
 	}

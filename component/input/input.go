@@ -106,8 +106,8 @@ type Event struct {
 	Value   float64 // 0 or 1 for buttons, -1.0 to +1.0 for axes
 }
 
-// Injectable is used by the WebGamepad interface to inject events.
-type Injectable interface {
+// Triggerable is used by the WebGamepad interface to inject events.
+type Triggerable interface {
 	// TriggerEvent allows directly sending an Event (such as a button press) from external code
 	TriggerEvent(ctx context.Context, event Event) error
 }
@@ -156,9 +156,9 @@ func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Cont
 func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	iActual, ok := c.actual.(Injectable)
+	iActual, ok := c.actual.(Triggerable)
 	if !ok {
-		return errors.New("controller is not Injectable")
+		return errors.New("controller is not Triggerable")
 	}
 	return iActual.TriggerEvent(ctx, event)
 }
