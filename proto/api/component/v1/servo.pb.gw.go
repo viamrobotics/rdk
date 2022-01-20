@@ -101,8 +101,8 @@ func local_request_ServoService_Move_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-func request_ServoService_AngularOffset_0(ctx context.Context, marshaler runtime.Marshaler, client ServoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ServoServiceAngularOffsetRequest
+func request_ServoService_GetPosition_0(ctx context.Context, marshaler runtime.Marshaler, client ServoServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ServoServiceGetPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -122,13 +122,13 @@ func request_ServoService_AngularOffset_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.AngularOffset(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetPosition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ServoService_AngularOffset_0(ctx context.Context, marshaler runtime.Marshaler, server ServoServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ServoServiceAngularOffsetRequest
+func local_request_ServoService_GetPosition_0(ctx context.Context, marshaler runtime.Marshaler, server ServoServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ServoServiceGetPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -148,7 +148,7 @@ func local_request_ServoService_AngularOffset_0(ctx context.Context, marshaler r
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.AngularOffset(ctx, &protoReq)
+	msg, err := server.GetPosition(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -182,18 +182,18 @@ func RegisterServoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("GET", pattern_ServoService_AngularOffset_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ServoService_GetPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ServoService/AngularOffset", runtime.WithHTTPPathPattern("/api/v1/componenet/servo/{name}/current"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/api/v1/component/servo/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ServoService_AngularOffset_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ServoService_GetPosition_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -201,7 +201,7 @@ func RegisterServoServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			return
 		}
 
-		forward_ServoService_AngularOffset_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ServoService_GetPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -266,23 +266,23 @@ func RegisterServoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("GET", pattern_ServoService_AngularOffset_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ServoService_GetPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ServoService/AngularOffset", runtime.WithHTTPPathPattern("/api/v1/componenet/servo/{name}/current"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ServoService/GetPosition", runtime.WithHTTPPathPattern("/api/v1/component/servo/{name}/position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ServoService_AngularOffset_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ServoService_GetPosition_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ServoService_AngularOffset_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ServoService_GetPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -292,11 +292,11 @@ func RegisterServoServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 var (
 	pattern_ServoService_Move_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "servo", "name", "move"}, ""))
 
-	pattern_ServoService_AngularOffset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "componenet", "servo", "name", "current"}, ""))
+	pattern_ServoService_GetPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "servo", "name", "position"}, ""))
 )
 
 var (
 	forward_ServoService_Move_0 = runtime.ForwardResponseMessage
 
-	forward_ServoService_AngularOffset_0 = runtime.ForwardResponseMessage
+	forward_ServoService_GetPosition_0 = runtime.ForwardResponseMessage
 )

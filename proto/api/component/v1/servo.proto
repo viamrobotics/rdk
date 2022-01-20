@@ -15,10 +15,10 @@ service ServoService {
     };
   }
 
-  // AngularOffset returns the current set angle (degrees) of the servo of the underlying robot.
-  rpc AngularOffset(ServoServiceAngularOffsetRequest) returns (ServoServiceAngularOffsetResponse) {
+  // GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
+  rpc GetPosition(ServoServiceGetPositionRequest) returns (ServoServiceGetPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/componenet/servo/{name}/current"
+      get: "/api/v1/component/servo/{name}/position"
     };
   }
 }
@@ -33,12 +33,12 @@ message ServoServiceMoveRequest {
 message ServoServiceMoveResponse {}
 
 
-message ServoServiceAngularOffsetRequest {
+message ServoServiceGetPositionRequest {
   // the name of the servo, as registered
   string name = 1;
 }
 
-message ServoServiceAngularOffsetResponse {
+message ServoServiceGetPositionResponse {
   // the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180
-  uint32 angle_deg = 1;
+  uint32 position_deg = 1;
 }

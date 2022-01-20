@@ -525,7 +525,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	_, err = servo1.AngularOffset(context.Background())
+	_, err = servo1.GetPosition(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
 	motor1, ok := client.MotorByName("motor1")
@@ -623,7 +623,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
 
-	currentVal, err := servo1.AngularOffset(context.Background())
+	currentVal, err := servo1.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
