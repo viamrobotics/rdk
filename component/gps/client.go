@@ -81,14 +81,14 @@ func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
 }
 
-func (c *client) Altitude(ctx context.Context) (float64, error) {
-	resp, err := c.client.Altitude(ctx, &pb.GPSServiceAltitudeRequest{
+func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
+	resp, err := c.client.ReadAltitude(ctx, &pb.GPSServiceReadAltitudeRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return math.NaN(), err
 	}
-	return resp.Altitude, nil
+	return resp.AltitudeMeters, nil
 }
 
 func (c *client) Speed(ctx context.Context) (float64, error) {
@@ -106,7 +106,7 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	alt, err := c.Altitude(ctx)
+	alt, err := c.ReadAltitude(ctx)
 	if err != nil {
 		return nil, err
 	}

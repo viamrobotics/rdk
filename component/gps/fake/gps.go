@@ -74,8 +74,8 @@ func (g *GPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return geo.NewPoint(g.Latitude, g.Longitude), nil
 }
 
-// Altitude returns the set value.
-func (g *GPS) Altitude(ctx context.Context) (float64, error) {
+// ReadAltitude returns the set value.
+func (g *GPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.altitude, nil

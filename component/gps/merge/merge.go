@@ -76,10 +76,10 @@ func (m *mergeGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 }
 
 // The current altitude in meters.
-func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
+func (m *mergeGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		a, err := g.Altitude(ctx)
+		a, err := g.ReadAltitude(ctx)
 		if err == nil {
 			return a, nil
 		}

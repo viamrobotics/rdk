@@ -204,7 +204,7 @@ func (g *serialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return g.data.location, nil
 }
 
-func (g *serialNMEAGPS) Altitude(ctx context.Context) (float64, error) {
+func (g *serialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil

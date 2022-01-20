@@ -153,7 +153,7 @@ func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return g.data.location, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Altitude(ctx context.Context) (float64, error) {
+func (g *pmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil

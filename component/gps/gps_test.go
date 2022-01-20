@@ -95,12 +95,12 @@ func TestReadLocation(t *testing.T) {
 	test.That(t, actualGPS1.locCalls, test.ShouldEqual, 1)
 }
 
-func TestAltitude(t *testing.T) {
+func TestReadAltitude(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.altCalls, test.ShouldEqual, 0)
-	alt1, err := reconfGPS1.(*reconfigurableGPS).Altitude(context.Background())
+	alt1, err := reconfGPS1.(*reconfigurableGPS).ReadAltitude(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, alt1, test.ShouldAlmostEqual, alt)
 	test.That(t, actualGPS1.altCalls, test.ShouldEqual, 1)
@@ -202,8 +202,8 @@ func (m *mock) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	return loc, nil
 }
 
-// Altitude returns the set value.
-func (m *mock) Altitude(ctx context.Context) (float64, error) {
+// ReadAltitude returns the set value.
+func (m *mock) ReadAltitude(ctx context.Context) (float64, error) {
 	m.altCalls++
 	return alt, nil
 }

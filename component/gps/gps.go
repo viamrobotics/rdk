@@ -34,7 +34,7 @@ func Named(name string) resource.Name {
 type GPS interface {
 	sensor.Sensor
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
-	Altitude(ctx context.Context) (float64, error)        // The current altitude in meters
+	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	Speed(ctx context.Context) (float64, error)           // Current ground speed in kph
 }
 
@@ -74,10 +74,10 @@ func (r *reconfigurableGPS) ReadLocation(ctx context.Context) (*geo.Point, error
 	return r.actual.ReadLocation(ctx)
 }
 
-func (r *reconfigurableGPS) Altitude(ctx context.Context) (float64, error) {
+func (r *reconfigurableGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Altitude(ctx)
+	return r.actual.ReadAltitude(ctx)
 }
 
 func (r *reconfigurableGPS) Speed(ctx context.Context) (float64, error) {
