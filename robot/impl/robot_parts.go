@@ -388,16 +388,16 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 }
 
 // newComponents constructs all components defined.
-func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
+func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, robot *localRobot) error {
 	for _, c := range components {
-		r, err := r.newResource(ctx, c)
+		r, err := robot.newResource(ctx, c)
 		if err != nil {
 			return err
 		}
 		rName := c.ResourceName()
 		parts.addResource(rName, r)
 		for _, dep := range c.DependsOn {
-			if comp := r.config.FindComponent(dep); comp != nil {
+			if comp := robot.config.FindComponent(dep); comp != nil {
 				if err := parts.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
 				}
@@ -484,7 +484,7 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	rName := base.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(base.Base)
 		if ok {
@@ -544,7 +544,7 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 // returns nil otherwise.
 func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 	rName := sensor.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(sensor.Sensor)
 		if ok {
@@ -720,8 +720,8 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 	}
 
 	if len(toModify.resources.Nodes) != 0 {
-		for k, v := range toModify.resources {
-			old, ok := parts.resources[k]
+		for k, v := range toModify.resources.Nodes {
+			old, ok := parts.resources.Nodes[k]
 			if !ok {
 				// should not happen
 				continue
@@ -812,7 +812,7 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		resource, ok := parts.ResourceByName(rName)
+		_, ok := parts.ResourceByName(rName)
 		if !ok {
 			continue
 		}
