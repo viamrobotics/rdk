@@ -33,9 +33,9 @@ func Named(name string) resource.Name {
 // A GPS represents a GPS that can report lat/long measurements.
 type GPS interface {
 	sensor.Sensor
-	Location(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
-	Altitude(ctx context.Context) (float64, error)    // The current altitude in meters
-	Speed(ctx context.Context) (float64, error)       // Current ground speed in kph
+	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
+	Altitude(ctx context.Context) (float64, error)        // The current altitude in meters
+	Speed(ctx context.Context) (float64, error)           // Current ground speed in kph
 }
 
 // A LocalGPS represents a GPS that can report ReadSatellites and ReadValid measurements.
@@ -68,10 +68,10 @@ func (r *reconfigurableGPS) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (r *reconfigurableGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Location(ctx)
+	return r.actual.ReadLocation(ctx)
 }
 
 func (r *reconfigurableGPS) Altitude(ctx context.Context) (float64, error) {

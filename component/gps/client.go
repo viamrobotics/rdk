@@ -71,8 +71,8 @@ func clientFromSvcClient(sc *serviceClient, name string) GPS {
 	return &client{sc, name}
 }
 
-func (c *client) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.Location(ctx, &pb.GPSServiceLocationRequest{
+func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
+	resp, err := c.client.ReadLocation(ctx, &pb.GPSServiceReadLocationRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -102,7 +102,7 @@ func (c *client) Speed(ctx context.Context) (float64, error) {
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := c.Location(ctx)
+	loc, err := c.ReadLocation(ctx)
 	if err != nil {
 		return nil, err
 	}

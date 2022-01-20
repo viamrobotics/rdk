@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GPSServiceClient interface {
-	// Location returns the most recent location from the given GPS.
-	Location(ctx context.Context, in *GPSServiceLocationRequest, opts ...grpc.CallOption) (*GPSServiceLocationResponse, error)
+	// ReadLocation returns the most recent location from the given GPS.
+	ReadLocation(ctx context.Context, in *GPSServiceReadLocationRequest, opts ...grpc.CallOption) (*GPSServiceReadLocationResponse, error)
 	// Altitude returns the most recent altitude from the given GPS.
 	Altitude(ctx context.Context, in *GPSServiceAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
@@ -34,9 +34,9 @@ func NewGPSServiceClient(cc grpc.ClientConnInterface) GPSServiceClient {
 	return &gPSServiceClient{cc}
 }
 
-func (c *gPSServiceClient) Location(ctx context.Context, in *GPSServiceLocationRequest, opts ...grpc.CallOption) (*GPSServiceLocationResponse, error) {
-	out := new(GPSServiceLocationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/Location", in, out, opts...)
+func (c *gPSServiceClient) ReadLocation(ctx context.Context, in *GPSServiceReadLocationRequest, opts ...grpc.CallOption) (*GPSServiceReadLocationResponse, error) {
+	out := new(GPSServiceReadLocationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/ReadLocation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +65,8 @@ func (c *gPSServiceClient) Speed(ctx context.Context, in *GPSServiceSpeedRequest
 // All implementations must embed UnimplementedGPSServiceServer
 // for forward compatibility
 type GPSServiceServer interface {
-	// Location returns the most recent location from the given GPS.
-	Location(context.Context, *GPSServiceLocationRequest) (*GPSServiceLocationResponse, error)
+	// ReadLocation returns the most recent location from the given GPS.
+	ReadLocation(context.Context, *GPSServiceReadLocationRequest) (*GPSServiceReadLocationResponse, error)
 	// Altitude returns the most recent altitude from the given GPS.
 	Altitude(context.Context, *GPSServiceAltitudeRequest) (*GPSServiceAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
@@ -78,8 +78,8 @@ type GPSServiceServer interface {
 type UnimplementedGPSServiceServer struct {
 }
 
-func (UnimplementedGPSServiceServer) Location(context.Context, *GPSServiceLocationRequest) (*GPSServiceLocationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Location not implemented")
+func (UnimplementedGPSServiceServer) ReadLocation(context.Context, *GPSServiceReadLocationRequest) (*GPSServiceReadLocationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadLocation not implemented")
 }
 func (UnimplementedGPSServiceServer) Altitude(context.Context, *GPSServiceAltitudeRequest) (*GPSServiceAltitudeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Altitude not implemented")
@@ -100,20 +100,20 @@ func RegisterGPSServiceServer(s grpc.ServiceRegistrar, srv GPSServiceServer) {
 	s.RegisterService(&GPSService_ServiceDesc, srv)
 }
 
-func _GPSService_Location_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSServiceLocationRequest)
+func _GPSService_ReadLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSServiceReadLocationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GPSServiceServer).Location(ctx, in)
+		return srv.(GPSServiceServer).ReadLocation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.GPSService/Location",
+		FullMethod: "/proto.api.component.v1.GPSService/ReadLocation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GPSServiceServer).Location(ctx, req.(*GPSServiceLocationRequest))
+		return srv.(GPSServiceServer).ReadLocation(ctx, req.(*GPSServiceReadLocationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -162,8 +162,8 @@ var GPSService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GPSServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Location",
-			Handler:    _GPSService_Location_Handler,
+			MethodName: "ReadLocation",
+			Handler:    _GPSService_ReadLocation_Handler,
 		},
 		{
 			MethodName: "Altitude",

@@ -63,10 +63,10 @@ type mergeGPS struct {
 }
 
 // The current latitude and longitude.
-func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (m *mergeGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		p, err := g.Location(ctx)
+		p, err := g.ReadLocation(ctx)
 		if err == nil {
 			return p, nil
 		}

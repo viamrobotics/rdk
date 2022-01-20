@@ -147,7 +147,7 @@ func (g *pmtkI2CNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.data}, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil

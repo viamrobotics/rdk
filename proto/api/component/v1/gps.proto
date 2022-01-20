@@ -9,8 +9,8 @@ import "proto/api/common/v1/common.proto";
 
 // GPSService services maintains all GPSs associated with a robot
 service GPSService {
-  // Location returns the most recent location from the given GPS.
-  rpc Location(GPSServiceLocationRequest) returns (GPSServiceLocationResponse) {
+  // ReadLocation returns the most recent location from the given GPS.
+  rpc ReadLocation(GPSServiceReadLocationRequest) returns (GPSServiceReadLocationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/gps/{name}/location"
     };
@@ -31,11 +31,11 @@ service GPSService {
   }
 }
 
-message GPSServiceLocationRequest {
+message GPSServiceReadLocationRequest {
   string name = 1;
 }
 
-message GPSServiceLocationResponse {
+message GPSServiceReadLocationResponse {
   common.v1.GeoPoint coordinate = 1;
 }
 
