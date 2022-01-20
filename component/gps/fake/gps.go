@@ -88,8 +88,8 @@ func (g *GPS) Speed(ctx context.Context) (float64, error) {
 	return g.speed, nil
 }
 
-// Satellites returns the set values.
-func (g *GPS) Satellites(ctx context.Context) (int, int, error) {
+// ReadSatellites returns the set values.
+func (g *GPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.activeSats, g.totalSats, nil
@@ -102,8 +102,8 @@ func (g *GPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return g.hAcc, g.vAcc, nil
 }
 
-// Valid returns the set value.
-func (g *GPS) Valid(ctx context.Context) (bool, error) {
+// ReadValid returns the set value.
+func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil

@@ -12,14 +12,14 @@ import (
 // GPS is an injected GPS.
 type GPS struct {
 	gps.LocalGPS
-	LocationFunc     func(ctx context.Context) (*geo.Point, error)
-	AltitudeFunc     func(ctx context.Context) (float64, error)
-	SpeedFunc        func(ctx context.Context) (float64, error)
-	SatellitesFunc   func(ctx context.Context) (int, int, error)
-	ReadAccuracyFunc func(ctx context.Context) (float64, float64, error)
-	ValidFunc        func(ctx context.Context) (bool, error)
-	ReadingsFunc     func(ctx context.Context) ([]interface{}, error)
-	CloseFunc        func(ctx context.Context) error
+	LocationFunc       func(ctx context.Context) (*geo.Point, error)
+	AltitudeFunc       func(ctx context.Context) (float64, error)
+	SpeedFunc          func(ctx context.Context) (float64, error)
+	ReadSatellitesFunc func(ctx context.Context) (int, int, error)
+	ReadAccuracyFunc   func(ctx context.Context) (float64, float64, error)
+	ReadValidFunc      func(ctx context.Context) (bool, error)
+	ReadingsFunc       func(ctx context.Context) ([]interface{}, error)
+	CloseFunc          func(ctx context.Context) error
 }
 
 // Location calls the injected Location or the real version.
@@ -46,12 +46,12 @@ func (i *GPS) Speed(ctx context.Context) (float64, error) {
 	return i.SpeedFunc(ctx)
 }
 
-// Satellites calls the injected Satellites or the real version.
-func (i *GPS) Satellites(ctx context.Context) (int, int, error) {
-	if i.SatellitesFunc == nil {
-		return i.LocalGPS.Satellites(ctx)
+// ReadSatellites calls the injected ReadSatellites or the real version.
+func (i *GPS) ReadSatellites(ctx context.Context) (int, int, error) {
+	if i.ReadSatellitesFunc == nil {
+		return i.LocalGPS.ReadSatellites(ctx)
 	}
-	return i.SatellitesFunc(ctx)
+	return i.ReadSatellitesFunc(ctx)
 }
 
 // ReadAccuracy calls the injected ReadAccuracy or the real version.
@@ -62,12 +62,12 @@ func (i *GPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return i.ReadAccuracyFunc(ctx)
 }
 
-// Valid calls the injected Valid or the real version.
-func (i *GPS) Valid(ctx context.Context) (bool, error) {
-	if i.ValidFunc == nil {
-		return i.LocalGPS.Valid(ctx)
+// ReadValid calls the injected ReadValid or the real version.
+func (i *GPS) ReadValid(ctx context.Context) (bool, error) {
+	if i.ReadValidFunc == nil {
+		return i.LocalGPS.ReadValid(ctx)
 	}
-	return i.ValidFunc(ctx)
+	return i.ReadValidFunc(ctx)
 }
 
 // Readings calls the injected Readings or the real version.

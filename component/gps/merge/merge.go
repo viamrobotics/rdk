@@ -102,14 +102,14 @@ func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
 }
 
 // Number of satellites used for fix, and total in view.
-func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
+func (m *mergeGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	var allErrors error
 	for _, g := range m.subs {
 		localG, ok := g.(gps.LocalGPS)
 		if !ok {
 			continue
 		}
-		a, b, err := localG.Satellites(ctx)
+		a, b, err := localG.ReadSatellites(ctx)
 		if err == nil {
 			return a, b, nil
 		}
@@ -136,14 +136,14 @@ func (m *mergeGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 }
 
 // Whether or not the GPS chip had a valid fix for the most recent dataset.
-func (m *mergeGPS) Valid(ctx context.Context) (bool, error) {
+func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	var allErrors error
 	for _, g := range m.subs {
 		localG, ok := g.(gps.LocalGPS)
 		if !ok {
 			continue
 		}
-		v, err := localG.Valid(ctx)
+		v, err := localG.ReadValid(ctx)
 		if err == nil {
 			return v, nil
 		}
