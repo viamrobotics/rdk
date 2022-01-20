@@ -53,18 +53,21 @@ func (s *subtypeServer) ReadLocation(
 	}, nil
 }
 
-// Altitude returns the most recent location from the given GPS.
-func (s *subtypeServer) Altitude(ctx context.Context, req *pb.GPSServiceAltitudeRequest) (*pb.GPSServiceAltitudeResponse, error) {
+// ReadAltitude returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadAltitude(
+	ctx context.Context,
+	req *pb.GPSServiceReadAltitudeRequest,
+) (*pb.GPSServiceReadAltitudeResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	alt, err := gpsDevice.Altitude(ctx)
+	alt, err := gpsDevice.ReadAltitude(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceAltitudeResponse{
-		Altitude: alt,
+	return &pb.GPSServiceReadAltitudeResponse{
+		AltitudeMeters: alt,
 	}, nil
 }
 

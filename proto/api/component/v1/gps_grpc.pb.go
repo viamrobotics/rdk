@@ -20,8 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type GPSServiceClient interface {
 	// ReadLocation returns the most recent location from the given GPS.
 	ReadLocation(ctx context.Context, in *GPSServiceReadLocationRequest, opts ...grpc.CallOption) (*GPSServiceReadLocationResponse, error)
-	// Altitude returns the most recent altitude from the given GPS.
-	Altitude(ctx context.Context, in *GPSServiceAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceAltitudeResponse, error)
+	// ReadAltitude returns the most recent altitude from the given GPS.
+	ReadAltitude(ctx context.Context, in *GPSServiceReadAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceReadAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
 	Speed(ctx context.Context, in *GPSServiceSpeedRequest, opts ...grpc.CallOption) (*GPSServiceSpeedResponse, error)
 }
@@ -43,9 +43,9 @@ func (c *gPSServiceClient) ReadLocation(ctx context.Context, in *GPSServiceReadL
 	return out, nil
 }
 
-func (c *gPSServiceClient) Altitude(ctx context.Context, in *GPSServiceAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceAltitudeResponse, error) {
-	out := new(GPSServiceAltitudeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/Altitude", in, out, opts...)
+func (c *gPSServiceClient) ReadAltitude(ctx context.Context, in *GPSServiceReadAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceReadAltitudeResponse, error) {
+	out := new(GPSServiceReadAltitudeResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/ReadAltitude", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -67,8 +67,8 @@ func (c *gPSServiceClient) Speed(ctx context.Context, in *GPSServiceSpeedRequest
 type GPSServiceServer interface {
 	// ReadLocation returns the most recent location from the given GPS.
 	ReadLocation(context.Context, *GPSServiceReadLocationRequest) (*GPSServiceReadLocationResponse, error)
-	// Altitude returns the most recent altitude from the given GPS.
-	Altitude(context.Context, *GPSServiceAltitudeRequest) (*GPSServiceAltitudeResponse, error)
+	// ReadAltitude returns the most recent altitude from the given GPS.
+	ReadAltitude(context.Context, *GPSServiceReadAltitudeRequest) (*GPSServiceReadAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
 	Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error)
 	mustEmbedUnimplementedGPSServiceServer()
@@ -81,8 +81,8 @@ type UnimplementedGPSServiceServer struct {
 func (UnimplementedGPSServiceServer) ReadLocation(context.Context, *GPSServiceReadLocationRequest) (*GPSServiceReadLocationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadLocation not implemented")
 }
-func (UnimplementedGPSServiceServer) Altitude(context.Context, *GPSServiceAltitudeRequest) (*GPSServiceAltitudeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Altitude not implemented")
+func (UnimplementedGPSServiceServer) ReadAltitude(context.Context, *GPSServiceReadAltitudeRequest) (*GPSServiceReadAltitudeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadAltitude not implemented")
 }
 func (UnimplementedGPSServiceServer) Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Speed not implemented")
@@ -118,20 +118,20 @@ func _GPSService_ReadLocation_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GPSService_Altitude_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSServiceAltitudeRequest)
+func _GPSService_ReadAltitude_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSServiceReadAltitudeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GPSServiceServer).Altitude(ctx, in)
+		return srv.(GPSServiceServer).ReadAltitude(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.GPSService/Altitude",
+		FullMethod: "/proto.api.component.v1.GPSService/ReadAltitude",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GPSServiceServer).Altitude(ctx, req.(*GPSServiceAltitudeRequest))
+		return srv.(GPSServiceServer).ReadAltitude(ctx, req.(*GPSServiceReadAltitudeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -166,8 +166,8 @@ var GPSService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _GPSService_ReadLocation_Handler,
 		},
 		{
-			MethodName: "Altitude",
-			Handler:    _GPSService_Altitude_Handler,
+			MethodName: "ReadAltitude",
+			Handler:    _GPSService_ReadAltitude_Handler,
 		},
 		{
 			MethodName: "Speed",

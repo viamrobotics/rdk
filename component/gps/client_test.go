@@ -36,13 +36,13 @@ func TestClient(t *testing.T) {
 	gps1 := "gps1"
 	injectGPS := &inject.GPS{}
 	injectGPS.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
-	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
+	injectGPS.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 
 	gps2 := "gps2"
 	injectGPS2 := &inject.GPS{}
 	injectGPS2.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
-	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
+	injectGPS2.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 
 	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(gps1): injectGPS, gps.Named(gps2): injectGPS2}))
@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
 
-		alt1, err := gps1Client.Altitude(context.Background())
+		alt1, err := gps1Client.ReadAltitude(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, alt1, test.ShouldAlmostEqual, alt)
 
@@ -94,7 +94,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
-		_, err = gps2Client.Altitude(context.Background())
+		_, err = gps2Client.ReadAltitude(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get altitude")
 
