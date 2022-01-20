@@ -165,7 +165,7 @@ func (g *pmtkI2CNMEAGPS) Speed(ctx context.Context) (float64, error) {
 	return g.data.speed, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
+func (g *pmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
@@ -177,7 +177,7 @@ func (g *pmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, er
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (bool, error) {
+func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil

@@ -117,12 +117,12 @@ func TestSpeed(t *testing.T) {
 	test.That(t, actualGPS1.speedCalls, test.ShouldEqual, 1)
 }
 
-func TestSatellites(t *testing.T) {
+func TestReadSatellites(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.satCalls, test.ShouldEqual, 0)
-	actualSats1, totalSats1, err := reconfGPS1.(*reconfigurableGPS).Satellites(context.Background())
+	actualSats1, totalSats1, err := reconfGPS1.(*reconfigurableGPS).ReadSatellites(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualSats1, test.ShouldEqual, activeSats)
 	test.That(t, totalSats1, test.ShouldEqual, totalSats)
@@ -141,12 +141,12 @@ func TestReadAccuracy(t *testing.T) {
 	test.That(t, actualGPS1.accCalls, test.ShouldEqual, 1)
 }
 
-func TestValid(t *testing.T) {
+func TestReadValid(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.validCalls, test.ShouldEqual, 0)
-	valid1, err := reconfGPS1.(*reconfigurableGPS).Valid(context.Background())
+	valid1, err := reconfGPS1.(*reconfigurableGPS).ReadValid(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, valid1, test.ShouldEqual, valid)
 	test.That(t, actualGPS1.validCalls, test.ShouldEqual, 1)
@@ -214,8 +214,8 @@ func (m *mock) Speed(ctx context.Context) (float64, error) {
 	return speed, nil
 }
 
-// Satellites returns the set values.
-func (m *mock) Satellites(ctx context.Context) (int, int, error) {
+// ReadSatellites returns the set values.
+func (m *mock) ReadSatellites(ctx context.Context) (int, int, error) {
 	m.satCalls++
 	return activeSats, totalSats, nil
 }
@@ -226,8 +226,8 @@ func (m *mock) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	return hAcc, vAcc, nil
 }
 
-// Valid returns the set value.
-func (m *mock) Valid(ctx context.Context) (bool, error) {
+// ReadValid returns the set value.
+func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 	m.validCalls++
 	return valid, nil
 }

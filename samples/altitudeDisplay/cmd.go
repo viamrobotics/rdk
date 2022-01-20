@@ -75,7 +75,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		meters := -9999.
 		localGps, ok := gpsDevice.(gps.LocalGPS)
 		if ok {
-			valid, _ := localGps.Valid(ctx)
+			valid, _ := localGps.ReadValid(ctx)
 			if valid {
 				meters, _ = gpsDevice.Altitude(ctx)
 			}
