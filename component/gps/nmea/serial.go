@@ -21,7 +21,6 @@ import (
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -247,11 +246,6 @@ func (g *serialNMEAGPS) Close() error {
 		g.dev = nil
 	}
 	return nil
-}
-
-// Desc returns that this is a GPS.
-func (g *serialNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.

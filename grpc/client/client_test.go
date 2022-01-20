@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
+	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
@@ -303,7 +304,7 @@ func TestClient(t *testing.T) {
 	}
 
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
@@ -371,6 +372,10 @@ func TestClient(t *testing.T) {
 	motorSvc2, err := subtype.New(map[resource.Name]interface{}{motor.Named("motor1"): injectMotor, motor.Named("motor2"): injectMotor})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+
+	sensorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -552,7 +557,7 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
@@ -648,7 +653,7 @@ func TestClient(t *testing.T) {
 
 	inputDev, ok := client.InputControllerByName("inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
-	controlList, err := inputDev.Controls(context.Background())
+	controlList, err := inputDev.GetControls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
