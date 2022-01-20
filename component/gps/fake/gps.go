@@ -9,12 +9,11 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/base"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/utils"
 )
 
@@ -30,16 +29,20 @@ func init() {
 		) (interface{}, error) {
 			return &GPS{Name: config.Name}, nil
 		}})
-	registry.RegisterBase(
+	registry.RegisterComponent(
+		base.Subtype,
 		"intercept_gps",
-		registry.Base{Constructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			c config.Component,
-			logger golog.Logger,
-		) (base.Base, error) {
-			return newInterceptingGPSBase(r, c)
-		}})
+		registry.Component{
+			Constructor: func(
+				ctx context.Context,
+				r robot.Robot,
+				config config.Component,
+				logger golog.Logger,
+			) (interface{}, error) {
+				return newInterceptingGPSBase(r, config)
+			},
+		},
+	)
 }
 
 // GPS is a fake gps device that always returns the set location.
@@ -104,11 +107,6 @@ func (g *GPS) Valid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil
-}
-
-// Desc returns that this is a GPS.
-func (g *GPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // RunCommand runs an arbitrary command.
@@ -204,7 +202,7 @@ func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPe
 	return nil
 }
 
-func (b *interceptingGPSBase) WidthMillis(ctx context.Context) (int, error) {
+func (b *interceptingGPSBase) WidthGet(ctx context.Context) (int, error) {
 	return 600, nil
 }
 

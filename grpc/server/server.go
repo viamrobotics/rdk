@@ -19,10 +19,10 @@ import (
 	"go.viam.com/rdk/component/gps"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -151,94 +151,6 @@ func (s *Server) DoAction(
 	return &pb.DoActionResponse{}, nil
 }
 
-// BaseMoveStraight moves a base of the underlying robot straight.
-func (s *Server) BaseMoveStraight(
-	ctx context.Context,
-	req *pb.BaseMoveStraightRequest,
-) (*pb.BaseMoveStraightResponse, error) {
-	base, ok := s.r.BaseByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no base with name (%s)", req.Name)
-	}
-	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
-	if req.MillisPerSec != 0 {
-		millisPerSec = req.MillisPerSec
-	}
-	err := base.MoveStraight(ctx, int(req.DistanceMillis), millisPerSec, false)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BaseMoveStraightResponse{Success: true}, nil
-}
-
-// BaseMoveArc moves a base of the underlying robotin an arc.
-func (s *Server) BaseMoveArc(
-	ctx context.Context,
-	req *pb.BaseMoveArcRequest,
-) (*pb.BaseMoveArcResponse, error) {
-	base, ok := s.r.BaseByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no base with name (%s)", req.Name)
-	}
-	millisPerSec := 500.0 // TODO(erh): this is probably the wrong default
-	if req.MillisPerSec != 0 {
-		millisPerSec = req.MillisPerSec
-	}
-	err := base.MoveArc(ctx, int(req.DistanceMillis), millisPerSec, req.AngleDeg, false)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BaseMoveArcResponse{Success: true}, nil
-}
-
-// BaseSpin spins a base of the underlying robot.
-func (s *Server) BaseSpin(
-	ctx context.Context,
-	req *pb.BaseSpinRequest,
-) (*pb.BaseSpinResponse, error) {
-	base, ok := s.r.BaseByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no base with name (%s)", req.Name)
-	}
-	degsPerSec := 64.0
-	if req.DegsPerSec != 0 {
-		degsPerSec = req.DegsPerSec
-	}
-	err := base.Spin(ctx, req.AngleDeg, degsPerSec, false)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BaseSpinResponse{Success: true}, nil
-}
-
-// BaseStop stops a base of the underlying robot.
-func (s *Server) BaseStop(
-	ctx context.Context,
-	req *pb.BaseStopRequest,
-) (*pb.BaseStopResponse, error) {
-	base, ok := s.r.BaseByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no base with name (%s)", req.Name)
-	}
-	return &pb.BaseStopResponse{}, base.Stop(ctx)
-}
-
-// BaseWidthMillis returns the width of a base of the underlying robot.
-func (s *Server) BaseWidthMillis(
-	ctx context.Context,
-	req *pb.BaseWidthMillisRequest,
-) (*pb.BaseWidthMillisResponse, error) {
-	base, ok := s.r.BaseByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no base with name (%s)", req.Name)
-	}
-	width, err := base.WidthMillis(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.BaseWidthMillisResponse{WidthMillis: int64(width)}, nil
-}
-
 // SensorReadings returns the readings of a sensor of the underlying robot.
 func (s *Server) SensorReadings(
 	ctx context.Context,
@@ -261,79 +173,6 @@ func (s *Server) SensorReadings(
 		readingsP = append(readingsP, v)
 	}
 	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
-}
-
-func (s *Server) compassByName(name string) (compass.Compass, error) {
-	sensorDevice, ok := s.r.SensorByName(name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", name)
-	}
-	return sensorDevice.(compass.Compass), nil
-}
-
-// CompassHeading returns the heading of a compass of the underlying robot.
-func (s *Server) CompassHeading(
-	ctx context.Context,
-	req *pb.CompassHeadingRequest,
-) (*pb.CompassHeadingResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	heading, err := compassDevice.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.CompassHeadingResponse{Heading: heading}, nil
-}
-
-// CompassStartCalibration requests the compass of the underlying robot to start calibration.
-func (s *Server) CompassStartCalibration(
-	ctx context.Context,
-	req *pb.CompassStartCalibrationRequest,
-) (*pb.CompassStartCalibrationResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if err := compassDevice.StartCalibration(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassStartCalibrationResponse{}, nil
-}
-
-// CompassStopCalibration requests the compass of the underlying robot to stop calibration.
-func (s *Server) CompassStopCalibration(
-	ctx context.Context,
-	req *pb.CompassStopCalibrationRequest,
-) (*pb.CompassStopCalibrationResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	if err := compassDevice.StopCalibration(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassStopCalibrationResponse{}, nil
-}
-
-// CompassMark requests the relative compass of the underlying robot to mark its position.
-func (s *Server) CompassMark(
-	ctx context.Context,
-	req *pb.CompassMarkRequest,
-) (*pb.CompassMarkResponse, error) {
-	compassDevice, err := s.compassByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	rel, ok := compassDevice.(compass.RelativeCompass)
-	if !ok {
-		return nil, errors.New("compass is not relative")
-	}
-	if err := rel.Mark(ctx); err != nil {
-		return nil, err
-	}
-	return &pb.CompassMarkResponse{}, nil
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.
@@ -537,7 +376,7 @@ func (s *Server) NavigationServiceLocation(
 		return nil, err
 	}
 	return &pb.NavigationServiceLocationResponse{
-		Location: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
+		Location: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
 
@@ -562,7 +401,7 @@ func (s *Server) NavigationServiceWaypoints(
 	for _, wp := range wps {
 		pbWps = append(pbWps, &pb.NavigationServiceWaypoint{
 			Id:       wp.ID.Hex(),
-			Location: &pb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
+			Location: &commonpb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
 		})
 	}
 	return &pb.NavigationServiceWaypointsResponse{
@@ -632,87 +471,6 @@ func (s *Server) ObjectManipulationServiceDoGrab(
 		return nil, err
 	}
 	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
-func (s *Server) gpsByName(name string) (gps.GPS, error) {
-	resource, ok := s.r.ResourceByName(gps.Named(name))
-	if !ok {
-		return nil, errors.Errorf("no gps with name (%s)", name)
-	}
-	return resource.(gps.GPS), nil
-}
-
-// GPSLocation returns the most recent location from the given GPS.
-func (s *Server) GPSLocation(
-	ctx context.Context,
-	req *pb.GPSLocationRequest,
-) (*pb.GPSLocationResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	loc, err := gpsDevice.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSLocationResponse{
-		Coordinate: &pb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
-	}, nil
-}
-
-// GPSAltitude returns the most recent location from the given GPS.
-func (s *Server) GPSAltitude(
-	ctx context.Context,
-	req *pb.GPSAltitudeRequest,
-) (*pb.GPSAltitudeResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gpsDevice.Altitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSAltitudeResponse{
-		Altitude: alt,
-	}, nil
-}
-
-// GPSSpeed returns the most recent location from the given GPS.
-func (s *Server) GPSSpeed(
-	ctx context.Context,
-	req *pb.GPSSpeedRequest,
-) (*pb.GPSSpeedResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gpsDevice.Speed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSSpeedResponse{
-		SpeedKph: speed,
-	}, nil
-}
-
-// GPSAccuracy returns the most recent location from the given GPS.
-func (s *Server) GPSAccuracy(
-	ctx context.Context,
-	req *pb.GPSAccuracyRequest,
-) (*pb.GPSAccuracyResponse, error) {
-	gpsDevice, err := s.gpsByName(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	horz, vert, err := gpsDevice.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSAccuracyResponse{
-		HorizontalAccuracy: horz,
-		VerticalAccuracy:   vert,
-	}, nil
 }
 
 type executionResultRPC struct {

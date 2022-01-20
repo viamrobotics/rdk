@@ -9,9 +9,10 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
 	fakearm "go.viam.com/rdk/component/arm/fake"
+	"go.viam.com/rdk/component/base"
+	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/camera"
@@ -22,14 +23,13 @@ import (
 	fakeinput "go.viam.com/rdk/component/input/fake"
 	"go.viam.com/rdk/component/motor"
 	fakemotor "go.viam.com/rdk/component/motor/fake"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/robots/fake"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
@@ -86,7 +86,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakearm.Arm{Name: name}, true
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fake.Base{Name: name}, true
+		return &fakebase.Base{Name: name}, true
 	}
 	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
 		return &fakegripper.Gripper{Name: name}, true
@@ -98,7 +98,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return &fakeboard.Board{Name: name}, true
 	}
 	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return &fake.Compass{Name: name}, true
+		return nil, false
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		return &fakeservo.Servo{Name: name}, true
@@ -174,14 +174,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{
-				"sensor1": {
-					Type: "compass",
-				},
-				"sensor2": {
-					Type: "compass",
-				},
-			},
+			Sensors: map[string]*pb.SensorStatus{"sensor1": {Type: "sensor"}, "sensor2": {Type: "sensor"}},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},
@@ -246,14 +239,7 @@ func TestCreateStatus(t *testing.T) {
 				"camera1": true,
 				"camera2": true,
 			},
-			Sensors: map[string]*pb.SensorStatus{
-				"sensor1": {
-					Type: "compass",
-				},
-				"sensor2": {
-					Type: "compass",
-				},
-			},
+			Sensors: map[string]*pb.SensorStatus{"sensor1": {Type: "sensor"}, "sensor2": {Type: "sensor"}},
 			Servos: map[string]*pb.ServoStatus{
 				"servo1": {},
 				"servo2": {},

@@ -150,3 +150,20 @@ func R2RectToImageRect(rec r2.Rect) image.Rectangle {
 func TranslateR2Rect(rect r2.Rect, pt r2.Point) r2.Rect {
 	return r2.RectFromCenterSize(rect.Center().Add(pt), rect.Size())
 }
+
+// SliceVecsToXsYs converts a slice of r2.Point to 2 slices floats containing x and y coordinates.
+func SliceVecsToXsYs(pts []r2.Point) ([]float64, []float64) {
+	xs := make([]float64, len(pts))
+	ys := make([]float64, len(pts))
+	for i, pt := range pts {
+		xs[i] = pt.X
+		ys[i] = pt.Y
+	}
+	return xs, ys
+}
+
+// AreCollinear returns true if the 3 points a, b and c are collinear.
+func AreCollinear(a, b, c r2.Point, eps float64) bool {
+	val := math.Abs((b.X-a.X)*(c.Y-a.Y) - (c.X-a.X)*(b.Y-a.Y))
+	return val < eps
+}

@@ -11,21 +11,13 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/subtype"
 )
 
 type (
-	// A CreateBase creates a base from a given config.
-	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
-
-	// A CreateSensor creates a sensor from a given config.
-	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
-
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
 )
@@ -36,30 +28,12 @@ type RegDebugInfo struct {
 	RegistrarLoc string
 }
 
-// Base stores a Base constructor function (mandatory).
-type Base struct {
-	RegDebugInfo
-	Constructor CreateBase
-}
-
-// Sensor stores a Sensor constructor function (mandatory).
-type Sensor struct {
-	RegDebugInfo
-	Constructor CreateSensor
-}
-
 // Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
 }
-
-// all registries.
-var (
-	baseRegistry   = map[string]Base{}
-	sensorRegistry = map[sensor.Type]map[string]Sensor{}
-)
 
 func getCallerName() string {
 	pc, _, _, ok := runtime.Caller(2)
@@ -68,34 +42,6 @@ func getCallerName() string {
 		return details.Name()
 	}
 	return "unknown"
-}
-
-// RegisterBase registers a base model to a creator.
-func RegisterBase(model string, creator Base) {
-	creator.RegistrarLoc = getCallerName()
-	if _, old := baseRegistry[model]; old {
-		panic(errors.Errorf("trying to register two bases with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	baseRegistry[model] = creator
-}
-
-// RegisterSensor registers a sensor type and model to a creator.
-func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
-	creator.RegistrarLoc = getCallerName()
-	if _, ok := sensorRegistry[sensorType]; !ok {
-		sensorRegistry[sensorType] = make(map[string]Sensor)
-	}
-	_, old := sensorRegistry[sensorType][model]
-	if old {
-		panic(errors.Errorf("trying to register two sensors with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	sensorRegistry[sensorType][model] = creator
 }
 
 // RegisterService registers a service type to a registration.
@@ -109,28 +55,6 @@ func RegisterService(subtype resource.Subtype, creator Service) {
 		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	serviceRegistry[subtype.String()] = creator
-}
-
-// BaseLookup looks up a base creator by the given model. nil is returned if
-// there is no creator registered.
-func BaseLookup(model string) *Base {
-	if registration, ok := baseRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// SensorLookup looks up a sensor creator by the given model. nil is returned if
-// there is no creator registered.
-func SensorLookup(sensorType sensor.Type, model string) *Sensor {
-	subTyped, ok := sensorRegistry[sensorType]
-	if !ok {
-		return nil
-	}
-	if registration, ok := subTyped[model]; ok {
-		return &registration
-	}
-	return nil
 }
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
@@ -224,24 +148,6 @@ func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
 		return &registration
 	}
 	return nil
-}
-
-// RegisteredBases returns a copy of the registered bases.
-func RegisteredBases() map[string]Base {
-	copied, err := copystructure.Copy(baseRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Base)
-}
-
-// RegisteredSensors returns a copy of the registered sensors.
-func RegisteredSensors() map[sensor.Type]map[string]Sensor {
-	copied, err := copystructure.Copy(sensorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[sensor.Type]map[string]Sensor)
 }
 
 // RegisteredServices returns a copy of the registered services.

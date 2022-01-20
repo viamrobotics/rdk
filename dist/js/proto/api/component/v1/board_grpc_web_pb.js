@@ -141,488 +141,366 @@ proto.proto.api.component.v1.BoardServicePromiseClient.prototype.status =
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceGPIOSetRequest,
- *   !proto.proto.api.component.v1.BoardServiceGPIOSetResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetGPIORequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetGPIOResponse>}
  */
-const methodDescriptor_BoardService_GPIOSet = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/GPIOSet',
+const methodDescriptor_BoardService_SetGPIO = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetGPIO',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceGPIOSetRequest,
-  proto.proto.api.component.v1.BoardServiceGPIOSetResponse,
+  proto.proto.api.component.v1.BoardServiceSetGPIORequest,
+  proto.proto.api.component.v1.BoardServiceSetGPIOResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceGPIOSetResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetGPIOResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGPIOSetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetGPIOResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGPIOSetResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetGPIOResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.gPIOSet =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setGPIO =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOSet',
+      '/proto.api.component.v1.BoardService/SetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOSet,
+      methodDescriptor_BoardService_SetGPIO,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGPIOSetResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetGPIOResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.gPIOSet =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setGPIO =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOSet',
+      '/proto.api.component.v1.BoardService/SetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOSet);
+      methodDescriptor_BoardService_SetGPIO);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceGPIOGetRequest,
- *   !proto.proto.api.component.v1.BoardServiceGPIOGetResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceGetGPIORequest,
+ *   !proto.proto.api.component.v1.BoardServiceGetGPIOResponse>}
  */
-const methodDescriptor_BoardService_GPIOGet = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/GPIOGet',
+const methodDescriptor_BoardService_GetGPIO = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/GetGPIO',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceGPIOGetRequest,
-  proto.proto.api.component.v1.BoardServiceGPIOGetResponse,
+  proto.proto.api.component.v1.BoardServiceGetGPIORequest,
+  proto.proto.api.component.v1.BoardServiceGetGPIOResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceGPIOGetRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceGetGPIORequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceGPIOGetResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceGetGPIOResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOGetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGPIOGetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGetGPIOResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGPIOGetResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGetGPIOResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.gPIOGet =
+proto.proto.api.component.v1.BoardServiceClient.prototype.getGPIO =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOGet',
+      '/proto.api.component.v1.BoardService/GetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOGet,
+      methodDescriptor_BoardService_GetGPIO,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceGPIOGetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetGPIORequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGPIOGetResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGetGPIOResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.gPIOGet =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.getGPIO =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/GPIOGet',
+      '/proto.api.component.v1.BoardService/GetGPIO',
       request,
       metadata || {},
-      methodDescriptor_BoardService_GPIOGet);
+      methodDescriptor_BoardService_GetGPIO);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServicePWMSetRequest,
- *   !proto.proto.api.component.v1.BoardServicePWMSetResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMRequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMResponse>}
  */
-const methodDescriptor_BoardService_PWMSet = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/PWMSet',
+const methodDescriptor_BoardService_SetPWM = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetPWM',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServicePWMSetRequest,
-  proto.proto.api.component.v1.BoardServicePWMSetResponse,
+  proto.proto.api.component.v1.BoardServiceSetPWMRequest,
+  proto.proto.api.component.v1.BoardServiceSetPWMResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServicePWMSetResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetPWMResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServicePWMSetResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetPWMResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServicePWMSetResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetPWMResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.pWMSet =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setPWM =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSet',
+      '/proto.api.component.v1.BoardService/SetPWM',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSet,
+      methodDescriptor_BoardService_SetPWM,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServicePWMSetResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetPWMResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.pWMSet =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setPWM =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSet',
+      '/proto.api.component.v1.BoardService/SetPWM',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSet);
+      methodDescriptor_BoardService_SetPWM);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest,
- *   !proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest,
+ *   !proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>}
  */
-const methodDescriptor_BoardService_PWMSetFrequency = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/PWMSetFrequency',
+const methodDescriptor_BoardService_SetPWMFrequency = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/SetPWMFrequency',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest,
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse,
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest,
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.pWMSetFrequency =
+proto.proto.api.component.v1.BoardServiceClient.prototype.setPWMFrequency =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSetFrequency',
+      '/proto.api.component.v1.BoardService/SetPWMFrequency',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSetFrequency,
+      methodDescriptor_BoardService_SetPWMFrequency,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServicePWMSetFrequencyRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServicePWMSetFrequencyResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceSetPWMFrequencyResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.pWMSetFrequency =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.setPWMFrequency =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/PWMSetFrequency',
+      '/proto.api.component.v1.BoardService/SetPWMFrequency',
       request,
       metadata || {},
-      methodDescriptor_BoardService_PWMSetFrequency);
+      methodDescriptor_BoardService_SetPWMFrequency);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest,
- *   !proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest,
+ *   !proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>}
  */
-const methodDescriptor_BoardService_AnalogReaderRead = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/AnalogReaderRead',
+const methodDescriptor_BoardService_ReadAnalogReader = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/ReadAnalogReader',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest,
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse,
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest,
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.analogReaderRead =
+proto.proto.api.component.v1.BoardServiceClient.prototype.readAnalogReader =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/AnalogReaderRead',
+      '/proto.api.component.v1.BoardService/ReadAnalogReader',
       request,
       metadata || {},
-      methodDescriptor_BoardService_AnalogReaderRead,
+      methodDescriptor_BoardService_ReadAnalogReader,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceAnalogReaderReadRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceReadAnalogReaderRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceAnalogReaderReadResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceReadAnalogReaderResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.analogReaderRead =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.readAnalogReader =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/AnalogReaderRead',
+      '/proto.api.component.v1.BoardService/ReadAnalogReader',
       request,
       metadata || {},
-      methodDescriptor_BoardService_AnalogReaderRead);
+      methodDescriptor_BoardService_ReadAnalogReader);
 };
 
 
 /**
  * @const
  * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest,
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>}
+ *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest,
+ *   !proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>}
  */
-const methodDescriptor_BoardService_DigitalInterruptConfig = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
+const methodDescriptor_BoardService_GetDigitalInterruptValue = new grpc.web.MethodDescriptor(
+  '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
   grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse,
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest,
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse,
   /**
-   * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request
+   * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request
    * @return {!Uint8Array}
    */
   function(request) {
     return request.serializeBinary();
   },
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse.deserializeBinary
+  proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse.deserializeBinary
 );
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request The
  *     request proto
  * @param {?Object<string, string>} metadata User defined
  *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse)}
+ * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse)}
  *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>|undefined}
+ * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>|undefined}
  *     The XHR Node Readable Stream
  */
-proto.proto.api.component.v1.BoardServiceClient.prototype.digitalInterruptConfig =
+proto.proto.api.component.v1.BoardServiceClient.prototype.getDigitalInterruptValue =
     function(request, metadata, callback) {
   return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
+      '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
       request,
       metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptConfig,
+      methodDescriptor_BoardService_GetDigitalInterruptValue,
       callback);
 };
 
 
 /**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigRequest} request The
+ * @param {!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueRequest} request The
  *     request proto
  * @param {?Object<string, string>=} metadata User defined
  *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceDigitalInterruptConfigResponse>}
+ * @return {!Promise<!proto.proto.api.component.v1.BoardServiceGetDigitalInterruptValueResponse>}
  *     Promise that resolves to the response
  */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterruptConfig =
+proto.proto.api.component.v1.BoardServicePromiseClient.prototype.getDigitalInterruptValue =
     function(request, metadata) {
   return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptConfig',
+      '/proto.api.component.v1.BoardService/GetDigitalInterruptValue',
       request,
       metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptConfig);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest,
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>}
- */
-const methodDescriptor_BoardService_DigitalInterruptValue = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/DigitalInterruptValue',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse,
-  /**
-   * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.component.v1.BoardServiceClient.prototype.digitalInterruptValue =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptValue',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptValue,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceDigitalInterruptValueResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterruptValue =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptValue',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptValue);
-};
-
-
-/**
- * @const
- * @type {!grpc.web.MethodDescriptor<
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptTickRequest,
- *   !proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse>}
- */
-const methodDescriptor_BoardService_DigitalInterruptTick = new grpc.web.MethodDescriptor(
-  '/proto.api.component.v1.BoardService/DigitalInterruptTick',
-  grpc.web.MethodType.UNARY,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptTickRequest,
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse,
-  /**
-   * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptTickRequest} request
-   * @return {!Uint8Array}
-   */
-  function(request) {
-    return request.serializeBinary();
-  },
-  proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse.deserializeBinary
-);
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptTickRequest} request The
- *     request proto
- * @param {?Object<string, string>} metadata User defined
- *     call metadata
- * @param {function(?grpc.web.RpcError, ?proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse)}
- *     callback The callback function(error, response)
- * @return {!grpc.web.ClientReadableStream<!proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse>|undefined}
- *     The XHR Node Readable Stream
- */
-proto.proto.api.component.v1.BoardServiceClient.prototype.digitalInterruptTick =
-    function(request, metadata, callback) {
-  return this.client_.rpcCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptTick',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptTick,
-      callback);
-};
-
-
-/**
- * @param {!proto.proto.api.component.v1.BoardServiceDigitalInterruptTickRequest} request The
- *     request proto
- * @param {?Object<string, string>=} metadata User defined
- *     call metadata
- * @return {!Promise<!proto.proto.api.component.v1.BoardServiceDigitalInterruptTickResponse>}
- *     Promise that resolves to the response
- */
-proto.proto.api.component.v1.BoardServicePromiseClient.prototype.digitalInterruptTick =
-    function(request, metadata) {
-  return this.client_.unaryCall(this.hostname_ +
-      '/proto.api.component.v1.BoardService/DigitalInterruptTick',
-      request,
-      metadata || {},
-      methodDescriptor_BoardService_DigitalInterruptTick);
+      methodDescriptor_BoardService_GetDigitalInterruptValue);
 };
 
 
