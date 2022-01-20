@@ -119,8 +119,8 @@ func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
 	return eventsOut, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *client) InjectEvent(ctx context.Context, event Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *client) TriggerEvent(ctx context.Context, event Event) error {
 	eventMsg := &pb.InputControllerServiceEvent{
 		Time:    timestamppb.New(event.Time),
 		Event:   string(event.Event),
@@ -128,7 +128,7 @@ func (c *client) InjectEvent(ctx context.Context, event Event) error {
 		Value:   event.Value,
 	}
 
-	_, err := c.client.InjectEvent(ctx, &pb.InputControllerServiceInjectEventRequest{
+	_, err := c.client.TriggerEvent(ctx, &pb.InputControllerServiceTriggerEventRequest{
 		Controller: c.name,
 		Event:      eventMsg,
 	})

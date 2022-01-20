@@ -87,11 +87,11 @@ func (s *subtypeServer) GetEvents(
 	return resp, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (s *subtypeServer) InjectEvent(
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (s *subtypeServer) TriggerEvent(
 	ctx context.Context,
-	req *pb.InputControllerServiceInjectEventRequest,
-) (*pb.InputControllerServiceInjectEventResponse, error) {
+	req *pb.InputControllerServiceTriggerEventRequest,
+) (*pb.InputControllerServiceTriggerEventResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (s *subtypeServer) InjectEvent(
 		return nil, errors.Errorf("input controller is not of type Injectable (%s)", req.Controller)
 	}
 
-	err = injectController.InjectEvent(ctx, Event{
+	err = injectController.TriggerEvent(ctx, Event{
 		Time:    req.Event.Time.AsTime(),
 		Event:   EventType(req.Event.Event),
 		Control: Control(req.Event.Control),
@@ -111,7 +111,7 @@ func (s *subtypeServer) InjectEvent(
 		return nil, err
 	}
 
-	return &pb.InputControllerServiceInjectEventResponse{}, nil
+	return &pb.InputControllerServiceTriggerEventResponse{}, nil
 }
 
 // StreamEvents returns a stream of Event.
