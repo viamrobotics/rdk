@@ -1,6 +1,8 @@
 package resource
 
 import (
+	"sync"
+
 	"github.com/pkg/errors"
 )
 
@@ -10,6 +12,7 @@ type resourceDependencies map[Name]resourceNode
 
 // Graph The Graph maintains a collection of resources and their dependencies between each other.
 type Graph struct {
+	mu       sync.Mutex
 	Nodes    resourceNode // list of nodes
 	children resourceDependencies
 	parents  resourceDependencies
@@ -77,6 +80,8 @@ func (g *Graph) leaves() []Name {
 
 // Clone deep copy of the resource graph.
 func (g *Graph) Clone() *Graph {
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	return &Graph{
 		children: copyNodeMap(g.children),
 		Nodes:    copyNodes(g.Nodes),
@@ -97,12 +102,24 @@ func addResToSet(rd resourceDependencies, key, node Name) {
 
 // AddNode adds a node to the graph.
 func (g *Graph) AddNode(node Name, iface interface{}) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.addNode(node, iface)
+}
+
+func (g *Graph) addNode(node Name, iface interface{}) {
 	g.Nodes[node] = iface
 	g.visited[node] = false
 }
 
 // AddChildren add a dependency to a parent, create the parent if it doesn't exists yet.
 func (g *Graph) AddChildren(child, parent Name) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return g.addChildren(child, parent)
+}
+
+func (g *Graph) addChildren(child, parent Name) error {
 	if child == parent {
 		return errors.Errorf("%q cannot depend on itself", child.Name)
 	}
@@ -135,8 +152,7 @@ func (g *Graph) pathFromToExists(source Name, goal Name) bool {
 	return false
 }
 
-// Remove remove a given node and all it's dependencies.
-func (g *Graph) Remove(node Name) {
+func (g *Graph) remove(node Name) {
 	for k, vertice := range g.children {
 		if _, ok := vertice[node]; ok {
 			removeNodeFromNodeMap(g.children, k, node)
@@ -153,23 +169,39 @@ func (g *Graph) Remove(node Name) {
 	delete(g.visited, node)
 }
 
+// Remove remove a given node and all it's dependencies.
+func (g *Graph) Remove(node Name) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.remove(node)
+}
+
 // MergeRemove remove comons nodes in both graphs.
 func (g *Graph) MergeRemove(toRemove *Graph) {
+	toRemove.mu.Lock()
+	defer toRemove.mu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	for k := range toRemove.Nodes {
-		g.Remove(k)
+		g.remove(k)
 	}
 }
 
 // MergeAdd merges two Graphs, if a node exists in both graphs, then it is silently replaced.
 func (g *Graph) MergeAdd(toAdd *Graph) error {
+	toAdd.mu.Lock()
+	defer toAdd.mu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	for node, r := range toAdd.Nodes {
 		if i, ok := g.Nodes[node]; ok && i != nil {
-			g.Remove(node)
+			g.remove(node)
 		}
-		g.AddNode(node, r)
+		g.addNode(node, r)
 		parents := toAdd.getAllParentsOf(node)
 		for parent := range parents {
-			if err := g.AddChildren(node, parent); err != nil {
+			if err := g.addChildren(node, parent); err != nil {
 				return err
 			}
 		}
@@ -179,11 +211,15 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 
 // MergeNode adds a Node and copies it's dpendencies from a Graphs to another. The children nodes won't added.
 func (g *Graph) MergeNode(node Name, origin *Graph) error {
+	origin.mu.Lock()
+	defer origin.mu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
 	if r, ok := origin.Nodes[node]; ok {
-		g.AddNode(node, r)
+		g.addNode(node, r)
 		parents := origin.getAllParentsOf(node)
 		for parent := range parents {
-			if err := g.AddChildren(node, parent); err != nil {
+			if err := g.addChildren(node, parent); err != nil {
 				return err
 			}
 		}
@@ -202,7 +238,7 @@ func (g *Graph) TopologicalSort() []Name {
 		}
 		ordered = append(ordered, leaves...)
 		for _, leaf := range leaves {
-			temp.Remove(leaf)
+			temp.remove(leaf)
 		}
 	}
 	return ordered
