@@ -10,24 +10,24 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-// ModelJSON represents all supported fields in a kinematics JSON file.
-type ModelJSON struct {
+// ModelConfig represents all supported fields in a kinematics JSON file.
+type ModelConfig struct {
 	Name         string `json:"name"`
 	KinParamType string `json:"kinematic_param_type"`
 	Links        []struct {
 		ID          string                    `json:"id"`
 		Parent      string                    `json:"parent"`
-		Translation spatial.Translation       `json:"translation"`
+		Translation spatial.TranslationConfig `json:"translation"`
 		Orientation spatial.OrientationConfig `json:"orientation"`
 		Volume      spatial.VolumeConfig      `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string       `json:"id"`
-		Type   string       `json:"type"`
-		Parent string       `json:"parent"`
-		Axis   spatial.Axis `json:"axis"`
-		Max    float64      `json:"max"`
-		Min    float64      `json:"min"`
+		ID     string             `json:"id"`
+		Type   string             `json:"type"`
+		Parent string             `json:"parent"`
+		Axis   spatial.AxisConfig `json:"axis"`
+		Max    float64            `json:"max"`
+		Min    float64            `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
 		ID     string               `json:"id"`
@@ -39,11 +39,11 @@ type ModelJSON struct {
 		Min    float64              `json:"min"`
 		Volume spatial.VolumeConfig `json:"volume"`
 	} `json:"dhParams"`
-	RawFrames []map[string]interface{} `json:"frames"`
+	RawFrames []FrameMapConfig `json:"frames"`
 }
 
-// Model turns the ModelJSON struct into a full Model with the name modelName.
-func (m *ModelJSON) Model(modelName string) (Model, error) {
+// Model turns the ModelConfig struct into a full Model with the name modelName.
+func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	model := NewSimpleModel()
 
 	if modelName == "" {
@@ -72,15 +72,15 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 		for _, link := range m.Links {
 			parentMap[link.ID] = link.Parent
-			orientation, err := link.Orientation.Unmarshal()
+			orientation, err := link.Orientation.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
 			ov := orientation.OrientationVectorRadians()
-			pt := link.Translation.Unmarshal()
+			pt := link.Translation.ParseConfig()
 			pose := spatial.NewPoseFromOrientationVector(pt, ov)
 			offset := spatial.Invert(spatial.NewPoseFromOrientation(pt.Mul(0.5), ov))
-			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, link.Volume.VolumeCreator(offset))
+			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, link.Volume.ParseConfig(offset))
 			if err != nil {
 				return nil, err
 			}
@@ -131,7 +131,7 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 	case "frames":
 		for _, x := range m.RawFrames {
-			f, err := UnmarshalFrameMap(x)
+			f, err := x.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
@@ -200,16 +200,16 @@ func ParseJSONFile(filename, modelName string) (Model, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	return ParseJSON(jsonData, modelName)
+	return UnmarshalModelJSON(jsonData, modelName)
 }
 
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
 
-// ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
+// UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
 // will use the name from the JSON if string is empty.
-func ParseJSON(jsonData []byte, modelName string) (Model, error) {
-	m := &ModelJSON{}
+func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
+	m := &ModelConfig{}
 
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
@@ -221,5 +221,5 @@ func ParseJSON(jsonData []byte, modelName string) (Model, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal json file")
 	}
 
-	return m.Model(modelName)
+	return m.ParseConfig(modelName)
 }

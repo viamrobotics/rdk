@@ -30,7 +30,7 @@ import (
 var modeljson []byte
 
 func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(modeljson, "yahboom-dofbot")
+	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {

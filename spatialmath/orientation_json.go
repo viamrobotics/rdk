@@ -42,7 +42,7 @@ type OrientationConfig struct {
 }
 
 // Unmarshall will use the Type in OrientationConfig to unmarshal the Value into the correct struct that implements Orientation.
-func (config OrientationConfig) Unmarshal() (Orientation, error) {
+func (config OrientationConfig) ParseConfig() (Orientation, error) {
 	var err error
 	// use the type to unmarshal the value
 	switch OrientationType(config.Type) {
