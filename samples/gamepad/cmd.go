@@ -66,7 +66,7 @@ func debugOut(ctx context.Context, r robot.Robot) {
 		if !utils.SelectContextOrWait(ctx, time.Second) {
 			return
 		}
-		controls, err := g.Controls(ctx)
+		controls, err := g.GetControls(ctx)
 		if err != nil {
 			logger.Error(err)
 			continue

@@ -9,8 +9,8 @@ import "google/protobuf/timestamp.proto";
 
 // InputControllerService services maintains all input controller associated with a robot
 service InputControllerService {
-  // Controls returns a list of Controls provided by the Controller
-  rpc Controls(InputControllerServiceControlsRequest) returns (InputControllerServiceControlsResponse) {
+  // GetControls returns a list of GetControls provided by the Controller
+  rpc GetControls(InputControllerServiceGetControlsRequest) returns (InputControllerServiceGetControlsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/controls"
     };
@@ -39,12 +39,12 @@ service InputControllerService {
   }
 }
 
-message InputControllerServiceControlsRequest {
+message InputControllerServiceGetControlsRequest {
   // Name of an input controller
   string controller = 1;
 }
 
-message InputControllerServiceControlsResponse {
+message InputControllerServiceGetControlsResponse {
   // Returns a list of all the controls (buttons and axes) that are
   // available to a given Input Controller 
   repeated string controls = 1;

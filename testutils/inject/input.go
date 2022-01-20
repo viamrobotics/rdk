@@ -9,7 +9,7 @@ import (
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
-	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
+	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
 	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
 		ctx context.Context,
@@ -19,12 +19,12 @@ type InputController struct {
 	) error
 }
 
-// Controls calls the injected function or the real version.
-func (s *InputController) Controls(ctx context.Context) ([]input.Control, error) {
-	if s.ControlsFunc == nil {
-		return s.Controller.Controls(ctx)
+// GetControls calls the injected function or the real version.
+func (s *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
+	if s.GetControlsFunc == nil {
+		return s.Controller.GetControls(ctx)
 	}
-	return s.ControlsFunc(ctx)
+	return s.GetControlsFunc(ctx)
 }
 
 // GetEvents calls the injected function or the real version.

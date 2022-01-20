@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_InputControllerService_Controls_0(ctx context.Context, marshaler runtime.Marshaler, client InputControllerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq InputControllerServiceControlsRequest
+func request_InputControllerService_GetControls_0(ctx context.Context, marshaler runtime.Marshaler, client InputControllerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq InputControllerServiceGetControlsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_InputControllerService_Controls_0(ctx context.Context, marshaler ru
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "controller", err)
 	}
 
-	msg, err := client.Controls(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetControls(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_InputControllerService_Controls_0(ctx context.Context, marshaler runtime.Marshaler, server InputControllerServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq InputControllerServiceControlsRequest
+func local_request_InputControllerService_GetControls_0(ctx context.Context, marshaler runtime.Marshaler, server InputControllerServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq InputControllerServiceGetControlsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,7 +78,7 @@ func local_request_InputControllerService_Controls_0(ctx context.Context, marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "controller", err)
 	}
 
-	msg, err := server.Controls(ctx, &protoReq)
+	msg, err := server.GetControls(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -256,18 +256,18 @@ func local_request_InputControllerService_InjectEvent_0(ctx context.Context, mar
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterInputControllerServiceHandlerFromEndpoint instead.
 func RegisterInputControllerServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server InputControllerServiceServer) error {
 
-	mux.Handle("GET", pattern_InputControllerService_Controls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_InputControllerService_GetControls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/Controls", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/controls"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetControls", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/controls"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_InputControllerService_Controls_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_InputControllerService_GetControls_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -275,7 +275,7 @@ func RegisterInputControllerServiceHandlerServer(ctx context.Context, mux *runti
 			return
 		}
 
-		forward_InputControllerService_Controls_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_InputControllerService_GetControls_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -373,23 +373,23 @@ func RegisterInputControllerServiceHandler(ctx context.Context, mux *runtime.Ser
 // "InputControllerServiceClient" to call the correct interceptors.
 func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client InputControllerServiceClient) error {
 
-	mux.Handle("GET", pattern_InputControllerService_Controls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_InputControllerService_GetControls_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/Controls", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/controls"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetControls", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/controls"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_InputControllerService_Controls_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_InputControllerService_GetControls_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_InputControllerService_Controls_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_InputControllerService_GetControls_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -457,7 +457,7 @@ func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runti
 }
 
 var (
-	pattern_InputControllerService_Controls_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "controls"}, ""))
+	pattern_InputControllerService_GetControls_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "controls"}, ""))
 
 	pattern_InputControllerService_GetEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "last_events"}, ""))
 
@@ -467,7 +467,7 @@ var (
 )
 
 var (
-	forward_InputControllerService_Controls_0 = runtime.ForwardResponseMessage
+	forward_InputControllerService_GetControls_0 = runtime.ForwardResponseMessage
 
 	forward_InputControllerService_GetEvents_0 = runtime.ForwardResponseMessage
 

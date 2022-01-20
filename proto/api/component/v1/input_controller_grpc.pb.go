@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type InputControllerServiceClient interface {
-	// Controls returns a list of Controls provided by the Controller
-	Controls(ctx context.Context, in *InputControllerServiceControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceControlsResponse, error)
+	// GetControls returns a list of GetControls provided by the Controller
+	GetControls(ctx context.Context, in *InputControllerServiceGetControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceGetControlsResponse, error)
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
 	GetEvents(ctx context.Context, in *InputControllerServiceGetEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceGetEventsResponse, error)
 	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
@@ -37,9 +37,9 @@ func NewInputControllerServiceClient(cc grpc.ClientConnInterface) InputControlle
 	return &inputControllerServiceClient{cc}
 }
 
-func (c *inputControllerServiceClient) Controls(ctx context.Context, in *InputControllerServiceControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceControlsResponse, error) {
-	out := new(InputControllerServiceControlsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.InputControllerService/Controls", in, out, opts...)
+func (c *inputControllerServiceClient) GetControls(ctx context.Context, in *InputControllerServiceGetControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceGetControlsResponse, error) {
+	out := new(InputControllerServiceGetControlsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.InputControllerService/GetControls", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -100,8 +100,8 @@ func (c *inputControllerServiceClient) InjectEvent(ctx context.Context, in *Inpu
 // All implementations must embed UnimplementedInputControllerServiceServer
 // for forward compatibility
 type InputControllerServiceServer interface {
-	// Controls returns a list of Controls provided by the Controller
-	Controls(context.Context, *InputControllerServiceControlsRequest) (*InputControllerServiceControlsResponse, error)
+	// GetControls returns a list of GetControls provided by the Controller
+	GetControls(context.Context, *InputControllerServiceGetControlsRequest) (*InputControllerServiceGetControlsResponse, error)
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
 	GetEvents(context.Context, *InputControllerServiceGetEventsRequest) (*InputControllerServiceGetEventsResponse, error)
 	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
@@ -116,8 +116,8 @@ type InputControllerServiceServer interface {
 type UnimplementedInputControllerServiceServer struct {
 }
 
-func (UnimplementedInputControllerServiceServer) Controls(context.Context, *InputControllerServiceControlsRequest) (*InputControllerServiceControlsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Controls not implemented")
+func (UnimplementedInputControllerServiceServer) GetControls(context.Context, *InputControllerServiceGetControlsRequest) (*InputControllerServiceGetControlsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetControls not implemented")
 }
 func (UnimplementedInputControllerServiceServer) GetEvents(context.Context, *InputControllerServiceGetEventsRequest) (*InputControllerServiceGetEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
@@ -142,20 +142,20 @@ func RegisterInputControllerServiceServer(s grpc.ServiceRegistrar, srv InputCont
 	s.RegisterService(&InputControllerService_ServiceDesc, srv)
 }
 
-func _InputControllerService_Controls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerServiceControlsRequest)
+func _InputControllerService_GetControls_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InputControllerServiceGetControlsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InputControllerServiceServer).Controls(ctx, in)
+		return srv.(InputControllerServiceServer).GetControls(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.InputControllerService/Controls",
+		FullMethod: "/proto.api.component.v1.InputControllerService/GetControls",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InputControllerServiceServer).Controls(ctx, req.(*InputControllerServiceControlsRequest))
+		return srv.(InputControllerServiceServer).GetControls(ctx, req.(*InputControllerServiceGetControlsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -225,8 +225,8 @@ var InputControllerService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*InputControllerServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Controls",
-			Handler:    _InputControllerService_Controls_Handler,
+			MethodName: "GetControls",
+			Handler:    _InputControllerService_GetControls_Handler,
 		},
 		{
 			MethodName: "GetEvents",
