@@ -35,13 +35,13 @@ func TestClient(t *testing.T) {
 
 	gps1 := "gps1"
 	injectGPS := &inject.GPS{}
-	injectGPS.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
+	injectGPS.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 
 	gps2 := "gps2"
 	injectGPS2 := &inject.GPS{}
-	injectGPS2.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
+	injectGPS2.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 
@@ -66,7 +66,7 @@ func TestClient(t *testing.T) {
 		gps1Client, err := gps.NewClient(context.Background(), gps1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-		loc1, err := gps1Client.Location(context.Background())
+		loc1, err := gps1Client.ReadLocation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc1, test.ShouldResemble, loc)
 
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		gps2Client := gps.NewClientFromConn(context.Background(), conn, gps2, logger)
 
-		_, err = gps2Client.Location(context.Background())
+		_, err = gps2Client.ReadLocation(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 

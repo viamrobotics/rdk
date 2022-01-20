@@ -84,12 +84,12 @@ func TestReconfigurableGPS(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new GPS")
 }
 
-func TestLocation(t *testing.T) {
+func TestReadLocation(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.locCalls, test.ShouldEqual, 0)
-	loc1, err := reconfGPS1.(*reconfigurableGPS).Location(context.Background())
+	loc1, err := reconfGPS1.(*reconfigurableGPS).ReadLocation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualGPS1.locCalls, test.ShouldEqual, 1)
@@ -196,8 +196,8 @@ type mock struct {
 	reconfCalls   int
 }
 
-// Location always returns the set values.
-func (m *mock) Location(ctx context.Context) (*geo.Point, error) {
+// ReadLocation always returns the set values.
+func (m *mock) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	m.locCalls++
 	return loc, nil
 }

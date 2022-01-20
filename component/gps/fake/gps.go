@@ -67,8 +67,8 @@ func (g *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.Latitude, g.Longitude}, nil
 }
 
-// Location always returns the set values.
-func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
+// ReadLocation always returns the set values.
+func (g *GPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return geo.NewPoint(g.Latitude, g.Longitude), nil
@@ -172,7 +172,7 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 }
 
 func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	loc, err := b.g.Location(ctx)
+	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}

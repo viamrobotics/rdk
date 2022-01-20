@@ -35,17 +35,20 @@ func (s *subtypeServer) getGPS(name string) (GPS, error) {
 	return gps, nil
 }
 
-// Location returns the most recent location from the given GPS.
-func (s *subtypeServer) Location(ctx context.Context, req *pb.GPSServiceLocationRequest) (*pb.GPSServiceLocationResponse, error) {
+// ReadLocation returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadLocation(
+	ctx context.Context,
+	req *pb.GPSServiceReadLocationRequest,
+) (*pb.GPSServiceReadLocationResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	loc, err := gpsDevice.Location(ctx)
+	loc, err := gpsDevice.ReadLocation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceLocationResponse{
+	return &pb.GPSServiceReadLocationResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
