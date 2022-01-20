@@ -76,7 +76,7 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def InputControllerControls(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def InputControllerStreamEvents(self, stream) -> None:
+    async def InputControllerEventStream(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def InputControllerInjectEvent(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
