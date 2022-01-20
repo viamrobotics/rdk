@@ -19,6 +19,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	configpb "go.viam.com/rdk/proto/api/config/v1"
 )
 
 // RDK versioning variables which are replaced by LD flags.
@@ -170,7 +172,7 @@ const (
 
 // CreateCloudRequest makes a request to fetch the robot config
 // from a cloud endpoint.
-func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
+func CreateCloudRequest(ctx context.Context, cloudCfg *configpb.Cloud) (*http.Request, error) {
 	url := fmt.Sprintf("%s?id=%s", cloudCfg.Path, cloudCfg.Id)
 
 	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -229,7 +231,7 @@ func storeToCache(id string, cfg *Config) error {
 
 // ReadFromCloud fetches a robot config from the cloud based
 // on the given config.
-func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*Config, error) {
+func ReadFromCloud(ctx context.Context, cloudCfg *configpb.Cloud, readFromCache bool) (*Config, error) {
 	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
 	if err != nil {
 		return nil, err

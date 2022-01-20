@@ -24,6 +24,8 @@ import (
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/testutils/inject"
+
+	configpb "go.viam.com/rdk/proto/api/config/v1"
 )
 
 func TestConfigRobot(t *testing.T) {
@@ -93,7 +95,7 @@ func TestConfig3(t *testing.T) {
 }
 
 func TestCreateCloudRequest(t *testing.T) {
-	cfg := config.Cloud{
+	cfg := &configpb.Cloud{
 		Id:     "a",
 		Secret: "b",
 		Path:   "c",
@@ -104,7 +106,7 @@ func TestCreateCloudRequest(t *testing.T) {
 	config.Version = version
 	config.GitRevision = gitRevision
 
-	r, err := config.CreateCloudRequest(context.Background(), &cfg)
+	r, err := config.CreateCloudRequest(context.Background(), cfg)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, r.Header.Get("Secret"), test.ShouldEqual, cfg.Secret)
@@ -123,7 +125,7 @@ func TestConfigEnsure(t *testing.T) {
 	test.That(t, emptyConfig.Ensure(false), test.ShouldBeNil)
 
 	invalidCloud := config.Config{
-		Cloud: &config.Cloud{},
+		Cloud: &configpb.Cloud{},
 	}
 	err := invalidCloud.Ensure(false)
 	test.That(t, err, test.ShouldNotBeNil)
