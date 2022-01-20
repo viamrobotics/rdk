@@ -163,7 +163,7 @@ func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm,
 	var err error
 	newArm := &armV1{}
 
-	newArm.model, err = referenceframe.ParseJSON(v1modeljson, "")
+	newArm.model, err = referenceframe.UnmarshalModelJSON(v1modeljson, "")
 	if err != nil {
 		return nil, err
 	}

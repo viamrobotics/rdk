@@ -141,7 +141,7 @@ func TestServer(t *testing.T) {
 				Name: "frame1",
 				FrameConfig: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.Translation{1, 2, 3},
+					Translation: spatialmath.TranslationConfig{1, 2, 3},
 					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 				},
 			},
@@ -149,7 +149,7 @@ func TestServer(t *testing.T) {
 				Name: "frame2",
 				FrameConfig: &config.Frame{
 					Parent:      "frame1",
-					Translation: spatialmath.Translation{1, 2, 3},
+					Translation: spatialmath.TranslationConfig{1, 2, 3},
 				},
 			},
 		}
@@ -225,7 +225,7 @@ func TestServer(t *testing.T) {
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
 		)
 		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
-		_, err = referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
+		_, err = referenceframe.UnmarshalModelJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 	})
 

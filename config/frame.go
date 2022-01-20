@@ -25,9 +25,9 @@ The Orientation field is an interface. When writing a config file, the orientati
 }.
 */
 type Frame struct {
-	Parent      string              `json:"parent"`
-	Translation spatial.Translation `json:"translation"`
-	Orientation spatial.Orientation `json:"orientation"`
+	Parent      string                    `json:"parent"`
+	Translation spatial.TranslationConfig `json:"translation"`
+	Orientation spatial.Orientation       `json:"orientation"`
 }
 
 // Pose combines Translation and Orientation in a Pose.
@@ -45,7 +45,7 @@ func (f *Frame) StaticFrame(name string) (ref.Frame, error) {
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := struct {
 		Parent      string                    `json:"parent"`
-		Translation spatial.Translation       `json:"translation"`
+		Translation spatial.TranslationConfig `json:"translation"`
 		Orientation spatial.OrientationConfig `json:"orientation"`
 	}{}
 
@@ -53,7 +53,7 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	if err != nil {
 		return err
 	}
-	orientation, err := temp.Orientation.Unmarshal()
+	orientation, err := temp.Orientation.ParseConfig()
 	if err != nil {
 		return err
 	}

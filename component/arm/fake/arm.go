@@ -36,7 +36,7 @@ func init() {
 // NewArm returns a new fake arm.
 func NewArm(cfg config.Component) (arm.Arm, error) {
 	name := cfg.Name
-	model, err := referenceframe.ParseJSON(armModelJSON, "")
+	model, err := referenceframe.UnmarshalModelJSON(armModelJSON, "")
 	if err != nil {
 		return nil, err
 	}

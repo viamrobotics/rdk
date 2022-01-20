@@ -35,7 +35,7 @@ func init() {
 
 // fakeModel returns the kinematics model.
 func fakeModel() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(armikModelJSON, "")
+	return referenceframe.UnmarshalModelJSON(armikModelJSON, "")
 }
 
 // NewArmIK returns a new fake arm.
