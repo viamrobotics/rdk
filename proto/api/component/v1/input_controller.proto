@@ -16,8 +16,8 @@ service InputControllerService {
     };
   }
 
-	// LastEvent returns a list of events representing the last event on each control of a give Input Controller
-  rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
+	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
+  rpc GetEvents(InputControllerServiceGetEventsRequest) returns (InputControllerServiceGetEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/last_events"
     };
@@ -50,12 +50,12 @@ message InputControllerServiceControlsResponse {
   repeated string controls = 1;
 }
 
-message InputControllerServiceLastEventsRequest {
+message InputControllerServiceGetEventsRequest {
   // Name of an input controller 
   string controller = 1;
 }
 
-message InputControllerServiceLastEventsResponse {
+message InputControllerServiceGetEventsResponse {
   // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
   // buttons/axes on a given input controller 
   repeated InputControllerServiceEvent events = 1;

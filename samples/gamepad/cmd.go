@@ -72,7 +72,7 @@ func debugOut(ctx context.Context, r robot.Robot) {
 			continue
 		}
 
-		lastEvents, err := g.LastEvents(ctx)
+		lastEvents, err := g.GetEvents(ctx)
 		if err != nil {
 			return
 		}

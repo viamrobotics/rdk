@@ -99,8 +99,8 @@ func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	return controls, nil
 }
 
-func (c *client) LastEvents(ctx context.Context) (map[Control]Event, error) {
-	resp, err := c.client.LastEvents(ctx, &pb.InputControllerServiceLastEventsRequest{
+func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
+	resp, err := c.client.GetEvents(ctx, &pb.InputControllerServiceGetEventsRequest{
 		Controller: c.name,
 	})
 	if err != nil {

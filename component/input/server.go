@@ -59,22 +59,22 @@ func (s *subtypeServer) Controls(
 	return resp, nil
 }
 
-// LastEvents returns the last Event (current state) of each control.
-func (s *subtypeServer) LastEvents(
+// GetEvents returns the last Event (current state) of each control.
+func (s *subtypeServer) GetEvents(
 	ctx context.Context,
-	req *pb.InputControllerServiceLastEventsRequest,
-) (*pb.InputControllerServiceLastEventsResponse, error) {
+	req *pb.InputControllerServiceGetEventsRequest,
+) (*pb.InputControllerServiceGetEventsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	eventsIn, err := controller.LastEvents(ctx)
+	eventsIn, err := controller.GetEvents(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceLastEventsResponse{}
+	resp := &pb.InputControllerServiceGetEventsResponse{}
 
 	for _, eventIn := range eventsIn {
 		resp.Events = append(resp.Events, &pb.InputControllerServiceEvent{
