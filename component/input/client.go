@@ -85,8 +85,8 @@ func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Co
 	return &client{closeContext: ctx, serviceClient: sc, name: name}
 }
 
-func (c *client) Controls(ctx context.Context) ([]Control, error) {
-	resp, err := c.client.Controls(ctx, &pb.InputControllerServiceControlsRequest{
+func (c *client) GetControls(ctx context.Context) ([]Control, error) {
+	resp, err := c.client.GetControls(ctx, &pb.InputControllerServiceGetControlsRequest{
 		Controller: c.name,
 	})
 	if err != nil {
@@ -99,8 +99,8 @@ func (c *client) Controls(ctx context.Context) ([]Control, error) {
 	return controls, nil
 }
 
-func (c *client) LastEvents(ctx context.Context) (map[Control]Event, error) {
-	resp, err := c.client.LastEvents(ctx, &pb.InputControllerServiceLastEventsRequest{
+func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
+	resp, err := c.client.GetEvents(ctx, &pb.InputControllerServiceGetEventsRequest{
 		Controller: c.name,
 	})
 	if err != nil {
@@ -119,8 +119,8 @@ func (c *client) LastEvents(ctx context.Context) (map[Control]Event, error) {
 	return eventsOut, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *client) InjectEvent(ctx context.Context, event Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *client) TriggerEvent(ctx context.Context, event Event) error {
 	eventMsg := &pb.InputControllerServiceEvent{
 		Time:    timestamppb.New(event.Time),
 		Event:   string(event.Event),
@@ -128,7 +128,7 @@ func (c *client) InjectEvent(ctx context.Context, event Event) error {
 		Value:   event.Value,
 	}
 
-	_, err := c.client.InjectEvent(ctx, &pb.InputControllerServiceInjectEventRequest{
+	_, err := c.client.TriggerEvent(ctx, &pb.InputControllerServiceTriggerEventRequest{
 		Controller: c.name,
 		Event:      eventMsg,
 	})
@@ -221,12 +221,12 @@ func (c *client) connectStream(ctx context.Context) {
 
 		var haveCallbacks bool
 		c.mu.RLock()
-		req := &pb.InputControllerServiceEventStreamRequest{
+		req := &pb.InputControllerServiceStreamEventsRequest{
 			Controller: c.name,
 		}
 
 		for control, v := range c.callbacks {
-			outEvent := &pb.InputControllerServiceEventStreamRequest_Events{
+			outEvent := &pb.InputControllerServiceStreamEventsRequest_Events{
 				Control: string(control),
 			}
 
@@ -249,7 +249,7 @@ func (c *client) connectStream(ctx context.Context) {
 		streamCtx, cancel := context.WithCancel(ctx)
 		c.streamCancel = cancel
 
-		stream, err := c.client.EventStream(streamCtx, req)
+		stream, err := c.client.StreamEvents(streamCtx, req)
 		if err != nil {
 			c.logger.Error(err)
 			if utils.SelectContextOrWait(ctx, 3*time.Second) {

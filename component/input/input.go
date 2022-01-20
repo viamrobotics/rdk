@@ -31,11 +31,11 @@ func Named(name string) resource.Name {
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
-	// Controls returns a list of Controls provided by the Controller
-	Controls(ctx context.Context) ([]Control, error)
+	// GetControls returns a list of GetControls provided by the Controller
+	GetControls(ctx context.Context) ([]Control, error)
 
 	// LastEvent returns most recent Event for each input (which should be the current state)
-	LastEvents(ctx context.Context) (map[Control]Event, error)
+	GetEvents(ctx context.Context) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
@@ -106,10 +106,10 @@ type Event struct {
 	Value   float64 // 0 or 1 for buttons, -1.0 to +1.0 for axes
 }
 
-// Injectable is used by the WebGamepad interface to inject events.
-type Injectable interface {
-	// InjectEvent allows directly sending an Event (such as a button press) from external code
-	InjectEvent(ctx context.Context, event Event) error
+// Triggerable is used by the WebGamepad interface to inject events.
+type Triggerable interface {
+	// TriggerEvent allows directly sending an Event (such as a button press) from external code
+	TriggerEvent(ctx context.Context, event Event) error
 }
 
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
@@ -140,27 +140,27 @@ func (c *reconfigurableInputController) ProxyFor() interface{} {
 	return c.actual
 }
 
-func (c *reconfigurableInputController) Controls(ctx context.Context) ([]Control, error) {
+func (c *reconfigurableInputController) GetControls(ctx context.Context) ([]Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Controls(ctx)
+	return c.actual.GetControls(ctx)
 }
 
-func (c *reconfigurableInputController) LastEvents(ctx context.Context) (map[Control]Event, error) {
+func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Control]Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.LastEvents(ctx)
+	return c.actual.GetEvents(ctx)
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *reconfigurableInputController) InjectEvent(ctx context.Context, event Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	iActual, ok := c.actual.(Injectable)
+	iActual, ok := c.actual.(Triggerable)
 	if !ok {
-		return errors.New("controller is not Injectable")
+		return errors.New("controller is not Triggerable")
 	}
-	return iActual.InjectEvent(ctx, event)
+	return iActual.TriggerEvent(ctx, event)
 }
 
 func (c *reconfigurableInputController) RegisterControlCallback(
