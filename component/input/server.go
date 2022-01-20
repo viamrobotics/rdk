@@ -115,10 +115,10 @@ func (s *subtypeServer) InjectEvent(
 	return &pb.InputControllerServiceInjectEventResponse{}, nil
 }
 
-// EventStream returns a stream of Event.
-func (s *subtypeServer) EventStream(
-	req *pb.InputControllerServiceEventStreamRequest,
-	server pb.InputControllerService_EventStreamServer,
+// StreamEvents returns a stream of Event.
+func (s *subtypeServer) StreamEvents(
+	req *pb.InputControllerServiceStreamEventsRequest,
+	server pb.InputControllerService_StreamEventsServer,
 ) error {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *subtypeServer) EventStream(
 		case <-server.Context().Done():
 			return server.Context().Err()
 		case msg := <-eventsChan:
-			err := server.Send(&pb.InputControllerServiceEventStreamResponse{Event: msg})
+			err := server.Send(&pb.InputControllerServiceStreamEventsResponse{Event: msg})
 			if err != nil {
 				return err
 			}

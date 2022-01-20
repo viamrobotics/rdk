@@ -221,12 +221,12 @@ func (c *client) connectStream(ctx context.Context) {
 
 		var haveCallbacks bool
 		c.mu.RLock()
-		req := &pb.InputControllerServiceEventStreamRequest{
+		req := &pb.InputControllerServiceStreamEventsRequest{
 			Controller: c.name,
 		}
 
 		for control, v := range c.callbacks {
-			outEvent := &pb.InputControllerServiceEventStreamRequest_Events{
+			outEvent := &pb.InputControllerServiceStreamEventsRequest_Events{
 				Control: string(control),
 			}
 
@@ -249,7 +249,7 @@ func (c *client) connectStream(ctx context.Context) {
 		streamCtx, cancel := context.WithCancel(ctx)
 		c.streamCancel = cancel
 
-		stream, err := c.client.EventStream(streamCtx, req)
+		stream, err := c.client.StreamEvents(streamCtx, req)
 		if err != nil {
 			c.logger.Error(err)
 			if utils.SelectContextOrWait(ctx, 3*time.Second) {
