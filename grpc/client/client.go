@@ -3,13 +3,11 @@ package client
 
 import (
 	"context"
-	"math"
 	"runtime/debug"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
@@ -18,14 +16,14 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -35,8 +33,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -53,13 +49,9 @@ type RobotClient struct {
 	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu       *sync.RWMutex
-	baseNames     []string
-	sensorNames   []string
 	functionNames []string
 	serviceNames  []string
 	resourceNames []resource.Name
-
-	sensorTypes map[string]sensor.Type
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
@@ -97,7 +89,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		conn:                    conn,
 		client:                  client,
 		metadataClient:          metadataClient,
-		sensorTypes:             map[string]sensor.Type{},
 		cancelBackgroundWorkers: cancel,
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
@@ -247,7 +238,15 @@ func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
-	return &baseClient{rc, name}, true
+	resource, ok := rc.ResourceByName(base.Named(name))
+	if !ok {
+		return nil, false
+	}
+	actualBase, ok := resource.(base.Base)
+	if !ok {
+		return nil, false
+	}
+	return actualBase, true
 }
 
 // GripperByName returns a gripper by name. It is assumed to exist on the
@@ -292,21 +291,18 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 	return actualBoard, true
 }
 
-// SensorByName returns a sensor by name. It is assumed to exist on the
-// other end. Based on the known sensor names and types, a type specific
-// sensor is attempted to be returned; otherwise it's a general purpose
-// sensor.
+// SensorByName returns a generic sensor by name. It is assumed to exist on the
+// other end.
 func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	sensorType := rc.sensorTypes[name]
-	sc := &sensorClient{rc, name, sensorType}
-	switch sensorType {
-	case compass.Type:
-		return &compassClient{sc}, true
-	case compass.RelativeType:
-		return &relativeCompassClient{&compassClient{sc}}, true
-	default:
-		return sc, true
+	resource, ok := rc.ResourceByName(sensor.Named(name))
+	if !ok {
+		return nil, false
 	}
+	actualSensor, ok := resource.(sensor.Sensor)
+	if !ok {
+		return nil, false
+	}
+	return actualSensor, true
 }
 
 // ServoByName returns a servo by name. It is assumed to exist on the
@@ -355,23 +351,14 @@ func (rc *RobotClient) InputControllerByName(name string) (input.Controller, boo
 
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/375): remove this switch statement after the V2 migration is done
-
-	switch name.Subtype {
-	case gps.Subtype:
-		sensorType := rc.sensorTypes[name.Name]
-		sc := &sensorClient{rc, name.Name, sensorType}
-		return &gpsClient{sc}, true
-	default:
-		c := registry.ResourceSubtypeLookup(name.Subtype)
-		if c == nil || c.RPCClient == nil {
-			// registration doesn't exist
-			return nil, false
-		}
-		// pass in conn
-		resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
-		return resourceClient, true
+	c := registry.ResourceSubtypeLookup(name.Subtype)
+	if c == nil || c.RPCClient == nil {
+		// registration doesn't exist
+		return nil, false
 	}
+	// pass in conn
+	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
+	return resourceClient, true
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -409,22 +396,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		}
 	}
 
-	rc.baseNames = nil
-	if len(status.Bases) != 0 {
-		rc.baseNames = make([]string, 0, len(status.Bases))
-		for name := range status.Bases {
-			rc.baseNames = append(rc.baseNames, name)
-		}
-	}
-
-	rc.sensorNames = nil
-	if len(status.Sensors) != 0 {
-		rc.sensorNames = make([]string, 0, len(status.Sensors))
-		for name, sensorStatus := range status.Sensors {
-			rc.sensorNames = append(rc.sensorNames, name)
-			rc.sensorTypes[name] = sensor.Type(sensorStatus.Type)
-		}
-	}
 	rc.functionNames = nil
 	if len(status.Functions) != 0 {
 		rc.functionNames = make([]string, 0, len(status.Functions))
@@ -498,7 +469,13 @@ func (rc *RobotClient) CameraNames() []string {
 func (rc *RobotClient) BaseNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.baseNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == base.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // BoardNames returns the names of all known boards.
@@ -518,7 +495,13 @@ func (rc *RobotClient) BoardNames() []string {
 func (rc *RobotClient) SensorNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.sensorNames)
+	names := []string{}
+	for _, v := range rc.ResourceNames() {
+		if v.Subtype == sensor.Subtype {
+			names = append(names, v.Name)
+		}
+	}
+	return copyStringSlice(names)
 }
 
 // ServoNames returns the names of all known servos.
@@ -631,237 +614,4 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 		}
 	}
 	return fs, nil
-}
-
-// baseClient satisfies a gRPC based base.Base. Refer to the interface
-// for descriptions of its methods.
-type baseClient struct {
-	rc   *RobotClient
-	name string
-}
-
-func (bc *baseClient) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveStraight(ctx, &pb.BaseMoveStraightRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseMoveArc(ctx, &pb.BaseMoveArcRequest{
-		Name:           bc.name,
-		MillisPerSec:   millisPerSec,
-		AngleDeg:       degsPerSec,
-		DistanceMillis: int64(distanceMillis),
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	resp, err := bc.rc.client.BaseSpin(ctx, &pb.BaseSpinRequest{
-		Name:       bc.name,
-		AngleDeg:   angleDeg,
-		DegsPerSec: degsPerSec,
-	})
-	if err != nil {
-		return err
-	}
-	if resp.Success {
-		return nil
-	}
-	return errors.New(resp.Error)
-}
-
-func (bc *baseClient) Stop(ctx context.Context) error {
-	_, err := bc.rc.client.BaseStop(ctx, &pb.BaseStopRequest{
-		Name: bc.name,
-	})
-	return err
-}
-
-func (bc *baseClient) WidthMillis(ctx context.Context) (int, error) {
-	resp, err := bc.rc.client.BaseWidthMillis(ctx, &pb.BaseWidthMillisRequest{
-		Name: bc.name,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.WidthMillis), nil
-}
-
-// sensorClient satisfies a gRPC based sensor.Sensor. Refer to the interface
-// for descriptions of its methods.
-type sensorClient struct {
-	rc         *RobotClient
-	name       string
-	sensorType sensor.Type
-}
-
-func (sc *sensorClient) Readings(ctx context.Context) ([]interface{}, error) {
-	resp, err := sc.rc.client.SensorReadings(ctx, &pb.SensorReadingsRequest{
-		Name: sc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	readings := make([]interface{}, 0, len(resp.Readings))
-	for _, r := range resp.Readings {
-		readings = append(readings, r.AsInterface())
-	}
-	return readings, nil
-}
-
-func (sc *sensorClient) Desc() sensor.Description {
-	return sensor.Description{sc.sensorType, ""}
-}
-
-// compassClient satisfies a gRPC based compass.Compass. Refer to the interface
-// for descriptions of its methods.
-type compassClient struct {
-	*sensorClient
-}
-
-func (cc *compassClient) Readings(ctx context.Context) ([]interface{}, error) {
-	heading, err := cc.Heading(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{heading}, nil
-}
-
-func (cc *compassClient) Heading(ctx context.Context) (float64, error) {
-	resp, err := cc.rc.client.CompassHeading(ctx, &pb.CompassHeadingRequest{
-		Name: cc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Heading, nil
-}
-
-func (cc *compassClient) StartCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStartCalibration(ctx, &pb.CompassStartCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) StopCalibration(ctx context.Context) error {
-	_, err := cc.rc.client.CompassStopCalibration(ctx, &pb.CompassStopCalibrationRequest{
-		Name: cc.name,
-	})
-	return err
-}
-
-func (cc *compassClient) Desc() sensor.Description {
-	return sensor.Description{compass.Type, ""}
-}
-
-// relativeCompassClient satisfies a gRPC based compass.RelativeCompass. Refer to the interface
-// for descriptions of its methods.
-type relativeCompassClient struct {
-	*compassClient
-}
-
-func (rcc *relativeCompassClient) Mark(ctx context.Context) error {
-	_, err := rcc.rc.client.CompassMark(ctx, &pb.CompassMarkRequest{
-		Name: rcc.name,
-	})
-	return err
-}
-
-func (rcc *relativeCompassClient) Desc() sensor.Description {
-	return sensor.Description{compass.RelativeType, ""}
-}
-
-// gpsClient satisfies a gRPC based gps.GPS. Refer to the interface
-// for descriptions of its methods.
-type gpsClient struct {
-	*sensorClient
-}
-
-func (gc *gpsClient) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := gc.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := gc.Altitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := gc.Speed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	horzAcc, vertAcc, err := gc.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
-}
-
-func (gc *gpsClient) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := gc.rc.client.GPSLocation(ctx, &pb.GPSLocationRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
-}
-
-func (gc *gpsClient) Altitude(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSAltitude(ctx, &pb.GPSAltitudeRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.Altitude, nil
-}
-
-func (gc *gpsClient) Speed(ctx context.Context) (float64, error) {
-	resp, err := gc.rc.client.GPSSpeed(ctx, &pb.GPSSpeedRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), err
-	}
-	return resp.SpeedKph, nil
-}
-
-func (gc *gpsClient) Satellites(ctx context.Context) (int, int, error) {
-	return 0, 0, nil
-}
-
-func (gc *gpsClient) Accuracy(ctx context.Context) (float64, float64, error) {
-	resp, err := gc.rc.client.GPSAccuracy(ctx, &pb.GPSAccuracyRequest{
-		Name: gc.name,
-	})
-	if err != nil {
-		return math.NaN(), math.NaN(), err
-	}
-	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
-}
-
-func (gc *gpsClient) Valid(ctx context.Context) (bool, error) {
-	return true, nil
-}
-
-func (gc *gpsClient) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }

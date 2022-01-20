@@ -18,13 +18,12 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/serial"
 )
 
 func init() {
@@ -66,7 +65,7 @@ const (
 	ntripBaudAttrName = "ntripBaud"
 )
 
-func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.GPS, error) {
+func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
 	serialPath := config.Attributes.String(pathAttrName)
 	if serialPath == "" {
 		return nil, fmt.Errorf("serialNMEAGPS expected non-empty string for %q", pathAttrName)
@@ -105,9 +104,14 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		return err
 	}
 	req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
+	req = req.WithContext(g.cancelCtx)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		err = utils.FilterOutError(err, context.Canceled)
+		if err == nil {
+			g.logger.Debug("error send ntrip request: context cancelled")
+		}
 		return err
 	} else if resp.StatusCode != http.StatusOK {
 		return errors.New("received non-200 response code: " + strconv.Itoa(resp.StatusCode))
@@ -242,11 +246,6 @@ func (g *serialNMEAGPS) Close() error {
 		g.dev = nil
 	}
 	return nil
-}
-
-// Desc returns that this is a GPS.
-func (g *serialNMEAGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // toPoint converts a nmea.GLL to a geo.Point.

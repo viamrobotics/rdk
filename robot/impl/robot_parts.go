@@ -2,7 +2,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/alessio/shellescape"
@@ -13,27 +12,24 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/base"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 )
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
 	remotes         map[string]*remoteRobot
-	bases           map[string]*proxyBase
-	sensors         map[string]sensor.Sensor
 	functions       map[string]struct{}
 	resources       *resource.ResourceGraph
 	processManager  pexec.ProcessManager
@@ -44,8 +40,6 @@ type robotParts struct {
 func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
-		bases:           map[string]*proxyBase{},
-		sensors:         map[string]sensor.Sensor{},
 		functions:       map[string]struct{}{},
 		resources:       resource.NewResourceGraph(),
 		processManager:  pexec.NewProcessManager(logger),
@@ -53,50 +47,9 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 	}
 }
 
-// fixType ensures that the component has correct type information.
-func fixType(c config.Component, whichType config.ComponentType) config.Component {
-	if c.Type == "" {
-		c.Type = whichType
-	} else if c.Type != whichType {
-		panic(fmt.Sprintf("different types (%s) != (%s)", whichType, c.Type))
-	}
-	return c
-}
-
 // addRemote adds a remote to the parts.
 func (parts *robotParts) addRemote(r *remoteRobot, c config.Remote) {
 	parts.remotes[c.Name] = r
-}
-
-// AddBase adds a base to the parts.
-func (parts *robotParts) AddBase(b base.Base, c config.Component) {
-	c = fixType(c, config.ComponentTypeBase)
-	if proxy, ok := b.(*proxyBase); ok {
-		b = proxy.actual
-	}
-	parts.bases[c.Name] = &proxyBase{actual: b}
-}
-
-// AddSensor adds a sensor to the parts.
-func (parts *robotParts) AddSensor(s sensor.Sensor, c config.Component) {
-	c = fixType(c, config.ComponentTypeSensor)
-	switch pType := s.(type) {
-	case *proxySensor:
-		parts.sensors[c.Name] = &proxySensor{actual: pType.actual}
-	case *proxyCompass:
-		parts.sensors[c.Name] = newProxyCompass(pType.actual)
-	case *proxyRelativeCompass:
-		parts.sensors[c.Name] = newProxyRelativeCompass(pType.actual)
-	default:
-		switch s.Desc().Type {
-		case compass.Type:
-			parts.sensors[c.Name] = newProxyCompass(s.(compass.Compass))
-		case compass.RelativeType:
-			parts.sensors[c.Name] = newProxyRelativeCompass(s.(compass.RelativeCompass))
-		default:
-			parts.sensors[c.Name] = &proxySensor{actual: s}
-		}
-	}
 }
 
 // addFunction adds a function to the parts.
@@ -196,8 +149,10 @@ func (parts *robotParts) CameraNames() []string {
 // BaseNames returns the names of all bases in the parts.
 func (parts *robotParts) BaseNames() []string {
 	names := []string{}
-	for k := range parts.bases {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == base.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BaseNames)
 }
@@ -216,8 +171,10 @@ func (parts *robotParts) BoardNames() []string {
 // SensorNames returns the names of all sensors in the parts.
 func (parts *robotParts) SensorNames() []string {
 	names := []string{}
-	for k := range parts.sensors {
-		names = append(names, k)
+	for _, n := range parts.ResourceNames() {
+		if n.Subtype == sensor.Subtype {
+			names = append(names, n.Name)
+		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.SensorNames)
 }
@@ -282,18 +239,6 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.remotes[k] = v
 		}
 	}
-	if len(parts.bases) != 0 {
-		clonedParts.bases = make(map[string]*proxyBase, len(parts.bases))
-		for k, v := range parts.bases {
-			clonedParts.bases[k] = v
-		}
-	}
-	if len(parts.sensors) != 0 {
-		clonedParts.sensors = make(map[string]sensor.Sensor, len(parts.sensors))
-		for k, v := range parts.sensors {
-			clonedParts.sensors[k] = v
-		}
-	}
 	if len(parts.functions) != 0 {
 		clonedParts.functions = make(map[string]struct{}, len(parts.functions))
 		for k, v := range parts.functions {
@@ -322,17 +267,6 @@ func (parts *robotParts) Close(ctx context.Context) error {
 		}
 	}
 
-	for _, x := range parts.bases {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing base"))
-		}
-	}
-
-	for _, x := range parts.sensors {
-		if err := utils.TryClose(ctx, x); err != nil {
-			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing sensor"))
-		}
-	}
 	order := parts.resources.TopologicalSort()
 	for _, x := range order {
 		if err := utils.TryClose(ctx, parts.resources.Nodes[x]); err != nil {
@@ -456,42 +390,20 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 // newComponents constructs all components defined.
 func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
 	for _, c := range components {
-		switch c.Type {
-		case config.ComponentTypeBase:
-			b, err := r.newBase(ctx, c)
-			if err != nil {
-				return err
-			}
-			parts.AddBase(b, c)
-		case config.ComponentTypeSensor:
-			if c.SubType == "" {
-				return errors.New("sensor component requires subtype")
-			}
-			sensorDevice, err := r.newSensor(ctx, c, sensor.Type(c.SubType))
-			if err != nil {
-				return err
-			}
-			parts.AddSensor(sensorDevice, c)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
-			fallthrough
-		default:
-			v, err := r.newResource(ctx, c)
-			if err != nil {
-				return err
-			}
-			rName := c.ResourceName()
-			parts.addResource(rName, v)
-			for _, dep := range c.DependsOn {
-				if comp := r.config.FindComponent(dep); comp != nil {
-					if err := parts.resources.AddChildren(rName, comp.ResourceName()); err != nil {
-						return err
-					}
-				} else {
-					return errors.Errorf("componenent %s depends on non-existent component %s",
-						rName.Name, dep)
+		r, err := r.newResource(ctx, c)
+		if err != nil {
+			return err
+		}
+		rName := c.ResourceName()
+		parts.addResource(rName, r)
+		for _, dep := range c.DependsOn {
+			if comp := r.config.FindComponent(dep); comp != nil {
+				if err := parts.resources.AddChildren(rName, comp.ResourceName()); err != nil {
+					return err
 				}
+			} else {
+				return errors.Errorf("componenent %s depends on non-existent component %s",
+					rName.Name, dep)
 			}
 		}
 	}
@@ -571,9 +483,13 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 // BaseByName returns the given base by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
-	part, ok := parts.bases[name]
+	rName := base.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(base.Base)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BaseByName(name)
@@ -627,9 +543,13 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 // SensorByName returns the given sensor by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
-	part, ok := parts.sensors[name]
+	rName := sensor.Named(name)
+	r, ok := parts.resources[rName]
 	if ok {
-		return part, true
+		part, ok := r.(sensor.Sensor)
+		if ok {
+			return part, true
+		}
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.SensorByName(name)
@@ -745,24 +665,6 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.bases) != 0 {
-		if parts.bases == nil {
-			parts.bases = make(map[string]*proxyBase, len(toAdd.bases))
-		}
-		for k, v := range toAdd.bases {
-			parts.bases[k] = v
-		}
-	}
-
-	if len(toAdd.sensors) != 0 {
-		if parts.sensors == nil {
-			parts.sensors = make(map[string]sensor.Sensor, len(toAdd.sensors))
-		}
-		for k, v := range toAdd.sensors {
-			parts.sensors[k] = v
-		}
-	}
-
 	if len(toAdd.functions) != 0 {
 		if parts.functions == nil {
 			parts.functions = make(map[string]struct{}, len(toAdd.functions))
@@ -817,31 +719,9 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.bases) != 0 {
-		for k, v := range toModify.bases {
-			old, ok := parts.bases[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.replace(ctx, v)
-		}
-	}
-
-	if len(toModify.sensors) != 0 {
-		for k, v := range toModify.sensors {
-			old, ok := parts.sensors[k]
-			if !ok {
-				// should not happen
-				continue
-			}
-			old.(interface{ replace(newSensor sensor.Sensor) }).replace(v)
-		}
-	}
-
 	if len(toModify.resources.Nodes) != 0 {
-		for k, v := range toModify.resources.Nodes {
-			old, ok := parts.resources.Nodes[k]
+		for k, v := range toModify.resources {
+			old, ok := parts.resources[k]
 			if !ok {
 				// should not happen
 				continue
@@ -893,18 +773,6 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 		}
 	}
 
-	if len(toRemove.bases) != 0 {
-		for k := range toRemove.bases {
-			delete(parts.bases, k)
-		}
-	}
-
-	if len(toRemove.sensors) != 0 {
-		for k := range toRemove.sensors {
-			delete(parts.sensors, k)
-		}
-	}
-
 	if len(toRemove.functions) != 0 {
 		for k := range toRemove.functions {
 			delete(parts.functions, k)
@@ -943,32 +811,13 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 	}
 
 	for _, compConf := range conf.Components {
-		switch compConf.Type {
-		case config.ComponentTypeBase:
-			part, ok := parts.BaseByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddBase(part, compConf)
-		case config.ComponentTypeSensor:
-			part, ok := parts.SensorByName(compConf.Name)
-			if !ok {
-				continue
-			}
-			filtered.AddSensor(part, compConf)
-		case config.ComponentTypeArm, config.ComponentTypeBoard, config.ComponentTypeCamera,
-			config.ComponentTypeGantry, config.ComponentTypeGripper, config.ComponentTypeInputController,
-			config.ComponentTypeMotor, config.ComponentTypeServo, config.ComponentTypeForceMatrix:
-			fallthrough
-		default:
-			rName := compConf.ResourceName()
-			_, ok := parts.ResourceByName(rName)
-			if !ok {
-				continue
-			}
-			if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
-				return nil, err
-			}
+		rName := compConf.ResourceName()
+		resource, ok := parts.ResourceByName(rName)
+		if !ok {
+			continue
+		}
+		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
+			return nil, err
 		}
 	}
 

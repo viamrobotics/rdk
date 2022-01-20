@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"strings"
 	"sync"
 
 	"github.com/Masterminds/sprig"
@@ -33,6 +34,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/web"
@@ -133,7 +135,11 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			scheme = "http"
 		}
-		temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
+		// we will rely on pages host and port if we are listening everywhere
+		if !(strings.HasPrefix(app.options.SignalingAddress, "0.0.0.0:") ||
+			strings.HasPrefix(app.options.SignalingAddress, "[::]:")) {
+			temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
+		}
 		temp.WebRTCHost = app.options.FQDNs[0]
 	}
 
@@ -164,8 +170,11 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 			continue
 		}
 		cmp := conf.FindComponent(name)
-		if cmp != nil && cmp.Attributes.Bool("hide", false) {
-			continue
+		if cmp != nil {
+			attrs, ok := cmp.ConvertedAttributes.(*rimage.AttrConfig)
+			if ok && attrs.Hide {
+				continue
+			}
 		}
 
 		sources = append(sources, cam)

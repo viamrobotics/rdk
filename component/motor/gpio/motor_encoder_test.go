@@ -294,43 +294,50 @@ func TestMotorEncoderHall(t *testing.T) {
 		encoderB := th.EncoderB
 
 		// this should do nothing because it's the initial state
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
 		})
-
-		// we go from state 3 -> 4
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 0)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 4 -> 1
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 10 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 1 -> 2
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 2 -> 3
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 01 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 2)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 	})
 
@@ -343,75 +350,90 @@ func TestMotorEncoderHall(t *testing.T) {
 		encoderB := th.EncoderB
 
 		// this should do nothing because it's the initial state
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
 		})
-
-		// we go from state 3 -> 4
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 0)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 4 -> 1
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 10 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 1 -> 2
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 2 -> 3
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 01 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 4)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 2)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 3 -> 2
-		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // we go from state 00 -> 01
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 3)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 2 -> 1
-		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil) // 01 -> 11
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 2)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 1)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 1 -> 4
-		test.That(t, encoderA.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderA.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 11 -> 10
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 1)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 0)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 
-		// 4 -> 1
-		test.That(t, encoderB.Tick(context.Background(), true, nowNanosTest()), test.ShouldBeNil)
+		test.That(t, encoderB.Tick(context.Background(), false, nowNanosTest()), test.ShouldBeNil) // 10 -> 00
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
 			pos := encoder.RawPosition()
 			test.That(tb, pos, test.ShouldEqual, 0)
+			pos, err := encoder.Position(context.Background())
+			test.That(tb, pos, test.ShouldEqual, 0)
+			test.That(tb, err, test.ShouldBeNil)
 		})
 	})
 

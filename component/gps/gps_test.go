@@ -8,7 +8,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/sensor"
 )
 
 func TestGPSName(t *testing.T) {
@@ -164,16 +163,6 @@ func TestReadings(t *testing.T) {
 	test.That(t, actualGPS1.readingsCalls, test.ShouldEqual, 1)
 }
 
-func TestDesc(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
-	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
-
-	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 0)
-	result := reconfGPS1.(*reconfigurableGPS).Desc()
-	test.That(t, result, test.ShouldResemble, desc)
-	test.That(t, actualGPS1.descCalls, test.ShouldEqual, 1)
-}
-
 func TestClose(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
@@ -192,7 +181,6 @@ var (
 	hAcc       = 0.7
 	vAcc       = 0.8
 	valid      = true
-	desc       = sensor.Description{sensor.Type("gps"), ""}
 )
 
 type mock struct {
@@ -205,7 +193,6 @@ type mock struct {
 	accCalls      int
 	validCalls    int
 	readingsCalls int
-	descCalls     int
 	reconfCalls   int
 }
 
@@ -250,8 +237,4 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{loc}, nil
 }
 
-func (m *mock) Desc() sensor.Description {
-	m.descCalls++
-	return desc
-}
 func (m *mock) Close() { m.reconfCalls++ }
