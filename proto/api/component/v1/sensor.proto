@@ -1,0 +1,26 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.v1;
+
+import "google/protobuf/struct.proto";
+import "google/api/annotations.proto";
+
+// SensorService services maintains all generic sensors associated with a robot
+service SensorService {
+  // Readings returns the readings of a sensor of the underlying robot.
+  rpc Readings(SensorServiceReadingsRequest) returns (SensorServiceReadingsResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/sensor/{name}/readings"
+    };
+  }
+}
+
+message SensorServiceReadingsRequest {
+  string name = 1;
+}
+
+message SensorServiceReadingsResponse {
+  repeated google.protobuf.Value readings = 1;
+}

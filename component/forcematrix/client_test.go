@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
@@ -69,8 +68,6 @@ func TestClientFailing(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, "slip detection error")
 			test.That(t, isSlipping, test.ShouldBeFalse)
 
-			desc := forceMatrixClient.Desc()
-			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, utils.TryClose(context.Background(), forceMatrixClient), test.ShouldBeNil)
 		})
 
@@ -91,9 +88,7 @@ func TestClientFailing(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, "slip detection error")
 			test.That(t, isSlipping, test.ShouldBeFalse)
 
-			desc := forceMatrixClient.Desc()
-			test.That(t, desc, test.ShouldResemble, desc)
-			test.That(t, conn.Close(), test.ShouldBeNil)
+			test.That(t, utils.TryClose(context.Background(), forceMatrixClient), test.ShouldBeNil)
 		})
 	})
 }
@@ -105,7 +100,6 @@ func TestClientWorking(t *testing.T) {
 	gServer := grpc.NewServer()
 
 	forceMatrix := "forcematrix"
-	desc := sensor.Description{sensor.Type("forcematrix"), ""}
 
 	t.Run("working", func(t *testing.T) {
 		injectFsm := &inject.ForceMatrix{}
@@ -118,9 +112,6 @@ func TestClientWorking(t *testing.T) {
 		}
 		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
-		}
-		injectFsm.DescFunc = func() sensor.Description {
-			return desc
 		}
 
 		forceMatrixSvc, err := subtype.New(
@@ -147,8 +138,6 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
-			desc := forceMatrixClient.Desc()
-			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, utils.TryClose(context.Background(), forceMatrixClient), test.ShouldBeNil)
 		})
 
@@ -171,8 +160,6 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
-			desc := forceMatrixClient.Desc()
-			test.That(t, desc, test.ShouldResemble, desc)
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})
 	})
