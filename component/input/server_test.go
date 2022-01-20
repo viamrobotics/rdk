@@ -59,7 +59,7 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	inputController1 := "inputController1"
-	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
@@ -80,7 +80,7 @@ func TestServer(t *testing.T) {
 	}
 
 	inputController2 := "inputController2"
-	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
 	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
@@ -95,20 +95,29 @@ func TestServer(t *testing.T) {
 		return errors.New("can't register callbacks")
 	}
 
-	t.Run("Controls", func(t *testing.T) {
-		_, err := inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: "i4"})
+	t.Run("GetControls", func(t *testing.T) {
+		_, err := inputControllerServer.GetControls(context.Background(), &pb.InputControllerServiceGetControlsRequest{Controller: "i4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		_, err = inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: "inputController3"})
+		_, err = inputControllerServer.GetControls(
+			context.Background(),
+			&pb.InputControllerServiceGetControlsRequest{Controller: "inputController3"},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an input controller")
 
-		resp, err := inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: inputController1})
+		resp, err := inputControllerServer.GetControls(
+			context.Background(),
+			&pb.InputControllerServiceGetControlsRequest{Controller: inputController1},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
 
-		_, err = inputControllerServer.Controls(context.Background(), &pb.InputControllerServiceControlsRequest{Controller: inputController2})
+		_, err = inputControllerServer.GetControls(
+			context.Background(),
+			&pb.InputControllerServiceGetControlsRequest{Controller: inputController2},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 	})

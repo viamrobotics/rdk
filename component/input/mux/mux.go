@@ -120,13 +120,13 @@ func (m *mux) Close() {
 	m.activeBackgroundWorkers.Wait()
 }
 
-// Controls lists the unique input.Controls for the combined sources.
-func (m *mux) Controls(ctx context.Context) ([]input.Control, error) {
+// GetControls lists the unique input.GetControls for the combined sources.
+func (m *mux) GetControls(ctx context.Context) ([]input.Control, error) {
 	controlMap := make(map[input.Control]bool)
 	var ok bool
 	var errs error
 	for _, c := range m.sources {
-		controls, err := c.Controls(ctx)
+		controls, err := c.GetControls(ctx)
 		if err != nil {
 			errs = multierr.Combine(errs, err)
 			continue

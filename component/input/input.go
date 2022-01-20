@@ -31,8 +31,8 @@ func Named(name string) resource.Name {
 // Controller is a logical "container" more than an actual device
 // Could be a single gamepad, or a collection of digitalInterrupts and analogReaders, a keyboard, etc.
 type Controller interface {
-	// Controls returns a list of Controls provided by the Controller
-	Controls(ctx context.Context) ([]Control, error)
+	// GetControls returns a list of GetControls provided by the Controller
+	GetControls(ctx context.Context) ([]Control, error)
 
 	// LastEvent returns most recent Event for each input (which should be the current state)
 	GetEvents(ctx context.Context) (map[Control]Event, error)
@@ -140,10 +140,10 @@ func (c *reconfigurableInputController) ProxyFor() interface{} {
 	return c.actual
 }
 
-func (c *reconfigurableInputController) Controls(ctx context.Context) ([]Control, error) {
+func (c *reconfigurableInputController) GetControls(ctx context.Context) ([]Control, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.Controls(ctx)
+	return c.actual.GetControls(ctx)
 }
 
 func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Control]Event, error) {

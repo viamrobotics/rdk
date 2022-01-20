@@ -85,8 +85,8 @@ func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Co
 	return &client{closeContext: ctx, serviceClient: sc, name: name}
 }
 
-func (c *client) Controls(ctx context.Context) ([]Control, error) {
-	resp, err := c.client.Controls(ctx, &pb.InputControllerServiceControlsRequest{
+func (c *client) GetControls(ctx context.Context) ([]Control, error) {
+	resp, err := c.client.GetControls(ctx, &pb.InputControllerServiceGetControlsRequest{
 		Controller: c.name,
 	})
 	if err != nil {

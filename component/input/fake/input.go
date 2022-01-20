@@ -58,8 +58,8 @@ type InputController struct {
 	controls []input.Control
 }
 
-// Controls lists the inputs of the gamepad.
-func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
+// GetControls lists the inputs of the gamepad.
+func (c *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.controls) == 0 {

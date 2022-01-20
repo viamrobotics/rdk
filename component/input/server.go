@@ -35,27 +35,26 @@ func (s *subtypeServer) getInputController(name string) (Controller, error) {
 	return input, nil
 }
 
-// Controls lists the inputs of an Controller.
-func (s *subtypeServer) Controls(
+// GetControls lists the inputs of an Controller.
+func (s *subtypeServer) GetControls(
 	ctx context.Context,
-	req *pb.InputControllerServiceControlsRequest,
-) (*pb.InputControllerServiceControlsResponse, error) {
+	req *pb.InputControllerServiceGetControlsRequest,
+) (*pb.InputControllerServiceGetControlsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	controlList, err := controller.Controls(ctx)
+	controlList, err := controller.GetControls(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceControlsResponse{}
+	resp := &pb.InputControllerServiceGetControlsResponse{}
 
 	for _, control := range controlList {
 		resp.Controls = append(resp.Controls, string(control))
 	}
-
 	return resp, nil
 }
 

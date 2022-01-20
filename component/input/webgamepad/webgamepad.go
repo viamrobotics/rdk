@@ -94,8 +94,8 @@ func (w *webGamepad) Close() {
 	w.activeBackgroundWorkers.Wait()
 }
 
-// Controls lists the inputs of the gamepad.
-func (w *webGamepad) Controls(ctx context.Context) ([]input.Control, error) {
+// GetControls lists the inputs of the gamepad.
+func (w *webGamepad) GetControls(ctx context.Context) ([]input.Control, error) {
 	out := append([]input.Control(nil), w.controls...)
 	return out, nil
 }
