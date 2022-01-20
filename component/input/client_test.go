@@ -30,7 +30,7 @@ func TestClient(t *testing.T) {
 	gServer1 := grpc.NewServer()
 
 	inputController1 := "inputController1"
-	injectInputController := &inject.InjectableInputController{}
+	injectInputController := &inject.TriggerableInputController{}
 	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
@@ -198,7 +198,7 @@ func TestClient(t *testing.T) {
 			Control: input.AbsoluteX,
 			Value:   0.7,
 		}
-		injectable, ok := inputController1Client.(input.Injectable)
+		injectable, ok := inputController1Client.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
 		err = injectable.TriggerEvent(context.Background(), event1)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -238,11 +238,11 @@ func TestClient(t *testing.T) {
 			Control: input.AbsoluteX,
 			Value:   0.7,
 		}
-		injectable, ok := inputController2Client.(input.Injectable)
+		injectable, ok := inputController2Client.(input.Triggerable)
 		test.That(t, ok, test.ShouldBeTrue)
 		err = injectable.TriggerEvent(context.Background(), event1)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Injectable")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Triggerable")
 
 		test.That(t, utils.TryClose(context.Background(), inputController2Client), test.ShouldBeNil)
 	})

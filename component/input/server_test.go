@@ -39,8 +39,8 @@ func (x *streamServer) Send(m *pb.InputControllerServiceStreamEventsResponse) er
 	return nil
 }
 
-func newServer() (pb.InputControllerServiceServer, *inject.InjectableInputController, *inject.InputController, error) {
-	injectInputController := &inject.InjectableInputController{}
+func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputController, *inject.InputController, error) {
+	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
 	inputControllers := map[resource.Name]interface{}{
 		input.Named("inputController1"): injectInputController,
@@ -282,6 +282,6 @@ func TestServer(t *testing.T) {
 			&pb.InputControllerServiceTriggerEventRequest{Controller: inputController2, Event: pbEvent},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Injectable")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Triggerable")
 	})
 }

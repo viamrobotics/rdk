@@ -96,9 +96,9 @@ func (s *subtypeServer) TriggerEvent(
 	if err != nil {
 		return nil, err
 	}
-	injectController, ok := controller.(Injectable)
+	injectController, ok := controller.(Triggerable)
 	if !ok {
-		return nil, errors.Errorf("input controller is not of type Injectable (%s)", req.Controller)
+		return nil, errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
 	}
 
 	err = injectController.TriggerEvent(ctx, Event{
