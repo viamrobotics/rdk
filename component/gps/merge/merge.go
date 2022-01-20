@@ -118,11 +118,15 @@ func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
 	return 0, 0, allErrors
 }
 
-// Horizontal and vertical position error.
-func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+// Horizontal and vertical position error in meters.
+func (m *mergeGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		a, b, err := g.Accuracy(ctx)
+		localG, ok := g.(gps.LocalGPS)
+		if !ok {
+			continue
+		}
+		a, b, err := localG.ReadAccuracy(ctx)
 		if err == nil {
 			return a, b, nil
 		}

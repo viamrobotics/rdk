@@ -129,12 +129,12 @@ func TestSatellites(t *testing.T) {
 	test.That(t, actualGPS1.satCalls, test.ShouldEqual, 1)
 }
 
-func TestAccuracy(t *testing.T) {
+func TestReadAccuracy(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.accCalls, test.ShouldEqual, 0)
-	hAcc1, vAcc1, err := reconfGPS1.(*reconfigurableGPS).Accuracy(context.Background())
+	hAcc1, vAcc1, err := reconfGPS1.(*reconfigurableGPS).ReadAccuracy(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, hAcc1, test.ShouldAlmostEqual, hAcc)
 	test.That(t, vAcc1, test.ShouldAlmostEqual, vAcc)
@@ -220,8 +220,8 @@ func (m *mock) Satellites(ctx context.Context) (int, int, error) {
 	return activeSats, totalSats, nil
 }
 
-// Accuracy returns the set values.
-func (m *mock) Accuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy returns the set values.
+func (m *mock) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	m.accCalls++
 	return hAcc, vAcc, nil
 }

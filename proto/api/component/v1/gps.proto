@@ -29,13 +29,6 @@ service GPSService {
       get: "/api/v1/component/gps/{name}/speed"
     };
   }
-
-  // Accuracy returns the most recent location accuracy from the given GPS.
-  rpc Accuracy(GPSServiceAccuracyRequest) returns (GPSServiceAccuracyResponse) {
-      option (google.api.http) = {
-      get: "/api/v1/component/gps/{name}/accuracy"
-    };
-  }
 }
 
 message GPSServiceLocationRequest {
@@ -60,13 +53,4 @@ message GPSServiceSpeedRequest {
 
 message GPSServiceSpeedResponse {
   double speed_kph = 1;
-}
-
-message GPSServiceAccuracyRequest {
-  string name = 1;
-}
-
-message GPSServiceAccuracyResponse {
-  double horizontal_accuracy = 1;
-  double vertical_accuracy = 2;
 }

@@ -51,12 +51,12 @@ func TestServer(t *testing.T) {
 	injectGPS.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
-	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
+	injectGPS.ReadAccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
 
 	injectGPS2.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
-	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
+	injectGPS2.ReadAccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
 
 	t.Run("Location", func(t *testing.T) {
 		resp, err := gpsServer.Location(context.Background(), &pb.GPSServiceLocationRequest{Name: testGPSName})
@@ -110,25 +110,6 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a GPS")
 
 		_, err = gpsServer.Speed(context.Background(), &pb.GPSServiceSpeedRequest{Name: missingGPSName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no GPS")
-	})
-
-	t.Run("Accuracy", func(t *testing.T) {
-		resp, err := gpsServer.Accuracy(context.Background(), &pb.GPSServiceAccuracyRequest{Name: testGPSName})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.HorizontalAccuracy, test.ShouldResemble, hAcc)
-		test.That(t, resp.VerticalAccuracy, test.ShouldResemble, vAcc)
-
-		_, err = gpsServer.Accuracy(context.Background(), &pb.GPSServiceAccuracyRequest{Name: failGPSName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get accuracy")
-
-		_, err = gpsServer.Accuracy(context.Background(), &pb.GPSServiceAccuracyRequest{Name: fakeGPSName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "not a GPS")
-
-		_, err = gpsServer.Accuracy(context.Background(), &pb.GPSServiceAccuracyRequest{Name: missingGPSName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no GPS")
 	})

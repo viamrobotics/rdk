@@ -79,19 +79,3 @@ func (s *subtypeServer) Speed(ctx context.Context, req *pb.GPSServiceSpeedReques
 		SpeedKph: speed,
 	}, nil
 }
-
-// Accuracy returns the most recent location from the given GPS.
-func (s *subtypeServer) Accuracy(ctx context.Context, req *pb.GPSServiceAccuracyRequest) (*pb.GPSServiceAccuracyResponse, error) {
-	gpsDevice, err := s.getGPS(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	horz, vert, err := gpsDevice.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSServiceAccuracyResponse{
-		HorizontalAccuracy: horz,
-		VerticalAccuracy:   vert,
-	}, nil
-}

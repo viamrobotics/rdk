@@ -222,7 +222,7 @@ func (g *serialNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *serialNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+func (g *serialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil

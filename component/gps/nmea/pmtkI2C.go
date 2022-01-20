@@ -171,7 +171,7 @@ func (g *pmtkI2CNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+func (g *pmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil

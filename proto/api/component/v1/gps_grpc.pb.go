@@ -24,8 +24,6 @@ type GPSServiceClient interface {
 	Altitude(ctx context.Context, in *GPSServiceAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
 	Speed(ctx context.Context, in *GPSServiceSpeedRequest, opts ...grpc.CallOption) (*GPSServiceSpeedResponse, error)
-	// Accuracy returns the most recent location accuracy from the given GPS.
-	Accuracy(ctx context.Context, in *GPSServiceAccuracyRequest, opts ...grpc.CallOption) (*GPSServiceAccuracyResponse, error)
 }
 
 type gPSServiceClient struct {
@@ -63,15 +61,6 @@ func (c *gPSServiceClient) Speed(ctx context.Context, in *GPSServiceSpeedRequest
 	return out, nil
 }
 
-func (c *gPSServiceClient) Accuracy(ctx context.Context, in *GPSServiceAccuracyRequest, opts ...grpc.CallOption) (*GPSServiceAccuracyResponse, error) {
-	out := new(GPSServiceAccuracyResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/Accuracy", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // GPSServiceServer is the server API for GPSService service.
 // All implementations must embed UnimplementedGPSServiceServer
 // for forward compatibility
@@ -82,8 +71,6 @@ type GPSServiceServer interface {
 	Altitude(context.Context, *GPSServiceAltitudeRequest) (*GPSServiceAltitudeResponse, error)
 	// Speed returns the most recent speed from the given GPS.
 	Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error)
-	// Accuracy returns the most recent location accuracy from the given GPS.
-	Accuracy(context.Context, *GPSServiceAccuracyRequest) (*GPSServiceAccuracyResponse, error)
 	mustEmbedUnimplementedGPSServiceServer()
 }
 
@@ -99,9 +86,6 @@ func (UnimplementedGPSServiceServer) Altitude(context.Context, *GPSServiceAltitu
 }
 func (UnimplementedGPSServiceServer) Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Speed not implemented")
-}
-func (UnimplementedGPSServiceServer) Accuracy(context.Context, *GPSServiceAccuracyRequest) (*GPSServiceAccuracyResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Accuracy not implemented")
 }
 func (UnimplementedGPSServiceServer) mustEmbedUnimplementedGPSServiceServer() {}
 
@@ -170,24 +154,6 @@ func _GPSService_Speed_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GPSService_Accuracy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSServiceAccuracyRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(GPSServiceServer).Accuracy(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.GPSService/Accuracy",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GPSServiceServer).Accuracy(ctx, req.(*GPSServiceAccuracyRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // GPSService_ServiceDesc is the grpc.ServiceDesc for GPSService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -206,10 +172,6 @@ var GPSService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Speed",
 			Handler:    _GPSService_Speed_Handler,
-		},
-		{
-			MethodName: "Accuracy",
-			Handler:    _GPSService_Accuracy_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

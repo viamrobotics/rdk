@@ -101,16 +101,6 @@ func (c *client) Speed(ctx context.Context) (float64, error) {
 	return resp.SpeedKph, nil
 }
 
-func (c *client) Accuracy(ctx context.Context) (float64, float64, error) {
-	resp, err := c.client.Accuracy(ctx, &pb.GPSServiceAccuracyRequest{
-		Name: c.name,
-	})
-	if err != nil {
-		return math.NaN(), math.NaN(), err
-	}
-	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
-}
-
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	loc, err := c.Location(ctx)
 	if err != nil {
@@ -124,11 +114,7 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	horzAcc, vertAcc, err := c.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
+	return []interface{}{loc.Lat(), loc.Lng(), alt, speed}, nil
 }
 
 // Close cleanly closes the underlying connections.

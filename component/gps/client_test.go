@@ -31,23 +31,19 @@ func TestClient(t *testing.T) {
 	loc := geo.NewPoint(90, 1)
 	alt := 50.5
 	speed := 5.4
-	hAcc := 0.7
-	vAcc := 0.8
-	rs := []interface{}{loc.Lat(), loc.Lng(), alt, speed, hAcc, vAcc}
+	rs := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
 
 	gps1 := "gps1"
 	injectGPS := &inject.GPS{}
 	injectGPS.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
-	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
 
 	gps2 := "gps2"
 	injectGPS2 := &inject.GPS{}
 	injectGPS2.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
-	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
 
 	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(gps1): injectGPS, gps.Named(gps2): injectGPS2}))
 	test.That(t, err, test.ShouldBeNil)
@@ -82,11 +78,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, speed1, test.ShouldAlmostEqual, speed)
 
-		hAcc1, vAcc1, err := gps1Client.Accuracy(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, hAcc1, test.ShouldAlmostEqual, hAcc)
-		test.That(t, vAcc1, test.ShouldAlmostEqual, vAcc)
-
 		rs1, err := gps1Client.Readings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
@@ -110,10 +101,6 @@ func TestClient(t *testing.T) {
 		_, err = gps2Client.Speed(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
-
-		_, _, err = gps2Client.Accuracy(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get accuracy")
 
 		_, err = gps2Client.Readings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
