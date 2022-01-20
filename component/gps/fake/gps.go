@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -108,11 +107,6 @@ func (g *GPS) Valid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil
-}
-
-// Desc returns that this is a GPS.
-func (g *GPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }
 
 // RunCommand runs an arbitrary command.

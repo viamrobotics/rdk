@@ -77,12 +77,6 @@ func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error)
 	return r.actual.Readings(ctx)
 }
 
-func (r *reconfigurableIMU) Desc() sensor.Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
-}
-
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
