@@ -20,7 +20,7 @@ import (
 type streamServer struct {
 	grpc.ServerStream
 	ctx       context.Context
-	messageCh chan<- *pb.InputControllerServiceEventStreamResponse
+	messageCh chan<- *pb.InputControllerServiceStreamEventsResponse
 	fail      bool
 }
 
@@ -28,7 +28,7 @@ func (x *streamServer) Context() context.Context {
 	return x.ctx
 }
 
-func (x *streamServer) Send(m *pb.InputControllerServiceEventStreamResponse) error {
+func (x *streamServer) Send(m *pb.InputControllerServiceStreamEventsResponse) error {
 	if x.fail {
 		return errors.New("send fail")
 	}
@@ -150,23 +150,23 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 	})
 
-	t.Run("EventStream", func(t *testing.T) {
+	t.Run("StreamEvents", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		messageCh := make(chan *pb.InputControllerServiceEventStreamResponse, 1024)
+		messageCh := make(chan *pb.InputControllerServiceStreamEventsResponse, 1024)
 		s := &streamServer{
 			ctx:       cancelCtx,
 			messageCh: messageCh,
 		}
 
 		startTime := time.Now()
-		err := inputControllerServer.EventStream(&pb.InputControllerServiceEventStreamRequest{Controller: "i4"}, s)
+		err := inputControllerServer.StreamEvents(&pb.InputControllerServiceStreamEventsRequest{Controller: "i4"}, s)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		eventReqList := &pb.InputControllerServiceEventStreamRequest{
+		eventReqList := &pb.InputControllerServiceStreamEventsRequest{
 			Controller: inputController1,
-			Events: []*pb.InputControllerServiceEventStreamRequest_Events{
+			Events: []*pb.InputControllerServiceStreamEventsRequest_Events{
 				{
 					Control: string(input.ButtonStart),
 					Events: []string{
@@ -176,7 +176,7 @@ func TestServer(t *testing.T) {
 			},
 		}
 		relayFunc := func(ctx context.Context, event input.Event) {
-			messageCh <- &pb.InputControllerServiceEventStreamResponse{
+			messageCh <- &pb.InputControllerServiceStreamEventsResponse{
 				Event: &pb.InputControllerServiceEvent{
 					Time:    timestamppb.New(event.Time),
 					Event:   string(event.Event),
@@ -191,7 +191,7 @@ func TestServer(t *testing.T) {
 
 		s.fail = true
 
-		err = inputControllerServer.EventStream(eventReqList, s)
+		err = inputControllerServer.StreamEvents(eventReqList, s)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
 
@@ -200,7 +200,7 @@ func TestServer(t *testing.T) {
 		s.fail = false
 
 		go func() {
-			streamErr = inputControllerServer.EventStream(eventReqList, s)
+			streamErr = inputControllerServer.StreamEvents(eventReqList, s)
 			close(done)
 		}()
 
@@ -217,7 +217,7 @@ func TestServer(t *testing.T) {
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
 		eventReqList.Controller = inputController2
-		err = inputControllerServer.EventStream(eventReqList, s)
+		err = inputControllerServer.StreamEvents(eventReqList, s)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't register callbacks")
 	})

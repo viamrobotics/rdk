@@ -23,8 +23,8 @@ service InputControllerService {
     };
   }
 
-  // EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
-  rpc EventStream(InputControllerServiceEventStreamRequest) returns (stream InputControllerServiceEventStreamResponse) {
+  // StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
+  rpc StreamEvents(InputControllerServiceStreamEventsRequest) returns (stream InputControllerServiceStreamEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/event_stream"
     };
@@ -82,7 +82,7 @@ message InputControllerServiceEvent {
   double value = 4;
 }
 
-message InputControllerServiceEventStreamRequest {
+message InputControllerServiceStreamEventsRequest {
   message Events {
     // Name of a control (button or axis)
     string control = 1;
@@ -99,7 +99,7 @@ message InputControllerServiceEventStreamRequest {
   repeated Events events = 2;
 }
 
-message InputControllerServiceEventStreamResponse {
+message InputControllerServiceStreamEventsResponse {
   // Event for a controller
   InputControllerServiceEvent event = 1;
 }

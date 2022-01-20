@@ -22,8 +22,8 @@ type InputControllerServiceClient interface {
 	Controls(ctx context.Context, in *InputControllerServiceControlsRequest, opts ...grpc.CallOption) (*InputControllerServiceControlsResponse, error)
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
 	GetEvents(ctx context.Context, in *InputControllerServiceGetEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceGetEventsResponse, error)
-	// EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (InputControllerService_EventStreamClient, error)
+	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
+	StreamEvents(ctx context.Context, in *InputControllerServiceStreamEventsRequest, opts ...grpc.CallOption) (InputControllerService_StreamEventsClient, error)
 	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
 	// like button presses or axis movements
 	InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error)
@@ -55,12 +55,12 @@ func (c *inputControllerServiceClient) GetEvents(ctx context.Context, in *InputC
 	return out, nil
 }
 
-func (c *inputControllerServiceClient) EventStream(ctx context.Context, in *InputControllerServiceEventStreamRequest, opts ...grpc.CallOption) (InputControllerService_EventStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &InputControllerService_ServiceDesc.Streams[0], "/proto.api.component.v1.InputControllerService/EventStream", opts...)
+func (c *inputControllerServiceClient) StreamEvents(ctx context.Context, in *InputControllerServiceStreamEventsRequest, opts ...grpc.CallOption) (InputControllerService_StreamEventsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &InputControllerService_ServiceDesc.Streams[0], "/proto.api.component.v1.InputControllerService/StreamEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &inputControllerServiceEventStreamClient{stream}
+	x := &inputControllerServiceStreamEventsClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -70,17 +70,17 @@ func (c *inputControllerServiceClient) EventStream(ctx context.Context, in *Inpu
 	return x, nil
 }
 
-type InputControllerService_EventStreamClient interface {
-	Recv() (*InputControllerServiceEventStreamResponse, error)
+type InputControllerService_StreamEventsClient interface {
+	Recv() (*InputControllerServiceStreamEventsResponse, error)
 	grpc.ClientStream
 }
 
-type inputControllerServiceEventStreamClient struct {
+type inputControllerServiceStreamEventsClient struct {
 	grpc.ClientStream
 }
 
-func (x *inputControllerServiceEventStreamClient) Recv() (*InputControllerServiceEventStreamResponse, error) {
-	m := new(InputControllerServiceEventStreamResponse)
+func (x *inputControllerServiceStreamEventsClient) Recv() (*InputControllerServiceStreamEventsResponse, error) {
+	m := new(InputControllerServiceStreamEventsResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -104,8 +104,8 @@ type InputControllerServiceServer interface {
 	Controls(context.Context, *InputControllerServiceControlsRequest) (*InputControllerServiceControlsResponse, error)
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
 	GetEvents(context.Context, *InputControllerServiceGetEventsRequest) (*InputControllerServiceGetEventsResponse, error)
-	// EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
-	EventStream(*InputControllerServiceEventStreamRequest, InputControllerService_EventStreamServer) error
+	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
+	StreamEvents(*InputControllerServiceStreamEventsRequest, InputControllerService_StreamEventsServer) error
 	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
 	// like button presses or axis movements
 	InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error)
@@ -122,8 +122,8 @@ func (UnimplementedInputControllerServiceServer) Controls(context.Context, *Inpu
 func (UnimplementedInputControllerServiceServer) GetEvents(context.Context, *InputControllerServiceGetEventsRequest) (*InputControllerServiceGetEventsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
 }
-func (UnimplementedInputControllerServiceServer) EventStream(*InputControllerServiceEventStreamRequest, InputControllerService_EventStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method EventStream not implemented")
+func (UnimplementedInputControllerServiceServer) StreamEvents(*InputControllerServiceStreamEventsRequest, InputControllerService_StreamEventsServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamEvents not implemented")
 }
 func (UnimplementedInputControllerServiceServer) InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InjectEvent not implemented")
@@ -178,24 +178,24 @@ func _InputControllerService_GetEvents_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _InputControllerService_EventStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(InputControllerServiceEventStreamRequest)
+func _InputControllerService_StreamEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(InputControllerServiceStreamEventsRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(InputControllerServiceServer).EventStream(m, &inputControllerServiceEventStreamServer{stream})
+	return srv.(InputControllerServiceServer).StreamEvents(m, &inputControllerServiceStreamEventsServer{stream})
 }
 
-type InputControllerService_EventStreamServer interface {
-	Send(*InputControllerServiceEventStreamResponse) error
+type InputControllerService_StreamEventsServer interface {
+	Send(*InputControllerServiceStreamEventsResponse) error
 	grpc.ServerStream
 }
 
-type inputControllerServiceEventStreamServer struct {
+type inputControllerServiceStreamEventsServer struct {
 	grpc.ServerStream
 }
 
-func (x *inputControllerServiceEventStreamServer) Send(m *InputControllerServiceEventStreamResponse) error {
+func (x *inputControllerServiceStreamEventsServer) Send(m *InputControllerServiceStreamEventsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -239,8 +239,8 @@ var InputControllerService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "EventStream",
-			Handler:       _InputControllerService_EventStream_Handler,
+			StreamName:    "StreamEvents",
+			Handler:       _InputControllerService_StreamEvents_Handler,
 			ServerStreams: true,
 		},
 	},

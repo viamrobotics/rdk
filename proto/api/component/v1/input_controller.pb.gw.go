@@ -136,11 +136,11 @@ func local_request_InputControllerService_GetEvents_0(ctx context.Context, marsh
 }
 
 var (
-	filter_InputControllerService_EventStream_0 = &utilities.DoubleArray{Encoding: map[string]int{"controller": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_InputControllerService_StreamEvents_0 = &utilities.DoubleArray{Encoding: map[string]int{"controller": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_InputControllerService_EventStream_0(ctx context.Context, marshaler runtime.Marshaler, client InputControllerServiceClient, req *http.Request, pathParams map[string]string) (InputControllerService_EventStreamClient, runtime.ServerMetadata, error) {
-	var protoReq InputControllerServiceEventStreamRequest
+func request_InputControllerService_StreamEvents_0(ctx context.Context, marshaler runtime.Marshaler, client InputControllerServiceClient, req *http.Request, pathParams map[string]string) (InputControllerService_StreamEventsClient, runtime.ServerMetadata, error) {
+	var protoReq InputControllerServiceStreamEventsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -163,11 +163,11 @@ func request_InputControllerService_EventStream_0(ctx context.Context, marshaler
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_InputControllerService_EventStream_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_InputControllerService_StreamEvents_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	stream, err := client.EventStream(ctx, &protoReq)
+	stream, err := client.StreamEvents(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
 	}
@@ -302,7 +302,7 @@ func RegisterInputControllerServiceHandlerServer(ctx context.Context, mux *runti
 
 	})
 
-	mux.Handle("GET", pattern_InputControllerService_EventStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_InputControllerService_StreamEvents_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		err := status.Error(codes.Unimplemented, "streaming calls are not yet supported in the in-process transport")
 		_, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
@@ -413,23 +413,23 @@ func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runti
 
 	})
 
-	mux.Handle("GET", pattern_InputControllerService_EventStream_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_InputControllerService_StreamEvents_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/EventStream", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/event_stream"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/StreamEvents", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/event_stream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_InputControllerService_EventStream_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_InputControllerService_StreamEvents_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_InputControllerService_EventStream_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_InputControllerService_StreamEvents_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -461,7 +461,7 @@ var (
 
 	pattern_InputControllerService_GetEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "last_events"}, ""))
 
-	pattern_InputControllerService_EventStream_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "event_stream"}, ""))
+	pattern_InputControllerService_StreamEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "event_stream"}, ""))
 
 	pattern_InputControllerService_InjectEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "inject_event"}, ""))
 )
@@ -471,7 +471,7 @@ var (
 
 	forward_InputControllerService_GetEvents_0 = runtime.ForwardResponseMessage
 
-	forward_InputControllerService_EventStream_0 = runtime.ForwardResponseStream
+	forward_InputControllerService_StreamEvents_0 = runtime.ForwardResponseStream
 
 	forward_InputControllerService_InjectEvent_0 = runtime.ForwardResponseMessage
 )
