@@ -87,7 +87,7 @@ func (c *InputController) RegisterControlCallback(
 	return errors.New("unsupported")
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *InputController) InjectEvent(ctx context.Context, event input.Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *InputController) TriggerEvent(ctx context.Context, event input.Event) error {
 	return errors.New("unsupported")
 }

@@ -231,12 +231,12 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't register callbacks")
 	})
 
-	t.Run("InjectEvent", func(t *testing.T) {
-		_, err := inputControllerServer.InjectEvent(context.Background(), &pb.InputControllerServiceInjectEventRequest{Controller: "i4"})
+	t.Run("TriggerEvent", func(t *testing.T) {
+		_, err := inputControllerServer.TriggerEvent(context.Background(), &pb.InputControllerServiceTriggerEventRequest{Controller: "i4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
-		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
 			return errors.New("can't inject event")
 		}
 
@@ -252,9 +252,9 @@ func TestServer(t *testing.T) {
 			Control: string(event1.Control),
 			Value:   event1.Value,
 		}
-		_, err = inputControllerServer.InjectEvent(
+		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.InputControllerServiceInjectEventRequest{
+			&pb.InputControllerServiceTriggerEventRequest{
 				Controller: inputController1,
 				Event:      pbEvent,
 			},
@@ -264,22 +264,22 @@ func TestServer(t *testing.T) {
 
 		var injectedEvent input.Event
 
-		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
 			injectedEvent = event
 			return nil
 		}
 
-		_, err = inputControllerServer.InjectEvent(
+		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.InputControllerServiceInjectEventRequest{Controller: inputController1, Event: pbEvent},
+			&pb.InputControllerServiceTriggerEventRequest{Controller: inputController1, Event: pbEvent},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
-		injectInputController.InjectEventFunc = nil
+		injectInputController.TriggerEventFunc = nil
 
-		_, err = inputControllerServer.InjectEvent(
+		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.InputControllerServiceInjectEventRequest{Controller: inputController2, Event: pbEvent},
+			&pb.InputControllerServiceTriggerEventRequest{Controller: inputController2, Event: pbEvent},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Injectable")

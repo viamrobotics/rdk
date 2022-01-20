@@ -135,8 +135,8 @@ func (w *webGamepad) RegisterControlCallback(
 	return nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (w *webGamepad) InjectEvent(ctx context.Context, event input.Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (w *webGamepad) TriggerEvent(ctx context.Context, event input.Event) error {
 	w.makeCallbacks(event)
 	return nil
 }

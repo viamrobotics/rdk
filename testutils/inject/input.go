@@ -53,13 +53,13 @@ type InjectableInputController struct {
 	InputController
 	input.Injectable
 
-	InjectEventFunc func(ctx context.Context, event input.Event) error
+	TriggerEventFunc func(ctx context.Context, event input.Event) error
 }
 
-// InjectEvent calls the injected function or the real version.
-func (s *InjectableInputController) InjectEvent(ctx context.Context, event input.Event) error {
-	if s.InjectEventFunc == nil {
-		return s.InjectEvent(ctx, event)
+// TriggerEvent calls the injected function or the real version.
+func (s *InjectableInputController) TriggerEvent(ctx context.Context, event input.Event) error {
+	if s.TriggerEventFunc == nil {
+		return s.TriggerEvent(ctx, event)
 	}
-	return s.InjectEventFunc(ctx, event)
+	return s.TriggerEventFunc(ctx, event)
 }

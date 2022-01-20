@@ -189,7 +189,7 @@ func TestClient(t *testing.T) {
 		test.That(t, btnEv.Time.After(startTime), test.ShouldBeTrue)
 		test.That(t, btnEv.Time.Before(time.Now()), test.ShouldBeTrue)
 
-		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
 			return errors.New("can't inject event")
 		}
 		event1 := input.Event{
@@ -200,20 +200,20 @@ func TestClient(t *testing.T) {
 		}
 		injectable, ok := inputController1Client.(input.Injectable)
 		test.That(t, ok, test.ShouldBeTrue)
-		err = injectable.InjectEvent(context.Background(), event1)
+		err = injectable.TriggerEvent(context.Background(), event1)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't inject event")
 
 		var injectedEvent input.Event
 
-		injectInputController.InjectEventFunc = func(ctx context.Context, event input.Event) error {
+		injectInputController.TriggerEventFunc = func(ctx context.Context, event input.Event) error {
 			injectedEvent = event
 			return nil
 		}
-		err = injectable.InjectEvent(context.Background(), event1)
+		err = injectable.TriggerEvent(context.Background(), event1)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
-		injectInputController.InjectEventFunc = nil
+		injectInputController.TriggerEventFunc = nil
 
 		test.That(t, utils.TryClose(context.Background(), inputController1Client), test.ShouldBeNil)
 	})
@@ -240,7 +240,7 @@ func TestClient(t *testing.T) {
 		}
 		injectable, ok := inputController2Client.(input.Injectable)
 		test.That(t, ok, test.ShouldBeTrue)
-		err = injectable.InjectEvent(context.Background(), event1)
+		err = injectable.TriggerEvent(context.Background(), event1)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not of type Injectable")
 

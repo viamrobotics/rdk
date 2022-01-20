@@ -30,9 +30,9 @@ service InputControllerService {
     };
   }
 
-  // InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+  // TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
   // like button presses or axis movements  
-  rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
+  rpc TriggerEvent(InputControllerServiceTriggerEventRequest) returns (InputControllerServiceTriggerEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/input/{controller}/inject_event"
     };
@@ -61,14 +61,14 @@ message InputControllerServiceGetEventsResponse {
   repeated InputControllerServiceEvent events = 1;
 }
 
-message InputControllerServiceInjectEventRequest {
+message InputControllerServiceTriggerEventRequest {
   // Name of an input controller 
   string controller = 1;
   // Digitally assert a given event 
   InputControllerServiceEvent event = 2;
 }
 
-message InputControllerServiceInjectEventResponse {
+message InputControllerServiceTriggerEventResponse {
 }
 
 message InputControllerServiceEvent {

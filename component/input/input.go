@@ -108,8 +108,8 @@ type Event struct {
 
 // Injectable is used by the WebGamepad interface to inject events.
 type Injectable interface {
-	// InjectEvent allows directly sending an Event (such as a button press) from external code
-	InjectEvent(ctx context.Context, event Event) error
+	// TriggerEvent allows directly sending an Event (such as a button press) from external code
+	TriggerEvent(ctx context.Context, event Event) error
 }
 
 // WrapWithReconfigurable wraps a Controller with a reconfigurable and locking interface.
@@ -152,15 +152,15 @@ func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Cont
 	return c.actual.GetEvents(ctx)
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *reconfigurableInputController) InjectEvent(ctx context.Context, event Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *reconfigurableInputController) TriggerEvent(ctx context.Context, event Event) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	iActual, ok := c.actual.(Injectable)
 	if !ok {
 		return errors.New("controller is not Injectable")
 	}
-	return iActual.InjectEvent(ctx, event)
+	return iActual.TriggerEvent(ctx, event)
 }
 
 func (c *reconfigurableInputController) RegisterControlCallback(

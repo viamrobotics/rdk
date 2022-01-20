@@ -24,9 +24,9 @@ type InputControllerServiceClient interface {
 	GetEvents(ctx context.Context, in *InputControllerServiceGetEventsRequest, opts ...grpc.CallOption) (*InputControllerServiceGetEventsResponse, error)
 	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	StreamEvents(ctx context.Context, in *InputControllerServiceStreamEventsRequest, opts ...grpc.CallOption) (InputControllerService_StreamEventsClient, error)
-	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
+	// TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
 	// like button presses or axis movements
-	InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error)
+	TriggerEvent(ctx context.Context, in *InputControllerServiceTriggerEventRequest, opts ...grpc.CallOption) (*InputControllerServiceTriggerEventResponse, error)
 }
 
 type inputControllerServiceClient struct {
@@ -87,9 +87,9 @@ func (x *inputControllerServiceStreamEventsClient) Recv() (*InputControllerServi
 	return m, nil
 }
 
-func (c *inputControllerServiceClient) InjectEvent(ctx context.Context, in *InputControllerServiceInjectEventRequest, opts ...grpc.CallOption) (*InputControllerServiceInjectEventResponse, error) {
-	out := new(InputControllerServiceInjectEventResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.InputControllerService/InjectEvent", in, out, opts...)
+func (c *inputControllerServiceClient) TriggerEvent(ctx context.Context, in *InputControllerServiceTriggerEventRequest, opts ...grpc.CallOption) (*InputControllerServiceTriggerEventResponse, error) {
+	out := new(InputControllerServiceTriggerEventResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.InputControllerService/TriggerEvent", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,9 +106,9 @@ type InputControllerServiceServer interface {
 	GetEvents(context.Context, *InputControllerServiceGetEventsRequest) (*InputControllerServiceGetEventsResponse, error)
 	// StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller
 	StreamEvents(*InputControllerServiceStreamEventsRequest, InputControllerService_StreamEventsServer) error
-	// InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
+	// TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events
 	// like button presses or axis movements
-	InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error)
+	TriggerEvent(context.Context, *InputControllerServiceTriggerEventRequest) (*InputControllerServiceTriggerEventResponse, error)
 	mustEmbedUnimplementedInputControllerServiceServer()
 }
 
@@ -125,8 +125,8 @@ func (UnimplementedInputControllerServiceServer) GetEvents(context.Context, *Inp
 func (UnimplementedInputControllerServiceServer) StreamEvents(*InputControllerServiceStreamEventsRequest, InputControllerService_StreamEventsServer) error {
 	return status.Errorf(codes.Unimplemented, "method StreamEvents not implemented")
 }
-func (UnimplementedInputControllerServiceServer) InjectEvent(context.Context, *InputControllerServiceInjectEventRequest) (*InputControllerServiceInjectEventResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method InjectEvent not implemented")
+func (UnimplementedInputControllerServiceServer) TriggerEvent(context.Context, *InputControllerServiceTriggerEventRequest) (*InputControllerServiceTriggerEventResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TriggerEvent not implemented")
 }
 func (UnimplementedInputControllerServiceServer) mustEmbedUnimplementedInputControllerServiceServer() {
 }
@@ -199,20 +199,20 @@ func (x *inputControllerServiceStreamEventsServer) Send(m *InputControllerServic
 	return x.ServerStream.SendMsg(m)
 }
 
-func _InputControllerService_InjectEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InputControllerServiceInjectEventRequest)
+func _InputControllerService_TriggerEvent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InputControllerServiceTriggerEventRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(InputControllerServiceServer).InjectEvent(ctx, in)
+		return srv.(InputControllerServiceServer).TriggerEvent(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.InputControllerService/InjectEvent",
+		FullMethod: "/proto.api.component.v1.InputControllerService/TriggerEvent",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(InputControllerServiceServer).InjectEvent(ctx, req.(*InputControllerServiceInjectEventRequest))
+		return srv.(InputControllerServiceServer).TriggerEvent(ctx, req.(*InputControllerServiceTriggerEventRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -233,8 +233,8 @@ var InputControllerService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _InputControllerService_GetEvents_Handler,
 		},
 		{
-			MethodName: "InjectEvent",
-			Handler:    _InputControllerService_InjectEvent_Handler,
+			MethodName: "TriggerEvent",
+			Handler:    _InputControllerService_TriggerEvent_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
