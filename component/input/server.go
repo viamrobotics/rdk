@@ -35,46 +35,45 @@ func (s *subtypeServer) getInputController(name string) (Controller, error) {
 	return input, nil
 }
 
-// Controls lists the inputs of an Controller.
-func (s *subtypeServer) Controls(
+// GetControls lists the inputs of an Controller.
+func (s *subtypeServer) GetControls(
 	ctx context.Context,
-	req *pb.InputControllerServiceControlsRequest,
-) (*pb.InputControllerServiceControlsResponse, error) {
+	req *pb.InputControllerServiceGetControlsRequest,
+) (*pb.InputControllerServiceGetControlsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	controlList, err := controller.Controls(ctx)
+	controlList, err := controller.GetControls(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceControlsResponse{}
+	resp := &pb.InputControllerServiceGetControlsResponse{}
 
 	for _, control := range controlList {
 		resp.Controls = append(resp.Controls, string(control))
 	}
-
 	return resp, nil
 }
 
-// LastEvents returns the last Event (current state) of each control.
-func (s *subtypeServer) LastEvents(
+// GetEvents returns the last Event (current state) of each control.
+func (s *subtypeServer) GetEvents(
 	ctx context.Context,
-	req *pb.InputControllerServiceLastEventsRequest,
-) (*pb.InputControllerServiceLastEventsResponse, error) {
+	req *pb.InputControllerServiceGetEventsRequest,
+) (*pb.InputControllerServiceGetEventsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
 
-	eventsIn, err := controller.LastEvents(ctx)
+	eventsIn, err := controller.GetEvents(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceLastEventsResponse{}
+	resp := &pb.InputControllerServiceGetEventsResponse{}
 
 	for _, eventIn := range eventsIn {
 		resp.Events = append(resp.Events, &pb.InputControllerServiceEvent{
@@ -88,21 +87,21 @@ func (s *subtypeServer) LastEvents(
 	return resp, nil
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (s *subtypeServer) InjectEvent(
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (s *subtypeServer) TriggerEvent(
 	ctx context.Context,
-	req *pb.InputControllerServiceInjectEventRequest,
-) (*pb.InputControllerServiceInjectEventResponse, error) {
+	req *pb.InputControllerServiceTriggerEventRequest,
+) (*pb.InputControllerServiceTriggerEventResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
 	}
-	injectController, ok := controller.(Injectable)
+	injectController, ok := controller.(Triggerable)
 	if !ok {
-		return nil, errors.Errorf("input controller is not of type Injectable (%s)", req.Controller)
+		return nil, errors.Errorf("input controller is not of type Triggerable (%s)", req.Controller)
 	}
 
-	err = injectController.InjectEvent(ctx, Event{
+	err = injectController.TriggerEvent(ctx, Event{
 		Time:    req.Event.Time.AsTime(),
 		Event:   EventType(req.Event.Event),
 		Control: Control(req.Event.Control),
@@ -112,13 +111,13 @@ func (s *subtypeServer) InjectEvent(
 		return nil, err
 	}
 
-	return &pb.InputControllerServiceInjectEventResponse{}, nil
+	return &pb.InputControllerServiceTriggerEventResponse{}, nil
 }
 
-// EventStream returns a stream of Event.
-func (s *subtypeServer) EventStream(
-	req *pb.InputControllerServiceEventStreamRequest,
-	server pb.InputControllerService_EventStreamServer,
+// StreamEvents returns a stream of Event.
+func (s *subtypeServer) StreamEvents(
+	req *pb.InputControllerServiceStreamEventsRequest,
+	server pb.InputControllerService_StreamEventsServer,
 ) error {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
@@ -168,7 +167,7 @@ func (s *subtypeServer) EventStream(
 		case <-server.Context().Done():
 			return server.Context().Err()
 		case msg := <-eventsChan:
-			err := server.Send(&pb.InputControllerServiceEventStreamResponse{Event: msg})
+			err := server.Send(&pb.InputControllerServiceStreamEventsResponse{Event: msg})
 			if err != nil {
 				return err
 			}
