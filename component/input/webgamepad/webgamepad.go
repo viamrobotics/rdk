@@ -100,8 +100,8 @@ func (w *webGamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	return out, nil
 }
 
-// LastEvents returns the last input.Event (the current state).
-func (w *webGamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// GetEvents returns the last input.Event (the current state).
+func (w *webGamepad) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	out := make(map[input.Control]input.Event)

@@ -352,8 +352,8 @@ func (g *gamepad) Controls(ctx context.Context) ([]input.Control, error) {
 	return out, nil
 }
 
-// LastEvents returns the last input.Event (the current state).
-func (g *gamepad) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// GetEvents returns the last input.Event (the current state).
+func (g *gamepad) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	out := make(map[input.Control]input.Event)

@@ -62,7 +62,7 @@ func TestServer(t *testing.T) {
 	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
@@ -83,7 +83,7 @@ func TestServer(t *testing.T) {
 	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
-	injectInputController2.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
 	injectInputController2.RegisterControlCallbackFunc = func(
@@ -113,15 +113,15 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 	})
 
-	t.Run("LastEvents", func(t *testing.T) {
-		_, err := inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: "i4"})
+	t.Run("GetEvents", func(t *testing.T) {
+		_, err := inputControllerServer.GetEvents(context.Background(), &pb.InputControllerServiceGetEventsRequest{Controller: "i4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		startTime := time.Now()
-		resp, err := inputControllerServer.LastEvents(
+		resp, err := inputControllerServer.GetEvents(
 			context.Background(),
-			&pb.InputControllerServiceLastEventsRequest{Controller: inputController1},
+			&pb.InputControllerServiceGetEventsRequest{Controller: inputController1},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		var absEv, buttonEv *pb.InputControllerServiceEvent
@@ -145,7 +145,7 @@ func TestServer(t *testing.T) {
 		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
 
-		_, err = inputControllerServer.LastEvents(context.Background(), &pb.InputControllerServiceLastEventsRequest{Controller: inputController2})
+		_, err = inputControllerServer.GetEvents(context.Background(), &pb.InputControllerServiceGetEventsRequest{Controller: inputController2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 	})

@@ -35,7 +35,7 @@ type Controller interface {
 	Controls(ctx context.Context) ([]Control, error)
 
 	// LastEvent returns most recent Event for each input (which should be the current state)
-	LastEvents(ctx context.Context) (map[Control]Event, error)
+	GetEvents(ctx context.Context) (map[Control]Event, error)
 
 	// RegisterCallback registers a callback that will fire on given EventTypes for a given Control
 	RegisterControlCallback(ctx context.Context, control Control, triggers []EventType, ctrlFunc ControlFunction) error
@@ -146,10 +146,10 @@ func (c *reconfigurableInputController) Controls(ctx context.Context) ([]Control
 	return c.actual.Controls(ctx)
 }
 
-func (c *reconfigurableInputController) LastEvents(ctx context.Context) (map[Control]Event, error) {
+func (c *reconfigurableInputController) GetEvents(ctx context.Context) (map[Control]Event, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.actual.LastEvents(ctx)
+	return c.actual.GetEvents(ctx)
 }
 
 // InjectEvent allows directly sending an Event (such as a button press) from external code.

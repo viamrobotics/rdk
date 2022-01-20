@@ -34,7 +34,7 @@ func TestClient(t *testing.T) {
 	injectInputController.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
-	injectInputController.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		eventsOut := make(map[input.Control]input.Event)
 		eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 		eventsOut[input.ButtonStart] = input.Event{Time: time.Now(), Event: input.ButtonPress, Control: input.ButtonStart, Value: 1.0}
@@ -64,7 +64,7 @@ func TestClient(t *testing.T) {
 	injectInputController2.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
-	injectInputController2.LastEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+	injectInputController2.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
 		return nil, errors.New("can't get last events")
 	}
 
@@ -102,7 +102,7 @@ func TestClient(t *testing.T) {
 		test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
 		startTime := time.Now()
-		outState, err := inputController1Client.LastEvents(context.Background())
+		outState, err := inputController1Client.GetEvents(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, outState[input.ButtonStart].Event, test.ShouldEqual, input.ButtonPress)
 		test.That(t, outState[input.ButtonStart].Control, test.ShouldEqual, input.ButtonStart)
@@ -228,7 +228,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 
-		_, err = inputController2Client.LastEvents(context.Background())
+		_, err = inputController2Client.GetEvents(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 
