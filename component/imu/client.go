@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/spatialmath"
@@ -110,10 +109,6 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	}
 	ea := orientation.EulerAngles()
 	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
-}
-
-func (c *client) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(SubtypeName), ""}
 }
 
 // Close cleanly closes the underlying connections.

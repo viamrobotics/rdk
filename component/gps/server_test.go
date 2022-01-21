@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
@@ -48,19 +47,16 @@ func TestServer(t *testing.T) {
 	speed := 5.4
 	hAcc := 0.7
 	vAcc := 0.8
-	desc := sensor.Description{sensor.Type("gps"), ""}
 
 	injectGPS.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
 	injectGPS.AltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
 	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 	injectGPS.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
-	injectGPS.DescFunc = func() sensor.Description { return desc }
 
 	injectGPS2.LocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.AltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 	injectGPS2.AccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
-	injectGPS2.DescFunc = func() sensor.Description { return desc }
 
 	t.Run("Location", func(t *testing.T) {
 		resp, err := gpsServer.Location(context.Background(), &pb.GPSServiceLocationRequest{Name: testGPSName})

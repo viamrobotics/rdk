@@ -21,6 +21,8 @@ window.cameraApi = require('./gen/proto/api/component/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/v1/camera_pb_service.js');
 window.inputApi = require('./gen/proto/api/component/v1/input_controller_pb.js');
 const { InputControllerServiceClient } = require('./gen/proto/api/component/v1/input_controller_pb_service.js');
+window.baseApi = require('./gen/proto/api/component/v1/base_pb.js');
+const { BaseServiceClient } = require('./gen/proto/api/component/v1/base_pb_service.js');
 window.commonApi = require('./gen/proto/api/common/v1/common_pb.js');
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
@@ -82,5 +84,6 @@ let connect = async (creds) => {
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;
