@@ -27,7 +27,7 @@ type Config struct {
 	SPIs              []SPIConfig              `json:"spis"`
 	Analogs           []AnalogConfig           `json:"analogs"`
 	DigitalInterrupts []DigitalInterruptConfig `json:"digitalInterrupts"`
-	Attributes        map[string]string        `json:"attributes"`
+	Attributes        config.AttributeMap      `json:"attributes"`
 }
 
 // Validate ensures all parts of the config are valid.
