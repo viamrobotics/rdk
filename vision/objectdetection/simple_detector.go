@@ -5,24 +5,23 @@ import (
 	"image/color"
 )
 
-// simpleDetector converts an image to gray and then finds the connected components above a certain size according to
-// pixels below a certain threshold value
+// simpleDetector converts an image to gray and then finds the connected components with values below a certain threshold.
 type simpleDetector struct {
 	threshold int
-	size      int
 }
 
 // NewSimpleDetector creates a detector useful for local testing purposes on the robot. Looks for dark objects in the image.
-// It finds pixels below the set threshold, and only returns the connected components above the specified size.
-func NewSimpleDetector(threshold, size int) Detector {
-	return &simpleDetector{threshold, size}
+// It finds pixels below the set threshold, and returns bounding box around the connected components.
+func NewSimpleDetector(threshold int) Detector {
+	sd := simpleDetector{threshold}
+	return sd.Inference
 }
 
 // Inference takes in an image frame and returns the detection bounding boxes found in the image.
-func (sd *simpleDetector) Inference(img image.Image) ([]*Detection, error) {
+func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 	seen := make(map[image.Point]bool)
 	queue := []image.Point{}
-	detections := []*Detection{}
+	detections := []Detection{}
 	bounds := img.Bounds()
 	for i := 0; i < bounds.Dx(); i++ {
 		for j := 0; j < bounds.Dy(); j++ {
@@ -52,10 +51,8 @@ func (sd *simpleDetector) Inference(img image.Image) ([]*Detection, error) {
 				neighbors := sd.getNeighbors(newPt, img, seen)
 				queue = append(queue, neighbors...)
 			}
-			d := &Detection{image.Rect(x0, y0, x1, y1), 1.0}
-			if d.Area() >= sd.size {
-				detections = append(detections, d)
-			}
+			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0}
+			detections = append(detections, d)
 		}
 	}
 	return detections, nil
