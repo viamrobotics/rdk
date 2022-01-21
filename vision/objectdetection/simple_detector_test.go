@@ -33,7 +33,8 @@ func TestSimpleDetection(t *testing.T) {
 	test.That(t, bbs[1].Score(), test.ShouldEqual, 1.0)
 	test.That(t, bbs[1].BoundingBox(), test.ShouldResemble, &image.Rectangle{image.Point{963, 349}, image.Point{1129, 472}})
 	// overlay the image and see if it is red where you expect
-	ovImg := Overlay(img, bbs)
+	img2 := Overlay(img, bbs)
+	ovImg := rimage.ConvertImage(img2)
 	test.That(t, ovImg.GetXY(0, 77), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(110, 330), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(963, 349), test.ShouldResemble, rimage.Red)
