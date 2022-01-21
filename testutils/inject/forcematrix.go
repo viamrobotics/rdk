@@ -9,17 +9,17 @@ import (
 // ForceMatrix is an injected ForceMatrix.
 type ForceMatrix struct {
 	forcematrix.ForceMatrix
-	MatrixFunc     func(ctx context.Context) ([][]int, error)
+	ReadMatrixFunc func(ctx context.Context) ([][]int, error)
 	DetectSlipFunc func(ctx context.Context) (bool, error)
 	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
 }
 
-// Matrix calls the injected MatrixFunc or the real variant.
-func (m *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
-	if m.MatrixFunc == nil {
-		return m.ForceMatrix.Matrix(ctx)
+// ReadMatrix calls the injected ReadMatrixFunc or the real variant.
+func (m *ForceMatrix) ReadMatrix(ctx context.Context) ([][]int, error) {
+	if m.ReadMatrixFunc == nil {
+		return m.ForceMatrix.ReadMatrix(ctx)
 	}
-	return m.MatrixFunc(ctx)
+	return m.ReadMatrixFunc(ctx)
 }
 
 // DetectSlip calls the injected DetectSlipFunc or the real variant.

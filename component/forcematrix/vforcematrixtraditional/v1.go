@@ -123,8 +123,8 @@ func (fsm *ForceMatrixTraditional) addToPreviousMatricesWindow(matrix [][]int) {
 	fsm.previousMatrices = append(fsm.previousMatrices, matrix)
 }
 
-// Matrix returns a matrix of measurements from the force sensor.
-func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) {
+// ReadMatrix returns a matrix of measurements from the force sensor.
+func (fsm *ForceMatrixTraditional) ReadMatrix(ctx context.Context) ([][]int, error) {
 	numRows := len(fsm.analogReaders)
 	numCols := len(fsm.columnGpioPins)
 
@@ -163,7 +163,7 @@ func (fsm *ForceMatrixTraditional) Matrix(ctx context.Context) ([][]int, error) 
 
 // Readings returns a flattened matrix of measurements from the force sensor.
 func (fsm *ForceMatrixTraditional) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fsm.Matrix(ctx)
+	matrix, err := fsm.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err
 	}

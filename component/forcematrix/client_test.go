@@ -39,7 +39,7 @@ func TestClientFailing(t *testing.T) {
 
 	t.Run("failing", func(t *testing.T) {
 		injectFsm := &inject.ForceMatrix{}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		injectFsm.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return nil, errors.New("bad matrix")
 		}
 		injectFsm.DetectSlipFunc = func(ctx context.Context) (bool, error) {
@@ -58,7 +58,7 @@ func TestClientFailing(t *testing.T) {
 			forceMatrixClient, err := forcematrix.NewClient(context.Background(), forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
 			test.That(t, err, test.ShouldBeNil)
 
-			m, err := forceMatrixClient.Matrix(context.Background())
+			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
 			test.That(t, m, test.ShouldBeNil)
@@ -78,7 +78,7 @@ func TestClientFailing(t *testing.T) {
 			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
 				conn, forceMatrix, logger)
 
-			m, err := forceMatrixClient.Matrix(context.Background())
+			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
 			test.That(t, m, test.ShouldBeNil)
@@ -107,7 +107,7 @@ func TestClientWorking(t *testing.T) {
 		for i := 0; i < len(expectedMatrix); i++ {
 			expectedMatrix[i] = []int{1, 2, 3, 4}
 		}
-		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		injectFsm.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return expectedMatrix, nil
 		}
 		injectFsm.DetectSlipFunc = func(ctx context.Context) (bool, error) {
@@ -126,7 +126,7 @@ func TestClientWorking(t *testing.T) {
 			forceMatrixClient, err := forcematrix.NewClient(context.Background(), forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
 			test.That(t, err, test.ShouldBeNil)
 
-			m, err := forceMatrixClient.Matrix(context.Background())
+			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, m, test.ShouldResemble, expectedMatrix)
 
@@ -148,7 +148,7 @@ func TestClientWorking(t *testing.T) {
 			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
 				conn, forceMatrix, logger)
 
-			m, err := forceMatrixClient.Matrix(context.Background())
+			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, m, test.ShouldResemble, expectedMatrix)
 

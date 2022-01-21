@@ -69,9 +69,9 @@ func clientFromSvcClient(sc *serviceClient, name string) ForceMatrix {
 	return &client{sc, name}
 }
 
-func (c *client) Matrix(ctx context.Context) ([][]int, error) {
-	resp, err := c.client.Matrix(ctx,
-		&pb.ForceMatrixServiceMatrixRequest{
+func (c *client) ReadMatrix(ctx context.Context) ([][]int, error) {
+	resp, err := c.client.ReadMatrix(ctx,
+		&pb.ForceMatrixServiceReadMatrixRequest{
 			Name: c.name,
 		})
 	if err != nil {
@@ -92,7 +92,7 @@ func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := c.Matrix(ctx)
+	matrix, err := c.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (c *client) Close() error {
 }
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixServiceMatrixResponse) [][]int {
+func protoToMatrix(matrixResponse *pb.ForceMatrixServiceReadMatrixResponse) [][]int {
 	numRows := matrixResponse.Matrix.Rows
 	numCols := matrixResponse.Matrix.Cols
 

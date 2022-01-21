@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 		expectedMatrix[i] = []int{1, 2, 3, 4}
 	}
 	var capMatrix [][]int
-	injectForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+	injectForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 		capMatrix = expectedMatrix
 		return expectedMatrix, nil
 	}
@@ -50,9 +50,9 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("not registered", func(t *testing.T) {
-		_, err := forceMatrixServer.Matrix(
+		_, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceMatrixRequest{Name: missingForceMatrixName})
+			&pb.ForceMatrixServiceReadMatrixRequest{Name: missingForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"no ForceMatrix with name ("+missingForceMatrixName+")")
 
@@ -64,9 +64,9 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("not a ForceMatrix", func(t *testing.T) {
-		_, err := forceMatrixServer.Matrix(
+		_, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceMatrixRequest{Name: fakeForceMatrixName})
+			&pb.ForceMatrixServiceReadMatrixRequest{Name: fakeForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"resource with name ("+fakeForceMatrixName+") is not a ForceMatrix")
 
@@ -78,9 +78,9 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("working", func(t *testing.T) {
-		matrixResponse, err := forceMatrixServer.Matrix(
+		matrixResponse, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceMatrixRequest{Name: testForceMatrixName})
+			&pb.ForceMatrixServiceReadMatrixRequest{Name: testForceMatrixName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
 		test.That(t, matrixResponse.Matrix, test.ShouldResemble,
