@@ -50,12 +50,12 @@ func TestServer(t *testing.T) {
 
 	injectGPS.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return loc, nil }
 	injectGPS.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return alt, nil }
-	injectGPS.SpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
+	injectGPS.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return speed, nil }
 	injectGPS.ReadAccuracyFunc = func(ctx context.Context) (float64, float64, error) { return hAcc, vAcc, nil }
 
 	injectGPS2.ReadLocationFunc = func(ctx context.Context) (*geo.Point, error) { return nil, errors.New("can't get location") }
 	injectGPS2.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
-	injectGPS2.SpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
+	injectGPS2.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 	injectGPS2.ReadAccuracyFunc = func(ctx context.Context) (float64, float64, error) { return 0, 0, errors.New("can't get accuracy") }
 
 	t.Run("ReadLocation", func(t *testing.T) {
@@ -96,20 +96,20 @@ func TestServer(t *testing.T) {
 	})
 
 	//nolint:dupl
-	t.Run("Speed", func(t *testing.T) {
-		resp, err := gpsServer.Speed(context.Background(), &pb.GPSServiceSpeedRequest{Name: testGPSName})
+	t.Run("ReadSpeed", func(t *testing.T) {
+		resp, err := gpsServer.ReadSpeed(context.Background(), &pb.GPSServiceReadSpeedRequest{Name: testGPSName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.SpeedKph, test.ShouldResemble, speed)
+		test.That(t, resp.SpeedMmPerSec, test.ShouldResemble, speed)
 
-		_, err = gpsServer.Speed(context.Background(), &pb.GPSServiceSpeedRequest{Name: failGPSName})
+		_, err = gpsServer.ReadSpeed(context.Background(), &pb.GPSServiceReadSpeedRequest{Name: failGPSName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
 
-		_, err = gpsServer.Speed(context.Background(), &pb.GPSServiceSpeedRequest{Name: fakeGPSName})
+		_, err = gpsServer.ReadSpeed(context.Background(), &pb.GPSServiceReadSpeedRequest{Name: fakeGPSName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a GPS")
 
-		_, err = gpsServer.Speed(context.Background(), &pb.GPSServiceSpeedRequest{Name: missingGPSName})
+		_, err = gpsServer.ReadSpeed(context.Background(), &pb.GPSServiceReadSpeedRequest{Name: missingGPSName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no GPS")
 	})

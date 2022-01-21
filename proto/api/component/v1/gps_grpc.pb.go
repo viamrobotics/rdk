@@ -22,8 +22,8 @@ type GPSServiceClient interface {
 	ReadLocation(ctx context.Context, in *GPSServiceReadLocationRequest, opts ...grpc.CallOption) (*GPSServiceReadLocationResponse, error)
 	// ReadAltitude returns the most recent altitude from the given GPS.
 	ReadAltitude(ctx context.Context, in *GPSServiceReadAltitudeRequest, opts ...grpc.CallOption) (*GPSServiceReadAltitudeResponse, error)
-	// Speed returns the most recent speed from the given GPS.
-	Speed(ctx context.Context, in *GPSServiceSpeedRequest, opts ...grpc.CallOption) (*GPSServiceSpeedResponse, error)
+	// ReadSpeed returns the most recent speed from the given GPS.
+	ReadSpeed(ctx context.Context, in *GPSServiceReadSpeedRequest, opts ...grpc.CallOption) (*GPSServiceReadSpeedResponse, error)
 }
 
 type gPSServiceClient struct {
@@ -52,9 +52,9 @@ func (c *gPSServiceClient) ReadAltitude(ctx context.Context, in *GPSServiceReadA
 	return out, nil
 }
 
-func (c *gPSServiceClient) Speed(ctx context.Context, in *GPSServiceSpeedRequest, opts ...grpc.CallOption) (*GPSServiceSpeedResponse, error) {
-	out := new(GPSServiceSpeedResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/Speed", in, out, opts...)
+func (c *gPSServiceClient) ReadSpeed(ctx context.Context, in *GPSServiceReadSpeedRequest, opts ...grpc.CallOption) (*GPSServiceReadSpeedResponse, error) {
+	out := new(GPSServiceReadSpeedResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GPSService/ReadSpeed", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +69,8 @@ type GPSServiceServer interface {
 	ReadLocation(context.Context, *GPSServiceReadLocationRequest) (*GPSServiceReadLocationResponse, error)
 	// ReadAltitude returns the most recent altitude from the given GPS.
 	ReadAltitude(context.Context, *GPSServiceReadAltitudeRequest) (*GPSServiceReadAltitudeResponse, error)
-	// Speed returns the most recent speed from the given GPS.
-	Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error)
+	// ReadSpeed returns the most recent speed from the given GPS.
+	ReadSpeed(context.Context, *GPSServiceReadSpeedRequest) (*GPSServiceReadSpeedResponse, error)
 	mustEmbedUnimplementedGPSServiceServer()
 }
 
@@ -84,8 +84,8 @@ func (UnimplementedGPSServiceServer) ReadLocation(context.Context, *GPSServiceRe
 func (UnimplementedGPSServiceServer) ReadAltitude(context.Context, *GPSServiceReadAltitudeRequest) (*GPSServiceReadAltitudeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadAltitude not implemented")
 }
-func (UnimplementedGPSServiceServer) Speed(context.Context, *GPSServiceSpeedRequest) (*GPSServiceSpeedResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Speed not implemented")
+func (UnimplementedGPSServiceServer) ReadSpeed(context.Context, *GPSServiceReadSpeedRequest) (*GPSServiceReadSpeedResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadSpeed not implemented")
 }
 func (UnimplementedGPSServiceServer) mustEmbedUnimplementedGPSServiceServer() {}
 
@@ -136,20 +136,20 @@ func _GPSService_ReadAltitude_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _GPSService_Speed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GPSServiceSpeedRequest)
+func _GPSService_ReadSpeed_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GPSServiceReadSpeedRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GPSServiceServer).Speed(ctx, in)
+		return srv.(GPSServiceServer).ReadSpeed(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.GPSService/Speed",
+		FullMethod: "/proto.api.component.v1.GPSService/ReadSpeed",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GPSServiceServer).Speed(ctx, req.(*GPSServiceSpeedRequest))
+		return srv.(GPSServiceServer).ReadSpeed(ctx, req.(*GPSServiceReadSpeedRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -170,8 +170,8 @@ var GPSService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _GPSService_ReadAltitude_Handler,
 		},
 		{
-			MethodName: "Speed",
-			Handler:    _GPSService_Speed_Handler,
+			MethodName: "ReadSpeed",
+			Handler:    _GPSService_ReadSpeed_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

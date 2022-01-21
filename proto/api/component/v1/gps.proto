@@ -23,8 +23,8 @@ service GPSService {
     };
   }
 
-  // Speed returns the most recent speed from the given GPS.
-  rpc Speed(GPSServiceSpeedRequest) returns (GPSServiceSpeedResponse) {
+  // ReadSpeed returns the most recent speed from the given GPS.
+  rpc ReadSpeed(GPSServiceReadSpeedRequest) returns (GPSServiceReadSpeedResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/gps/{name}/speed"
     };
@@ -47,10 +47,10 @@ message GPSServiceReadAltitudeResponse {
   double altitude_meters = 1;
 }
 
-message GPSServiceSpeedRequest {
+message GPSServiceReadSpeedRequest {
   string name = 1;
 }
 
-message GPSServiceSpeedResponse {
-  double speed_kph = 1;
+message GPSServiceReadSpeedResponse {
+  double speed_mm_per_sec = 1;
 }

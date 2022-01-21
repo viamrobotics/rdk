@@ -14,7 +14,7 @@ type GPS struct {
 	gps.LocalGPS
 	ReadLocationFunc   func(ctx context.Context) (*geo.Point, error)
 	ReadAltitudeFunc   func(ctx context.Context) (float64, error)
-	SpeedFunc          func(ctx context.Context) (float64, error)
+	ReadSpeedFunc      func(ctx context.Context) (float64, error)
 	ReadSatellitesFunc func(ctx context.Context) (int, int, error)
 	ReadAccuracyFunc   func(ctx context.Context) (float64, float64, error)
 	ReadValidFunc      func(ctx context.Context) (bool, error)
@@ -38,12 +38,12 @@ func (i *GPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return i.ReadAltitudeFunc(ctx)
 }
 
-// Speed calls the injected Speed or the real version.
-func (i *GPS) Speed(ctx context.Context) (float64, error) {
-	if i.SpeedFunc == nil {
-		return i.LocalGPS.Speed(ctx)
+// ReadSpeed calls the injected ReadSpeed or the real version.
+func (i *GPS) ReadSpeed(ctx context.Context) (float64, error) {
+	if i.ReadSpeedFunc == nil {
+		return i.LocalGPS.ReadSpeed(ctx)
 	}
-	return i.SpeedFunc(ctx)
+	return i.ReadSpeedFunc(ctx)
 }
 
 // ReadSatellites calls the injected ReadSatellites or the real version.

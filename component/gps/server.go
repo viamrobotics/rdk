@@ -71,17 +71,17 @@ func (s *subtypeServer) ReadAltitude(
 	}, nil
 }
 
-// Speed returns the most recent location from the given GPS.
-func (s *subtypeServer) Speed(ctx context.Context, req *pb.GPSServiceSpeedRequest) (*pb.GPSServiceSpeedResponse, error) {
+// ReadSpeed returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.GPSServiceReadSpeedRequest) (*pb.GPSServiceReadSpeedResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	speed, err := gpsDevice.Speed(ctx)
+	speed, err := gpsDevice.ReadSpeed(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceSpeedResponse{
-		SpeedKph: speed,
+	return &pb.GPSServiceReadSpeedResponse{
+		SpeedMmPerSec: speed,
 	}, nil
 }

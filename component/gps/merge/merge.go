@@ -89,10 +89,10 @@ func (m *mergeGPS) ReadAltitude(ctx context.Context) (float64, error) {
 }
 
 // Current ground speed in kph.
-func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
+func (m *mergeGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		s, err := g.Speed(ctx)
+		s, err := g.ReadSpeed(ctx)
 		if err == nil {
 			return s, nil
 		}
