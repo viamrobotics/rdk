@@ -34,7 +34,7 @@ func TestClient(t *testing.T) {
 	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
 
 	injectIMU := &inject.IMU{}
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
 	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
@@ -66,7 +66,7 @@ func TestClient(t *testing.T) {
 		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-		av1, err := imu1Client.AngularVelocity(context.Background())
+		av1, err := imu1Client.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av1, test.ShouldResemble, av)
 
@@ -86,7 +86,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		imu1Client2 := imu.NewClientFromConn(context.Background(), conn, imu1, logger)
 
-		av2, err := imu1Client2.AngularVelocity(context.Background())
+		av2, err := imu1Client2.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av2, test.ShouldResemble, av)
 
@@ -115,7 +115,7 @@ func TestClientZeroValues(t *testing.T) {
 	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
 
 	injectIMU := &inject.IMU{}
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
 	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
@@ -137,7 +137,7 @@ func TestClientZeroValues(t *testing.T) {
 		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-		av1, err := imu1Client.AngularVelocity(context.Background())
+		av1, err := imu1Client.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av1, test.ShouldResemble, av)
 

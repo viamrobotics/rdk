@@ -54,8 +54,8 @@ type IMU struct {
 	mu sync.Mutex
 }
 
-// AngularVelocity always returns the set value.
-func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// ReadAngularVelocity always returns the set value.
+func (i *IMU) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, nil

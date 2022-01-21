@@ -89,12 +89,12 @@ func TestReconfigurableIMU(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new IMU")
 }
 
-func TestAngularVelocity(t *testing.T) {
+func TestReadAngularVelocity(t *testing.T) {
 	actualIMU1 := &mock{Name: "imu1"}
 	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
 
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 0)
-	vel, err := fakeIMU1.(*reconfigurableIMU).AngularVelocity(context.Background())
+	vel, err := fakeIMU1.(*reconfigurableIMU).ReadAngularVelocity(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vel, test.ShouldResemble, spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3})
 	test.That(t, actualIMU1.angularVelocityCalls, test.ShouldEqual, 1)
@@ -131,7 +131,7 @@ type mock struct {
 	reconfCalls          int
 }
 
-func (m *mock) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (m *mock) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	m.angularVelocityCalls++
 	return av, nil
 }

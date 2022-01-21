@@ -552,7 +552,7 @@ func (i *myIMU) parse(line string) error {
 	return nil
 }
 
-func (i *myIMU) AngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
+func (i *myIMU) ReadAngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
 	return i.angularVelocity, i.lastError
 }
 
@@ -571,7 +571,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 				return
 			}
 
-			r, err := myBoat.myImu.AngularVelocity(ctx)
+			r, err := myBoat.myImu.ReadAngularVelocity(ctx)
 			if err != nil {
 				logger.Infof("error from imu %v\n", err)
 				continue

@@ -30,10 +30,10 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
+// An IMU represents a sensor that can report ReadAngularVelocity and Orientation measurements.
 type IMU interface {
 	sensor.Sensor
-	AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
+	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	Orientation(ctx context.Context) (spatialmath.Orientation, error)
 }
 
@@ -59,10 +59,10 @@ func (r *reconfigurableIMU) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableIMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (r *reconfigurableIMU) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.AngularVelocity(ctx)
+	return r.actual.ReadAngularVelocity(ctx)
 }
 
 func (r *reconfigurableIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
