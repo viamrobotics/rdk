@@ -1,9 +1,7 @@
-package detection
+package objectdetection
 
 import (
 	"image"
-
-	"github.com/edaniels/gostream"
 )
 
 type Detector interface {
@@ -17,7 +15,4 @@ type Detection struct {
 
 func (d *Detection) Area() int {
 	return d.BoundingBox.Dx() * d.BoundingBox.Dy()
-}
-
-func StreamDetections(source gostream.ImageSource, d Detector) {
 }
