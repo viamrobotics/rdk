@@ -80,15 +80,15 @@ func (c *client) Matrix(ctx context.Context) ([][]int, error) {
 	return protoToMatrix(resp), nil
 }
 
-func (c *client) IsSlipping(ctx context.Context) (bool, error) {
-	resp, err := c.client.SlipDetection(ctx,
-		&pb.ForceMatrixServiceSlipDetectionRequest{
+func (c *client) DetectSlip(ctx context.Context) (bool, error) {
+	resp, err := c.client.DetectSlip(ctx,
+		&pb.ForceMatrixServiceDetectSlipRequest{
 			Name: c.name,
 		})
 	if err != nil {
 		return false, err
 	}
-	return resp.GetIsSlipping(), nil
+	return resp.SlipDetected, nil
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {

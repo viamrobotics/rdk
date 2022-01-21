@@ -551,7 +551,7 @@
                     let req = new forceMatrixApi.ForceMatrixServiceMatrixRequest();
                     req.setName(name);
 
-                    let slipReq = new forceMatrixApi.ForceMatrixServiceSlipDetectionRequest();
+                    let slipReq = new forceMatrixApi.ForceMatrixServiceDetectSlipRequest();
                     slipReq.setName(name);
                     
                     isFirstRender = true;
@@ -581,7 +581,7 @@
                           pReject2(err);
                         }
                         pResolve2(null);
-                        updateSlipDetectionResult(err, resp, slip_animation_stuff)
+                        updateDetectSlipResult(err, resp, slip_animation_stuff)
                       });
                       await p1;
                       await p2;
@@ -1112,7 +1112,7 @@
           }
       }
 
-      function updateSlipDetectionResult (err, resp, slip_animation_stuff) {
+      function updateDetectSlipResult (err, resp, slip_animation_stuff) {
         grpcCallback(err, resp);
         if (err) {
           console.log("error getting slip detection readings: ", err);
@@ -1129,7 +1129,7 @@
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
         }
 
-        let isSlipping = resp.getIsSlipping()
+        let isSlipping = resp.getDetectSlip()
         if (isSlipping) {
           slip_animation_stuff.ctx.fillStyle = 'red';
           slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)

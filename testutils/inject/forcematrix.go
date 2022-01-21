@@ -10,7 +10,7 @@ import (
 type ForceMatrix struct {
 	forcematrix.ForceMatrix
 	MatrixFunc     func(ctx context.Context) ([][]int, error)
-	IsSlippingFunc func(ctx context.Context) (bool, error)
+	DetectSlipFunc func(ctx context.Context) (bool, error)
 	ReadingsFunc   func(ctx context.Context) ([]interface{}, error)
 }
 
@@ -22,12 +22,12 @@ func (m *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return m.MatrixFunc(ctx)
 }
 
-// IsSlipping calls the injected IsSlippingFunc or the real variant.
-func (m *ForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
-	if m.IsSlippingFunc == nil {
-		return m.ForceMatrix.IsSlipping(ctx)
+// DetectSlip calls the injected DetectSlipFunc or the real variant.
+func (m *ForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
+	if m.DetectSlipFunc == nil {
+		return m.ForceMatrix.DetectSlip(ctx)
 	}
-	return m.IsSlippingFunc(ctx)
+	return m.DetectSlipFunc(ctx)
 }
 
 // Readings calls the injected Readings or the real version.

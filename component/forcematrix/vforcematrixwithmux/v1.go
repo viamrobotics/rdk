@@ -23,13 +23,13 @@ const model = "forcematrixwithmux_v1"
 
 // ForceMatrixConfig describes the configuration of a forcematrixwithmux_v1.
 type ForceMatrixConfig struct {
-	BoardName           string   `json:"board"` // used to control gpio pins & read out pressure values
-	ColumnGPIOPins      []string `json:"column_gpio_pins_left_to_right"`
-	MuxGPIOPins         []string `json:"mux_gpio_pins_s2_to_s0"`
-	IOPins              []int    `json:"io_pins_top_to_bottom"`
-	AnalogChannel       string   `json:"analog_channel"`
-	SlipDetectionWindow int      `json:"slip_detection_window"`
-	NoiseThreshold      float64  `json:"slip_detection_signal_to_noise_cutoff"`
+	BoardName        string   `json:"board"` // used to control gpio pins & read out pressure values
+	ColumnGPIOPins   []string `json:"column_gpio_pins_left_to_right"`
+	MuxGPIOPins      []string `json:"mux_gpio_pins_s2_to_s0"`
+	IOPins           []int    `json:"io_pins_top_to_bottom"`
+	AnalogChannel    string   `json:"analog_channel"`
+	DetectSlipWindow int      `json:"slip_detection_window"`
+	NoiseThreshold   float64  `json:"slip_detection_signal_to_noise_cutoff"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -49,7 +49,7 @@ func (config *ForceMatrixConfig) Validate(path string) error {
 	if config.AnalogChannel == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "analog_channel")
 	}
-	if config.SlipDetectionWindow == 0 || config.SlipDetectionWindow > forcematrix.MatrixStorageSize {
+	if config.DetectSlipWindow == 0 || config.DetectSlipWindow > forcematrix.MatrixStorageSize {
 		return utils.NewConfigValidationError(path,
 			errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v",
 				forcematrix.MatrixStorageSize))
@@ -118,7 +118,7 @@ func newForceMatrix(r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*
 			board:               b,
 			previousMatrices:    make([][][]int, 0, forcematrix.MatrixStorageSize),
 			logger:              logger,
-			slipDetectionWindow: c.SlipDetectionWindow,
+			slipDetectionWindow: c.DetectSlipWindow,
 			noiseThreshold:      c.NoiseThreshold,
 		}, nil
 	}
@@ -236,8 +236,8 @@ func (fmsm *ForceMatrixWithMux) GetPreviousMatrices() [][][]int {
 	return fmsm.previousMatrices
 }
 
-// IsSlipping is used to determine whether the object in contact
+// DetectSlip is used to determine whether the object in contact
 // with the sensor matrix is slipping.
-func (fmsm *ForceMatrixWithMux) IsSlipping(ctx context.Context) (bool, error) {
+func (fmsm *ForceMatrixWithMux) DetectSlip(ctx context.Context) (bool, error) {
 	return slipdetection.DetectSlip(fmsm, &(fmsm.mu), 0, fmsm.noiseThreshold, fmsm.slipDetectionWindow)
 }
