@@ -58,8 +58,8 @@ type InputController struct {
 	controls []input.Control
 }
 
-// Controls lists the inputs of the gamepad.
-func (c *InputController) Controls(ctx context.Context) ([]input.Control, error) {
+// GetControls lists the inputs of the gamepad.
+func (c *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if len(c.controls) == 0 {
@@ -68,8 +68,8 @@ func (c *InputController) Controls(ctx context.Context) ([]input.Control, error)
 	return c.controls, nil
 }
 
-// LastEvents returns the last input.Event (the current state) of each control.
-func (c *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+// GetEvents returns the last input.Event (the current state) of each control.
+func (c *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
@@ -87,7 +87,7 @@ func (c *InputController) RegisterControlCallback(
 	return errors.New("unsupported")
 }
 
-// InjectEvent allows directly sending an Event (such as a button press) from external code.
-func (c *InputController) InjectEvent(ctx context.Context, event input.Event) error {
+// TriggerEvent allows directly sending an Event (such as a button press) from external code.
+func (c *InputController) TriggerEvent(ctx context.Context, event input.Event) error {
 	return errors.New("unsupported")
 }

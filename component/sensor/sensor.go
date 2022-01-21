@@ -32,20 +32,6 @@ func Named(name string) resource.Name {
 type Sensor interface {
 	// Readings return data specific to the type of sensor and can be of any type.
 	Readings(ctx context.Context) ([]interface{}, error)
-
-	// Desc returns a description of this sensor.
-	Desc() Description
-}
-
-// Type specifies the type of sensor.
-type Type string
-
-// Description describes information about the device.
-type Description struct {
-	Type Type
-
-	// Path is some universal descriptor of how to find the device.
-	Path string
 }
 
 var (
@@ -74,12 +60,6 @@ func (r *reconfigurableSensor) Readings(ctx context.Context) ([]interface{}, err
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Readings(ctx)
-}
-
-func (r *reconfigurableSensor) Desc() Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
 }
 
 func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resource.Reconfigurable) error {

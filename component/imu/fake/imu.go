@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/imu"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -67,11 +66,6 @@ func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) 
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, nil
-}
-
-// Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 // Readings always returns the set values.
