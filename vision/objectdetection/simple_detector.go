@@ -1,4 +1,4 @@
-package detection
+package objectdetection
 
 import (
 	"image"
@@ -27,7 +27,7 @@ func (sd *simpleDetector) Inference(img image.Image) ([]*Detection, error) {
 	for i := 0; i < bounds.Dx(); i++ {
 		for j := 0; j < bounds.Dy(); j++ {
 			pt := image.Point{i, j}
-			if seen[pt] || !pass(img.At(pt.X, pt.Y)) {
+			if seen[pt] || !sd.pass(img.At(pt.X, pt.Y)) {
 				seen[pt] = true
 				continue
 			}
@@ -35,7 +35,6 @@ func (sd *simpleDetector) Inference(img image.Image) ([]*Detection, error) {
 			x0, y0, x1, y1 := pt.X, pt.Y, pt.X, pt.Y // the bounding box of the segment
 			for len(queue) != 0 {
 				newPt := queue[0]
-				seen[newPt] = true
 				queue = queue[1:]
 				if newPt.X < x0 {
 					x0 = newPt.X
@@ -49,10 +48,11 @@ func (sd *simpleDetector) Inference(img image.Image) ([]*Detection, error) {
 				if newPt.Y > y1 {
 					y1 = newPt.Y
 				}
-				neighbors := sd.getNeighors(newPt, img, seen)
+				seen[newPt] = true
+				neighbors := sd.getNeighbors(newPt, img, seen)
 				queue = append(queue, neighbors...)
 			}
-			d := &Detection{Rect(x0, y0, x1, x1), 1.0}
+			d := &Detection{image.Rect(x0, y0, x1, y1), 1.0}
 			if d.Area() >= sd.size {
 				detections = append(detections, d)
 			}
@@ -70,21 +70,12 @@ func (sd *simpleDetector) pass(c color.Color) bool {
 func (sd *simpleDetector) getNeighbors(pt image.Point, img image.Image, seen map[image.Point]bool) []image.Point {
 	bounds := img.Bounds()
 	neighbors := make([]image.Point, 0, 4)
-	if pt.Y-1 < bounds.Dy() && pt.Y-1 >= 0 && !seen[image.Point{pt.X, pt.Y - 1}] && sd.pass(img.At(pt.X, pt.Y-1)) {
-		neighbors = append(neighbors, image.Point{pt.X, pt.Y - 1})
-		seen[image.Point{pt.X, pt.Y - 1}] = true
-	}
-	if pt.Y+1 < bounds.Dy() && pt.Y+1 >= 0 && !seen[image.Point{pt.X, pt.Y + 1}] && sd.pass(img.At(pt.X, pt.Y+1)) {
-		neighbors = append(neighbors, image.Point{pt.X, pt.Y + 1})
-		seen[image.Point{pt.X, pt.Y + 1}] = true
-	}
-	if pt.X-1 < bounds.Dx() && pt.X-1 >= 0 && !seen[image.Point{pt.X - 1, pt.Y}] && sd.pass(img.At(pt.X-1, pt.Y)) {
-		neighbors = append(neighbors, image.Point{pt.X - 1, pt.Y})
-		seen[image.Point{pt.X - 1, pt.Y}] = true
-	}
-	if pt.X+1 < bounds.Dx() && pt.X+1 >= 0 && !seen[image.Point{pt.X + 1, pt.Y}] && sd.pass(img.At(pt.X+1, pt.Y)) {
-		neighbors = append(neighbors, image.Point{pt.X + 1, pt.Y})
-		seen[image.Point{pt.X + 1, pt.Y}] = true
+	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
+	for _, p := range fourPoints {
+		if p.In(bounds) && !seen[p] && sd.pass(img.At(p.X, p.Y)) {
+			neighbors = append(neighbors, p)
+		}
+		seen[p] = true
 	}
 	return neighbors
 }

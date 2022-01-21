@@ -3385,6 +3385,36 @@
       "size": 218973
     }
   },
+  "preprocessing": {
+    "align-test-1615760748.both.gz": {
+      "hash": "a4b99c91c6bc68b734499799c05367e7",
+      "size": 909570
+    },
+    "align-test-1615761783.both.gz": {
+      "hash": "4d68902ed4ee155b4abcc0ff9ae3a800",
+      "size": 1036966
+    },
+    "align-test-1615761793.both.gz": {
+      "hash": "d4a8814121f88435e12e678f54377797",
+      "size": 1025703
+    },
+    "chess1.both.gz": {
+      "hash": "68685fe5b1899a5874df4092de0be4e1",
+      "size": 981318
+    },
+    "chess2.both.gz": {
+      "hash": "6d4e08f5f954f725d8a07f129600c39f",
+      "size": 978001
+    },
+    "chess3.both.gz": {
+      "hash": "9a5ba64331d22f7b454beb585b6bebf1",
+      "size": 1036462
+    },
+    "gripper-big1.both.gz": {
+      "hash": "e09120e237eb6010ec4f9c9248abbbc0",
+      "size": 1237456
+    }
+  },
   "rimage": {
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
@@ -50003,40 +50033,10 @@
       }
     }
   },
-  "preprocessing": {
-    "align-test-1615760748.both.gz": {
-      "hash": "a4b99c91c6bc68b734499799c05367e7",
-      "size": 909570
-    },
-    "align-test-1615761783.both.gz": {
-      "hash": "4d68902ed4ee155b4abcc0ff9ae3a800",
-      "size": 1036966
-    },
+  "transform": {
     "align-test-1615761793.both.gz": {
       "hash": "d4a8814121f88435e12e678f54377797",
       "size": 1025703
-    },
-    "chess1.both.gz": {
-      "hash": "68685fe5b1899a5874df4092de0be4e1",
-      "size": 981318
-    },
-    "chess2.both.gz": {
-      "hash": "6d4e08f5f954f725d8a07f129600c39f",
-      "size": 978001
-    },
-    "chess3.both.gz": {
-      "hash": "9a5ba64331d22f7b454beb585b6bebf1",
-      "size": 1036462
-    },
-    "gripper-big1.both.gz": {
-      "hash": "e09120e237eb6010ec4f9c9248abbbc0",
-      "size": 1237456
-    }
-  },
-  "transform": {
-    "align-test-1615761793.both.gz": {
-        "hash": "d4a8814121f88435e12e678f54377797",
-        "size": 1025703
     },
     "homography": {
       "align-test-1615760748.both.gz": {
@@ -50138,6 +50138,12 @@
       "board5.png": {
         "hash": "68cbd22d5bd37ad6de562f5604c0fe9b",
         "size": 1209633
+      }
+    },
+    "objectdetection": {
+      "detection_test.jpg": {
+        "hash": "b17a0f2ce4f9329d3dc8edf025c1c4ff",
+        "size": 245707
       }
     },
     "segmentation": {
