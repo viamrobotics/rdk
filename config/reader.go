@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 
 	"github.com/a8m/envsubst"
@@ -86,12 +87,40 @@ func RegisterComponentAttributeMapConverter(compType ComponentType, model string
 
 // TransformAttributeMapToStruct uses an attribute map to transform attributes to the perscribed format.
 func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (interface{}, error) {
-	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: to})
+	var md mapstructure.Metadata
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		TagName:  "json",
+		Result:   to,
+		Metadata: &md,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if err := decoder.Decode(attributes); err != nil {
 		return nil, err
+	}
+	if attributes.Has("attributes") || len(md.Unused) == 0 {
+		return to, nil
+	}
+	// set as many unused attributes as possible
+	toV := reflect.ValueOf(to)
+	if toV.Kind() == reflect.Ptr {
+		toV = toV.Elem()
+	}
+	if attrsV := toV.FieldByName("Attributes"); attrsV != (reflect.Value{}) &&
+		attrsV.Kind() == reflect.Map &&
+		attrsV.Type().Key().Kind() == reflect.String {
+		if attrsV.IsNil() {
+			attrsV.Set(reflect.MakeMap(attrsV.Type()))
+		}
+		mapValueType := attrsV.Type().Elem()
+		for _, key := range md.Unused {
+			val := attributes[key]
+			valV := reflect.ValueOf(val)
+			if valV.Type().AssignableTo(mapValueType) {
+				attrsV.SetMapIndex(reflect.ValueOf(key), valV)
+			}
+		}
 	}
 	return to, nil
 }
