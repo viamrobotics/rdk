@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
 )
 
 func TestMask(t *testing.T) {
@@ -43,7 +44,7 @@ func TestNumato1(t *testing.T) {
 	b, err := connect(
 		ctx,
 		&board.Config{
-			Attributes: map[string]string{"pins": "128"},
+			Attributes: config.AttributeMap{"pins": 128},
 			Analogs:    []board.AnalogConfig{{Name: "foo", Pin: "01"}},
 		},
 		logger,
