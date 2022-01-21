@@ -48,7 +48,7 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *wit) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError

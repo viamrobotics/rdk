@@ -70,17 +70,17 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 	return &client{sc, name}
 }
 
-func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := c.client.AngularVelocity(ctx, &pb.IMUServiceAngularVelocityRequest{
+func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	resp, err := c.client.ReadAngularVelocity(ctx, &pb.IMUServiceReadAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 	return spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
+		X: resp.AngularVelocity.XDegsPerSec,
+		Y: resp.AngularVelocity.YDegsPerSec,
+		Z: resp.AngularVelocity.ZDegsPerSec,
 	}, nil
 }
 
@@ -99,7 +99,7 @@ func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, erro
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	vel, err := c.AngularVelocity(ctx)
+	vel, err := c.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}

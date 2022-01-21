@@ -1323,10 +1323,10 @@
                       theData.imuData[name].orientation = resp.toObject().orientation;
                   });
 
-                  var req = new imuApi.IMUServiceAngularVelocityRequest();
+                  var req = new imuApi.IMUServiceReadAngularVelocityRequest();
                   req.setName(name);
                   
-                  imuService.angularVelocity(req, {}, (err, resp) => {
+                  imuService.readAngularVelocity(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
                           return;
@@ -1429,9 +1429,9 @@
             <tr><th>Pitch</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.pitch)}</td></tr>
             <tr><th>Yaw</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.yaw)}</td></tr>
             <tr><th colspan="2">Angular Velocity</th></tr>
-            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.x.toFixed(2)}</td></tr>
-            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.y.toFixed(2)}</td></tr>
-            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.z.toFixed(2)}</td></tr>
+            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
+            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
+            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
           </table>
         </div>
         <hr>

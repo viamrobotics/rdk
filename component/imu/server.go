@@ -34,24 +34,24 @@ func (s *subtypeServer) getIMU(name string) (IMU, error) {
 	return imu, nil
 }
 
-// AngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) AngularVelocity(
+// ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
+func (s *subtypeServer) ReadAngularVelocity(
 	ctx context.Context,
-	req *pb.IMUServiceAngularVelocityRequest,
-) (*pb.IMUServiceAngularVelocityResponse, error) {
+	req *pb.IMUServiceReadAngularVelocityRequest,
+) (*pb.IMUServiceReadAngularVelocityResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	vel, err := imuDevice.AngularVelocity(ctx)
+	vel, err := imuDevice.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IMUServiceAngularVelocityResponse{
+	return &pb.IMUServiceReadAngularVelocityResponse{
 		AngularVelocity: &pb.AngularVelocity{
-			X: vel.X,
-			Y: vel.Y,
-			Z: vel.Z,
+			XDegsPerSec: vel.X,
+			YDegsPerSec: vel.Y,
+			ZDegsPerSec: vel.Z,
 		},
 	}, nil
 }
