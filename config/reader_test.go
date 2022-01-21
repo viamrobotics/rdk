@@ -100,9 +100,9 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 	})
 
 	type myExtendedType struct {
-		A          string                 `json:"a"`
-		B          string                 `json:"b"`
-		Attributes map[string]interface{} `json:"attributes"`
+		A          string       `json:"a"`
+		B          string       `json:"b"`
+		Attributes AttributeMap `json:"attributes"`
 	}
 
 	var met myExtendedType
@@ -111,20 +111,20 @@ func TestTransformAttributeMapToStruct(t *testing.T) {
 	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
 		A: "1",
 		B: "2",
-		Attributes: map[string]interface{}{
+		Attributes: AttributeMap{
 			"c": "3",
 			"d": "4",
 			"e": 5,
 		},
 	})
 
-	met = myExtendedType{Attributes: map[string]interface{}{}}
+	met = myExtendedType{Attributes: AttributeMap{}}
 	transformed, err = TransformAttributeMapToStruct(&met, attrs)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
 		A: "1",
 		B: "2",
-		Attributes: map[string]interface{}{
+		Attributes: AttributeMap{
 			"c": "3",
 			"d": "4",
 			"e": 5,
