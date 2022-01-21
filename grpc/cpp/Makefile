@@ -2,9 +2,8 @@ CXX = g++
 CPPFLAGS = -std=c++2a -Wall
 SRCDIR = ./gen
 IFLAGS = -I$(SRCDIR)
-IFLAGS = -I$(SRCDIR)
 LDFLAGS = -L/usr/local/lib
-GRPCFLAGS = `pkg-config --cflags protobuf grpc --libs protobuf grpc++`
+GRPCFLAGS = `pkg-config --cflags --libs grpc protobuf grpc++`
 OTHER = -pthread -Wl,-lgrpc++_reflection -Wl,-ldl
 SOURCES = $(SRCDIR)/proto/api/v1/robot.grpc.pb.cc $(SRCDIR)/proto/api/v1/robot.pb.cc
 SOURCES += $(SRCDIR)/proto/api/service/v1/metadata.grpc.pb.cc $(SRCDIR)/proto/api/service/v1/metadata.pb.cc
@@ -25,11 +24,12 @@ buf:
 	cd ../.. && PATH="${PATH}:`pwd`/bin" buf generate --template ./grpc/cpp/buf.gen.yaml
 	cd ../.. && PATH="${PATH}:`pwd`/bin" buf generate --template ./grpc/cpp/buf.grpc.gen.yaml
 	cd ../.. && PATH="${PATH}:`pwd`/bin" buf generate --template ./grpc/cpp/buf.gen.yaml buf.build/googleapis/googleapis
+
 setup:
-	sudo apt install protobuf-compiler-grpc || brew install grpc
+	sudo apt install protobuf-compiler-grpc libgrpc-dev libgrpc++-dev || brew install grpc
 	cd ../.. && GOBIN=`pwd`/bin go install github.com/bufbuild/buf/cmd/buf
 	cd ../.. && ln -sf `which grpc_cpp_plugin` bin/protoc-gen-grpc-cpp
-# Note that if you have issues with the build, you may need to remove brew entries from PATH and LIBRARY_PATH
+
 build_client: mkdir client.cpp
 	$(CXX) $(CPPFLAGS) -o bin/client client.cpp $(SOURCES) $(IFLAGS) $(LDFLAGS) $(GRPCFLAGS) $(OTHER)
 
@@ -37,7 +37,7 @@ build_server: mkdir server.cpp
 	$(CXX) $(CPPFLAGS) -o bin/server server.cpp $(SOURCES) $(IFLAGS) $(LDFLAGS) $(GRPCFLAGS) $(OTHER)
 
 run_client: build_client
-	./bin/client localhost:8080
+	./bin/client localhost:8081
 
 run_server: build_server
 	./bin/server localhost:8081
