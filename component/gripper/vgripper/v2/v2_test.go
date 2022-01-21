@@ -138,7 +138,7 @@ func TestCalibrate(t *testing.T) {
 		// return the same pressure no matter what
 		hasPressureThreshold := 4.
 		measuredPressure := 5
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
 		}
 
@@ -165,7 +165,7 @@ func TestCalibrate(t *testing.T) {
 		hasPressureThreshold := 5.
 
 		called := -1
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			called++
 			if called < numMeasurementsCalib {
 				return [][]int{{openPressure}}, nil
@@ -288,7 +288,7 @@ func TestGrab(t *testing.T) {
 		measuredPressure := 0
 		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -328,7 +328,7 @@ func TestGrab(t *testing.T) {
 		measuredPressure := 0
 		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -368,7 +368,7 @@ func TestGrab(t *testing.T) {
 		measuredPressure := 1000
 		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -408,7 +408,7 @@ func TestGrab(t *testing.T) {
 		measuredPressure := 0
 		hasPressureThreshold := 500.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{measuredPressure}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -514,7 +514,7 @@ func TestReadCurrent(t *testing.T) {
 func TestReadRobustAveragePressure(t *testing.T) {
 	t.Run("successfully read the average pressure", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 2}, {3, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -527,7 +527,7 @@ func TestReadRobustAveragePressure(t *testing.T) {
 
 		// Let's add more variation to the measurements
 		counter := 0
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			counter++
 			switch counter {
 			case 1:
@@ -557,7 +557,7 @@ func TestReadRobustAveragePressure(t *testing.T) {
 
 	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{}}, errors.New("matrix reading failed")
 		}
 		injectedGripper := &gripperV2{
@@ -572,7 +572,7 @@ func TestReadRobustAveragePressure(t *testing.T) {
 func TestReadAveragePressure(t *testing.T) {
 	t.Run("successfully read the average pressure", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 2}, {3, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -585,7 +585,7 @@ func TestReadAveragePressure(t *testing.T) {
 
 	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{}}, errors.New("matrix reading failed")
 		}
 		injectedGripper := &gripperV2{
@@ -601,7 +601,7 @@ func TestHasPressure(t *testing.T) {
 	t.Run("detect pressure", func(t *testing.T) {
 		hasPressureThreshold := 1.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 2}, {3, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -617,7 +617,7 @@ func TestHasPressure(t *testing.T) {
 	t.Run("don't detect pressure", func(t *testing.T) {
 		hasPressureThreshold := 10.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{4, 10}, {6, 4}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -632,7 +632,7 @@ func TestHasPressure(t *testing.T) {
 
 	t.Run("return error when reading the matrix went wrong", func(t *testing.T) {
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{}}, errors.New("matrix reading failed")
 		}
 		injectedGripper := &gripperV2{
@@ -654,7 +654,7 @@ func TestAnalogs(t *testing.T) {
 		}
 		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 5}, {6, 8}}, nil
 		}
 		injectedGripper := &gripperV2{
@@ -676,7 +676,7 @@ func TestAnalogs(t *testing.T) {
 		}
 		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{}}, errors.New("matrix reading went wrong")
 		}
 		injectedGripper := &gripperV2{
@@ -698,7 +698,7 @@ func TestAnalogs(t *testing.T) {
 		}
 		hasPressureThreshold := 4.
 		fakeForceMatrix := &inject.ForceMatrix{}
-		fakeForceMatrix.MatrixFunc = func(ctx context.Context) ([][]int, error) {
+		fakeForceMatrix.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return [][]int{{1, 5}, {6, 8}}, nil
 		}
 		injectedGripper := &gripperV2{

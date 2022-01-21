@@ -9,8 +9,8 @@ import "google/api/annotations.proto";
 // ForceMatrixService services maintains all ForceMatrices associated with a robot
 service ForceMatrixService {
 
-  // Matrix returns the matrix of force readings from the force matrix sensor
-  rpc Matrix(ForceMatrixServiceMatrixRequest) returns (ForceMatrixServiceMatrixResponse) {
+  // ReadMatrix returns the matrix of force readings from the force matrix sensor
+  rpc ReadMatrix(ForceMatrixServiceReadMatrixRequest) returns (ForceMatrixServiceReadMatrixResponse) {
     option (google.api.http) = {
       get : "/api/v1/component/force_matrix/{name}/matrix"
     };
@@ -32,11 +32,11 @@ message Matrix {
 }
 
 // ForceMatrix
-message ForceMatrixServiceMatrixRequest {
+message ForceMatrixServiceReadMatrixRequest {
 	string name = 1;
 }
 
-message ForceMatrixServiceMatrixResponse {
+message ForceMatrixServiceReadMatrixResponse {
 	Matrix matrix = 1;
 }
 

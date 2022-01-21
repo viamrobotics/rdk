@@ -38,7 +38,7 @@ const MatrixStorageSize = 200
 // with integers that correlate to the forces applied to the sensor.
 type ForceMatrix interface {
 	sensor.Sensor
-	Matrix(ctx context.Context) ([][]int, error)
+	ReadMatrix(ctx context.Context) ([][]int, error)
 	DetectSlip(ctx context.Context) (bool, error)
 }
 
@@ -58,10 +58,10 @@ func (r *reconfigurableForceMatrix) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
+func (r *reconfigurableForceMatrix) ReadMatrix(ctx context.Context) ([][]int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Matrix(ctx)
+	return r.actual.ReadMatrix(ctx)
 }
 
 func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
