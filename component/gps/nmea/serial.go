@@ -210,7 +210,7 @@ func (g *serialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return g.data.alt, nil
 }
 
-func (g *serialNMEAGPS) Speed(ctx context.Context) (float64, error) {
+func (g *serialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil

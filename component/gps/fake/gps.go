@@ -81,8 +81,8 @@ func (g *GPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return g.altitude, nil
 }
 
-// Speed returns the set value.
-func (g *GPS) Speed(ctx context.Context) (float64, error) {
+// ReadSpeed returns the set value.
+func (g *GPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.speed, nil

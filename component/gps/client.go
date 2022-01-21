@@ -91,14 +91,14 @@ func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
 	return resp.AltitudeMeters, nil
 }
 
-func (c *client) Speed(ctx context.Context) (float64, error) {
-	resp, err := c.client.Speed(ctx, &pb.GPSServiceSpeedRequest{
+func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
+	resp, err := c.client.ReadSpeed(ctx, &pb.GPSServiceReadSpeedRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return math.NaN(), err
 	}
-	return resp.SpeedKph, nil
+	return resp.SpeedMmPerSec, nil
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
@@ -110,7 +110,7 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	speed, err := c.Speed(ctx)
+	speed, err := c.ReadSpeed(ctx)
 	if err != nil {
 		return nil, err
 	}

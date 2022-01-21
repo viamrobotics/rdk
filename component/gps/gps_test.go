@@ -106,12 +106,12 @@ func TestReadAltitude(t *testing.T) {
 	test.That(t, actualGPS1.altCalls, test.ShouldEqual, 1)
 }
 
-func TestSpeed(t *testing.T) {
+func TestReadSpeed(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.speedCalls, test.ShouldEqual, 0)
-	speed1, err := reconfGPS1.(*reconfigurableGPS).Speed(context.Background())
+	speed1, err := reconfGPS1.(*reconfigurableGPS).ReadSpeed(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1, test.ShouldAlmostEqual, speed)
 	test.That(t, actualGPS1.speedCalls, test.ShouldEqual, 1)
@@ -208,8 +208,8 @@ func (m *mock) ReadAltitude(ctx context.Context) (float64, error) {
 	return alt, nil
 }
 
-// Speed returns the set value.
-func (m *mock) Speed(ctx context.Context) (float64, error) {
+// ReadSpeed returns the set value.
+func (m *mock) ReadSpeed(ctx context.Context) (float64, error) {
 	m.speedCalls++
 	return speed, nil
 }

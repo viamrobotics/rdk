@@ -35,7 +35,7 @@ type GPS interface {
 	sensor.Sensor
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
-	Speed(ctx context.Context) (float64, error)           // Current ground speed in kph
+	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in kph
 }
 
 // A LocalGPS represents a GPS that can report ReadSatellites and ReadValid measurements.
@@ -80,10 +80,10 @@ func (r *reconfigurableGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	return r.actual.ReadAltitude(ctx)
 }
 
-func (r *reconfigurableGPS) Speed(ctx context.Context) (float64, error) {
+func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Speed(ctx)
+	return r.actual.ReadSpeed(ctx)
 }
 
 func (r *reconfigurableGPS) ReadSatellites(ctx context.Context) (int, int, error) {
