@@ -7,7 +7,7 @@ import (
 )
 
 // Overlay returns a color image with the bounding boxes overlaid on the original image
-func Overlay(img image.Image, dets []Detection) *rimage.Image {
+func Overlay(img image.Image, dets []Detection) image.Image {
 	rimg := rimage.ConvertImage(img)
 	for _, det := range dets {
 		drawBox(rimg, det.BoundingBox())
