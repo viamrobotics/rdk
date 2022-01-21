@@ -26,16 +26,13 @@ func detect(imgPath string, thresh, size int, logger golog.Logger) {
 		logger.Fatal(err)
 	}
 
-	// create preprocessing
-	rb := objectdetection.RemoveBlue()
 	// create the detector
 	d := objectdetection.NewSimpleDetector(thresh)
 	// create filter
 	f := objectdetection.NewAreaFilter(size)
 
 	// get the bounding boxes and apply filter
-	rimg := rb(img)
-	bbs, err := d(rimg)
+	bbs, err := d(img)
 	if err != nil {
 		logger.Fatal(err)
 	}
