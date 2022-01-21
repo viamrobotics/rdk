@@ -31,13 +31,13 @@ func TestParsing(t *testing.T) {
 	nmeaSentence = "$GNVTG,176.25,T,,M,0.13,N,0.25,K,A*21"
 	err = parseAndUpdate(nmeaSentence, &data)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, data.speed, test.ShouldEqual, 0.25)
+	test.That(t, data.speed, test.ShouldEqual, 69.445)
 
 	// Test RMC, should update speed and position
 	nmeaSentence = "$GNRMC,191352.000,A,4503.4656,N,13118.7951,W,0.04,90.29,011021,,,A*59"
 	err = parseAndUpdate(nmeaSentence, &data)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, data.speed, test.ShouldAlmostEqual, 0.07408)
+	test.That(t, data.speed, test.ShouldAlmostEqual, 20.5776)
 	test.That(t, data.location.Lat(), test.ShouldAlmostEqual, 45.05776, 0.001)
 	test.That(t, data.location.Lng(), test.ShouldAlmostEqual, -131.31325, 0.001)
 
