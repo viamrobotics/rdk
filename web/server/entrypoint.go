@@ -28,6 +28,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
+	configpb "go.viam.com/rdk/proto/api/config/v1"
 )
 
 type wrappedLogger struct {
@@ -58,7 +59,7 @@ func (l *wrappedLogger) Sync() error {
 	return l.base.Sync()
 }
 
-func newNetLogger(config *config.Cloud) (*netLogger, error) {
+func newNetLogger(config *configpb.Cloud) (*netLogger, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return nil, err
@@ -78,7 +79,7 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 
 type netLogger struct {
 	hostname   string
-	cfg        *config.Cloud
+	cfg        *configpb.Cloud
 	httpClient http.Client
 
 	toLogMutex sync.Mutex
@@ -124,7 +125,7 @@ func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	// TODO(erh): should we put a _id uuid on here so we don't log twice?
 	x := map[string]interface{}{
-		"id":     nl.cfg.ID,
+		"id":     nl.cfg.Id,
 		"host":   nl.hostname,
 		"log":    e,
 		"fields": f,
@@ -223,7 +224,7 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, error) {
+func addCloudLogger(logger golog.Logger, cfg *configpb.Cloud) (golog.Logger, error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
 		return nil, err
@@ -364,7 +365,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		options.Auth = cfg.Auth
 	} else {
 		options.Managed = true
-		options.FQDNs = cfg.Cloud.FQDNs
+		options.FQDNs = cfg.Cloud.Fqdns
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
 	}
 	options.Network = cfg.Network
