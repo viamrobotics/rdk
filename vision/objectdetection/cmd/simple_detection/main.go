@@ -4,10 +4,10 @@ import (
 	"flag"
 	"os"
 
+	"github.com/edaniels/golog"
+
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
-
-	"github.com/edaniels/golog"
 )
 
 func main() {

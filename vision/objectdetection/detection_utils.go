@@ -6,7 +6,7 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// Overlay returns a color image with the bounding boxes overlaid on the original image
+// Overlay returns a color image with the bounding boxes overlaid on the original image.
 func Overlay(img image.Image, dets []Detection) image.Image {
 	rimg := rimage.ConvertImage(img)
 	for _, det := range dets {
@@ -15,7 +15,7 @@ func Overlay(img image.Image, dets []Detection) image.Image {
 	return rimg
 }
 
-// drawBox draws a red box over the image, each side is 3 pixels wide
+// drawBox draws a red box over the image, each side is 3 pixels wide.
 func drawBox(img *rimage.Image, rec *image.Rectangle) {
 	x0, y0, x1, y1 := rec.Min.X, rec.Min.Y, rec.Max.X, rec.Max.Y
 	horizontal(x0, y0, x1, img, rimage.Red)
@@ -24,7 +24,7 @@ func drawBox(img *rimage.Image, rec *image.Rectangle) {
 	vertical(x1, y0, y1, img, rimage.Red)
 }
 
-// horizontal draws a horizontal line 3 pixels wide
+// horizontal draws a horizontal line 3 pixels wide.
 func horizontal(x0, y, x1 int, img *rimage.Image, col rimage.Color) {
 	for x := x0; x <= x1; x++ {
 		img.SetXY(x, y, col)
@@ -41,7 +41,7 @@ func horizontal(x0, y, x1 int, img *rimage.Image, col rimage.Color) {
 	}
 }
 
-// vertical draws a veritcal line 3 pixels wide
+// vertical draws a veritcal line 3 pixels wide.
 func vertical(x, y0, y1 int, img *rimage.Image, col rimage.Color) {
 	for y := y0; y <= y1; y++ {
 		img.SetXY(x, y, col)
