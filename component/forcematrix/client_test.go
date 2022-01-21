@@ -42,7 +42,7 @@ func TestClientFailing(t *testing.T) {
 		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return nil, errors.New("bad matrix")
 		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+		injectFsm.DetectSlipFunc = func(ctx context.Context) (bool, error) {
 			return false, errors.New("slip detection error")
 		}
 
@@ -63,7 +63,7 @@ func TestClientFailing(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
 			test.That(t, m, test.ShouldBeNil)
 
-			isSlipping, err := forceMatrixClient.IsSlipping(context.Background())
+			isSlipping, err := forceMatrixClient.DetectSlip(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "slip detection error")
 			test.That(t, isSlipping, test.ShouldBeFalse)
@@ -83,7 +83,7 @@ func TestClientFailing(t *testing.T) {
 			test.That(t, err.Error(), test.ShouldContainSubstring, "bad matrix")
 			test.That(t, m, test.ShouldBeNil)
 
-			isSlipping, err := forceMatrixClient.IsSlipping(context.Background())
+			isSlipping, err := forceMatrixClient.DetectSlip(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "slip detection error")
 			test.That(t, isSlipping, test.ShouldBeFalse)
@@ -110,7 +110,7 @@ func TestClientWorking(t *testing.T) {
 		injectFsm.MatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return expectedMatrix, nil
 		}
-		injectFsm.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+		injectFsm.DetectSlipFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 
@@ -130,7 +130,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, m, test.ShouldResemble, expectedMatrix)
 
-			isSlipping, err := forceMatrixClient.IsSlipping(context.Background())
+			isSlipping, err := forceMatrixClient.DetectSlip(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
@@ -152,7 +152,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, m, test.ShouldResemble, expectedMatrix)
 
-			isSlipping, err := forceMatrixClient.IsSlipping(context.Background())
+			isSlipping, err := forceMatrixClient.DetectSlip(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 

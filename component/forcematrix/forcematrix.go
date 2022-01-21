@@ -39,7 +39,7 @@ const MatrixStorageSize = 200
 type ForceMatrix interface {
 	sensor.Sensor
 	Matrix(ctx context.Context) ([][]int, error)
-	IsSlipping(ctx context.Context) (bool, error)
+	DetectSlip(ctx context.Context) (bool, error)
 }
 
 var (
@@ -64,10 +64,10 @@ func (r *reconfigurableForceMatrix) Matrix(ctx context.Context) ([][]int, error)
 	return r.actual.Matrix(ctx)
 }
 
-func (r *reconfigurableForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
+func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsSlipping(ctx)
+	return r.actual.DetectSlip(ctx)
 }
 
 func (r *reconfigurableForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {

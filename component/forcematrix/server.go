@@ -50,19 +50,19 @@ func (s *subtypeServer) Matrix(
 	return matrixToProto(matrix), nil
 }
 
-// SlipDetection returns a boolean representing whether a slip has been detected.
-func (s *subtypeServer) SlipDetection(ctx context.Context,
-	req *pb.ForceMatrixServiceSlipDetectionRequest,
-) (*pb.ForceMatrixServiceSlipDetectionResponse, error) {
+// DetectSlip returns a boolean representing whether a slip has been detected.
+func (s *subtypeServer) DetectSlip(ctx context.Context,
+	req *pb.ForceMatrixServiceDetectSlipRequest,
+) (*pb.ForceMatrixServiceDetectSlipResponse, error) {
 	forceMatrixDevice, err := s.getForceMatrix(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
+	isSlipping, err := forceMatrixDevice.DetectSlip(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ForceMatrixServiceSlipDetectionResponse{IsSlipping: isSlipping}, nil
+	return &pb.ForceMatrixServiceDetectSlipResponse{SlipDetected: isSlipping}, nil
 }
 
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional

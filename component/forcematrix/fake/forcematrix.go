@@ -51,8 +51,8 @@ func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return result, nil
 }
 
-// IsSlipping always return false.
-func (fsm *ForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
+// DetectSlip always return false.
+func (fsm *ForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
 	return false, nil
 }
 

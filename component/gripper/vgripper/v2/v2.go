@@ -289,11 +289,11 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		// vg.logger.Debugf("antiSlipForceControl, state: %v", vg.state.String())
 
 		// Adjust grip strength
-		objectIsSlipping, err := vg.forceMatrix.IsSlipping(ctx)
+		objectDetectSlip, err := vg.forceMatrix.DetectSlip(ctx)
 		if err != nil {
 			return err
 		}
-		if objectIsSlipping {
+		if objectDetectSlip {
 			gripPowerPct += vg.antiSlipGripPowerPctStepSize
 			err = vg.motor.Go(ctx, float64(vg.closedDirection)*gripPowerPct)
 			if err != nil {

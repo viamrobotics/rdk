@@ -45,7 +45,7 @@ func TestServer(t *testing.T) {
 		capMatrix = expectedMatrix
 		return expectedMatrix, nil
 	}
-	injectForceMatrix.IsSlippingFunc = func(ctx context.Context) (bool, error) {
+	injectForceMatrix.DetectSlipFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
@@ -56,9 +56,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"no ForceMatrix with name ("+missingForceMatrixName+")")
 
-		_, err = forceMatrixServer.SlipDetection(
+		_, err = forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceSlipDetectionRequest{Name: missingForceMatrixName})
+			&pb.ForceMatrixServiceDetectSlipRequest{Name: missingForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"no ForceMatrix with name ("+missingForceMatrixName+")")
 	})
@@ -70,9 +70,9 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"resource with name ("+fakeForceMatrixName+") is not a ForceMatrix")
 
-		_, err = forceMatrixServer.SlipDetection(
+		_, err = forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceSlipDetectionRequest{Name: fakeForceMatrixName})
+			&pb.ForceMatrixServiceDetectSlipRequest{Name: fakeForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"resource with name ("+fakeForceMatrixName+") is not a ForceMatrix")
 	})
@@ -90,10 +90,10 @@ func TestServer(t *testing.T) {
 				Data: []uint32{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4},
 			})
 
-		slipResponse, err := forceMatrixServer.SlipDetection(
+		slipResponse, err := forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceSlipDetectionRequest{Name: testForceMatrixName})
+			&pb.ForceMatrixServiceDetectSlipRequest{Name: testForceMatrixName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, slipResponse.IsSlipping, test.ShouldBeTrue)
+		test.That(t, slipResponse.SlipDetected, test.ShouldBeTrue)
 	})
 }
