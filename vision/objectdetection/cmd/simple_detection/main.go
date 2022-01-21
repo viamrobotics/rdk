@@ -26,14 +26,24 @@ func detect(imgPath string, thresh, size int, logger golog.Logger) {
 		logger.Fatal(err)
 	}
 
-	// get the bounding boxes
-	d := objectdetection.NewSimpleDetector(thresh, size)
-	bbs, err := d.Inference(img)
+	// create preprocessing
+	rb := objectdetection.RemoveBlue()
+	// create the detector
+	d := objectdetection.NewSimpleDetector(thresh)
+	// create filter
+	f := objectdetection.NewAreaFilter(size)
+
+	// get the bounding boxes and apply filter
+	rimg := rb(img)
+	bbs, err := d(rimg)
 	if err != nil {
 		logger.Fatal(err)
 	}
+	bbs = f(bbs)
+
 	for i, bb := range bbs {
-		logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, bb.BoundingBox.Min.X, bb.BoundingBox.Min.Y, bb.BoundingBox.Max.X, bb.BoundingBox.Max.Y)
+		box := bb.BoundingBox()
+		logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, box.Min.X, box.Min.Y, box.Max.X, box.Max.Y)
 	}
 	// overlay them over the image
 	ovImg := objectdetection.Overlay(img, bbs)

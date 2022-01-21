@@ -6,10 +6,11 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-func Overlay(img image.Image, dets []*Detection) *rimage.Image {
+// Overlay returns a color image with the bounding boxes overlaid on the original image
+func Overlay(img image.Image, dets []Detection) *rimage.Image {
 	rimg := rimage.ConvertImage(img)
 	for _, det := range dets {
-		drawBox(rimg, &det.BoundingBox)
+		drawBox(rimg, det.BoundingBox())
 	}
 	return rimg
 }
