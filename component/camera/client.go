@@ -2,6 +2,7 @@
 package camera
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -91,6 +92,10 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		return img, func() {}, nil
 	case utils.MimeTypeRawIWD:
 		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
+		return img, func() {}, err
+	case utils.MimeTypeRawDepth:
+		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Frame)))
+		img := rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToPrettyPicture(0, 0)), depth, false, nil)
 		return img, func() {}, err
 	case utils.MimeTypeBoth:
 		img, err := rimage.ReadBothFromBytes(resp.Frame, true)
