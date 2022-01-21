@@ -99,7 +99,7 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 	if err := decoder.Decode(attributes); err != nil {
 		return nil, err
 	}
-	if attributes.Has("attributes") {
+	if attributes.Has("attributes") || len(md.Unused) == 0 {
 		return to, nil
 	}
 	// set as many unused attributes as possible
