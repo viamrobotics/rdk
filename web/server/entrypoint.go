@@ -236,7 +236,7 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, *netLogger, error) {
+func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(), error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -245,7 +245,7 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, *netL
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nl, nil
+	return l.Sugar(), nl.Close, nil
 }
 
 // Arguments for the command.
@@ -290,12 +290,12 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		var nl *netLogger
-		logger, nl, err = addCloudLogger(logger, cfg.Cloud)
+		var closer func()
+		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
-		defer nl.Close()
+		defer closer()
 	}
 
 	err = serveWeb(ctx, cfg, argsParsed, logger)
