@@ -10,22 +10,24 @@ type resourceNode map[Name]interface{}
 
 type resourceDependencies map[Name]resourceNode
 
+type transitiveClosureMatrix map[Name]map[Name]int
+
 // Graph The Graph maintains a collection of resources and their dependencies between each other.
 type Graph struct {
-	mu       sync.Mutex
-	Nodes    resourceNode // list of nodes
-	children resourceDependencies
-	parents  resourceDependencies
-	visited  map[Name]bool
+	mu                      sync.Mutex
+	Nodes                   resourceNode // list of nodes
+	children                resourceDependencies
+	parents                 resourceDependencies
+	transitiveClosureMatrix transitiveClosureMatrix
 }
 
 // NewGraph creates a new resource graph.
 func NewGraph() *Graph {
 	return &Graph{
-		children: resourceDependencies{},
-		parents:  resourceDependencies{},
-		Nodes:    resourceNode{},
-		visited:  map[Name]bool{},
+		children:                resourceDependencies{},
+		parents:                 resourceDependencies{},
+		Nodes:                   resourceNode{},
+		transitiveClosureMatrix: transitiveClosureMatrix{},
 	}
 }
 
@@ -58,6 +60,17 @@ func copyNodeMap(m resourceDependencies) resourceDependencies {
 	return out
 }
 
+func copyTransitiveClosureMatrix(m transitiveClosureMatrix) transitiveClosureMatrix {
+	out := make(transitiveClosureMatrix, len(m))
+	for i := range m {
+		out[i] = make(map[Name]int, len(m[i]))
+		for j, v := range m[i] {
+			out[i][j] = v
+		}
+	}
+	return out
+}
+
 func removeNodeFromNodeMap(dm resourceDependencies, key, node Name) {
 	if nodes := dm[key]; len(nodes) == 1 {
 		delete(dm, key)
@@ -83,10 +96,10 @@ func (g *Graph) Clone() *Graph {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return &Graph{
-		children: copyNodeMap(g.children),
-		Nodes:    copyNodes(g.Nodes),
-		parents:  copyNodeMap(g.parents),
-		visited:  map[Name]bool{},
+		children:                copyNodeMap(g.children),
+		Nodes:                   copyNodes(g.Nodes),
+		parents:                 copyNodeMap(g.parents),
+		transitiveClosureMatrix: copyTransitiveClosureMatrix(g.transitiveClosureMatrix),
 	}
 }
 
@@ -109,7 +122,18 @@ func (g *Graph) AddNode(node Name, iface interface{}) {
 
 func (g *Graph) addNode(node Name, iface interface{}) {
 	g.Nodes[node] = iface
-	g.visited[node] = false
+
+	if _, ok := g.transitiveClosureMatrix[node]; !ok {
+		g.transitiveClosureMatrix[node] = map[Name]int{}
+	}
+	for n := range g.Nodes {
+		for v := range g.transitiveClosureMatrix {
+			if _, ok := g.transitiveClosureMatrix[n][v]; !ok {
+				g.transitiveClosureMatrix[n][v] = 0
+			}
+		}
+	}
+	g.transitiveClosureMatrix[node][node] = 1
 }
 
 // AddChildren add a dependency to a parent, create the parent if it doesn't exists yet.
@@ -125,34 +149,40 @@ func (g *Graph) addChildren(child, parent Name) error {
 	}
 	// Maybe we haven't encountered yet the parent so let's add it here and assign a nil interface
 	if _, ok := g.Nodes[parent]; !ok {
-		g.Nodes[parent] = nil
-	} else if g.pathFromToExists(parent, child) {
+		g.addNode(parent, nil)
+	} else if g.transitiveClosureMatrix[parent][child] != 0 {
 		return errors.Errorf("circular dependency - %q already depends on %q", parent.Name, child.Name)
 	}
 	// Link nodes
 	addResToSet(g.children, parent, child)
 	addResToSet(g.parents, child, parent)
+	g.addTransitiveClosure(child, parent)
 	return nil
 }
 
-func (g *Graph) pathFromToExists(source Name, goal Name) bool {
-	for node := range g.Nodes {
-		g.visited[node] = false
-	}
-	g.visited[source] = true
-	for node := range g.parents[source] {
-		if node == goal {
-			return true
-		} else if !g.visited[node] {
-			if g.pathFromToExists(node, goal) {
-				return true
-			}
+func (g *Graph) addTransitiveClosure(child Name, parent Name) {
+	for u := range g.transitiveClosureMatrix {
+		for v := range g.transitiveClosureMatrix[u] {
+			g.transitiveClosureMatrix[u][v] += g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]
 		}
 	}
-	return false
+}
+
+func (g *Graph) removeTransitiveClosure(child Name, parent Name) {
+	for u := range g.transitiveClosureMatrix {
+		for v := range g.transitiveClosureMatrix[u] {
+			g.transitiveClosureMatrix[u][v] -= g.transitiveClosureMatrix[u][child] * g.transitiveClosureMatrix[parent][v]
+		}
+	}
 }
 
 func (g *Graph) remove(node Name) {
+	for k := range g.parents[node] {
+		g.removeTransitiveClosure(node, k)
+	}
+	for k := range g.children[node] {
+		g.removeTransitiveClosure(k, node)
+	}
 	for k, vertice := range g.children {
 		if _, ok := vertice[node]; ok {
 			removeNodeFromNodeMap(g.children, k, node)
@@ -163,10 +193,10 @@ func (g *Graph) remove(node Name) {
 			removeNodeFromNodeMap(g.parents, k, node)
 		}
 	}
+	delete(g.transitiveClosureMatrix, node)
 	delete(g.parents, node)
 	delete(g.children, node)
 	delete(g.Nodes, node)
-	delete(g.visited, node)
 }
 
 // Remove remove a given node and all it's dependencies.
