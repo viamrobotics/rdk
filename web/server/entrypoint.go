@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"runtime/pprof"
@@ -123,6 +124,14 @@ func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 
 func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	// TODO(erh): should we put a _id uuid on here so we don't log twice?
+
+	for idx, ff := range f {
+		if ff.String == "" && ff.Interface != nil {
+			ff.String = fmt.Sprintf("%v", ff.Interface)
+			f[idx] = ff
+		}
+	}
+
 	x := map[string]interface{}{
 		"id":     nl.cfg.ID,
 		"host":   nl.hostname,
@@ -157,12 +166,12 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 		return err
 	}
 
-	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
+	// we specifically don't use a cancellable context here so we can make sure we finish writing
+	r, err := http.NewRequestWithContext(context.Background(), "POST", nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
 		return errors.Wrap(err, "error creating log request")
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
-	r = r.WithContext(nl.cancelCtx)
 
 	resp, err := nl.httpClient.Do(r)
 	if err != nil {
@@ -179,8 +188,9 @@ func (nl *netLogger) backgroundWorker() {
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
 	for {
+		cancelled := false
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
-			return
+			cancelled = true
 		}
 		err := nl.Sync()
 		if err != nil && !errors.Is(err, context.Canceled) {
@@ -189,6 +199,9 @@ func (nl *netLogger) backgroundWorker() {
 			rlog.Logger.Infof("error logging to network: %s", err)
 		} else {
 			interval = normalInterval
+		}
+		if cancelled {
+			return
 		}
 	}
 }
@@ -223,16 +236,16 @@ func (nl *netLogger) Sync() error {
 	}
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, error) {
+func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(), error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	l := logger.Desugar()
 	l = l.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, nl)
 	}))
-	return l.Sugar(), nil
+	return l.Sugar(), nl.Close, nil
 }
 
 // Arguments for the command.
@@ -277,13 +290,12 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	}
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		logger, err = addCloudLogger(logger, cfg.Cloud)
+		var closer func()
+		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			err = multierr.Combine(err, utils.TryClose(ctx, logger))
-		}()
+		defer closer()
 	}
 
 	err = serveWeb(ctx, cfg, argsParsed, logger)
