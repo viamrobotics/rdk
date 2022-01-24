@@ -3,13 +3,7 @@
         { "name" : "arm",
           "type": "arm",
           "model": "ur",
-<<<<<<< HEAD
-          "attributes": {
-              "host" : "10.237.115.66"
-          }
-=======
           "host" : "10.237.115.232"
->>>>>>> 10dc0889 (Add files)
         },
         {
             "model": "pi",
