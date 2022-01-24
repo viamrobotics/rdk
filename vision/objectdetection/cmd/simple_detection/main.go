@@ -4,11 +4,16 @@ import (
 	"context"
 	"flag"
 	"image"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
 
 	"github.com/edaniels/golog"
+	"github.com/edaniels/gostream"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -30,88 +35,77 @@ type payload struct {
 
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
+	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
 	threshPtr := flag.Int("thresh", 20, "grayscale value that sets the threshold for detection")
 	sizePtr := flag.Int("size", 500, "minimum size of a detection")
+	streamPtr := flag.String("stream", "color", "type of url stream")
 	flag.Parse()
 	logger := golog.NewLogger("simple_detection")
-	pipeline(*imgPtr, *threshPtr, *sizePtr, logger)
+	if *imgPtr == "" && *urlPtr == "" {
+		logger.Fatal("must either have a -img argument or -url argument for the image source")
+	}
+	if *imgPtr != "" && *urlPtr != "" {
+		logger.Fatal("cannot have both a path argument and a url argument for image source, must choose one")
+	}
+	if *imgPtr != "" {
+		src := &camera.ImageSource{ImageSource: &simpleSource{*imgPtr}}
+		pipeline(src, *threshPtr, *sizePtr, logger)
+	} else {
+		u, err := url.Parse(*urlPtr)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		logger.Infof("url parse: %v", u)
+		host, port, _ := net.SplitHostPort(u.Host)
+		args := u.Path + "?" + u.RawQuery
+		logger.Infof("host: %s, port: %s, args: %s", host, port, args)
+		portNum, err := strconv.ParseInt(port, 0, 32)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		cfg := &rimage.AttrConfig{Host: host, Port: int(portNum), Args: args, Stream: *streamPtr, Aligned: false}
+		src, err := imagesource.NewServerSource(cfg, logger)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		pipeline(src, *threshPtr, *sizePtr, logger)
+	}
 	logger.Info("Done")
 	os.Exit(0)
 }
 
-func pipeline(imgPath string, thresh, size int, logger golog.Logger) {
-	// create source
-	src := &camera.ImageSource{ImageSource: &simpleSource{imgPath}}
+func pipeline(src gostream.ImageSource, thresh, size int, logger golog.Logger) {
 	// create preprocessor
 	p := objectdetection.RemoveBlue()
-	// create the detector
+	// create detector
 	d := objectdetection.NewSimpleDetector(thresh)
 	// create filter
 	f := objectdetection.NewAreaFilter(size)
 
 	// make a pipeline
-	source := func(out chan<- *payload) {
-		for x := 0; x < 20; x++ {
-			img, _, err := src.Next(context.Background())
-			if err != nil {
-				close(out)
-				logger.Fatal(err)
-			}
-			pl := &payload{Original: img}
-			out <- pl
-		}
-		close(out)
+	pipe, err := objectdetection.NewSource(src, p, d, f)
+	if err != nil {
+		logger.Fatal(err)
 	}
-	preprocess := func(in <-chan *payload, out chan<- *payload) {
-		for pl := range in {
-			pl.Modified = p(pl.Original)
-			out <- pl
+	// run forever
+	for {
+		result, err := pipe.NextResult(context.Background())
+		if err != nil {
+			logger.Fatal(err)
+		} else {
+			logger.Info("Next detection:")
 		}
-		close(out)
-	}
-	detection := func(in <-chan *payload, out chan<- *payload) {
-		var err error
-		for pl := range in {
-			pl.BoundingBoxes, err = d(pl.Modified)
-			if err != nil {
-				close(out)
-				logger.Fatal(err)
-			}
-			out <- pl
+		for i, bb := range result.Detections {
+			box := bb.BoundingBox()
+			logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, box.Min.X, box.Min.Y, box.Max.X, box.Max.Y)
 		}
-		close(out)
-	}
-	filter := func(in <-chan *payload, out chan<- *payload) {
-		for pl := range in {
-			pl.BoundingBoxes = f(pl.BoundingBoxes)
-			out <- pl
+		ovImg, err := objectdetection.Overlay(result.OriginalImage, result.Detections)
+		if err != nil {
+			logger.Fatal(err)
 		}
-		close(out)
-	}
-	printer := func(in <-chan *payload) {
-		for pl := range in {
-			logger.Info("Next Image:")
-			for i, bb := range pl.BoundingBoxes {
-				box := bb.BoundingBox()
-				logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, box.Min.X, box.Min.Y, box.Max.X, box.Max.Y)
-				// overlay them over the image
-				//ovImg := objectdetection.Overlay(img, bbs)
-				//err = rimage.WriteImageToFile("./simple_detection.png", ovImg)
-				//if err != nil {
-				//	logger.Fatal(err)
-				//}
-			}
+		err = rimage.WriteImageToFile("./simple_detection.jpg", ovImg)
+		if err != nil {
+			logger.Fatal(err)
 		}
 	}
-
-	// run the pipeline
-	images := make(chan *payload)
-	processed := make(chan *payload)
-	detected := make(chan *payload)
-	filtered := make(chan *payload)
-	go source(images)
-	go preprocess(images, processed)
-	go detection(processed, detected)
-	go filter(detected, filtered)
-	printer(filtered)
 }
