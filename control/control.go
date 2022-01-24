@@ -31,7 +31,7 @@ type Control interface {
 	// Frequency returns the loop's frequency
 	Frequency(ctx context.Context) (float64, error)
 	// Start starts the loop
-	Start(ctx context.Context) error
+	Start() error
 	// Stop stops the loop
-	Stop(ctx context.Context) error
+	Stop()
 }

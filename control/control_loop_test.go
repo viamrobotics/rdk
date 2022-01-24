@@ -322,5 +322,5 @@ func TestControlLoop(t *testing.T) {
 		test.That(t, b[0].GetSignalValueAt(0), test.ShouldEqual, -3.0)
 		test.That(t, err, test.ShouldBeNil)
 	}
-	cLoop.Stop(ctx)
+	cLoop.Stop()
 }

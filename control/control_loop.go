@@ -37,6 +37,7 @@ type ControlLoop struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelCtx               context.Context
 	cancel                  context.CancelFunc
+	running                 bool
 }
 
 // NewControlLoop construct a new control loop for a specific endpoint.
@@ -53,6 +54,7 @@ func createControlLoop(logger golog.Logger, cfg ControlConfig, m Controllable) (
 		blocks:                  make(map[string]*controlBlockInternal),
 		cancelCtx:               cancelCtx,
 		cancel:                  cancel,
+		running:                 false,
 	}
 	if c.cfg.Frequency == 0.0 || c.cfg.Frequency > 200 {
 		return nil, errors.New("loop frequency shouldn't be 0 or above 200Hz")
@@ -232,6 +234,7 @@ func (c *ControlLoop) Start() error {
 		}
 	}, c.activeBackgroundWorkers.Done)
 	<-waitCh
+	c.running = true
 	return nil
 }
 
@@ -265,11 +268,13 @@ func (c *ControlLoop) startBenchmark(loops int) error {
 }
 
 // Stop stops then loop.
-func (c *ControlLoop) Stop(ctx context.Context) error {
-	c.ct.ticker.Stop()
-	close(c.ct.stop)
-	c.activeBackgroundWorkers.Wait()
-	return nil
+func (c *ControlLoop) Stop() {
+	if c.running {
+		c.ct.ticker.Stop()
+		close(c.ct.stop)
+		c.activeBackgroundWorkers.Wait()
+		c.running = false
+	}
 }
 
 // GetConfig return the control loop config.
