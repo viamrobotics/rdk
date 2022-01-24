@@ -552,6 +552,9 @@ func (m *EncodedMotor) IsOn(ctx context.Context) (bool, error) {
 
 // Close cleanly shuts down the motor.
 func (m *EncodedMotor) Close() {
+	if m.loop != nil {
+		m.loop.Stop()
+	}
 	m.cancel()
 	m.activeBackgroundWorkers.Wait()
 }
