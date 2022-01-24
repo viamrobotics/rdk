@@ -10,9 +10,9 @@ import "proto/api/common/v1/common.proto";
 
 // A CameraService services maintains all cameras associated with a robot
 service CameraService {
-  // Frame returns a frame from a camera of the underlying robot. A specific MIME type
+  // GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.
-  rpc Frame(CameraServiceFrameRequest) returns (CameraServiceFrameResponse) {
+  rpc GetFrame(CameraServiceGetFrameRequest) returns (CameraServiceGetFrameResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/camera/{name}/frame"
     };
@@ -45,22 +45,22 @@ service CameraService {
 
 }
 
-message CameraServiceFrameRequest {
+message CameraServiceGetFrameRequest {
   // Name of a camera
   string name = 1;
   // Requested MIME type of response
   string mime_type = 2;
 }
 
-message CameraServiceFrameResponse {
+message CameraServiceGetFrameResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
   bytes frame = 2;
-  // Width of frame
-  int64 dim_x = 3;
-  // Height of frame
-  int64 dim_y = 4;
+  // Width of frame in px
+  int64 width_px = 3;
+  // Height of frame in px
+  int64 height_px = 4;
 }
 
 message CameraServiceRenderFrameRequest {

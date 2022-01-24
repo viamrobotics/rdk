@@ -32,11 +32,11 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 var (
-	filter_CameraService_Frame_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_CameraService_GetFrame_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceFrameRequest
+func request_CameraService_GetFrame_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetFrameRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -59,17 +59,17 @@ func request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marsha
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_Frame_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetFrame_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.Frame(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetFrame(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceFrameRequest
+func local_request_CameraService_GetFrame_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetFrameRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -92,11 +92,11 @@ func local_request_CameraService_Frame_0(ctx context.Context, marshaler runtime.
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_Frame_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetFrame_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.Frame(ctx, &protoReq)
+	msg, err := server.GetFrame(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -317,18 +317,18 @@ func local_request_CameraService_GetObjectPointClouds_0(ctx context.Context, mar
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterCameraServiceHandlerFromEndpoint instead.
 func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server CameraServiceServer) error {
 
-	mux.Handle("GET", pattern_CameraService_Frame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetFrame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/Frame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CameraService_Frame_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CameraService_GetFrame_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -336,7 +336,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_CameraService_Frame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetFrame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -450,23 +450,23 @@ func RegisterCameraServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "CameraServiceClient" to call the correct interceptors.
 func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client CameraServiceClient) error {
 
-	mux.Handle("GET", pattern_CameraService_Frame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetFrame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/Frame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CameraService_Frame_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CameraService_GetFrame_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_CameraService_Frame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetFrame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -534,7 +534,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_CameraService_Frame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "frame"}, ""))
+	pattern_CameraService_GetFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "frame"}, ""))
 
 	pattern_CameraService_RenderFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "render_frame"}, ""))
 
@@ -544,7 +544,7 @@ var (
 )
 
 var (
-	forward_CameraService_Frame_0 = runtime.ForwardResponseMessage
+	forward_CameraService_GetFrame_0 = runtime.ForwardResponseMessage
 
 	forward_CameraService_RenderFrame_0 = runtime.ForwardResponseMessage
 

@@ -19,9 +19,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CameraServiceClient interface {
-	// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	Frame(ctx context.Context, in *CameraServiceFrameRequest, opts ...grpc.CallOption) (*CameraServiceFrameResponse, error)
+	GetFrame(ctx context.Context, in *CameraServiceGetFrameRequest, opts ...grpc.CallOption) (*CameraServiceGetFrameResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	RenderFrame(ctx context.Context, in *CameraServiceRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
@@ -42,9 +42,9 @@ func NewCameraServiceClient(cc grpc.ClientConnInterface) CameraServiceClient {
 	return &cameraServiceClient{cc}
 }
 
-func (c *cameraServiceClient) Frame(ctx context.Context, in *CameraServiceFrameRequest, opts ...grpc.CallOption) (*CameraServiceFrameResponse, error) {
-	out := new(CameraServiceFrameResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/Frame", in, out, opts...)
+func (c *cameraServiceClient) GetFrame(ctx context.Context, in *CameraServiceGetFrameRequest, opts ...grpc.CallOption) (*CameraServiceGetFrameResponse, error) {
+	out := new(CameraServiceGetFrameResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/GetFrame", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,9 +82,9 @@ func (c *cameraServiceClient) GetObjectPointClouds(ctx context.Context, in *Came
 // All implementations must embed UnimplementedCameraServiceServer
 // for forward compatibility
 type CameraServiceServer interface {
-	// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	Frame(context.Context, *CameraServiceFrameRequest) (*CameraServiceFrameResponse, error)
+	GetFrame(context.Context, *CameraServiceGetFrameRequest) (*CameraServiceGetFrameResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	RenderFrame(context.Context, *CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error)
@@ -102,8 +102,8 @@ type CameraServiceServer interface {
 type UnimplementedCameraServiceServer struct {
 }
 
-func (UnimplementedCameraServiceServer) Frame(context.Context, *CameraServiceFrameRequest) (*CameraServiceFrameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Frame not implemented")
+func (UnimplementedCameraServiceServer) GetFrame(context.Context, *CameraServiceGetFrameRequest) (*CameraServiceGetFrameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFrame not implemented")
 }
 func (UnimplementedCameraServiceServer) RenderFrame(context.Context, *CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderFrame not implemented")
@@ -127,20 +127,20 @@ func RegisterCameraServiceServer(s grpc.ServiceRegistrar, srv CameraServiceServe
 	s.RegisterService(&CameraService_ServiceDesc, srv)
 }
 
-func _CameraService_Frame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraServiceFrameRequest)
+func _CameraService_GetFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraServiceGetFrameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CameraServiceServer).Frame(ctx, in)
+		return srv.(CameraServiceServer).GetFrame(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.CameraService/Frame",
+		FullMethod: "/proto.api.component.v1.CameraService/GetFrame",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CameraServiceServer).Frame(ctx, req.(*CameraServiceFrameRequest))
+		return srv.(CameraServiceServer).GetFrame(ctx, req.(*CameraServiceGetFrameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -207,8 +207,8 @@ var CameraService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CameraServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Frame",
-			Handler:    _CameraService_Frame_Handler,
+			MethodName: "GetFrame",
+			Handler:    _CameraService_GetFrame_Handler,
 		},
 		{
 			MethodName: "RenderFrame",
