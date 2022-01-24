@@ -47,19 +47,23 @@ type Base interface {
 
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+}
 
-	// WidthGet returns the width of the base in millimeters.
-	WidthGet(ctx context.Context) (int, error)
+// A LocalBase represents a physical base of a robot that can report the width of itself.
+type LocalBase interface {
+	Base
+	// GetWidth returns the width of the base in millimeters.
+	GetWidth(ctx context.Context) (int, error)
 }
 
 var (
-	_ = Base(&reconfigurableBase{})
+	_ = LocalBase(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
-	actual Base
+	actual LocalBase
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
@@ -96,10 +100,10 @@ func (r *reconfigurableBase) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableBase) WidthGet(ctx context.Context) (int, error) {
+func (r *reconfigurableBase) GetWidth(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.WidthGet(ctx)
+	return r.actual.GetWidth(ctx)
 }
 
 func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
@@ -116,10 +120,10 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	return nil
 }
 
-// WrapWithReconfigurable converts a regular Base implementation to a reconfigurableBase.
+// WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	base, ok := r.(Base)
+	base, ok := r.(LocalBase)
 	if !ok {
 		return nil, errors.Errorf("expected resource to be Base but got %T", r)
 	}

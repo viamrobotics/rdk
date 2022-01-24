@@ -37,13 +37,6 @@ service BaseService {
       post: "/api/v1/component/base/{name}/stop"
     };  
   }
-
-  // WidthGet returns the width of a robot's base expressed in millimeters
-  rpc WidthGet(BaseServiceWidthGetRequest) returns (BaseServiceWidthGetResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/component/base/{name}/width_get"
-    };  
-  }
 }
 
 message BaseServiceMoveStraightRequest {
@@ -96,13 +89,3 @@ message BaseServiceStopRequest {
 }
 
 message BaseServiceStopResponse {}
-
-message BaseServiceWidthGetRequest {
-  // Name of a base
-  string name = 1;
-}
-
-message BaseServiceWidthGetResponse {
-  // Width of the base represented in millimeters 
-  int64 width_mm = 1;
-}

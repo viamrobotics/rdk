@@ -190,7 +190,7 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	)
 }
 
-func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Base, error) {
+func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
 	b := &boat{myRobot: r}
 
@@ -366,7 +366,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-func (b *boat) WidthGet(ctx context.Context) (int, error) {
+func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 

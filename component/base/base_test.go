@@ -20,7 +20,7 @@ func TestBaseNamed(t *testing.T) {
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}
-	dev.WidthGetFunc = func(ctx context.Context) (int, error) {
+	dev.GetWidthFunc = func(ctx context.Context) (int, error) {
 		return 600, nil
 	}
 	err := base.DoMove(context.Background(), base.Move{}, dev)

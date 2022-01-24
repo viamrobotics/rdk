@@ -81,11 +81,6 @@ func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return errors.New("boat can't spin yet")
 }
 
-// WidthGet is a passthrough to continue to satisfy the Base interface.
-func (b *Boat) WidthGet(ctx context.Context) (int, error) {
-	return 1, nil
-}
-
 // Stop TODO.
 func (b *Boat) Stop(ctx context.Context) error {
 	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
