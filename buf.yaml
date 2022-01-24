@@ -1,5 +1,5 @@
 version: v1beta1
-name: buf.build/viam/rdk
+name: buf.build/viamrobotics/rdk
 build:
   roots:
     - .
