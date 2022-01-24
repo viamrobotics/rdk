@@ -33,7 +33,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		mc.MinPowerPct = 1.0
 	}
 
-	m = &Motor{
+	m := &Motor{
 		Board:         b,
 		A:             pins["a"],
 		B:             pins["b"],
