@@ -52,7 +52,7 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.WidthGetFunc = func(ctx context.Context) (int, error) {
+	workingBase.GetWidthFunc = func(ctx context.Context) (int, error) {
 		return width, nil
 	}
 }
@@ -81,7 +81,7 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.StopFunc = func(ctx context.Context) error {
 		return errors.New(errMsg)
 	}
-	brokenBase.WidthGetFunc = func(ctx context.Context) (int, error) {
+	brokenBase.GetWidthFunc = func(ctx context.Context) (int, error) {
 		return 0, errors.New(errMsg)
 	}
 	return errMsg
@@ -164,10 +164,6 @@ func TestClient(t *testing.T) {
 		expectedArgs = []interface{}{angleDeg, degsPerSec, shouldBlock}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
 
-		resultWidth, err := workingBaseClient2.WidthGet(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resultWidth, test.ShouldEqual, expectedWidth)
-
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
 
@@ -185,10 +181,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		err = failingBaseClient.Stop(context.Background())
-		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
-
-		width, err := failingBaseClient.WidthGet(context.Background())
-		test.That(t, width, test.ShouldEqual, 0)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)

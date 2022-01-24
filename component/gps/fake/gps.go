@@ -202,7 +202,7 @@ func (b *interceptingGPSBase) Spin(ctx context.Context, angleDeg float64, degsPe
 	return nil
 }
 
-func (b *interceptingGPSBase) WidthGet(ctx context.Context) (int, error) {
+func (b *interceptingGPSBase) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 

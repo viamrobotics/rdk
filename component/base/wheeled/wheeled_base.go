@@ -248,12 +248,12 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx)
 }
 
-func (base *wheeledBase) WidthGet(ctx context.Context) (int, error) {
+func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 	return base.widthMillis, nil
 }
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
-func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
 	frontLeft, ok := r.MotorByName(config.Attributes.String("frontLeft"))
 	if !ok {
 		return nil, errors.New("frontLeft motor not found")
@@ -294,7 +294,7 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
 		widthMillis:              config.Attributes.Int("widthMillis", 0),
 		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),

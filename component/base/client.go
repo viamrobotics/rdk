@@ -117,10 +117,7 @@ func (c *client) Stop(ctx context.Context) error {
 	return nil
 }
 
-func (c *client) WidthGet(ctx context.Context) (int, error) {
-	resp, err := c.client.WidthGet(ctx, &pb.BaseServiceWidthGetRequest{Name: c.name})
-	if err != nil {
-		return 0, err
-	}
-	return int(resp.GetWidthMm()), nil
+// Close cleanly closes the underlying connections.
+func (c *client) Close() error {
+	return c.serviceClient.Close()
 }

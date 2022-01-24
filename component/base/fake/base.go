@@ -50,8 +50,8 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-// WidthGet returns some arbitrary width.
-func (b *Base) WidthGet(ctx context.Context) (int, error) {
+// GetWidth returns some arbitrary width.
+func (b *Base) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
