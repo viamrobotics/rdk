@@ -62,10 +62,10 @@ func (p *basicPID) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Si
 		}
 		p.int += p.kI * pvError * dtS
 		switch {
-		case p.int > p.satLimUp:
+		case p.int >= p.satLimUp:
 			p.int = p.satLimUp
 			p.sat = 1
-		case p.int < p.satLimLo:
+		case p.int <= p.satLimLo:
 			p.int = p.satLimLo
 			p.sat = -1
 		default:
