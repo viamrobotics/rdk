@@ -23,11 +23,11 @@ const model = "forcematrixtraditional_v1"
 
 // ForceMatrixConfig describes the configuration of a forcematrixtraditional_v1.
 type ForceMatrixConfig struct {
-	BoardName         string   `json:"board"` // used to control gpio pins & read out pressure values
-	ColumnGPIOPins    []string `json:"column_gpio_pins_left_to_right"`
-	RowAnalogChannels []string `json:"row_analog_channels_top_to_bottom"`
-	DetectSlipWindow  int      `json:"slip_detection_window"`
-	NoiseThreshold    float64  `json:"slip_detection_signal_to_noise_cutoff"`
+	BoardName           string   `json:"board"` // used to control gpio pins & read out pressure values
+	ColumnGPIOPins      []string `json:"column_gpio_pins_left_to_right"`
+	RowAnalogChannels   []string `json:"row_analog_channels_top_to_bottom"`
+	SlipDetectionWindow int      `json:"slip_detection_window"`
+	NoiseThreshold      float64  `json:"slip_detection_signal_to_noise_cutoff"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -41,7 +41,7 @@ func (config *ForceMatrixConfig) Validate(path string) error {
 	if len(config.RowAnalogChannels) == 0 {
 		return utils.NewConfigValidationError(path, errors.New("row_analog_channels_top_to_bottom has to be an array of length > 0"))
 	}
-	if config.DetectSlipWindow == 0 || config.DetectSlipWindow > forcematrix.MatrixStorageSize {
+	if config.SlipDetectionWindow == 0 || config.SlipDetectionWindow > forcematrix.MatrixStorageSize {
 		return utils.NewConfigValidationError(path,
 			errors.Errorf("slip_detection_window has to be: 0 < slip_detection_window <= %v",
 				forcematrix.MatrixStorageSize))
@@ -110,7 +110,7 @@ func newForceMatrix(r robot.Robot, c *ForceMatrixConfig) (*ForceMatrixTraditiona
 		analogReaders:       analogReaders,
 		board:               b,
 		previousMatrices:    make([][][]int, 0, forcematrix.MatrixStorageSize),
-		slipDetectionWindow: c.DetectSlipWindow,
+		slipDetectionWindow: c.SlipDetectionWindow,
 		noiseThreshold:      c.NoiseThreshold,
 	}, nil
 }

@@ -32,11 +32,11 @@ func createExpectedMatrix(c *ForceMatrixConfig) ([][]int, error) {
 
 func TestNewForceMatrix(t *testing.T) {
 	validConfig := &ForceMatrixConfig{
-		BoardName:         "board",
-		ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-		RowAnalogChannels: []string{"a1"},
-		DetectSlipWindow:  10,
-		NoiseThreshold:    5,
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		RowAnalogChannels:   []string{"a1"},
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
 	}
 
 	t.Run("valid", func(t *testing.T) {
@@ -55,7 +55,7 @@ func TestNewForceMatrix(t *testing.T) {
 		test.That(t, fsm.columnGpioPins, test.ShouldResemble, validConfig.ColumnGPIOPins)
 		test.That(t, fsm.analogChannels, test.ShouldResemble, validConfig.RowAnalogChannels)
 		test.That(t, len(fsm.previousMatrices), test.ShouldBeZeroValue)
-		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.DetectSlipWindow)
+		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.SlipDetectionWindow)
 		test.That(t, fsm.noiseThreshold, test.ShouldEqual, validConfig.NoiseThreshold)
 	})
 
@@ -85,11 +85,11 @@ func TestNewForceMatrix(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		validConfig := &ForceMatrixConfig{
-			BoardName:         "board",
-			ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-			RowAnalogChannels: []string{"a1"},
-			DetectSlipWindow:  10,
-			NoiseThreshold:    5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := validConfig.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
@@ -97,11 +97,11 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no board", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:         "",
-			ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-			RowAnalogChannels: []string{"a1"},
-			DetectSlipWindow:  10,
-			NoiseThreshold:    5,
+			BoardName:           "",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -110,11 +110,11 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no column gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:         "board",
-			ColumnGPIOPins:    []string{},
-			RowAnalogChannels: []string{"a1"},
-			DetectSlipWindow:  10,
-			NoiseThreshold:    5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{},
+			RowAnalogChannels:   []string{"a1"},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -124,11 +124,11 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no row analog channels", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:         "board",
-			ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-			RowAnalogChannels: []string{},
-			DetectSlipWindow:  10,
-			NoiseThreshold:    5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			RowAnalogChannels:   []string{},
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -139,11 +139,11 @@ func TestValidate(t *testing.T) {
 	t.Run("invalid slip detection window", func(t *testing.T) {
 		t.Run("too small", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
-				BoardName:         "board",
-				ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-				RowAnalogChannels: []string{"a1"},
-				DetectSlipWindow:  0,
-				NoiseThreshold:    5,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				RowAnalogChannels:   []string{"a1"},
+				SlipDetectionWindow: 0,
+				NoiseThreshold:      5,
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
@@ -152,11 +152,11 @@ func TestValidate(t *testing.T) {
 		})
 		t.Run("too big", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
-				BoardName:         "board",
-				ColumnGPIOPins:    []string{"io10", "io11", "io12"},
-				RowAnalogChannels: []string{"a1"},
-				DetectSlipWindow:  forcematrix.MatrixStorageSize + 1,
-				NoiseThreshold:    5,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				RowAnalogChannels:   []string{"a1"},
+				SlipDetectionWindow: forcematrix.MatrixStorageSize + 1,
+				NoiseThreshold:      5,
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
@@ -190,11 +190,11 @@ func TestMatrixAndSlip(t *testing.T) {
 
 		t.Run("4x4", func(t *testing.T) {
 			config := &ForceMatrixConfig{
-				BoardName:         "board",
-				ColumnGPIOPins:    []string{"1", "2", "3", "4"},
-				RowAnalogChannels: []string{"1", "2", "3", "4"},
-				DetectSlipWindow:  2,
-				NoiseThreshold:    150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4"},
+				RowAnalogChannels:   []string{"1", "2", "3", "4"},
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
@@ -216,11 +216,11 @@ func TestMatrixAndSlip(t *testing.T) {
 
 		t.Run("3x7", func(t *testing.T) {
 			config := &ForceMatrixConfig{
-				BoardName:         "board",
-				ColumnGPIOPins:    []string{"1", "2", "3"},
-				RowAnalogChannels: []string{"1", "2", "3", "4", "5", "6", "7"},
-				DetectSlipWindow:  2,
-				NoiseThreshold:    150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3"},
+				RowAnalogChannels:   []string{"1", "2", "3", "4", "5", "6", "7"},
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
@@ -242,11 +242,11 @@ func TestMatrixAndSlip(t *testing.T) {
 
 		t.Run("5x2", func(t *testing.T) {
 			config := &ForceMatrixConfig{
-				BoardName:         "board",
-				ColumnGPIOPins:    []string{"1", "2", "3", "4", "5"},
-				RowAnalogChannels: []string{"1", "2"},
-				DetectSlipWindow:  2,
-				NoiseThreshold:    150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4", "5"},
+				RowAnalogChannels:   []string{"1", "2"},
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix, err := createExpectedMatrix(config)
 			test.That(t, err, test.ShouldBeNil)
