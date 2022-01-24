@@ -176,12 +176,12 @@ func (s *subtypeServer) PointCloud(
 	}, nil
 }
 
-// ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
+// GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) ObjectPointClouds(
+func (s *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
-	req *pb.CameraServiceObjectPointCloudsRequest,
-) (*pb.CameraServiceObjectPointCloudsResponse, error) {
+	req *pb.CameraServiceGetObjectPointCloudsRequest,
+) (*pb.CameraServiceGetObjectPointCloudsResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -194,7 +194,7 @@ func (s *subtypeServer) ObjectPointClouds(
 	config := segmentation.ObjectConfig{
 		MinPtsInPlane:    int(req.MinPointsInPlane),
 		MinPtsInSegment:  int(req.MinPointsInSegment),
-		ClusteringRadius: req.ClusteringRadius,
+		ClusteringRadius: req.ClusteringRadiusMm,
 	}
 	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *subtypeServer) ObjectPointClouds(
 		return nil, err
 	}
 
-	return &pb.CameraServiceObjectPointCloudsResponse{
+	return &pb.CameraServiceGetObjectPointCloudsResponse{
 		MimeType: utils.MimeTypePCD,
 		Objects:  protoSegments,
 	}, nil
@@ -220,9 +220,9 @@ func segmentsToProto(segs *segmentation.ObjectSegmentation) ([]*pb.PointCloudObj
 			return nil, err
 		}
 		ps := &pb.PointCloudObject{
-			Frame:       buf.Bytes(),
-			Center:      pointToProto(seg.Center),
-			BoundingBox: boxToProto(seg.BoundingBox),
+			Frame:               buf.Bytes(),
+			CenterCoordinatesMm: pointToProto(seg.Center),
+			BoundingBoxMm:       boxToProto(seg.BoundingBox),
 		}
 		protoSegs = append(protoSegs, ps)
 	}
@@ -239,8 +239,8 @@ func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
 
 func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
 	return &commonpb.BoxGeometry{
-		Width:  b.Width,
-		Length: b.Length,
-		Depth:  b.Depth,
+		WidthMm:  b.Width,
+		LengthMm: b.Length,
+		DepthMm:  b.Depth,
 	}
 }
