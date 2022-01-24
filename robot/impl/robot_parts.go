@@ -31,7 +31,7 @@ import (
 type robotParts struct {
 	remotes         map[string]*remoteRobot
 	functions       map[string]struct{}
-	resources       map[resource.Name]interface{}
+	resources       *resource.Graph
 	processManager  pexec.ProcessManager
 	robotClientOpts []client.RobotClientOption
 }
@@ -41,7 +41,7 @@ func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robot
 	return &robotParts{
 		remotes:         map[string]*remoteRobot{},
 		functions:       map[string]struct{}{},
-		resources:       map[resource.Name]interface{}{},
+		resources:       resource.NewGraph(),
 		processManager:  pexec.NewProcessManager(logger),
 		robotClientOpts: opts,
 	}
@@ -59,7 +59,7 @@ func (parts *robotParts) addFunction(name string) {
 
 // addResource adds a resource to the parts.
 func (parts *robotParts) addResource(name resource.Name, r interface{}) {
-	parts.resources[name] = r
+	parts.resources.AddNode(name, r)
 }
 
 // RemoteNames returns the names of all remotes in the parts.
@@ -96,7 +96,7 @@ func (parts *robotParts) mergeNamesWithRemotes(names []string, namesFunc func(re
 // remotes.
 func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []resource.Name {
 	// use this to filter out seen names and preserve order
-	seen := make(map[resource.Name]struct{}, len(parts.resources))
+	seen := make(map[resource.Name]struct{}, len(parts.resources.Nodes))
 	for _, name := range names {
 		seen[name] = struct{}{}
 	}
@@ -224,7 +224,7 @@ func (parts *robotParts) FunctionNames() []string {
 // ResourceNames returns the names of all resources in the parts.
 func (parts *robotParts) ResourceNames() []resource.Name {
 	names := []resource.Name{}
-	for k := range parts.resources {
+	for k := range parts.resources.Nodes {
 		names = append(names, k)
 	}
 	return parts.mergeResourceNamesWithRemotes(names)
@@ -245,11 +245,8 @@ func (parts *robotParts) Clone() *robotParts {
 			clonedParts.functions[k] = v
 		}
 	}
-	if len(parts.resources) != 0 {
-		clonedParts.resources = make(map[resource.Name]interface{}, len(parts.resources))
-		for k, v := range parts.resources {
-			clonedParts.resources[k] = v
-		}
+	if len(parts.resources.Nodes) != 0 {
+		clonedParts.resources = parts.resources.Clone()
 	}
 	if parts.processManager != nil {
 		clonedParts.processManager = parts.processManager.Clone()
@@ -270,8 +267,9 @@ func (parts *robotParts) Close(ctx context.Context) error {
 		}
 	}
 
-	for _, x := range parts.resources {
-		if err := utils.TryClose(ctx, x); err != nil {
+	order := parts.resources.TopologicalSort()
+	for _, x := range order {
+		if err := utils.TryClose(ctx, parts.resources.Nodes[x]); err != nil {
 			allErrs = multierr.Combine(allErrs, errors.Wrap(err, "error closing resource"))
 		}
 	}
@@ -390,14 +388,24 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 }
 
 // newComponents constructs all components defined.
-func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, r *localRobot) error {
+func (parts *robotParts) newComponents(ctx context.Context, components []config.Component, robot *localRobot) error {
 	for _, c := range components {
-		r, err := r.newResource(ctx, c)
+		r, err := robot.newResource(ctx, c)
 		if err != nil {
 			return err
 		}
 		rName := c.ResourceName()
 		parts.addResource(rName, r)
+		for _, dep := range c.DependsOn {
+			if comp := robot.config.FindComponent(dep); comp != nil {
+				if err := parts.resources.AddChildren(rName, comp.ResourceName()); err != nil {
+					return err
+				}
+			} else {
+				return errors.Errorf("componenent %s depends on non-existent component %s",
+					rName.Name, dep)
+			}
+		}
 	}
 
 	return nil
@@ -436,7 +444,7 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 // returns nil otherwise.
 func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 	rName := board.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(board.Board)
 		if ok {
@@ -456,7 +464,7 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 // returns nil otherwise.
 func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 	rName := arm.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(arm.Arm)
 		if ok {
@@ -476,7 +484,7 @@ func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	rName := base.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(base.Base)
 		if ok {
@@ -496,7 +504,7 @@ func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 // returns nil otherwise.
 func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
 	rName := gripper.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(gripper.Gripper)
 		if ok {
@@ -516,7 +524,7 @@ func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
 // returns nil otherwise.
 func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 	rName := camera.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(camera.Camera)
 		if ok {
@@ -536,7 +544,7 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 // returns nil otherwise.
 func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 	rName := sensor.Named(name)
-	r, ok := parts.resources[rName]
+	r, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := r.(sensor.Sensor)
 		if ok {
@@ -556,7 +564,7 @@ func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
 // returns nil otherwise.
 func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
 	servoResourceName := servo.Named(name)
-	resource, ok := parts.resources[servoResourceName]
+	resource, ok := parts.resources.Nodes[servoResourceName]
 	if ok {
 		part, ok := resource.(servo.Servo)
 		if ok {
@@ -576,7 +584,7 @@ func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
 // returns nil otherwise.
 func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	motorResourceName := motor.Named(name)
-	resource, ok := parts.resources[motorResourceName]
+	resource, ok := parts.resources.Nodes[motorResourceName]
 	if ok {
 		part, ok := resource.(motor.Motor)
 		if ok {
@@ -596,7 +604,7 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 // returns nil otherwise.
 func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
 	rName := input.Named(name)
-	resource, ok := parts.resources[rName]
+	resource, ok := parts.resources.Nodes[rName]
 	if ok {
 		part, ok := resource.(input.Controller)
 		if ok {
@@ -615,7 +623,7 @@ func (parts *robotParts) InputControllerByName(name string) (input.Controller, b
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
-	part, ok := parts.resources[name]
+	part, ok := parts.resources.Nodes[name]
 	if ok {
 		return part, true
 	}
@@ -666,13 +674,9 @@ func (parts *robotParts) MergeAdd(toAdd *robotParts) (*PartsMergeResult, error) 
 		}
 	}
 
-	if len(toAdd.resources) != 0 {
-		if parts.resources == nil {
-			parts.resources = make(map[resource.Name]interface{}, len(toAdd.resources))
-		}
-		for k, v := range toAdd.resources {
-			parts.resources[k] = v
-		}
+	err := parts.resources.MergeAdd(toAdd.resources)
+	if err != nil {
+		return nil, err
 	}
 
 	var result PartsMergeResult
@@ -715,9 +719,9 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 		}
 	}
 
-	if len(toModify.resources) != 0 {
-		for k, v := range toModify.resources {
-			old, ok := parts.resources[k]
+	if len(toModify.resources.Nodes) != 0 {
+		for k, v := range toModify.resources.Nodes {
+			old, ok := parts.resources.Nodes[k]
 			if !ok {
 				// should not happen
 				continue
@@ -751,8 +755,8 @@ func (parts *robotParts) MergeModify(ctx context.Context, toModify *robotParts, 
 				if err := utils.TryClose(ctx, old); err != nil {
 					return nil, err
 				}
-				delete(parts.resources, k)
-				parts.resources[k] = v
+				// Not sure if this is the best approach, here I assume both ressources share the same dependencies
+				parts.resources.Nodes[k] = v
 			}
 		}
 	}
@@ -774,12 +778,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 			delete(parts.functions, k)
 		}
 	}
-
-	if len(toRemove.resources) != 0 {
-		for k := range toRemove.resources {
-			delete(parts.resources, k)
-		}
-	}
+	parts.resources.MergeRemove(toRemove.resources)
 
 	if toRemove.processManager != nil {
 		// assume parts.processManager is non-nil
@@ -813,20 +812,24 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		resource, ok := parts.ResourceByName(rName)
+		_, ok := parts.ResourceByName(rName)
 		if !ok {
 			continue
 		}
-		filtered.addResource(rName, resource)
+		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
-		part, ok := parts.ResourceByName(rName)
+		_, ok := parts.ResourceByName(rName)
 		if !ok {
 			continue
 		}
-		filtered.addResource(rName, part)
+		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
+			return nil, err
+		}
 	}
 
 	for _, conf := range conf.Functions {
