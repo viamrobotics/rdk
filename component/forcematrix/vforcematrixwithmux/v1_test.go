@@ -29,13 +29,13 @@ func TestNewForceMatrix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	validConfig := &ForceMatrixConfig{
-		BoardName:        "board",
-		ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-		MuxGPIOPins:      []string{"s2", "s1", "s0"},
-		IOPins:           []int{1, 2},
-		AnalogChannel:    "a1",
-		DetectSlipWindow: 10,
-		NoiseThreshold:   5,
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		MuxGPIOPins:         []string{"s2", "s1", "s0"},
+		IOPins:              []int{1, 2},
+		AnalogChannel:       "a1",
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
 	}
 
 	t.Run("valid", func(t *testing.T) {
@@ -56,7 +56,7 @@ func TestNewForceMatrix(t *testing.T) {
 		test.That(t, fsm.ioPins, test.ShouldResemble, validConfig.IOPins)
 		test.That(t, fsm.analogChannel, test.ShouldEqual, validConfig.AnalogChannel)
 		test.That(t, len(fsm.previousMatrices), test.ShouldBeZeroValue)
-		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.DetectSlipWindow)
+		test.That(t, fsm.slipDetectionWindow, test.ShouldEqual, validConfig.SlipDetectionWindow)
 		test.That(t, fsm.noiseThreshold, test.ShouldEqual, validConfig.NoiseThreshold)
 	})
 
@@ -86,13 +86,13 @@ func TestNewForceMatrix(t *testing.T) {
 func TestValidate(t *testing.T) {
 	t.Run("valid config", func(t *testing.T) {
 		validConfig := &ForceMatrixConfig{
-			BoardName:        "board",
-			ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-			MuxGPIOPins:      []string{"s2", "s1", "s0"},
-			IOPins:           []int{1, 2},
-			AnalogChannel:    "a1",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := validConfig.Validate("path")
 		test.That(t, err, test.ShouldBeNil)
@@ -100,13 +100,13 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no board", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:        "",
-			ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-			MuxGPIOPins:      []string{"s2", "s1", "s0"},
-			IOPins:           []int{1, 2},
-			AnalogChannel:    "a1",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -115,13 +115,13 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no column gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:        "board",
-			ColumnGPIOPins:   []string{},
-			MuxGPIOPins:      []string{"s2", "s1", "s0"},
-			IOPins:           []int{1, 2},
-			AnalogChannel:    "a1",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -131,13 +131,13 @@ func TestValidate(t *testing.T) {
 
 	t.Run("invalid mux gpio pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:        "board",
-			ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-			MuxGPIOPins:      []string{"s1", "s0"},
-			IOPins:           []int{1, 2},
-			AnalogChannel:    "a1",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -147,13 +147,13 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no io pins", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:        "board",
-			ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-			MuxGPIOPins:      []string{"s2", "s1", "s0"},
-			IOPins:           []int{},
-			AnalogChannel:    "a1",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{},
+			AnalogChannel:       "a1",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -163,13 +163,13 @@ func TestValidate(t *testing.T) {
 
 	t.Run("no analog channel", func(t *testing.T) {
 		invalidConfig := &ForceMatrixConfig{
-			BoardName:        "board",
-			ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-			MuxGPIOPins:      []string{"s2", "s1", "s0"},
-			IOPins:           []int{1, 2},
-			AnalogChannel:    "",
-			DetectSlipWindow: 10,
-			NoiseThreshold:   5,
+			BoardName:           "board",
+			ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+			MuxGPIOPins:         []string{"s2", "s1", "s0"},
+			IOPins:              []int{1, 2},
+			AnalogChannel:       "",
+			SlipDetectionWindow: 10,
+			NoiseThreshold:      5,
 		}
 		err := invalidConfig.Validate("path")
 		test.That(t, err, test.ShouldNotBeNil)
@@ -179,13 +179,13 @@ func TestValidate(t *testing.T) {
 	t.Run("invalid slip detection window", func(t *testing.T) {
 		t.Run("too small", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
-				BoardName:        "board",
-				ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-				MuxGPIOPins:      []string{"s2", "s1", "s0"},
-				IOPins:           []int{1, 2},
-				AnalogChannel:    "a1",
-				DetectSlipWindow: 0,
-				NoiseThreshold:   5,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{1, 2},
+				AnalogChannel:       "a1",
+				SlipDetectionWindow: 0,
+				NoiseThreshold:      5,
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
@@ -194,13 +194,13 @@ func TestValidate(t *testing.T) {
 		})
 		t.Run("too big", func(t *testing.T) {
 			invalidConfig := &ForceMatrixConfig{
-				BoardName:        "board",
-				ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-				MuxGPIOPins:      []string{"s2", "s1", "s0"},
-				IOPins:           []int{1, 2},
-				AnalogChannel:    "a1",
-				DetectSlipWindow: forcematrix.MatrixStorageSize + 1,
-				NoiseThreshold:   5,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{1, 2},
+				AnalogChannel:       "a1",
+				SlipDetectionWindow: forcematrix.MatrixStorageSize + 1,
+				NoiseThreshold:      5,
 			}
 			err := invalidConfig.Validate("path")
 			test.That(t, err, test.ShouldNotBeNil)
@@ -214,13 +214,13 @@ func TestSetMuxGpioPins(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	validConfig := &ForceMatrixConfig{
-		BoardName:        "board",
-		ColumnGPIOPins:   []string{"io10", "io11", "io12"},
-		MuxGPIOPins:      []string{"s2", "s1", "s0"},
-		IOPins:           []int{1, 2},
-		AnalogChannel:    "a1",
-		DetectSlipWindow: 10,
-		NoiseThreshold:   5,
+		BoardName:           "board",
+		ColumnGPIOPins:      []string{"io10", "io11", "io12"},
+		MuxGPIOPins:         []string{"s2", "s1", "s0"},
+		IOPins:              []int{1, 2},
+		AnalogChannel:       "a1",
+		SlipDetectionWindow: 10,
+		NoiseThreshold:      5,
 	}
 	t.Run("bad io pin", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
@@ -261,13 +261,13 @@ func TestMatrixAndSlip(t *testing.T) {
 				return fakeBoard, true
 			}
 			config := &ForceMatrixConfig{
-				BoardName:        "board",
-				ColumnGPIOPins:   []string{"1", "2", "3", "4"},
-				MuxGPIOPins:      []string{"s2", "s1", "s0"},
-				IOPins:           []int{0, 2, 6, 7},
-				AnalogChannel:    "fake",
-				DetectSlipWindow: 2,
-				NoiseThreshold:   150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix := createExpectedMatrix(config)
 
@@ -306,13 +306,13 @@ func TestMatrixAndSlip(t *testing.T) {
 				return fakeBoard, true
 			}
 			config := &ForceMatrixConfig{
-				BoardName:        "board",
-				ColumnGPIOPins:   []string{"1", "2", "3", "4", "5", "6"},
-				MuxGPIOPins:      []string{"s2", "s1", "s0"},
-				IOPins:           []int{0, 2},
-				AnalogChannel:    "fake",
-				DetectSlipWindow: 2,
-				NoiseThreshold:   150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3", "4", "5", "6"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix := createExpectedMatrix(config)
 
@@ -351,13 +351,13 @@ func TestMatrixAndSlip(t *testing.T) {
 				return fakeBoard, true
 			}
 			config := &ForceMatrixConfig{
-				BoardName:        "board",
-				ColumnGPIOPins:   []string{"1", "2", "3"},
-				MuxGPIOPins:      []string{"s2", "s1", "s0"},
-				IOPins:           []int{0, 2, 6, 7, 3},
-				AnalogChannel:    "fake",
-				DetectSlipWindow: 2,
-				NoiseThreshold:   150,
+				BoardName:           "board",
+				ColumnGPIOPins:      []string{"1", "2", "3"},
+				MuxGPIOPins:         []string{"s2", "s1", "s0"},
+				IOPins:              []int{0, 2, 6, 7, 3},
+				AnalogChannel:       "fake",
+				SlipDetectionWindow: 2,
+				NoiseThreshold:      150,
 			}
 			expectedMatrix := createExpectedMatrix(config)
 

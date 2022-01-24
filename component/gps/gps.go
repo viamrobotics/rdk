@@ -38,7 +38,7 @@ type GPS interface {
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in kph
 }
 
-// A LocalGPS represents a GPS that can report ReadSatellites and ReadValid measurements.
+// A LocalGPS represents a GPS that can report accuracy, satellites and valid measurements.
 type LocalGPS interface {
 	GPS
 	ReadAccuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error in meters
