@@ -39,9 +39,14 @@ func CombineMetrics(metrics ...Metric) Metric {
 	return cm.combinedDist
 }
 
+// newDefaultMetric creates a new metric which independently measures the distance between two poses' translations and orientations, and
+// creates a metric whose distance is 0 as long as the shortest distance from a given pose to either of the two initializing poses is less
+// than the distance between those two initializing poses.
 func newDefaultMetric(start, end spatial.Pose) Metric {
 	delta := spatial.PoseDelta(start, end)
+	// Translation distance between the two initializing poses
 	tDist := delta.Point().Norm2() * deviationFactor
+	// Orientation distances between the two initializing poses
 	oDist := spatial.QuatToR3AA(delta.Orientation().Quaternion()).Norm2() * deviationFactor
 	endpoints := []spatial.Pose{start, end}
 	return func(from, to spatial.Pose) float64 {

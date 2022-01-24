@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	// When setting default constraints, the translation and orientation distances between the start/end are calculated and multiplied by this
-	// value. At no point during a movement may the minimum distance to the start or end exceed these values.
+	// When setting default constraints, the translation and orientation distances between the start/end are calculated and multiplied by
+	// this value. At no point during a movement may the minimum distance to the start or end exceed these values.
 	deviationFactor = 1.0
 	// Default distance below which two distances are considered equal.
 	defaultEpsilon = 0.001
@@ -65,8 +65,9 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 	return opt
 }
 
-// DefaultConstraint will create a default constraint and metric. Constrains the position and orientation to each deviate from the
-// start/goal by no more than an amount based on how much the start/goal deviate from one another.
+// DefaultConstraint creates a default constraint and metric that constrains the position and orientation. The allowed magnitude of
+// deviation of the position and orientation from the start or goal shall never be greater than than the magnitude of deviation between
+// the start and goal poses.
 // For example- if a user requests a translation, orientation will not change during the movement. If there is an obstacle, deflection
 // from the ideal path is allowed as a function of the length of the ideal path.
 func DefaultConstraint(from, to spatial.Pose, opt *PlannerOptions) *PlannerOptions {
