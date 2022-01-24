@@ -19,6 +19,7 @@ type Volume interface {
 	DistanceFrom(Volume) (float64, error)
 }
 
+// VolumeConfig specifies the format of volumes specified through the configuration file.
 type VolumeConfig struct {
 	Type string `json:"type"`
 
@@ -40,6 +41,7 @@ type VolumeConfig struct {
 	OrientationOffset OrientationConfig `json:"orientation"`
 }
 
+// ParseConfig converts a VolumeConfig into the correct VolumeCreator type, as specified in its Type field.
 func (config *VolumeConfig) ParseConfig(offset Pose) (VolumeCreator, error) {
 	// TODO(rb): ignore passed in offset if offset is specified in config
 
@@ -52,8 +54,6 @@ func (config *VolumeConfig) ParseConfig(offset Pose) (VolumeCreator, error) {
 		if err == nil {
 			return creator, nil
 		}
-	default:
-		return nil, errors.Errorf("volume type %s unsupported", config.Type)
 	}
-	return nil, nil
+	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }

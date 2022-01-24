@@ -43,7 +43,7 @@ type ModelConfig struct {
 	RawFrames []FrameMapConfig `json:"frames"`
 }
 
-// Model turns the ModelConfig struct into a full Model with the name modelName.
+// ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
 func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
 	model := NewSimpleModel()
@@ -83,10 +83,11 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			pose := spatial.NewPoseFromOrientationVector(pt, ov)
 			offset := spatial.Invert(spatial.NewPoseFromOrientation(pt.Mul(0.5), ov))
 			volumeCreator, err := link.Volume.ParseConfig(offset)
-			if err != nil {
-				return nil, err
+			if err == nil {
+				transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
+			} else {
+				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
 			}
-			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
 			if err != nil {
 				return nil, err
 			}

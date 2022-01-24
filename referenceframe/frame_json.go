@@ -6,10 +6,12 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
+
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
 
+// FrameMapConfig represents the format for configuring a Frame object.
 type FrameMapConfig map[string]interface{}
 
 // UnmarshalFrameJSON deserialized json into a reference referenceframe.
@@ -23,7 +25,7 @@ func UnmarshalFrameJSON(data []byte) (Frame, error) {
 	return config.ParseConfig()
 }
 
-// UnmarshalFrameMap deserializes a Frame from a map.
+// ParseConfig converts a FrameMapConfig to a Frame object.
 func (config FrameMapConfig) ParseConfig() (Frame, error) {
 	var err error
 

@@ -23,7 +23,7 @@ type box struct {
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
 	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
-		return nil, errors.Errorf("box dimensions can not be zero")
+		return nil, errors.New("box dimensions can not be zero")
 	}
 	return &boxCreator{dims.Mul(0.5), offset}, nil
 }

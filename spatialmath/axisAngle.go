@@ -4,7 +4,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -79,15 +78,14 @@ func (r4 *R4AA) ToQuat() quat.Number {
 }
 
 // Normalize scales the x, y, and z components of a R4 axis angle to be on the unit sphere.
-func (r4 *R4AA) Normalize() error {
+func (r4 *R4AA) Normalize() {
 	norm := math.Sqrt(r4.RX*r4.RX + r4.RY*r4.RY + r4.RZ*r4.RZ)
 	if norm == 0.0 { // prevent division by 0
-		return errors.Errorf("cannot normalize R4AA, divide by zero")
+		panic("cannot normalize R4AA, divide by zero")
 	}
 	r4.RX /= norm
 	r4.RY /= norm
 	r4.RZ /= norm
-	return nil
 }
 
 // R3ToR4 converts an R3 angle axis to R4.
