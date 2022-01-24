@@ -192,9 +192,9 @@ func (s *subtypeServer) GetObjectPointClouds(
 		return nil, err
 	}
 	config := segmentation.ObjectConfig{
-		MinPtsInPlane:    int(req.MinPointsInPlane),
-		MinPtsInSegment:  int(req.MinPointsInSegment),
-		ClusteringRadius: req.ClusteringRadiusMm,
+		MinPtsInPlane:      int(req.MinPointsInPlane),
+		MinPtsInSegment:    int(req.MinPointsInSegment),
+		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
 	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
 	if err != nil {
@@ -239,8 +239,8 @@ func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
 
 func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
 	return &commonpb.BoxGeometry{
-		WidthMm:  b.Width,
-		LengthMm: b.Length,
-		DepthMm:  b.Depth,
+		WidthMm:  b.WidthMm,
+		LengthMm: b.LengthMm,
+		DepthMm:  b.DepthMm,
 	}
 }
