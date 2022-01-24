@@ -91,11 +91,6 @@ type gpioStepper struct {
 	targetStepsPerSecond int64
 }
 
-// PID return the underlying PID.
-func (m *gpioStepper) PID() motor.PID {
-	return nil
-}
-
 // validate if this config is valid.
 func (m *gpioStepper) Validate() error {
 	if m.theBoard == nil {

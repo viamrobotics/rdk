@@ -197,18 +197,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			pid := x.PID()
 			var str *structpb.Struct
-			if pid != nil {
-				pcfg, err := pid.Config(ctx)
-				if err != nil {
-					return nil, err
-				}
-				str, err = structpb.NewStruct(pcfg.Attributes)
-				if err != nil {
-					return nil, err
-				}
-			}
 			status.Motors[name] = &pb.MotorStatus{
 				On:                isOn,
 				Position:          position,
