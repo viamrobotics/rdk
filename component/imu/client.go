@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // serviceClient is a client satisfies the imu.proto contract.
@@ -84,17 +85,17 @@ func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVe
 	}, nil
 }
 
-func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := c.client.Orientation(ctx, &pb.IMUServiceOrientationRequest{
+func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	resp, err := c.client.ReadOrientation(ctx, &pb.IMUServiceReadOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
+		Roll:  utils.DegToRad(resp.Orientation.RollDeg),
+		Pitch: utils.DegToRad(resp.Orientation.PitchDeg),
+		Yaw:   utils.DegToRad(resp.Orientation.YawDeg),
 	}, nil
 }
 
@@ -103,7 +104,7 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	orientation, err := c.Orientation(ctx)
+	orientation, err := c.ReadOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}

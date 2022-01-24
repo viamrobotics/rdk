@@ -20,8 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type IMUServiceClient interface {
 	// ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
 	ReadAngularVelocity(ctx context.Context, in *IMUServiceReadAngularVelocityRequest, opts ...grpc.CallOption) (*IMUServiceReadAngularVelocityResponse, error)
-	// Orientation returns the most recent orientation reading from the given IMU.
-	Orientation(ctx context.Context, in *IMUServiceOrientationRequest, opts ...grpc.CallOption) (*IMUServiceOrientationResponse, error)
+	// ReadOrientation returns the most recent orientation reading from the given IMU.
+	ReadOrientation(ctx context.Context, in *IMUServiceReadOrientationRequest, opts ...grpc.CallOption) (*IMUServiceReadOrientationResponse, error)
 }
 
 type iMUServiceClient struct {
@@ -41,9 +41,9 @@ func (c *iMUServiceClient) ReadAngularVelocity(ctx context.Context, in *IMUServi
 	return out, nil
 }
 
-func (c *iMUServiceClient) Orientation(ctx context.Context, in *IMUServiceOrientationRequest, opts ...grpc.CallOption) (*IMUServiceOrientationResponse, error) {
-	out := new(IMUServiceOrientationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/Orientation", in, out, opts...)
+func (c *iMUServiceClient) ReadOrientation(ctx context.Context, in *IMUServiceReadOrientationRequest, opts ...grpc.CallOption) (*IMUServiceReadOrientationResponse, error) {
+	out := new(IMUServiceReadOrientationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/ReadOrientation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,8 +56,8 @@ func (c *iMUServiceClient) Orientation(ctx context.Context, in *IMUServiceOrient
 type IMUServiceServer interface {
 	// ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
 	ReadAngularVelocity(context.Context, *IMUServiceReadAngularVelocityRequest) (*IMUServiceReadAngularVelocityResponse, error)
-	// Orientation returns the most recent orientation reading from the given IMU.
-	Orientation(context.Context, *IMUServiceOrientationRequest) (*IMUServiceOrientationResponse, error)
+	// ReadOrientation returns the most recent orientation reading from the given IMU.
+	ReadOrientation(context.Context, *IMUServiceReadOrientationRequest) (*IMUServiceReadOrientationResponse, error)
 	mustEmbedUnimplementedIMUServiceServer()
 }
 
@@ -68,8 +68,8 @@ type UnimplementedIMUServiceServer struct {
 func (UnimplementedIMUServiceServer) ReadAngularVelocity(context.Context, *IMUServiceReadAngularVelocityRequest) (*IMUServiceReadAngularVelocityResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadAngularVelocity not implemented")
 }
-func (UnimplementedIMUServiceServer) Orientation(context.Context, *IMUServiceOrientationRequest) (*IMUServiceOrientationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Orientation not implemented")
+func (UnimplementedIMUServiceServer) ReadOrientation(context.Context, *IMUServiceReadOrientationRequest) (*IMUServiceReadOrientationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadOrientation not implemented")
 }
 func (UnimplementedIMUServiceServer) mustEmbedUnimplementedIMUServiceServer() {}
 
@@ -102,20 +102,20 @@ func _IMUService_ReadAngularVelocity_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
-func _IMUService_Orientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(IMUServiceOrientationRequest)
+func _IMUService_ReadOrientation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IMUServiceReadOrientationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IMUServiceServer).Orientation(ctx, in)
+		return srv.(IMUServiceServer).ReadOrientation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.IMUService/Orientation",
+		FullMethod: "/proto.api.component.v1.IMUService/ReadOrientation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IMUServiceServer).Orientation(ctx, req.(*IMUServiceOrientationRequest))
+		return srv.(IMUServiceServer).ReadOrientation(ctx, req.(*IMUServiceReadOrientationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -132,8 +132,8 @@ var IMUService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _IMUService_ReadAngularVelocity_Handler,
 		},
 		{
-			MethodName: "Orientation",
-			Handler:    _IMUService_Orientation_Handler,
+			MethodName: "ReadOrientation",
+			Handler:    _IMUService_ReadOrientation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

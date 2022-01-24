@@ -54,7 +54,7 @@ func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVeloc
 	return i.angularVelocity, i.lastError
 }
 
-func (i *wit) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, i.lastError

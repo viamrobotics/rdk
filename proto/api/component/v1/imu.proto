@@ -15,8 +15,8 @@ service IMUService {
     };
   }
 
-  // Orientation returns the most recent orientation reading from the given IMU.
-  rpc Orientation(IMUServiceOrientationRequest) returns (IMUServiceOrientationResponse) {
+  // ReadOrientation returns the most recent orientation reading from the given IMU.
+  rpc ReadOrientation(IMUServiceReadOrientationRequest) returns (IMUServiceReadOrientationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/orientation"
     };
@@ -37,11 +37,11 @@ message AngularVelocity {
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 message EulerAngles {
   // Rotation in deg around the x-axis
-  double roll = 1;
+  double roll_deg = 1;
   // Rotation in deg around the y-axis
-  double pitch = 2;
+  double pitch_deg = 2;
   // Rotation in deg around the z-axis
-  double yaw = 3;
+  double yaw_deg = 3;
 }
 
 message IMUServiceReadAngularVelocityRequest {
@@ -54,12 +54,12 @@ message IMUServiceReadAngularVelocityResponse {
   AngularVelocity angular_velocity = 1;
 }
 
-message IMUServiceOrientationRequest {
+message IMUServiceReadOrientationRequest {
   // Name of an IMU
   string name = 1;
 }
 
-message IMUServiceOrientationResponse {
+message IMUServiceReadOrientationResponse {
   // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
   // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
   EulerAngles orientation = 1;
