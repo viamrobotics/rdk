@@ -1312,10 +1312,10 @@
                       theData.imuData[name] = {};
                   }
                   
-                  var req = new imuApi.IMUServiceOrientationRequest();
+                  var req = new imuApi.IMUServiceReadOrientationRequest();
                   req.setName(name);
                   
-                  imuService.orientation(req, {}, (err, resp) => {
+                  imuService.readOrientation(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
                           return;
@@ -1425,9 +1425,9 @@
           <h2>IMU: ${imu[1].name}</h2>
           <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
             <tr><th colspan="2">Orientation (degrees)</th></tr>
-            <tr><th>Roll</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.roll)}</td></tr>
-            <tr><th>Pitch</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.pitch)}</td></tr>
-            <tr><th>Yaw</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.yaw)}</td></tr>
+            <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
+            <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
+            <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
             <tr><th colspan="2">Angular Velocity</th></tr>
             <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
             <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>

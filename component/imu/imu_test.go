@@ -105,7 +105,7 @@ func TestOrientiation(t *testing.T) {
 	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
 
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 0)
-	angles, err := fakeIMU1.(*reconfigurableIMU).Orientation(context.Background())
+	angles, err := fakeIMU1.(*reconfigurableIMU).ReadOrientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, angles, test.ShouldResemble, &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
@@ -136,7 +136,7 @@ func (m *mock) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelo
 	return av, nil
 }
 
-func (m *mock) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCalls++
 	return ea, nil
 }

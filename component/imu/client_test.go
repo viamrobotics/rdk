@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
 	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av1, test.ShouldResemble, av)
 
-		ea1, err := imu1Client.Orientation(context.Background())
+		ea1, err := imu1Client.ReadOrientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av2, test.ShouldResemble, av)
 
-		ea2, err := imu1Client2.Orientation(context.Background())
+		ea2, err := imu1Client2.ReadOrientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
 
@@ -118,7 +118,7 @@ func TestClientZeroValues(t *testing.T) {
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return av, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
 	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
@@ -141,7 +141,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, av1, test.ShouldResemble, av)
 
-		ea1, err := imu1Client.Orientation(context.Background())
+		ea1, err := imu1Client.ReadOrientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 

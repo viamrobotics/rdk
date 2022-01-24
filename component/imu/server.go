@@ -8,6 +8,7 @@ import (
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the contract from imu_subtype.proto.
@@ -57,21 +58,24 @@ func (s *subtypeServer) ReadAngularVelocity(
 }
 
 // Orientation returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrientationRequest) (*pb.IMUServiceOrientationResponse, error) {
+func (s *subtypeServer) ReadOrientation(
+	ctx context.Context,
+	req *pb.IMUServiceReadOrientationRequest,
+) (*pb.IMUServiceReadOrientationResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	o, err := imuDevice.Orientation(ctx)
+	o, err := imuDevice.ReadOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ea := o.EulerAngles()
-	return &pb.IMUServiceOrientationResponse{
+	return &pb.IMUServiceReadOrientationResponse{
 		Orientation: &pb.EulerAngles{
-			Roll:  ea.Roll,
-			Pitch: ea.Pitch,
-			Yaw:   ea.Yaw,
+			RollDeg:  utils.RadToDeg(ea.Roll),
+			PitchDeg: utils.RadToDeg(ea.Pitch),
+			YawDeg:   utils.RadToDeg(ea.Yaw),
 		},
 	}, nil
 }

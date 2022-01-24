@@ -34,7 +34,7 @@ func Named(name string) resource.Name {
 type IMU interface {
 	sensor.Sensor
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
-	Orientation(ctx context.Context) (spatialmath.Orientation, error)
+	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 }
 
 var (
@@ -65,10 +65,10 @@ func (r *reconfigurableIMU) ReadAngularVelocity(ctx context.Context) (spatialmat
 	return r.actual.ReadAngularVelocity(ctx)
 }
 
-func (r *reconfigurableIMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Orientation(ctx)
+	return r.actual.ReadOrientation(ctx)
 }
 
 func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error) {
