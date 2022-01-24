@@ -148,12 +148,12 @@ func (s *subtypeServer) RenderFrame(
 	}, nil
 }
 
-// PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
+// GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) PointCloud(
+func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
-	req *pb.CameraServicePointCloudRequest,
-) (*pb.CameraServicePointCloudResponse, error) {
+	req *pb.CameraServiceGetPointCloudRequest,
+) (*pb.CameraServiceGetPointCloudResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (s *subtypeServer) PointCloud(
 		return nil, err
 	}
 
-	return &pb.CameraServicePointCloudResponse{
+	return &pb.CameraServiceGetPointCloudResponse{
 		MimeType: utils.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil

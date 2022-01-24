@@ -98,7 +98,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	resp, err := c.client.PointCloud(ctx, &pb.CameraServicePointCloudRequest{
+	resp, err := c.client.GetPointCloud(ctx, &pb.CameraServiceGetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
 	})

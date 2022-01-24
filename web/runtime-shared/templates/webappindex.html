@@ -460,11 +460,11 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      req = new cameraApi.CameraServicePointCloudRequest();
+                      req = new cameraApi.CameraServiceGetPointCloudRequest();
                       req.setName(cameraName);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      cameraService.pointCloud(req,  {}, (err, resp) => {
+                      cameraService.getPointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -1129,7 +1129,7 @@
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
         }
 
-        let isSlipping = resp.getDetectSlip()
+        let isSlipping = resp.getSlipDetected()
         if (isSlipping) {
           slip_animation_stuff.ctx.fillStyle = 'red';
           slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
