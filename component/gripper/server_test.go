@@ -36,12 +36,12 @@ func TestServer(t *testing.T) {
 	var gripperOpen string
 
 	gripper1 := "gripper1"
-	grabbed1 := true
+	success1 := true
 	injectGripper.OpenFunc = func(ctx context.Context) error {
 		gripperOpen = gripper1
 		return nil
 	}
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return grabbed1, nil }
+	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return success1, nil }
 
 	gripper2 := "gripper2"
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 
 		resp, err := gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: gripper1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Grabbed, test.ShouldEqual, grabbed1)
+		test.That(t, resp.Success, test.ShouldEqual, success1)
 
 		resp, err = gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: gripper2})
 		test.That(t, err, test.ShouldNotBeNil)
