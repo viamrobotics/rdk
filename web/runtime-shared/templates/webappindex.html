@@ -109,11 +109,11 @@
               var o = { name : old[i][0], parts : [] };
 
               var x = old[i][1];
-              
+
               if (x.positionsList.length != x.lengthsList.length) {
                   throw "gantry lists different lengths";
               }
-              
+
               for ( var i=0; i < x.positionsList.length; i++) {
                   o.parts.push( { axis : i, pos : x.positionsList[i], length : x.lengthsList[i] } );
               }
@@ -175,7 +175,6 @@
               clusterRad: 5,
               armToggle : {},
               mapOnce: false,
-              chartStream: null,
               value: 0,
               imuData: {},
           };
@@ -206,7 +205,7 @@
                           pos[i] = g.parts[i].pos;
                       }
                       pos[axis] += amount;
-                      
+
                       const req = new gantryApi.GantryServiceMoveToPositionRequest();
                       req.setName(name);
                       req.setPositionsList(pos);
@@ -226,31 +225,6 @@
                       req.setName(name);
                       req.setTo(newPosition);
                       armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
-                  },
-                  motorPIDStep: function(motor,req,chart,val){
-                      if (theData.chartStream){
-                          theData.chartStream.cancel()
-                          theData.chartStream = null
-                          chart.pause();
-                          if(val){
-                              return
-                          }
-                      }
-                      req.setName(motor);
-                      theData.chartStream = motorService.pIDStep(req)
-                      chart.unpause();
-                      theData.chartStream.on('data', function(resp){
-                          this.addData(resp)
-                          //chart.update('quiet')
-                      }.bind(chart))
-                      theData.chartStream.on('status', function(status) {
-                          console.log("error streaming PID Data");
-                          console.log(status);
-                          console.log(status.code, " ", status.details);
-                      });
-                      theData.chartStream.on('end', function(end) {
-                          console.log("done streaming PID Data");
-                      });
                   },
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
@@ -393,19 +367,6 @@
                   },
                   inputInject: function(req) {
                     inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
-                  },
-                  pidCommand: function(motor,cmd){
-                      let req = cmd.request;
-                      req.setName(motor);
-                      switch (cmd.type) {
-                      case "gain":
-                          motorService.setPIDConfig(req, {}, (err, resp) => grpcCallback(err, resp));
-
-                          break;
-                      case "step":
-                        this.motorPIDStep(motor,req,cmd.chart,1)
-                          break;
-                      }
                   },
                   doAction : function(name) {
                       const req = new robotApi.DoActionRequest();
@@ -553,7 +514,7 @@
 
                     let slipReq = new forceMatrixApi.ForceMatrixServiceDetectSlipRequest();
                     slipReq.setName(name);
-                    
+
                     isFirstRender = true;
                     // Loop through grabbing data & visualizing it
                     setTimeout(async function getDataAndVisualizeIt(isFirstRender) {
@@ -659,7 +620,7 @@
                       console.log("making grab attempt");
                       console.log(gripperName);
 
-                      robotService.objectManipulationServiceDoGrab(req, {}, 
+                      robotService.objectManipulationServiceDoGrab(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
@@ -1311,10 +1272,10 @@
                   if (!theData.imuData[name]) {
                       theData.imuData[name] = {};
                   }
-                  
+
                   var req = new imuApi.IMUServiceOrientationRequest();
                   req.setName(name);
-                  
+
                   imuService.orientation(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
@@ -1325,7 +1286,7 @@
 
                   var req = new imuApi.IMUServiceAngularVelocityRequest();
                   req.setName(name);
-                  
+
                   imuService.angularVelocity(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
@@ -1345,7 +1306,7 @@
     <div id="pre-app">
       <div id="connecting-error"></div>
       <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
-      {{range $authType := .SupportedAuthTypes }}    
+      {{range $authType := .SupportedAuthTypes }}
           <span>{{ $authType }}: </span>
           <div id="auth-{{ $authType }}">
             <input type="password"/>
@@ -1437,7 +1398,7 @@
         <hr>
       </div>
 
-      
+
       <!-- ******* ARM *******  -->
       <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
         <h3>Arm ${arm.name}</h3>
@@ -1527,7 +1488,6 @@
         v-bind:motor-name="motor[0]"
         v-bind:motor-status="motor[1]"
         v-on:execute="motorCommand(motor[0], $event)"
-        v-on:pid="pidCommand(motor[0],$event)"
         style="max-width: 1080px;">
       </motor-detail>
 

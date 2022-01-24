@@ -3,10 +3,8 @@ package motor
 
 import (
 	"context"
-	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
@@ -33,77 +31,6 @@ func (server *subtypeServer) getMotor(name string) (Motor, error) {
 		return nil, errors.Errorf("resource with name (%s) is not a motor", name)
 	}
 	return motor, nil
-}
-
-// GetPIDConfig returns the config of the motor's PID.
-func (server *subtypeServer) GetPIDConfig(
-	ctx context.Context,
-	req *pb.MotorServiceGetPIDConfigRequest,
-) (*pb.MotorServiceGetPIDConfigResponse, error) {
-	return nil, errors.New("motorGetPidNotImpl")
-}
-
-func (server *subtypeServer) SetPIDConfig(
-	ctx context.Context,
-	req *pb.MotorServiceSetPIDConfigRequest,
-) (*pb.MotorServiceSetPIDConfigResponse, error) {
-	return nil, errors.New("motorGetPidNotImpl")
-}
-
-// PIDStep execute a step response on the PID controller.
-func (server *subtypeServer) PIDStep(
-	req *pb.MotorServicePIDStepRequest,
-	serverPIDStep pb.MotorService_PIDStepServer,
-) (result error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return errors.Errorf("no motor (%s) found", motorName)
-	}
-	setPoint := req.GetSetPoint()
-	if err := motor.Stop(serverPIDStep.Context()); err != nil {
-		return err
-	}
-
-	lastTime := time.Now()
-	lastPos, err := motor.Position(serverPIDStep.Context())
-	totalTime := 0.0
-	if err != nil {
-		return err
-	}
-	ticker := time.NewTicker(time.Millisecond * 10)
-	defer ticker.Stop()
-	defer func(m Motor, err error) {
-		// TODO - previous version had logging, but used the logger from the robot,
-		// should we still try to do this? - GV
-		errOff := m.Stop(serverPIDStep.Context())
-		if errOff != nil {
-			result = multierr.Combine(errOff, err)
-		}
-	}(motor, err)
-
-	for {
-		select {
-		case <-serverPIDStep.Context().Done():
-			err := motor.Stop(serverPIDStep.Context())
-			return multierr.Combine(serverPIDStep.Context().Err(), err)
-		default:
-		}
-		<-ticker.C
-		dt := time.Since(lastTime)
-		lastTime = time.Now()
-		currPos, err := motor.Position(serverPIDStep.Context())
-		if err != nil {
-			return err
-		}
-		vel := (currPos - lastPos) / dt.Seconds()
-		lastPos = currPos
-
-		totalTime += dt.Seconds()
-		if err := serverPIDStep.Send(&pb.MotorServicePIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {
-			return err
-		}
-	}
 }
 
 // SetPower sets the percentage of power the motor of the underlying robot should employ between 0-1.
