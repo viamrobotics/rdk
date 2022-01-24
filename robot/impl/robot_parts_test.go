@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/input/fake"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -516,10 +517,10 @@ func TestPartsClone(t *testing.T) {
 	parts.remotes = nil
 	delete(parts.functions, "func1")
 	parts.functions = nil
-	delete(parts.resources, arm.Named("arm1"))
-	delete(parts.resources, servo.Named("servo1"))
-	delete(parts.resources, gripper.Named("gripper1"))
-	delete(parts.resources, camera.Named("camera1"))
+	parts.resources.Remove(arm.Named("arm1"))
+	parts.resources.Remove(servo.Named("servo1"))
+	parts.resources.Remove(gripper.Named("gripper1"))
+	parts.resources.Remove(camera.Named("camera1"))
 	parts.resources = nil
 
 	_, ok := parts.processManager.RemoveProcessByID("1")
@@ -879,6 +880,198 @@ func TestPartsAdd(t *testing.T) {
 	resource1, ok = parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, resource1, test.ShouldEqual, injectInputController)
+}
+
+func TestPartsNewComponent(t *testing.T) {
+	cfg := &config.Config{
+		Components: []config.Component{
+			{
+				Name:      "arm1",
+				Model:     "fake",
+				Type:      config.ComponentTypeArm,
+				DependsOn: []string{"board1"},
+			},
+			{
+				Name:      "arm2",
+				Model:     "fake",
+				Type:      config.ComponentTypeArm,
+				DependsOn: []string{"board2"},
+			},
+			{
+				Name:      "arm3",
+				Model:     "fake",
+				Type:      config.ComponentTypeArm,
+				DependsOn: []string{"board3"},
+			},
+			{
+				Name:      "gripper1",
+				Model:     "fake",
+				Type:      config.ComponentTypeGripper,
+				DependsOn: []string{"arm1", "camera1"},
+			},
+			{
+				Name:      "gripper2",
+				Model:     "fake",
+				Type:      config.ComponentTypeGripper,
+				DependsOn: []string{"arm2", "camera2"},
+			},
+			{
+				Name:      "gripper3",
+				Model:     "fake",
+				Type:      config.ComponentTypeGripper,
+				DependsOn: []string{"arm3", "camera3"},
+			},
+			{
+				Name:      "camera1",
+				Model:     "fake",
+				Type:      config.ComponentTypeCamera,
+				DependsOn: []string{"board1"},
+			},
+			{
+				Name:      "camera2",
+				Model:     "fake",
+				Type:      config.ComponentTypeCamera,
+				DependsOn: []string{"board2"},
+			},
+			{
+				Name:      "camera3",
+				Model:     "fake",
+				Type:      config.ComponentTypeCamera,
+				DependsOn: []string{"board3"},
+			},
+			{
+				Name:      "base1",
+				Model:     "fake",
+				Type:      config.ComponentTypeBase,
+				DependsOn: []string{"board1"},
+			},
+			{
+				Name:      "base2",
+				Model:     "fake",
+				Type:      config.ComponentTypeBase,
+				DependsOn: []string{"board2"},
+			},
+			{
+				Name:      "base3",
+				Model:     "fake",
+				Type:      config.ComponentTypeBase,
+				DependsOn: []string{"board3"},
+			},
+			{
+				Name:      "sensor1",
+				Model:     "fake",
+				Type:      config.ComponentTypeSensor,
+				DependsOn: []string{"board1"},
+			},
+			{
+				Name:      "sensor2",
+				Model:     "fake",
+				Type:      config.ComponentTypeSensor,
+				DependsOn: []string{"board2"},
+			},
+			{
+				Name:      "sensor3",
+				Model:     "fake",
+				Type:      config.ComponentTypeSensor,
+				DependsOn: []string{"board3"},
+			},
+			{
+				Name:                "board1",
+				Model:               "fake",
+				Type:                config.ComponentTypeBoard,
+				ConvertedAttributes: &board.Config{},
+				DependsOn:           []string{},
+			},
+			{
+				Name:                "board2",
+				Model:               "fake",
+				Type:                config.ComponentTypeBoard,
+				ConvertedAttributes: &board.Config{},
+				DependsOn:           []string{},
+			},
+			{
+				Name:                "board3",
+				Model:               "fake",
+				Type:                config.ComponentTypeBoard,
+				ConvertedAttributes: &board.Config{},
+				DependsOn:           []string{},
+			},
+			{
+				Name:      "servo1",
+				Model:     "fake",
+				Type:      config.ComponentTypeServo,
+				DependsOn: []string{"board1"},
+			},
+			{
+				Name:      "servo2",
+				Model:     "fake",
+				Type:      config.ComponentTypeServo,
+				DependsOn: []string{"board2"},
+			},
+			{
+				Name:      "servo3",
+				Model:     "fake",
+				Type:      config.ComponentTypeServo,
+				DependsOn: []string{"board3"},
+			},
+			{
+				Name:                "motor1",
+				Model:               "fake",
+				Type:                config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{},
+				DependsOn:           []string{"board1"},
+			},
+			{
+				Name:                "motor2",
+				Model:               "fake",
+				Type:                config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{},
+				DependsOn:           []string{"board2"},
+			},
+			{
+				Name:                "motor3",
+				Model:               "fake",
+				Type:                config.ComponentTypeMotor,
+				ConvertedAttributes: &motor.Config{},
+				DependsOn:           []string{"board3"},
+			},
+			{
+				Name:                "inputController1",
+				Model:               "fake",
+				Type:                config.ComponentTypeInputController,
+				ConvertedAttributes: &fake.Config{},
+				DependsOn:           []string{"board1"},
+			},
+			{
+				Name:                "inputController2",
+				Model:               "fake",
+				Type:                config.ComponentTypeInputController,
+				ConvertedAttributes: &fake.Config{},
+				DependsOn:           []string{"board2"},
+			},
+			{
+				Name:                "inputController3",
+				Model:               "fake",
+				Type:                config.ComponentTypeInputController,
+				ConvertedAttributes: &fake.Config{},
+				DependsOn:           []string{"board3"},
+			},
+		},
+	}
+	logger := golog.NewTestLogger(t)
+	robotForRemote := &localRobot{
+		parts:  newRobotParts(logger),
+		logger: logger,
+		config: cfg,
+	}
+	test.That(t, robotForRemote.parts.newComponents(context.Background(),
+		cfg.Components, robotForRemote), test.ShouldBeNil)
+	robotForRemote.config.Components[17].DependsOn = append(robotForRemote.config.Components[17].DependsOn, "gripper3")
+	robotForRemote.parts = newRobotParts(logger)
+	err := robotForRemote.parts.newComponents(context.Background(),
+		robotForRemote.config.Components, robotForRemote)
+	test.That(t, err.Error(), test.ShouldEqual,
+		"circular dependency - \"gripper3\" already depends on \"board3\"")
 }
 
 func TestPartsMergeAdd(t *testing.T) {

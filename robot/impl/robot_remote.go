@@ -419,7 +419,7 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 // replaceForRemote replaces these parts with the given parts coming from a remote.
 func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
 	var oldFunctionNames map[string]struct{}
-	var oldResources map[resource.Name]struct{}
+	var oldResources *resource.Graph
 
 	if len(parts.functions) != 0 {
 		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
@@ -428,10 +428,10 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 	}
 
-	if len(parts.resources) != 0 {
-		oldResources = make(map[resource.Name]struct{}, len(parts.resources))
-		for name := range parts.resources {
-			oldResources[name] = struct{}{}
+	if len(parts.resources.Nodes) != 0 {
+		oldResources = resource.NewGraph()
+		for name := range parts.resources.Nodes {
+			oldResources.AddNode(name, struct{}{})
 		}
 	}
 
@@ -443,10 +443,10 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 		}
 		parts.functions[name] = newPart
 	}
-	for name, newR := range newParts.resources {
-		old, ok := parts.resources[name]
+	for name, newR := range newParts.resources.Nodes {
+		old, ok := parts.resources.Nodes[name]
 		if ok {
-			delete(oldResources, name)
+			oldResources.Remove(name)
 			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
 			newPart, newIsReconfigurable := newR.(resource.Reconfigurable)
 
@@ -479,13 +479,13 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 			}
 		}
 
-		parts.resources[name] = newR
+		parts.resources.Nodes[name] = newR
 	}
 
 	for name := range oldFunctionNames {
 		delete(parts.functions, name)
 	}
-	for name := range oldResources {
-		delete(parts.resources, name)
+	for name := range oldResources.Nodes {
+		parts.resources.Remove(name)
 	}
 }
