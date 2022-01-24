@@ -13,24 +13,12 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 )
 
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			mcfg, ok := config.ConvertedAttributes.(*motor.Config)
-			if !ok {
-				return nil, utils.NewUnexpectedTypeError(mcfg, config.ConvertedAttributes)
-			}
-			if mcfg.PID != nil {
-				pid, err := motor.CreatePID(mcfg.PID)
-				if err != nil {
-					return nil, err
-				}
-				return &Motor{Name: config.Name, pid: pid}, nil
-			}
-			return &Motor{Name: config.Name, pid: nil}, nil
+			return &Motor{Name: config.Name}, nil
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, "fake", _motor)
@@ -44,19 +32,13 @@ type Motor struct {
 	Name     string
 	mu       sync.Mutex
 	powerPct float64
-	pid      motor.PID
-}
-
-// PID Return the underlying PID.
-func (m *Motor) PID() motor.PID {
-	return m.pid
 }
 
 // Position always returns 0.
 func (m *Motor) Position(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return 0, nil
+	return 0.0, nil
 }
 
 // PositionSupported returns false.

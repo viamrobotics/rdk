@@ -33,15 +33,6 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		mc.MinPowerPct = 1.0
 	}
 
-	var pid motor.PID
-	if mc.PID != nil {
-		var err error
-		pid, err = motor.CreatePID(mc.PID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	m := &Motor{
 		Board:         b,
 		A:             pins["a"],
@@ -50,13 +41,13 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		PWM:           pins["pwm"],
 		EnablePinHigh: mc.Pins["enHigh"],
 		EnablePinLow:  mc.Pins["enLow"],
+		En:            pins["en"],
 		on:            false,
 		pwmFreq:       mc.PWMFreq,
 		minPowerPct:   mc.MinPowerPct,
 		maxPowerPct:   mc.MaxPowerPct,
 		maxRPM:        mc.MaxRPM,
 		dirFlip:       mc.DirFlip,
-		pid:           pid,
 		logger:        logger,
 		cancelMu:      &sync.Mutex{},
 	}
@@ -73,27 +64,21 @@ var _ = motor.Motor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
-	Board          board.Board
-	A, B, Dir, PWM string
-	EnablePinLow   string
-	EnablePinHigh  string
-	on             bool
-	pwmFreq        uint
-	minPowerPct    float64
-	maxPowerPct    float64
-	maxRPM         float64
-	dirFlip        bool
-	pid            motor.PID
+	Board              board.Board
+	A, B, Dir, PWM, En string
+	EnablePinLow       string
+	EnablePinHigh      string
+	on                 bool
+	pwmFreq            uint
+	minPowerPct        float64
+	maxPowerPct        float64
+	maxRPM             float64
+	dirFlip            bool
 
 	cancelMu      *sync.Mutex
 	cancelForFunc func()
 	waitCh        chan struct{}
 	logger        golog.Logger
-}
-
-// PID return the underlying PID.
-func (m *Motor) PID() motor.PID {
-	return m.pid
 }
 
 // Position always returns 0.
