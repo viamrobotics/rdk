@@ -285,7 +285,7 @@ func RegisterInputControllerServiceHandlerServer(ctx context.Context, mux *runti
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetEvents", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/last_events"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetEvents", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -315,7 +315,7 @@ func RegisterInputControllerServiceHandlerServer(ctx context.Context, mux *runti
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/TriggerEvent", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/inject_event"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/TriggerEvent", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/event"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -397,7 +397,7 @@ func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runti
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetEvents", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/last_events"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/GetEvents", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/events"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -437,7 +437,7 @@ func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runti
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/TriggerEvent", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/inject_event"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.InputControllerService/TriggerEvent", runtime.WithHTTPPathPattern("/api/v1/component/input/{controller}/event"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -459,11 +459,11 @@ func RegisterInputControllerServiceHandlerClient(ctx context.Context, mux *runti
 var (
 	pattern_InputControllerService_GetControls_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "controls"}, ""))
 
-	pattern_InputControllerService_GetEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "last_events"}, ""))
+	pattern_InputControllerService_GetEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "events"}, ""))
 
 	pattern_InputControllerService_StreamEvents_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "event_stream"}, ""))
 
-	pattern_InputControllerService_TriggerEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "inject_event"}, ""))
+	pattern_InputControllerService_TriggerEvent_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "input", "controller", "event"}, ""))
 )
 
 var (

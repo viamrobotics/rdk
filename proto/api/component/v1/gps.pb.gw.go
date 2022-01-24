@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_GPSService_Location_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceLocationRequest
+func request_GPSService_ReadLocation_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadLocationRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_GPSService_Location_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Location(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ReadLocation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_GPSService_Location_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceLocationRequest
+func local_request_GPSService_ReadLocation_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadLocationRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,13 +78,13 @@ func local_request_GPSService_Location_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Location(ctx, &protoReq)
+	msg, err := server.ReadLocation(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_GPSService_Altitude_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceAltitudeRequest
+func request_GPSService_ReadAltitude_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadAltitudeRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -104,13 +104,13 @@ func request_GPSService_Altitude_0(ctx context.Context, marshaler runtime.Marsha
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Altitude(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ReadAltitude(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_GPSService_Altitude_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceAltitudeRequest
+func local_request_GPSService_ReadAltitude_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadAltitudeRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -130,13 +130,13 @@ func local_request_GPSService_Altitude_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Altitude(ctx, &protoReq)
+	msg, err := server.ReadAltitude(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_GPSService_Speed_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceSpeedRequest
+func request_GPSService_ReadSpeed_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadSpeedRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -156,13 +156,13 @@ func request_GPSService_Speed_0(ctx context.Context, marshaler runtime.Marshaler
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Speed(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ReadSpeed(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_GPSService_Speed_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceSpeedRequest
+func local_request_GPSService_ReadSpeed_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GPSServiceReadSpeedRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -182,59 +182,7 @@ func local_request_GPSService_Speed_0(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Speed(ctx, &protoReq)
-	return msg, metadata, err
-
-}
-
-func request_GPSService_Accuracy_0(ctx context.Context, marshaler runtime.Marshaler, client GPSServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceAccuracyRequest
-	var metadata runtime.ServerMetadata
-
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["name"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
-	}
-
-	protoReq.Name, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
-	}
-
-	msg, err := client.Accuracy(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
-	return msg, metadata, err
-
-}
-
-func local_request_GPSService_Accuracy_0(ctx context.Context, marshaler runtime.Marshaler, server GPSServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GPSServiceAccuracyRequest
-	var metadata runtime.ServerMetadata
-
-	var (
-		val string
-		ok  bool
-		err error
-		_   = err
-	)
-
-	val, ok = pathParams["name"]
-	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
-	}
-
-	protoReq.Name, err = runtime.String(val)
-	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
-	}
-
-	msg, err := server.Accuracy(ctx, &protoReq)
+	msg, err := server.ReadSpeed(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -245,18 +193,18 @@ func local_request_GPSService_Accuracy_0(ctx context.Context, marshaler runtime.
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterGPSServiceHandlerFromEndpoint instead.
 func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server GPSServiceServer) error {
 
-	mux.Handle("GET", pattern_GPSService_Location_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadLocation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Location", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GPSService_Location_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GPSService_ReadLocation_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -264,22 +212,22 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 			return
 		}
 
-		forward_GPSService_Location_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadLocation_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_GPSService_Altitude_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadAltitude_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Altitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GPSService_Altitude_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GPSService_ReadAltitude_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -287,22 +235,22 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 			return
 		}
 
-		forward_GPSService_Altitude_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadAltitude_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_GPSService_Speed_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadSpeed_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Speed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GPSService_Speed_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GPSService_ReadSpeed_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -310,30 +258,7 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 			return
 		}
 
-		forward_GPSService_Speed_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("GET", pattern_GPSService_Accuracy_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		var stream runtime.ServerTransportStream
-		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Accuracy", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/accuracy"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := local_request_GPSService_Accuracy_0(rctx, inboundMarshaler, server, req, pathParams)
-		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_GPSService_Accuracy_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadSpeed_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -378,83 +303,63 @@ func RegisterGPSServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn 
 // "GPSServiceClient" to call the correct interceptors.
 func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client GPSServiceClient) error {
 
-	mux.Handle("GET", pattern_GPSService_Location_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadLocation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Location", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GPSService_Location_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GPSService_ReadLocation_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_GPSService_Location_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadLocation_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_GPSService_Altitude_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadAltitude_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Altitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GPSService_Altitude_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GPSService_ReadAltitude_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_GPSService_Altitude_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadAltitude_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_GPSService_Speed_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GPSService_ReadSpeed_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Speed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GPSService_Speed_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GPSService_ReadSpeed_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_GPSService_Speed_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
-
-	})
-
-	mux.Handle("GET", pattern_GPSService_Accuracy_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
-		ctx, cancel := context.WithCancel(req.Context())
-		defer cancel()
-		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GPSService/Accuracy", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/accuracy"))
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-		resp, md, err := request_GPSService_Accuracy_0(rctx, inboundMarshaler, client, req, pathParams)
-		ctx = runtime.NewServerMetadataContext(ctx, md)
-		if err != nil {
-			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
-			return
-		}
-
-		forward_GPSService_Accuracy_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GPSService_ReadSpeed_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -462,21 +367,17 @@ func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 }
 
 var (
-	pattern_GPSService_Location_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "location"}, ""))
+	pattern_GPSService_ReadLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "location"}, ""))
 
-	pattern_GPSService_Altitude_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "altitude"}, ""))
+	pattern_GPSService_ReadAltitude_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "altitude"}, ""))
 
-	pattern_GPSService_Speed_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "speed"}, ""))
-
-	pattern_GPSService_Accuracy_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "accuracy"}, ""))
+	pattern_GPSService_ReadSpeed_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "speed"}, ""))
 )
 
 var (
-	forward_GPSService_Location_0 = runtime.ForwardResponseMessage
+	forward_GPSService_ReadLocation_0 = runtime.ForwardResponseMessage
 
-	forward_GPSService_Altitude_0 = runtime.ForwardResponseMessage
+	forward_GPSService_ReadAltitude_0 = runtime.ForwardResponseMessage
 
-	forward_GPSService_Speed_0 = runtime.ForwardResponseMessage
-
-	forward_GPSService_Accuracy_0 = runtime.ForwardResponseMessage
+	forward_GPSService_ReadSpeed_0 = runtime.ForwardResponseMessage
 )

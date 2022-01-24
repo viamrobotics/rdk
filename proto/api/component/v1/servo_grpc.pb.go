@@ -20,8 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type ServoServiceClient interface {
 	// Move requests the servo of the underlying robot to move.
 	Move(ctx context.Context, in *ServoServiceMoveRequest, opts ...grpc.CallOption) (*ServoServiceMoveResponse, error)
-	// AngularOffset returns the current set angle (degrees) of the servo of the underlying robot.
-	AngularOffset(ctx context.Context, in *ServoServiceAngularOffsetRequest, opts ...grpc.CallOption) (*ServoServiceAngularOffsetResponse, error)
+	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
+	GetPosition(ctx context.Context, in *ServoServiceGetPositionRequest, opts ...grpc.CallOption) (*ServoServiceGetPositionResponse, error)
 }
 
 type servoServiceClient struct {
@@ -41,9 +41,9 @@ func (c *servoServiceClient) Move(ctx context.Context, in *ServoServiceMoveReque
 	return out, nil
 }
 
-func (c *servoServiceClient) AngularOffset(ctx context.Context, in *ServoServiceAngularOffsetRequest, opts ...grpc.CallOption) (*ServoServiceAngularOffsetResponse, error) {
-	out := new(ServoServiceAngularOffsetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ServoService/AngularOffset", in, out, opts...)
+func (c *servoServiceClient) GetPosition(ctx context.Context, in *ServoServiceGetPositionRequest, opts ...grpc.CallOption) (*ServoServiceGetPositionResponse, error) {
+	out := new(ServoServiceGetPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ServoService/GetPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,8 +56,8 @@ func (c *servoServiceClient) AngularOffset(ctx context.Context, in *ServoService
 type ServoServiceServer interface {
 	// Move requests the servo of the underlying robot to move.
 	Move(context.Context, *ServoServiceMoveRequest) (*ServoServiceMoveResponse, error)
-	// AngularOffset returns the current set angle (degrees) of the servo of the underlying robot.
-	AngularOffset(context.Context, *ServoServiceAngularOffsetRequest) (*ServoServiceAngularOffsetResponse, error)
+	// GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
+	GetPosition(context.Context, *ServoServiceGetPositionRequest) (*ServoServiceGetPositionResponse, error)
 	mustEmbedUnimplementedServoServiceServer()
 }
 
@@ -68,8 +68,8 @@ type UnimplementedServoServiceServer struct {
 func (UnimplementedServoServiceServer) Move(context.Context, *ServoServiceMoveRequest) (*ServoServiceMoveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Move not implemented")
 }
-func (UnimplementedServoServiceServer) AngularOffset(context.Context, *ServoServiceAngularOffsetRequest) (*ServoServiceAngularOffsetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method AngularOffset not implemented")
+func (UnimplementedServoServiceServer) GetPosition(context.Context, *ServoServiceGetPositionRequest) (*ServoServiceGetPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPosition not implemented")
 }
 func (UnimplementedServoServiceServer) mustEmbedUnimplementedServoServiceServer() {}
 
@@ -102,20 +102,20 @@ func _ServoService_Move_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ServoService_AngularOffset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ServoServiceAngularOffsetRequest)
+func _ServoService_GetPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ServoServiceGetPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ServoServiceServer).AngularOffset(ctx, in)
+		return srv.(ServoServiceServer).GetPosition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ServoService/AngularOffset",
+		FullMethod: "/proto.api.component.v1.ServoService/GetPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServoServiceServer).AngularOffset(ctx, req.(*ServoServiceAngularOffsetRequest))
+		return srv.(ServoServiceServer).GetPosition(ctx, req.(*ServoServiceGetPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -132,8 +132,8 @@ var ServoService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ServoService_Move_Handler,
 		},
 		{
-			MethodName: "AngularOffset",
-			Handler:    _ServoService_AngularOffset_Handler,
+			MethodName: "GetPosition",
+			Handler:    _ServoService_GetPosition_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

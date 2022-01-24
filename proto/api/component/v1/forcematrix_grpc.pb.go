@@ -18,10 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ForceMatrixServiceClient interface {
-	// Matrix returns the matrix of force readings from the force matrix sensor
-	Matrix(ctx context.Context, in *ForceMatrixServiceMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixServiceMatrixResponse, error)
-	// SlipDetection returns whether or not slip is occurring
-	SlipDetection(ctx context.Context, in *ForceMatrixServiceSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixServiceSlipDetectionResponse, error)
+	// ReadMatrix returns the matrix of force readings from the force matrix sensor
+	ReadMatrix(ctx context.Context, in *ForceMatrixServiceReadMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixServiceReadMatrixResponse, error)
+	// DetectSlip returns whether or not slip is occurring
+	DetectSlip(ctx context.Context, in *ForceMatrixServiceDetectSlipRequest, opts ...grpc.CallOption) (*ForceMatrixServiceDetectSlipResponse, error)
 }
 
 type forceMatrixServiceClient struct {
@@ -32,18 +32,18 @@ func NewForceMatrixServiceClient(cc grpc.ClientConnInterface) ForceMatrixService
 	return &forceMatrixServiceClient{cc}
 }
 
-func (c *forceMatrixServiceClient) Matrix(ctx context.Context, in *ForceMatrixServiceMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixServiceMatrixResponse, error) {
-	out := new(ForceMatrixServiceMatrixResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ForceMatrixService/Matrix", in, out, opts...)
+func (c *forceMatrixServiceClient) ReadMatrix(ctx context.Context, in *ForceMatrixServiceReadMatrixRequest, opts ...grpc.CallOption) (*ForceMatrixServiceReadMatrixResponse, error) {
+	out := new(ForceMatrixServiceReadMatrixResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ForceMatrixService/ReadMatrix", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *forceMatrixServiceClient) SlipDetection(ctx context.Context, in *ForceMatrixServiceSlipDetectionRequest, opts ...grpc.CallOption) (*ForceMatrixServiceSlipDetectionResponse, error) {
-	out := new(ForceMatrixServiceSlipDetectionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ForceMatrixService/SlipDetection", in, out, opts...)
+func (c *forceMatrixServiceClient) DetectSlip(ctx context.Context, in *ForceMatrixServiceDetectSlipRequest, opts ...grpc.CallOption) (*ForceMatrixServiceDetectSlipResponse, error) {
+	out := new(ForceMatrixServiceDetectSlipResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ForceMatrixService/DetectSlip", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,10 +54,10 @@ func (c *forceMatrixServiceClient) SlipDetection(ctx context.Context, in *ForceM
 // All implementations must embed UnimplementedForceMatrixServiceServer
 // for forward compatibility
 type ForceMatrixServiceServer interface {
-	// Matrix returns the matrix of force readings from the force matrix sensor
-	Matrix(context.Context, *ForceMatrixServiceMatrixRequest) (*ForceMatrixServiceMatrixResponse, error)
-	// SlipDetection returns whether or not slip is occurring
-	SlipDetection(context.Context, *ForceMatrixServiceSlipDetectionRequest) (*ForceMatrixServiceSlipDetectionResponse, error)
+	// ReadMatrix returns the matrix of force readings from the force matrix sensor
+	ReadMatrix(context.Context, *ForceMatrixServiceReadMatrixRequest) (*ForceMatrixServiceReadMatrixResponse, error)
+	// DetectSlip returns whether or not slip is occurring
+	DetectSlip(context.Context, *ForceMatrixServiceDetectSlipRequest) (*ForceMatrixServiceDetectSlipResponse, error)
 	mustEmbedUnimplementedForceMatrixServiceServer()
 }
 
@@ -65,11 +65,11 @@ type ForceMatrixServiceServer interface {
 type UnimplementedForceMatrixServiceServer struct {
 }
 
-func (UnimplementedForceMatrixServiceServer) Matrix(context.Context, *ForceMatrixServiceMatrixRequest) (*ForceMatrixServiceMatrixResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Matrix not implemented")
+func (UnimplementedForceMatrixServiceServer) ReadMatrix(context.Context, *ForceMatrixServiceReadMatrixRequest) (*ForceMatrixServiceReadMatrixResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadMatrix not implemented")
 }
-func (UnimplementedForceMatrixServiceServer) SlipDetection(context.Context, *ForceMatrixServiceSlipDetectionRequest) (*ForceMatrixServiceSlipDetectionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SlipDetection not implemented")
+func (UnimplementedForceMatrixServiceServer) DetectSlip(context.Context, *ForceMatrixServiceDetectSlipRequest) (*ForceMatrixServiceDetectSlipResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DetectSlip not implemented")
 }
 func (UnimplementedForceMatrixServiceServer) mustEmbedUnimplementedForceMatrixServiceServer() {}
 
@@ -84,38 +84,38 @@ func RegisterForceMatrixServiceServer(s grpc.ServiceRegistrar, srv ForceMatrixSe
 	s.RegisterService(&ForceMatrixService_ServiceDesc, srv)
 }
 
-func _ForceMatrixService_Matrix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ForceMatrixServiceMatrixRequest)
+func _ForceMatrixService_ReadMatrix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForceMatrixServiceReadMatrixRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ForceMatrixServiceServer).Matrix(ctx, in)
+		return srv.(ForceMatrixServiceServer).ReadMatrix(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ForceMatrixService/Matrix",
+		FullMethod: "/proto.api.component.v1.ForceMatrixService/ReadMatrix",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ForceMatrixServiceServer).Matrix(ctx, req.(*ForceMatrixServiceMatrixRequest))
+		return srv.(ForceMatrixServiceServer).ReadMatrix(ctx, req.(*ForceMatrixServiceReadMatrixRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ForceMatrixService_SlipDetection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ForceMatrixServiceSlipDetectionRequest)
+func _ForceMatrixService_DetectSlip_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ForceMatrixServiceDetectSlipRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ForceMatrixServiceServer).SlipDetection(ctx, in)
+		return srv.(ForceMatrixServiceServer).DetectSlip(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ForceMatrixService/SlipDetection",
+		FullMethod: "/proto.api.component.v1.ForceMatrixService/DetectSlip",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ForceMatrixServiceServer).SlipDetection(ctx, req.(*ForceMatrixServiceSlipDetectionRequest))
+		return srv.(ForceMatrixServiceServer).DetectSlip(ctx, req.(*ForceMatrixServiceDetectSlipRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -128,12 +128,12 @@ var ForceMatrixService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ForceMatrixServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Matrix",
-			Handler:    _ForceMatrixService_Matrix_Handler,
+			MethodName: "ReadMatrix",
+			Handler:    _ForceMatrixService_ReadMatrix_Handler,
 		},
 		{
-			MethodName: "SlipDetection",
-			Handler:    _ForceMatrixService_SlipDetection_Handler,
+			MethodName: "DetectSlip",
+			Handler:    _ForceMatrixService_DetectSlip_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

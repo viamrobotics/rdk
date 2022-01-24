@@ -392,7 +392,7 @@
                       )})
                   },
                   inputInject: function(req) {
-                    inputControllerService.injectEvent(req, {}, (err, resp) => grpcCallback(err, resp));
+                    inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   pidCommand: function(motor,cmd){
                       let req = cmd.request;
@@ -548,10 +548,10 @@
 
                     let startedForceAnimation = false;
                     const timeInterval = 10; // in milliseconds
-                    let req = new forceMatrixApi.ForceMatrixServiceMatrixRequest();
+                    let req = new forceMatrixApi.ForceMatrixServiceReadMatrixRequest();
                     req.setName(name);
 
-                    let slipReq = new forceMatrixApi.ForceMatrixServiceSlipDetectionRequest();
+                    let slipReq = new forceMatrixApi.ForceMatrixServiceDetectSlipRequest();
                     slipReq.setName(name);
                     
                     isFirstRender = true;
@@ -569,19 +569,19 @@
                         pResolve2 = resolve;
                         pReject2 = reject;
                       });
-                      forceMatrixService.matrix(req, {}, (err, resp) => {
+                      forceMatrixService.readMatrix(req, {}, (err, resp) => {
                         if (err) {
                           pReject1(err);
                         }
                         pResolve1(null);
                         animateForceMatrix(err, resp, animation_stuff_2D, animation_stuff_3D, isFirstRender)
                       });
-                      forceMatrixService.slipDetection(slipReq, {}, (err, resp) => {
+                      forceMatrixService.detectSlip(slipReq, {}, (err, resp) => {
                         if (err) {
                           pReject2(err);
                         }
                         pResolve2(null);
-                        updateSlipDetectionResult(err, resp, slip_animation_stuff)
+                        updateDetectSlipResult(err, resp, slip_animation_stuff)
                       });
                       await p1;
                       await p2;
@@ -1112,7 +1112,7 @@
           }
       }
 
-      function updateSlipDetectionResult (err, resp, slip_animation_stuff) {
+      function updateDetectSlipResult (err, resp, slip_animation_stuff) {
         grpcCallback(err, resp);
         if (err) {
           console.log("error getting slip detection readings: ", err);
@@ -1129,7 +1129,7 @@
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
         }
 
-        let isSlipping = resp.getIsSlipping()
+        let isSlipping = resp.getDetectSlip()
         if (isSlipping) {
           slip_animation_stuff.ctx.fillStyle = 'red';
           slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
@@ -1209,7 +1209,7 @@
         window.map = new google.maps.Map(document.getElementById("map"), {zoom: 18});
         window.map.addListener("click", (e) => {
           var req = new robotApi.NavigationServiceAddWaypointRequest();
-          var point = new robotApi.GeoPoint();
+          var point = new commonApi.GeoPoint();
           point.setLatitude(e.latLng.lat());
           point.setLongitude(e.latLng.lng());
           req.setLocation(point);

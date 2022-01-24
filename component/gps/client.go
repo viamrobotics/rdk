@@ -71,8 +71,8 @@ func clientFromSvcClient(sc *serviceClient, name string) GPS {
 	return &client{sc, name}
 }
 
-func (c *client) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.Location(ctx, &pb.GPSServiceLocationRequest{
+func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
+	resp, err := c.client.ReadLocation(ctx, &pb.GPSServiceReadLocationRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -81,54 +81,40 @@ func (c *client) Location(ctx context.Context) (*geo.Point, error) {
 	return geo.NewPoint(resp.Coordinate.Latitude, resp.Coordinate.Longitude), nil
 }
 
-func (c *client) Altitude(ctx context.Context) (float64, error) {
-	resp, err := c.client.Altitude(ctx, &pb.GPSServiceAltitudeRequest{
+func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
+	resp, err := c.client.ReadAltitude(ctx, &pb.GPSServiceReadAltitudeRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return math.NaN(), err
 	}
-	return resp.Altitude, nil
+	return resp.AltitudeMeters, nil
 }
 
-func (c *client) Speed(ctx context.Context) (float64, error) {
-	resp, err := c.client.Speed(ctx, &pb.GPSServiceSpeedRequest{
+func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
+	resp, err := c.client.ReadSpeed(ctx, &pb.GPSServiceReadSpeedRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return math.NaN(), err
 	}
-	return resp.SpeedKph, nil
-}
-
-func (c *client) Accuracy(ctx context.Context) (float64, float64, error) {
-	resp, err := c.client.Accuracy(ctx, &pb.GPSServiceAccuracyRequest{
-		Name: c.name,
-	})
-	if err != nil {
-		return math.NaN(), math.NaN(), err
-	}
-	return resp.HorizontalAccuracy, resp.VerticalAccuracy, nil
+	return resp.SpeedMmPerSec, nil
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := c.Location(ctx)
+	loc, err := c.ReadLocation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	alt, err := c.Altitude(ctx)
+	alt, err := c.ReadAltitude(ctx)
 	if err != nil {
 		return nil, err
 	}
-	speed, err := c.Speed(ctx)
+	speed, err := c.ReadSpeed(ctx)
 	if err != nil {
 		return nil, err
 	}
-	horzAcc, vertAcc, err := c.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
+	return []interface{}{loc.Lat(), loc.Lng(), alt, speed}, nil
 }
 
 // Close cleanly closes the underlying connections.

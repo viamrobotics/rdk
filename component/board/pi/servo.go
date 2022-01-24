@@ -57,7 +57,7 @@ func (s *piPigpioServo) Move(ctx context.Context, angle uint8) error {
 	return nil
 }
 
-func (s *piPigpioServo) AngularOffset(ctx context.Context) (uint8, error) {
+func (s *piPigpioServo) GetPosition(ctx context.Context) (uint8, error) {
 	res := C.gpioGetServoPulsewidth(s.pin)
 	if res <= 0 {
 		// this includes, errors, we'll ignore

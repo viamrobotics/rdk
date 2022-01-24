@@ -9,15 +9,15 @@ import "google/api/annotations.proto";
 // ForceMatrixService services maintains all ForceMatrices associated with a robot
 service ForceMatrixService {
 
-  // Matrix returns the matrix of force readings from the force matrix sensor
-  rpc Matrix(ForceMatrixServiceMatrixRequest) returns (ForceMatrixServiceMatrixResponse) {
+  // ReadMatrix returns the matrix of force readings from the force matrix sensor
+  rpc ReadMatrix(ForceMatrixServiceReadMatrixRequest) returns (ForceMatrixServiceReadMatrixResponse) {
     option (google.api.http) = {
       get : "/api/v1/component/force_matrix/{name}/matrix"
     };
   }
 
-  // SlipDetection returns whether or not slip is occurring
-  rpc SlipDetection(ForceMatrixServiceSlipDetectionRequest) returns (ForceMatrixServiceSlipDetectionResponse) {
+  // DetectSlip returns whether or not slip is occurring
+  rpc DetectSlip(ForceMatrixServiceDetectSlipRequest) returns (ForceMatrixServiceDetectSlipResponse) {
     option (google.api.http) = {
       get : "/api/v1/component/force_matrix/{name}/slip_detection"
     };
@@ -32,18 +32,18 @@ message Matrix {
 }
 
 // ForceMatrix
-message ForceMatrixServiceMatrixRequest {
+message ForceMatrixServiceReadMatrixRequest {
 	string name = 1;
 }
 
-message ForceMatrixServiceMatrixResponse {
+message ForceMatrixServiceReadMatrixResponse {
 	Matrix matrix = 1;
 }
 
-message ForceMatrixServiceSlipDetectionRequest {
+message ForceMatrixServiceDetectSlipRequest {
   string name = 1;
 }
 
-message ForceMatrixServiceSlipDetectionResponse {
-  bool is_slipping = 1;
+message ForceMatrixServiceDetectSlipResponse {
+  bool slip_detected = 1;
 }

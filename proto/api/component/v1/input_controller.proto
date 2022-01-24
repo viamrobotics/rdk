@@ -19,7 +19,7 @@ service InputControllerService {
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
   rpc GetEvents(InputControllerServiceGetEventsRequest) returns (InputControllerServiceGetEventsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/input/{controller}/last_events"
+      get: "/api/v1/component/input/{controller}/events"
     };
   }
 
@@ -34,7 +34,7 @@ service InputControllerService {
   // like button presses or axis movements  
   rpc TriggerEvent(InputControllerServiceTriggerEventRequest) returns (InputControllerServiceTriggerEventResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/input/{controller}/inject_event"
+      post: "/api/v1/component/input/{controller}/event"
     };
   }
 }

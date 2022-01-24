@@ -67,43 +67,43 @@ func (g *GPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.Latitude, g.Longitude}, nil
 }
 
-// Location always returns the set values.
-func (g *GPS) Location(ctx context.Context) (*geo.Point, error) {
+// ReadLocation always returns the set values.
+func (g *GPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return geo.NewPoint(g.Latitude, g.Longitude), nil
 }
 
-// Altitude returns the set value.
-func (g *GPS) Altitude(ctx context.Context) (float64, error) {
+// ReadAltitude returns the set value.
+func (g *GPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.altitude, nil
 }
 
-// Speed returns the set value.
-func (g *GPS) Speed(ctx context.Context) (float64, error) {
+// ReadSpeed returns the set value.
+func (g *GPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.speed, nil
 }
 
-// Satellites returns the set values.
-func (g *GPS) Satellites(ctx context.Context) (int, int, error) {
+// ReadSatellites returns the set values.
+func (g *GPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.activeSats, g.totalSats, nil
 }
 
-// Accuracy returns the set values.
-func (g *GPS) Accuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy returns the set values.
+func (g *GPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.hAcc, g.vAcc, nil
 }
 
-// Valid returns the set value.
-func (g *GPS) Valid(ctx context.Context) (bool, error) {
+// ReadValid returns the set value.
+func (g *GPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.valid, nil
@@ -172,7 +172,7 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 }
 
 func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-	loc, err := b.g.Location(ctx)
+	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}

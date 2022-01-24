@@ -147,37 +147,37 @@ func (g *pmtkI2CNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.data}, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Altitude(ctx context.Context) (float64, error) {
+func (g *pmtkI2CNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Speed(ctx context.Context) (float64, error) {
+func (g *pmtkI2CNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
+func (g *pmtkI2CNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+func (g *pmtkI2CNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
-func (g *pmtkI2CNMEAGPS) Valid(ctx context.Context) (bool, error) {
+func (g *pmtkI2CNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil
