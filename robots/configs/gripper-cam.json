@@ -14,10 +14,12 @@
         {
             "name": "depth",
             "type": "camera",
-            "model": "intel",
+            "model": "single_stream",
             "attributes":
             {
                 "host": "127.0.0.1",
+                "stream": "both",
+                "args": "both?num=0",
                 "port": 8181,
                 "hide": true
             }

@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/sensor"
 )
 
 // SubtypeName is a constant that identifies the component resource subtype string "gps".
@@ -108,12 +108,6 @@ func (r *reconfigurableGPS) Readings(ctx context.Context) ([]interface{}, error)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Readings(ctx)
-}
-
-func (r *reconfigurableGPS) Desc() sensor.Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
 }
 
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {

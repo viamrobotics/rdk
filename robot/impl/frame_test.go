@@ -59,15 +59,15 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("compass2")
-	test.That(t, fs.GetFrame("compass2"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("compass2").Transform(emptyIn)
+	t.Log("gps2")
+	test.That(t, fs.GetFrame("gps2"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("gps2").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
-	t.Log("compass2_offset")
-	test.That(t, fs.GetFrame("compass2_offset"), test.ShouldNotBeNil)
-	pose, err = fs.GetFrame("compass2_offset").Transform(emptyIn)
+	t.Log("gps2_offset")
+	test.That(t, fs.GetFrame("gps2_offset"), test.ShouldNotBeNil)
+	pose, err = fs.GetFrame("gps2_offset").Transform(emptyIn)
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{0, 0, 0})
 
@@ -83,8 +83,8 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, pose.Point(), r3.Vector{2000, 500, 1300})
 
-	t.Log("compass1")
-	test.That(t, fs.GetFrame("compass1"), test.ShouldBeNil) // compass1 is not registered
+	t.Log("gps1")
+	test.That(t, fs.GetFrame("gps1"), test.ShouldBeNil) // gps1 is not registered
 
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPt := r3.Vector{1500, 500, 1300}
@@ -94,7 +94,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	pointAlmostEqual(t, transformPoint, armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("compass2"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("gps2"))
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, sensorPt)
 
@@ -118,7 +118,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-	// has disconnected components (compass2 misspelled parent as gripperPiece, rather than pieceGripper)
+	// has disconnected components (gps2 misspelled parent as gripperPiece, rather than pieceGripper)
 	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
@@ -126,7 +126,7 @@ func TestWrongFrameSystems(t *testing.T) {
 		err,
 		test.ShouldBeError,
 		errors.New("the frame system is not fully connected, expected 9 frames but frame system has 7. Expected "+
-			"frames are: [cameraOver cameraOver_offset compass2 compass2_offset pieceArm pieceArm_offset pieceGripper "+
+			"frames are: [cameraOver cameraOver_offset gps2 gps2_offset pieceArm pieceArm_offset pieceGripper "+
 			"pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm "+
 			"pieceGripper_offset pieceGripper]"))
 

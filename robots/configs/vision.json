@@ -4,11 +4,13 @@
         {
             "name": "color",
             "type": "camera",
-            "model": "intel",
+            "model": "single_stream",
             "attributes":
             {
                 "host": "127.0.0.1",
                 "port": 8181,
+                "stream": "both",
+                "args": "both?num=0",
                 "path_pattern": "video0",
                 "hide": false,
                 "width": 1280,
@@ -18,11 +20,13 @@
         {
             "name": "depth",
             "type": "camera",
-            "model": "intel",
+            "model": "single_stream",
             "attributes":
             {
                 "host": "127.0.0.1",
                 "port": 8181,
+                "stream": "both",
+                "args": "both?num=0",
                 "hide": false,
                 "format": "Z16",
                 "width": 1024,

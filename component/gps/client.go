@@ -11,7 +11,6 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	"go.viam.com/rdk/sensor"
 )
 
 // serviceClient is a client satisfies the gps.proto contract.
@@ -130,10 +129,6 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{loc.Lat(), loc.Lng(), alt, speed, horzAcc, vertAcc}, nil
-}
-
-func (c *client) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(SubtypeName), ""}
 }
 
 // Close cleanly closes the underlying connections.

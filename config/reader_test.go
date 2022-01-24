@@ -60,3 +60,74 @@ func TestFromReaderValidate(t *testing.T) {
 	}
 	test.That(t, badServiceMapConverter, test.ShouldPanic)
 }
+
+func TestTransformAttributeMapToStruct(t *testing.T) {
+	type myType struct {
+		A          string            `json:"a"`
+		B          string            `json:"b"`
+		Attributes map[string]string `json:"attributes"`
+	}
+
+	var mt myType
+	attrs := AttributeMap{
+		"a": "1",
+		"b": "2",
+		"c": "3",
+		"d": "4",
+		"e": 5,
+	}
+	transformed, err := TransformAttributeMapToStruct(&mt, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myType{
+		A: "1",
+		B: "2",
+		Attributes: map[string]string{
+			"c": "3",
+			"d": "4",
+		},
+	})
+
+	mt = myType{Attributes: map[string]string{}}
+	transformed, err = TransformAttributeMapToStruct(&mt, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myType{
+		A: "1",
+		B: "2",
+		Attributes: map[string]string{
+			"c": "3",
+			"d": "4",
+		},
+	})
+
+	type myExtendedType struct {
+		A          string       `json:"a"`
+		B          string       `json:"b"`
+		Attributes AttributeMap `json:"attributes"`
+	}
+
+	var met myExtendedType
+	transformed, err = TransformAttributeMapToStruct(&met, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
+		A: "1",
+		B: "2",
+		Attributes: AttributeMap{
+			"c": "3",
+			"d": "4",
+			"e": 5,
+		},
+	})
+
+	met = myExtendedType{Attributes: AttributeMap{}}
+	transformed, err = TransformAttributeMapToStruct(&met, attrs)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, transformed, test.ShouldResemble, &myExtendedType{
+		A: "1",
+		B: "2",
+		Attributes: AttributeMap{
+			"c": "3",
+			"d": "4",
+			"e": 5,
+		},
+	})
+}

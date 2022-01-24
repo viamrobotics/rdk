@@ -9,7 +9,6 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
-	"go.viam.com/rdk/sensor"
 )
 
 // serviceClient satisfies the forcematrix.proto contract.
@@ -98,10 +97,6 @@ func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{matrix}, nil
-}
-
-func (c *client) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(SubtypeName), ""}
 }
 
 // Close cleanly closes the underlying connections.

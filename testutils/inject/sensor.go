@@ -3,7 +3,7 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/sensor"
+	"go.viam.com/rdk/component/sensor"
 )
 
 // Sensor is an injected sensor.
@@ -18,12 +18,4 @@ func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 		return s.Sensor.Readings(ctx)
 	}
 	return s.ReadingsFunc(ctx)
-}
-
-// Desc returns the description if available.
-func (s *Sensor) Desc() sensor.Description {
-	if s.Sensor == nil {
-		return sensor.Description{}
-	}
-	return s.Sensor.Desc()
 }

@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -75,12 +75,6 @@ func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Readings(ctx)
-}
-
-func (r *reconfigurableIMU) Desc() sensor.Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
 }
 
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {
