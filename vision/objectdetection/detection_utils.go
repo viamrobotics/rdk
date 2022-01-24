@@ -4,15 +4,20 @@ import (
 	"image"
 
 	"go.viam.com/rdk/rimage"
+
+	"github.com/pkg/errors"
 )
 
 // Overlay returns a color image with the bounding boxes overlaid on the original image.
-func Overlay(img image.Image, dets []Detection) image.Image {
+func Overlay(img image.Image, dets []Detection) (image.Image, error) {
 	rimg := rimage.ConvertImage(img)
 	for _, det := range dets {
+		if !det.BoundingBox().In(rimg.Bounds()) {
+			return nil, errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), rimg.Bounds())
+		}
 		drawBox(rimg, det.BoundingBox())
 	}
-	return rimg
+	return rimg, nil
 }
 
 // drawBox draws a red box over the image, each side is 3 pixels wide.

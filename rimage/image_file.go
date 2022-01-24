@@ -3,6 +3,7 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -59,6 +60,8 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	switch filepath.Ext(path) {
 	case ".png":
 		return png.Encode(f, img)
+	case ".jpg", ".jpeg":
+		return jpeg.Encode(f, img, nil)
 	case ".ppm":
 		return ppm.Encode(f, img)
 	default:
