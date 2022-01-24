@@ -40,15 +40,16 @@ func TestStaticFrame(t *testing.T) {
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
 	limit := Limit{Min: -30, Max: 30}
-	frame, err := NewTranslationalFrame("test", r3.Vector{0, 1, 0}, limit) // can only move on y axis
+	frame, err := NewTranslationalFrame("test", r3.Vector{3, 4, 0}, limit)
 	test.That(t, err, test.ShouldBeNil)
-	// expected output
-	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
+
 	// get expected transform back
-	input := FloatsToInputs([]float64{20})
+	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 4, 0})
+	input := FloatsToInputs([]float64{5})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldResemble, expPose)
+	test.That(t, spatial.PoseAlmostEqual(pose, expPose), test.ShouldBeTrue)
+
 	// if you feed in too many inputs, should get an error back
 	input = FloatsToInputs([]float64{0, 20, 0})
 	_, err = frame.Transform(input)
@@ -58,11 +59,13 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+
 	// if you try to move beyond set limits, should get an error
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF()[0]))
+
 	// gets the correct limits back
 	frameLimits := frame.DoF()
 	test.That(t, frameLimits[0], test.ShouldResemble, limit)
