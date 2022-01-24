@@ -71,7 +71,7 @@ func TestClient(t *testing.T) {
 		err := workingServoClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoClient.AngularOffset(context.Background())
+		currentDeg, err := workingServoClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 	})
@@ -83,7 +83,7 @@ func TestClient(t *testing.T) {
 		err = failingServoClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		_, err := failingServoClient.AngularOffset(context.Background())
+		_, err := failingServoClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -95,7 +95,7 @@ func TestClient(t *testing.T) {
 		err = workingServoDialedClient.Move(context.Background(), 20)
 		test.That(t, err, test.ShouldBeNil)
 
-		currentDeg, err := workingServoDialedClient.AngularOffset(context.Background())
+		currentDeg, err := workingServoDialedClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, currentDeg, test.ShouldEqual, 20)
 

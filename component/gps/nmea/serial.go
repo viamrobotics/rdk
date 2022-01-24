@@ -190,7 +190,7 @@ func (g *serialNMEAGPS) Start() {
 }
 
 func (g *serialNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
-	loc, err := g.Location(ctx)
+	loc, err := g.ReadLocation(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,37 +198,37 @@ func (g *serialNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{loc}, nil
 }
 
-func (g *serialNMEAGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (g *serialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.location, nil
 }
 
-func (g *serialNMEAGPS) Altitude(ctx context.Context) (float64, error) {
+func (g *serialNMEAGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.alt, nil
 }
 
-func (g *serialNMEAGPS) Speed(ctx context.Context) (float64, error) {
+func (g *serialNMEAGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.speed, nil
 }
 
-func (g *serialNMEAGPS) Satellites(ctx context.Context) (int, int, error) {
+func (g *serialNMEAGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.satsInUse, g.data.satsInView, nil
 }
 
-func (g *serialNMEAGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+func (g *serialNMEAGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.hDOP, g.data.vDOP, nil
 }
 
-func (g *serialNMEAGPS) Valid(ctx context.Context) (bool, error) {
+func (g *serialNMEAGPS) ReadValid(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.data.valid, nil

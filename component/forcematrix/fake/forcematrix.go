@@ -42,8 +42,8 @@ type ForceMatrix struct {
 	Name string
 }
 
-// Matrix always returns the same matrix.
-func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
+// ReadMatrix always returns the same matrix.
+func (fsm *ForceMatrix) ReadMatrix(ctx context.Context) ([][]int, error) {
 	result := make([][]int, 4)
 	for i := 0; i < len(result); i++ {
 		result[i] = []int{1, 1, 1, 1}
@@ -51,14 +51,14 @@ func (fsm *ForceMatrix) Matrix(ctx context.Context) ([][]int, error) {
 	return result, nil
 }
 
-// IsSlipping always return false.
-func (fsm *ForceMatrix) IsSlipping(ctx context.Context) (bool, error) {
+// DetectSlip always return false.
+func (fsm *ForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
 // Readings always returns the same values.
 func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fsm.Matrix(ctx)
+	matrix, err := fsm.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err
 	}

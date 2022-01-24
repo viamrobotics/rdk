@@ -83,7 +83,7 @@ func (mServo *mockServo) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockServo) AngularOffset(ctx context.Context) (uint8, error) {
+func (mServo *mockServo) GetPosition(ctx context.Context) (uint8, error) {
 	return 0, nil
 }
 
