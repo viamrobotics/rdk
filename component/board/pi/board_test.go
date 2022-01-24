@@ -57,7 +57,7 @@ func TestPiPigpio(t *testing.T) {
 		}
 
 		// try to set low
-		err = p.SetGPIOBcom(26, 0.0)
+		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		v, err := reader.Read(ctx)
@@ -65,7 +65,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, v, test.ShouldAlmostEqual, 0, 150)
 
 		// try to set high
-		err = p.SetGPIOBcom(26, 1.0)
+		err = p.SetGPIOBcom(26, true)
 		test.That(t, err, test.ShouldBeNil)
 
 		v, err = reader.Read(ctx)
@@ -73,7 +73,7 @@ func TestPiPigpio(t *testing.T) {
 		test.That(t, v, test.ShouldAlmostEqual, 1023, 150)
 
 		// back to low
-		err = p.SetGPIOBcom(26, 0.0)
+		err = p.SetGPIOBcom(26, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		v, err = reader.Read(ctx)
@@ -82,7 +82,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("basic interrupts", func(t *testing.T) {
-		err = p.SetGPIOBcom(18, 0.0)
+		err = p.SetGPIOBcom(18, false)
 		test.That(t, err, test.ShouldBeNil)
 
 		time.Sleep(5 * time.Millisecond)

@@ -276,11 +276,20 @@ func (b *numatoBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
 
 // SetPWM sets the given pin to the given duty cycle.
 func (b *numatoBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
+	if dutyCyclePct == 1.0 {
+		return b.SetGPIO(ctx, pin, true)
+	}
+	if dutyCyclePct == 0.0 {
+		return b.SetGPIO(ctx, pin, false)
+	}
 	return errors.New("numato doesn't support pwm")
 }
 
 // SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
 func (b *numatoBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
+	if freqHz == 0 {
+		return nil
+	}
 	return errors.New("numato doesn't support pwm")
 }
 
@@ -318,14 +327,9 @@ func (ar *analogReader) Read(ctx context.Context) (int, error) {
 }
 
 func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (*numatoBoard, error) {
-	pinString, ok := conf.Attributes["pins"]
-	if !ok {
+	pins := conf.Attributes.Int("pins", 0)
+	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")
-	}
-
-	pins, err := strconv.Atoi(pinString)
-	if err != nil {
-		return nil, fmt.Errorf("bad pins argument (%s) %w", pinString, err)
 	}
 
 	filter := serial.SearchFilter{Type: serial.TypeNumatoGPIO}
