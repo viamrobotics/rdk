@@ -137,8 +137,8 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
 	})
 
-	t.Run("PointCloud", func(t *testing.T) {
-		_, err := cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{Name: "g4"})
+	t.Run("GetPointCloud", func(t *testing.T) {
+		_, err := cameraServer.GetPointCloud(context.Background(), &pb.CameraServiceGetPointCloudRequest{Name: "g4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
@@ -149,12 +149,12 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pcA, nil
 		}
-		_, err = cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{
+		_, err = cameraServer.GetPointCloud(context.Background(), &pb.CameraServiceGetPointCloudRequest{
 			Name: camera1,
 		})
 		test.That(t, err, test.ShouldBeNil)
 
-		_, err = cameraServer.PointCloud(context.Background(), &pb.CameraServicePointCloudRequest{
+		_, err = cameraServer.GetPointCloud(context.Background(), &pb.CameraServiceGetPointCloudRequest{
 			Name: camera2,
 		})
 		test.That(t, err, test.ShouldNotBeNil)

@@ -26,9 +26,9 @@ service CameraService {
     };
   }
 
-  // PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+  // GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.
-  rpc PointCloud(CameraServicePointCloudRequest) returns (CameraServicePointCloudResponse) {
+  rpc GetPointCloud(CameraServiceGetPointCloudRequest) returns (CameraServiceGetPointCloudResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/camera/{name}/point_cloud"
     };
@@ -70,14 +70,14 @@ message CameraServiceRenderFrameRequest {
   string mime_type = 2;
 }
 
-message CameraServicePointCloudRequest {
+message CameraServiceGetPointCloudRequest {
   // Name of a camera
   string name = 1;
   // Requested MIME type of response
   string mime_type = 2;
 }
 
-message CameraServicePointCloudResponse {
+message CameraServiceGetPointCloudResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
