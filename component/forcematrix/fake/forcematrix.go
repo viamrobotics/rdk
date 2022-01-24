@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 )
 
 func init() {
@@ -64,9 +63,4 @@ func (fsm *ForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	return []interface{}{matrix}, nil
-}
-
-// Desc returns that this is a force matrix.
-func (fsm *ForceMatrix) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(forcematrix.SubtypeName), ""}
 }

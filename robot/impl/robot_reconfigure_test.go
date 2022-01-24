@@ -195,7 +195,7 @@ func TestRobotReconfigure(t *testing.T) {
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
-		test.That(t, len(svc.All()), test.ShouldEqual, 1)
+		test.That(t, len(svc.All()), test.ShouldEqual, 2)
 
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -272,7 +272,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
 		test.That(t, svc, test.ShouldResemble, service.ContextService(ctx))
-		test.That(t, len(svc.All()), test.ShouldEqual, 8)
+		test.That(t, len(svc.All()), test.ShouldEqual, 7)
 	})
 
 	t.Run("additive diff", func(t *testing.T) {

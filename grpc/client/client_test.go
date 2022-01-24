@@ -31,6 +31,8 @@ import (
 	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
+	"go.viam.com/rdk/component/sensor"
+	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
@@ -43,8 +45,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/sensor/compass"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -78,14 +78,7 @@ var emptyStatus = &pb.Status{
 	Cameras: map[string]bool{
 		"camera1": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass1": {
-			Type: compass.Type,
-		},
-		"compass2": {
-			Type: compass.RelativeType,
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Motors: map[string]*pb.MotorStatus{
 		"motor1": {},
 		"motor2": {},
@@ -111,6 +104,7 @@ var emptyStatus = &pb.Status{
 
 var emptyResources = []resource.Name{
 	arm.Named("arm1"),
+	base.Named("base1"),
 	board.Named("board1"),
 	board.Named("board3"),
 	gripper.Named("gripper1"),
@@ -160,17 +154,7 @@ var finalStatus = &pb.Status{
 		"camera2": true,
 		"camera3": true,
 	},
-	Sensors: map[string]*pb.SensorStatus{
-		"compass2": {
-			Type: compass.Type,
-		},
-		"compass3": {
-			Type: compass.Type,
-		},
-		"compass4": {
-			Type: compass.RelativeType,
-		},
-	},
+	Sensors: map[string]*pb.SensorStatus{},
 	Servos: map[string]*pb.ServoStatus{
 		"servo2": {},
 		"servo3": {},
@@ -208,6 +192,8 @@ var finalStatus = &pb.Status{
 var finalResources = []resource.Name{
 	arm.Named("arm2"),
 	arm.Named("arm3"),
+	base.Named("base2"),
+	base.Named("base3"),
 	board.Named("board2"),
 	board.Named("board3"),
 	servo.Named("servo2"),
@@ -269,33 +255,8 @@ func TestClient(t *testing.T) {
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	var (
-		capBaseName   string
-		capSensorName string
-	)
 	injectBase := &inject.Base{}
-	injectBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-		return 15, nil
-	}
-	var baseStopCalled bool
-	injectBase.StopFunc = func(ctx context.Context) error {
-		baseStopCalled = true
-		return nil
-	}
-	var capBaseMoveArgs []interface{}
-	injectBase.MoveStraightFunc = func(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
-		capBaseMoveArgs = []interface{}{distanceMillis, millisPerSec, block}
-		return nil
-	}
-	var capBaseSpinArgs []interface{}
-	injectBase.SpinFunc = func(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-		capBaseSpinArgs = []interface{}{angleDeg, degsPerSec, block}
-		return nil
-	}
-	injectRobot2.BaseByNameFunc = func(name string) (base.Base, bool) {
-		capBaseName = name
-		return injectBase, true
-	}
+
 	injectArm := &inject.Arm{}
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
@@ -342,48 +303,8 @@ func TestClient(t *testing.T) {
 		return img, func() { imageReleased = true }, nil
 	}
 
-	injectCompassDev := &inject.Compass{}
-	injectRelCompassDev := &inject.RelativeCompass{}
-	injectRobot2.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		capSensorName = name
-		switch name {
-		case "compass2":
-			return injectRelCompassDev, true
-		default:
-			return injectCompassDev, true
-		}
-	}
-
-	injectCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
-		return 4.5, nil
-	}
-	injectCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return []interface{}{1.2, 2.3}, nil
-	}
-	injectRelCompassDev.HeadingFunc = func(ctx context.Context) (float64, error) {
-		return 4.5, nil
-	}
-	injectRelCompassDev.MarkFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.StartCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-	injectRelCompassDev.StopCalibrationFunc = func(ctx context.Context) error {
-		return nil
-	}
-
 	injectInputDev := &inject.InputController{}
-	injectInputDev.ControlsFunc = func(ctx context.Context) ([]input.Control, error) {
+	injectInputDev.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
@@ -395,6 +316,14 @@ func TestClient(t *testing.T) {
 	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+
+	baseSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+
+	baseSvc2, err := subtype.New((map[resource.Name]interface{}{base.Named("base1"): injectBase}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
 
 	boardSvc1, err := subtype.New((map[resource.Name]interface{}{}))
 	test.That(t, err, test.ShouldBeNil)
@@ -443,6 +372,10 @@ func TestClient(t *testing.T) {
 	motorSvc2, err := subtype.New(map[resource.Name]interface{}{motor.Named("motor1"): injectMotor, motor.Named("motor2"): injectMotor})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+
+	sensorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -552,22 +485,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	base1, ok := client.BaseByName("base1")
+	_, ok := client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base1.Stop(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	err = base1.MoveStraight(context.Background(), 5, 0, false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	err = base1.Spin(context.Background(), 5.2, 0, false)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
-
-	_, err = base1.WidthGet(context.Background())
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no base")
 
 	arm1, ok := client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -638,7 +557,7 @@ func TestClient(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
@@ -673,31 +592,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	base1, ok = client.BaseByName("base1")
+	_, ok = client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	widthMillis, err := base1.WidthGet(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, widthMillis, test.ShouldEqual, 15)
-
-	err = base1.Stop(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, baseStopCalled, test.ShouldBeTrue)
-	test.That(t, capBaseName, test.ShouldEqual, "base1")
-
-	base2, ok := client.BaseByName("base2")
+	_, ok = client.BaseByName("base2")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base2.MoveStraight(context.Background(), 5, 6.2, false)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capBaseMoveArgs, test.ShouldResemble, []interface{}{5, 6.2, false})
-	test.That(t, capBaseName, test.ShouldEqual, "base2")
 
-	base3, ok := client.BaseByName("base3")
+	_, ok = client.BaseByName("base3")
 	test.That(t, ok, test.ShouldBeTrue)
-	err = base3.Spin(context.Background(), 7.2, 33, false)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capBaseSpinArgs, test.ShouldResemble, []interface{}{7.2, 33.0, false})
-	test.That(t, capBaseName, test.ShouldEqual, "base3")
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
@@ -751,45 +653,9 @@ func TestClient(t *testing.T) {
 
 	inputDev, ok := client.InputControllerByName("inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
-	controlList, err := inputDev.Controls(context.Background())
+	controlList, err := inputDev.GetControls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
-
-	sensorDev, ok := client.SensorByName("compass1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldNotImplement, (*compass.RelativeCompass)(nil))
-	readings, err := sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	compassDev := sensorDev.(compass.Compass)
-	heading, err := compassDev.Heading(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, heading, test.ShouldEqual, 4.5)
-	err = compassDev.StartCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassDev.StopCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capSensorName, test.ShouldEqual, "compass1")
-
-	sensorDev, ok = client.SensorByName("compass2")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.Compass)(nil))
-	test.That(t, sensorDev, test.ShouldImplement, (*compass.RelativeCompass)(nil))
-	readings, err = sensorDev.Readings(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings, test.ShouldResemble, []interface{}{4.5})
-	compassRelDev := sensorDev.(compass.RelativeCompass)
-	heading, err = compassRelDev.Heading(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, heading, test.ShouldEqual, 4.5)
-	err = compassRelDev.StartCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.StopCalibration(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	err = compassRelDev.Mark(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, capSensorName, test.ShouldEqual, "compass2")
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
@@ -859,6 +725,7 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
+	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
 
 	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
@@ -883,7 +750,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base2", "base3"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -893,7 +760,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -913,6 +780,7 @@ func TestClientRefresh(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
+			baseNames,
 		)...))
 
 	err = client.Close(context.Background())
@@ -936,6 +804,7 @@ func TestClientRefresh(t *testing.T) {
 
 	armNames = []resource.Name{arm.Named("arm1")}
 	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
+	baseNames = []resource.Name{base.Named("base1")}
 	gripperNames = []resource.Name{gripper.Named("gripper1")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
@@ -957,7 +826,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base1"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -967,7 +836,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass1", "compass2"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -980,6 +849,7 @@ func TestClientRefresh(t *testing.T) {
 			boardNames,
 			gripperNames,
 			cameraNames,
+			baseNames,
 		)...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -991,6 +861,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
+	baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
 	boardNames = []resource.Name{board.Named("board2"), board.Named("board3")}
 	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
@@ -1013,7 +884,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base2", "base3"),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
@@ -1023,7 +894,7 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t,
 		utils.NewStringSet(client.SensorNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("compass2", "compass3", "compass4"),
+		utils.NewStringSet(),
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -1043,6 +914,7 @@ func TestClientRefresh(t *testing.T) {
 			cameraNames,
 			servoNames,
 			motorNames,
+			baseNames,
 		)...))
 
 	err = client.Close(context.Background())

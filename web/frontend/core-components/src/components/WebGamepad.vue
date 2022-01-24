@@ -44,7 +44,7 @@ import { Component, Vue } from "vue-property-decorator";
 import { Timestamp } from "google-protobuf/google/protobuf/timestamp_pb";
 
 import {
-  InputControllerServiceInjectEventRequest,
+  InputControllerServiceTriggerEventRequest,
   InputControllerServiceEvent,
 } from "proto/api/component/v1/input_controller_pb";
 
@@ -175,7 +175,7 @@ export default class WebGamepad extends Vue {
 
   sendEvent(newEvent: InputControllerServiceEvent): void {
     if (this.enabled) {
-      let req = new InputControllerServiceInjectEventRequest();
+      let req = new InputControllerServiceTriggerEventRequest();
       req.setController("WebGamepad");
       req.setEvent(newEvent);
       this.$emit("execute", req);

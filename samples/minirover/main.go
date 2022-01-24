@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
+	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
@@ -313,7 +313,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	exp := egoutil.NewNiceLoggingSpanExporter()
+	exp := perf.NewNiceLoggingSpanExporter()
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 

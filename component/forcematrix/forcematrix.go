@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/sensor"
 	"go.viam.com/rdk/utils"
 )
 
@@ -74,12 +74,6 @@ func (r *reconfigurableForceMatrix) Readings(ctx context.Context) ([]interface{}
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.Readings(ctx)
-}
-
-func (r *reconfigurableForceMatrix) Desc() sensor.Description {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Desc()
 }
 
 func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,

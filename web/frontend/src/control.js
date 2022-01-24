@@ -21,6 +21,8 @@ window.cameraApi = require('./gen/proto/api/component/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/v1/camera_pb_service.js');
 window.inputApi = require('./gen/proto/api/component/v1/input_controller_pb.js');
 const { InputControllerServiceClient } = require('./gen/proto/api/component/v1/input_controller_pb_service.js');
+window.baseApi = require('./gen/proto/api/component/v1/base_pb.js');
+const { BaseServiceClient } = require('./gen/proto/api/component/v1/base_pb_service.js');
 window.commonApi = require('./gen/proto/api/common/v1/common_pb.js');
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
@@ -44,7 +46,11 @@ if (window.webrtcAdditionalICEServers) {
 let connect = async (creds) => {
 	let transportFactory;
 	const opts = { credentials: creds, webrtcOptions: { rtcConfig: rtcConfig } };
+	const impliedURL = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 	if (window.webrtcEnabled) {
+		if (!window.webrtcSignalingAddress) {
+			window.webrtcSignalingAddress = impliedURL;
+		}
 		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
 		transportFactory = webRTCConn.transportFactory
 		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -60,8 +66,7 @@ let connect = async (creds) => {
 			streamContainer.appendChild(video);
 		}
 	} else {
-		const url = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
-		transportFactory = await dialDirect(url, opts);
+		transportFactory = await dialDirect(impliedURL, opts);
 	}
 
 	window.connect = () => connect(creds); // save creds
@@ -79,5 +84,6 @@ let connect = async (creds) => {
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;

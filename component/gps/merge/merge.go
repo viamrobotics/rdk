@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/sensor"
 )
 
 // ModelName is the name of th merge model for gps.
@@ -160,9 +159,4 @@ func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
 		allErrors = multierr.Combine(allErrors, err)
 	}
 	return nil, allErrors
-}
-
-// Desc returns a description of this sensor.
-func (m *mergeGPS) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(gps.SubtypeName), ""}
 }

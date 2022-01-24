@@ -17,18 +17,18 @@ import (
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/sensor"
-	"go.viam.com/rdk/serial"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
@@ -562,10 +562,6 @@ func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) 
 
 func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
-}
-
-func (i *myIMU) Desc() sensor.Description {
-	return sensor.Description{sensor.Type(imu.SubtypeName), ""}
 }
 
 func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {

@@ -9,8 +9,8 @@ import (
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
-	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
-	LastEventsFunc              func(ctx context.Context) (map[input.Control]input.Event, error)
+	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
+	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
 	RegisterControlCallbackFunc func(
 		ctx context.Context,
 		control input.Control,
@@ -19,20 +19,20 @@ type InputController struct {
 	) error
 }
 
-// Controls calls the injected function or the real version.
-func (s *InputController) Controls(ctx context.Context) ([]input.Control, error) {
-	if s.ControlsFunc == nil {
-		return s.Controller.Controls(ctx)
+// GetControls calls the injected function or the real version.
+func (s *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
+	if s.GetControlsFunc == nil {
+		return s.Controller.GetControls(ctx)
 	}
-	return s.ControlsFunc(ctx)
+	return s.GetControlsFunc(ctx)
 }
 
-// LastEvents calls the injected function or the real version.
-func (s *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	if s.LastEventsFunc == nil {
-		return s.Controller.LastEvents(ctx)
+// GetEvents calls the injected function or the real version.
+func (s *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	if s.GetEventsFunc == nil {
+		return s.Controller.GetEvents(ctx)
 	}
-	return s.LastEventsFunc(ctx)
+	return s.GetEventsFunc(ctx)
 }
 
 // RegisterControlCallback calls the injected function or the real version.
@@ -48,18 +48,18 @@ func (s *InputController) RegisterControlCallback(
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
 }
 
-// InjectableInputController is an injected injectable InputController.
-type InjectableInputController struct {
+// TriggerableInputController is an injected injectable InputController.
+type TriggerableInputController struct {
 	InputController
-	input.Injectable
+	input.Triggerable
 
-	InjectEventFunc func(ctx context.Context, event input.Event) error
+	TriggerEventFunc func(ctx context.Context, event input.Event) error
 }
 
-// InjectEvent calls the injected function or the real version.
-func (s *InjectableInputController) InjectEvent(ctx context.Context, event input.Event) error {
-	if s.InjectEventFunc == nil {
-		return s.InjectEvent(ctx, event)
+// TriggerEvent calls the injected function or the real version.
+func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event input.Event) error {
+	if s.TriggerEventFunc == nil {
+		return s.TriggerEvent(ctx, event)
 	}
-	return s.InjectEventFunc(ctx, event)
+	return s.TriggerEventFunc(ctx, event)
 }

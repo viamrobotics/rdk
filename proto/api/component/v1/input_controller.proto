@@ -9,66 +9,66 @@ import "google/protobuf/timestamp.proto";
 
 // InputControllerService services maintains all input controller associated with a robot
 service InputControllerService {
-  // Controls returns a list of Controls provided by the Controller
-  rpc Controls(InputControllerServiceControlsRequest) returns (InputControllerServiceControlsResponse) {
+  // GetControls returns a list of GetControls provided by the Controller
+  rpc GetControls(InputControllerServiceGetControlsRequest) returns (InputControllerServiceGetControlsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/controls"
     };
   }
 
-	// LastEvent returns a list of events representing the last event on each control of a give Input Controller
-  rpc LastEvents(InputControllerServiceLastEventsRequest) returns (InputControllerServiceLastEventsResponse) {
+	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
+  rpc GetEvents(InputControllerServiceGetEventsRequest) returns (InputControllerServiceGetEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/last_events"
     };
   }
 
-  // EventStream starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
-  rpc EventStream(InputControllerServiceEventStreamRequest) returns (stream InputControllerServiceEventStreamResponse) {
+  // StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
+  rpc StreamEvents(InputControllerServiceStreamEventsRequest) returns (stream InputControllerServiceStreamEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/input/{controller}/event_stream"
     };
   }
 
-  // InjectEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
+  // TriggerEvent, where supported, injects an InputControllerEvent into an input controller to (virtually) generate events 
   // like button presses or axis movements  
-  rpc InjectEvent(InputControllerServiceInjectEventRequest) returns (InputControllerServiceInjectEventResponse) {
+  rpc TriggerEvent(InputControllerServiceTriggerEventRequest) returns (InputControllerServiceTriggerEventResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/input/{controller}/inject_event"
     };
   }
 }
 
-message InputControllerServiceControlsRequest {
+message InputControllerServiceGetControlsRequest {
   // Name of an input controller
   string controller = 1;
 }
 
-message InputControllerServiceControlsResponse {
+message InputControllerServiceGetControlsResponse {
   // Returns a list of all the controls (buttons and axes) that are
   // available to a given Input Controller 
   repeated string controls = 1;
 }
 
-message InputControllerServiceLastEventsRequest {
+message InputControllerServiceGetEventsRequest {
   // Name of an input controller 
   string controller = 1;
 }
 
-message InputControllerServiceLastEventsResponse {
+message InputControllerServiceGetEventsResponse {
   // Returns a list of the most recent event for each control on a given InputController. Effectively provides the current "state" of all 
   // buttons/axes on a given input controller 
   repeated InputControllerServiceEvent events = 1;
 }
 
-message InputControllerServiceInjectEventRequest {
+message InputControllerServiceTriggerEventRequest {
   // Name of an input controller 
   string controller = 1;
   // Digitally assert a given event 
   InputControllerServiceEvent event = 2;
 }
 
-message InputControllerServiceInjectEventResponse {
+message InputControllerServiceTriggerEventResponse {
 }
 
 message InputControllerServiceEvent {
@@ -82,7 +82,7 @@ message InputControllerServiceEvent {
   double value = 4;
 }
 
-message InputControllerServiceEventStreamRequest {
+message InputControllerServiceStreamEventsRequest {
   message Events {
     // Name of a control (button or axis)
     string control = 1;
@@ -99,7 +99,7 @@ message InputControllerServiceEventStreamRequest {
   repeated Events events = 2;
 }
 
-message InputControllerServiceEventStreamResponse {
+message InputControllerServiceStreamEventsResponse {
   // Event for a controller
   InputControllerServiceEvent event = 1;
 }
