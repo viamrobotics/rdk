@@ -115,6 +115,9 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 				parentMap[joint.ID] = joint.Parent
 
 				transforms[joint.ID] = rev
+			} else if joint.Type == "prismatic" {
+				//prism, err := NewTranslationalFrame(joint.ID, []bool{}, Limit{Min: joint.Min, Max: joint.Max})
+
 			} else {
 				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
 			}
