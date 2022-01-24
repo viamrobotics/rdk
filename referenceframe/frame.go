@@ -223,7 +223,7 @@ type translationalFrame struct {
 // NewTranslationalFrame creates a frame given a name and the axis in which to translate.
 func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
-		return nil, fmt.Errorf("cannot use zero vector as translation axis")
+		return nil, errors.New("cannot use zero vector as translation axis")
 	}
 	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: limit}, nil
 }
@@ -232,7 +232,7 @@ func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, err
 // It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewTranslationalFrameWithVolume(name string, axis r3.Vector, limit Limit, volumeCreator spatial.VolumeCreator) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
-		return nil, fmt.Errorf("cannot use zero vector as translation axis")
+		return nil, errors.New("cannot use zero vector as translation axis")
 	}
 	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: limit, volumeCreator: volumeCreator}, nil
 }
@@ -298,9 +298,7 @@ type rotationalFrame struct {
 // NewRotationalFrame creates a new rotationalFrame struct.
 // A standard revolute joint will have 1 DoF.
 func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
-	if err := axis.Normalize(); err != nil {
-		return nil, err
-	}
+	axis.Normalize()
 	return &rotationalFrame{
 		name:    name,
 		rotAxis: r3.Vector{axis.RX, axis.RY, axis.RZ},

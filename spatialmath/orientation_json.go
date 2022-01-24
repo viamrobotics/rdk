@@ -41,7 +41,7 @@ type OrientationConfig struct {
 	Value json.RawMessage `json:"value"`
 }
 
-// Unmarshall will use the Type in OrientationConfig to unmarshal the Value into the correct struct that implements Orientation.
+// ParseConfig will use the Type in OrientationConfig and convert into the correct struct that implements Orientation.
 func (config OrientationConfig) ParseConfig() (Orientation, error) {
 	var err error
 	// use the type to unmarshal the value
