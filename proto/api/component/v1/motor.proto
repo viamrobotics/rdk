@@ -9,32 +9,8 @@ import "google/api/annotations.proto";
 
 // A MotorService maintains all motors associated with a robot
 service MotorService {
-  // TODO(FA): This will be removed in lieu of controls package 
-  // Return the PID configuration for a Motor
-  rpc GetPIDConfig(MotorServiceGetPIDConfigRequest) returns (MotorServiceGetPIDConfigResponse){
-    option (google.api.http) = {
-      get: "/api/v1/board/motor/{name}/get_pid_config"
-    };
-  }
-
-  // TODO(FA): This will be removed in lieu of controls package 
-  // Set the PID configuration for a Motor
-  rpc SetPIDConfig(MotorServiceSetPIDConfigRequest) returns (MotorServiceSetPIDConfigResponse){
-    option (google.api.http) = {
-      put: "/api/v1/board/motor/{name}/set_pid_config"
-    };
-  }
-  
-  // TODO(): This will be removed in lieu of controls package 
-  // Perform a step response on a motor
-  rpc PIDStep(MotorServicePIDStepRequest) returns (stream MotorServicePIDStepResponse){
-    option (google.api.http) = {
-      get: "/api/v1/board/motor/{name}/pid_step"
-    };
-  }
- 
   // SetPower sets the percentage of the motor's total power that should be employed
-  // expressed a value between -1 and 1 where negative values indiciate a backwards 
+  // expressed a value between -1 and 1 where negative values indiciate a backwards
   // direction and positive values a forward direction
   rpc SetPower(MotorServiceSetPowerRequest) returns (MotorServiceSetPowerResponse) {
     option (google.api.http) = {
@@ -42,8 +18,8 @@ service MotorService {
     };
   }
 
-  // Go instructs the motor to turn using a specified percentage of its total power, 
-  // expressed as a value between -1 and 1 where negative values indiciate a backwards 
+  // Go instructs the motor to turn using a specified percentage of its total power,
+  // expressed as a value between -1 and 1 where negative values indiciate a backwards
   // direction and positive values a forward direction
   rpc Go(MotorServiceGoRequest) returns (MotorServiceGoResponse) {
     option (google.api.http) = {
@@ -53,16 +29,16 @@ service MotorService {
 
   // GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
   // for a specified number of rotations relative to its starting position
-  // This method will return an error if MotorPositionSupported is false 
+  // This method will return an error if MotorPositionSupported is false
   rpc GoFor(MotorServiceGoForRequest) returns (MotorServiceGoForResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_for"
     };
   }
 
-  // GoTo requests the robot's motor to move to a specific position that 
+  // GoTo requests the robot's motor to move to a specific position that
   // is relative to its home position at a specified speed which is expressed in RPM
-  // This method will return an error if MotorPositionSupported is false 
+  // This method will return an error if MotorPositionSupported is false
   rpc GoTo(MotorServiceGoToRequest) returns (MotorServiceGoToResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_to"
@@ -70,7 +46,7 @@ service MotorService {
   }
 
   // To Do (FA): This will be deprecated in favor of a  MotorStop method
-  // GoTillStop moves a motor until it is stopped 
+  // GoTillStop moves a motor until it is stopped
   // The logic to trigger the "stop" mechanism is up to the underlying motor implementation
   rpc GoTillStop(MotorServiceGoTillStopRequest) returns (MotorServiceGoTillStopResponse) {
     option (google.api.http) = {
@@ -102,15 +78,15 @@ service MotorService {
   }
 
   // Stop turns the robot's motor off
-  // To Do (FA): This will be deprecated 
+  // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/off"
     };
   }
-  
+
   // IsOn returns true if the robot's motor off
-  // To Do (FA): This will be deprecated 
+  // To Do (FA): This will be deprecated
   rpc IsOn(MotorServiceIsOnRequest) returns (MotorServiceIsOnResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/is_on"
@@ -118,30 +94,6 @@ service MotorService {
   }
 }
 
-message MotorServiceGetPIDConfigRequest{
-  // Name of a motor
-  string name = 1;
-}
-message MotorServiceGetPIDConfigResponse{
-  google.protobuf.Struct pid_config = 1;
-}
-message MotorServiceSetPIDConfigRequest{
-  // Name of a motor
-  string name = 1;
-  google.protobuf.Struct pid_config = 2;
-}
-
-message MotorServiceSetPIDConfigResponse{}
-
-message MotorServicePIDStepRequest{
-  string name = 1;
-  double set_point = 2;
-}
-message MotorServicePIDStepResponse{
-  double time = 1;
-  double set_point = 2;
-  double ref_value = 3;
-}
 message MotorServiceSetPowerRequest {
   // Name of a motor
   string name = 1;
@@ -165,7 +117,7 @@ message MotorServiceGoForRequest {
   string name = 1;
   // Speed of motor travel in rotations per minute
   double rpm = 2;
-  // Number of revolutions relative to motor's start position 
+  // Number of revolutions relative to motor's start position
   double revolutions = 3;
 }
 

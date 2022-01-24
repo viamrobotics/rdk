@@ -18,15 +18,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MotorServiceClient interface {
-	// TODO(FA): This will be removed in lieu of controls package
-	// Return the PID configuration for a Motor
-	GetPIDConfig(ctx context.Context, in *MotorServiceGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorServiceGetPIDConfigResponse, error)
-	// TODO(FA): This will be removed in lieu of controls package
-	// Set the PID configuration for a Motor
-	SetPIDConfig(ctx context.Context, in *MotorServiceSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorServiceSetPIDConfigResponse, error)
-	// TODO(): This will be removed in lieu of controls package
-	// Perform a step response on a motor
-	PIDStep(ctx context.Context, in *MotorServicePIDStepRequest, opts ...grpc.CallOption) (MotorService_PIDStepClient, error)
 	// SetPower sets the percentage of the motor's total power that should be employed
 	// expressed a value between -1 and 1 where negative values indiciate a backwards
 	// direction and positive values a forward direction
@@ -69,56 +60,6 @@ type motorServiceClient struct {
 
 func NewMotorServiceClient(cc grpc.ClientConnInterface) MotorServiceClient {
 	return &motorServiceClient{cc}
-}
-
-func (c *motorServiceClient) GetPIDConfig(ctx context.Context, in *MotorServiceGetPIDConfigRequest, opts ...grpc.CallOption) (*MotorServiceGetPIDConfigResponse, error) {
-	out := new(MotorServiceGetPIDConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/GetPIDConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *motorServiceClient) SetPIDConfig(ctx context.Context, in *MotorServiceSetPIDConfigRequest, opts ...grpc.CallOption) (*MotorServiceSetPIDConfigResponse, error) {
-	out := new(MotorServiceSetPIDConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/SetPIDConfig", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *motorServiceClient) PIDStep(ctx context.Context, in *MotorServicePIDStepRequest, opts ...grpc.CallOption) (MotorService_PIDStepClient, error) {
-	stream, err := c.cc.NewStream(ctx, &MotorService_ServiceDesc.Streams[0], "/proto.api.component.v1.MotorService/PIDStep", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &motorServicePIDStepClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type MotorService_PIDStepClient interface {
-	Recv() (*MotorServicePIDStepResponse, error)
-	grpc.ClientStream
-}
-
-type motorServicePIDStepClient struct {
-	grpc.ClientStream
-}
-
-func (x *motorServicePIDStepClient) Recv() (*MotorServicePIDStepResponse, error) {
-	m := new(MotorServicePIDStepResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
 }
 
 func (c *motorServiceClient) SetPower(ctx context.Context, in *MotorServiceSetPowerRequest, opts ...grpc.CallOption) (*MotorServiceSetPowerResponse, error) {
@@ -215,15 +156,6 @@ func (c *motorServiceClient) IsOn(ctx context.Context, in *MotorServiceIsOnReque
 // All implementations must embed UnimplementedMotorServiceServer
 // for forward compatibility
 type MotorServiceServer interface {
-	// TODO(FA): This will be removed in lieu of controls package
-	// Return the PID configuration for a Motor
-	GetPIDConfig(context.Context, *MotorServiceGetPIDConfigRequest) (*MotorServiceGetPIDConfigResponse, error)
-	// TODO(FA): This will be removed in lieu of controls package
-	// Set the PID configuration for a Motor
-	SetPIDConfig(context.Context, *MotorServiceSetPIDConfigRequest) (*MotorServiceSetPIDConfigResponse, error)
-	// TODO(): This will be removed in lieu of controls package
-	// Perform a step response on a motor
-	PIDStep(*MotorServicePIDStepRequest, MotorService_PIDStepServer) error
 	// SetPower sets the percentage of the motor's total power that should be employed
 	// expressed a value between -1 and 1 where negative values indiciate a backwards
 	// direction and positive values a forward direction
@@ -265,15 +197,6 @@ type MotorServiceServer interface {
 type UnimplementedMotorServiceServer struct {
 }
 
-func (UnimplementedMotorServiceServer) GetPIDConfig(context.Context, *MotorServiceGetPIDConfigRequest) (*MotorServiceGetPIDConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetPIDConfig not implemented")
-}
-func (UnimplementedMotorServiceServer) SetPIDConfig(context.Context, *MotorServiceSetPIDConfigRequest) (*MotorServiceSetPIDConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetPIDConfig not implemented")
-}
-func (UnimplementedMotorServiceServer) PIDStep(*MotorServicePIDStepRequest, MotorService_PIDStepServer) error {
-	return status.Errorf(codes.Unimplemented, "method PIDStep not implemented")
-}
 func (UnimplementedMotorServiceServer) SetPower(context.Context, *MotorServiceSetPowerRequest) (*MotorServiceSetPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPower not implemented")
 }
@@ -315,63 +238,6 @@ type UnsafeMotorServiceServer interface {
 
 func RegisterMotorServiceServer(s grpc.ServiceRegistrar, srv MotorServiceServer) {
 	s.RegisterService(&MotorService_ServiceDesc, srv)
-}
-
-func _MotorService_GetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceGetPIDConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MotorServiceServer).GetPIDConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/GetPIDConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).GetPIDConfig(ctx, req.(*MotorServiceGetPIDConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _MotorService_SetPIDConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceSetPIDConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MotorServiceServer).SetPIDConfig(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/SetPIDConfig",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).SetPIDConfig(ctx, req.(*MotorServiceSetPIDConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _MotorService_PIDStep_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(MotorServicePIDStepRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(MotorServiceServer).PIDStep(m, &motorServicePIDStepServer{stream})
-}
-
-type MotorService_PIDStepServer interface {
-	Send(*MotorServicePIDStepResponse) error
-	grpc.ServerStream
-}
-
-type motorServicePIDStepServer struct {
-	grpc.ServerStream
-}
-
-func (x *motorServicePIDStepServer) Send(m *MotorServicePIDStepResponse) error {
-	return x.ServerStream.SendMsg(m)
 }
 
 func _MotorService_SetPower_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -562,14 +428,6 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*MotorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetPIDConfig",
-			Handler:    _MotorService_GetPIDConfig_Handler,
-		},
-		{
-			MethodName: "SetPIDConfig",
-			Handler:    _MotorService_SetPIDConfig_Handler,
-		},
-		{
 			MethodName: "SetPower",
 			Handler:    _MotorService_SetPower_Handler,
 		},
@@ -610,12 +468,6 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MotorService_IsOn_Handler,
 		},
 	},
-	Streams: []grpc.StreamDesc{
-		{
-			StreamName:    "PIDStep",
-			Handler:       _MotorService_PIDStep_Handler,
-			ServerStreams: true,
-		},
-	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/api/component/v1/motor.proto",
 }
