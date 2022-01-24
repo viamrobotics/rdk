@@ -670,16 +670,16 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new cameraApi.CameraServiceObjectPointCloudsRequest();
+                      req = new cameraApi.CameraServiceGetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
                       req.setMinPointsInSegment(minPointsSegment);
-                      req.setClusteringRadius(clusteringRadius);
+                      req.setClusteringRadiusMm(clusteringRadius);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      cameraService.objectPointClouds(req,  {}, (err, resp) => {
+                      cameraService.getObjectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
@@ -695,8 +695,8 @@
                   doSegmentLoad : function(i){
                         var segment = theData.objects[i];
                         var data = segment.getFrame_asB64();
-                        var center = segment.getCenter();
-                        var box = segment.getBoundingBox();
+                        var center = segment.getCenterCoordinatesMm();
+                        var box = segment.getBoundingBoxMm();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
@@ -706,15 +706,15 @@
                   },
                   doPointLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenter();
+                        var center = segment.getCenterCoordinatesMm();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenter();
-                        var box = segment.getBoundingBox();
+                        var center = segment.getCenterCoordinatesMm();
+                        var box = segment.getBoundingBoxMm();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
@@ -994,7 +994,7 @@
       }
 
       function setBoundingBox(box, centerPoint) {
-          const geometry = new THREE.BoxGeometry( box.getWidth()/1000., box.getLength()/1000., box.getDepth()/1000. );
+          const geometry = new THREE.BoxGeometry( box.getWidthMm()/1000., box.getLengthMm()/1000., box.getDepthMm()/1000. );
           const edges = new THREE.EdgesGeometry( geometry );
           const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
           const cube = new THREE.LineSegments( edges, material );
