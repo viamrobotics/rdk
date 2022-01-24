@@ -7,7 +7,6 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
@@ -41,48 +40,14 @@ func (server *subtypeServer) GetPIDConfig(
 	ctx context.Context,
 	req *pb.MotorServiceGetPIDConfigRequest,
 ) (*pb.MotorServiceGetPIDConfigResponse, error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
-	}
-	pid := motor.PID()
-	if pid == nil {
-		return nil, errors.New("no underlying PID for motor configured")
-	}
-	cfg, err := pid.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	str, err := structpb.NewStruct(cfg.Attributes)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorServiceGetPIDConfigResponse{PidConfig: str}, nil
+	return nil, errors.New("motorGetPidNotImpl")
 }
 
 func (server *subtypeServer) SetPIDConfig(
 	ctx context.Context,
 	req *pb.MotorServiceSetPIDConfigRequest,
 ) (*pb.MotorServiceSetPIDConfigResponse, error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
-	}
-	pid := motor.PID()
-	if pid == nil {
-		return nil, errors.New("no underlying PID for motor configured")
-	}
-	cfg := PIDConfig{
-		Name:       "",
-		Type:       "",
-		Attributes: req.PidConfig.AsMap(),
-	}
-	if err := pid.UpdateConfig(ctx, cfg); err != nil {
-		return nil, err
-	}
-	return &pb.MotorServiceSetPIDConfigResponse{}, nil
+	return nil, errors.New("motorGetPidNotImpl")
 }
 
 // PIDStep execute a step response on the PID controller.
@@ -95,15 +60,8 @@ func (server *subtypeServer) PIDStep(
 	if err != nil {
 		return errors.Errorf("no motor (%s) found", motorName)
 	}
-	pid := motor.PID()
-	if pid == nil {
-		return errors.New("no underlying PID for motor configured")
-	}
 	setPoint := req.GetSetPoint()
 	if err := motor.Stop(serverPIDStep.Context()); err != nil {
-		return err
-	}
-	if err := pid.Reset(); err != nil {
 		return err
 	}
 
@@ -139,13 +97,7 @@ func (server *subtypeServer) PIDStep(
 			return err
 		}
 		vel := (currPos - lastPos) / dt.Seconds()
-		effort, ok := pid.Output(serverPIDStep.Context(), dt, setPoint, vel)
 		lastPos = currPos
-		if ok {
-			if err = motor.Go(serverPIDStep.Context(), effort/100); err != nil {
-				return err
-			}
-		}
 
 		totalTime += dt.Seconds()
 		if err := serverPIDStep.Send(&pb.MotorServicePIDStepResponse{Time: totalTime, SetPoint: setPoint, RefValue: vel}); err != nil {

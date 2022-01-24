@@ -42,7 +42,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	if ok {
 		updateable, ok := webSvc.(resource.Updateable)
 		if ok {
-			if err := updateable.Update(ctx, r.parts.resources); err != nil {
+			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
 				return err
 			}
 		}

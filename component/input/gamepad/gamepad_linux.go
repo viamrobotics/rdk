@@ -295,6 +295,10 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			g.Model = g.dev.Name()
 			g.Mapping = mapping
 			break
+		} else {
+			if err := dev.Close(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -305,7 +309,7 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 			if err != nil {
 				continue
 			}
-			if dev.IsJoystick() {
+			if isGamepad(dev) {
 				name := dev.Name()
 				g.logger.Infof("found gamepad: '%s' at %s", name, n)
 				g.logger.Infof("no button mapping for '%s', using default: '%s'", name, defaultMapping)
@@ -313,6 +317,10 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 				g.Model = g.dev.Name()
 				g.Mapping = GamepadMappings[defaultMapping]
 				break
+			} else {
+				if err := dev.Close(); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -339,6 +347,9 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 func (g *gamepad) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
+	if err := g.dev.Close(); err != nil {
+		g.logger.Error(err)
+	}
 }
 
 // GetControls lists the inputs of the gamepad.
@@ -385,4 +396,14 @@ func (g *gamepad) RegisterControlCallback(
 		}
 	}
 	return nil
+}
+
+func isGamepad(dev *evdev.Evdev) bool {
+	if dev.IsJoystick() {
+		axes := dev.AbsoluteTypes()
+		_, x := axes[evdev.AbsoluteX]
+		_, y := axes[evdev.AbsoluteY]
+		return x && y
+	}
+	return false
 }

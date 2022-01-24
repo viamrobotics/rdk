@@ -13,6 +13,7 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -102,7 +103,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	}
 }
 
-// planRunner will execute the plan. When Plan) is called, it will call planRunner in a separate thread and wait for the results.
+// planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
@@ -113,8 +114,16 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 	var inputSteps []*configuration
+
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return
+		}
+		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+		opt = DefaultConstraint(seedPos, goalPos, opt)
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)

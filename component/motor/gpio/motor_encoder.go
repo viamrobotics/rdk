@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/control"
 )
 
 var (
@@ -124,6 +125,19 @@ func newEncodedMotor(
 		rampRate:                motorConfig.RampRate,
 		maxPowerPct:             motorConfig.MaxPowerPct,
 		logger:                  logger,
+		loop:                    nil,
+	}
+
+	if len(motorConfig.ControlLoop.Blocks) != 0 {
+		cLoop, err := control.NewControlLoop(logger, motorConfig.ControlLoop, em)
+		if err != nil {
+			return nil, err
+		}
+		err = cLoop.Start()
+		if err != nil {
+			return nil, err
+		}
+		em.loop = cLoop
 	}
 
 	if em.rampRate < 0 || em.rampRate > 1 {
@@ -172,6 +186,7 @@ type EncodedMotor struct {
 	logger          golog.Logger
 	cancelCtx       context.Context
 	cancel          func()
+	loop            *control.ControlLoop
 }
 
 // EncodedMotorState is the core, non-statistical state for the motor.
@@ -207,11 +222,6 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	}
 
 	return -1
-}
-
-// PID returns the motor's underlying PID.
-func (m *EncodedMotor) PID() motor.PID {
-	return m.real.PID()
 }
 
 // PositionSupported returns true.

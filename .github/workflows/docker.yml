@@ -17,7 +17,7 @@ jobs:
     container:
       image: ghcr.io/viamrobotics/canon:amd64
       options: --platform linux/amd64
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
     - name: Login to GitHub Container Registry
       uses: docker/login-action@v1

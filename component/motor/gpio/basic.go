@@ -18,7 +18,6 @@ import (
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
 func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
-	var m motor.Motor
 	pins := mc.Pins
 
 	if mc.MaxPowerPct == 0 {
@@ -34,32 +33,30 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 		mc.MinPowerPct = 1.0
 	}
 
-	var pid motor.PID
-	if mc.PID != nil {
-		var err error
-		pid, err = motor.CreatePID(mc.PID)
-		if err != nil {
-			return nil, err
-		}
+	m := &Motor{
+		Board:         b,
+		A:             pins["a"],
+		B:             pins["b"],
+		Dir:           pins["dir"],
+		PWM:           pins["pwm"],
+		EnablePinHigh: mc.Pins["enHigh"],
+		EnablePinLow:  mc.Pins["enLow"],
+		En:            pins["en"],
+		on:            false,
+		pwmFreq:       mc.PWMFreq,
+		minPowerPct:   mc.MinPowerPct,
+		maxPowerPct:   mc.MaxPowerPct,
+		maxRPM:        mc.MaxRPM,
+		dirFlip:       mc.DirFlip,
+		logger:        logger,
+		cancelMu:      &sync.Mutex{},
 	}
 
-	m = &Motor{
-		Board:       b,
-		A:           pins["a"],
-		B:           pins["b"],
-		Dir:         pins["dir"],
-		PWM:         pins["pwm"],
-		En:          pins["en"],
-		on:          false,
-		pwmFreq:     mc.PWMFreq,
-		minPowerPct: mc.MinPowerPct,
-		maxPowerPct: mc.MaxPowerPct,
-		maxRPM:      mc.MaxRPM,
-		dirFlip:     mc.DirFlip,
-		pid:         pid,
-		logger:      logger,
-		cancelMu:    &sync.Mutex{},
+	if m.EnablePinLow == "" {
+		// for backwards compatibility prior ot change on 1/21/22
+		m.EnablePinLow = pins["en"]
 	}
+
 	return m, nil
 }
 
@@ -69,23 +66,19 @@ var _ = motor.Motor(&Motor{})
 type Motor struct {
 	Board              board.Board
 	A, B, Dir, PWM, En string
+	EnablePinLow       string
+	EnablePinHigh      string
 	on                 bool
 	pwmFreq            uint
 	minPowerPct        float64
 	maxPowerPct        float64
 	maxRPM             float64
 	dirFlip            bool
-	pid                motor.PID
 
 	cancelMu      *sync.Mutex
 	cancelForFunc func()
 	waitCh        chan struct{}
 	logger        golog.Logger
-}
-
-// PID return the underlying PID.
-func (m *Motor) PID() motor.PID {
-	return m.pid
 }
 
 // Position always returns 0.
@@ -105,8 +98,11 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	if math.Abs(powerPct) <= 0.001 {
-		if m.En != "" {
-			errs = m.Board.SetGPIO(ctx, m.En, true)
+		if m.EnablePinLow != "" {
+			errs = m.Board.SetGPIO(ctx, m.EnablePinLow, true)
+		}
+		if m.EnablePinHigh != "" {
+			errs = m.Board.SetGPIO(ctx, m.EnablePinHigh, false)
 		}
 
 		if m.A != "" && m.B != "" {
@@ -124,8 +120,11 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	}
 
 	m.on = true
-	if m.En != "" {
-		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.En, false))
+	if m.EnablePinLow != "" {
+		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.EnablePinLow, false))
+	}
+	if m.EnablePinHigh != "" {
+		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.EnablePinHigh, true))
 	}
 
 	var pwmPin string
