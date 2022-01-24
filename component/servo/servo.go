@@ -25,10 +25,10 @@ var Subtype = resource.NewSubtype(
 type Servo interface {
 
 	// Move moves the servo to the given angle (0-180 degrees)
-	Move(ctx context.Context, angleDegs uint8) error
+	Move(ctx context.Context, angleDeg uint8) error
 
-	// AngularOffset returns the current set angle (degrees) of the servo.
-	AngularOffset(ctx context.Context) (uint8, error)
+	// GetPosition returns the current set angle (degrees) of the servo.
+	GetPosition(ctx context.Context) (uint8, error)
 }
 
 // Named is a helper for getting the named Servo's typed resource name.
@@ -52,16 +52,16 @@ func (r *reconfigurableServo) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableServo) Move(ctx context.Context, angleDegs uint8) error {
+func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Move(ctx, angleDegs)
+	return r.actual.Move(ctx, angleDeg)
 }
 
-func (r *reconfigurableServo) AngularOffset(ctx context.Context) (uint8, error) {
+func (r *reconfigurableServo) GetPosition(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.AngularOffset(ctx)
+	return r.actual.GetPosition(ctx)
 }
 
 func (r *reconfigurableServo) Close(ctx context.Context) error {

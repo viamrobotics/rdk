@@ -272,15 +272,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix := createExpectedMatrix(config)
 
 			mux, _ := newForceMatrix(fakeRobot, config, logger)
-			actualMatrix, err := mux.Matrix(context.Background())
+			actualMatrix, err := mux.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				isSlipping, err := mux.IsSlipping(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				isSlipping, err := mux.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})
@@ -317,15 +317,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix := createExpectedMatrix(config)
 
 			mux, _ := newForceMatrix(fakeRobot, config, logger)
-			actualMatrix, err := mux.Matrix(context.Background())
+			actualMatrix, err := mux.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				isSlipping, err := mux.IsSlipping(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				isSlipping, err := mux.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})
@@ -362,15 +362,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			expectedMatrix := createExpectedMatrix(config)
 
 			mux, _ := newForceMatrix(fakeRobot, config, logger)
-			matrix, err := mux.Matrix(context.Background())
+			matrix, err := mux.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, matrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				mux.Matrix(context.Background())
-				isSlipping, err := mux.IsSlipping(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				mux.ReadMatrix(context.Background())
+				isSlipping, err := mux.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})

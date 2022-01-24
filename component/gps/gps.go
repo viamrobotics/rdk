@@ -33,17 +33,17 @@ func Named(name string) resource.Name {
 // A GPS represents a GPS that can report lat/long measurements.
 type GPS interface {
 	sensor.Sensor
-	Location(ctx context.Context) (*geo.Point, error)       // The current latitude and longitude
-	Altitude(ctx context.Context) (float64, error)          // The current altitude in meters
-	Speed(ctx context.Context) (float64, error)             // Current ground speed in kph
-	Accuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error
+	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
+	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
+	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in kph
 }
 
-// A LocalGPS represents a GPS that can report Satellites and Valid measurements.
+// A LocalGPS represents a GPS that can report accuracy, satellites and valid measurements.
 type LocalGPS interface {
 	GPS
-	Satellites(ctx context.Context) (int, int, error) // Number of satellites used for fix, and total in view
-	Valid(ctx context.Context) (bool, error)          // Whether or not the GPS chip had a valid fix for the most recent dataset
+	ReadAccuracy(ctx context.Context) (float64, float64, error) // Horizontal and vertical position error in meters
+	ReadSatellites(ctx context.Context) (int, int, error)       // Number of satellites used for fix, and total in view
+	ReadValid(ctx context.Context) (bool, error)                // Whether or not the GPS chip had a valid fix for the most recent dataset
 }
 
 var (
@@ -68,40 +68,40 @@ func (r *reconfigurableGPS) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (r *reconfigurableGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Location(ctx)
+	return r.actual.ReadLocation(ctx)
 }
 
-func (r *reconfigurableGPS) Altitude(ctx context.Context) (float64, error) {
+func (r *reconfigurableGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Altitude(ctx)
+	return r.actual.ReadAltitude(ctx)
 }
 
-func (r *reconfigurableGPS) Speed(ctx context.Context) (float64, error) {
+func (r *reconfigurableGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Speed(ctx)
+	return r.actual.ReadSpeed(ctx)
 }
 
-func (r *reconfigurableGPS) Satellites(ctx context.Context) (int, int, error) {
+func (r *reconfigurableGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Satellites(ctx)
+	return r.actual.ReadSatellites(ctx)
 }
 
-func (r *reconfigurableGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+func (r *reconfigurableGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Accuracy(ctx)
+	return r.actual.ReadAccuracy(ctx)
 }
 
-func (r *reconfigurableGPS) Valid(ctx context.Context) (bool, error) {
+func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Valid(ctx)
+	return r.actual.ReadValid(ctx)
 }
 
 func (r *reconfigurableGPS) Readings(ctx context.Context) ([]interface{}, error) {
