@@ -91,7 +91,7 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 		dt := time.Duration(1000000 * 10)
 		s[0].SetSignalValueAt(0, 1000.0)
 		out, ok := pid.Next(ctx, s, dt)
-		if i < 47 {
+		if i < 46 {
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
 		} else {
@@ -103,11 +103,12 @@ func TestPIDBasicIntegralWindup(t *testing.T) {
 			test.That(t, pid.sat, test.ShouldEqual, 1)
 			test.That(t, pid.int, test.ShouldBeGreaterThanOrEqualTo, 100)
 			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 0.0)
+			s[0].SetSignalValueAt(0, -1.0)
 			out, ok = pid.Next(ctx, s, dt)
 			test.That(t, ok, test.ShouldBeTrue)
 			test.That(t, pid.sat, test.ShouldEqual, 0)
 			test.That(t, pid.int, test.ShouldBeLessThanOrEqualTo, 100)
-			test.That(t, out[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
+			test.That(t, out[0].GetSignalValueAt(0), test.ShouldAlmostEqual, 88.8778)
 			break
 		}
 	}
