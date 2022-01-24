@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math"
 
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -43,11 +44,12 @@ type ModelConfig struct {
 }
 
 // Model turns the ModelConfig struct into a full Model with the name modelName.
-func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
+func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
+	var err error
 	model := NewSimpleModel()
 
 	if modelName == "" {
-		model.ChangeName(m.Name)
+		model.ChangeName(config.Name)
 	} else {
 		model.ChangeName(modelName)
 	}
@@ -57,20 +59,20 @@ func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
-	switch m.KinParamType {
+	switch config.KinParamType {
 	case "SVA", "":
-		for _, link := range m.Links {
+		for _, link := range config.Links {
 			if link.ID == World {
 				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
-		for _, joint := range m.Joints {
+		for _, joint := range config.Joints {
 			if joint.ID == World {
 				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
-		for _, link := range m.Links {
+		for _, link := range config.Links {
 			parentMap[link.ID] = link.Parent
 			orientation, err := link.Orientation.ParseConfig()
 			if err != nil {
@@ -91,36 +93,32 @@ func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
-		for _, joint := range m.Joints {
-			// TODO(pl): Make this a switch once we support more than one joint type
-			if joint.Type == "revolute" {
-				aa := spatial.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
-
-				rev, err := NewRotationalFrame(joint.ID, aa, Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
-				if err != nil {
-					return nil, err
-				}
-				parentMap[joint.ID] = joint.Parent
-
-				transforms[joint.ID] = rev
-			} else {
+		for _, joint := range config.Joints {
+			parentMap[joint.ID] = joint.Parent
+			switch joint.Type {
+			case "revolute":
+				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
+					Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
+			case "prismatic":
+				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
+					Limit{Min: joint.Min, Max: joint.Max})
+			default:
 				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
 			}
-		}
-	case "DH":
-		for _, dh := range m.DHParams {
-			// Joint part of DH param
-			jointID := dh.ID + "_j"
-			parentMap[jointID] = dh.Parent
-			j, err := NewRotationalFrame(
-				jointID,
-				spatial.R4AA{RX: 0, RY: 0, RZ: 1},
-				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180},
-			)
 			if err != nil {
 				return nil, err
 			}
-			transforms[jointID] = j
+		}
+	case "DH":
+		for _, dh := range config.DHParams {
+			// Joint part of DH param
+			jointID := dh.ID + "_j"
+			parentMap[jointID] = dh.Parent
+			transforms[jointID], err = NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
+				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
+			if err != nil {
+				return nil, err
+			}
 
 			// Link part of DH param
 			linkID := dh.ID
@@ -134,7 +132,7 @@ func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		}
 
 	case "frames":
-		for _, x := range m.RawFrames {
+		for _, x := range config.RawFrames {
 			f, err := x.ParseConfig()
 			if err != nil {
 				return nil, err
@@ -144,7 +142,7 @@ func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 		return model, nil
 
 	default:
-		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
+		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", config.KinParamType)
 	}
 
 	// Determine which transforms have no children
@@ -197,8 +195,8 @@ func (m *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	return model, nil
 }
 
-// ParseJSONFile will read a given file and then parse the contained JSON data.
-func ParseJSONFile(filename, modelName string) (Model, error) {
+// ParseModelJSONFile will read a given file and then parse the contained JSON data.
+func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {

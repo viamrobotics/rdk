@@ -201,15 +201,15 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(
-		g.name,
-		[]bool{true},
-		[]referenceframe.Limit{{0, g.lengthMeters}},
-	)
-	if err != nil {
-		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
-	}
-	m.OrdTransforms = append(m.OrdTransforms, f)
+	// f, err := referenceframe.NewTranslationalFrame(
+	// 	g.name,
+	// 	[]bool{true},
+	// 	[]referenceframe.Limit{{0, g.lengthMeters}},
+	// )
+	// if err != nil {
+	// 	panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+	// }
+	// m.OrdTransforms = append(m.OrdTransforms, f)
 
 	return m
 }

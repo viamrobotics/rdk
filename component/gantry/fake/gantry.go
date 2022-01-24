@@ -48,24 +48,7 @@ func (g *fakeGantry) MoveToPosition(ctx context.Context, positions []float64) er
 }
 
 func (g *fakeGantry) ModelFrame() referenceframe.Model {
-	axes := []bool{}
-	limits := []referenceframe.Limit{}
-
-	for _, l := range g.lengths {
-		axes = append(axes, true)
-		limits = append(limits, referenceframe.Limit{0, l})
-	}
-
-	f, err := referenceframe.NewTranslationalFrame(
-		g.name,
-		axes,
-		limits,
-	)
-	if err != nil {
-		panic(err)
-	}
 	m := referenceframe.NewSimpleModel()
-	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
 }
 

@@ -52,11 +52,11 @@ func (config FrameMapConfig) ParseConfig() (Frame, error) {
 		if !ok {
 			return nil, utils.NewUnexpectedTypeError(f.name, config["name"])
 		}
-		err := mapstructure.Decode(config["axes"], &f.axes)
+		err := mapstructure.Decode(config["transAxis"], &f.transAxis)
 		if err != nil {
 			return nil, err
 		}
-		err = mapstructure.Decode(config["limits"], &f.limits)
+		err = mapstructure.Decode(config["limit"], &f.limit)
 		if err != nil {
 			return nil, err
 		}

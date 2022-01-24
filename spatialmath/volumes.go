@@ -52,6 +52,8 @@ func (config *VolumeConfig) ParseConfig(offset Pose) (VolumeCreator, error) {
 		if err == nil {
 			return creator, nil
 		}
+	default:
+		return nil, errors.Errorf("volume type %s unsupported", config.Type)
 	}
-	return nil, errors.Errorf("volume type %s unsupported", config.Type)
+	return nil, nil
 }
