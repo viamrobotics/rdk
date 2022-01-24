@@ -46,12 +46,12 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 	return camera, nil
 }
 
-// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) Frame(
+func (s *subtypeServer) GetFrame(
 	ctx context.Context,
-	req *pb.CameraServiceFrameRequest,
-) (*pb.CameraServiceFrameResponse, error) {
+	req *pb.CameraServiceGetFrameRequest,
+) (*pb.CameraServiceGetFrameResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -78,10 +78,10 @@ func (s *subtypeServer) Frame(
 	}
 
 	bounds := img.Bounds()
-	resp := pb.CameraServiceFrameResponse{
+	resp := pb.CameraServiceGetFrameResponse{
 		MimeType: req.MimeType,
-		DimX:     int64(bounds.Dx()),
-		DimY:     int64(bounds.Dy()),
+		WidthPx:  int64(bounds.Dx()),
+		HeightPx: int64(bounds.Dy()),
 	}
 
 	var buf bytes.Buffer
@@ -137,7 +137,7 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.CameraServiceRenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
-	resp, err := s.Frame(ctx, (*pb.CameraServiceFrameRequest)(req))
+	resp, err := s.GetFrame(ctx, (*pb.CameraServiceGetFrameRequest)(req))
 	if err != nil {
 		return nil, err
 	}

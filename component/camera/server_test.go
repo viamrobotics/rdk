@@ -61,23 +61,23 @@ func TestServer(t *testing.T) {
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
 	}
-	t.Run("Frame", func(t *testing.T) {
-		_, err := cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: "g4"})
+	t.Run("GetFrame", func(t *testing.T) {
+		_, err := cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: "g4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: "camera3"})
+		_, err = cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: "camera3"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a camera")
 
-		resp, err := cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: camera1})
+		resp, err := cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: camera1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
 		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
 		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
 
 		imageReleased = false
-		resp, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{
+		resp, err = cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{
 			Name:     camera1,
 			MimeType: "image/png",
 		})
@@ -87,7 +87,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
 
 		imageReleased = false
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{
+		_, err = cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{
 			Name:     camera1,
 			MimeType: "image/who",
 		})
@@ -95,7 +95,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "do not know how")
 		test.That(t, imageReleased, test.ShouldBeTrue)
 
-		_, err = cameraServer.Frame(context.Background(), &pb.CameraServiceFrameRequest{Name: camera2})
+		_, err = cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: camera2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next frame")
 	})

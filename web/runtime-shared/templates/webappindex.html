@@ -441,11 +441,11 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceFrameRequest();
+                      req = new cameraApi.CameraServiceGetFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/png';
                       req.setMimeType(mimeType)
-                      cameraService.frame(req,  {}, (err, resp) => {
+                      cameraService.getFrame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
