@@ -6,10 +6,8 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -31,104 +29,6 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 		return nil, nil, nil, err
 	}
 	return motor.NewServer(injectSvc), injectMotor1, injectMotor2, nil
-}
-
-func TestGetPIDConfig(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
-
-	req := pb.MotorServiceGetPIDConfigRequest{Name: "notAMotor"}
-	resp, err := motorServer.GetPIDConfig(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	failingMotor.PIDFunc = func() motor.PID {
-		return nil
-	}
-	req = pb.MotorServiceGetPIDConfigRequest{Name: "failingMotor"}
-	resp, err = motorServer.GetPIDConfig(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	failingMotor.PIDFunc = func() motor.PID {
-		return &motor.BasicPID{}
-	}
-	req = pb.MotorServiceGetPIDConfigRequest{Name: "failingMotor"}
-	resp, err = motorServer.GetPIDConfig(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	var expectedConf *structpb.Struct
-	workingMotor.PIDFunc = func() motor.PID {
-		attrMap := config.AttributeMap{
-			"someKey": 42,
-		}
-		pid, err := motor.CreatePID(&motor.PIDConfig{
-			Type:       "basic",
-			Attributes: attrMap,
-		})
-		if err != nil {
-			panic("fix PID creation in TestGetPIDConfig")
-		}
-		attrStruct, err := structpb.NewStruct(attrMap)
-		expectedConf = attrStruct
-		if err != nil {
-			panic("fix attribute creation in TestGetPIDConfig")
-		}
-		return pid
-	}
-	req = pb.MotorServiceGetPIDConfigRequest{Name: "workingMotor"}
-	resp, err = motorServer.GetPIDConfig(context.Background(), &req)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp.GetPidConfig(), test.ShouldResemble, expectedConf)
-}
-
-func TestSetPIDConfig(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
-
-	req := pb.MotorServiceSetPIDConfigRequest{Name: "notAMotor"}
-	resp, err := motorServer.SetPIDConfig(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	failingMotor.PIDFunc = func() motor.PID {
-		return nil
-	}
-	req = pb.MotorServiceSetPIDConfigRequest{Name: "failingMotor"}
-	resp, err = motorServer.SetPIDConfig(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	attrMap := config.AttributeMap{
-		"Kp": 42.0,
-		"Kd": 43.0,
-	}
-	pid, err := motor.CreatePID(&motor.PIDConfig{
-		Type:       "basic",
-		Attributes: attrMap,
-	})
-	if err != nil {
-		panic("fix PID creation in TestGetPIDConfig")
-	}
-
-	workingMotor.PIDFunc = func() motor.PID {
-		return pid
-	}
-	newAttrMap, err := structpb.NewStruct(config.AttributeMap{
-		"Kp": 43.0,
-	})
-	test.That(t, err, test.ShouldBeNil)
-
-	req = pb.MotorServiceSetPIDConfigRequest{
-		Name:      "workingMotor",
-		PidConfig: newAttrMap,
-	}
-	resp, err = motorServer.SetPIDConfig(context.Background(), &req)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resp, test.ShouldNotBeNil)
-	cfg, err := workingMotor.PID().Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cfg.Attributes.Float64("Kp", 0.0), test.ShouldEqual, 43.0)
-	test.That(t, cfg.Attributes.Float64("Kd", 0.0), test.ShouldEqual, 43.0)
 }
 
 //nolint:dupl
