@@ -69,11 +69,11 @@ func clientFromSvcClient(sc *serviceClient, name string) Base {
 	return &client{sc, name}
 }
 
-func (c *client) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	_, err := c.client.MoveStraight(ctx, &pb.BaseServiceMoveStraightRequest{
 		Name:       c.name,
-		DistanceMm: int64(distanceMillis),
-		MmPerSec:   millisPerSec,
+		DistanceMm: int64(distanceMm),
+		MmPerSec:   mmPerSec,
 		Block:      block,
 	})
 	if err != nil {
@@ -82,12 +82,12 @@ func (c *client) MoveStraight(ctx context.Context, distanceMillis int, millisPer
 	return nil
 }
 
-func (c *client) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error {
+func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, degsPerSec float64, block bool) error {
 	_, err := c.client.MoveArc(ctx, &pb.BaseServiceMoveArcRequest{
 		Name:       c.name,
-		MmPerSec:   millisPerSec,
+		MmPerSec:   mmPerSec,
 		AngleDeg:   degsPerSec,
-		DistanceMm: int64(distanceMillis),
+		DistanceMm: int64(distanceMm),
 		Block:      block,
 	})
 	if err != nil {

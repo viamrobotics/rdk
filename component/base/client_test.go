@@ -26,18 +26,18 @@ func setupWorkingBase(
 	width int,
 ) {
 	workingBase.MoveStraightFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec float64, block bool,
 	) error {
-		argsReceived["MoveStraight"] = []interface{}{distanceMillis, millisPerSec, block}
+		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec, block}
 		return nil
 	}
 
 	workingBase.MoveArcFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec, degsPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec, degsPerSec float64, block bool,
 	) error {
-		argsReceived["MoveArc"] = []interface{}{distanceMillis, millisPerSec, degsPerSec, block}
+		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, degsPerSec, block}
 		return nil
 	}
 
@@ -62,13 +62,13 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
-		distanceMillis int, millisPerSec float64,
+		distanceMm int, mmPerSec float64,
 		block bool) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.MoveArcFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec, degsPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec, degsPerSec float64, block bool,
 	) error {
 		return errors.New(errMsg)
 	}

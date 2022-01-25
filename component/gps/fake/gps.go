@@ -171,16 +171,16 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	return &interceptingGPSBase{b: b, g: fakeG}, nil
 }
 
-func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	loc, err := b.g.ReadLocation(ctx)
 	if err != nil {
 		return err
 	}
-	err = b.b.MoveStraight(ctx, distanceMillis, millisPerSec, true)
+	err = b.b.MoveStraight(ctx, distanceMm, mmPerSec, true)
 	if err != nil {
 		return err
 	}
-	distKilos := float64(distanceMillis) / 1000 / 1000
+	distKilos := float64(distanceMm) / 1000 / 1000
 	newLoc := loc.PointAtDistanceAndBearing(distKilos, b.bearing)
 	// set new location to be where we "perfectly" move to based on bearing
 	b.g.Latitude = newLoc.Lat()
@@ -189,7 +189,7 @@ func (b *interceptingGPSBase) MoveStraight(ctx context.Context, distanceMillis i
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (b *interceptingGPSBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
 

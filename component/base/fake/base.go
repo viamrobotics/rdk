@@ -36,12 +36,12 @@ type Base struct {
 }
 
 // MoveStraight does nothing.
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	return nil
 }
 
 // MoveArc does nothing.
-func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (b *Base) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
 

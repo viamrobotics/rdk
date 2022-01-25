@@ -81,9 +81,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	// Stop the motors if the speed or distance are 0
-	if math.Abs(millisPerSec) < 0.0001 || distanceMillis == 0 {
+	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := base.Stop(ctx)
 		if err != nil {
 			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
@@ -92,7 +92,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 	}
 
 	// Straight math
-	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
+	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
 	// Send motor commands
 	for _, m := range base.allMotors {
@@ -109,9 +109,9 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	// Stop the motors if the speed is 0
-	if math.Abs(millisPerSec) < 0.0001 {
+	if math.Abs(mmPerSec) < 0.0001 {
 		err := base.Stop(ctx)
 		if err != nil {
 			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
@@ -120,7 +120,7 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 	}
 
 	// Arc math
-	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
+	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
 
 	// Send motor commands
 	var err error
@@ -155,24 +155,24 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 	return rpm, revolutions
 }
 
-func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
+func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg float64) ([]float64, []float64) {
 	// Spin the base if the distance is 0
-	if distanceMillis == 0 {
-		rpm, revolutions := base.spinMath(angleDeg, millisPerSec)
+	if distanceMm == 0 {
+		rpm, revolutions := base.spinMath(angleDeg, mmPerSec)
 		rpms := []float64{rpm, -1 * rpm}
 		rots := []float64{revolutions, revolutions}
 
 		return rpms, rots
 	}
 
-	if distanceMillis < 0 {
-		distanceMillis *= -1
-		millisPerSec *= -1
+	if distanceMm < 0 {
+		distanceMm *= -1
+		mmPerSec *= -1
 	}
 
 	// Base calculations
-	v := millisPerSec
-	t := float64(distanceMillis) / millisPerSec
+	v := mmPerSec
+	t := float64(distanceMm) / mmPerSec
 	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
 	l := float64(base.widthMm)
 
@@ -195,10 +195,10 @@ func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angle
 	return rpms, rots
 }
 
-func (base *wheeledBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
-	rotations := float64(distanceMillis) / float64(base.wheelCircumferenceMm)
+func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {
+	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
 
-	rotationsPerSec := millisPerSec / float64(base.wheelCircumferenceMm)
+	rotationsPerSec := mmPerSec / float64(base.wheelCircumferenceMm)
 	rpm := 60 * rotationsPerSec
 
 	return rpm, rotations
