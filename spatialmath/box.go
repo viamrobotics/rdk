@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -33,6 +34,15 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	b := &box{bc.offset, bc.halfSize}
 	b.Transform(pose)
 	return b
+}
+
+func (b *boxCreator) MarshalJSON() ([]byte, error) {
+	return json.Marshal(VolumeConfig{
+		Type: "box",
+		X:    2 * b.halfSize.X,
+		Y:    2 * b.halfSize.Y,
+		Z:    2 * b.halfSize.Z,
+	})
 }
 
 // Pose returns the pose of the box.

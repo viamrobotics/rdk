@@ -1,6 +1,8 @@
 package spatialmath
 
 import (
+	"encoding/json"
+
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -8,6 +10,7 @@ import (
 // VolumeCreator provides a common way to instantiate Volumes.
 type VolumeCreator interface {
 	NewVolume(Pose) Volume
+	json.Marshaler
 }
 
 // Volume is an entry point with which to access all types of collision geometries.
