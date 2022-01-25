@@ -23,11 +23,12 @@ func init() {
 	})
 }
 
-// NewGantry returns a new fake gantry
+// NewGantry returns a new fake gantry.
 func NewGantry(name string) gantry.Gantry {
 	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2}
 }
 
+// Gantry is a fake gantry that can simply read and set properties.
 type Gantry struct {
 	name         string
 	positions    []float64
@@ -52,6 +53,7 @@ func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64) error 
 	return nil
 }
 
+// ModelFrame TODO.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
@@ -62,6 +64,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	return m
 }
 
+// CurrentInputs TODO.
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.CurrentPosition(ctx)
 	if err != nil {
@@ -70,6 +73,7 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	return referenceframe.FloatsToInputs(res), nil
 }
 
+// GoToInputs TODO.
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }
