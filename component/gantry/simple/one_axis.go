@@ -205,10 +205,9 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
-		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+		panic(fmt.Errorf("error creating frame: %w", err))
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
-
 	return m
 }
 
