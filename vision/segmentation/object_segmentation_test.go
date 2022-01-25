@@ -18,9 +18,9 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// do segmentation
 	objConfig := ObjectConfig{
-		MinPtsInPlane:    50000,
-		MinPtsInSegment:  500,
-		ClusteringRadius: 10.0,
+		MinPtsInPlane:      50000,
+		MinPtsInSegment:    500,
+		ClusteringRadiusMm: 10.0,
 	}
 	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
@@ -48,9 +48,9 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		distanceThresh: 0.1,
 	}
 	voxObjConfig := ObjectConfig{
-		MinPtsInPlane:    100,
-		MinPtsInSegment:  25,
-		ClusteringRadius: 7.5,
+		MinPtsInPlane:      100,
+		MinPtsInSegment:    25,
+		ClusteringRadiusMm: 7.5,
 	}
 
 	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)

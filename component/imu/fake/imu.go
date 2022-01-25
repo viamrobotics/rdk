@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -39,7 +40,7 @@ func NewIMU(cfg config.Component) (imu.IMU, error) {
 		Latitude:        0,
 		Longitude:       0,
 		angularVelocity: spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3},
-		orientation:     spatialmath.EulerAngles{Roll: 1, Pitch: 2, Yaw: 3},
+		orientation:     spatialmath.EulerAngles{Roll: utils.DegToRad(1), Pitch: utils.DegToRad(2), Yaw: utils.DegToRad(3)},
 	}, nil
 }
 
@@ -54,15 +55,15 @@ type IMU struct {
 	mu sync.Mutex
 }
 
-// AngularVelocity always returns the set value.
-func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+// ReadAngularVelocity always returns the set value.
+func (i *IMU) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return i.angularVelocity, nil
 }
 
-// Orientation always returns the set value.
-func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
+// ReadOrientation always returns the set value.
+func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, nil

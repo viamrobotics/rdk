@@ -52,9 +52,9 @@ func CalculateBoundingBoxOfPointCloud(cloud PointCloud) BoxGeometry {
 		return BoxGeometry{}
 	}
 	return BoxGeometry{
-		Width:  math.Abs(cloud.MaxX() - cloud.MinX()),
-		Length: math.Abs(cloud.MaxY() - cloud.MinY()),
-		Depth:  math.Abs(cloud.MaxZ() - cloud.MinZ()),
+		WidthMm:  math.Abs(cloud.MaxX() - cloud.MinX()),
+		LengthMm: math.Abs(cloud.MaxY() - cloud.MinY()),
+		DepthMm:  math.Abs(cloud.MaxZ() - cloud.MinZ()),
 	}
 }
 

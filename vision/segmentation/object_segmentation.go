@@ -11,9 +11,9 @@ import (
 
 // ObjectConfig specifies the necessary parameters for object segmentation.
 type ObjectConfig struct {
-	MinPtsInPlane    int
-	MinPtsInSegment  int
-	ClusteringRadius float64
+	MinPtsInPlane      int
+	MinPtsInSegment    int
+	ClusteringRadiusMm float64
 }
 
 // ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
@@ -40,7 +40,7 @@ func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectC
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentPointCloudObjects(objCloud, cfg.ClusteringRadius, cfg.MinPtsInSegment)
+	segments, err := segmentPointCloudObjects(objCloud, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func NewObjectSegmentationFromVoxelGrid(
 	}
 
 	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
-	objects, err := voxelBasedNearestNeighbors(objVoxGrid, objConfig.ClusteringRadius)
+	objects, err := voxelBasedNearestNeighbors(objVoxGrid, objConfig.ClusteringRadiusMm)
 	if err != nil {
 		return nil, err
 	}

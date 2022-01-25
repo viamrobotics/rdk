@@ -8,6 +8,7 @@ import (
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the contract from imu_subtype.proto.
@@ -34,44 +35,47 @@ func (s *subtypeServer) getIMU(name string) (IMU, error) {
 	return imu, nil
 }
 
-// AngularVelocity returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) AngularVelocity(
+// ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
+func (s *subtypeServer) ReadAngularVelocity(
 	ctx context.Context,
-	req *pb.IMUServiceAngularVelocityRequest,
-) (*pb.IMUServiceAngularVelocityResponse, error) {
+	req *pb.IMUServiceReadAngularVelocityRequest,
+) (*pb.IMUServiceReadAngularVelocityResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	vel, err := imuDevice.AngularVelocity(ctx)
+	vel, err := imuDevice.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IMUServiceAngularVelocityResponse{
+	return &pb.IMUServiceReadAngularVelocityResponse{
 		AngularVelocity: &pb.AngularVelocity{
-			X: vel.X,
-			Y: vel.Y,
-			Z: vel.Z,
+			XDegsPerSec: vel.X,
+			YDegsPerSec: vel.Y,
+			ZDegsPerSec: vel.Z,
 		},
 	}, nil
 }
 
 // Orientation returns the most recent angular velocity reading from the given IMU.
-func (s *subtypeServer) Orientation(ctx context.Context, req *pb.IMUServiceOrientationRequest) (*pb.IMUServiceOrientationResponse, error) {
+func (s *subtypeServer) ReadOrientation(
+	ctx context.Context,
+	req *pb.IMUServiceReadOrientationRequest,
+) (*pb.IMUServiceReadOrientationResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	o, err := imuDevice.Orientation(ctx)
+	o, err := imuDevice.ReadOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ea := o.EulerAngles()
-	return &pb.IMUServiceOrientationResponse{
+	return &pb.IMUServiceReadOrientationResponse{
 		Orientation: &pb.EulerAngles{
-			Roll:  ea.Roll,
-			Pitch: ea.Pitch,
-			Yaw:   ea.Yaw,
+			RollDeg:  utils.RadToDeg(ea.Roll),
+			PitchDeg: utils.RadToDeg(ea.Pitch),
+			YawDeg:   utils.RadToDeg(ea.Yaw),
 		},
 	}, nil
 }
