@@ -36,12 +36,12 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	return b
 }
 
-func (b *boxCreator) MarshalJSON() ([]byte, error) {
+func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 	return json.Marshal(VolumeConfig{
 		Type: "box",
-		X:    2 * b.halfSize.X,
-		Y:    2 * b.halfSize.Y,
-		Z:    2 * b.halfSize.Z,
+		X:    2 * bc.halfSize.X,
+		Y:    2 * bc.halfSize.Y,
+		Z:    2 * bc.halfSize.Z,
 	})
 }
 
