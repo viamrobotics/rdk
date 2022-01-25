@@ -276,7 +276,7 @@ func (svc *webService) Close(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, false, err
@@ -481,7 +481,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r, options)
+	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
 	}
