@@ -207,7 +207,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 
 			// extract the path to the seed
 			var seedReached, goalReached *configuration
-			// Need mto figure out which of m1/m2 is seed/goal
+			// Need to figure out which of m1/m2 is seed/goal
 			if _, ok := seedMap[m1reached]; ok {
 				seedReached, goalReached = m1reached, m2reached
 			} else {
