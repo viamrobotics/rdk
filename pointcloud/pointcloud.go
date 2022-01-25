@@ -36,7 +36,7 @@ type PointCloud interface {
 	// MinX returns the minimum x coordinate of all points in the cloud.
 	MinX() float64
 
-	// MaxY returns the maximum y coordinate of all points in the cloud.
+	// MaxX returns the maximum x coordinate of all points in the cloud.
 	MaxX() float64
 
 	// MinY returns the minimum y coordinate of all points in the cloud.

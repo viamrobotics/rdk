@@ -19,19 +19,19 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CameraServiceClient interface {
-	// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	Frame(ctx context.Context, in *CameraServiceFrameRequest, opts ...grpc.CallOption) (*CameraServiceFrameResponse, error)
+	GetFrame(ctx context.Context, in *CameraServiceGetFrameRequest, opts ...grpc.CallOption) (*CameraServiceGetFrameResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	RenderFrame(ctx context.Context, in *CameraServiceRenderFrameRequest, opts ...grpc.CallOption) (*httpbody.HttpBody, error)
-	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	PointCloud(ctx context.Context, in *CameraServicePointCloudRequest, opts ...grpc.CallOption) (*CameraServicePointCloudResponse, error)
-	// ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+	GetPointCloud(ctx context.Context, in *CameraServiceGetPointCloudRequest, opts ...grpc.CallOption) (*CameraServiceGetPointCloudResponse, error)
+	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	ObjectPointClouds(ctx context.Context, in *CameraServiceObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceObjectPointCloudsResponse, error)
+	GetObjectPointClouds(ctx context.Context, in *CameraServiceGetObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceGetObjectPointCloudsResponse, error)
 }
 
 type cameraServiceClient struct {
@@ -42,9 +42,9 @@ func NewCameraServiceClient(cc grpc.ClientConnInterface) CameraServiceClient {
 	return &cameraServiceClient{cc}
 }
 
-func (c *cameraServiceClient) Frame(ctx context.Context, in *CameraServiceFrameRequest, opts ...grpc.CallOption) (*CameraServiceFrameResponse, error) {
-	out := new(CameraServiceFrameResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/Frame", in, out, opts...)
+func (c *cameraServiceClient) GetFrame(ctx context.Context, in *CameraServiceGetFrameRequest, opts ...grpc.CallOption) (*CameraServiceGetFrameResponse, error) {
+	out := new(CameraServiceGetFrameResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/GetFrame", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -60,18 +60,18 @@ func (c *cameraServiceClient) RenderFrame(ctx context.Context, in *CameraService
 	return out, nil
 }
 
-func (c *cameraServiceClient) PointCloud(ctx context.Context, in *CameraServicePointCloudRequest, opts ...grpc.CallOption) (*CameraServicePointCloudResponse, error) {
-	out := new(CameraServicePointCloudResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/PointCloud", in, out, opts...)
+func (c *cameraServiceClient) GetPointCloud(ctx context.Context, in *CameraServiceGetPointCloudRequest, opts ...grpc.CallOption) (*CameraServiceGetPointCloudResponse, error) {
+	out := new(CameraServiceGetPointCloudResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/GetPointCloud", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *cameraServiceClient) ObjectPointClouds(ctx context.Context, in *CameraServiceObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceObjectPointCloudsResponse, error) {
-	out := new(CameraServiceObjectPointCloudsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/ObjectPointClouds", in, out, opts...)
+func (c *cameraServiceClient) GetObjectPointClouds(ctx context.Context, in *CameraServiceGetObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceGetObjectPointCloudsResponse, error) {
+	out := new(CameraServiceGetObjectPointCloudsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/GetObjectPointClouds", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -82,19 +82,19 @@ func (c *cameraServiceClient) ObjectPointClouds(ctx context.Context, in *CameraS
 // All implementations must embed UnimplementedCameraServiceServer
 // for forward compatibility
 type CameraServiceServer interface {
-	// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+	// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	Frame(context.Context, *CameraServiceFrameRequest) (*CameraServiceFrameResponse, error)
+	GetFrame(context.Context, *CameraServiceGetFrameRequest) (*CameraServiceGetFrameResponse, error)
 	// RenderFrame renders a frame from a camera of the underlying robot to an HTTP response. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	RenderFrame(context.Context, *CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error)
-	// PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
-	PointCloud(context.Context, *CameraServicePointCloudRequest) (*CameraServicePointCloudResponse, error)
-	// ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+	GetPointCloud(context.Context, *CameraServiceGetPointCloudRequest) (*CameraServiceGetPointCloudResponse, error)
+	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
 	// as well as the 3-vector center of each of the found objects.
 	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	ObjectPointClouds(context.Context, *CameraServiceObjectPointCloudsRequest) (*CameraServiceObjectPointCloudsResponse, error)
+	GetObjectPointClouds(context.Context, *CameraServiceGetObjectPointCloudsRequest) (*CameraServiceGetObjectPointCloudsResponse, error)
 	mustEmbedUnimplementedCameraServiceServer()
 }
 
@@ -102,17 +102,17 @@ type CameraServiceServer interface {
 type UnimplementedCameraServiceServer struct {
 }
 
-func (UnimplementedCameraServiceServer) Frame(context.Context, *CameraServiceFrameRequest) (*CameraServiceFrameResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Frame not implemented")
+func (UnimplementedCameraServiceServer) GetFrame(context.Context, *CameraServiceGetFrameRequest) (*CameraServiceGetFrameResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFrame not implemented")
 }
 func (UnimplementedCameraServiceServer) RenderFrame(context.Context, *CameraServiceRenderFrameRequest) (*httpbody.HttpBody, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenderFrame not implemented")
 }
-func (UnimplementedCameraServiceServer) PointCloud(context.Context, *CameraServicePointCloudRequest) (*CameraServicePointCloudResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PointCloud not implemented")
+func (UnimplementedCameraServiceServer) GetPointCloud(context.Context, *CameraServiceGetPointCloudRequest) (*CameraServiceGetPointCloudResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPointCloud not implemented")
 }
-func (UnimplementedCameraServiceServer) ObjectPointClouds(context.Context, *CameraServiceObjectPointCloudsRequest) (*CameraServiceObjectPointCloudsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ObjectPointClouds not implemented")
+func (UnimplementedCameraServiceServer) GetObjectPointClouds(context.Context, *CameraServiceGetObjectPointCloudsRequest) (*CameraServiceGetObjectPointCloudsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetObjectPointClouds not implemented")
 }
 func (UnimplementedCameraServiceServer) mustEmbedUnimplementedCameraServiceServer() {}
 
@@ -127,20 +127,20 @@ func RegisterCameraServiceServer(s grpc.ServiceRegistrar, srv CameraServiceServe
 	s.RegisterService(&CameraService_ServiceDesc, srv)
 }
 
-func _CameraService_Frame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraServiceFrameRequest)
+func _CameraService_GetFrame_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraServiceGetFrameRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CameraServiceServer).Frame(ctx, in)
+		return srv.(CameraServiceServer).GetFrame(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.CameraService/Frame",
+		FullMethod: "/proto.api.component.v1.CameraService/GetFrame",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CameraServiceServer).Frame(ctx, req.(*CameraServiceFrameRequest))
+		return srv.(CameraServiceServer).GetFrame(ctx, req.(*CameraServiceGetFrameRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -163,38 +163,38 @@ func _CameraService_RenderFrame_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CameraService_PointCloud_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraServicePointCloudRequest)
+func _CameraService_GetPointCloud_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraServiceGetPointCloudRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CameraServiceServer).PointCloud(ctx, in)
+		return srv.(CameraServiceServer).GetPointCloud(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.CameraService/PointCloud",
+		FullMethod: "/proto.api.component.v1.CameraService/GetPointCloud",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CameraServiceServer).PointCloud(ctx, req.(*CameraServicePointCloudRequest))
+		return srv.(CameraServiceServer).GetPointCloud(ctx, req.(*CameraServiceGetPointCloudRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CameraService_ObjectPointClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraServiceObjectPointCloudsRequest)
+func _CameraService_GetObjectPointClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CameraServiceGetObjectPointCloudsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CameraServiceServer).ObjectPointClouds(ctx, in)
+		return srv.(CameraServiceServer).GetObjectPointClouds(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.CameraService/ObjectPointClouds",
+		FullMethod: "/proto.api.component.v1.CameraService/GetObjectPointClouds",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CameraServiceServer).ObjectPointClouds(ctx, req.(*CameraServiceObjectPointCloudsRequest))
+		return srv.(CameraServiceServer).GetObjectPointClouds(ctx, req.(*CameraServiceGetObjectPointCloudsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -207,20 +207,20 @@ var CameraService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*CameraServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Frame",
-			Handler:    _CameraService_Frame_Handler,
+			MethodName: "GetFrame",
+			Handler:    _CameraService_GetFrame_Handler,
 		},
 		{
 			MethodName: "RenderFrame",
 			Handler:    _CameraService_RenderFrame_Handler,
 		},
 		{
-			MethodName: "PointCloud",
-			Handler:    _CameraService_PointCloud_Handler,
+			MethodName: "GetPointCloud",
+			Handler:    _CameraService_GetPointCloud_Handler,
 		},
 		{
-			MethodName: "ObjectPointClouds",
-			Handler:    _CameraService_ObjectPointClouds_Handler,
+			MethodName: "GetObjectPointClouds",
+			Handler:    _CameraService_GetObjectPointClouds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

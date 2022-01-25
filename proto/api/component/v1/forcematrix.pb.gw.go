@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_ForceMatrixService_Matrix_0(ctx context.Context, marshaler runtime.Marshaler, client ForceMatrixServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ForceMatrixServiceMatrixRequest
+func request_ForceMatrixService_ReadMatrix_0(ctx context.Context, marshaler runtime.Marshaler, client ForceMatrixServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ForceMatrixServiceReadMatrixRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_ForceMatrixService_Matrix_0(ctx context.Context, marshaler runtime.
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Matrix(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.ReadMatrix(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ForceMatrixService_Matrix_0(ctx context.Context, marshaler runtime.Marshaler, server ForceMatrixServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ForceMatrixServiceMatrixRequest
+func local_request_ForceMatrixService_ReadMatrix_0(ctx context.Context, marshaler runtime.Marshaler, server ForceMatrixServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ForceMatrixServiceReadMatrixRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,13 +78,13 @@ func local_request_ForceMatrixService_Matrix_0(ctx context.Context, marshaler ru
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Matrix(ctx, &protoReq)
+	msg, err := server.ReadMatrix(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_ForceMatrixService_SlipDetection_0(ctx context.Context, marshaler runtime.Marshaler, client ForceMatrixServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ForceMatrixServiceSlipDetectionRequest
+func request_ForceMatrixService_DetectSlip_0(ctx context.Context, marshaler runtime.Marshaler, client ForceMatrixServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ForceMatrixServiceDetectSlipRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -104,13 +104,13 @@ func request_ForceMatrixService_SlipDetection_0(ctx context.Context, marshaler r
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.SlipDetection(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.DetectSlip(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ForceMatrixService_SlipDetection_0(ctx context.Context, marshaler runtime.Marshaler, server ForceMatrixServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ForceMatrixServiceSlipDetectionRequest
+func local_request_ForceMatrixService_DetectSlip_0(ctx context.Context, marshaler runtime.Marshaler, server ForceMatrixServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ForceMatrixServiceDetectSlipRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -130,7 +130,7 @@ func local_request_ForceMatrixService_SlipDetection_0(ctx context.Context, marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.SlipDetection(ctx, &protoReq)
+	msg, err := server.DetectSlip(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -141,18 +141,18 @@ func local_request_ForceMatrixService_SlipDetection_0(ctx context.Context, marsh
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterForceMatrixServiceHandlerFromEndpoint instead.
 func RegisterForceMatrixServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ForceMatrixServiceServer) error {
 
-	mux.Handle("GET", pattern_ForceMatrixService_Matrix_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ForceMatrixService_ReadMatrix_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/ReadMatrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ForceMatrixService_Matrix_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ForceMatrixService_ReadMatrix_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -160,22 +160,22 @@ func RegisterForceMatrixServiceHandlerServer(ctx context.Context, mux *runtime.S
 			return
 		}
 
-		forward_ForceMatrixService_Matrix_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ForceMatrixService_ReadMatrix_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_ForceMatrixService_SlipDetection_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ForceMatrixService_DetectSlip_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/DetectSlip", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ForceMatrixService_SlipDetection_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ForceMatrixService_DetectSlip_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -183,7 +183,7 @@ func RegisterForceMatrixServiceHandlerServer(ctx context.Context, mux *runtime.S
 			return
 		}
 
-		forward_ForceMatrixService_SlipDetection_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ForceMatrixService_DetectSlip_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -228,43 +228,43 @@ func RegisterForceMatrixServiceHandler(ctx context.Context, mux *runtime.ServeMu
 // "ForceMatrixServiceClient" to call the correct interceptors.
 func RegisterForceMatrixServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ForceMatrixServiceClient) error {
 
-	mux.Handle("GET", pattern_ForceMatrixService_Matrix_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ForceMatrixService_ReadMatrix_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/Matrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/ReadMatrix", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/matrix"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ForceMatrixService_Matrix_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ForceMatrixService_ReadMatrix_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ForceMatrixService_Matrix_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ForceMatrixService_ReadMatrix_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_ForceMatrixService_SlipDetection_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ForceMatrixService_DetectSlip_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/SlipDetection", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ForceMatrixService/DetectSlip", runtime.WithHTTPPathPattern("/api/v1/component/force_matrix/{name}/slip_detection"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ForceMatrixService_SlipDetection_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ForceMatrixService_DetectSlip_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ForceMatrixService_SlipDetection_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ForceMatrixService_DetectSlip_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -272,13 +272,13 @@ func RegisterForceMatrixServiceHandlerClient(ctx context.Context, mux *runtime.S
 }
 
 var (
-	pattern_ForceMatrixService_Matrix_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "matrix"}, ""))
+	pattern_ForceMatrixService_ReadMatrix_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "matrix"}, ""))
 
-	pattern_ForceMatrixService_SlipDetection_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "slip_detection"}, ""))
+	pattern_ForceMatrixService_DetectSlip_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "force_matrix", "name", "slip_detection"}, ""))
 )
 
 var (
-	forward_ForceMatrixService_Matrix_0 = runtime.ForwardResponseMessage
+	forward_ForceMatrixService_ReadMatrix_0 = runtime.ForwardResponseMessage
 
-	forward_ForceMatrixService_SlipDetection_0 = runtime.ForwardResponseMessage
+	forward_ForceMatrixService_DetectSlip_0 = runtime.ForwardResponseMessage
 )

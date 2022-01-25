@@ -10,9 +10,9 @@ import "proto/api/common/v1/common.proto";
 
 // A CameraService services maintains all cameras associated with a robot
 service CameraService {
-  // Frame returns a frame from a camera of the underlying robot. A specific MIME type
+  // GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.
-  rpc Frame(CameraServiceFrameRequest) returns (CameraServiceFrameResponse) {
+  rpc GetFrame(CameraServiceGetFrameRequest) returns (CameraServiceGetFrameResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/camera/{name}/frame"
     };
@@ -26,41 +26,41 @@ service CameraService {
     };
   }
 
-  // PointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
+  // GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
   // can be requested but may not necessarily be the same one returned.
-  rpc PointCloud(CameraServicePointCloudRequest) returns (CameraServicePointCloudResponse) {
+  rpc GetPointCloud(CameraServiceGetPointCloudRequest) returns (CameraServiceGetPointCloudResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/pointcloud"
+      get: "/api/v1/component/camera/{name}/point_cloud"
     };
   }
 
-  // ObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
+  // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
   // as well as the 3-vector center of each of the found objects.
   // A specific MIME type can be requested but may not necessarily be the same one returned.
-  rpc ObjectPointClouds(CameraServiceObjectPointCloudsRequest) returns (CameraServiceObjectPointCloudsResponse) {
+  rpc GetObjectPointClouds(CameraServiceGetObjectPointCloudsRequest) returns (CameraServiceGetObjectPointCloudsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/objectpointclouds"
+      get: "/api/v1/component/camera/{name}/object_point_clouds"
     };
   }
 
 }
 
-message CameraServiceFrameRequest {
+message CameraServiceGetFrameRequest {
   // Name of a camera
   string name = 1;
   // Requested MIME type of response
   string mime_type = 2;
 }
 
-message CameraServiceFrameResponse {
+message CameraServiceGetFrameResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
   bytes frame = 2;
-  // Width of frame
-  int64 dim_x = 3;
-  // Height of frame
-  int64 dim_y = 4;
+  // Width of frame in px
+  int64 width_px = 3;
+  // Height of frame in px
+  int64 height_px = 4;
 }
 
 message CameraServiceRenderFrameRequest {
@@ -70,21 +70,21 @@ message CameraServiceRenderFrameRequest {
   string mime_type = 2;
 }
 
-message CameraServicePointCloudRequest {
+message CameraServiceGetPointCloudRequest {
   // Name of a camera
   string name = 1;
   // Requested MIME type of response
   string mime_type = 2;
 }
 
-message CameraServicePointCloudResponse {
+message CameraServiceGetPointCloudResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
   bytes frame = 2;
 }
 
-message CameraServiceObjectPointCloudsRequest {
+message CameraServiceGetObjectPointCloudsRequest {
   // Name of a camera
   string name = 1;
   // Requested MIME type of response
@@ -93,11 +93,11 @@ message CameraServiceObjectPointCloudsRequest {
   int64 min_points_in_plane = 3;
   // Minimum points in segment
   int64 min_points_in_segment = 4;
-  // Clustering radius
-  double clustering_radius = 5;
+  // Clustering radius in mm
+  double clustering_radius_mm = 5;
 }
 
-message CameraServiceObjectPointCloudsResponse {
+message CameraServiceGetObjectPointCloudsResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // List of objects in the scene
@@ -107,8 +107,8 @@ message CameraServiceObjectPointCloudsResponse {
 message PointCloudObject {
   // Frame of object in bytes
   bytes frame = 1;
-  // Center of object in vector form
-  common.v1.Vector3 center = 2;
-  // Bounding box of object
-  common.v1.BoxGeometry bounding_box = 3;
+  // Center of object in mm
+  common.v1.Vector3 center_coordinates_mm = 2;
+  // Bounding box of object in mm
+  common.v1.BoxGeometry bounding_box_mm = 3;
 }

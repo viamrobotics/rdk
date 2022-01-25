@@ -27,12 +27,12 @@ type Servo struct {
 }
 
 // Move sets the given angle.
-func (s *Servo) Move(ctx context.Context, angle uint8) error {
-	s.angle = angle
+func (s *Servo) Move(ctx context.Context, angleDeg uint8) error {
+	s.angle = angleDeg
 	return nil
 }
 
-// AngularOffset returns the set angle.
-func (s *Servo) AngularOffset(ctx context.Context) (uint8, error) {
+// GetPosition returns the set angle.
+func (s *Servo) GetPosition(ctx context.Context) (uint8, error) {
 	return s.angle, nil
 }

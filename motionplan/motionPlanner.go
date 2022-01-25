@@ -14,6 +14,16 @@ import (
 	vutil "go.viam.com/rdk/utils"
 )
 
+const (
+	// When setting default constraints, the translation and orientation distances between the start/end are calculated and multiplied by
+	// this value. At no point during a movement may the minimum distance to the start or end exceed these values.
+	deviationFactor = 1.0
+	// Default distance below which two distances are considered equal.
+	defaultEpsilon = 0.001
+	// Default motion constraint name.
+	defaultMotionConstraint = "defaultMotionConstraint"
+)
+
 // MotionPlanner provides an interface to path planning methods, providing ways to request a path to be planned, and
 // management of the constraints used to plan paths.
 type MotionPlanner interface {
@@ -52,6 +62,30 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 	opt.AddConstraint(jointConstraint, NewJointConstraint(math.Inf(1)))
 	opt.metric = NewSquaredNormMetric()
 	opt.pathDist = NewSquaredNormMetric()
+	return opt
+}
+
+// DefaultConstraint creates a default constraint and metric that constrains the position and orientation. The allowed magnitude of
+// deviation of the position and orientation from the start or goal shall never be greater than than the magnitude of deviation between
+// the start and goal poses.
+// For example- if a user requests a translation, orientation will not change during the movement. If there is an obstacle, deflection
+// from the ideal path is allowed as a function of the length of the ideal path.
+func DefaultConstraint(from, to spatial.Pose, opt *PlannerOptions) *PlannerOptions {
+	pathDist := newDefaultMetric(from, to)
+
+	validFunc := func(cInput *ConstraintInput) (bool, float64) {
+		err := resolveInputsToPositions(cInput)
+		if err != nil {
+			return false, 0
+		}
+		dist := pathDist(cInput.StartPos, cInput.EndPos)
+		if dist < defaultEpsilon*defaultEpsilon {
+			return true, 0
+		}
+		return false, dist
+	}
+	opt.pathDist = pathDist
+	opt.AddConstraint(defaultMotionConstraint, validFunc)
 	return opt
 }
 

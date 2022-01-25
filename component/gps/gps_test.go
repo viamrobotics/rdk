@@ -84,69 +84,69 @@ func TestReconfigurableGPS(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new GPS")
 }
 
-func TestLocation(t *testing.T) {
+func TestReadLocation(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.locCalls, test.ShouldEqual, 0)
-	loc1, err := reconfGPS1.(*reconfigurableGPS).Location(context.Background())
+	loc1, err := reconfGPS1.(*reconfigurableGPS).ReadLocation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, loc1, test.ShouldResemble, geo.NewPoint(90, 1))
 	test.That(t, actualGPS1.locCalls, test.ShouldEqual, 1)
 }
 
-func TestAltitude(t *testing.T) {
+func TestReadAltitude(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.altCalls, test.ShouldEqual, 0)
-	alt1, err := reconfGPS1.(*reconfigurableGPS).Altitude(context.Background())
+	alt1, err := reconfGPS1.(*reconfigurableGPS).ReadAltitude(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, alt1, test.ShouldAlmostEqual, alt)
 	test.That(t, actualGPS1.altCalls, test.ShouldEqual, 1)
 }
 
-func TestSpeed(t *testing.T) {
+func TestReadSpeed(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.speedCalls, test.ShouldEqual, 0)
-	speed1, err := reconfGPS1.(*reconfigurableGPS).Speed(context.Background())
+	speed1, err := reconfGPS1.(*reconfigurableGPS).ReadSpeed(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, speed1, test.ShouldAlmostEqual, speed)
 	test.That(t, actualGPS1.speedCalls, test.ShouldEqual, 1)
 }
 
-func TestSatellites(t *testing.T) {
+func TestReadSatellites(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.satCalls, test.ShouldEqual, 0)
-	actualSats1, totalSats1, err := reconfGPS1.(*reconfigurableGPS).Satellites(context.Background())
+	actualSats1, totalSats1, err := reconfGPS1.(*reconfigurableGPS).ReadSatellites(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualSats1, test.ShouldEqual, activeSats)
 	test.That(t, totalSats1, test.ShouldEqual, totalSats)
 	test.That(t, actualGPS1.satCalls, test.ShouldEqual, 1)
 }
 
-func TestAccuracy(t *testing.T) {
+func TestReadAccuracy(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.accCalls, test.ShouldEqual, 0)
-	hAcc1, vAcc1, err := reconfGPS1.(*reconfigurableGPS).Accuracy(context.Background())
+	hAcc1, vAcc1, err := reconfGPS1.(*reconfigurableGPS).ReadAccuracy(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, hAcc1, test.ShouldAlmostEqual, hAcc)
 	test.That(t, vAcc1, test.ShouldAlmostEqual, vAcc)
 	test.That(t, actualGPS1.accCalls, test.ShouldEqual, 1)
 }
 
-func TestValid(t *testing.T) {
+func TestReadValid(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.validCalls, test.ShouldEqual, 0)
-	valid1, err := reconfGPS1.(*reconfigurableGPS).Valid(context.Background())
+	valid1, err := reconfGPS1.(*reconfigurableGPS).ReadValid(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, valid1, test.ShouldEqual, valid)
 	test.That(t, actualGPS1.validCalls, test.ShouldEqual, 1)
@@ -196,38 +196,38 @@ type mock struct {
 	reconfCalls   int
 }
 
-// Location always returns the set values.
-func (m *mock) Location(ctx context.Context) (*geo.Point, error) {
+// ReadLocation always returns the set values.
+func (m *mock) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	m.locCalls++
 	return loc, nil
 }
 
-// Altitude returns the set value.
-func (m *mock) Altitude(ctx context.Context) (float64, error) {
+// ReadAltitude returns the set value.
+func (m *mock) ReadAltitude(ctx context.Context) (float64, error) {
 	m.altCalls++
 	return alt, nil
 }
 
-// Speed returns the set value.
-func (m *mock) Speed(ctx context.Context) (float64, error) {
+// ReadSpeed returns the set value.
+func (m *mock) ReadSpeed(ctx context.Context) (float64, error) {
 	m.speedCalls++
 	return speed, nil
 }
 
-// Satellites returns the set values.
-func (m *mock) Satellites(ctx context.Context) (int, int, error) {
+// ReadSatellites returns the set values.
+func (m *mock) ReadSatellites(ctx context.Context) (int, int, error) {
 	m.satCalls++
 	return activeSats, totalSats, nil
 }
 
-// Accuracy returns the set values.
-func (m *mock) Accuracy(ctx context.Context) (float64, float64, error) {
+// ReadAccuracy returns the set values.
+func (m *mock) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	m.accCalls++
 	return hAcc, vAcc, nil
 }
 
-// Valid returns the set value.
-func (m *mock) Valid(ctx context.Context) (bool, error) {
+// ReadValid returns the set value.
+func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 	m.validCalls++
 	return valid, nil
 }

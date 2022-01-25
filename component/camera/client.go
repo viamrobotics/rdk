@@ -78,7 +78,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Camera {
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
-	resp, err := c.client.Frame(ctx, &pb.CameraServiceFrameRequest{
+	resp, err := c.client.GetFrame(ctx, &pb.CameraServiceGetFrameRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypeViamBest,
 	})
@@ -87,11 +87,11 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 	switch resp.MimeType {
 	case utils.MimeTypeRawRGBA:
-		img := image.NewNRGBA(image.Rect(0, 0, int(resp.DimX), int(resp.DimY)))
+		img := image.NewNRGBA(image.Rect(0, 0, int(resp.WidthPx), int(resp.HeightPx)))
 		img.Pix = resp.Frame
 		return img, func() {}, nil
 	case utils.MimeTypeRawIWD:
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.DimX), int(resp.DimY), resp.Frame)
+		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Frame)
 		return img, func() {}, err
 	case utils.MimeTypeRawDepth:
 		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Frame)))
@@ -106,7 +106,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	resp, err := c.client.PointCloud(ctx, &pb.CameraServicePointCloudRequest{
+	resp, err := c.client.GetPointCloud(ctx, &pb.CameraServiceGetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
 	})

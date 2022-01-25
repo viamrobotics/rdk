@@ -47,7 +47,7 @@ func init() {
 
 func getSerialConfig(cfg *board.Config) (slib.OpenOptions, error) {
 	options := slib.OpenOptions{
-		PortName:        cfg.Attributes["port"],
+		PortName:        cfg.Attributes.String("port"),
 		BaudRate:        230400,
 		DataBits:        8,
 		StopBits:        1,

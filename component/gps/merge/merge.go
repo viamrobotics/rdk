@@ -63,10 +63,10 @@ type mergeGPS struct {
 }
 
 // The current latitude and longitude.
-func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
+func (m *mergeGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		p, err := g.Location(ctx)
+		p, err := g.ReadLocation(ctx)
 		if err == nil {
 			return p, nil
 		}
@@ -76,10 +76,10 @@ func (m *mergeGPS) Location(ctx context.Context) (*geo.Point, error) {
 }
 
 // The current altitude in meters.
-func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
+func (m *mergeGPS) ReadAltitude(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		a, err := g.Altitude(ctx)
+		a, err := g.ReadAltitude(ctx)
 		if err == nil {
 			return a, nil
 		}
@@ -89,10 +89,10 @@ func (m *mergeGPS) Altitude(ctx context.Context) (float64, error) {
 }
 
 // Current ground speed in kph.
-func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
+func (m *mergeGPS) ReadSpeed(ctx context.Context) (float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		s, err := g.Speed(ctx)
+		s, err := g.ReadSpeed(ctx)
 		if err == nil {
 			return s, nil
 		}
@@ -102,14 +102,14 @@ func (m *mergeGPS) Speed(ctx context.Context) (float64, error) {
 }
 
 // Number of satellites used for fix, and total in view.
-func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
+func (m *mergeGPS) ReadSatellites(ctx context.Context) (int, int, error) {
 	var allErrors error
 	for _, g := range m.subs {
 		localG, ok := g.(gps.LocalGPS)
 		if !ok {
 			continue
 		}
-		a, b, err := localG.Satellites(ctx)
+		a, b, err := localG.ReadSatellites(ctx)
 		if err == nil {
 			return a, b, nil
 		}
@@ -118,11 +118,15 @@ func (m *mergeGPS) Satellites(ctx context.Context) (int, int, error) {
 	return 0, 0, allErrors
 }
 
-// Horizontal and vertical position error.
-func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
+// Horizontal and vertical position error in meters.
+func (m *mergeGPS) ReadAccuracy(ctx context.Context) (float64, float64, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		a, b, err := g.Accuracy(ctx)
+		localG, ok := g.(gps.LocalGPS)
+		if !ok {
+			continue
+		}
+		a, b, err := localG.ReadAccuracy(ctx)
 		if err == nil {
 			return a, b, nil
 		}
@@ -132,14 +136,14 @@ func (m *mergeGPS) Accuracy(ctx context.Context) (float64, float64, error) {
 }
 
 // Whether or not the GPS chip had a valid fix for the most recent dataset.
-func (m *mergeGPS) Valid(ctx context.Context) (bool, error) {
+func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	var allErrors error
 	for _, g := range m.subs {
 		localG, ok := g.(gps.LocalGPS)
 		if !ok {
 			continue
 		}
-		v, err := localG.Valid(ctx)
+		v, err := localG.ReadValid(ctx)
 		if err == nil {
 			return v, nil
 		}

@@ -200,15 +200,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			fsm, _ := newForceMatrix(fakeRobot, config)
-			actualMatrix, err := fsm.Matrix(context.Background())
+			actualMatrix, err := fsm.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				isSlipping, err := fsm.IsSlipping(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				isSlipping, err := fsm.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})
@@ -226,15 +226,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			fsm, _ := newForceMatrix(fakeRobot, config)
-			actualMatrix, err := fsm.Matrix(context.Background())
+			actualMatrix, err := fsm.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				isSlipping, err := fsm.IsSlipping(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				isSlipping, err := fsm.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})
@@ -252,15 +252,15 @@ func TestMatrixAndSlip(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 
 			fsm, _ := newForceMatrix(fakeRobot, config)
-			actualMatrix, err := fsm.Matrix(context.Background())
+			actualMatrix, err := fsm.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, actualMatrix, test.ShouldResemble, expectedMatrix)
 
 			t.Run("slip detection", func(t *testing.T) {
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				fsm.Matrix(context.Background())
-				isSlipping, err := fsm.IsSlipping(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				fsm.ReadMatrix(context.Background())
+				isSlipping, err := fsm.DetectSlip(context.Background())
 				test.That(t, isSlipping, test.ShouldBeFalse)
 				test.That(t, err, test.ShouldBeNil)
 			})

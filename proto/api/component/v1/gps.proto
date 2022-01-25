@@ -9,64 +9,48 @@ import "proto/api/common/v1/common.proto";
 
 // GPSService services maintains all GPSs associated with a robot
 service GPSService {
-  // Location returns the most recent location from the given GPS.
-  rpc Location(GPSServiceLocationRequest) returns (GPSServiceLocationResponse) {
+  // ReadLocation returns the most recent location from the given GPS.
+  rpc ReadLocation(GPSServiceReadLocationRequest) returns (GPSServiceReadLocationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/gps/{name}/location"
     };
   }
 
-  // Altitude returns the most recent altitude from the given GPS.
-  rpc Altitude(GPSServiceAltitudeRequest) returns (GPSServiceAltitudeResponse) {
+  // ReadAltitude returns the most recent altitude from the given GPS.
+  rpc ReadAltitude(GPSServiceReadAltitudeRequest) returns (GPSServiceReadAltitudeResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/gps/{name}/altitude"
     };
   }
 
-  // Speed returns the most recent speed from the given GPS.
-  rpc Speed(GPSServiceSpeedRequest) returns (GPSServiceSpeedResponse) {
+  // ReadSpeed returns the most recent speed from the given GPS.
+  rpc ReadSpeed(GPSServiceReadSpeedRequest) returns (GPSServiceReadSpeedResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/gps/{name}/speed"
     };
   }
-
-  // Accuracy returns the most recent location accuracy from the given GPS.
-  rpc Accuracy(GPSServiceAccuracyRequest) returns (GPSServiceAccuracyResponse) {
-      option (google.api.http) = {
-      get: "/api/v1/component/gps/{name}/accuracy"
-    };
-  }
 }
 
-message GPSServiceLocationRequest {
+message GPSServiceReadLocationRequest {
   string name = 1;
 }
 
-message GPSServiceLocationResponse {
+message GPSServiceReadLocationResponse {
   common.v1.GeoPoint coordinate = 1;
 }
 
-message GPSServiceAltitudeRequest {
+message GPSServiceReadAltitudeRequest {
   string name = 1;
 }
 
-message GPSServiceAltitudeResponse {
-  double altitude = 1;
+message GPSServiceReadAltitudeResponse {
+  double altitude_meters = 1;
 }
 
-message GPSServiceSpeedRequest {
+message GPSServiceReadSpeedRequest {
   string name = 1;
 }
 
-message GPSServiceSpeedResponse {
-  double speed_kph = 1;
-}
-
-message GPSServiceAccuracyRequest {
-  string name = 1;
-}
-
-message GPSServiceAccuracyResponse {
-  double horizontal_accuracy = 1;
-  double vertical_accuracy = 2;
+message GPSServiceReadSpeedResponse {
+  double speed_mm_per_sec = 1;
 }
