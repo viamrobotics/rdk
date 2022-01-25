@@ -289,7 +289,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 	}
 
 	for idx := range displaySources {
-		config := x264.DefaultStreamConfig
+		config := defaultStreamConfig
 		config.Name = displayNames[idx]
 		view, err := gostream.NewStream(config)
 		if err != nil {
