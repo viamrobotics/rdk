@@ -28,12 +28,12 @@ func TestFourWheelBase1(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"frontRight":               "fr-m",
-			"frontLeft":                "fl-m",
-			"backRight":                "br-m",
-			"backLeft":                 "bl-m",
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"frontRight":           "fr-m",
+			"frontLeft":            "fl-m",
+			"backRight":            "br-m",
+			"backLeft":             "bl-m",
 		},
 	}
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
@@ -310,10 +310,10 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"left":                     []string{"fl-m", "bl-m"},
-			"right":                    []string{"fr-m"},
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"left":                 []string{"fl-m", "bl-m"},
+			"right":                []string{"fr-m"},
 		},
 	}
 	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
@@ -321,10 +321,10 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	cfg = config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"left":                     []string{"fl-m", "bl-m"},
-			"right":                    []string{"fr-m", "br-m"},
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"left":                 []string{"fl-m", "bl-m"},
+			"right":                []string{"fr-m", "br-m"},
 		},
 	}
 	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
