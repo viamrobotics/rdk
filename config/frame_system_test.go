@@ -39,7 +39,7 @@ func TestFrameModelPart(t *testing.T) {
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
-	exp := &servicepb.FrameSystemServiceSystemConfig{
+	exp := &servicepb.FrameSystemServiceConfig{
 		Name: "test",
 		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{
 			Parent: "world",
@@ -68,7 +68,7 @@ func TestFrameModelPart(t *testing.T) {
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
-	exp = &servicepb.FrameSystemServiceSystemConfig{
+	exp = &servicepb.FrameSystemServiceConfig{
 		Name:        "test",
 		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{Parent: "world", Pose: pose},
 		ModelJson:   jsonData,

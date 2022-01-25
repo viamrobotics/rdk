@@ -14,10 +14,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// FloatDisc represents the acceptable discrepancy between two floats
+// Epsilon represents the acceptable discrepancy between two floats
 // representing spatial coordinates wherin the coordinates should be
 // considered equivalent.
-const FloatDisc = 1e-8
+const Epsilon = 1e-8
 
 // Translation is the translation between two objects in the grid system. It is always in millimeters.
 type Translation struct {
@@ -183,9 +183,9 @@ func PoseAlmostEqual(a, b Pose) bool {
 func PoseAlmostCoincident(a, b Pose) bool {
 	ap := a.Point()
 	bp := b.Point()
-	return utils.Float64AlmostEqual(ap.X, bp.X, FloatDisc) &&
-		utils.Float64AlmostEqual(ap.Y, bp.Y, FloatDisc) &&
-		utils.Float64AlmostEqual(ap.Z, bp.Z, FloatDisc)
+	return utils.Float64AlmostEqual(ap.X, bp.X, Epsilon) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, Epsilon) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, Epsilon)
 }
 
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a

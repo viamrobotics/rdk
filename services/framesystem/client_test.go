@@ -36,7 +36,7 @@ func ensurePartsAreEqual(part *config.FrameSystemPart, otherPart *config.FrameSy
 	}
 	trans := frameConfig.Translation
 	otherTrans := otherFrameConfig.Translation
-	floatDisc := spatialmath.FloatDisc
+	floatDisc := spatialmath.Epsilon
 	transIsEqual := true
 	transIsEqual = transIsEqual && utils.Float64AlmostEqual(trans.X, otherTrans.X, floatDisc)
 	transIsEqual = transIsEqual && utils.Float64AlmostEqual(trans.Y, otherTrans.Y, floatDisc)

@@ -202,23 +202,6 @@ message JointPositions {
   repeated double degrees = 1;
 }
 
-message FrameConfig{
-  string parent = 1;
-  Pose  pose = 2;
-}
-
-message FrameSystemConfig {
-  string name = 1;
-  FrameConfig frame_config = 2;
-  bytes model_json = 3; 
-}
-
-message FrameServiceConfigRequest {}
-
-message FrameServiceConfigResponse {
-  repeated FrameSystemConfig frame_system_configs = 1;
-}
-
 message Vector3 {
   double x = 1;
   double y = 2;

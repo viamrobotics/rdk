@@ -21,7 +21,7 @@ message FrameSystemServiceFrameConfig{
   common.v1.Pose pose = 2;
 }
 
-message FrameSystemServiceSystemConfig {
+message FrameSystemServiceConfig {
   string name = 1;
   FrameSystemServiceFrameConfig frame_config = 2;
   bytes model_json = 3; 
@@ -30,5 +30,5 @@ message FrameSystemServiceSystemConfig {
 message FrameSystemServiceConfigRequest {}
 
 message FrameSystemServiceConfigResponse {
-  repeated FrameSystemServiceSystemConfig frame_system_configs = 1;
+  repeated FrameSystemServiceConfig frame_system_configs = 1;
 }
