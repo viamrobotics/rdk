@@ -52,7 +52,7 @@ func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 	}
 	r.PreprocessedImage = r.OriginalImage
 	if s.prep != nil {
-		r.PreprocessedImage = s.prep(r.OriginalImage)
+		r.PreprocessedImage = s.prep(r.PreprocessedImage)
 	}
 	r.Detections, err = s.det(r.PreprocessedImage)
 	if err != nil {

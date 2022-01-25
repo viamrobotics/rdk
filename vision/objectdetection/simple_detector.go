@@ -3,16 +3,19 @@ package objectdetection
 import (
 	"image"
 	"image/color"
+
+	"go.viam.com/rdk/rimage"
 )
 
-// simpleDetector converts an image to gray and then finds the connected components with values below a certain threshold.
+// simpleDetector converts an image to gray and then finds the connected components with values below a certain
+// luminance threshold. threshold is between 0.0 and 256.0, with 256.0 being white, and 0.0 being black.
 type simpleDetector struct {
-	threshold int
+	threshold float64
 }
 
 // NewSimpleDetector creates a detector useful for local testing purposes on the robot. Looks for dark objects in the image.
 // It finds pixels below the set threshold, and returns bounding box around the connected components.
-func NewSimpleDetector(threshold int) Detector {
+func NewSimpleDetector(threshold float64) Detector {
 	sd := simpleDetector{threshold}
 	return sd.Inference
 }
@@ -59,9 +62,8 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 }
 
 func (sd *simpleDetector) pass(c color.Color) bool {
-	r, g, b, _ := c.RGBA()
-	lum := 0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)
-	return int(lum/256) < sd.threshold
+	lum := rimage.Luminance(rimge.NewColorFromColor(c))
+	return lum < sd.threshold
 }
 
 func (sd *simpleDetector) getNeighbors(pt image.Point, img image.Image, seen map[image.Point]bool) []image.Point {
