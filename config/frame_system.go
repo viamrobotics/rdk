@@ -20,7 +20,7 @@ type FrameSystemPart struct {
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
-func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemServiceSystemConfig, error) {
+func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemServiceConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, referenceframe.ErrNoModelInformation
 	}
@@ -43,7 +43,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemServiceSystemConfig, e
 			return nil, err
 		}
 	}
-	return &pb.FrameSystemServiceSystemConfig{
+	return &pb.FrameSystemServiceConfig{
 		Name:        part.Name,
 		FrameConfig: frameConfig,
 		ModelJson:   modelJSON,
@@ -51,7 +51,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemServiceSystemConfig, e
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
-func ProtobufToFrameSystemPart(fsc *pb.FrameSystemServiceSystemConfig) (*FrameSystemPart, error) {
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemServiceConfig) (*FrameSystemPart, error) {
 	convertedPose := &commonpb.Pose{
 		X:     fsc.FrameConfig.Pose.X,
 		Y:     fsc.FrameConfig.Pose.Y,

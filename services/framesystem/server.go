@@ -22,7 +22,7 @@ func NewServer(s subtype.Service) pb.FrameSystemServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
-func (server *subtypeServer) Service() (Service, error) {
+func (server *subtypeServer) service() (Service, error) {
 	name := Name
 	resource := server.subtypeSvc.Resource(name.String())
 	if resource == nil {
@@ -40,7 +40,7 @@ func (server *subtypeServer) Config(
 	ctx context.Context,
 	req *pb.FrameSystemServiceConfigRequest,
 ) (*pb.FrameSystemServiceConfigResponse, error) {
-	svc, err := server.Service()
+	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (server *subtypeServer) Config(
 	if err != nil {
 		return nil, err
 	}
-	configs := make([]*pb.FrameSystemServiceSystemConfig, len(sortedParts))
+	configs := make([]*pb.FrameSystemServiceConfig, len(sortedParts))
 	for i, part := range sortedParts {
 		c, err := part.ToProtobuf()
 		if err != nil {
@@ -64,7 +64,7 @@ func (server *subtypeServer) Config(
 }
 
 func (server *subtypeServer) FrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
-	svc, err := server.Service()
+	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}

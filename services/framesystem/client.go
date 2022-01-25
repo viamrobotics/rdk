@@ -60,13 +60,13 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		return nil, err
 	}
 	cfgs := resp.FrameSystemConfigs
-	result := make([]*config.FrameSystemPart, len(cfgs))
+	result := make([]*config.FrameSystemPart, 0, len(cfgs))
 	for i, cfg := range cfgs {
 		part, err := config.ProtobufToFrameSystemPart(cfg)
 		if err != nil {
 			return nil, err
 		}
-		result[i] = part
+		result = append(result, part)
 	}
 	return result, nil
 }
