@@ -1,5 +1,5 @@
 // Package oneAxis implements a one-axis gantry.
-package oneAxis
+package multiAxis
 
 import (
 	"context"
@@ -84,14 +84,14 @@ func OneAxisModel() (referenceframe.Model, error) {
 	return referenceframe.ParseJSON(oneaxismodel, "")
 }
 
-type OneAxis struct {
+type oneAxis struct {
 	name string
 
 	board           board.Board
 	limitSwitchPins []string
 	limitHigh       bool
 	motor           motor.Motor
-	axes            []float64
+	axes            []bool
 	length_mm       float64
 	pulleyR_mm      float64
 	rpm             float64
@@ -114,7 +114,7 @@ const (
 
 // NewOneAxis creates a new one axis gantry.
 func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
-	gantry := &OneAxis{
+	gantry := &oneAxis{
 		name:   config.Name,
 		logger: logger,
 	}
@@ -159,8 +159,6 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, err
 	}
 
-	gantry.axes = config.Attributes.Float64Slice("axis")
-
 	if err := gantry.init(ctx); err != nil {
 		return nil, err
 	}
@@ -168,7 +166,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	return gantry, nil
 }
 
-func (g *OneAxis) init(ctx context.Context) error {
+func (g *oneAxis) init(ctx context.Context) error {
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch g.limitType {
@@ -193,7 +191,7 @@ func (g *OneAxis) init(ctx context.Context) error {
 	return nil
 }
 
-func (g *OneAxis) homeTwoLimSwitch(ctx context.Context) error {
+func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	ok, err := g.motor.PositionSupported(ctx)
 	if err != nil {
 		return err
@@ -222,7 +220,7 @@ func (g *OneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	return nil
 }
 
-func (g *OneAxis) homeOneLimSwitch(ctx context.Context) error {
+func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 	ok, err := g.motor.PositionSupported(ctx)
 	if err != nil {
 		return err
@@ -249,11 +247,11 @@ func (g *OneAxis) homeOneLimSwitch(ctx context.Context) error {
 }
 
 // Not yet implemented.
-func (g *OneAxis) homeEncoder(ctx context.Context) error {
+func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return errors.New("encoder currently not supported")
 }
 
-func (g *OneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
+func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	defer utils.UncheckedErrorFunc(func() error {
 		return g.motor.Stop(ctx)
 	})
@@ -296,7 +294,7 @@ func (g *OneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 	return g.motor.Position(ctx)
 }
 
-func (g *OneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
+func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	offset := 0
 	if !zero {
 		offset = 1
@@ -308,7 +306,7 @@ func (g *OneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 }
 
 // Position returns the position in meters.
-func (g *OneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
 		return []float64{}, err
@@ -327,21 +325,12 @@ func (g *OneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	return []float64{x}, nil
 }
 
-<<<<<<< HEAD
-<<<<<<< HEAD:component/gantry/simple/one_axis.go
-func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
-	return []float64{g.lengthMeters}, nil
-=======
 func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
-=======
-func (g *OneAxis) Lengths(ctx context.Context) ([]float64, error) {
->>>>>>> 2afb9828 (composing multiaxis out of N single axis starts)
 	return []float64{g.length_mm}, nil
->>>>>>> bef53fc4 (renamed and reorganized files):component/gantry/oneAxis/oneAxis.go
 }
 
 // Position is in meters.
-func (g *OneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
+func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %.02f", positions)
 	}
@@ -389,9 +378,9 @@ func (g *OneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	return nil
 }
 
-func (g *OneAxis) ModelFrame() referenceframe.Model {
+func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(g.name, []bool{}, []referenceframe.Limit{{0, g.length_mm}})
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, []referenceframe.Limit{{0, g.length_mm}})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
 	}
@@ -400,19 +389,14 @@ func (g *OneAxis) ModelFrame() referenceframe.Model {
 	return m
 }
 
-<<<<<<< HEAD
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.GetPosition(ctx)
-=======
-func (g *OneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.CurrentPosition(ctx)
->>>>>>> 2afb9828 (composing multiaxis out of N single axis starts)
 	if err != nil {
 		return nil, err
 	}
 	return referenceframe.FloatsToInputs(res), nil
 }
 
-func (g *OneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }

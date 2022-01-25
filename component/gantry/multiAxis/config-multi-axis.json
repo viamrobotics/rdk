@@ -51,26 +51,75 @@
             }
     },
     {
-        "model": "simpleoneaxis",
-        "name": "armmover",
+        "model": "oneAxis",
+        "name": "xaxis",
         "type": "gantry",
         "attributes": {
-          "lengthMeters": [1.5, 1.5, 1.5],
+          "lengthMeters": 1.5,
           "limitBoard": "local",
           "limitHigh": false,
           "limitPins": [
-            "io17",
-            "io18"
+            "1",
+            "2"
           ],
-          "motor": [
-            "xmotor",
-            "ymotor",
-            "zmotor"
-          ],
-          "rpm": [300, 300, 300]
+          "motor": "xmotor",
+
+          "rpm": 300
         },
-        "depends_on":
-          ["xmotor", "ymotor", "zmotor"]
-    }
+        "depends_on": "xmotor"
+    },
+    {
+      "model": "oneAxis",
+      "name": "yaxis",
+      "type": "gantry",
+      "attributes": {
+        "lengthMeters": 1.5,
+        "limitBoard": "local",
+        "limitHigh": false,
+        "limitPins": [ 
+          "3",
+          "4"
+        ],
+        "motor": "ymotor",
+        "rpm": 300
+      },
+      "depends_on": "ymotor"    
+    },
+    {
+      "model": "oneAxis",
+      "name": "zaxis",
+      "type": "gantry",
+      "attributes": {
+        "lengthMeters": 1.5,
+        "limitBoard": "local",
+        "limitHigh": false,
+        "limitPins": [
+          "5",
+          "6"
+        ],
+        "motor": "zmotor",
+        "rpm": 300
+      },
+      "depends_on": "zmotor"
+    },
+        {
+          "model": "multiAxis",
+          "name": "testgantry",
+          "type": "gantry",
+          "attributes": {
+            "limitBoard" :"local",
+            "subaxes_list": [
+              "xaxis",
+              "yaxis",
+              "zaxis"
+            ]
+
+          },
+          "depends_on": [
+            "xaxis", 
+            "yaxis", 
+            "zaxis"
+          ]
+        }
     ]
 }

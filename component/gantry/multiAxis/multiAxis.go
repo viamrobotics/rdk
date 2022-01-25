@@ -21,15 +21,8 @@ import (
 )
 
 type MultiAxisConfig struct {
-	LimitBoard        string    `json:"limitBoard"` // used to read limit switch pins and control motor with gpio pins
-	MotorList         []string  `json:"motors"`
-	LimitSwitchPins   []string  `json:"limitPins"`
-	LimitHigh         string    `json:"limitHigh"`
-	Axes              []string  `json:"axes"`
-	LengthMillimeters []float64 `json:"lengthMillimeters"`
-	RPM               []float64 `json:"rpm"`
-	PulleyR_mm        []string  `json:"pulleyRadius_mm"`
-	GantryList        []string  `json:"gantrylist"`
+	LimitBoard string   `json:"limitBoard"` // used to read limit switch pins and control motor with gpio pins
+	SubAxes    []string `json:"subaxes_list"`
 }
 
 func (config *MultiAxisConfig) Validate(path string) error {
@@ -37,21 +30,8 @@ func (config *MultiAxisConfig) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "limitBoard")
 	}
 
-	if len(config.MotorList) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("cannot find motors for gantry"))
-	}
-
-	if len(config.MotorList) < 1 {
-		return utils.NewConfigValidationError(path, errors.New("need at least 1 axis"))
-	}
-	if len(config.MotorList) > 3 {
-		return utils.NewConfigValidationError(path, errors.New("at most 3 axes supported"))
-	}
-
-	for idx := range config.LengthMillimeters {
-		if config.LengthMillimeters[idx] <= 0 {
-			return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
-		}
+	if len(config.SubAxes) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
 
 	return nil
@@ -73,28 +53,16 @@ func init() {
 	})
 }
 
-type switchLimitType string
-
-const (
-	switchLimiTypeEncoder = switchLimitType("encoder")
-	switchLimitTypeOnePin = switchLimitType("onePinOneLength")
-	switchLimitTypetwoPin = switchLimitType("twoPin")
-)
-
 // NewMultiAxis creates a new-multi axis gantry.
 func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &multiAxis{
-		logger: logger,
 		name:   config.Name,
+		logger: logger,
 	}
 
-	// The multi axis gantry uses the motors to consturct the axes of the gantry
-	// Logic considering # axes != to # of motors should be added if we need to use reference
-	// frames in the future.
-	g.motorList = config.Attributes.StringSlice("motors")
-
-	for idx := range g.motorList {
+	for idx := range g.subaxes {
 		var ok bool
+		g.subaxes, ok = r.GantryByName(g.subaxes[idx])
 		g.motors[idx], ok = r.MotorByName(g.motorList[idx])
 		if !ok {
 			return nil, errors.New("cannot find motors for gantry")
@@ -127,7 +95,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	} else if len(g.limitSwitchPins) == 2*len(g.motorList) {
 		g.limitType = switchLimitTypetwoPin
 	} else if len(g.limitSwitchPins) == 0 {
-		g.limitType = switchLimiTypeEncoder
+		g.limitType = switchLimitTypeEncoder
 		// encoder not supported currently.
 	} else {
 		np := len(g.limitSwitchPins)
@@ -152,7 +120,8 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 // It also includes motor initial speeds, and each axes' length as descriptors.
 // AxesList is not doing much now.
 type multiAxis struct {
-	name string
+	name       string
+	linearaxes []oneAxis
 
 	motorList []string
 	motors    []motor.Motor
@@ -167,7 +136,7 @@ type multiAxis struct {
 	rpm               []float64
 
 	positionLimits []float64
-	axes           []gantry.Gantry
+	subaxes        []gantry.Gantry
 	axesList       []bool
 
 	logger golog.Logger
@@ -201,7 +170,7 @@ func (g *multiAxis) init(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-		case switchLimiTypeEncoder:
+		case switchLimitTypeEncoder:
 			err := g.homeEncoder(ctx, motorID)
 			if err != nil {
 				return err
@@ -420,7 +389,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			}
 		}
 
-	case switchLimiTypeEncoder:
+	case switchLimitTypeEncoder:
 		// TODO: implementation.
 		return errors.New("no encoders supported")
 	}
