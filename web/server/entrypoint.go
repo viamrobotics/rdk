@@ -251,7 +251,6 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 // Arguments for the command.
 type Arguments struct {
 	ConfigFile string `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool   `flag:"noAutoTile,usage=disable auto tiling"`
 	CPUProfile string `flag:"cpuprofile,usage=write cpu profile to file"`
 	WebProfile bool   `flag:"webprofile,usage=include profiler in http server"`
 	LogURL     string `flag:"logurl,usage=url to log messages to"`
@@ -366,7 +365,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	defer cancel()
 
 	options := web.NewOptions()
-	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug

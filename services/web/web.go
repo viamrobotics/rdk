@@ -282,35 +282,20 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		return nil, false, err
 	}
 	var streams []gostream.Stream
-	var autoCameraTiler *gostream.AutoTiler
 
 	if len(displaySources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
 		return noopServer, false, err
 	}
 
-	if options.AutoTile {
-		config := defaultStreamConfig
-		config.Name = "Cameras"
-		stream, err := gostream.NewStream(config)
+	for idx := range displaySources {
+		config := x264.DefaultStreamConfig
+		config.Name = displayNames[idx]
+		view, err := gostream.NewStream(config)
 		if err != nil {
 			return nil, false, err
 		}
-		streams = append(streams, stream)
-
-		tilerHeight := 480 * len(displaySources)
-		autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
-		autoCameraTiler.SetLogger(svc.logger)
-	} else {
-		for idx := range displaySources {
-			config := x264.DefaultStreamConfig
-			config.Name = displayNames[idx]
-			view, err := gostream.NewStream(config)
-			if err != nil {
-				return nil, false, err
-			}
-			streams = append(streams, view)
-		}
+		streams = append(streams, view)
 	}
 
 	streamServer, err := gostream.NewStreamServer(streams...)
@@ -318,30 +303,15 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		return nil, false, err
 	}
 
-	// start background workers
-	if autoCameraTiler != nil {
-		for _, src := range displaySources {
-			autoCameraTiler.AddSource(src)
-		}
+	for idx, stream := range streams {
 		waitCh := make(chan struct{})
 		svc.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
-			gostream.StreamSource(ctx, autoCameraTiler, streams[0])
+			gostream.StreamSource(ctx, displaySources[idx], stream)
 		})
 		<-waitCh
-	} else {
-		for idx, stream := range streams {
-			waitCh := make(chan struct{})
-			svc.activeBackgroundWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer svc.activeBackgroundWorkers.Done()
-				close(waitCh)
-				gostream.StreamSource(ctx, displaySources[idx], stream)
-			})
-			<-waitCh
-		}
 	}
 
 	return streamServer, true, nil
