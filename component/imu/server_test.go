@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -37,39 +38,39 @@ func TestServer(t *testing.T) {
 	imuServer, injectIMU, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	injectIMU.AngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
 		return spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}, nil
 	}
-	injectIMU.OrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
-		return &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}, nil
+	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
+		return &spatialmath.EulerAngles{Roll: utils.DegToRad(4), Pitch: utils.DegToRad(5), Yaw: utils.DegToRad(6)}, nil
 	}
 
 	//nolint:dupl
 	t.Run("IMU angular velocity", func(t *testing.T) {
-		resp, err := imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: testIMUName})
+		resp, err := imuServer.ReadAngularVelocity(context.Background(), &pb.IMUServiceReadAngularVelocityRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{X: 1, Y: 2, Z: 3})
+		test.That(t, resp.AngularVelocity, test.ShouldResemble, &pb.AngularVelocity{XDegsPerSec: 1, YDegsPerSec: 2, ZDegsPerSec: 3})
 
-		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: fakeIMUName})
+		_, err = imuServer.ReadAngularVelocity(context.Background(), &pb.IMUServiceReadAngularVelocityRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
-		_, err = imuServer.AngularVelocity(context.Background(), &pb.IMUServiceAngularVelocityRequest{Name: missingIMUName})
+		_, err = imuServer.ReadAngularVelocity(context.Background(), &pb.IMUServiceReadAngularVelocityRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
 
 	//nolint:dupl
 	t.Run("IMU orientation", func(t *testing.T) {
-		resp, err := imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: testIMUName})
+		resp, err := imuServer.ReadOrientation(context.Background(), &pb.IMUServiceReadOrientationRequest{Name: testIMUName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Orientation, test.ShouldResemble, &pb.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6})
+		test.That(t, resp.Orientation, test.ShouldResemble, &pb.EulerAngles{RollDeg: 4, PitchDeg: 5, YawDeg: 6})
 
-		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: fakeIMUName})
+		_, err = imuServer.ReadOrientation(context.Background(), &pb.IMUServiceReadOrientationRequest{Name: fakeIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
-		_, err = imuServer.Orientation(context.Background(), &pb.IMUServiceOrientationRequest{Name: missingIMUName})
+		_, err = imuServer.ReadOrientation(context.Background(), &pb.IMUServiceReadOrientationRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})

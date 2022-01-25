@@ -402,11 +402,11 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceFrameRequest();
+                      req = new cameraApi.CameraServiceGetFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/png';
                       req.setMimeType(mimeType)
-                      cameraService.frame(req,  {}, (err, resp) => {
+                      cameraService.getFrame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -421,11 +421,11 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      req = new cameraApi.CameraServicePointCloudRequest();
+                      req = new cameraApi.CameraServiceGetPointCloudRequest();
                       req.setName(cameraName);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
-                      cameraService.pointCloud(req,  {}, (err, resp) => {
+                      cameraService.getPointCloud(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
@@ -631,16 +631,16 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new cameraApi.CameraServiceObjectPointCloudsRequest();
+                      req = new cameraApi.CameraServiceGetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
                       req.setMinPointsInSegment(minPointsSegment);
-                      req.setClusteringRadius(clusteringRadius);
+                      req.setClusteringRadiusMm(clusteringRadius);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      cameraService.objectPointClouds(req,  {}, (err, resp) => {
+                      cameraService.getObjectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
@@ -656,8 +656,8 @@
                   doSegmentLoad : function(i){
                         var segment = theData.objects[i];
                         var data = segment.getFrame_asB64();
-                        var center = segment.getCenter();
-                        var box = segment.getBoundingBox();
+                        var center = segment.getCenterCoordinatesMm();
+                        var box = segment.getBoundingBoxMm();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
@@ -667,15 +667,15 @@
                   },
                   doPointLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenter();
+                        var center = segment.getCenterCoordinatesMm();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenter();
-                        var box = segment.getBoundingBox();
+                        var center = segment.getCenterCoordinatesMm();
+                        var box = segment.getBoundingBoxMm();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
@@ -955,7 +955,7 @@
       }
 
       function setBoundingBox(box, centerPoint) {
-          const geometry = new THREE.BoxGeometry( box.getWidth()/1000., box.getLength()/1000., box.getDepth()/1000. );
+          const geometry = new THREE.BoxGeometry( box.getWidthMm()/1000., box.getLengthMm()/1000., box.getDepthMm()/1000. );
           const edges = new THREE.EdgesGeometry( geometry );
           const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
           const cube = new THREE.LineSegments( edges, material );
@@ -1090,7 +1090,7 @@
           console.log("response is null - this is an issue when running this in the cloud, but not on a device locally")
         }
 
-        let isSlipping = resp.getDetectSlip()
+        let isSlipping = resp.getSlipDetected()
         if (isSlipping) {
           slip_animation_stuff.ctx.fillStyle = 'red';
           slip_animation_stuff.ctx.fillRect(0, 0, 150, 50)
@@ -1273,10 +1273,10 @@
                       theData.imuData[name] = {};
                   }
 
-                  var req = new imuApi.IMUServiceOrientationRequest();
+                  var req = new imuApi.IMUServiceReadOrientationRequest();
                   req.setName(name);
 
-                  imuService.orientation(req, {}, (err, resp) => {
+                  imuService.readOrientation(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
                           return;
@@ -1284,10 +1284,10 @@
                       theData.imuData[name].orientation = resp.toObject().orientation;
                   });
 
-                  var req = new imuApi.IMUServiceAngularVelocityRequest();
+                  var req = new imuApi.IMUServiceReadAngularVelocityRequest();
                   req.setName(name);
 
-                  imuService.angularVelocity(req, {}, (err, resp) => {
+                  imuService.readAngularVelocity(req, {}, (err, resp) => {
                       if (err) {
                           console.log(err);
                           return;
@@ -1386,13 +1386,13 @@
           <h2>IMU: ${imu[1].name}</h2>
           <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
             <tr><th colspan="2">Orientation (degrees)</th></tr>
-            <tr><th>Roll</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.roll)}</td></tr>
-            <tr><th>Pitch</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.pitch)}</td></tr>
-            <tr><th>Yaw</th><td>${displayRadiansInDegrees(imuData[imu[1].name].orientation.yaw)}</td></tr>
+            <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
+            <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
+            <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
             <tr><th colspan="2">Angular Velocity</th></tr>
-            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.x.toFixed(2)}</td></tr>
-            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.y.toFixed(2)}</td></tr>
-            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.z.toFixed(2)}</td></tr>
+            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
+            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
+            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
           </table>
         </div>
         <hr>

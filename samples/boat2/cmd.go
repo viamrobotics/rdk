@@ -329,7 +329,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 
 	if true { // try to spin now
 		logger.Infof("want to turn %v\n", angleDeg)
-		start, err := b.myImu.Orientation(ctx)
+		start, err := b.myImu.ReadOrientation(ctx)
 		if err != nil {
 			return err
 		}
@@ -350,7 +350,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 				return nil
 			}
 
-			now, err := b.myImu.Orientation(ctx)
+			now, err := b.myImu.ReadOrientation(ctx)
 			if err != nil {
 				return err
 			}
@@ -409,7 +409,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 		if vals["a"] < 1500 {
 			// push mode
 
-			now, err := myBoat.myImu.Orientation(ctx)
+			now, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
 				logger.Errorw("error getting orientation: %w", err)
 				continue
@@ -552,7 +552,7 @@ func (i *myIMU) parse(line string) error {
 	return nil
 }
 
-func (i *myIMU) AngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
+func (i *myIMU) ReadAngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
 	return i.angularVelocity, i.lastError
 }
 
@@ -571,13 +571,13 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 				return
 			}
 
-			r, err := myBoat.myImu.AngularVelocity(ctx)
+			r, err := myBoat.myImu.ReadAngularVelocity(ctx)
 			if err != nil {
 				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
-			r2, err := myBoat.myImu.Orientation(ctx)
+			r2, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
 				logger.Infof("error from imu %v\n", err)
 				continue

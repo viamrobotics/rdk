@@ -46,12 +46,12 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 	return camera, nil
 }
 
-// Frame returns a frame from a camera of the underlying robot. A specific MIME type
+// GetFrame returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) Frame(
+func (s *subtypeServer) GetFrame(
 	ctx context.Context,
-	req *pb.CameraServiceFrameRequest,
-) (*pb.CameraServiceFrameResponse, error) {
+	req *pb.CameraServiceGetFrameRequest,
+) (*pb.CameraServiceGetFrameResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -78,10 +78,10 @@ func (s *subtypeServer) Frame(
 	}
 
 	bounds := img.Bounds()
-	resp := pb.CameraServiceFrameResponse{
+	resp := pb.CameraServiceGetFrameResponse{
 		MimeType: req.MimeType,
-		DimX:     int64(bounds.Dx()),
-		DimY:     int64(bounds.Dy()),
+		WidthPx:  int64(bounds.Dx()),
+		HeightPx: int64(bounds.Dy()),
 	}
 
 	var buf bytes.Buffer
@@ -137,7 +137,7 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.CameraServiceRenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
-	resp, err := s.Frame(ctx, (*pb.CameraServiceFrameRequest)(req))
+	resp, err := s.GetFrame(ctx, (*pb.CameraServiceGetFrameRequest)(req))
 	if err != nil {
 		return nil, err
 	}
@@ -148,12 +148,12 @@ func (s *subtypeServer) RenderFrame(
 	}, nil
 }
 
-// PointCloud returns a frame from a camera of the underlying robot. A specific MIME type
+// GetPointCloud returns a frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned.
-func (s *subtypeServer) PointCloud(
+func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
-	req *pb.CameraServicePointCloudRequest,
-) (*pb.CameraServicePointCloudResponse, error) {
+	req *pb.CameraServiceGetPointCloudRequest,
+) (*pb.CameraServiceGetPointCloudResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -170,18 +170,18 @@ func (s *subtypeServer) PointCloud(
 		return nil, err
 	}
 
-	return &pb.CameraServicePointCloudResponse{
+	return &pb.CameraServiceGetPointCloudResponse{
 		MimeType: utils.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil
 }
 
-// ObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
+// GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) ObjectPointClouds(
+func (s *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
-	req *pb.CameraServiceObjectPointCloudsRequest,
-) (*pb.CameraServiceObjectPointCloudsResponse, error) {
+	req *pb.CameraServiceGetObjectPointCloudsRequest,
+) (*pb.CameraServiceGetObjectPointCloudsResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -192,9 +192,9 @@ func (s *subtypeServer) ObjectPointClouds(
 		return nil, err
 	}
 	config := segmentation.ObjectConfig{
-		MinPtsInPlane:    int(req.MinPointsInPlane),
-		MinPtsInSegment:  int(req.MinPointsInSegment),
-		ClusteringRadius: req.ClusteringRadius,
+		MinPtsInPlane:      int(req.MinPointsInPlane),
+		MinPtsInSegment:    int(req.MinPointsInSegment),
+		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
 	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
 	if err != nil {
@@ -205,7 +205,7 @@ func (s *subtypeServer) ObjectPointClouds(
 		return nil, err
 	}
 
-	return &pb.CameraServiceObjectPointCloudsResponse{
+	return &pb.CameraServiceGetObjectPointCloudsResponse{
 		MimeType: utils.MimeTypePCD,
 		Objects:  protoSegments,
 	}, nil
@@ -220,9 +220,9 @@ func segmentsToProto(segs *segmentation.ObjectSegmentation) ([]*pb.PointCloudObj
 			return nil, err
 		}
 		ps := &pb.PointCloudObject{
-			Frame:       buf.Bytes(),
-			Center:      pointToProto(seg.Center),
-			BoundingBox: boxToProto(seg.BoundingBox),
+			Frame:               buf.Bytes(),
+			CenterCoordinatesMm: pointToProto(seg.Center),
+			BoundingBoxMm:       boxToProto(seg.BoundingBox),
 		}
 		protoSegs = append(protoSegs, ps)
 	}
@@ -239,8 +239,8 @@ func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
 
 func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
 	return &commonpb.BoxGeometry{
-		Width:  b.Width,
-		Length: b.Length,
-		Depth:  b.Depth,
+		WidthMm:  b.WidthMm,
+		LengthMm: b.LengthMm,
+		DepthMm:  b.DepthMm,
 	}
 }

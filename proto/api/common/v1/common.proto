@@ -48,9 +48,9 @@ message Vector3 {
 }
 
 message BoxGeometry {
-  double width = 1;
-  double length = 2;
-  double depth = 3;
+  double width_mm = 1;
+  double length_mm = 2;
+  double depth_mm = 3;
 }
 
 message GeoPoint {
