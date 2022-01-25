@@ -26,7 +26,7 @@ func TestSimpleDetection(t *testing.T) {
 	// make the preprocessing function
 	rb := RemoveBlue()
 	// make the detector
-	d := NewSimpleDetector(10)
+	d := NewSimpleDetector(10.)
 	// make the filter
 	f := NewAreaFilter(15000)
 

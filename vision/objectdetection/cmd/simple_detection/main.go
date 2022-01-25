@@ -27,16 +27,10 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, err
 }
 
-type payload struct {
-	Original      image.Image
-	Modified      image.Image
-	BoundingBoxes []objectdetection.Detection
-}
-
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
-	threshPtr := flag.Int("thresh", 20, "grayscale value that sets the threshold for detection")
+	threshPtr := flag.Float64("thresh", 20, "grayscale value that sets the threshold for detection between 0(black) and 256(white)")
 	sizePtr := flag.Int("size", 500, "minimum size of a detection")
 	streamPtr := flag.String("stream", "color", "type of url stream")
 	flag.Parse()
@@ -74,7 +68,7 @@ func main() {
 	os.Exit(0)
 }
 
-func pipeline(src gostream.ImageSource, thresh, size int, logger golog.Logger) {
+func pipeline(src gostream.ImageSource, thresh float64, size int, logger golog.Logger) {
 	// create preprocessor
 	p := objectdetection.RemoveBlue()
 	// create detector
