@@ -17,7 +17,7 @@ import (
 // FloatDisc represents the acceptable discrepancy between two floats
 // representing spatial coordinates wherin the coordinates should be
 // considered equivalent.
-const FloatDisc = 1e8
+const FloatDisc = 1e-8
 
 // Translation is the translation between two objects in the grid system. It is always in millimeters.
 type Translation struct {
