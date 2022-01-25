@@ -1,0 +1,29 @@
+package imagesource
+
+import (
+	"context"
+	"testing"
+
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
+)
+
+func TestSimpleDetectionSource(t *testing.T) {
+	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	source := &staticSource{img}
+
+	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000}
+	detector, err := NewSimpleObjectDetector(source, cfg)
+	test.That(t, err, test.ShouldBeNil)
+
+	resImg, _, err := detector.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	ovImg := rimage.ConvertImage(resImg)
+	test.That(t, ovImg.GetXY(0, 77), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(110, 330), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(963, 349), test.ShouldResemble, rimage.Red)
+	test.That(t, ovImg.GetXY(1129, 472), test.ShouldResemble, rimage.Red)
+}
