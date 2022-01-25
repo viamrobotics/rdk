@@ -66,18 +66,18 @@ func TestServoCurrent(t *testing.T) {
 		return 0, errors.New("current angle not readable")
 	}
 
-	req := pb.ServoServiceAngularOffsetRequest{Name: "workingServo"}
-	resp, err := servoServer.AngularOffset(context.Background(), &req)
+	req := pb.ServoServiceGetPositionRequest{Name: "workingServo"}
+	resp, err := servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	req = pb.ServoServiceAngularOffsetRequest{Name: "failingServo"}
-	resp, err = servoServer.AngularOffset(context.Background(), &req)
+	req = pb.ServoServiceGetPositionRequest{Name: "failingServo"}
+	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	req = pb.ServoServiceAngularOffsetRequest{Name: "notAServo"}
-	resp, err = servoServer.AngularOffset(context.Background(), &req)
+	req = pb.ServoServiceGetPositionRequest{Name: "notAServo"}
+	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 }

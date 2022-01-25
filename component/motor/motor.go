@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/control"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 )
@@ -66,9 +67,6 @@ type Motor interface {
 
 	// IsOn returns whether or not the motor is currently on.
 	IsOn(ctx context.Context) (bool, error)
-
-	// PID returns underlying PID for the motor
-	PID() PID
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -152,12 +150,6 @@ func (r *reconfigurableMotor) IsOn(ctx context.Context) (bool, error) {
 	return r.actual.IsOn(ctx)
 }
 
-func (r *reconfigurableMotor) PID() PID {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.PID()
-}
-
 func (r *reconfigurableMotor) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -193,20 +185,20 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             map[string]string `json:"pins"`
-	BoardName        string            `json:"board"`    // used to get encoders
-	Encoder          string            `json:"encoder"`  // name of the digital interrupt that is the encoder
-	EncoderB         string            `json:"encoderB"` // name of the digital interrupt that is hall encoder b
-	TicksPerRotation int               `json:"ticksPerRotation"`
-	RampRate         float64           `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
-	MinPowerPct      float64           `json:"min_power_pct"`    // min power percentage to allow for this motor default is 0.0
-	MaxPowerPct      float64           `json:"max_power_pct"`    // max power percentage to allow for this motor (0.06 - 1.0)
-	MaxRPM           float64           `json:"max_rpm"`          // RPM
-	MaxAcceleration  float64           `json:"max_acceleration"` // RPM per second
-	PWMFreq          uint              `json:"pwmFreq"`
-	StepperDelay     uint              `json:"stepperDelay"` // When using stepper motors, the time to remain high
-	DirFlip          bool              `json:"dir_flip"`     // Flip the direction of the signal sent if there is a Dir pin
-	PID              *PIDConfig        `json:"pid,omitempty"`
+	Pins             map[string]string     `json:"pins"`
+	BoardName        string                `json:"board"`    // used to get encoders
+	Encoder          string                `json:"encoder"`  // name of the digital interrupt that is the encoder
+	EncoderB         string                `json:"encoderB"` // name of the digital interrupt that is hall encoder b
+	TicksPerRotation int                   `json:"ticksPerRotation"`
+	RampRate         float64               `json:"rampRate"`         // how fast to ramp power to motor when using rpm control
+	MinPowerPct      float64               `json:"min_power_pct"`    // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct      float64               `json:"max_power_pct"`    // max power percentage to allow for this motor (0.06 - 1.0)
+	MaxRPM           float64               `json:"max_rpm"`          // RPM
+	MaxAcceleration  float64               `json:"max_acceleration"` // RPM per second
+	PWMFreq          uint                  `json:"pwmFreq"`
+	StepperDelay     uint                  `json:"stepperDelay"`   // When using stepper motors, the time to remain high
+	DirFlip          bool                  `json:"dir_flip"`       // Flip the direction of the signal sent if there is a Dir pin
+	ControlLoop      control.ControlConfig `json:"control_config"` // Optional control loop
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.

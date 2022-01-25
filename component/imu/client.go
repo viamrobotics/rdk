@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // serviceClient is a client satisfies the imu.proto contract.
@@ -70,40 +71,40 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 	return &client{sc, name}
 }
 
-func (c *client) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := c.client.AngularVelocity(ctx, &pb.IMUServiceAngularVelocityRequest{
+func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	resp, err := c.client.ReadAngularVelocity(ctx, &pb.IMUServiceReadAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return spatialmath.AngularVelocity{}, err
 	}
 	return spatialmath.AngularVelocity{
-		X: resp.AngularVelocity.X,
-		Y: resp.AngularVelocity.Y,
-		Z: resp.AngularVelocity.Z,
+		X: resp.AngularVelocity.XDegsPerSec,
+		Y: resp.AngularVelocity.YDegsPerSec,
+		Z: resp.AngularVelocity.ZDegsPerSec,
 	}, nil
 }
 
-func (c *client) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := c.client.Orientation(ctx, &pb.IMUServiceOrientationRequest{
+func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	resp, err := c.client.ReadOrientation(ctx, &pb.IMUServiceReadOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &spatialmath.EulerAngles{
-		Roll:  resp.Orientation.Roll,
-		Pitch: resp.Orientation.Pitch,
-		Yaw:   resp.Orientation.Yaw,
+		Roll:  utils.DegToRad(resp.Orientation.RollDeg),
+		Pitch: utils.DegToRad(resp.Orientation.PitchDeg),
+		Yaw:   utils.DegToRad(resp.Orientation.YawDeg),
 	}, nil
 }
 
 func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	vel, err := c.AngularVelocity(ctx)
+	vel, err := c.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err
 	}
-	orientation, err := c.Orientation(ctx)
+	orientation, err := c.ReadOrientation(ctx)
 	if err != nil {
 		return nil, err
 	}

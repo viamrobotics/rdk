@@ -35,63 +35,53 @@ func (s *subtypeServer) getGPS(name string) (GPS, error) {
 	return gps, nil
 }
 
-// Location returns the most recent location from the given GPS.
-func (s *subtypeServer) Location(ctx context.Context, req *pb.GPSServiceLocationRequest) (*pb.GPSServiceLocationResponse, error) {
+// ReadLocation returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadLocation(
+	ctx context.Context,
+	req *pb.GPSServiceReadLocationRequest,
+) (*pb.GPSServiceReadLocationResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	loc, err := gpsDevice.Location(ctx)
+	loc, err := gpsDevice.ReadLocation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceLocationResponse{
+	return &pb.GPSServiceReadLocationResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
 
-// Altitude returns the most recent location from the given GPS.
-func (s *subtypeServer) Altitude(ctx context.Context, req *pb.GPSServiceAltitudeRequest) (*pb.GPSServiceAltitudeResponse, error) {
+// ReadAltitude returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadAltitude(
+	ctx context.Context,
+	req *pb.GPSServiceReadAltitudeRequest,
+) (*pb.GPSServiceReadAltitudeResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	alt, err := gpsDevice.Altitude(ctx)
+	alt, err := gpsDevice.ReadAltitude(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceAltitudeResponse{
-		Altitude: alt,
+	return &pb.GPSServiceReadAltitudeResponse{
+		AltitudeMeters: alt,
 	}, nil
 }
 
-// Speed returns the most recent location from the given GPS.
-func (s *subtypeServer) Speed(ctx context.Context, req *pb.GPSServiceSpeedRequest) (*pb.GPSServiceSpeedResponse, error) {
+// ReadSpeed returns the most recent location from the given GPS.
+func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.GPSServiceReadSpeedRequest) (*pb.GPSServiceReadSpeedResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	speed, err := gpsDevice.Speed(ctx)
+	speed, err := gpsDevice.ReadSpeed(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceSpeedResponse{
-		SpeedKph: speed,
-	}, nil
-}
-
-// Accuracy returns the most recent location from the given GPS.
-func (s *subtypeServer) Accuracy(ctx context.Context, req *pb.GPSServiceAccuracyRequest) (*pb.GPSServiceAccuracyResponse, error) {
-	gpsDevice, err := s.getGPS(req.Name)
-	if err != nil {
-		return nil, err
-	}
-	horz, vert, err := gpsDevice.Accuracy(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.GPSServiceAccuracyResponse{
-		HorizontalAccuracy: horz,
-		VerticalAccuracy:   vert,
+	return &pb.GPSServiceReadSpeedResponse{
+		SpeedMmPerSec: speed,
 	}, nil
 }

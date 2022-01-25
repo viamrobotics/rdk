@@ -34,40 +34,40 @@ func (s *subtypeServer) getForceMatrix(name string) (ForceMatrix, error) {
 	return forceMatrix, nil
 }
 
-// Matrix returns a matrix of measured forces on a matrix force sensor.
-func (s *subtypeServer) Matrix(
+// ReadMatrix returns a matrix of measured forces on a matrix force sensor.
+func (s *subtypeServer) ReadMatrix(
 	ctx context.Context,
-	req *pb.ForceMatrixServiceMatrixRequest,
-) (*pb.ForceMatrixServiceMatrixResponse, error) {
+	req *pb.ForceMatrixServiceReadMatrixRequest,
+) (*pb.ForceMatrixServiceReadMatrixResponse, error) {
 	forceMatrixDevice, err := s.getForceMatrix(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	matrix, err := forceMatrixDevice.Matrix(ctx)
+	matrix, err := forceMatrixDevice.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return matrixToProto(matrix), nil
 }
 
-// SlipDetection returns a boolean representing whether a slip has been detected.
-func (s *subtypeServer) SlipDetection(ctx context.Context,
-	req *pb.ForceMatrixServiceSlipDetectionRequest,
-) (*pb.ForceMatrixServiceSlipDetectionResponse, error) {
+// DetectSlip returns a boolean representing whether a slip has been detected.
+func (s *subtypeServer) DetectSlip(ctx context.Context,
+	req *pb.ForceMatrixServiceDetectSlipRequest,
+) (*pb.ForceMatrixServiceDetectSlipResponse, error) {
 	forceMatrixDevice, err := s.getForceMatrix(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	isSlipping, err := forceMatrixDevice.IsSlipping(ctx)
+	isSlipping, err := forceMatrixDevice.DetectSlip(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ForceMatrixServiceSlipDetectionResponse{IsSlipping: isSlipping}, nil
+	return &pb.ForceMatrixServiceDetectSlipResponse{SlipDetected: isSlipping}, nil
 }
 
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional
 // slice into protobuf format.
-func matrixToProto(matrix [][]int) *pb.ForceMatrixServiceMatrixResponse {
+func matrixToProto(matrix [][]int) *pb.ForceMatrixServiceReadMatrixResponse {
 	rows := len(matrix)
 	var cols int
 	if rows != 0 {
@@ -81,7 +81,7 @@ func matrixToProto(matrix [][]int) *pb.ForceMatrixServiceMatrixResponse {
 		}
 	}
 
-	return &pb.ForceMatrixServiceMatrixResponse{Matrix: &pb.Matrix{
+	return &pb.ForceMatrixServiceReadMatrixResponse{Matrix: &pb.Matrix{
 		Rows: uint32(rows),
 		Cols: uint32(cols),
 		Data: data,

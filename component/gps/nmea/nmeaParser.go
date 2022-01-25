@@ -5,12 +5,15 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 )
 
-const knotsToKph = 1.852
+const (
+	knotsToMmPerSec = 514.44
+	kphToMmPerSec   = 277.78
+)
 
 type gpsData struct {
 	location   *geo.Point
 	alt        float64
-	speed      float64
+	speed      float64 // ground speed in mm per sec
 	vDOP       float64 // vertical accuracy
 	hDOP       float64 // horizontal accuracy
 	satsInView int     // quantity satellites in view
@@ -37,7 +40,7 @@ func parseAndUpdate(line string, g *gpsData) error {
 			g.valid = false
 		}
 		if g.valid {
-			g.speed = rmc.Speed * knotsToKph
+			g.speed = rmc.Speed * knotsToMmPerSec
 			g.location = geo.NewPoint(rmc.Latitude, rmc.Longitude)
 		}
 	} else if gsa, ok := s.(nmea.GSA); ok {
@@ -76,7 +79,7 @@ func parseAndUpdate(line string, g *gpsData) error {
 		g.location = now
 	} else if vtg, ok := s.(nmea.VTG); ok {
 		// VTG provides ground speed
-		g.speed = vtg.GroundSpeedKPH
+		g.speed = vtg.GroundSpeedKPH * kphToMmPerSec
 	} else if gns, ok := s.(nmea.GNS); ok {
 		// GNS Provides approximately the same information as GGA
 		for _, mode := range gns.Mode {

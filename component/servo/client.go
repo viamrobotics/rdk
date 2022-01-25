@@ -69,19 +69,19 @@ func clientFromSvcClient(sc *serviceClient, name string) Servo {
 	return &client{sc, name}
 }
 
-func (c *client) Move(ctx context.Context, angle uint8) error {
-	req := &pb.ServoServiceMoveRequest{AngleDeg: uint32(angle), Name: c.name}
+func (c *client) Move(ctx context.Context, angleDeg uint8) error {
+	req := &pb.ServoServiceMoveRequest{AngleDeg: uint32(angleDeg), Name: c.name}
 	if _, err := c.client.Move(ctx, req); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *client) AngularOffset(ctx context.Context) (uint8, error) {
-	req := &pb.ServoServiceAngularOffsetRequest{Name: c.name}
-	resp, err := c.client.AngularOffset(ctx, req)
+func (c *client) GetPosition(ctx context.Context) (uint8, error) {
+	req := &pb.ServoServiceGetPositionRequest{Name: c.name}
+	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err
 	}
-	return uint8(resp.GetAngleDeg()), nil
+	return uint8(resp.PositionDeg), nil
 }

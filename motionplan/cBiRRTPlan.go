@@ -13,6 +13,7 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 const (
@@ -102,7 +103,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	}
 }
 
-// planRunner will execute the plan. When Plan) is called, it will call planRunner in a separate thread and wait for the results.
+// planRunner will execute the plan. When Plan() is called, it will call planRunner in a separate thread and wait for the results.
 // Separating this allows other things to call planRunner in parallel while also enabling the thread-agnostic Plan to be accessible.
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
@@ -113,8 +114,16 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 ) {
 	defer close(solutionChan)
 	var inputSteps []*configuration
+
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
+		seedPos, err := mp.frame.Transform(seed)
+		if err != nil {
+			solutionChan <- &planReturn{err: err}
+			return
+		}
+		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
+		opt = DefaultConstraint(seedPos, goalPos, opt)
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -178,23 +187,32 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		var seedReached, goalReached *configuration
+		var m1reached, m2reached *configuration
 
 		// extend seed tree first
 		nearest := nn.nearestNeighbor(ctxWithCancel, target, map1)
 		// Extend map1 as far towards target as it can get. It may or may not reach it.
-		seedReached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
+		m1reached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
 		// Find the nearest point in map2 to the furthest point reached in map1
-		near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, map2)
+		near2 := nn.nearestNeighbor(ctxWithCancel, m1reached, map2)
 		// extend map1 towards the point in map1
-		goalReached = mp.constrainedExtend(ctx, opt, map2, near2, seedReached)
-		rSeed = seedReached
+		m2reached = mp.constrainedExtend(ctx, opt, map2, near2, m1reached)
+		rSeed = m1reached
 
-		corners[seedReached] = true
-		corners[goalReached] = true
+		corners[m1reached] = true
+		corners[m2reached] = true
 
-		if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
+		if inputDist(m1reached.inputs, m2reached.inputs) < mp.solDist {
 			cancel()
+
+			// extract the path to the seed
+			var seedReached, goalReached *configuration
+			// Need to figure out which of m1/m2 is seed/goal
+			if _, ok := seedMap[m1reached]; ok {
+				seedReached, goalReached = m1reached, m2reached
+			} else {
+				seedReached, goalReached = m2reached, m1reached
+			}
 
 			// extract the path to the seed
 			for seedReached != nil {
