@@ -36,8 +36,8 @@ func TestServer(t *testing.T) {
 	t.Run("MoveStraight", func(t *testing.T) {
 		// on successful move straight
 		workingBase.MoveStraightFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, block bool,
 		) error {
 			return nil
 		}
@@ -54,8 +54,8 @@ func TestServer(t *testing.T) {
 		// on failing move straight
 		errMsg := "move straight failed"
 		brokenBase.MoveStraightFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, block bool,
 		) error {
 			return errors.New(errMsg)
 		}
@@ -92,8 +92,8 @@ func TestServer(t *testing.T) {
 	t.Run("MoveArc", func(t *testing.T) {
 		// on successful move arc
 		workingBase.MoveArcFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec, degsPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec, degsPerSec float64, block bool,
 		) error {
 			return nil
 		}
@@ -111,8 +111,8 @@ func TestServer(t *testing.T) {
 		// on failing move arc
 		errMsg := "move arc failed"
 		brokenBase.MoveArcFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, degsPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, degsPerSec float64, block bool,
 		) error {
 			return errors.New(errMsg)
 		}
