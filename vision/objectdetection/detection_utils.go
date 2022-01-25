@@ -3,9 +3,9 @@ package objectdetection
 import (
 	"image"
 
-	"go.viam.com/rdk/rimage"
-
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage"
 )
 
 // Overlay returns a color image with the bounding boxes overlaid on the original image.

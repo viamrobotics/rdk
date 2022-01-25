@@ -62,7 +62,7 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 }
 
 func (sd *simpleDetector) pass(c color.Color) bool {
-	lum := rimage.Luminance(rimge.NewColorFromColor(c))
+	lum := rimage.Luminance(rimage.NewColorFromColor(c))
 	return lum < sd.threshold
 }
 

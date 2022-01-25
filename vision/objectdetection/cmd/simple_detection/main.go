@@ -50,7 +50,10 @@ func main() {
 			logger.Fatal(err)
 		}
 		logger.Infof("url parse: %v", u)
-		host, port, _ := net.SplitHostPort(u.Host)
+		host, port, err := net.SplitHostPort(u.Host)
+		if err != nil {
+			logger.Fatal(err)
+		}
 		args := u.Path + "?" + u.RawQuery
 		logger.Infof("host: %s, port: %s, args: %s", host, port, args)
 		portNum, err := strconv.ParseInt(port, 0, 32)
