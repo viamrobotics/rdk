@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -31,6 +32,8 @@ type Robot interface {
 
 	// GripperByName returns a gripper by name.
 	GripperByName(name string) (gripper.Gripper, bool)
+
+	GantryByName(name string) (gantry.Gantry, bool)
 
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
