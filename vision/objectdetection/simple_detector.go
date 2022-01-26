@@ -6,8 +6,6 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-var seenVar struct{}
-
 // simpleDetector converts an image to gray and then finds the connected components with values below a certain
 // luminance threshold. threshold is between 0.0 and 256.0, with 256.0 being white, and 0.0 being black.
 type simpleDetector struct {

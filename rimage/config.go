@@ -18,6 +18,7 @@ type AttrConfig struct {
 	SegmentSize        int         `json:"segment_size"`
 	ClusterRadius      float64     `json:"cluster_radius"`
 	Threshold          float64     `json:"threshold"`
+	Fps                float64     `json:"fps"`
 	Format             string      `json:"format"`
 	Path               string      `json:"path"`
 	PathPattern        string      `json:"path_pattern"`
