@@ -107,8 +107,8 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt F
 	}
 	// return the Source
 	updaterChan := make(chan struct{})
-	tickTime := time.Duration((1. / fps) * 1000.)
-	ticker := time.NewTicker(tickTime * time.Millisecond)
+	tickTime := int((1. / fps) * 1000.)
+	ticker := time.NewTicker(time.Duration(tickTime) * time.Millisecond) 
 	s := &Source{
 		src:         src,
 		imageInput:  imageInputChan,
@@ -122,6 +122,7 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt F
 	return s, nil
 }
 
+// Close closes all the channels and threads.
 func (s *Source) Close() {
 	s.ticker.Stop()
 	s.updater <- struct{}{}

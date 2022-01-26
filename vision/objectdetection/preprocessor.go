@@ -3,9 +3,9 @@ package objectdetection
 import (
 	"image"
 
-	"go.viam.com/rdk/rimage"
-
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage"
 )
 
 // Preprocessor will apply processing to an input image before feeding it into the detector.

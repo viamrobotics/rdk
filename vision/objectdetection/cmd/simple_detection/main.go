@@ -31,6 +31,7 @@ func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
 	threshPtr := flag.Float64("thresh", 20, "grayscale value that sets the threshold for detection between 0(black) and 256(white)")
+	fpsPtr := flag.Float64("fps", 30, "How often the detector should be pulling images from the source")
 	sizePtr := flag.Int("size", 500, "minimum size of a detection")
 	streamPtr := flag.String("stream", "color", "type of url stream")
 	flag.Parse()
@@ -43,7 +44,7 @@ func main() {
 	}
 	if *imgPtr != "" {
 		src := &camera.ImageSource{ImageSource: &simpleSource{*imgPtr}}
-		pipeline(src, *threshPtr, *sizePtr, logger)
+		pipeline(src, *threshPtr, *fpsPtr, *sizePtr, logger)
 	} else {
 		u, err := url.Parse(*urlPtr)
 		if err != nil {
@@ -65,13 +66,13 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(src, *threshPtr, *sizePtr, logger)
+		pipeline(src, *threshPtr, *fpsPtr, *sizePtr, logger)
 	}
 	logger.Info("Done")
 	os.Exit(0)
 }
 
-func pipeline(src gostream.ImageSource, thresh float64, size int, logger golog.Logger) {
+func pipeline(src gostream.ImageSource, thresh, fps float64, size int, logger golog.Logger) {
 	// create preprocessor
 	p, err := objectdetection.RemoveColorChannel("b")
 	if err != nil {
@@ -83,7 +84,7 @@ func pipeline(src gostream.ImageSource, thresh float64, size int, logger golog.L
 	f := objectdetection.NewAreaFilter(size)
 
 	// make a pipeline
-	pipe, err := objectdetection.NewSource(src, p, d, f, 33.)
+	pipe, err := objectdetection.NewSource(src, p, d, f, fps)
 	if err != nil {
 		logger.Fatal(err)
 	}

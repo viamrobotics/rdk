@@ -57,5 +57,4 @@ func TestSimpleDetection(t *testing.T) {
 	test.That(t, ovImg.GetXY(110, 330), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(963, 349), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(1129, 472), test.ShouldResemble, rimage.Red)
-
 }
