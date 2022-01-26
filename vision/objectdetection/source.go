@@ -108,7 +108,7 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt F
 	// return the Source
 	updaterChan := make(chan struct{})
 	tickTime := int((1. / fps) * 1000.)
-	ticker := time.NewTicker(time.Duration(tickTime) * time.Millisecond) 
+	ticker := time.NewTicker(time.Duration(tickTime) * time.Millisecond)
 	s := &Source{
 		src:         src,
 		imageInput:  imageInputChan,

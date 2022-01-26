@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	"go.viam.com/rdk/rimage"
-	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
 func TestSimpleDetectionSource(t *testing.T) {
