@@ -39,7 +39,7 @@ type Base interface {
 	// can be requested to block until move is complete. If a distance of 0 is given the resultant motion
 	// is a spin and if speed of 0 is given the base will stop.
 	// Note: ramping affects when and how arc is performed, further improvements may be needed
-	MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, degsPerSec float64, block bool) error
+	MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error
 
 	// Spin spins the robot by a given angle in degrees at a given speed. The method can be requested
 	// to block until the move is complete. If a speed of 0 the base will stop.
@@ -81,11 +81,11 @@ func (r *reconfigurableBase) MoveStraight(
 }
 
 func (r *reconfigurableBase) MoveArc(
-	ctx context.Context, distanceMm int, mmPerSec float64, degsPerSec float64, block bool,
+	ctx context.Context, distanceMm int, mmPerSec float64, degAngle float64, block bool,
 ) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveArc(ctx, distanceMm, mmPerSec, degsPerSec, block)
+	return r.actual.MoveArc(ctx, distanceMm, mmPerSec, degAngle, block)
 }
 
 func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {

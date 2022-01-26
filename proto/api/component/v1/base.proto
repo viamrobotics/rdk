@@ -16,7 +16,7 @@ service BaseService {
   }
 
   // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-  // a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+  // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
   rpc MoveArc(BaseServiceMoveArcRequest) returns (BaseServiceMoveArcResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/base/{name}/move_arc"

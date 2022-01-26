@@ -22,7 +22,7 @@ type BaseServiceClient interface {
 	// and a given speed, expressed in millimeters per second
 	MoveStraight(ctx context.Context, in *BaseServiceMoveStraightRequest, opts ...grpc.CallOption) (*BaseServiceMoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
 	MoveArc(ctx context.Context, in *BaseServiceMoveArcRequest, opts ...grpc.CallOption) (*BaseServiceMoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
@@ -83,7 +83,7 @@ type BaseServiceServer interface {
 	// and a given speed, expressed in millimeters per second
 	MoveStraight(context.Context, *BaseServiceMoveStraightRequest) (*BaseServiceMoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
 	MoveArc(context.Context, *BaseServiceMoveArcRequest) (*BaseServiceMoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
