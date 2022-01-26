@@ -22,8 +22,8 @@ service GantryService {
     };  
   }
 
-  // Lengths gets the lengths of a gantry of the underlying robot.
-  rpc Lengths(GantryServiceLengthsRequest) returns (GantryServiceLengthsResponse) {
+  // GetLengths gets the lengths of a gantry of the underlying robot.
+  rpc GetLengths(GantryServiceGetLengthsRequest) returns (GantryServiceGetLengthsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/gantry/{name}/lengths"
     };  
@@ -46,10 +46,10 @@ message GantryServiceMoveToPositionRequest {
 
 message GantryServiceMoveToPositionResponse {}
 
-message GantryServiceLengthsRequest {
+message GantryServiceGetLengthsRequest {
   string name = 1;
 }
 
-message GantryServiceLengthsResponse {
-  repeated double lengths = 1;
+message GantryServiceGetLengthsResponse {
+  repeated double lengths_mm = 1;
 }

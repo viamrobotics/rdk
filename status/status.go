@@ -105,7 +105,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				return nil, err
 			}
 
-			gantryStatus.Lengths, err = g.Lengths(ctx)
+			gantryStatus.Lengths, err = g.GetLengths(ctx)
 			if err != nil {
 				return nil, err
 			}

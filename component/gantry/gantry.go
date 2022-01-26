@@ -35,8 +35,8 @@ type Gantry interface {
 	// MoveToPosition is in meters
 	MoveToPosition(ctx context.Context, positionsMm []float64) error
 
-	// Lengths is the length of gantries in meters
-	Lengths(ctx context.Context) ([]float64, error)
+	// GetLengths is the length of gantries in meters
+	GetLengths(ctx context.Context) ([]float64, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -72,11 +72,11 @@ func (g *reconfigurableGantry) CurrentPosition(ctx context.Context) ([]float64, 
 	return g.actual.CurrentPosition(ctx)
 }
 
-// Lengths returns the position in meters.
-func (g *reconfigurableGantry) Lengths(ctx context.Context) ([]float64, error) {
+// GetLengths returns the position in meters.
+func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.Lengths(ctx)
+	return g.actual.GetLengths(ctx)
 }
 
 // position is in meters.

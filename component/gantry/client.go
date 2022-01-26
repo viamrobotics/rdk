@@ -80,14 +80,14 @@ func (c *client) CurrentPosition(ctx context.Context) ([]float64, error) {
 	return resp.Positions, nil
 }
 
-func (c *client) Lengths(ctx context.Context) ([]float64, error) {
-	lengths, err := c.client.Lengths(ctx, &pb.GantryServiceLengthsRequest{
+func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
+	lengths, err := c.client.GetLengths(ctx, &pb.GantryServiceGetLengthsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return lengths.Lengths, nil
+	return lengths.LengthsMm, nil
 }
 
 func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64) error {
