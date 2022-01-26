@@ -73,7 +73,10 @@ func main() {
 
 func pipeline(src gostream.ImageSource, thresh float64, size int, logger golog.Logger) {
 	// create preprocessor
-	p := objectdetection.RemoveBlue()
+	p, err := objectdetection.RemoveColorChannel("b")
+	if err != nil {
+		logger.Fatal(err)
+	}
 	// create detector
 	d := objectdetection.NewSimpleDetector(thresh)
 	// create filter

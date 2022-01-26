@@ -56,6 +56,7 @@ func (s *Source) NextResult(ctx context.Context) (*Result, error) {
 	if err != nil {
 		return nil, err
 	}
+	//r.PreprocessedImage = CopyImage(r.OriginalImage)
 	r.PreprocessedImage = r.OriginalImage
 	if s.prep != nil {
 		r.PreprocessedImage = s.prep(r.PreprocessedImage)

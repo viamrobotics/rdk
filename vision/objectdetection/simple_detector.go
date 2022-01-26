@@ -2,10 +2,11 @@ package objectdetection
 
 import (
 	"image"
-	"image/color"
 
 	"go.viam.com/rdk/rimage"
 )
+
+var seenVar struct{}
 
 // simpleDetector converts an image to gray and then finds the connected components with values below a certain
 // luminance threshold. threshold is between 0.0 and 256.0, with 256.0 being white, and 0.0 being black.
@@ -22,21 +23,27 @@ func NewSimpleDetector(threshold float64) Detector {
 
 // Inference takes in an image frame and returns the detection bounding boxes found in the image.
 func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
-	seen := make(map[image.Point]bool)
+	rimg := rimage.ConvertImage(img)
+	seen := make([]bool, rimg.Width()*rimg.Height())
 	queue := []image.Point{}
 	detections := []Detection{}
-	bounds := img.Bounds()
-	for i := 0; i < bounds.Dx(); i++ {
-		for j := 0; j < bounds.Dy(); j++ {
+	for i := 0; i < rimg.Width(); i++ {
+		for j := 0; j < rimg.Height(); j++ {
 			pt := image.Point{i, j}
-			if seen[pt] || !sd.pass(img.At(pt.X, pt.Y)) {
-				seen[pt] = true
+			indx := pt.Y*rimg.Width() + pt.X
+			if seen[indx] {
+				continue
+			}
+			if !sd.pass(rimg.Get(pt)) {
+				seen[indx] = true
 				continue
 			}
 			queue = append(queue, pt)
 			x0, y0, x1, y1 := pt.X, pt.Y, pt.X, pt.Y // the bounding box of the segment
 			for len(queue) != 0 {
 				newPt := queue[0]
+				newIndx := newPt.Y*rimg.Width() + newPt.X
+				seen[newIndx] = true
 				queue = queue[1:]
 				if newPt.X < x0 {
 					x0 = newPt.X
@@ -50,8 +57,7 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 				if newPt.Y > y1 {
 					y1 = newPt.Y
 				}
-				seen[newPt] = true
-				neighbors := sd.getNeighbors(newPt, img, seen)
+				neighbors := sd.getNeighbors(newPt, rimg, seen)
 				queue = append(queue, neighbors...)
 			}
 			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0}
@@ -61,20 +67,24 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 	return detections, nil
 }
 
-func (sd *simpleDetector) pass(c color.Color) bool {
-	lum := rimage.Luminance(rimage.NewColorFromColor(c))
+func (sd *simpleDetector) pass(c rimage.Color) bool {
+	lum := rimage.Luminance(c)
 	return lum < sd.threshold
 }
 
-func (sd *simpleDetector) getNeighbors(pt image.Point, img image.Image, seen map[image.Point]bool) []image.Point {
+func (sd *simpleDetector) getNeighbors(pt image.Point, img *rimage.Image, seen []bool) []image.Point {
 	bounds := img.Bounds()
 	neighbors := make([]image.Point, 0, 4)
 	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
 	for _, p := range fourPoints {
-		if p.In(bounds) && !seen[p] && sd.pass(img.At(p.X, p.Y)) {
+		indx := p.Y*bounds.Dx() + p.X
+		if seen[indx] || !p.In(bounds) {
+			continue
+		}
+		if sd.pass(img.Get(p)) {
 			neighbors = append(neighbors, p)
 		}
-		seen[p] = true
+		seen[indx] = true
 	}
 	return neighbors
 }

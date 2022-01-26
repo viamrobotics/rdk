@@ -24,14 +24,18 @@ func TestSimpleDetection(t *testing.T) {
 	// make the original source
 	src := &simpleSource{artifact.MustPath("vision/objectdetection/detection_test.jpg")}
 	// make the preprocessing function
-	rb := RemoveBlue()
+	rb, err := RemoveColorChannel("b")
+	test.That(t, err, test.ShouldBeNil)
+	p := func(img image.Image) image.Image {
+		return rb(CopyImage(img))
+	}
 	// make the detector
 	d := NewSimpleDetector(10.)
 	// make the filter
 	f := NewAreaFilter(15000)
 
 	// Make the detection source
-	pipeline, err := NewSource(src, rb, d, f)
+	pipeline, err := NewSource(src, p, d, f)
 	test.That(t, err, test.ShouldBeNil)
 
 	// compare with expected bounding boxes
