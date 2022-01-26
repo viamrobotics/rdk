@@ -100,7 +100,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			gantryStatus := &pb.GantryStatus{}
 
-			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			gantryStatus.Positions, err = g.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}

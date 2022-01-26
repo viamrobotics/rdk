@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GantryServiceClient interface {
-	// CurrentPosition gets the current position of a gantry of the underlying robot.
-	CurrentPosition(ctx context.Context, in *GantryServiceCurrentPositionRequest, opts ...grpc.CallOption) (*GantryServiceCurrentPositionResponse, error)
+	// GetPosition gets the current position of a gantry of the underlying robot.
+	GetPosition(ctx context.Context, in *GantryServiceGetPositionRequest, opts ...grpc.CallOption) (*GantryServiceGetPositionResponse, error)
 	// MoveToPosition moves a gantry of the underlying robot to the requested position.
 	MoveToPosition(ctx context.Context, in *GantryServiceMoveToPositionRequest, opts ...grpc.CallOption) (*GantryServiceMoveToPositionResponse, error)
 	// GetLengths gets the lengths of a gantry of the underlying robot.
@@ -34,9 +34,9 @@ func NewGantryServiceClient(cc grpc.ClientConnInterface) GantryServiceClient {
 	return &gantryServiceClient{cc}
 }
 
-func (c *gantryServiceClient) CurrentPosition(ctx context.Context, in *GantryServiceCurrentPositionRequest, opts ...grpc.CallOption) (*GantryServiceCurrentPositionResponse, error) {
-	out := new(GantryServiceCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GantryService/CurrentPosition", in, out, opts...)
+func (c *gantryServiceClient) GetPosition(ctx context.Context, in *GantryServiceGetPositionRequest, opts ...grpc.CallOption) (*GantryServiceGetPositionResponse, error) {
+	out := new(GantryServiceGetPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.GantryService/GetPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +65,8 @@ func (c *gantryServiceClient) GetLengths(ctx context.Context, in *GantryServiceG
 // All implementations must embed UnimplementedGantryServiceServer
 // for forward compatibility
 type GantryServiceServer interface {
-	// CurrentPosition gets the current position of a gantry of the underlying robot.
-	CurrentPosition(context.Context, *GantryServiceCurrentPositionRequest) (*GantryServiceCurrentPositionResponse, error)
+	// GetPosition gets the current position of a gantry of the underlying robot.
+	GetPosition(context.Context, *GantryServiceGetPositionRequest) (*GantryServiceGetPositionResponse, error)
 	// MoveToPosition moves a gantry of the underlying robot to the requested position.
 	MoveToPosition(context.Context, *GantryServiceMoveToPositionRequest) (*GantryServiceMoveToPositionResponse, error)
 	// GetLengths gets the lengths of a gantry of the underlying robot.
@@ -78,8 +78,8 @@ type GantryServiceServer interface {
 type UnimplementedGantryServiceServer struct {
 }
 
-func (UnimplementedGantryServiceServer) CurrentPosition(context.Context, *GantryServiceCurrentPositionRequest) (*GantryServiceCurrentPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CurrentPosition not implemented")
+func (UnimplementedGantryServiceServer) GetPosition(context.Context, *GantryServiceGetPositionRequest) (*GantryServiceGetPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPosition not implemented")
 }
 func (UnimplementedGantryServiceServer) MoveToPosition(context.Context, *GantryServiceMoveToPositionRequest) (*GantryServiceMoveToPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToPosition not implemented")
@@ -100,20 +100,20 @@ func RegisterGantryServiceServer(s grpc.ServiceRegistrar, srv GantryServiceServe
 	s.RegisterService(&GantryService_ServiceDesc, srv)
 }
 
-func _GantryService_CurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GantryServiceCurrentPositionRequest)
+func _GantryService_GetPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GantryServiceGetPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(GantryServiceServer).CurrentPosition(ctx, in)
+		return srv.(GantryServiceServer).GetPosition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.GantryService/CurrentPosition",
+		FullMethod: "/proto.api.component.v1.GantryService/GetPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(GantryServiceServer).CurrentPosition(ctx, req.(*GantryServiceCurrentPositionRequest))
+		return srv.(GantryServiceServer).GetPosition(ctx, req.(*GantryServiceGetPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -162,8 +162,8 @@ var GantryService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*GantryServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CurrentPosition",
-			Handler:    _GantryService_CurrentPosition_Handler,
+			MethodName: "GetPosition",
+			Handler:    _GantryService_GetPosition_Handler,
 		},
 		{
 			MethodName: "MoveToPosition",

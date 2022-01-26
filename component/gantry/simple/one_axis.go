@@ -161,7 +161,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 }
 
 // Position returns the position in meters.
-func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
 
-	g.logger.Debugf("oneAxis CurrentPosition %v -> %v", pos, x)
+	g.logger.Debugf("oneAxis GetPosition %v -> %v", pos, x)
 
 	return []float64{x}, nil
 }
@@ -215,7 +215,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 }
 
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -31,8 +31,8 @@ type fakeGantry struct {
 	lengths     []float64
 }
 
-// CurrentPosition returns the position in meters.
-func (g *fakeGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
+// GetPosition returns the position in meters.
+func (g *fakeGantry) GetPosition(ctx context.Context) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
@@ -70,7 +70,7 @@ func (g *fakeGantry) ModelFrame() referenceframe.Model {
 }
 
 func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
