@@ -86,7 +86,7 @@ func DefaultConstraint(from, to spatial.Pose, f referenceframe.Frame, opt *Plann
 	}
 	opt.pathDist = pathDist
 	opt.AddConstraint(defaultMotionConstraint, validFunc)
-	
+
 	// Add self-collision check if available
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	dof := len(f.DoF())

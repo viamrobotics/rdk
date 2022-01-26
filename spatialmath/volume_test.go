@@ -22,7 +22,7 @@ func TestVolumeSerialization(t *testing.T) {
 	pose := NewPoseFromPoint(r3.Vector{X: 1, Y: 1, Z: 1})
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			vc, err := testCase.config.ParseConfig(pose)
+			vc, err := testCase.config.ParseConfig()
 			if testCase.success == false {
 				test.That(t, err, test.ShouldNotBeNil)
 				return
@@ -33,7 +33,7 @@ func TestVolumeSerialization(t *testing.T) {
 			config := VolumeConfig{}
 			err = json.Unmarshal(data, &config)
 			test.That(t, err, test.ShouldBeNil)
-			newVc, err := config.ParseConfig(pose)
+			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, vc.NewVolume(pose).AlmostEqual(newVc.NewVolume(pose)), test.ShouldBeTrue)
 		})
