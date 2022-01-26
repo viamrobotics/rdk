@@ -393,8 +393,8 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 	return nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition computes and returns the current cartesian position.
+func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

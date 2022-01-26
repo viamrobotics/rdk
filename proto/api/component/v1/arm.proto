@@ -9,8 +9,8 @@ import "proto/api/common/v1/common.proto";
 
 // An ArmService services maintains all arms associated with a robot
 service ArmService {
-  // CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-  rpc CurrentPosition(ArmServiceCurrentPositionRequest) returns (ArmServiceCurrentPositionResponse) {
+  // GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+  rpc GetEndPosition(ArmServiceGetEndPositionRequest) returns (ArmServiceGetEndPositionResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/arm/{name}/current_position"
     };  
@@ -45,15 +45,15 @@ message ArmJointPositions {
   repeated double degrees = 1;
 }
 
-message ArmServiceCurrentPositionRequest {
+message ArmServiceGetEndPositionRequest {
   // Name of an arm
   string name = 1;
 }
 
-message ArmServiceCurrentPositionResponse {
+message ArmServiceGetEndPositionResponse {
   // Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
   // millimeters and theta, ox, oy, oz coordinates which express an orientation vector
-  common.v1.Pose position = 1;
+  common.v1.Pose pose = 1;
 }
 
 message ArmServiceGetJointPositionsRequest {

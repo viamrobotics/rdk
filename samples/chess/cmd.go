@@ -73,7 +73,7 @@ func getCoord(chess string) pos {
 
 func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis int64) error {
 	// first make sure in safe position
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func movePiece(
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -159,7 +159,7 @@ func movePiece(
 			return err
 		}
 		logger.Debug("no piece")
-		where, err = myArm.CurrentPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func movePiece(
 	}
 
 	// drop piece
-	where, err = myArm.CurrentPosition(ctx)
+	where, err = myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func movePiece(
 	myGripper.Open(ctx)
 
 	if to != "-" {
-		where, err = myArm.CurrentPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -224,7 +224,7 @@ func movePiece(
 func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -332,7 +332,7 @@ func lookForBoardAdjust(
 ) error {
 	debugNumber := 100
 	for {
-		where, err := myArm.CurrentPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -384,7 +384,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where, err := myArm.CurrentPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -439,7 +439,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 	}
 
 	for {
-		where, err := arm.CurrentPosition(ctx)
+		where, err := arm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}

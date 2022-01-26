@@ -35,8 +35,8 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 
-	// CurrentPosition returns the current position of the arm.
-	CurrentPosition(ctx context.Context) (*commonpb.Pose, error)
+	// GetEndPosition returns the current position of the arm.
+	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
@@ -67,10 +67,10 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.CurrentPosition(ctx)
+	return r.actual.GetEndPosition(ctx)
 }
 
 func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {

@@ -13,19 +13,19 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	CurrentPositionFunc      func(ctx context.Context) (*commonpb.Pose, error)
+	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
 	MoveToPositionFunc       func(ctx context.Context, c *commonpb.Pose) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.ArmJointPositions) error
 	GetJointPositionsFunc    func(ctx context.Context) (*pb.ArmJointPositions, error)
 	CloseFunc                func(ctx context.Context) error
 }
 
-// CurrentPosition calls the injected CurrentPosition or the real version.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	if a.CurrentPositionFunc == nil {
-		return a.Arm.CurrentPosition(ctx)
+// GetEndPosition calls the injected GetEndPosition or the real version.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	if a.GetEndPositionFunc == nil {
+		return a.Arm.GetEndPosition(ctx)
 	}
-	return a.CurrentPositionFunc(ctx)
+	return a.GetEndPositionFunc(ctx)
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.

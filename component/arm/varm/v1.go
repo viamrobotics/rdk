@@ -218,8 +218,8 @@ type armV1 struct {
 	model  referenceframe.Model
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition computes and returns the current cartesian position.
+func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

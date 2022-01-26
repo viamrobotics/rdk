@@ -130,8 +130,8 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	}, nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition computes and returns the current cartesian position.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

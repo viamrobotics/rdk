@@ -107,8 +107,8 @@ func (e *eva) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, err
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (e *eva) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition computes and returns the current cartesian position.
+func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

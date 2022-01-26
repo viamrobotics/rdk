@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_ArmService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, client ArmServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ArmServiceCurrentPositionRequest
+func request_ArmService_GetEndPosition_0(ctx context.Context, marshaler runtime.Marshaler, client ArmServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ArmServiceGetEndPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_ArmService_CurrentPosition_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.CurrentPosition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetEndPosition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_ArmService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, server ArmServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq ArmServiceCurrentPositionRequest
+func local_request_ArmService_GetEndPosition_0(ctx context.Context, marshaler runtime.Marshaler, server ArmServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ArmServiceGetEndPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,7 +78,7 @@ func local_request_ArmService_CurrentPosition_0(ctx context.Context, marshaler r
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.CurrentPosition(ctx, &protoReq)
+	msg, err := server.GetEndPosition(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -281,18 +281,18 @@ func local_request_ArmService_MoveToJointPositions_0(ctx context.Context, marsha
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterArmServiceHandlerFromEndpoint instead.
 func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server ArmServiceServer) error {
 
-	mux.Handle("GET", pattern_ArmService_CurrentPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ArmService_GetEndPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ArmService/CurrentPosition", runtime.WithHTTPPathPattern("/api/v1/component/arm/{name}/current_position"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/api/v1/component/arm/{name}/current_position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_ArmService_CurrentPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_ArmService_GetEndPosition_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -300,7 +300,7 @@ func RegisterArmServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 			return
 		}
 
-		forward_ArmService_CurrentPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ArmService_GetEndPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -414,23 +414,23 @@ func RegisterArmServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn 
 // "ArmServiceClient" to call the correct interceptors.
 func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client ArmServiceClient) error {
 
-	mux.Handle("GET", pattern_ArmService_CurrentPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_ArmService_GetEndPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ArmService/CurrentPosition", runtime.WithHTTPPathPattern("/api/v1/component/arm/{name}/current_position"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.ArmService/GetEndPosition", runtime.WithHTTPPathPattern("/api/v1/component/arm/{name}/current_position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_ArmService_CurrentPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_ArmService_GetEndPosition_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_ArmService_CurrentPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_ArmService_GetEndPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -498,7 +498,7 @@ func RegisterArmServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 }
 
 var (
-	pattern_ArmService_CurrentPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "arm", "name", "current_position"}, ""))
+	pattern_ArmService_GetEndPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "arm", "name", "current_position"}, ""))
 
 	pattern_ArmService_MoveToPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "arm", "name", "move_to_position"}, ""))
 
@@ -508,7 +508,7 @@ var (
 )
 
 var (
-	forward_ArmService_CurrentPosition_0 = runtime.ForwardResponseMessage
+	forward_ArmService_GetEndPosition_0 = runtime.ForwardResponseMessage
 
 	forward_ArmService_MoveToPosition_0 = runtime.ForwardResponseMessage
 

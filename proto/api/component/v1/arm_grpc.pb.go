@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArmServiceClient interface {
-	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-	CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error)
+	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+	GetEndPosition(ctx context.Context, in *ArmServiceGetEndPositionRequest, opts ...grpc.CallOption) (*ArmServiceGetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
@@ -36,9 +36,9 @@ func NewArmServiceClient(cc grpc.ClientConnInterface) ArmServiceClient {
 	return &armServiceClient{cc}
 }
 
-func (c *armServiceClient) CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error) {
-	out := new(ArmServiceCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/CurrentPosition", in, out, opts...)
+func (c *armServiceClient) GetEndPosition(ctx context.Context, in *ArmServiceGetEndPositionRequest, opts ...grpc.CallOption) (*ArmServiceGetEndPositionResponse, error) {
+	out := new(ArmServiceGetEndPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/GetEndPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,8 +76,8 @@ func (c *armServiceClient) MoveToJointPositions(ctx context.Context, in *ArmServ
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
 type ArmServiceServer interface {
-	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-	CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error)
+	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+	GetEndPosition(context.Context, *ArmServiceGetEndPositionRequest) (*ArmServiceGetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
 	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
@@ -91,8 +91,8 @@ type ArmServiceServer interface {
 type UnimplementedArmServiceServer struct {
 }
 
-func (UnimplementedArmServiceServer) CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CurrentPosition not implemented")
+func (UnimplementedArmServiceServer) GetEndPosition(context.Context, *ArmServiceGetEndPositionRequest) (*ArmServiceGetEndPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEndPosition not implemented")
 }
 func (UnimplementedArmServiceServer) MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToPosition not implemented")
@@ -116,20 +116,20 @@ func RegisterArmServiceServer(s grpc.ServiceRegistrar, srv ArmServiceServer) {
 	s.RegisterService(&ArmService_ServiceDesc, srv)
 }
 
-func _ArmService_CurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceCurrentPositionRequest)
+func _ArmService_GetEndPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmServiceGetEndPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ArmServiceServer).CurrentPosition(ctx, in)
+		return srv.(ArmServiceServer).GetEndPosition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/CurrentPosition",
+		FullMethod: "/proto.api.component.v1.ArmService/GetEndPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).CurrentPosition(ctx, req.(*ArmServiceCurrentPositionRequest))
+		return srv.(ArmServiceServer).GetEndPosition(ctx, req.(*ArmServiceGetEndPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -196,8 +196,8 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ArmServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CurrentPosition",
-			Handler:    _ArmService_CurrentPosition_Handler,
+			MethodName: "GetEndPosition",
+			Handler:    _ArmService_GetEndPosition_Handler,
 		},
 		{
 			MethodName: "MoveToPosition",

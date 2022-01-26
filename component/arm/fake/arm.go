@@ -62,8 +62,8 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// CurrentPosition returns the set position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition returns the set position.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return a.position, nil
 }
 

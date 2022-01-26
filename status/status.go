@@ -57,7 +57,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			gridPosition, err := arm.CurrentPosition(ctx)
+			gridPosition, err := arm.GetEndPosition(ctx)
 			if err != nil {
 				return nil, err
 			}

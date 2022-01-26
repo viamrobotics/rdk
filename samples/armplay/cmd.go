@@ -101,7 +101,7 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 
 	for i := 0; i < 5; i++ {
 		logger.Debugf("upAndDown loop %d", i)
-		pos, err := arm.CurrentPosition(ctx)
+		pos, err := arm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}

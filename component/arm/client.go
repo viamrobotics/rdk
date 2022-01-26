@@ -71,14 +71,14 @@ func clientFromSvcClient(sc *serviceClient, name string) Arm {
 	return &client{sc, name}
 }
 
-func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.ArmServiceCurrentPositionRequest{
+func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	resp, err := c.client.GetEndPosition(ctx, &pb.ArmServiceGetEndPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Position, nil
+	return resp.Pose, nil
 }
 
 func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {

@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
 	jointPos1 := &componentpb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
 	}
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &componentpb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
-	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
@@ -94,7 +94,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("arm client 1", func(t *testing.T) {
-		pos, err := arm1Client.CurrentPosition(context.Background())
+		pos, err := arm1Client.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
 
@@ -116,7 +116,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		arm1Client2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		pos, err := arm1Client2.CurrentPosition(context.Background())
+		pos, err := arm1Client2.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
 		test.That(t, conn.Close(), test.ShouldBeNil)

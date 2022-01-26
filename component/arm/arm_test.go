@@ -104,7 +104,7 @@ type mockArm struct {
 	reconfCount int
 }
 
-func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (m *mockArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return &commonpb.Pose{}, nil
 }
 

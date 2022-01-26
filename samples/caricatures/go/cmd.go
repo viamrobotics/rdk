@@ -48,7 +48,7 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 	}
 
 	for i := 0; i < numFacialLandmarks; i++ {
-		pos, err := arm.CurrentPosition(ctx)
+		pos, err := arm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
