@@ -90,10 +90,10 @@ func (c *client) Lengths(ctx context.Context) ([]float64, error) {
 	return lengths.Lengths, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positions []float64) error {
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.GantryServiceMoveToPositionRequest{
-		Name:      c.name,
-		Positions: positions,
+		Name:        c.name,
+		PositionsMm: positionsMm,
 	})
 	return err
 }

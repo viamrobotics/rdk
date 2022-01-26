@@ -81,15 +81,15 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("move to position", func(t *testing.T) {
-		_, err := gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: "g4", Positions: pos2})
+		_, err := gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: "g4", PositionsMm: pos2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry1, Positions: pos2})
+		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry1, PositionsMm: pos2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 
-		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry2, Positions: pos1})
+		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry2, PositionsMm: pos1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 	})
