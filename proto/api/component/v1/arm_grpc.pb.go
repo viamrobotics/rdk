@@ -26,8 +26,6 @@ type ArmServiceClient interface {
 	CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(ctx context.Context, in *ArmServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-	JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error)
 }
 
 type armServiceClient struct {
@@ -74,15 +72,6 @@ func (c *armServiceClient) MoveToJointPositions(ctx context.Context, in *ArmServ
 	return out, nil
 }
 
-func (c *armServiceClient) JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error) {
-	out := new(ArmServiceJointMoveDeltaResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/JointMoveDelta", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ArmServiceServer is the server API for ArmService service.
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
@@ -95,8 +84,6 @@ type ArmServiceServer interface {
 	CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-	JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }
 
@@ -115,9 +102,6 @@ func (UnimplementedArmServiceServer) CurrentJointPositions(context.Context, *Arm
 }
 func (UnimplementedArmServiceServer) MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
-}
-func (UnimplementedArmServiceServer) JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method JointMoveDelta not implemented")
 }
 func (UnimplementedArmServiceServer) mustEmbedUnimplementedArmServiceServer() {}
 
@@ -204,24 +188,6 @@ func _ArmService_MoveToJointPositions_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ArmService_JointMoveDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceJointMoveDeltaRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ArmServiceServer).JointMoveDelta(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/JointMoveDelta",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).JointMoveDelta(ctx, req.(*ArmServiceJointMoveDeltaRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ArmService_ServiceDesc is the grpc.ServiceDesc for ArmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -244,10 +210,6 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "MoveToJointPositions",
 			Handler:    _ArmService_MoveToJointPositions_Handler,
-		},
-		{
-			MethodName: "JointMoveDelta",
-			Handler:    _ArmService_JointMoveDelta_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

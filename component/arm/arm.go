@@ -47,9 +47,6 @@ type Arm interface {
 	// CurrentJointPositions returns the current joint positions of the arm.
 	CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
 
-	// JointMoveDelta moves a specific joint of the arm by the given amount.
-	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
-
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
 }
@@ -92,12 +89,6 @@ func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJ
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.CurrentJointPositions(ctx)
-}
-
-func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {

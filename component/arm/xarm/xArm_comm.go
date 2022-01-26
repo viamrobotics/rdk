@@ -393,11 +393,6 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 	return nil
 }
 
-// JointMoveDelta TODO.
-func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
-}
-
 // CurrentPosition computes and returns the current cartesian position.
 func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := x.CurrentJointPositions(ctx)

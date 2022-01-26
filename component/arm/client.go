@@ -107,15 +107,6 @@ func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositio
 	return resp.Positions, nil
 }
 
-func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := c.client.JointMoveDelta(ctx, &pb.ArmServiceJointMoveDeltaRequest{
-		Name:       c.name,
-		Joint:      int32(joint),
-		AmountDegs: amountDegs,
-	})
-	return err
-}
-
 func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil

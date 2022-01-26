@@ -36,14 +36,6 @@ service ArmService {
       put: "/api/v1/component/arm/{name}/move_to_joint_positions"
     };  
   }
-
-  // JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-  rpc JointMoveDelta(ArmServiceJointMoveDeltaRequest) returns (ArmServiceJointMoveDeltaResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/component/arm/{name}/joint_move_delta"
-    };  
-  }
-
 }
 
 message ArmJointPositions {
@@ -91,14 +83,3 @@ message ArmServiceMoveToJointPositionsRequest {
 }
 
 message ArmServiceMoveToJointPositionsResponse {}
-
-message ArmServiceJointMoveDeltaRequest {
-  // Name of an arm
-  string name = 1;
-  // To specify a joint, refer to base as 0 and count forwards up to the end effector
-  int32 joint = 2;
-  // Specify degrees, can be positive or negative
-  double amount_degs = 3;
-}
-
-message ArmServiceJointMoveDeltaResponse {}

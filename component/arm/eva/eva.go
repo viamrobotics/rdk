@@ -157,10 +157,6 @@ func (e *eva) doMoveJoints(ctx context.Context, joints []float64) error {
 	return e.apiControlGoTo(ctx, joints)
 }
 
-func (e *eva) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
-}
-
 func (e *eva) apiRequest(ctx context.Context, method string, path string, payload interface{}, auth bool, out interface{}) error {
 	return e.apiRequestRetry(ctx, method, path, payload, auth, out, true)
 }

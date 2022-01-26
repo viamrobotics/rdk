@@ -184,7 +184,7 @@ func movePiece(
 			}
 			myGripper.Open(ctx)
 		})
-		err = myArm.JointMoveDelta(ctx, 4, -1)
+		err = moveJointDelta(ctx, myArm, 4, -1)
 		if err != nil {
 			return err
 		}
@@ -233,6 +233,15 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
 	return myArm.MoveToPosition(ctx, where)
+}
+
+func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
+	joints, err := myArm.CurrentJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	joints.Degrees[joint] += degAngle
+	return myArm.MoveToJointPositions(ctx, joints)
 }
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
@@ -393,7 +402,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 
 		d := .1
 		for i := 0.0; i < 1.6; i += d {
-			err = myArm.JointMoveDelta(ctx, 0, foo*d)
+			err = moveJointDelta(ctx, myArm, 0, foo*d)
 			if err != nil {
 				return err
 			}
