@@ -175,7 +175,7 @@ func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	return []float64{x}, nil
 }
 
-func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
 }
 

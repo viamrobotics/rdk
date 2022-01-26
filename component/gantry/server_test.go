@@ -44,7 +44,7 @@ func TestServer(t *testing.T) {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len1, nil
 	}
 
@@ -58,7 +58,7 @@ func TestServer(t *testing.T) {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry2.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len2, nil
 	}
 
@@ -95,16 +95,16 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("lengths", func(t *testing.T) {
-		_, err := gantryServer.Lengths(context.Background(), &pb.GantryServiceLengthsRequest{Name: "g4"})
+		_, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: "g4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		resp, err := gantryServer.Lengths(context.Background(), &pb.GantryServiceLengthsRequest{Name: gantry1})
+		resp, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: gantry1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Lengths, test.ShouldResemble, len1)
+		test.That(t, resp.LengthsMm, test.ShouldResemble, len1)
 
-		resp, err = gantryServer.Lengths(context.Background(), &pb.GantryServiceLengthsRequest{Name: gantry2})
+		resp, err = gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: gantry2})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Lengths, test.ShouldResemble, len2)
+		test.That(t, resp.LengthsMm, test.ShouldResemble, len2)
 	})
 }

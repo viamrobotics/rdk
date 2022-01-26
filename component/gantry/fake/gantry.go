@@ -36,8 +36,8 @@ func (g *fakeGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
-// Lengths returns the position in meters.
-func (g *fakeGantry) Lengths(ctx context.Context) ([]float64, error) {
+// GetLengths returns the position in meters.
+func (g *fakeGantry) GetLengths(ctx context.Context) ([]float64, error) {
 	return g.lengths, nil
 }
 

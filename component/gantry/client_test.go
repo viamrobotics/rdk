@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len1, nil
 	}
 
@@ -55,7 +55,7 @@ func TestClient(t *testing.T) {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry2.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len2, nil
 	}
 
@@ -88,7 +88,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 
-		lens, err := gantry1Client.Lengths(context.Background())
+		lens, err := gantry1Client.GetLengths(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, lens, test.ShouldResemble, len2)
 	})

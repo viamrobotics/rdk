@@ -50,20 +50,20 @@ func (s *subtypeServer) CurrentPosition(
 	return &pb.GantryServiceCurrentPositionResponse{Positions: pos}, nil
 }
 
-// Lengths gets the lengths of a gantry of the underlying robot.
-func (s *subtypeServer) Lengths(
+// GetLengths gets the lengths of a gantry of the underlying robot.
+func (s *subtypeServer) GetLengths(
 	ctx context.Context,
-	req *pb.GantryServiceLengthsRequest,
-) (*pb.GantryServiceLengthsResponse, error) {
+	req *pb.GantryServiceGetLengthsRequest,
+) (*pb.GantryServiceGetLengthsResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	lengths, err := gantry.Lengths(ctx)
+	lengthsMm, err := gantry.GetLengths(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceLengthsResponse{Lengths: lengths}, nil
+	return &pb.GantryServiceGetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
 
 // MoveToPosition moves the gantry to the position specified.
