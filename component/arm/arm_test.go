@@ -114,7 +114,7 @@ func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPosi
 	return nil
 }
 
-func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (m *mockArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return &pb.ArmJointPositions{}, nil
 }
 

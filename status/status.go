@@ -73,7 +73,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				}
 			}
 
-			jointPositions, err := arm.CurrentJointPositions(ctx)
+			jointPositions, err := arm.GetJointPositions(ctx)
 			if err != nil {
 				return nil, err
 			}

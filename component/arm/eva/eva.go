@@ -99,7 +99,7 @@ type eva struct {
 	frameJSON []byte
 }
 
-func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (e *eva) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
 		return &pb.ArmJointPositions{}, err
@@ -109,7 +109,7 @@ func (e *eva) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions,
 
 // CurrentPosition computes and returns the current cartesian position.
 func (e *eva) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := e.CurrentJointPositions(ctx)
+	joints, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (e *eva) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := e.CurrentJointPositions(ctx)
+	joints, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (e *eva) ModelFrame() referenceframe.Model {
 }
 
 func (e *eva) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := e.CurrentJointPositions(ctx)
+	res, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

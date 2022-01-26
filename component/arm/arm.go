@@ -44,8 +44,8 @@ type Arm interface {
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
 
-	// CurrentJointPositions returns the current joint positions of the arm.
-	CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
+	// GetJointPositions returns the current joint positions of the arm.
+	GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -85,10 +85,10 @@ func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDe
 	return r.actual.MoveToJointPositions(ctx, positionDegs)
 }
 
-func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.CurrentJointPositions(ctx)
+	return r.actual.GetJointPositions(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {

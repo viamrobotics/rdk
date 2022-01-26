@@ -97,14 +97,14 @@ func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJ
 	return err
 }
 
-func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	resp, err := c.client.CurrentJointPositions(ctx, &pb.ArmServiceCurrentJointPositionsRequest{
+func (c *client) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	resp, err := c.client.GetJointPositions(ctx, &pb.ArmServiceGetJointPositionsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
+	return resp.PositionDegs, nil
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
@@ -113,7 +113,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.CurrentJointPositions(ctx)
+	res, err := c.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

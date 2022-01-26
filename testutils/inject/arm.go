@@ -13,11 +13,11 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	CurrentPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
-	MoveToPositionFunc        func(ctx context.Context, c *commonpb.Pose) error
-	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.ArmJointPositions) error
-	CurrentJointPositionsFunc func(ctx context.Context) (*pb.ArmJointPositions, error)
-	CloseFunc                 func(ctx context.Context) error
+	CurrentPositionFunc      func(ctx context.Context) (*commonpb.Pose, error)
+	MoveToPositionFunc       func(ctx context.Context, c *commonpb.Pose) error
+	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.ArmJointPositions) error
+	GetJointPositionsFunc    func(ctx context.Context) (*pb.ArmJointPositions, error)
+	CloseFunc                func(ctx context.Context) error
 }
 
 // CurrentPosition calls the injected CurrentPosition or the real version.
@@ -44,12 +44,12 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 	return a.MoveToJointPositionsFunc(ctx, jp)
 }
 
-// CurrentJointPositions calls the injected CurrentJointPositions or the real version.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	if a.CurrentJointPositionsFunc == nil {
-		return a.Arm.CurrentJointPositions(ctx)
+// GetJointPositions calls the injected GetJointPositions or the real version.
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	if a.GetJointPositionsFunc == nil {
+		return a.Arm.GetJointPositions(ctx)
 	}
-	return a.CurrentJointPositionsFunc(ctx)
+	return a.GetJointPositionsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.
