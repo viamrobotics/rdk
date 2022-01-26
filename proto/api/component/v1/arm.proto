@@ -69,7 +69,7 @@ message ArmServiceCurrentJointPositionsResponse {
 message ArmServiceMoveToPositionRequest {
   // Name of an arm
   string name = 1;
-  common.v1.Pose to = 2;
+  common.v1.Pose pose = 2;
 }
 
 message ArmServiceMoveToPositionResponse {}
@@ -79,7 +79,7 @@ message ArmServiceMoveToJointPositionsRequest {
   string name = 1;
   // A list of joint positions represented in degrees
   // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
-  ArmJointPositions to = 2;
+  ArmJointPositions position_degs = 2;
 }
 
 message ArmServiceMoveToJointPositionsResponse {}

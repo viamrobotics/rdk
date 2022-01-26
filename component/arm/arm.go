@@ -39,10 +39,10 @@ type Arm interface {
 	CurrentPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, c *commonpb.Pose) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
 
 	// CurrentJointPositions returns the current joint positions of the arm.
 	CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
@@ -73,16 +73,16 @@ func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*commonpb.Pose
 	return r.actual.CurrentPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, c)
+	return r.actual.MoveToPosition(ctx, pose)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToJointPositions(ctx, pos)
+	return r.actual.MoveToJointPositions(ctx, positionDegs)
 }
 
 func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {

@@ -80,7 +80,7 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
+	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
@@ -92,5 +92,5 @@ func (s *subtypeServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
+	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
 }

@@ -81,18 +81,18 @@ func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return resp.Position, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.ArmServiceMoveToPositionRequest{
 		Name: c.name,
-		To:   pos,
+		Pose: pose,
 	})
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmServiceMoveToJointPositionsRequest{
-		Name: c.name,
-		To:   pos,
+		Name:         c.name,
+		PositionDegs: positionDegs,
 	})
 	return err
 }
