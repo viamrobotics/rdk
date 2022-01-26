@@ -123,7 +123,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			return
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		opt = DefaultConstraint(seedPos, goalPos, opt)
+		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)

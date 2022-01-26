@@ -70,7 +70,7 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 // the start and goal poses.
 // For example- if a user requests a translation, orientation will not change during the movement. If there is an obstacle, deflection
 // from the ideal path is allowed as a function of the length of the ideal path.
-func DefaultConstraint(from, to spatial.Pose, opt *PlannerOptions) *PlannerOptions {
+func DefaultConstraint(from, to spatial.Pose, f referenceframe.Frame, opt *PlannerOptions) *PlannerOptions {
 	pathDist := newDefaultMetric(from, to)
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
@@ -86,6 +86,25 @@ func DefaultConstraint(from, to spatial.Pose, opt *PlannerOptions) *PlannerOptio
 	}
 	opt.pathDist = pathDist
 	opt.AddConstraint(defaultMotionConstraint, validFunc)
+	
+	// Add self-collision check if available
+	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
+	dof := len(f.DoF())
+	zeroInput := make([]referenceframe.Input, 0, dof)
+	for i := 0; i < dof; i++ {
+		zeroInput = append(zeroInput, referenceframe.Input{0})
+	}
+	zeroVols, err := f.Volumes(zeroInput)
+	if zeroVols == nil && err != nil {
+		// No collision avoidance available
+		return opt
+	}
+	zeroCG, err := CheckCollisions(zeroVols)
+	if zeroCG == nil || err != nil {
+		// No collision avoidance available
+		return opt
+	}
+	opt.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
 	return opt
 }
 
@@ -229,8 +248,15 @@ IK:
 				step,
 				f,
 			})
+			endPass, _ := opt.CheckConstraints(&ConstraintInput{
+				goalPos,
+				goalPos,
+				step,
+				step,
+				f,
+			})
 
-			if cPass {
+			if cPass && endPass {
 				if cScore < opt.minScore && opt.minScore > 0 {
 					solutions = map[float64][]referenceframe.Input{}
 					solutions[cScore] = step
