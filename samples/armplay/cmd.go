@@ -132,7 +132,7 @@ func play(ctx context.Context, r robot.Robot) error {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
-	start, err := arm.CurrentJointPositions(ctx)
+	start, err := arm.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}

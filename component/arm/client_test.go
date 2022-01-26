@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
 	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 		return jointPos1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -60,7 +60,7 @@ func TestClient(t *testing.T) {
 	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.CurrentJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -98,7 +98,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
 
-		jointPos, err := arm1Client.CurrentJointPositions(context.Background())
+		jointPos, err := arm1Client.GetJointPositions(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
 

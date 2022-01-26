@@ -22,8 +22,8 @@ type ArmServiceClient interface {
 	CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
-	CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error)
+	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
+	GetJointPositions(ctx context.Context, in *ArmServiceGetJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceGetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(ctx context.Context, in *ArmServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceMoveToJointPositionsResponse, error)
 }
@@ -54,9 +54,9 @@ func (c *armServiceClient) MoveToPosition(ctx context.Context, in *ArmServiceMov
 	return out, nil
 }
 
-func (c *armServiceClient) CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error) {
-	out := new(ArmServiceCurrentJointPositionsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/CurrentJointPositions", in, out, opts...)
+func (c *armServiceClient) GetJointPositions(ctx context.Context, in *ArmServiceGetJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceGetJointPositionsResponse, error) {
+	out := new(ArmServiceGetJointPositionsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/GetJointPositions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -80,8 +80,8 @@ type ArmServiceServer interface {
 	CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
-	CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error)
+	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
+	GetJointPositions(context.Context, *ArmServiceGetJointPositionsRequest) (*ArmServiceGetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
@@ -97,8 +97,8 @@ func (UnimplementedArmServiceServer) CurrentPosition(context.Context, *ArmServic
 func (UnimplementedArmServiceServer) MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToPosition not implemented")
 }
-func (UnimplementedArmServiceServer) CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CurrentJointPositions not implemented")
+func (UnimplementedArmServiceServer) GetJointPositions(context.Context, *ArmServiceGetJointPositionsRequest) (*ArmServiceGetJointPositionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetJointPositions not implemented")
 }
 func (UnimplementedArmServiceServer) MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
@@ -152,20 +152,20 @@ func _ArmService_MoveToPosition_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ArmService_CurrentJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceCurrentJointPositionsRequest)
+func _ArmService_GetJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmServiceGetJointPositionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ArmServiceServer).CurrentJointPositions(ctx, in)
+		return srv.(ArmServiceServer).GetJointPositions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/CurrentJointPositions",
+		FullMethod: "/proto.api.component.v1.ArmService/GetJointPositions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).CurrentJointPositions(ctx, req.(*ArmServiceCurrentJointPositionsRequest))
+		return srv.(ArmServiceServer).GetJointPositions(ctx, req.(*ArmServiceGetJointPositionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -204,8 +204,8 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _ArmService_MoveToPosition_Handler,
 		},
 		{
-			MethodName: "CurrentJointPositions",
-			Handler:    _ArmService_CurrentJointPositions_Handler,
+			MethodName: "GetJointPositions",
+			Handler:    _ArmService_GetJointPositions_Handler,
 		},
 		{
 			MethodName: "MoveToJointPositions",

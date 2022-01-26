@@ -236,7 +236,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 }
 
 func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
-	joints, err := myArm.CurrentJointPositions(ctx)
+	joints, err := myArm.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}

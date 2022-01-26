@@ -54,21 +54,21 @@ func (s *subtypeServer) CurrentPosition(
 	return &pb.ArmServiceCurrentPositionResponse{Position: convertedPos}, nil
 }
 
-// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *subtypeServer) CurrentJointPositions(
+// GetJointPositions gets the current joint position of an arm of the underlying robot.
+func (s *subtypeServer) GetJointPositions(
 	ctx context.Context,
-	req *pb.ArmServiceCurrentJointPositionsRequest,
-) (*pb.ArmServiceCurrentJointPositionsResponse, error) {
+	req *pb.ArmServiceGetJointPositionsRequest,
+) (*pb.ArmServiceGetJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentJointPositions(ctx)
+	pos, err := arm.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
-	return &pb.ArmServiceCurrentJointPositionsResponse{Positions: convertedPos}, nil
+	return &pb.ArmServiceGetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.

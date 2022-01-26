@@ -44,7 +44,7 @@ func TestServer(t *testing.T) {
 	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return positionDegs1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -63,7 +63,7 @@ func TestServer(t *testing.T) {
 	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose2, nil
 	}
-	injectArm2.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return positionDegs2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
@@ -110,17 +110,17 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
-		_, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: "a4"})
+		_, err := armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: "a4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		resp, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm1})
+		resp, err := armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.String(), test.ShouldResemble, positionDegs1.String())
+		test.That(t, resp.PositionDegs.String(), test.ShouldResemble, positionDegs1.String())
 
-		resp, err = armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm2})
+		resp, err = armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: arm2})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.String(), test.ShouldResemble, positionDegs2.String())
+		test.That(t, resp.PositionDegs.String(), test.ShouldResemble, positionDegs2.String())
 	})
 
 	//nolint:dupl

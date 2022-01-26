@@ -79,14 +79,14 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPosit
 	return nil
 }
 
-// CurrentJointPositions returns the set joints.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns the set joints.
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return a.joints, nil
 }
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

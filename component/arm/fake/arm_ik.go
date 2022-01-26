@@ -76,7 +76,7 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 
 // CurrentPosition returns the set position.
 func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition sets the position.
 func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -102,14 +102,14 @@ func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPos
 	return nil
 }
 
-// CurrentJointPositions returns the set joints.
-func (a *ArmIK) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns the set joints.
+func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return a.joints, nil
 }
 
 // CurrentInputs TODO.
 func (a *ArmIK) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -220,7 +220,7 @@ type armV1 struct {
 
 // CurrentPosition computes and returns the current cartesian position.
 func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func (a *armV1) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -261,7 +261,7 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJo
 		return errors.New("need exactly 2 joints")
 	}
 
-	cur, err := a.CurrentJointPositions(ctx)
+	cur, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -309,8 +309,8 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 	return j.positionToDegrees(pos), nil
 }
 
-// CurrentJointPositions TODO.
-func (a *armV1) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+// GetJointPositions TODO.
+func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	var e1, e2 error
 	joints := &componentpb.ArmJointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
@@ -325,7 +325,7 @@ func (a *armV1) ModelFrame() referenceframe.Model {
 }
 
 func (a *armV1) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
