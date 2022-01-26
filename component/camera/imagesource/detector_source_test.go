@@ -36,6 +36,7 @@ func BenchmarkSimpleDetectionSource(b *testing.B) {
 	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000}
 	detector, err := NewSimpleObjectDetector(source, cfg)
 	test.That(b, err, test.ShouldBeNil)
+	defer detector.Close()
 
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {

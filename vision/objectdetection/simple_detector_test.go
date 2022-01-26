@@ -35,8 +35,9 @@ func TestSimpleDetection(t *testing.T) {
 	f := NewAreaFilter(15000)
 
 	// Make the detection source
-	pipeline, err := NewSource(src, p, d, f)
+	pipeline, err := NewSource(src, p, d, f, 33.)
 	test.That(t, err, test.ShouldBeNil)
+	defer pipeline.Close()
 
 	// compare with expected bounding boxes
 	res, err := pipeline.NextResult(context.Background())
@@ -56,4 +57,5 @@ func TestSimpleDetection(t *testing.T) {
 	test.That(t, ovImg.GetXY(110, 330), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(963, 349), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(1129, 472), test.ShouldResemble, rimage.Red)
+
 }
