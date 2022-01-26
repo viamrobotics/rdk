@@ -74,8 +74,8 @@ func (a *ArmIK) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// CurrentPosition returns the set position.
-func (a *ArmIK) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition returns the set position.
+func (a *ArmIK) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

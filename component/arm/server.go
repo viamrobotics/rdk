@@ -35,23 +35,23 @@ func (s *subtypeServer) getArm(name string) (Arm, error) {
 	return arm, nil
 }
 
-// CurrentPosition returns the position of the arm specified.
-func (s *subtypeServer) CurrentPosition(
+// GetEndPosition returns the position of the arm specified.
+func (s *subtypeServer) GetEndPosition(
 	ctx context.Context,
-	req *pb.ArmServiceCurrentPositionRequest,
-) (*pb.ArmServiceCurrentPositionResponse, error) {
+	req *pb.ArmServiceGetEndPositionRequest,
+) (*pb.ArmServiceGetEndPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentPosition(ctx)
+	pos, err := arm.GetEndPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &commonpb.Pose{
 		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 	}
-	return &pb.ArmServiceCurrentPositionResponse{Position: convertedPos}, nil
+	return &pb.ArmServiceGetEndPositionResponse{Pose: convertedPos}, nil
 }
 
 // GetJointPositions gets the current joint position of an arm of the underlying robot.

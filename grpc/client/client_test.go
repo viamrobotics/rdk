@@ -258,7 +258,7 @@ func TestClient(t *testing.T) {
 	injectBase := &inject.Base{}
 
 	injectArm := &inject.Arm{}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
 		convertedPos := &commonpb.Pose{
 			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
@@ -490,7 +490,7 @@ func TestClient(t *testing.T) {
 
 	arm1, ok := client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = arm1.CurrentPosition(context.Background())
+	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -557,7 +557,7 @@ func TestClient(t *testing.T) {
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -597,7 +597,7 @@ func TestClient(t *testing.T) {
 
 	arm1, ok = client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := arm1.CurrentPosition(context.Background())
+	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
@@ -651,7 +651,7 @@ func TestClient(t *testing.T) {
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 

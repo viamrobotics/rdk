@@ -224,8 +224,8 @@ func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, 
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition computes and returns the current cartesian position.
+func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err

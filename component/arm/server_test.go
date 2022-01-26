@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 	arm1 := "arm1"
 	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
 	positionDegs1 := &pb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
@@ -60,7 +60,7 @@ func TestServer(t *testing.T) {
 	arm2 := "arm2"
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	positionDegs2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
-	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose2, nil
 	}
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
@@ -77,21 +77,21 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("arm position", func(t *testing.T) {
-		_, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "a4"})
+		_, err := armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: "a4"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "arm3"})
+		_, err = armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: "arm3"})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an arm")
 
-		resp, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm1})
+		resp, err := armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: arm1})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position.String(), test.ShouldResemble, pose1.String())
+		test.That(t, resp.Pose.String(), test.ShouldResemble, pose1.String())
 
-		resp, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm2})
+		resp, err = armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: arm2})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position.String(), test.ShouldResemble, pose2.String())
+		test.That(t, resp.Pose.String(), test.ShouldResemble, pose2.String())
 	})
 
 	//nolint:dupl
