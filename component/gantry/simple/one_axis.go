@@ -180,21 +180,21 @@ func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
 }
 
 // position is in meters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positions)
+func (g *oneAxis) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	if len(positionsMm) != 1 {
+		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positionsMm)
 	}
 
-	if positions[0] < 0 || positions[0] > g.lengthMeters {
-		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positions[0], g.lengthMeters)
+	if positionsMm[0] < 0 || positionsMm[0] > g.lengthMeters {
+		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positionsMm[0], g.lengthMeters)
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 
-	x := positions[0] / g.lengthMeters
+	x := positionsMm[0] / g.lengthMeters
 	x = g.positionLimits[0] + (x * theRange)
 
-	g.logger.Debugf("oneAxis SetPosition %v -> %v", positions[0], x)
+	g.logger.Debugf("oneAxis SetPosition %v -> %v", positionsMm[0], x)
 
 	return g.motor.GoTo(ctx, g.rpm, x)
 }

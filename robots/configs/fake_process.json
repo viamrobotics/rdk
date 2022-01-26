@@ -91,6 +91,11 @@
             "model": "fake"
         },
         {
+            "name": "gantry1",
+            "type": "gantry",
+            "model": "fake"
+        },
+        {
             "name": "sensor1",
             "type": "sensor",
             "model": "fake"

@@ -208,7 +208,7 @@
 
                       const req = new gantryApi.GantryServiceMoveToPositionRequest();
                       req.setName(name);
-                      req.setPositionsList(pos);
+                      req.setPositionsMmList(pos);
                       gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armGridInc : function(name, getterSetter, amount) {
@@ -1357,7 +1357,7 @@
               <button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</button>
               <button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</button>
             </td>
-            <td>${pp.pos}</td>
+            <td>${pp.pos.toFixed(2)}</td>
             <td>${pp.length}</td>
           </tr>
         </table>

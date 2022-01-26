@@ -66,7 +66,7 @@ func (s *subtypeServer) Lengths(
 	return &pb.GantryServiceLengthsResponse{Lengths: lengths}, nil
 }
 
-// MoveToPosition returns the position of the gantry specified.
+// MoveToPosition moves the gantry to the position specified.
 func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
 	req *pb.GantryServiceMoveToPositionRequest,
@@ -75,5 +75,5 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.Positions)
+	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm)
 }

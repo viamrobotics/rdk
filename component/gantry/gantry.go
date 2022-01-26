@@ -33,7 +33,7 @@ type Gantry interface {
 	CurrentPosition(ctx context.Context) ([]float64, error)
 
 	// MoveToPosition is in meters
-	MoveToPosition(ctx context.Context, positions []float64) error
+	MoveToPosition(ctx context.Context, positionsMm []float64) error
 
 	// Lengths is the length of gantries in meters
 	Lengths(ctx context.Context) ([]float64, error)
@@ -80,10 +80,10 @@ func (g *reconfigurableGantry) Lengths(ctx context.Context) ([]float64, error) {
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positions []float64) error {
+func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positions)
+	return g.actual.MoveToPosition(ctx, positionsMm)
 }
 
 // Reconfigure reconfigures the resource.

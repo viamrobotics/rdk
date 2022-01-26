@@ -41,7 +41,7 @@ message GantryServiceCurrentPositionResponse {
 
 message GantryServiceMoveToPositionRequest {
   string name = 1;
-  repeated double positions = 2;
+  repeated double positions_mm = 2;
 }
 
 message GantryServiceMoveToPositionResponse {}
