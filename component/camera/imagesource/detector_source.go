@@ -49,7 +49,7 @@ func init() {
 }
 
 // NewSimpleObjectDetector creates a simple detector from a source camera component in the config and user defined attributes.
-func NewSimpleObjectDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*camera.ImageSource, error) {
+func NewSimpleObjectDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*objectdetection.Source, error) {
 	threshold := 10.0 // default value
 	if attrs.Threshold != 0. {
 		threshold = attrs.Threshold
@@ -64,9 +64,10 @@ func NewSimpleObjectDetector(src gostream.ImageSource, attrs *rimage.AttrConfig)
 	}
 	d := objectdetection.NewSimpleDetector(threshold)
 	f := objectdetection.NewAreaFilter(segmentSize)
-	detectorSource, err := objectdetection.NewSource(src, p, d, f)
+	detectorSource, err := objectdetection.NewSource(src, p, d, f, 33.)
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: detectorSource}, nil
+	//return &camera.ImageSource{ImageSource: detectorSource}, nil
+	return detectorSource, nil
 }
