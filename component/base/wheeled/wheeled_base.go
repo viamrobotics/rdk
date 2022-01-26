@@ -64,10 +64,10 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Send motor commands
 	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+		err = multierr.Combine(err, m.GoFor(ctx, -rpm, revolutions))
 	}
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, -1*rpm, revolutions))
+		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
 	}
 
 	if err != nil {
@@ -159,7 +159,7 @@ func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg floa
 	// Spin the base if the distance is 0
 	if distanceMm == 0 {
 		rpm, revolutions := base.spinMath(angleDeg, mmPerSec)
-		rpms := []float64{rpm, -1 * rpm}
+		rpms := []float64{-rpm, rpm}
 		rots := []float64{revolutions, revolutions}
 
 		return rpms, rots
@@ -176,10 +176,10 @@ func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg floa
 	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
 	l := float64(base.widthMm)
 
-	degsPerSec := angleDeg / 10 /// t
+	degsPerSec := angleDeg / t
 	w0 := degsPerSec / 180 * math.Pi
-	wL := (v / r) + (l * w0 / (2 * r))
-	wR := (v / r) - (l * w0 / (2 * r))
+	wL := (v / r) - (l * w0 / (2 * r))
+	wR := (v / r) + (l * w0 / (2 * r))
 
 	// Calculate # of rotations
 	rotL := wL * t / (2 * math.Pi)
