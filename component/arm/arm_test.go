@@ -118,10 +118,6 @@ func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositi
 	return &pb.ArmJointPositions{}, nil
 }
 
-func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return nil
-}
-
 func (m *mockArm) ModelFrame() referenceframe.Model {
 	return nil
 }

@@ -506,10 +506,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.JointMoveDelta(context.Background(), 0, 0)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
 	gripper1, ok := client.GripperByName("gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
@@ -574,10 +570,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-	err = resource1.(arm.Arm).JointMoveDelta(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 

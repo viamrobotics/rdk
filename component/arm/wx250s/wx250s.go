@@ -175,11 +175,6 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions,
 	return &pb.ArmJointPositions{}, nil
 }
 
-// JointMoveDelta TODO.
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
-}
-
 // Close will get the arm ready to be turned off.
 func (a *Arm) Close() {
 	// First, check if we are approximately in the sleep position

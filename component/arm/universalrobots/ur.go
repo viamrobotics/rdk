@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -251,26 +250,6 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
 	return arm.GoToWaypoints(ctx, ua, solution)
-}
-
-// JointMoveDelta TODO.
-func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	if joint < 0 || joint > 5 {
-		return errors.New("invalid joint")
-	}
-
-	radians := []float64{}
-	state, err := ua.State()
-	if err != nil {
-		return err
-	}
-	for _, j := range state.Joints {
-		radians = append(radians, j.Qactual)
-	}
-
-	radians[joint] += utils.DegToRad(amountDegs)
-
-	return ua.MoveToJointPositionRadians(ctx, radians)
 }
 
 // MoveToJointPositions TODO.

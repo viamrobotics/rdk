@@ -34,10 +34,8 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
-		capArmPos           *commonpb.Pose
-		capArmJointPos      *pb.ArmJointPositions
-		capArmJoint         int
-		capArmJointAngleDeg float64
+		capArmPos      *commonpb.Pose
+		capArmJointPos *pb.ArmJointPositions
 	)
 
 	arm1 := "arm1"
@@ -59,12 +57,6 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
-		return nil
-	}
-
 	arm2 := "arm2"
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
@@ -81,12 +73,6 @@ func TestServer(t *testing.T) {
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
 		capArmJointPos = jp
-		return nil
-	}
-
-	injectArm2.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
 		return nil
 	}
 
@@ -150,21 +136,5 @@ func TestServer(t *testing.T) {
 		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm2, To: jointPos1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos1.String())
-	})
-
-	t.Run("joint move delta", func(t *testing.T) {
-		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: "a4", Joint: 10, AmountDegs: 5.5})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-		_, err := armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm1, Joint: 10, AmountDegs: 5.5})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 10)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 5.5)
-
-		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm2, Joint: 11, AmountDegs: 6.6})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 11)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 6.6)
 	})
 }

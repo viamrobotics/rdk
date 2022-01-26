@@ -320,22 +320,6 @@ func (a *armV1) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJoin
 	return joints, multierr.Combine(e1, e2)
 }
 
-// JointMoveDelta TODO.
-func (a *armV1) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	joints, err := a.CurrentJointPositions(ctx)
-	if err != nil {
-		return err
-	}
-
-	if joint >= len(joints.Degrees) {
-		return errors.Errorf("invalid joint number (%d) len: %d", joint, len(joints.Degrees))
-	}
-
-	joints.Degrees[joint] += amountDegs
-
-	return a.MoveToJointPositions(ctx, joints)
-}
-
 func (a *armV1) ModelFrame() referenceframe.Model {
 	return a.model
 }

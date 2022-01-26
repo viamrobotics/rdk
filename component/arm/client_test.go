@@ -29,10 +29,8 @@ func TestClient(t *testing.T) {
 	gServer1 := grpc.NewServer()
 
 	var (
-		capArmPos           *commonpb.Pose
-		capArmJointPos      *componentpb.ArmJointPositions
-		capArmJoint         int
-		capArmJointAngleDeg float64
+		capArmPos      *commonpb.Pose
+		capArmJointPos *componentpb.ArmJointPositions
 	)
 
 	arm1 := "arm1"
@@ -55,12 +53,6 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
-		return nil
-	}
-
 	arm2 := "arm2"
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &componentpb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
@@ -78,12 +70,6 @@ func TestClient(t *testing.T) {
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
 		capArmJointPos = jp
-		return nil
-	}
-
-	injectArm2.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
 		return nil
 	}
 
@@ -123,11 +109,6 @@ func TestClient(t *testing.T) {
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
-
-		err = arm1Client.JointMoveDelta(context.Background(), 10, 7.0)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 10)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 7.0)
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {

@@ -94,16 +94,3 @@ func (s *subtypeServer) MoveToJointPositions(
 	}
 	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
 }
-
-// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-func (s *subtypeServer) JointMoveDelta(
-	ctx context.Context,
-	req *pb.ArmServiceJointMoveDeltaRequest,
-) (*pb.ArmServiceJointMoveDeltaResponse, error) {
-	arm, err := s.getArm(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ArmServiceJointMoveDeltaResponse{}, arm.JointMoveDelta(ctx, int(req.Joint), req.AmountDegs)
-}

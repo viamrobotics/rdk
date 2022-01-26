@@ -259,11 +259,6 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 	return joints[joint-1].toDegrees(int(res)), nil
 }
 
-// JointMoveDelta moves a specific joint of the arm by the given amount.
-func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("yahboom dofBot doesn't support JointMoveDelta")
-}
-
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
 func (a *dofBot) ModelFrame() referenceframe.Model {
 	return a.model

@@ -84,11 +84,6 @@ func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions,
 	return a.joints, nil
 }
 
-// JointMoveDelta returns an error.
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("arm JointMoveDelta does nothing")
-}
-
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := a.CurrentJointPositions(ctx)
