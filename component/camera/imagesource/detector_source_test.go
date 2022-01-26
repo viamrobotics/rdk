@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/objectdetection"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
-
-	"go.viam.com/rdk/rimage"
 )
 
 func TestSimpleDetectionSource(t *testing.T) {
@@ -16,8 +16,9 @@ func TestSimpleDetectionSource(t *testing.T) {
 	source := &staticSource{img}
 
 	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000, Fps: 30}
-	detector, err := NewSimpleObjectDetector(source, cfg)
+	cameraSource, err := NewSimpleObjectDetector(source, cfg)
 	test.That(t, err, test.ShouldBeNil)
+	detector := cameraSource.ImageSource.(*objectdetection.Source)
 	defer detector.Close()
 
 	resImg, _, err := detector.Next(context.Background())
@@ -35,8 +36,9 @@ func BenchmarkSimpleDetectionSource(b *testing.B) {
 	source := &staticSource{img}
 
 	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000, Fps: 30}
-	detector, err := NewSimpleObjectDetector(source, cfg)
+	cameraSource, err := NewSimpleObjectDetector(source, cfg)
 	test.That(b, err, test.ShouldBeNil)
+	detector := cameraSource.ImageSource.(*objectdetection.Source)
 	defer detector.Close()
 
 	// begin benchmarking
