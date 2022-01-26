@@ -78,7 +78,7 @@ func (sd *simpleDetector) getNeighbors(pt image.Point, img *rimage.Image, seen [
 	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
 	for _, p := range fourPoints {
 		indx := p.Y*bounds.Dx() + p.X
-		if seen[indx] || !p.In(bounds) {
+		if !p.In(bounds) || seen[indx] {
 			continue
 		}
 		if sd.pass(img.Get(p)) {
