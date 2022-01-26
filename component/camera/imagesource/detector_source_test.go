@@ -27,3 +27,18 @@ func TestSimpleDetectionSource(t *testing.T) {
 	test.That(t, ovImg.GetXY(963, 349), test.ShouldResemble, rimage.Red)
 	test.That(t, ovImg.GetXY(1129, 472), test.ShouldResemble, rimage.Red)
 }
+
+func BenchmarkSimpleDetectionSource(b *testing.B) {
+	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	test.That(b, err, test.ShouldBeNil)
+	source := &staticSource{img}
+
+	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000}
+	detector, err := NewSimpleObjectDetector(source, cfg)
+	test.That(b, err, test.ShouldBeNil)
+
+	// begin benchmarking
+	for i := 0; i < b.N; i++ {
+		_, _, _ = detector.Next(context.Background())
+	}
+}
