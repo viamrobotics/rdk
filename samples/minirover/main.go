@@ -338,7 +338,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	options := web.NewOptions()
-	options.AutoTile = false
 	options.Pprof = true
 	return webserver.RunWeb(ctx, myRobot, options, logger)
 }
