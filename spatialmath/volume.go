@@ -51,7 +51,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 		return nil, err
 	}
 	pt := config.TranslationOffset.ParseConfig()
-	offset := Compose(NewPoseFromOrientation(r3.Vector{0,0,0}, orientation), NewPoseFromPoint(pt))
+	offset := Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, orientation), NewPoseFromPoint(pt))
 
 	switch config.Type {
 	case "box":
