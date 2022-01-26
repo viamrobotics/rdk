@@ -78,11 +78,9 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			if err != nil {
 				return nil, err
 			}
-			ov := orientation.OrientationVectorRadians()
 			pt := link.Translation.ParseConfig()
-			pose := spatial.NewPoseFromOrientationVector(pt, ov)
-			offset := spatial.Invert(spatial.NewPoseFromOrientation(pt.Mul(0.5), ov))
-			volumeCreator, err := link.Volume.ParseConfig(offset)
+			pose := spatial.NewPoseFromOrientation(pt, orientation)
+			volumeCreator, err := link.Volume.ParseConfig()
 			if err == nil {
 				transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
 			} else {
