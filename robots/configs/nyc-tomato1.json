@@ -13,11 +13,6 @@
             "model" : "simpleoneaxis",
             "attributes" : {
                 "motor" : "linear",
-                "axis" : {
-                    "x" : 1, 
-                    "y" : 0,
-                    "z" : 0
-                },
                 "limitPins" : [ "io17", "io18"],
                 "limitBoard" : "local",
                 "limitHigh" : false,
