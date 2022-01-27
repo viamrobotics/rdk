@@ -15,13 +15,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	testSensorName    = "sensor1"
-	failSensorName    = "sensor2"
-	fakeSensorName    = "sensor3"
-	missingSensorName = "sensor4"
-)
-
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
 	injectSensor2 := &inject.Sensor{}

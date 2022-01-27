@@ -29,15 +29,15 @@ func TestClient(t *testing.T) {
 
 	rs := []interface{}{1.1, 2.2}
 
-	sensor1 := "sensor1"
 	injectSensor := &inject.Sensor{}
 	injectSensor.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
 
-	sensor2 := "sensor2"
 	injectSensor2 := &inject.Sensor{}
 	injectSensor2.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
 
-	sensorSvc, err := subtype.New((map[resource.Name]interface{}{sensor.Named(sensor1): injectSensor, sensor.Named(sensor2): injectSensor2}))
+	sensorSvc, err := subtype.New(
+		(map[resource.Name]interface{}{sensor.Named(testSensorName): injectSensor, sensor.Named(testSensorName2): injectSensor2}),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterSensorServiceServer(gServer, sensor.NewServer(sensorSvc))
 
@@ -48,14 +48,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = sensor.NewClient(cancelCtx, sensor1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = sensor.NewClient(cancelCtx, testSensorName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("Sensor client 1", func(t *testing.T) {
 		// working
-		sensor1Client, err := sensor.NewClient(context.Background(), sensor1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		sensor1Client, err := sensor.NewClient(context.Background(), testSensorName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		rs1, err := sensor1Client.Readings(context.Background())
@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 	t.Run("Sensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		sensor2Client := sensor.NewClientFromConn(context.Background(), conn, sensor2, logger)
+		sensor2Client := sensor.NewClientFromConn(context.Background(), conn, testSensorName2, logger)
 
 		_, err = sensor2Client.Readings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
