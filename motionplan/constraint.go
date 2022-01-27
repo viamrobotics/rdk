@@ -128,6 +128,7 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 	return dist <= epsilon
 }
 
+// CollisionConstraintFromFrame takes a frame and will construct a self-collision constraint from it if available.
 func CollisionConstraintFromFrame(f referenceframe.Frame) Constraint {
 	// Add self-collision check if available
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
@@ -240,7 +241,7 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 	return func(o spatial.Orientation) float64 {
 		ov2 := o.OrientationVectorRadians()
 		acosInput := ov1.OX*ov2.OX + ov1.OY*ov2.OY + ov1.OZ*ov2.OZ
-		
+
 		// Account for floating point issues
 		if acosInput > 1.0 {
 			acosInput = 1.0
