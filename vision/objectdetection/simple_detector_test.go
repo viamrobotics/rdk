@@ -32,7 +32,7 @@ func TestSimpleDetection(t *testing.T) {
 	f := NewAreaFilter(15000)
 
 	// Make the detection source
-	pipeline, err := NewSource(src, p, d, f, 33.)
+	pipeline, err := NewSource(src, p, d, f)
 	test.That(t, err, test.ShouldBeNil)
 	defer pipeline.Close()
 

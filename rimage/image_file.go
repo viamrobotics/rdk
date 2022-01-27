@@ -101,6 +101,20 @@ func ConvertImage(img image.Image) *Image {
 	return ii
 }
 
+// CloneImage creates a copy of the input image.
+func CloneImage(img image.Image) image.Image {
+	ii, ok := img.(*Image)
+	if ok {
+		return ii.Clone()
+	}
+	iwd, ok := img.(*ImageWithDepth)
+	if ok {
+		return iwd.Clone()
+	}
+
+	return ConvertImage(img)
+}
+
 func fastConvertNRGBA(dst *Image, src *image.NRGBA) {
 	for y := 0; y < dst.height; y++ {
 		for x := 0; x < dst.width; x++ {

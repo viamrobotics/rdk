@@ -37,6 +37,11 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 	return i.Color.ColorModel()
 }
 
+// Clone makes a copy of the image with depth.
+func (i *ImageWithDepth) Clone() *ImageWithDepth {
+	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned, i.camera}
+}
+
 // At returns the color at the given point.
 // TODO(erh): alpha encode with depth.
 func (i *ImageWithDepth) At(x, y int) color.Color {

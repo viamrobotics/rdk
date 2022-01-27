@@ -77,6 +77,21 @@ func doCannyTest(t *testing.T, root string) {
 	test.That(t, goodOnes, test.ShouldNotEqual, 0)
 }
 
+func TestCloneImage(t *testing.T) {
+	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
+	test.That(t, err, test.ShouldBeNil)
+
+	i := ConvertImage(img)
+	ii := i.Clone()
+	for y := 0; y < i.Height(); y++ {
+		for x := 0; x < i.Width(); x++ {
+			test.That(t, ii.GetXY(x, y), test.ShouldResemble, i.GetXY(x, y))
+		}
+	}
+	ii.SetXY(0, 0, Red)
+	test.That(t, ii.GetXY(0, 0), test.ShouldNotResemble, i.GetXY(0, 0))
+}
+
 func BenchmarkConvertImage(b *testing.B) {
 	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
 	test.That(b, err, test.ShouldBeNil)

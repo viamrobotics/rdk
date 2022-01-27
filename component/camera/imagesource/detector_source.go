@@ -58,17 +58,13 @@ func NewSimpleObjectDetector(src gostream.ImageSource, attrs *rimage.AttrConfig)
 	if attrs.SegmentSize != 0 {
 		segmentSize = attrs.SegmentSize
 	}
-	fps := 33. // default value
-	if attrs.Fps != 0 {
-		fps = attrs.Fps
-	}
 	p, err := objectdetection.RemoveColorChannel("b")
 	if err != nil {
 		return nil, err
 	}
 	d := objectdetection.NewSimpleDetector(threshold)
 	f := objectdetection.NewAreaFilter(segmentSize)
-	detector, err := objectdetection.NewSource(src, p, d, f, fps)
+	detector, err := objectdetection.NewSource(src, p, d, f)
 	if err != nil {
 		return nil, err
 	}
