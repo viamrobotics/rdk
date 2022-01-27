@@ -10,7 +10,18 @@ import (
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/rimage"
 )
+
+// Result holds all useful information for the detector: contains the original image, the preprocessed image, and the final detections.
+type Result struct {
+	OriginalImage     image.Image
+	PreprocessedImage image.Image
+	Detections        []Detection
+	Release           func()
+	Err               error
+}
 
 // Source pulls an image from src and applies the detector pipeline to it, resulting in an image overlaid with detections.
 // Fulfills gostream.ImageSource interface.
@@ -21,13 +32,31 @@ type Source struct {
 	cancelFunc              func()
 }
 
-// Result holds all useful information for the detector: contains the original image, the preprocessed image, and the final detections.
-type Result struct {
-	OriginalImage     image.Image
-	PreprocessedImage image.Image
-	Detections        []Detection
-	Release           func()
-	Err               error
+// NewSource builds the pipeline from an input ImageSource, Preprocessor, Detector and  Filter.
+func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt Filter) (*Source, error) {
+	// fill optional functions with identity operators
+	if src == nil {
+		return nil, errors.New("object detection source must include an image source to pull from")
+	}
+	if prep == nil {
+		prep = func(img image.Image) image.Image { return img }
+	}
+	if det == nil {
+		det = func(img image.Image) ([]Detection, error) { return nil, nil }
+	}
+	if filt == nil {
+		filt = func(inp []Detection) []Detection { return inp }
+	}
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	s := &Source{
+		pipelineOutput: make(chan *Result),
+		cancelCtx:      cancelCtx,
+		cancelFunc:     cancel,
+	}
+
+	s.backgroundWorker(src, prep, det, filt)
+	return s, nil
 }
 
 func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, det Detector, filt Filter) {
@@ -40,7 +69,7 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, d
 			if r.Err != nil && errors.Is(r.Err, context.Canceled) {
 				return
 			}
-			r.PreprocessedImage = CopyImage(r.OriginalImage)
+			r.PreprocessedImage = rimage.CloneImage(r.OriginalImage)
 			r.PreprocessedImage = prep(r.PreprocessedImage)
 			r.Detections, r.Err = det(r.PreprocessedImage)
 			if r.Err == nil {
@@ -54,32 +83,6 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, d
 			}
 		}
 	}, s.activeBackgroundWorkers.Done)
-}
-
-// NewSource builds the pipeline from an input ImageSource, Preprocessor (optional), Detector (required) and  Filter (optional).
-func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt Filter, fps float64) (*Source, error) {
-	// fill optional functions with identity operators
-	if src == nil {
-		return nil, errors.New("object detection source must include an image source to pull from")
-	}
-	if prep == nil {
-		prep = func(img image.Image) image.Image { return img }
-	}
-	if det == nil {
-		return nil, errors.New("object detector function cannot be nil")
-	}
-	if filt == nil {
-		filt = func(inp []Detection) []Detection { return inp }
-	}
-	cancelCtx, cancel := context.WithCancel(context.Background())
-	s := &Source{
-		pipelineOutput: make(chan *Result),
-		cancelCtx:      cancelCtx,
-		cancelFunc:     cancel,
-	}
-
-	s.backgroundWorker(src, prep, det, filt)
-	return s, nil
 }
 
 // Close closes all the channels and threads.

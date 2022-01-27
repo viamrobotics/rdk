@@ -16,7 +16,7 @@ func TestSimpleDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := &staticSource{img}
 
-	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000, Fps: 30}
+	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000}
 	cameraSource, err := NewSimpleObjectDetector(source, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	detector := cameraSource.ImageSource.(*objectdetection.Source)
@@ -36,12 +36,13 @@ func BenchmarkSimpleDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	source := &staticSource{img}
 
-	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000, Fps: 30}
+	cfg := &rimage.AttrConfig{Threshold: 10.0, SegmentSize: 15000}
 	cameraSource, err := NewSimpleObjectDetector(source, cfg)
 	test.That(b, err, test.ShouldBeNil)
 	detector := cameraSource.ImageSource.(*objectdetection.Source)
 	defer detector.Close()
 
+	b.ResetTimer()
 	// begin benchmarking
 	for i := 0; i < b.N; i++ {
 		_, _, _ = detector.Next(context.Background())

@@ -11,11 +11,6 @@ import (
 // Preprocessor will apply processing to an input image before feeding it into the detector.
 type Preprocessor func(image.Image) image.Image
 
-// CopyImage is a Preprocessor that copies the input image so that the original image is not over-written.
-func CopyImage(img image.Image) image.Image {
-	return rimage.ConvertImage(img)
-}
-
 // RemoveColorChannel will set the requested channel color to 0 in every picture. only "R", "G", and "B" are allowed.
 func RemoveColorChannel(col string) (Preprocessor, error) {
 	switch col {
