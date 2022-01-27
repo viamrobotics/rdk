@@ -128,9 +128,9 @@ func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 	}, nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (a *myArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.CurrentJointPositions(ctx)
+// GetEndPosition computes and returns the current cartesian position.
+func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (a *myArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -168,8 +168,8 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositio
 	return a.WaitForMovement(ctx)
 }
 
-// CurrentJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
-func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
+func (a *myArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
 		return &pb.ArmJointPositions{}, err
@@ -181,11 +181,6 @@ func (a *myArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPosition
 	}
 
 	return &pb.ArmJointPositions{Degrees: positions}, nil
-}
-
-// JointMoveDelta TODO.
-func (a *myArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
 }
 
 // Close will get the arm ready to be turned off.
@@ -403,7 +398,7 @@ func (a *myArm) ModelFrame() referenceframe.Model {
 }
 
 func (a *myArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -9,8 +9,8 @@ import "proto/api/common/v1/common.proto";
 
 // An ArmService services maintains all arms associated with a robot
 service ArmService {
-  // CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-  rpc CurrentPosition(ArmServiceCurrentPositionRequest) returns (ArmServiceCurrentPositionResponse) {
+  // GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+  rpc GetEndPosition(ArmServiceGetEndPositionRequest) returns (ArmServiceGetEndPositionResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/arm/{name}/current_position"
     };  
@@ -23,8 +23,8 @@ service ArmService {
     };  
   }
 
-  // CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
-  rpc CurrentJointPositions(ArmServiceCurrentJointPositionsRequest) returns (ArmServiceCurrentJointPositionsResponse) {
+  // GetJointPositions lists the joint positions (in degrees) of every joint on a robot
+  rpc GetJointPositions(ArmServiceGetJointPositionsRequest) returns (ArmServiceGetJointPositionsResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/arm/{name}/current_joint_positions"
     };  
@@ -36,48 +36,40 @@ service ArmService {
       put: "/api/v1/component/arm/{name}/move_to_joint_positions"
     };  
   }
-
-  // JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-  rpc JointMoveDelta(ArmServiceJointMoveDeltaRequest) returns (ArmServiceJointMoveDeltaResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/component/arm/{name}/joint_move_delta"
-    };  
-  }
-
 }
 
 message ArmJointPositions {
   // A list of joint positions represented in degrees
   // The numbers are ordered spatially from the base toward the end effector
-  // This is used in ArmServiceCurrentJointPositionsResponse and ArmServiceMoveToJointPositionsRequest
+  // This is used in ArmServiceGetJointPositionsResponse and ArmServiceMoveToJointPositionsRequest
   repeated double degrees = 1;
 }
 
-message ArmServiceCurrentPositionRequest {
+message ArmServiceGetEndPositionRequest {
   // Name of an arm
   string name = 1;
 }
 
-message ArmServiceCurrentPositionResponse {
+message ArmServiceGetEndPositionResponse {
   // Returns 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
   // millimeters and theta, ox, oy, oz coordinates which express an orientation vector
-  common.v1.Pose position = 1;
+  common.v1.Pose pose = 1;
 }
 
-message ArmServiceCurrentJointPositionsRequest {
+message ArmServiceGetJointPositionsRequest {
   // Name of an arm
   string name = 1;
 }
 
-message ArmServiceCurrentJointPositionsResponse {
+message ArmServiceGetJointPositionsResponse {
   //a list ArmJointPositions
-  ArmJointPositions positions = 1;
+  ArmJointPositions position_degs = 1;
 }
 
 message ArmServiceMoveToPositionRequest {
   // Name of an arm
   string name = 1;
-  common.v1.Pose to = 2;
+  common.v1.Pose pose = 2;
 }
 
 message ArmServiceMoveToPositionResponse {}
@@ -87,18 +79,7 @@ message ArmServiceMoveToJointPositionsRequest {
   string name = 1;
   // A list of joint positions represented in degrees
   // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
-  ArmJointPositions to = 2;
+  ArmJointPositions position_degs = 2;
 }
 
 message ArmServiceMoveToJointPositionsResponse {}
-
-message ArmServiceJointMoveDeltaRequest {
-  // Name of an arm
-  string name = 1;
-  // To specify a joint, refer to base as 0 and count forwards up to the end effector
-  int32 joint = 2;
-  // Specify degrees, can be positive or negative
-  double amount_degs = 3;
-}
-
-message ArmServiceJointMoveDeltaResponse {}

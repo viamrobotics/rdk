@@ -62,8 +62,8 @@ func (a *Arm) ModelFrame() referenceframe.Model {
 	return a.model
 }
 
-// CurrentPosition returns the set position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+// GetEndPosition returns the set position.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return a.position, nil
 }
 
@@ -79,19 +79,14 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPosit
 	return nil
 }
 
-// CurrentJointPositions returns the set joints.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns the set joints.
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return a.joints, nil
-}
-
-// JointMoveDelta returns an error.
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("arm JointMoveDelta does nothing")
 }
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
