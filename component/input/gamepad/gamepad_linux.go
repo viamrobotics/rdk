@@ -347,8 +347,10 @@ func (g *gamepad) connectDev(ctx context.Context) error {
 func (g *gamepad) Close() {
 	g.cancelFunc()
 	g.activeBackgroundWorkers.Wait()
-	if err := g.dev.Close(); err != nil {
-		g.logger.Error(err)
+	if g.dev != nil {
+		if err := g.dev.Close(); err != nil {
+			g.logger.Error(err)
+		}
 	}
 }
 

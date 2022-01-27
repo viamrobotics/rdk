@@ -31,7 +31,7 @@ func init() {
 		Constructor: func(
 			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateFourWheelBase(ctx, r, config, logger)
+			return CreateWheeledBase(ctx, r, config, logger)
 		},
 	}
 	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
