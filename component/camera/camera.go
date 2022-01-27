@@ -42,6 +42,11 @@ type ImageSource struct {
 	gostream.ImageSource
 }
 
+// Close closes the camera channel.
+func (is *ImageSource) Close(ctx context.Context) error {
+	return viamutils.TryClose(ctx, is.ImageSource)
+}
+
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c, ok := is.ImageSource.(Camera); ok {
