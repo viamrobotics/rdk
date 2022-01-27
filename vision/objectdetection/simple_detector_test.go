@@ -24,11 +24,8 @@ func TestSimpleDetection(t *testing.T) {
 	// make the original source
 	src := &simpleSource{artifact.MustPath("vision/objectdetection/detection_test.jpg")}
 	// make the preprocessing function
-	rb, err := RemoveColorChannel("b")
+	p, err := RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)
-	p := func(img image.Image) image.Image {
-		return rb(CopyImage(img))
-	}
 	// make the detector
 	d := NewSimpleDetector(10.)
 	// make the filter

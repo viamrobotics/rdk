@@ -22,7 +22,7 @@ func Overlay(img image.Image, dets []Detection) (image.Image, error) {
 	return rimg, nil
 }
 
-// OverlayText writes a string in the top of the image
+// OverlayText writes a string in the top of the image.
 func OverlayText(img image.Image, text string) image.Image {
 	gimg := gg.NewContextForImage(img)
 	rimage.DrawString(gimg, text, image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)

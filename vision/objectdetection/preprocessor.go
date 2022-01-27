@@ -13,13 +13,7 @@ type Preprocessor func(image.Image) image.Image
 
 // CopyImage is a Preprocessor that copies the input image so that the original image is not over-written.
 func CopyImage(img image.Image) image.Image {
-	rimg := rimage.NewImage(img.Bounds().Dx(), img.Bounds().Dy())
-	for y := 0; y < rimg.Height(); y++ {
-		for x := 0; x < rimg.Width(); x++ {
-			rimg.SetXY(x, y, rimage.NewColorFromColor(img.At(x, y)))
-		}
-	}
-	return rimg
+	return rimage.ConvertImage(img)
 }
 
 // RemoveColorChannel will set the requested channel color to 0 in every picture. only "R", "G", and "B" are allowed.

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -91,15 +92,17 @@ func pipeline(src gostream.ImageSource, thresh, fps float64, size int, logger go
 	defer pipe.Close()
 	// run forever
 	for {
+		start := time.Now()
 		result, err := pipe.NextResult(context.Background())
 		if err != nil {
 			logger.Fatal(err)
 		}
+		duration := time.Since(start)
 		for i, bb := range result.Detections {
 			box := bb.BoundingBox()
 			logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, box.Min.X, box.Min.Y, box.Max.X, box.Max.Y)
 		}
-		logger.Infof("FPS: %.2f", pipe.FPS())
+		logger.Infof("FPS: %.2f", 1./duration.Seconds())
 		ovImg, err := objectdetection.Overlay(result.OriginalImage, result.Detections)
 		if err != nil {
 			logger.Fatal(err)
