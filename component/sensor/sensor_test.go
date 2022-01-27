@@ -1,17 +1,70 @@
-package sensor
+package sensor_test
 
 import (
 	"context"
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
 
-func TestFromRobot(t *testing.T) {}
+const (
+	testSensorName    = "sensor1"
+	testSensorName2   = "sensor2"
+	failSensorName    = "sensor3"
+	fakeSensorName    = "sensor4"
+	missingSensorName = "sensor5"
+)
 
-func TestNamesFromRobot(t *testing.T) {}
+func setupInjectRobot() *inject.Robot {
+	sensor1 := &mock{Name: testSensorName}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		if name == sensor.Named(testSensorName) {
+			return sensor1, true
+		} else if name == sensor.Named(testSensorName2) {
+			return "not a sensor", false
+		} else {
+			return nil, false
+		}
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{sensor.Named(testSensorName), arm.Named("arm1")}
+	}
+	return r
+}
+
+func TestFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	s, ok := sensor.FromRobot(r, testSensorName)
+	test.That(t, s, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	result, err := s.Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, []interface{}{reading})
+
+	s, ok = sensor.FromRobot(r, testSensorName2)
+	test.That(t, s, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	s, ok = sensor.FromRobot(r, fakeSensorName)
+	test.That(t, s, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestNamesFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	names := sensor.NamesFromRobot(r)
+	test.That(t, names, test.ShouldResemble, []string{testSensorName})
+}
 
 func TestSensorName(t *testing.T) {
 	for _, tc := range []struct {
@@ -26,91 +79,97 @@ func TestSensorName(t *testing.T) {
 				UUID: "0434a3a1-3bf4-5f98-8ca7-3bee0487f970",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: sensor.SubtypeName,
 				},
 				Name: "",
 			},
 		},
 		{
 			"all fields included",
-			"sensor1",
+			testSensorName,
 			resource.Name{
 				UUID: "abfe61a0-61ed-523e-9793-f0d5dded2915",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: sensor.SubtypeName,
 				},
-				Name: "sensor1",
+				Name: testSensorName,
 			},
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := Named(tc.Name)
+			observed := sensor.Named(tc.Name)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	actualSensor1 := &mock{Name: "sensor1"}
-	reconfSensor1, err := WrapWithReconfigurable(actualSensor1)
+	actualSensor1 := &mock{Name: testSensorName}
+	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSensor1.(*reconfigurableSensor).actual, test.ShouldEqual, actualSensor1)
 
-	_, err = WrapWithReconfigurable(nil)
+	_, err = sensor.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
 
-	fakeSensor2, err := WrapWithReconfigurable(reconfSensor1)
+	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeSensor2, test.ShouldEqual, reconfSensor1)
+	test.That(t, reconfSensor2, test.ShouldEqual, reconfSensor1)
 }
 
 func TestReconfigurableSensor(t *testing.T) {
-	actualSensor1 := &mock{Name: "sensor1"}
-	reconfSensor1, err := WrapWithReconfigurable(actualSensor1)
+	actualSensor1 := &mock{Name: testSensorName}
+	reconfSensor1, err := sensor.WrapWithReconfigurable(actualSensor1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSensor1.(*reconfigurableSensor).actual, test.ShouldEqual, actualSensor1)
 
-	actualSensor2 := &mock{Name: "sensor2"}
-	fakeSensor2, err := WrapWithReconfigurable(actualSensor2)
+	actualSensor2 := &mock{Name: testSensorName2}
+	reconfSensor2, err := sensor.WrapWithReconfigurable(actualSensor2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 0)
 
-	err = reconfSensor1.(*reconfigurableSensor).Reconfigure(context.Background(), fakeSensor2)
+	err = reconfSensor1.Reconfigure(context.Background(), reconfSensor2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, reconfSensor1.(*reconfigurableSensor).actual, test.ShouldEqual, actualSensor2)
+	test.That(t, reconfSensor1, test.ShouldResemble, reconfSensor2)
 	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 1)
 
-	err = reconfSensor1.(*reconfigurableSensor).Reconfigure(context.Background(), nil)
+	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor2.readingsCalls, test.ShouldEqual, 0)
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, []interface{}{reading})
+	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor2.readingsCalls, test.ShouldEqual, 1)
+
+	err = reconfSensor1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Sensor")
 }
 
 func TestReadings(t *testing.T) {
-	actualSensor1 := &mock{Name: "sensor1"}
-	reconfSensor1, _ := WrapWithReconfigurable(actualSensor1)
+	actualSensor1 := &mock{Name: testSensorName}
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
 	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
-	result, err := reconfSensor1.(*reconfigurableSensor).Readings(context.Background())
+	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
 	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
-	actualSensor1 := &mock{Name: "sensor1"}
-	reconfSensor1, _ := WrapWithReconfigurable(actualSensor1)
+	actualSensor1 := &mock{Name: testSensorName}
+	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
 	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 0)
-	test.That(t, reconfSensor1.(*reconfigurableSensor).Close(context.Background()), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), reconfSensor1), test.ShouldBeNil)
 	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 1)
 }
 
 var reading = 1.5
 
 type mock struct {
-	Sensor
+	sensor.Sensor
 	Name          string
 	readingsCalls int
 	reconfCalls   int
