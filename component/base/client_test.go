@@ -26,18 +26,18 @@ func setupWorkingBase(
 	width int,
 ) {
 	workingBase.MoveStraightFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec float64, block bool,
 	) error {
-		argsReceived["MoveStraight"] = []interface{}{distanceMillis, millisPerSec, block}
+		argsReceived["MoveStraight"] = []interface{}{distanceMm, mmPerSec, block}
 		return nil
 	}
 
 	workingBase.MoveArcFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec, degsPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec, angleDeg float64, block bool,
 	) error {
-		argsReceived["MoveArc"] = []interface{}{distanceMillis, millisPerSec, degsPerSec, block}
+		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, angleDeg, block}
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func setupWorkingBase(
 		return nil
 	}
 
-	workingBase.WidthGetFunc = func(ctx context.Context) (int, error) {
+	workingBase.GetWidthFunc = func(ctx context.Context) (int, error) {
 		return width, nil
 	}
 }
@@ -62,13 +62,13 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 
 	brokenBase.MoveStraightFunc = func(
 		ctx context.Context,
-		distanceMillis int, millisPerSec float64,
+		distanceMm int, mmPerSec float64,
 		block bool) error {
 		return errors.New(errMsg)
 	}
 	brokenBase.MoveArcFunc = func(
-		ctx context.Context, distanceMillis int,
-		millisPerSec, degsPerSec float64, block bool,
+		ctx context.Context, distanceMm int,
+		mmPerSec, angleDeg float64, block bool,
 	) error {
 		return errors.New(errMsg)
 	}
@@ -81,7 +81,7 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	brokenBase.StopFunc = func(ctx context.Context) error {
 		return errors.New(errMsg)
 	}
-	brokenBase.WidthGetFunc = func(ctx context.Context) (int, error) {
+	brokenBase.GetWidthFunc = func(ctx context.Context) (int, error) {
 		return 0, errors.New(errMsg)
 	}
 	return errMsg
@@ -150,23 +150,19 @@ func TestClient(t *testing.T) {
 		distance := 42
 		mmPerSec := 42.0
 		degsPerSec := 42.0
+		angleDeg := 30.0
 		shouldBlock := true
 
-		expectedArgs := []interface{}{distance, mmPerSec, degsPerSec, shouldBlock}
-		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, degsPerSec, shouldBlock)
+		expectedArgs := []interface{}{distance, mmPerSec, angleDeg, shouldBlock}
+		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, angleDeg, shouldBlock)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, argsReceived["MoveArc"], test.ShouldResemble, expectedArgs)
 
-		angleDeg := 30.0
 		shouldBlock = false
 		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, shouldBlock)
 		test.That(t, err, test.ShouldBeNil)
 		expectedArgs = []interface{}{angleDeg, degsPerSec, shouldBlock}
 		test.That(t, argsReceived["Spin"], test.ShouldResemble, expectedArgs)
-
-		resultWidth, err := workingBaseClient2.WidthGet(context.Background())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resultWidth, test.ShouldEqual, expectedWidth)
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
@@ -185,10 +181,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		err = failingBaseClient.Stop(context.Background())
-		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
-
-		width, err := failingBaseClient.WidthGet(context.Background())
-		test.That(t, width, test.ShouldEqual, 0)
 		test.That(t, err.Error(), test.ShouldContainSubstring, brokenBaseErrMsg)
 
 		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)
