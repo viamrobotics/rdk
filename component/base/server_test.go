@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 		// on successful move arc
 		workingBase.MoveArcFunc = func(
 			ctx context.Context, distanceMm int,
-			mmPerSec, degsPerSec float64, block bool,
+			mmPerSec, angleDeg float64, block bool,
 		) error {
 			return nil
 		}
@@ -112,7 +112,7 @@ func TestServer(t *testing.T) {
 		errMsg := "move arc failed"
 		brokenBase.MoveArcFunc = func(
 			ctx context.Context, distanceMm int,
-			mmPerSec float64, degsPerSec float64, block bool,
+			mmPerSec float64, angleDeg float64, block bool,
 		) error {
 			return errors.New(errMsg)
 		}

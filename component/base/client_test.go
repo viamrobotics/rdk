@@ -35,9 +35,9 @@ func setupWorkingBase(
 
 	workingBase.MoveArcFunc = func(
 		ctx context.Context, distanceMm int,
-		mmPerSec, degsPerSec float64, block bool,
+		mmPerSec, angleDeg float64, block bool,
 	) error {
-		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, degsPerSec, block}
+		argsReceived["MoveArc"] = []interface{}{distanceMm, mmPerSec, angleDeg, block}
 		return nil
 	}
 
@@ -68,7 +68,7 @@ func setupBrokenBase(brokenBase *inject.Base) string {
 	}
 	brokenBase.MoveArcFunc = func(
 		ctx context.Context, distanceMm int,
-		mmPerSec, degsPerSec float64, block bool,
+		mmPerSec, angleDeg float64, block bool,
 	) error {
 		return errors.New(errMsg)
 	}
@@ -150,14 +150,14 @@ func TestClient(t *testing.T) {
 		distance := 42
 		mmPerSec := 42.0
 		degsPerSec := 42.0
+		angleDeg := 30.0
 		shouldBlock := true
 
-		expectedArgs := []interface{}{distance, mmPerSec, degsPerSec, shouldBlock}
-		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, degsPerSec, shouldBlock)
+		expectedArgs := []interface{}{distance, mmPerSec, angleDeg, shouldBlock}
+		err = workingBaseClient2.MoveArc(context.Background(), distance, mmPerSec, angleDeg, shouldBlock)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, argsReceived["MoveArc"], test.ShouldResemble, expectedArgs)
 
-		angleDeg := 30.0
 		shouldBlock = false
 		err = workingBaseClient2.Spin(context.Background(), angleDeg, degsPerSec, shouldBlock)
 		test.That(t, err, test.ShouldBeNil)

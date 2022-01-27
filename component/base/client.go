@@ -82,11 +82,11 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 	return nil
 }
 
-func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, degsPerSec float64, block bool) error {
+func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	_, err := c.client.MoveArc(ctx, &pb.BaseServiceMoveArcRequest{
 		Name:       c.name,
 		MmPerSec:   mmPerSec,
-		AngleDeg:   degsPerSec,
+		AngleDeg:   angleDeg,
 		DistanceMm: int64(distanceMm),
 		Block:      block,
 	})
