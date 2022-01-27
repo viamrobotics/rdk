@@ -94,13 +94,12 @@ func pipeline(src gostream.ImageSource, thresh, fps float64, size int, logger go
 		result, err := pipe.NextResult(context.Background())
 		if err != nil {
 			logger.Fatal(err)
-		} else {
-			logger.Info("Next detection:")
 		}
 		for i, bb := range result.Detections {
 			box := bb.BoundingBox()
 			logger.Infof("detection %d: upperLeft(%d, %d), lowerRight(%d,%d)", i, box.Min.X, box.Min.Y, box.Max.X, box.Max.Y)
 		}
+		logger.Infof("FPS: %.2f", pipe.FPS())
 		ovImg, err := objectdetection.Overlay(result.OriginalImage, result.Detections)
 		if err != nil {
 			logger.Fatal(err)
