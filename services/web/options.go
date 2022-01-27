@@ -5,9 +5,6 @@ import "go.viam.com/rdk/config"
 
 // Options are used for configuring the web server.
 type Options struct {
-	// AutoTitle turns on auto-tiling of any image sources added.
-	AutoTile bool
-
 	// Pprof turns on the pprof profiler accessible at /debug
 	Pprof bool
 
@@ -48,8 +45,7 @@ type Options struct {
 // web server run on port 8080.
 func NewOptions() Options {
 	return Options{
-		AutoTile: true,
-		Pprof:    false,
+		Pprof: false,
 		Network: config.NetworkConfig{
 			BindAddress: "localhost:8080",
 		},
