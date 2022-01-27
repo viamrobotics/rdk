@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -166,17 +165,6 @@ func (parts *robotParts) BoardNames() []string {
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
-}
-
-// SensorNames returns the names of all sensors in the parts.
-func (parts *robotParts) SensorNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == sensor.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.SensorNames)
 }
 
 // ServoNames returns the names of all servos in the parts.
@@ -533,26 +521,6 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.CameraByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// SensorByName returns the given sensor by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) SensorByName(name string) (sensor.Sensor, bool) {
-	rName := sensor.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(sensor.Sensor)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.SensorByName(name)
 		if ok {
 			return part, true
 		}

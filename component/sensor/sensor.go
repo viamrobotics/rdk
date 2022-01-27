@@ -5,12 +5,35 @@ import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.SensorService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterSensorServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "Sensor".
 const SubtypeName = resource.SubtypeName("sensor")
@@ -38,6 +61,27 @@ var (
 	_ = Sensor(&reconfigurableSensor{})
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
 )
+
+func FromRobot(r robot.Robot, name string) (Sensor, bool) {
+	s, ok := r.ResourceByName(Named(name))
+	if ok {
+		part, ok := s.(Sensor)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+func NamesFromRobot(r robot.Robot) []string {
+	names := []string{}
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == Subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return names
+}
 
 type reconfigurableSensor struct {
 	mu     sync.RWMutex
