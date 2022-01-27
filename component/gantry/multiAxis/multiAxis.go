@@ -93,8 +93,8 @@ func (g *multiAxis) ModelFrame() referenceframe.Model {
 }
 
 func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	for _, axis := range g.oA {
-		axis.MoveToPosition(ctx, positions)
+	for _, singleaxis := range g.oA {
+		singleaxis.MoveToPosition(ctx, positions)
 	}
 	return nil
 }
@@ -107,8 +107,8 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	posOut := []float64{}
-	for idx, axis := range g.oA {
-		pos, err := axis.CurrentPosition(ctx)
+	for idx, singleax := range g.oA {
+		pos, err := singleax.CurrentPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -119,8 +119,8 @@ func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 
 func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
 	lengthsOut := []float64{}
-	for _, axis := range g.oA {
-		length, err := axis.Lengths(ctx)
+	for _, singleax := range g.oA {
+		length, err := singleax.Lengths(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -130,9 +130,14 @@ func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
 }
 
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.oA[0].CurrentPosition(ctx)
-	if err != nil {
-		return nil, err
+	resOut := []float64{}
+	for idx, singleax := range g.oA {
+		res, err := singleax.CurrentPosition(ctx)
+		if err != nil {
+			return nil, err
+		}
+		resOut = append(resOut, res[idx]) // test if this returs the right thing
 	}
-	return referenceframe.FloatsToInputs(res), nil
+
+	return referenceframe.FloatsToInputs(resOut), nil
 }
