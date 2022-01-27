@@ -2,6 +2,7 @@
 package register
 
 import (
+
 	// for Sensors.
 	_ "go.viam.com/rdk/component/sensor/fake"
 )

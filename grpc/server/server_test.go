@@ -376,8 +376,8 @@ func TestServer(t *testing.T) {
 
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
-		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		var capName resource.Name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			capName = name
 			return nil, false
 		}
@@ -387,12 +387,12 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
-		test.That(t, capName, test.ShouldEqual, "compass1")
+		test.That(t, capName, test.ShouldResemble, sensor.Named("compass1"))
 
 		err1 := errors.New("whoops")
 
 		device := &inject.Sensor{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return device, true
 		}
 
