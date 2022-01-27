@@ -4,16 +4,18 @@ package dmc4000
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
 	// "go.viam.com/utils/usb".
 	"go.viam.com/rdk/component/motor"
@@ -36,7 +38,7 @@ var (
 type controller struct {
 	mu         sync.Mutex
 	port       io.ReadWriteCloser
-	// logger     golog.Logger
+	logger     golog.Logger
 	activeAxes map[string]bool
 }
 
@@ -47,6 +49,7 @@ type Motor struct {
 	StepsPerRotation int
 	MaxRPM           float64
 	MaxAcceleration  float64
+	HomeRPM          float64
 }
 
 // Config allows setting controller-wide options.
@@ -54,6 +57,7 @@ type Config struct {
 	motor.Config
 	SerialDevice string `json:"serial_device"`
 	Axis         string `json:"axis"`
+	HomeRPM      string `json:"home_rpm"`
 }
 
 func init() {
@@ -126,7 +130,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 	globalMu.Unlock()
 
 	if !validAxis(c.Axis) {
-		return nil, errors.Errorf("invalid dmc4000 motor axis: %s", c.Axis)
+		return nil, fmt.Errorf("invalid dmc4000 motor axis: %s", c.Axis)
 	}
 
 	controller.mu.Lock()
@@ -192,10 +196,14 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 	}
 
 	if bytes.LastIndexByte(ret, []byte("?")[0]) == len(ret) {
-		return string(bytes.TrimSpace(ret[:len(ret)-1])), errors.Errorf("cmd (%s) was invalid", cmd)
+		errorDetail, err := c.sendCmd("TC1")
+		if err != nil {
+			return string(ret), fmt.Errorf("error when trying to get error code from previous command (%s): %w", cmd, err)
+		}
+		return string(bytes.TrimSpace(ret[:len(ret)-1])), fmt.Errorf("cmd (%s) returned error: %s", cmd, errorDetail)
 	}
 
-	return string(ret), errors.Errorf("unknown error after cmd (%s)", cmd)
+	return string(ret), fmt.Errorf("unknown error after cmd (%s), response: %s", cmd, string(ret))
 }
 
 // func (c *controller) homeAxis(axis string) error {
@@ -312,13 +320,67 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
 	return m.doGoTo(rpm, position)
 }
 
-// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
+// GoTillStop moves a motor until stopped by the controller (due to switch or function) or stopFunc.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	// TODO
-	return errors.New("unimplemented")
+	if err := m.GoFor(ctx, rpm, 10000); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Stop(ctx); err != nil {
+			m.c.logger.Error(err)
+		}
+	}()
+
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return errors.New("context cancelled during GoTillStop")
+		}
+
+		if stopFunc != nil && stopFunc(ctx) {
+			return nil
+		}
+
+		// check velocity
+		m.c.mu.Lock()
+		ret, err := m.c.sendCmd(fmt.Sprintf("TV%s", m.Axis))
+		m.c.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		vel, err := strconv.Atoi(ret)
+		if err != nil {
+			return err
+		}
+
+		// stopped or decellerating
+		if math.Abs(float64(vel)) == 0 {
+			// extra check that stop was actually commanded
+			m.c.mu.Lock()
+			ret, err := m.c.sendCmd(fmt.Sprintf("SC%s", m.Axis))
+			m.c.mu.Unlock()
+			if err != nil {
+				return err
+			}
+			sc, err := strconv.Atoi(ret)
+			if err != nil {
+				return err
+			}
+
+			if sc != 0 && sc != 30 && sc != 50 && sc != 60 && sc != 100 {
+				break
+			}
+
+			return fmt.Errorf("stop code (%d) indicates motor still running", sc)
+		}
+
+		if fails >= 6000 {
+			return errors.New("timed out during GoTillStop")
+		}
+		fails++
+	}
+
+	return nil
 }
 
 // ResetZeroPosition defines the current position to be zero (+/- offset).
@@ -345,7 +407,7 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 func (m *Motor) Stop(ctx context.Context) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	_, err := m.c.sendCmd("ST " + m.Axis)
+	_, err := m.c.sendCmd(fmt.Sprintf("ST%s", m.Axis))
 	return err
 }
 
@@ -353,7 +415,7 @@ func (m *Motor) Stop(ctx context.Context) error {
 func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	ret, err := m.c.sendCmd("TV" + m.Axis)
+	ret, err := m.c.sendCmd(fmt.Sprintf("TV%s", m.Axis))
 	if err != nil {
 		return false, err
 	}
@@ -362,6 +424,84 @@ func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	return speed != 0, nil
+}
+
+// Home runs the dmc homing routine.
+func (m *Motor) Home(ctx context.Context) error {
+	// start homing (self-locking)
+	if err := m.startHome(); err != nil {
+		return err
+	}
+
+	// wait for routine to finish
+	var fails int
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return errors.New("context cancelled during Home")
+		}
+
+		// Wait for
+		m.c.mu.Lock()
+		ret, err := m.c.sendCmd(fmt.Sprintf("SC%s", m.Axis))
+		m.c.mu.Unlock()
+		if err != nil {
+			return err
+		}
+		sc, err := strconv.Atoi(ret)
+		if err != nil {
+			return err
+		}
+
+		if sc == 10 {
+			return nil
+		}
+
+		if fails >= 6000 {
+			return errors.New("timed out during Home")
+		}
+		fails++
+	}
+}
+
+func (m *Motor) startHome() error {
+	m.c.mu.Lock()
+	defer m.c.mu.Unlock()
+
+	// Acceleration
+	_, err := m.c.sendCmd(fmt.Sprintf("AC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
+	if err != nil {
+		return err
+	}
+
+	// Deceleration
+	_, err = m.c.sendCmd(fmt.Sprintf("DC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
+	if err != nil {
+		return err
+	}
+
+	// Speed (stage 1)
+	_, err = m.c.sendCmd(fmt.Sprintf("SP%s= %d", m.Axis, m.rpmToV(m.HomeRPM)))
+	if err != nil {
+		return err
+	}
+
+	// Speed (stage 2)
+	_, err = m.c.sendCmd(fmt.Sprintf("HV%s= %d", m.Axis, m.rpmToV(m.HomeRPM/10)))
+	if err != nil {
+		return err
+	}
+
+	_, err = m.c.sendCmd(fmt.Sprintf("HM%s", m.Axis))
+	if err != nil {
+		return err
+	}
+
+	_, err = m.c.sendCmd(fmt.Sprintf("BG%s", m.Axis))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Must be run inside a lock.
