@@ -88,23 +88,10 @@ func DefaultConstraint(from, to spatial.Pose, f referenceframe.Frame, opt *Plann
 	opt.AddConstraint(defaultMotionConstraint, validFunc)
 
 	// Add self-collision check if available
-	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	dof := len(f.DoF())
-	zeroInput := make([]referenceframe.Input, 0, dof)
-	for i := 0; i < dof; i++ {
-		zeroInput = append(zeroInput, referenceframe.Input{0})
+	collisionConst := CollisionConstraintFromFrame(f)
+	if collisionConst != nil {
+		opt.AddConstraint("self-collision", collisionConst)
 	}
-	zeroVols, err := f.Volumes(zeroInput)
-	if zeroVols == nil && err != nil {
-		// No collision avoidance available
-		return opt
-	}
-	zeroCG, err := CheckCollisions(zeroVols)
-	if zeroCG == nil || err != nil {
-		// No collision avoidance available
-		return opt
-	}
-	opt.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
 	return opt
 }
 
