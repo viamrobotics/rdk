@@ -216,16 +216,13 @@ func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 type translationalFrame struct {
 	name          string
 	transAxis     r3.Vector
-	limit         Limit
+	limit         []Limit
 	volumeCreator spatial.VolumeCreator
 }
 
 // NewTranslationalFrame creates a frame given a name and the axis in which to translate.
 func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, error) {
-	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
-		return nil, errors.New("cannot use zero vector as translation axis")
-	}
-	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: limit}, nil
+	return NewTranslationalFrameWithVolume(name, axis, limit, nil)
 }
 
 // NewTranslationalFrameWithVolume creates a frame given a given a name and the axis in which to translate.
@@ -234,7 +231,7 @@ func NewTranslationalFrameWithVolume(name string, axis r3.Vector, limit Limit, v
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
 		return nil, errors.New("cannot use zero vector as translation axis")
 	}
-	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: limit, volumeCreator: volumeCreator}, nil
+	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: []Limit{limit}, volumeCreator: volumeCreator}, nil
 }
 
 // Name is the name of the frame.
@@ -250,7 +247,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
-	if input[0].Value < pf.limit.Min || input[0].Value > pf.limit.Max {
+	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
 		err = fmt.Errorf("%.5f input out of bounds %v", input[0].Value, pf.limit)
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
@@ -269,7 +266,7 @@ func (pf *translationalFrame) Volumes(input []Input) (map[string]spatial.Volume,
 
 // DoF are the degrees of freedom of the transform.
 func (pf *translationalFrame) DoF() []Limit {
-	return []Limit{pf.limit}
+	return pf.limit
 }
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
@@ -292,7 +289,7 @@ func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
 type rotationalFrame struct {
 	name    string
 	rotAxis r3.Vector
-	limit   Limit
+	limit   []Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
@@ -302,7 +299,7 @@ func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, err
 	return &rotationalFrame{
 		name:    name,
 		rotAxis: r3.Vector{axis.RX, axis.RY, axis.RZ},
-		limit:   limit,
+		limit:   []Limit{limit},
 	}, nil
 }
 
@@ -314,7 +311,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF 1", len(input))
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
-	if input[0].Value < rf.limit.Min || input[0].Value > rf.limit.Max {
+	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
 		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
 	}
 	// Create a copy of the r4aa for thread safety
@@ -329,7 +326,7 @@ func (rf *rotationalFrame) Volumes(input []Input) (map[string]spatial.Volume, er
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
 func (rf *rotationalFrame) DoF() []Limit {
-	return []Limit{rf.limit}
+	return rf.limit
 }
 
 // Name returns the name of the referenceframe.
