@@ -3,7 +3,7 @@
         { "name" : "tomato-arm",
           "type": "arm",
           "model": "ur",
-          "host" : "10.237.115.232"
+          "host" : "10.237.115.98"
         },
         {
             "model": "pi",
