@@ -155,5 +155,8 @@
                 "base": "base1"
             }
         }
-    ]
+    ],
+    "network": {
+		"bind_address": ":8080"
+	}
 }
