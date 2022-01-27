@@ -2,7 +2,9 @@ package objectdetection
 
 import (
 	"image"
+	"image/color"
 
+	"github.com/fogleman/gg"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage"
@@ -18,6 +20,13 @@ func Overlay(img image.Image, dets []Detection) (image.Image, error) {
 		drawBox(rimg, det.BoundingBox())
 	}
 	return rimg, nil
+}
+
+// OverlayText writes a string in the top of the image
+func OverlayText(img image.Image, text string) image.Image {
+	gimg := gg.NewContextForImage(img)
+	rimage.DrawString(gimg, text, image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
+	return gimg.Image()
 }
 
 // drawBox draws a red box over the image, each side is 3 pixels wide.
