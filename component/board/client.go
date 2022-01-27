@@ -97,16 +97,6 @@ func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Bo
 	return c
 }
 
-// SPIByName may need to be implemented.
-func (c *client) SPIByName(name string) (SPI, bool) {
-	return nil, false
-}
-
-// I2CByName may need to be implemented.
-func (c *client) I2CByName(name string) (I2C, bool) {
-	return nil, false
-}
-
 func (c *client) AnalogReaderByName(name string) (AnalogReader, bool) {
 	return &analogReaderClient{
 		serviceClient:    c.serviceClient,

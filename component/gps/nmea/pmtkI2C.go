@@ -50,7 +50,11 @@ func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Compone
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
 	}
-	i2cbus, ok := b.I2CByName(config.Attributes.String("bus"))
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+	}
+	i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}

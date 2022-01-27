@@ -101,8 +101,11 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 	if !ok {
 		return nil, fmt.Errorf("no board for yahboom-dofbot arm %s", config.Name)
 	}
-
-	i2c, ok := b.I2CByName(config.Attributes.String("i2c"))
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+	}
+	i2c, ok := localB.I2CByName(config.Attributes.String("i2c"))
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
