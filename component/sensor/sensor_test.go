@@ -9,6 +9,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
+func TestFromRobot(t *testing.T) {}
+
+func TestNamesFromRobot(t *testing.T) {}
+
 func TestSensorName(t *testing.T) {
 	for _, tc := range []struct {
 		TestName string
