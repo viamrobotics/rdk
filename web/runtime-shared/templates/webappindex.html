@@ -395,7 +395,6 @@
                           req = new baseApi.BaseServiceSpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
-                          req.setAngleDeg(amount);
                           req.setAngleDeg(document.getElementById("angle").value * amount);
                           baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;

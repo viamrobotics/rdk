@@ -19,6 +19,7 @@ import (
 )
 
 // Type is the type of service, set of implmented control modes and maxSpeed and maxAngle parameters.
+// Note: these constants are flexible and may be tweaking.
 const (
 	oneJoyStickControl = controlMode(iota)
 	triggerSpeedControl
@@ -111,8 +112,8 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 
 // Start is the main control loops for sending events from controller to base.
 func (svc *remoteService) start(ctx context.Context) error {
-	var millisPerSec float64
-	var degPerSec float64
+	var mmPerSec float64
+	var angleDeg float64
 
 	remoteCtl := func(ctx context.Context, event input.Event) {
 		if event.Event != input.PositionChangeAbs {
@@ -121,19 +122,19 @@ func (svc *remoteService) start(ctx context.Context) error {
 
 		switch svc.controlMode {
 		case triggerSpeedControl:
-			millisPerSec, degPerSec = svc.triggerSpeedEvent(event, millisPerSec, degPerSec)
+			mmPerSec, angleDeg = svc.triggerSpeedEvent(event, mmPerSec, angleDeg)
 		case oneJoyStickControl:
 			fallthrough
 		default:
-			millisPerSec, degPerSec = svc.oneJoyStickEvent(event, millisPerSec, degPerSec)
+			mmPerSec, angleDeg = svc.oneJoyStickEvent(event, mmPerSec, angleDeg)
 		}
 
 		// Set distance to large number as it will be overwritten (Note: could have a dependecy on speed)
 		var err error
-		if math.Abs(degPerSec) < 0.99 && math.Abs(millisPerSec) > 0.1 {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, millisPerSec*maxSpeed*-1, degPerSec*maxAngle, true)
+		if math.Abs(angleDeg) < 0.99 && math.Abs(mmPerSec) > 0.1 {
+			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, mmPerSec*maxSpeed*-1, angleDeg*maxAngle, true)
 		} else {
-			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, 0, degPerSec*maxAngle, true)
+			err = svc.base.MoveArc(ctx, maxSpeed*distRatio, 0, angleDeg*maxAngle, true)
 		}
 		if err != nil {
 			svc.logger.Errorw("error with moving base to desired position", "error", err)
@@ -220,8 +221,8 @@ func (svc *remoteService) oneJoyStickEvent(event input.Event, speed float64, ang
 	return svc.speedAndAngleMathMag(speed, angle, oldSpeed)
 }
 
-// SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate millisPerSec and
-// degPerSec.
+// SpeedAndAngleMathMag utilizes a cut-off and the magnitude of the speed and angle to dictate mmPerSec and
+// angleDeg.
 func (svc *remoteService) speedAndAngleMathMag(speed float64, angle float64, oldSpeed float64) (float64, float64) {
 	var newSpeed float64
 	var newAngle float64

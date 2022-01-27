@@ -57,13 +57,13 @@ type Boat struct {
 }
 
 // MoveStraight TODO.
-func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	if block {
 		return errors.New("boat can't block for move straight yet")
 	}
 
-	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
-	rotations := float64(distanceMillis) / millisPerRotation
+	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
+	rotations := float64(distanceMm) / millisPerRotation
 
 	return multierr.Combine(
 		b.starboard.GoFor(ctx, speed, rotations),
@@ -72,18 +72,13 @@ func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	return errors.New("boat can't move in arc yet")
 }
 
 // Spin TODO.
 func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	return errors.New("boat can't spin yet")
-}
-
-// WidthGet is a passthrough to continue to satisfy the Base interface.
-func (b *Boat) WidthGet(ctx context.Context) (int, error) {
-	return 1, nil
 }
 
 // Stop TODO.

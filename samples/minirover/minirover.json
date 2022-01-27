@@ -8,8 +8,8 @@
             "attributes":
             {
                 "board": "local",
-                "widthMillis": 600,
-                "wheelCircumferenceMillis": 470,
+                "widthMm": 600,
+                "wheelCircumferenceMm": 470,
                 "spinSlipFactor": 2.0,
                 "frontRight": "fr-m",
                 "frontLeft": "fl-m",
