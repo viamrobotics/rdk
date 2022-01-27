@@ -3,16 +3,13 @@ package multiAxis
 import (
 	"context"
 	"fmt"
-	"math"
-	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
-	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/gantry/oneAxis"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -23,6 +20,13 @@ import (
 type MultiAxisConfig struct {
 	LimitBoard string   `json:"limitBoard"` // used to read limit switch pins and control motor with gpio pins
 	SubAxes    []string `json:"subaxes_list"`
+}
+
+type multiAxis struct {
+	name       string
+	oA         []gantry.Gantry
+	lengths_mm []float64
+	logger     golog.Logger
 }
 
 func (config *MultiAxisConfig) Validate(path string) error {
@@ -60,350 +64,24 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		logger: logger,
 	}
 
-	for idx := range g.subaxes {
-		var ok bool
-		g.subaxes, ok = r.GantryByName(g.subaxes[idx])
-		g.motors[idx], ok = r.MotorByName(g.motorList[idx])
-		if !ok {
-			return nil, errors.New("cannot find motors for gantry")
-		}
-	}
-
-	// TODO: figure out if this is necessary with config Validate
-	g.limitBoard, _ = r.BoardByName(config.Attributes.String("limitBoard"))
-
-	g.limitHigh = config.Attributes.Bool("limitHigh", true)
-
-	g.lengthMillimeters = config.Attributes.Float64Slice("lengthMillimeters")
-
-	g.pulleyR = config.Attributes.Float64Slice("pulleyR")
-	if g.limitType == "onePinOneLength" && len(g.pulleyR) <= len(g.motorList) {
-		return nil, errors.New("gantries that have one limit switch per axis require pulley radii to be specified")
-	}
-
-	for idx := range g.motorList {
-		if g.lengthMillimeters[idx] <= 0 {
-			return nil, errors.New("all axes must have non-zero length")
-		}
-	}
-
-	g.limitSwitchPins = config.Attributes.StringSlice("limitPins")
-	// 0 for encoder, 1 per axis for single limit pin per axis (Cheaper 3D printers).
-	// and 2*number of axes for most gantries.
-	if len(g.limitSwitchPins) == len(g.motorList) {
-		g.limitType = switchLimitTypeOnePin
-	} else if len(g.limitSwitchPins) == 2*len(g.motorList) {
-		g.limitType = switchLimitTypetwoPin
-	} else if len(g.limitSwitchPins) == 0 {
-		g.limitType = switchLimitTypeEncoder
-		// encoder not supported currently.
-	} else {
-		np := len(g.limitSwitchPins)
-		na := len(g.motorList)
-		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins for %v axes", np, na)
-	}
-
-	g.axesList = config.Attributes.BoolSlice("axes", true)
-
-	g.rpm = config.Attributes.Float64Slice("rpm")
-
-	err := g.init(ctx)
+	var err error
+	g.oA[0], err = oneAxis.NewOneAxis(ctx, r, config, logger)
 	if err != nil {
-		return nil, err
+		return nil, errors.New("error instantiating ne single axis")
 	}
 
 	return g, nil
 }
 
-// Multiaxis is a gantry type that includes lists of motor names, a list of motor objects, a limit board with enable pins,
-// motor direction pins, limit position pins and a descriptive name based on the type of limit used.
-// It also includes motor initial speeds, and each axes' length as descriptors.
-// AxesList is not doing much now.
-type multiAxis struct {
-	name       string
-	linearaxes []oneAxis
-
-	motorList []string
-	motors    []motor.Motor
-
-	limitSwitchPins []string
-	limitBoard      board.Board
-	limitHigh       bool
-	limitType       switchLimitType
-	pulleyR         []float64
-
-	lengthMillimeters []float64
-	rpm               []float64
-
-	positionLimits []float64
-	subaxes        []gantry.Gantry
-	axesList       []bool
-
-	logger golog.Logger
-}
-
-/*
-type multiAxis struct {
-	name string
-	axes []gantry.OneAXis
-}
-*/
-
-// Initialization function differs based on gantry type, one limit switch and length,
-// two limit switch pins and an encoder
-
-func (g *multiAxis) init(ctx context.Context) error {
-	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
-	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
-	for idx := range g.motorList {
-		motorID := idx
-		switch g.limitType {
-		case switchLimitTypeOnePin:
-			limitIDs := []int{idx}
-			err := g.homeOneLimSwitch(ctx, motorID, limitIDs)
-			if err != nil {
-				return err
-			}
-		case switchLimitTypetwoPin:
-			limitIDs := []int{2 * idx, 2*idx + 1}
-			err := g.homeTwoLimSwitch(ctx, motorID, limitIDs)
-			if err != nil {
-				return err
-			}
-		case switchLimitTypeEncoder:
-			err := g.homeEncoder(ctx, motorID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// home gets passed to init.
-func (g *multiAxis) homeTwoLimSwitch(ctx context.Context, motorID int, limitID []int) error {
-	ok, err := g.motors[motorID].PositionSupported(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return errors.Errorf("gantry motor %v needs to support position", motorID)
-	}
-
-	// Finds and stores first position of this motor (backwards limit) for this axis.
-	positionA, err := g.testLimit(ctx, motorID, limitID, true)
-	if err != nil {
-		return err
-	}
-
-	// Finds and stores first position of this motor (forwards limit) for this axis.
-	positionB, err := g.testLimit(ctx, motorID, limitID, false)
-	if err != nil {
-		return err
-	}
-
-	g.logger.Debugf("positionA: %0.02f positionB: %0.02f", positionA, positionB)
-
-	g.positionLimits = []float64{positionA, positionB}
-
-	return nil
-}
-
-func (g *multiAxis) homeOneLimSwitch(ctx context.Context, motorID int, limitID []int) error {
-	ok, err := g.motors[motorID].PositionSupported(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return errors.New("gantry motor needs to support position")
-	}
-
-	// One pin always and only should go backwards.
-	positionA, err := g.testLimit(ctx, motorID, limitID, true)
-	if err != nil {
-		return err
-	}
-
-	radius := g.pulleyR[motorID]
-	stepsPerLength := g.lengthMillimeters[motorID] / (radius * 2 * math.Pi)
-
-	positionB := positionA + stepsPerLength
-
-	g.positionLimits = []float64{positionA, positionB}
-
-	return nil
-}
-
-// Not yet implemented.
-func (g *multiAxis) homeEncoder(ctx context.Context, motorID int) error {
-	return errors.New("encoder currently not supported")
-}
-
-func (g *multiAxis) testLimit(ctx context.Context, motorID int, limitID []int, zero bool) (float64, error) {
-	defer utils.UncheckedErrorFunc(func() error {
-		return g.motors[motorID].Stop(ctx)
-	})
-
-	// Gantry starts going backwards always. Limit switch must be placed in backwards direction from the motor.
-	// Important for defining limit pins for direction.
-	dir := float64(-1)
-	offset := limitID[0]
-	// We will at most have two limit switches per axis.
-	if !zero {
-		dir = float64(1)
-		offset = limitID[1]
-	}
-
-	// Each motor goes for an bounded amount of time until it hits the limit switch.
-	err := g.motors[motorID].GoFor(ctx, dir*g.rpm[motorID], 10000)
-	if err != nil {
-		return 0, err
-	}
-
-	start := time.Now()
-	for {
-		hit, err := g.limitHit(ctx, offset)
-		if err != nil {
-			return 0, err
-		}
-		if hit {
-			err = g.motors[motorID].Stop(ctx)
-			if err != nil {
-				return 0, err
-			}
-			break
-		}
-
-		// Needs to find limit switch within 15 seconds. Initial rpm and length is a consideration here that the user needs
-		// to be aware of.
-		elapsed := start.Sub(start)
-		if elapsed > (time.Second * 15) {
-			return 0, errors.New("gantry timed out testing limit")
-		}
-
-		if !utils.SelectContextOrWait(ctx, time.Millisecond*10) {
-			return 0, ctx.Err()
-		}
-	}
-	return g.motors[motorID].Position(ctx)
-}
-
-// This reads a limit pin from the list of limitPins and returns true if that limit pin is hit.
-func (g *multiAxis) limitHit(ctx context.Context, offset int) (bool, error) {
-	pin := g.limitSwitchPins[offset]
-	high, err := g.limitBoard.GetGPIO(ctx, pin)
-
-	return high == g.limitHigh, err
-}
-
-func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
-	posOut := make([]float64, len(g.motorList))
-	for idx := range g.motorList {
-		pos, err := g.motors[idx].Position(ctx)
-		if err != nil {
-			return nil, err
-		}
-		theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
-
-		targetPos := g.positionLimits[2*idx] + (pos * theRange)
-
-		limit1, err := g.limitHit(ctx, 2*idx)
-		if err != nil {
-			return nil, err
-		}
-		limit2, err := g.limitHit(ctx, 2*idx+1)
-		if err != nil {
-			return nil, err
-		}
-
-		g.logger.Debugf("multiAxis axis %v CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", idx, pos, targetPos, limit1, limit2)
-
-		posOut[idx] = targetPos
-	}
-
-	return posOut, nil
-}
-
-func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
-	lengthsout := []float64{}
-	for idx := range g.motorList {
-		lengthsout = append(lengthsout, g.lengthMillimeters[idx])
-	}
-	return lengthsout, nil
-}
-
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	if len(positions) != len(g.motors) {
-		return errors.Errorf(" gantry MoveToPosition needs %v positions, got: %v", len(g.motorList), len(positions))
-	}
-
-	for idx := range g.motorList {
-		if positions[idx] < 0 || positions[idx] > g.lengthMillimeters[idx] {
-			return errors.Errorf("gantry position for axis %v is out of range, got %0.02f max is %0.02f", idx, positions[0], g.lengthMillimeters[idx])
-		}
-	}
-
-	switch g.limitType {
-	// Moving should be the same for single limit switch logic and two limit switch logic
-	case switchLimitTypeOnePin, switchLimitTypetwoPin:
-		for idx := range g.motorList {
-			theRange := g.positionLimits[2*idx+1] - g.positionLimits[2*idx]
-
-			// can change into x, y, z explicitly without a for loop if preferable.
-			targetPos := positions[idx] / g.lengthMillimeters[idx]
-			targetPos = g.positionLimits[2*idx] + (targetPos * theRange)
-
-			g.logger.Debugf("gantry axis %v SetPosition %0.02f -> %0.02f", idx, positions[idx], targetPos)
-
-			// Hits backwards limit switch, goes in forwards direction for two revolutions
-			hit, err := g.limitHit(ctx, idx)
-			if err != nil {
-				return err
-			}
-			if hit {
-				if targetPos < g.positionLimits[2*idx] {
-					dir := float64(1)
-					return g.motors[idx].GoTo(ctx, dir*g.rpm[idx], .2*theRange)
-				}
-				return g.motors[idx].Stop(ctx)
-			}
-
-			// Hits forward limit switch, goes in backwards direction for two revolutions
-			hit, err = g.limitHit(ctx, 2*idx+1)
-			if err != nil {
-				return err
-			}
-			if hit {
-				if targetPos > g.positionLimits[2*idx+1] {
-					dir := float64(-1)
-					return g.motors[idx].GoTo(ctx, dir*g.rpm[idx], .2*theRange)
-				}
-				return g.motors[idx].Stop(ctx)
-			}
-
-			err = g.motors[idx].GoTo(ctx, g.rpm[idx], targetPos)
-			if err != nil {
-				return err
-			}
-		}
-
-	case switchLimitTypeEncoder:
-		// TODO: implementation.
-		return errors.New("no encoders supported")
-	}
-	return nil
-}
-
 // TODO incorporate frames into movement function above.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	for idx := range g.motorList {
+	for idx := range g.oA {
+		l := 1.0
 		f, err := referenceframe.NewTranslationalFrame(
 			g.name,
 			[]bool{true},
-			[]referenceframe.Limit{{0, g.lengthMillimeters[idx]}},
+			[]referenceframe.Limit{{0, l}},
 		)
 		if err != nil {
 			panic(fmt.Errorf("error creating frame %v, should be impossible %w", idx, err))
@@ -414,13 +92,45 @@ func (g *multiAxis) ModelFrame() referenceframe.Model {
 	return m
 }
 
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
+	for _, axis := range g.oA {
+		axis.MoveToPosition(ctx, positions)
+	}
+	return nil
+}
+
 // Will be used in motor movement function above.
 func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	g.oA[0].MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return nil
+}
+
+func (g *multiAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
+	posOut := []float64{}
+	for idx, axis := range g.oA {
+		pos, err := axis.CurrentPosition(ctx)
+		if err != nil {
+			return nil, err
+		}
+		posOut = append(posOut, pos[idx])
+	}
+	return posOut, nil
+}
+
+func (g *multiAxis) Lengths(ctx context.Context) ([]float64, error) {
+	lengthsOut := []float64{}
+	for _, axis := range g.oA {
+		length, err := axis.Lengths(ctx)
+		if err != nil {
+			return nil, err
+		}
+		lengthsOut = append(lengthsOut, length[0])
+	}
+	return lengthsOut, nil
 }
 
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.oA[0].CurrentPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
