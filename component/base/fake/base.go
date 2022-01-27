@@ -36,12 +36,12 @@ type Base struct {
 }
 
 // MoveStraight does nothing.
-func (b *Base) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *Base) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	return nil
 }
 
 // MoveArc does nothing.
-func (b *Base) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (b *Base) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	return nil
 }
 
@@ -50,8 +50,8 @@ func (b *Base) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-// WidthGet returns some arbitrary width.
-func (b *Base) WidthGet(ctx context.Context) (int, error) {
+// GetWidth returns some arbitrary width.
+func (b *Base) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 

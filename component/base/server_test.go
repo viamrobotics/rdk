@@ -36,8 +36,8 @@ func TestServer(t *testing.T) {
 	t.Run("MoveStraight", func(t *testing.T) {
 		// on successful move straight
 		workingBase.MoveStraightFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, block bool,
 		) error {
 			return nil
 		}
@@ -54,8 +54,8 @@ func TestServer(t *testing.T) {
 		// on failing move straight
 		errMsg := "move straight failed"
 		brokenBase.MoveStraightFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, block bool,
 		) error {
 			return errors.New(errMsg)
 		}
@@ -92,8 +92,8 @@ func TestServer(t *testing.T) {
 	t.Run("MoveArc", func(t *testing.T) {
 		// on successful move arc
 		workingBase.MoveArcFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec, degsPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec, angleDeg float64, block bool,
 		) error {
 			return nil
 		}
@@ -111,8 +111,8 @@ func TestServer(t *testing.T) {
 		// on failing move arc
 		errMsg := "move arc failed"
 		brokenBase.MoveArcFunc = func(
-			ctx context.Context, distanceMillis int,
-			millisPerSec float64, degsPerSec float64, block bool,
+			ctx context.Context, distanceMm int,
+			mmPerSec float64, angleDeg float64, block bool,
 		) error {
 			return errors.New(errMsg)
 		}
@@ -240,39 +240,6 @@ func TestServer(t *testing.T) {
 		// failure on unfound base
 		req = &pb.BaseServiceStopRequest{Name: "dne"}
 		resp, err = server.Stop(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
-
-	t.Run("WidthGet", func(t *testing.T) {
-		// on successful retrieval
-		workingBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-			return 42, nil
-		}
-		req := &pb.BaseServiceWidthGetRequest{Name: "working"}
-		resp, err := server.WidthGet(context.Background(), req)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.GetWidthMm(), test.ShouldEqual, 42)
-
-		// on failure to retrieve
-		errMsg := "WidthGet failed"
-		brokenBase.WidthGetFunc = func(ctx context.Context) (int, error) {
-			return 0, errors.New(errMsg)
-		}
-		req = &pb.BaseServiceWidthGetRequest{Name: "notWorking"}
-		resp, err = server.WidthGet(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
-
-		// failure on bad base handled
-		req = &pb.BaseServiceWidthGetRequest{Name: "badBase"}
-		resp, err = server.WidthGet(context.Background(), req)
-		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		// failure on unfound base
-		req = &pb.BaseServiceWidthGetRequest{Name: "dne"}
-		resp, err = server.WidthGet(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

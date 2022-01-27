@@ -84,7 +84,7 @@ func (c *client) Grab(ctx context.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return resp.Grabbed, nil
+	return resp.Success, nil
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
