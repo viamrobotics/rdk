@@ -22,28 +22,28 @@ func init() {
 }
 
 func newGantry(name string) gantry.Gantry {
-	return &fakeGantry{name: name, positions: []float64{1.2}, lengths: []float64{5}}
+	return &fakeGantry{name: name, positionsMm: []float64{1.2}, lengths: []float64{5}}
 }
 
 type fakeGantry struct {
-	name      string
-	positions []float64
-	lengths   []float64
+	name        string
+	positionsMm []float64
+	lengths     []float64
 }
 
-// CurrentPosition returns the position in meters.
-func (g *fakeGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
-	return g.positions, nil
+// GetPosition returns the position in meters.
+func (g *fakeGantry) GetPosition(ctx context.Context) ([]float64, error) {
+	return g.positionsMm, nil
 }
 
-// Lengths returns the position in meters.
-func (g *fakeGantry) Lengths(ctx context.Context) ([]float64, error) {
+// GetLengths returns the position in meters.
+func (g *fakeGantry) GetLengths(ctx context.Context) ([]float64, error) {
 	return g.lengths, nil
 }
 
 // MoveToPosition is in meters.
-func (g *fakeGantry) MoveToPosition(ctx context.Context, positions []float64) error {
-	g.positions = positions
+func (g *fakeGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	g.positionsMm = positionsMm
 	return nil
 }
 
@@ -70,7 +70,7 @@ func (g *fakeGantry) ModelFrame() referenceframe.Model {
 }
 
 func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

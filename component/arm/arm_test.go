@@ -104,7 +104,7 @@ type mockArm struct {
 	reconfCount int
 }
 
-func (m *mockArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (m *mockArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return &commonpb.Pose{}, nil
 }
 
@@ -114,12 +114,8 @@ func (m *mockArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPosi
 	return nil
 }
 
-func (m *mockArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (m *mockArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return &pb.ArmJointPositions{}, nil
-}
-
-func (m *mockArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return nil
 }
 
 func (m *mockArm) ModelFrame() referenceframe.Model {
