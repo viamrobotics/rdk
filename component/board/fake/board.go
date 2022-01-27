@@ -18,6 +18,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+var _ = board.LocalBoard(&Board{})
+
 const modelName = "fake"
 
 func init() {

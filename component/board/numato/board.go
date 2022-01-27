@@ -326,7 +326,7 @@ func (ar *analogReader) Read(ctx context.Context) (int, error) {
 	return strconv.Atoi(res)
 }
 
-func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (*numatoBoard, error) {
+func connect(ctx context.Context, conf *board.Config, logger golog.Logger) (board.LocalBoard, error) {
 	pins := conf.Attributes.Int("pins", 0)
 	if pins <= 0 {
 		return nil, errors.New("numato board needs pins set in attributes")
