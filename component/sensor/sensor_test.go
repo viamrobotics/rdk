@@ -25,11 +25,12 @@ func setupInjectRobot() *inject.Robot {
 	sensor1 := &mock{Name: testSensorName}
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		if name == sensor.Named(testSensorName) {
+		switch name {
+		case sensor.Named(testSensorName):
 			return sensor1, true
-		} else if name == sensor.Named(testSensorName2) {
+		case sensor.Named(testSensorName2):
 			return "not a sensor", false
-		} else {
+		default:
 			return nil, false
 		}
 	}
