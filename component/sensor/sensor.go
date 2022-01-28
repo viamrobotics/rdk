@@ -64,9 +64,9 @@ var (
 
 // FromRobot is a helper for getting the named Sensor's from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, bool) {
-	s, ok := r.ResourceByName(Named(name))
+	res, ok := r.ResourceByName(Named(name))
 	if ok {
-		part, ok := s.(Sensor)
+		part, ok := res.(Sensor)
 		if ok {
 			return part, true
 		}
