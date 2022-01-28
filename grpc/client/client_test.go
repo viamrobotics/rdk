@@ -237,9 +237,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
-	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return nil, false
-	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
@@ -549,7 +546,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-	sensorDevice, ok := client.SensorByName("sensor1")
+	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = sensorDevice.Readings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -750,9 +747,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -826,9 +822,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -884,9 +879,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet("board2", "board3"),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
