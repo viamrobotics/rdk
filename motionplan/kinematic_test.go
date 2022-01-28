@@ -277,7 +277,6 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	pointCamToXarm, err := fs.TransformPoint(positions, targetPoint, fs.GetFrame("urCamera"), fs.GetFrame("xArm6"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.R3VectorAlmostEqual(pointCamToXarm, r3.Vector{}, 1e-8), test.ShouldBeTrue)
-
 }
 
 func TestCombinedIKinematics(t *testing.T) {
