@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/utils"
 )
 
 const (
@@ -212,8 +211,8 @@ func (ua *URArm) State() (RobotState, error) {
 	return ua.state, nil
 }
 
-// CurrentJointPositions TODO.
-func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions TODO.
+func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -225,9 +224,9 @@ func (ua *URArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositio
 	return referenceframe.JointPositionsFromRadians(radians), nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := ua.CurrentJointPositions(ctx)
+// GetEndPosition computes and returns the current cartesian position.
+func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +235,7 @@ func (ua *URArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := ua.CurrentJointPositions(ctx)
+	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -251,26 +250,6 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 		return fmt.Errorf("ur took too long to solve position %v", timeToSolve)
 	}
 	return arm.GoToWaypoints(ctx, ua, solution)
-}
-
-// JointMoveDelta TODO.
-func (ua *URArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	if joint < 0 || joint > 5 {
-		return errors.New("invalid joint")
-	}
-
-	radians := []float64{}
-	state, err := ua.State()
-	if err != nil {
-		return err
-	}
-	for _, j := range state.Joints {
-		radians = append(radians, j.Qactual)
-	}
-
-	radians[joint] += utils.DegToRad(amountDegs)
-
-	return ua.MoveToJointPositionRadians(ctx, radians)
 }
 
 // MoveToJointPositions TODO.
@@ -356,7 +335,7 @@ func (ua *URArm) MoveToJointPositionRadians(ctx context.Context, radians []float
 
 // CurrentInputs TODO.
 func (ua *URArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := ua.CurrentJointPositions(ctx)
+	res, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -163,7 +163,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 }
 
 // Position returns the position in meters.
-func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
 		return nil, err
@@ -172,31 +172,31 @@ func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
 
-	g.logger.Debugf("oneAxis CurrentPosition %v -> %v", pos, x)
+	g.logger.Debugf("oneAxis GetPosition %v -> %v", pos, x)
 
 	return []float64{x}, nil
 }
 
-func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
 }
 
 // position is in meters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positions)
+func (g *oneAxis) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	if len(positionsMm) != 1 {
+		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positionsMm)
 	}
 
-	if positions[0] < 0 || positions[0] > g.lengthMeters {
-		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positions[0], g.lengthMeters)
+	if positionsMm[0] < 0 || positionsMm[0] > g.lengthMeters {
+		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positionsMm[0], g.lengthMeters)
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 
-	x := positions[0] / g.lengthMeters
+	x := positionsMm[0] / g.lengthMeters
 	x = g.positionLimits[0] + (x * theRange)
 
-	g.logger.Debugf("oneAxis SetPosition %v -> %v", positions[0], x)
+	g.logger.Debugf("oneAxis SetPosition %v -> %v", positionsMm[0], x)
 
 	return g.motor.GoTo(ctx, g.rpm, x)
 }
@@ -212,7 +212,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 }
 
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

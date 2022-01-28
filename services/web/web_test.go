@@ -235,7 +235,7 @@ func TestWebUpdate(t *testing.T) {
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
 	pos := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos, nil
 	}
 	rs := map[resource.Name]interface{}{arm.Named(arm1): injectArm}
@@ -247,7 +247,7 @@ func TestWebUpdate(t *testing.T) {
 	conn, err := rgrpc.Dial(context.Background(), addr, logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	aClient := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
-	position, err := aClient.CurrentPosition(context.Background())
+	position, err := aClient.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
@@ -275,7 +275,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
 	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient2.CurrentPosition(context.Background())
+	position, err = aClient2.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
@@ -283,7 +283,7 @@ func TestWebUpdate(t *testing.T) {
 	arm2 := "arm2"
 	injectArm2 := &inject.Arm{}
 	pos2 := &commonpb.Pose{X: 2, Y: 3, Z: 4}
-	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
 	rs[arm.Named(arm2)] = injectArm2
@@ -292,13 +292,13 @@ func TestWebUpdate(t *testing.T) {
 	err = updateable.Update(context.Background(), rs)
 	test.That(t, err, test.ShouldBeNil)
 
-	position, err = aClient2.CurrentPosition(context.Background())
+	position, err = aClient2.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
 	aClient3 := arm.NewClientFromConn(context.Background(), conn, arm2, logger)
 	test.That(t, err, test.ShouldBeNil)
-	position, err = aClient3.CurrentPosition(context.Background())
+	position, err = aClient3.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 

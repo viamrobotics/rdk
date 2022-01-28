@@ -122,7 +122,7 @@ func NewxArm(ctx context.Context, cfg config.Component, logger golog.Logger, dof
 }
 
 func (x *xArm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := x.CurrentJointPositions(ctx)
+	res, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

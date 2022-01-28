@@ -57,7 +57,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			gridPosition, err := arm.CurrentPosition(ctx)
+			gridPosition, err := arm.GetEndPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +73,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				}
 			}
 
-			jointPositions, err := arm.CurrentJointPositions(ctx)
+			jointPositions, err := arm.GetJointPositions(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -100,12 +100,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			gantryStatus := &pb.GantryStatus{}
 
-			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			gantryStatus.Positions, err = g.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
 
-			gantryStatus.Lengths, err = g.Lengths(ctx)
+			gantryStatus.Lengths, err = g.GetLengths(ctx)
 			if err != nil {
 				return nil, err
 			}
