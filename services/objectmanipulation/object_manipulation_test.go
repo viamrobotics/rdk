@@ -41,9 +41,6 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails when gripper fails to open
 	r = &inject.Robot{}
 	_arm = &inject.Arm{}
-	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return _arm, true
-	}
 	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return errors.New("failure to open")
@@ -75,9 +72,6 @@ func TestDoGrabFailures(t *testing.T) {
 
 	r = &inject.Robot{}
 	_arm = &inject.Arm{}
-	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return _arm, true
-	}
 	r.LoggerFunc = func() golog.Logger {
 		return logger
 	}
@@ -126,7 +120,7 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// remove after this
-	theArm, _ := myRobot.ArmByName("a")
+	theArm, _ := arm.FromRobot(myRobot, "a")
 	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
 }
