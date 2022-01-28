@@ -233,7 +233,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	}
 	b.vibrator = vibrator
 
-	rArm, ok := r.ArmByName(armName)
+	rArm, ok := arm.FromRobot(r, armName)
 	if !ok {
 		return nil, fmt.Errorf("failed to find arm %s", armName)
 	}

@@ -46,12 +46,6 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	test.That(t, parts.RemoteNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
-		utils.NewStringSet(parts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -115,11 +109,7 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		)...),
 	)
 
-	_, ok := parts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ArmByName("arm1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.BaseByName("base1")
+	_, ok := parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.BaseByName("base1_what")
 	test.That(t, ok, test.ShouldBeFalse)
@@ -196,12 +186,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -222,7 +206,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,
@@ -264,16 +248,7 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 		)...),
 	)
 
-	_, ok := parts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ArmByName("arm1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ArmByName("arm1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ArmByName("arm1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
-	_, ok = parts.BaseByName("base1")
+	_, ok := parts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.BaseByName("base1_r1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -394,12 +369,6 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -414,13 +383,13 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.BaseNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("base1", "base2", "base1_r1", "base2_r1"),
+		utils.NewStringSet(rdktestutils.ExtractNames(baseNames...)...),
 	)
 	test.That(
 		t,
 		utils.NewStringSet(parts.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,
@@ -523,12 +492,6 @@ func TestPartsClone(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(newParts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(newParts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -549,7 +512,7 @@ func TestPartsClone(t *testing.T) {
 		t,
 		utils.NewStringSet(newParts.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,
@@ -596,15 +559,6 @@ func TestPartsClone(t *testing.T) {
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
-
-	_, ok = newParts.ArmByName("arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ArmByName("arm1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ArmByName("arm1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ArmByName("arm1_what")
-	test.That(t, ok, test.ShouldBeFalse)
 
 	_, ok = newParts.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -775,7 +729,7 @@ func TestPartsAdd(t *testing.T) {
 	cfg = &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
 	parts.addResource(rName, injectArm)
-	arm1, ok := parts.ArmByName("arm1")
+	arm1, ok := parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 	parts.addResource(rName, arm1)
@@ -1058,7 +1012,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
@@ -1099,12 +1052,6 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet(toCheck.RemoteNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet("remote1", "remote2"),
-		)
-		test.That(
-			t,
-			utils.NewStringSet(toCheck.ArmNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
 		test.That(
 			t,
@@ -1242,12 +1189,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -1268,17 +1209,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"board1",
-			"board2",
-			"board1_r1",
-			"board2_r1",
-			"board1_r2",
-			"board2_r2",
-			"board1_other",
-			"board2_other",
-			"board1_other1",
-			"board2_other1",
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...,
 		),
 	)
 	test.That(
@@ -1367,12 +1298,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -1393,17 +1318,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		t,
 		utils.NewStringSet(parts.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet(
-			"board1",
-			"board2",
-			"board1_r1",
-			"board2_r1",
-			"board1_r2",
-			"board2_r2",
-			"board1_other",
-			"board2_other",
-			"board1_other1",
-			"board2_other1",
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...,
 		),
 	)
 
@@ -1467,7 +1382,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	emptyParts = newRobotParts(logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.CameraNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
@@ -1539,12 +1453,6 @@ func TestPartsMergeModify(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.ArmNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-		)
-		test.That(
-			t,
 			utils.NewStringSet(toCheck.GripperNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -1565,14 +1473,7 @@ func TestPartsMergeModify(t *testing.T) {
 			t,
 			utils.NewStringSet(toCheck.BoardNames()...),
 			test.ShouldResemble,
-			utils.NewStringSet(
-				"board1",
-				"board2",
-				"board1_r1",
-				"board2_r1",
-				"board1_r2",
-				"board2_r2",
-			),
+			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(
 			t,
@@ -1656,7 +1557,6 @@ func TestPartsMergeModify(t *testing.T) {
 	emptyParts := newRobotParts(logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.ArmNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.GripperNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.CameraNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
@@ -1797,12 +1697,6 @@ func TestPartsMergeRemove(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.ArmNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-		)
-		test.That(
-			t,
 			utils.NewStringSet(toCheck.GripperNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -1908,7 +1802,6 @@ func TestPartsMergeRemove(t *testing.T) {
 	parts.MergeRemove(sameParts)
 	checkSame(sameParts)
 	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.ArmNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.GripperNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.CameraNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldBeEmpty)
@@ -1943,7 +1836,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.ArmNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.GripperNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.CameraNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
@@ -2092,12 +1984,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, utils.NewStringSet(filtered.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(
 		t,
-		utils.NewStringSet(filtered.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(filtered.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -2118,7 +2004,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board2"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,
@@ -2269,12 +2155,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(filtered.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(filtered.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -2295,7 +2175,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board2", "board1_r2", "board2_r2"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,
@@ -2518,12 +2398,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(filtered.ArmNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(filtered.GripperNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
@@ -2544,7 +2418,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		t,
 		utils.NewStringSet(filtered.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board1", "board2", "board1_r1", "board2_r1", "board1_r2", "board2_r2"),
+		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	test.That(
 		t,

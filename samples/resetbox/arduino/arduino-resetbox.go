@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/arm"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/robot"
 	webserver "go.viam.com/rdk/web/server"
@@ -72,7 +73,7 @@ func init() {
 func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 	waitForResetReady(ctx, theRobot)
 
-	rArm, ok := theRobot.ArmByName(armName)
+	rArm, ok := arm.FromRobot(theRobot, armName)
 	if !ok {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
@@ -176,7 +177,7 @@ func waitForResetReady(ctx context.Context, theRobot robot.Robot) error {
 }
 
 func resetCube(ctx context.Context, theRobot robot.Robot) error {
-	rArm, ok := theRobot.ArmByName(armName)
+	rArm, ok := arm.FromRobot(theRobot, armName)
 	if !ok {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
@@ -205,7 +206,7 @@ func resetCube(ctx context.Context, theRobot robot.Robot) error {
 }
 
 func resetDuck(ctx context.Context, theRobot robot.Robot) error {
-	rArm, ok := theRobot.ArmByName(armName)
+	rArm, ok := arm.FromRobot(theRobot, armName)
 	if !ok {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
