@@ -58,6 +58,11 @@ type Sensor struct {
 }
 
 func (s *Sensor) ReadTemperatureCelsius(ctx context.Context) (float64, error) {
+	/*
+	* logic here is specific to 1-wire protocol, could be abstracted next time we
+	* want to build support for a different 1-wire device,
+	* or look at support via periph (or other library)
+	 */
 	devPath := "/sys/bus/w1/devices/" + s.OneWireFamily + "-" + s.OneWireId + "/w1_slave"
 	dat, err := os.ReadFile(devPath)
 	if err != nil {
