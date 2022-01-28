@@ -76,13 +76,7 @@ func FromRobot(r robot.Robot, name string) (Sensor, bool) {
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
-	names := []string{}
-	for _, n := range r.ResourceNames() {
-		if n.Subtype == Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return names
+	return robot.NamesBySubtype(r, Subtype)
 }
 
 type reconfigurableSensor struct {

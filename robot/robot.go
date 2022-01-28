@@ -142,3 +142,14 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 
 	return all
 }
+
+// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
+func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+	names := []string{}
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return names
+}
