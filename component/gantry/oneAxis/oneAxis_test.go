@@ -162,7 +162,6 @@ func TestHome(t *testing.T) {
 	}
 	err = fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
-
 }
 
 func TestHomeTwoLimitSwitch(t *testing.T) {

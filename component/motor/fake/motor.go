@@ -36,7 +36,7 @@ type Motor struct {
 	PositionSupportedFunc bool
 	GoForfunc             bool
 	ResetZeroPositionFunc error
-	PositionFunc          float64 //may need to be defined as a functions.
+	PositionFunc          float64 // may need to be defined as a functions.
 }
 
 // PID Return the underlying PID.
@@ -53,7 +53,7 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 
 // PositionSupported returns .
 func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	if m.PositionSupportedFunc != false {
+	if m.PositionSupportedFunc {
 		return m.PositionSupportedFunc, nil
 	}
 	return false, nil

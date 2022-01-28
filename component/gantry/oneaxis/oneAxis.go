@@ -1,14 +1,14 @@
-// Package oneAxis implements a one-axis gantry.
+// Package oneaxis implements a one-axis gantry.
 package oneaxis
 
 import (
 	"context"
-	"fmt"
-	"math"
-	"time"
 
 	// for embedding model file.
 	_ "embed"
+	"fmt"
+	"math"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -25,8 +25,8 @@ import (
 
 const modelname = "oneaxis"
 
-// OneAxisConfig is used for converting config attributes.
-type OneAxisConfig struct {
+// Config is used for converting oneAxis config attributes.
+type Config struct {
 	Board           string  `json:"board"` // used to read limit switch pins and control motor with gpio pins
 	LimitSwitchPins string  `json:"limitPins"`
 	LimitHigh       string  `json:"limitHigh"`
@@ -40,7 +40,8 @@ type OneAxisConfig struct {
 //go:embed oneAxis_kinematics.json
 var oneaxismodel []byte
 
-func (config *OneAxisConfig) Validate(path string) error {
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
 	if config.Board == "" {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
@@ -73,14 +74,14 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf OneAxisConfig
+			var conf Config
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&OneAxisConfig{})
+		&Config{})
 }
 
-// oneAxisModel() returns the kinematics model of the oneAxisGantry with all the frame information.
-func OneAxisModel() (referenceframe.Model, error) {
+// Model returns the kinematics model of the oneaxis Gantry with all the frame information.
+func Model() (referenceframe.Model, error) {
 	return referenceframe.ParseJSON(oneaxismodel, "")
 }
 
@@ -132,14 +133,14 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	gantry.limitSwitchPins = config.Attributes.StringSlice("limitSwitchPins")
-	if len(gantry.limitSwitchPins) == 1 {
+	switch {
+	case len(gantry.limitSwitchPins) == 1:
 		gantry.limitType = switchLimitTypeOnePin
-	} else if len(gantry.limitSwitchPins) == 2 {
+	case len(gantry.limitSwitchPins) == 2:
 		gantry.limitType = switchLimitTypetwoPin
-	} else if len(gantry.limitSwitchPins) == 0 {
+	case len(gantry.limitSwitchPins) == 0:
 		gantry.limitType = switchLimitTypeEncoder
-		// encoder not supported currently.
-	} else {
+	default:
 		np := len(gantry.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
@@ -173,13 +174,13 @@ func (g *oneAxis) Home(ctx context.Context) error {
 	switch g.limitType {
 	case switchLimitTypeOnePin:
 		// limitIDs := []int{0, 1}
-		err := g.homeOneLimSwitch(ctx) //, limitIDs)
+		err := g.homeOneLimSwitch(ctx) // , limitIDs)
 		if err != nil {
 			return err
 		}
 	case switchLimitTypetwoPin:
 		// limitIDs := []int{0, 1}
-		err := g.homeTwoLimSwitch(ctx) //, limitIDs)
+		err := g.homeTwoLimSwitch(ctx) // , limitIDs)
 		if err != nil {
 			return err
 		}
@@ -216,7 +217,10 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
+	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -317,8 +321,14 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	x := g.lengthMm * ((pos - g.positionLimits[0]) / theRange)
 
 	limitAtZero, err := g.limitHit(ctx, true)
+	if err != nil {
+		return nil, err
+	}
 
 	limitAtOne, err := g.limitHit(ctx, false)
+	if err != nil {
+		return nil, err
+	}
 
 	// Prints out Motor position, Gantry position along length, state of tlimit switches.
 	g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, x, limitAtZero, limitAtOne)
@@ -350,26 +360,30 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	hit, err := g.limitHit(ctx, true)
+	if err != nil {
+		return err
+	}
 
 	// Hits backwards limit switch, goes in forwards direction for two revolutions
 	if hit {
 		if x < g.positionLimits[0] {
 			dir := float64(1)
 			return g.motor.GoFor(ctx, dir*g.rpm, 2)
-		} else {
-			return g.motor.Stop(ctx)
 		}
+		return g.motor.Stop(ctx)
 	}
 
 	// Hits forward limit switch, goes in backwards direction for two revolutions
 	hit, err = g.limitHit(ctx, false)
+	if err != nil {
+		return err
+	}
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
 			return g.motor.GoFor(ctx, dir*g.rpm, 2)
-		} else {
-			return g.motor.Stop(ctx)
 		}
+		return g.motor.Stop(ctx)
 	}
 
 	err = g.motor.GoTo(ctx, g.rpm, x)
