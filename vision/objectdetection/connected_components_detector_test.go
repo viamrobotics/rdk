@@ -5,11 +5,11 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/rdk/rimage"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"github.com/pkg/errors"
+	"go.viam.com/rdk/rimage"
 )
 
 type simpleSource struct {

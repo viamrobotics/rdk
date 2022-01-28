@@ -3,9 +3,9 @@ package objectdetection
 import (
 	"image"
 
-	"go.viam.com/rdk/rimage"
-
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/rimage"
 )
 
 // validPixelFunc is a function that returns true if a pixel in an rimage.ImageWithDepth passes a certain criteria.
