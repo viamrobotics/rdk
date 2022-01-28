@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -220,20 +219,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ArmByName returns an arm by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
-	resource, ok := rc.ResourceByName(arm.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualArm, ok := resource.(arm.Arm)
-	if !ok {
-		return nil, false
-	}
-	return actualArm, true
-}
-
 // BaseByName returns a base by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
@@ -409,19 +394,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// ArmNames returns the names of all known arms.
-func (rc *RobotClient) ArmNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == arm.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // GripperNames returns the names of all known grippers.

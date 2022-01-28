@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -26,9 +25,6 @@ import (
 type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
-
-	// ArmByName returns an arm by name.
-	ArmByName(name string) (arm.Arm, bool)
 
 	// BaseByName returns a base by name.
 	BaseByName(name string) (base.Base, bool)
@@ -56,9 +52,6 @@ type Robot interface {
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// ArmNames returns the name of all known arms.
-	ArmNames() []string
 
 	// GripperNames returns the name of all known grippers.
 	GripperNames() []string

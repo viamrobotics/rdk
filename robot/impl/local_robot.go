@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
-
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/base"
@@ -108,12 +106,6 @@ func (r *localRobot) BoardByName(name string) (board.Board, bool) {
 	return r.parts.BoardByName(name)
 }
 
-// ArmByName returns an arm by name. If it does not exist
-// nil is returned.
-func (r *localRobot) ArmByName(name string) (arm.Arm, bool) {
-	return r.parts.ArmByName(name)
-}
-
 // BaseByName returns a base by name. If it does not exist
 // nil is returned.
 func (r *localRobot) BaseByName(name string) (base.Base, bool) {
@@ -159,11 +151,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// ArmNames returns the name of all known arms.
-func (r *localRobot) ArmNames() []string {
-	return r.parts.ArmNames()
 }
 
 // GripperNames returns the name of all known grippers.
