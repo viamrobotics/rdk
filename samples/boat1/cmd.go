@@ -408,7 +408,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close(ctx)
 
-	depth1, ok := myRobot.SensorByName("depth1")
+	depth1, ok := sensor.FromRobot(myRobot, "depth1")
 	if !ok {
 		return errors.New("failed to find depth1 sensor")
 	}
