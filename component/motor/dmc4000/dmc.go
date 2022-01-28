@@ -26,6 +26,8 @@ import (
 
 const (
 	modelName = "DMC4000"
+	// D4140 amplifier model.
+	D4140 = "D4140"
 )
 
 // controllers is global to all instances, mapped by serial device.
@@ -36,10 +38,12 @@ var (
 
 // controller is common across all DMC4000 motor instances sharing a controller.
 type controller struct {
-	mu         sync.Mutex
-	port       io.ReadWriteCloser
-	logger     golog.Logger
-	activeAxes map[string]bool
+	mu             sync.Mutex
+	port           io.ReadWriteCloser
+	serialDevice   string
+	logger         golog.Logger
+	activeAxes     map[string]bool
+	amplifierModel string
 }
 
 // Motor is a single axis/motor/component instance.
@@ -52,12 +56,22 @@ type Motor struct {
 	HomeRPM          float64
 }
 
-// Config allows setting controller-wide options.
+// Config adds DMC-specific config options.
 type Config struct {
 	motor.Config
-	SerialDevice string `json:"serial_device"`
-	Axis         string `json:"axis"`
-	HomeRPM      string `json:"home_rpm"`
+	SerialDevice string  `json:"serial_device"` // path to /dev/ttyXXXX file
+	Axis         string  `json:"axis"`          // A-H
+	HomeRPM      float64 `json:"home_rpm"`      // Speed for Home()
+
+	// Model of the built-in amplifier (different for steppers, brushed/etc)
+	// D4140 (stepper) is the only one supported currently
+	AmplifierModel string `json:"amplifier_model"`
+	// Set the per phase current (when using stepper amp)
+	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
+	AmplifierGain int `json:"amplifier_gain"`
+	// Can reduce current when holding
+	// https://www.galil.com/download/comref/com4103/index.html#low_current_stepper_mode.html
+	LowCurrent int `json:"low_current"`
 }
 
 func init() {
@@ -121,23 +135,32 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 	}
 
 	globalMu.Lock()
-	controller, ok := controllers[c.SerialDevice]
+	ctrl, ok := controllers[c.SerialDevice]
 	if !ok {
-		controllers[c.SerialDevice] = controller
-		controller = controllers[c.SerialDevice]
-		controller.activeAxes = make(map[string]bool)
+		ctrl = new(controller)
+		controllers[c.SerialDevice] = ctrl
+		ctrl.activeAxes = make(map[string]bool)
+		ctrl.serialDevice = c.SerialDevice
+		ctrl.amplifierModel = c.AmplifierModel
+	}
+	if ctrl.amplifierModel == "" {
+		ctrl.amplifierModel = D4140 // only one supported for now
 	}
 	globalMu.Unlock()
+
+	if ctrl.amplifierModel != D4140 {
+		return nil, errors.New("only amplifier model D4140 (stepper motor) is supported")
+	}
 
 	if !validAxis(c.Axis) {
 		return nil, fmt.Errorf("invalid dmc4000 motor axis: %s", c.Axis)
 	}
 
-	controller.mu.Lock()
-	defer controller.mu.Unlock()
-	claimed, ok := controller.activeAxes[c.Axis]
+	ctrl.mu.Lock()
+	defer ctrl.mu.Unlock()
+	claimed, ok := ctrl.activeAxes[c.Axis]
 	if !ok || !claimed {
-		controller.activeAxes[c.Axis] = true
+		ctrl.activeAxes[c.Axis] = true
 	}
 
 	serialOptions := serial.OpenOptions{
@@ -153,14 +176,20 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 	if err != nil {
 		return nil, err
 	}
-	controller.port = port
+	ctrl.port = port
 
 	m := &Motor{
-		c:                controller,
+		c:                ctrl,
 		Axis:             c.Axis,
 		StepsPerRotation: c.TicksPerRotation,
 		MaxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
+		HomeRPM:          c.HomeRPM,
+	}
+
+	err = m.configure(c)
+	if err != nil {
+		return nil, err
 	}
 
 	return m, nil
@@ -168,10 +197,74 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 
 // Close stops the motor and marks the axis inactive.
 func (m *Motor) Close() {
-	// TODO actual close/shutdown routines
-	m.c.activeAxes[m.Axis] = false
+	err := m.Stop(context.Background())
+	if err != nil {
+		m.c.logger.Error(err)
+	}
+
+	m.c.mu.Lock()
+	defer m.c.mu.Unlock()
+	delete(m.c.activeAxes, m.Axis)
+	for _, active := range m.c.activeAxes {
+		if active {
+			return
+		}
+	}
+	err = m.c.port.Close()
+	if err != nil {
+		m.c.logger.Error(err)
+	}
+	globalMu.Lock()
+	defer globalMu.Unlock()
+	delete(controllers, m.c.serialDevice)
 }
 
+// Must be run inside a lock.
+func (m *Motor) configure(c *Config) error {
+	switch m.c.amplifierModel {
+	case D4140:
+		m.StepsPerRotation *= 64 // fixed microstepping
+
+		// Stepper type, with optional reversing
+		motorType := "2" // string because no trailing zeros
+		if c.DirFlip {
+			motorType = "2.5"
+		}
+
+		// Turn off the motor
+		_, err := m.c.sendCmd(fmt.Sprintf("MO%s", m.Axis))
+		if err != nil {
+			return err
+		}
+
+		// Set motor type to stepper (possibly reversed)
+		_, err = m.c.sendCmd(fmt.Sprintf("MT%s= %s", m.Axis, motorType))
+		if err != nil {
+			return err
+		}
+
+		// Set amplifier gain
+		_, err = m.c.sendCmd(fmt.Sprintf("AG%s= %d", m.Axis, c.AmplifierGain))
+		if err != nil {
+			return err
+		}
+
+		// Set low current mode
+		_, err = m.c.sendCmd(fmt.Sprintf("LC%s= %d", m.Axis, c.LowCurrent))
+		if err != nil {
+			return err
+		}
+
+		// Enable the motor
+		_, err = m.c.sendCmd(fmt.Sprintf("SH%s", m.Axis))
+		return err
+
+	default:
+		return fmt.Errorf("unsupported amplifier model: %s", m.c.amplifierModel)
+	}
+}
+
+// Must be run inside a lock.
 func (c *controller) sendCmd(cmd string) (string, error) {
 	_, err := c.port.Write([]byte(cmd + "\r\n"))
 	if err != nil {
@@ -205,10 +298,6 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 
 	return string(ret), fmt.Errorf("unknown error after cmd (%s), response: %s", cmd, string(ret))
 }
-
-// func (c *controller) homeAxis(axis string) error {
-// 	return nil
-// }
 
 // Convert rpm to DMC4000 counts/sec.
 func (m *Motor) rpmToV(rpm float64) int32 {
@@ -463,6 +552,7 @@ func (m *Motor) Home(ctx context.Context) error {
 	}
 }
 
+// Does its own locking.
 func (m *Motor) startHome() error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
