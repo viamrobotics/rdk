@@ -3,6 +3,8 @@ package ds18b20
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -51,36 +53,36 @@ func newSensor(name string, id string) sensor.Sensor {
 	return &Sensor{Name: name, OneWireID: id, OneWireFamily: "28"}
 }
 
-// Sensor is a fake Sensor device that always returns the set location.
+// Sensor is a 1-wire Sensor device.
 type Sensor struct {
 	Name          string
 	OneWireID     string
 	OneWireFamily string
 }
 
-// ReadTemperatureCelsius returns temperature in celsius.
+// ReadTemperatureCelsius returns current temperature in celsius.
 func (s *Sensor) ReadTemperatureCelsius(ctx context.Context) (float64, error) {
-	/*
-	* logic here is specific to 1-wire protocol, could be abstracted next time we
-	* want to build support for a different 1-wire device,
-	* or look at support via periph (or other library)
-	 */
-	devPath := "/sys/bus/w1/devices/" + s.OneWireFamily + "-" + s.OneWireID + "/w1_slave"
+	// logic here is specific to 1-wire protocol, could be abstracted next time we
+	// want to build support for a different 1-wire device,
+	// or look at support via periph (or other library)
+	devPath := fmt.Sprintf("/sys/bus/w1/devices/%s-%s/w1_slave", s.OneWireFamily, s.OneWireID)
 	dat, err := os.ReadFile(filepath.Clean(devPath))
 	if err != nil {
 		return math.NaN(), err
 	}
 	tempString := strings.TrimSuffix(string(dat), "\n")
-	tempString = strings.Split(tempString, "t=")[1]
-	tempMili, err := strconv.ParseFloat(tempString, 32)
-	if err != nil {
-		return math.NaN(), err
+	splitString := strings.Split(tempString, "t=")
+	if len(splitString) == 2 {
+		tempMili, err := strconv.ParseFloat(splitString[1], 32)
+		if err != nil {
+			return math.NaN(), err
+		}
+		return tempMili / 1000, nil
 	}
-
-	return tempMili / 1000, nil
+	return math.NaN(), errors.New("temperature could not be read")
 }
 
-// Readings returns a list of all readings.
+// Readings returns a list containing single item (current temperature).
 func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
 	temp, err := s.ReadTemperatureCelsius(ctx)
 	if err != nil {
