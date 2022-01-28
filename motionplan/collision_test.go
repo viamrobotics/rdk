@@ -64,7 +64,7 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	cols := cg.Collisions()
 	test.That(t, len(cols), test.ShouldEqual, 2)
-	equal := collisionsEqual(cols, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link", 19.5}, {"UR5e:wrist_1_link", "UR5e:ee_link", 0}})
+	equal := collisionsEqual(cols, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link", 9}, {"UR5e:wrist_1_link", "UR5e:ee_link", 0}})
 	test.That(t, equal, test.ShouldBeTrue)
 }
 

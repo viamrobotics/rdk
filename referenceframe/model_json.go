@@ -80,7 +80,7 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 			}
 			pt := link.Translation.ParseConfig()
 			pose := spatial.NewPoseFromOrientation(pt, orientation)
-			volumeCreator, err := link.Volume.ParseConfig()
+			volumeCreator, err := link.Volume.ParseConfig(spatial.NewPoseFromOrientation(pt.Mul(0.5), orientation))
 			if err == nil {
 				transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
 			} else {

@@ -45,13 +45,14 @@ type VolumeConfig struct {
 }
 
 // ParseConfig converts a VolumeConfig into the correct VolumeCreator type, as specified in its Type field.
-func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
-	orientation, err := config.OrientationOffset.ParseConfig()
-	if err != nil {
-		return nil, err
+func (config *VolumeConfig) ParseConfig(offset Pose) (VolumeCreator, error) {
+	if offset == nil {
+		orientation, err := config.OrientationOffset.ParseConfig()
+		if err != nil {
+			return nil, err
+		}
+		offset = Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
 	}
-	pt := config.TranslationOffset.ParseConfig()
-	offset := Compose(NewPoseFromOrientation(r3.Vector{0, 0, 0}, orientation), NewPoseFromPoint(pt))
 
 	switch config.Type {
 	case "box":

@@ -248,7 +248,7 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
-		err = fmt.Errorf("%.5f input out of bounds %v", input[0].Value, pf.limit)
+		err = fmt.Errorf("%.5f input out of bounds %v", input[0].Value, pf.limit[0])
 	}
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
@@ -312,7 +312,7 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	if input[0].Value < rf.limit[0].Min || input[0].Value > rf.limit[0].Max {
-		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit)
+		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
