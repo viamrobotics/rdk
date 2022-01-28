@@ -43,3 +43,29 @@ func TestConvolveGray(t *testing.T) {
 	test.That(t, convolved.At(97, 47), test.ShouldResemble, imGTGray.At(97, 47))
 	test.That(t, convolved.At(536, 304), test.ShouldResemble, imGTGray.At(536, 304))
 }
+
+func TestConvolveGrayFloat64(t *testing.T) {
+	// test that image test files are in artifacts
+	im, err := NewImageFromFile(artifact.MustPath("rimage/binary_image.jpg"))
+	bounds := im.Bounds()
+	w, h := bounds.Max.X, bounds.Max.Y
+	test.That(t, err, test.ShouldBeNil)
+	// convert to gray float
+	imGray := ConvertColorImageToLuminanceFloat(*im)
+	// load gt image
+	gt, err := NewImageFromFile(artifact.MustPath("rimage/sobelx.png"))
+	test.That(t, err, test.ShouldBeNil)
+	// convert to gray float
+	gtGray := ConvertColorImageToLuminanceFloat(*gt)
+
+	kernel := GetSobelX()
+	convolved, err := ConvolveGrayFloat64(imGray, &kernel)
+	test.That(t, err, test.ShouldBeNil)
+	// check size
+	nRows, nCols := convolved.Dims()
+	test.That(t, nCols, test.ShouldEqual, w)
+	test.That(t, nRows, test.ShouldEqual, h)
+	// compare 2 non zero pixel values
+	test.That(t, convolved.At(47, 97), test.ShouldResemble, gtGray.At(47, 97)) // 0 < val < 255
+	test.That(t, convolved.At(304, 536), test.ShouldEqual, -1)                 // val < 0 - not clamped
+}

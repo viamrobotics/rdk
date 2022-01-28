@@ -9,6 +9,9 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"math"
+
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -131,4 +134,16 @@ func (i *Image) SubImage(r image.Rectangle) Image {
 		newData = append(newData, i.data[begin:end]...)
 	}
 	return Image{data: newData, width: width, height: height}
+}
+
+// ConvertColorImageToLuminanceFloat convert an Image to a gray level image as a float dense matrix.
+func ConvertColorImageToLuminanceFloat(img Image) *mat.Dense {
+	out := mat.NewDense(img.height, img.width, nil)
+	utils.ParallelForEachPixel(image.Point{img.width, img.height}, func(x int, y int) {
+		c := img.At(x, y)
+		nc := NewColorFromColor(c)
+		l := math.Floor(Luminance(nc))
+		out.Set(y, x, l)
+	})
+	return out
 }
