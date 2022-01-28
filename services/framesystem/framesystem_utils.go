@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
@@ -197,7 +198,7 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 		}
 		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeSensor:
-		part, ok := r.SensorByName(name)
+		part, ok := sensor.FromRobot(r, name)
 		if !ok {
 			return nil, errors.Errorf("no sensor found with name %q when extracting model frame json", name)
 		}
