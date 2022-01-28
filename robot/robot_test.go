@@ -1,8 +1,10 @@
-// Package robot defines the robot which is the root of all robotic parts.
 package robot_test
 
 import (
 	"testing"
+
+	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
@@ -11,8 +13,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/test"
-	"go.viam.com/utils"
 )
 
 var (
@@ -68,5 +68,4 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names = robot.NamesBySubtype(r, arm.Subtype)
 	test.That(t, utils.NewStringSet(names...), test.ShouldResemble, utils.NewStringSet(testutils.ExtractNames(armNames...)...))
-
 }
