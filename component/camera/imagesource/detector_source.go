@@ -27,7 +27,7 @@ func init() {
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
 			if !ok {
-				return nil, errors.New("cannot convert config.ConvertedAttributes into a *rimage.AttrConfig")
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *rimage.AttrConfig but got %T", config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
 			source, ok := r.CameraByName(sourceName)

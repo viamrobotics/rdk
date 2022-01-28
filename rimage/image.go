@@ -39,7 +39,7 @@ func (i *Image) ColorModel() color.Model {
 // Clone makes a copy of the image.
 func (i *Image) Clone() *Image {
 	ii := NewImage(i.Width(), i.Height())
-	_ = copy(ii.data, i.data)
+	copy(ii.data, i.data)
 	return ii
 }
 

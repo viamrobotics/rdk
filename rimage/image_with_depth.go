@@ -265,6 +265,19 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	}
 }
 
+// CloneToImageWithDepth attempts to clone a go image into an image
+// with depth, if it contains any.
+func CloneToImageWithDepth(img image.Image) *ImageWithDepth {
+	switch x := img.(type) {
+	case *ImageWithDepth:
+		return x.Clone()
+	case *Image:
+		return &ImageWithDepth{x.Clone(), nil, false, nil}
+	default:
+		return &ImageWithDepth{CloneImage(img), nil, false, nil}
+	}
+}
+
 // RawBytesWrite writes out the internal representation of the color
 // and depth into the given buffer.
 func (i *ImageWithDepth) RawBytesWrite(buf *bytes.Buffer) error {

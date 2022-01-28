@@ -47,7 +47,7 @@ func NewEmptyDepthMap(width, height int) *DepthMap {
 // Clone makes a copy of the depth map.
 func (dm *DepthMap) Clone() *DepthMap {
 	ddm := NewEmptyDepthMap(dm.Width(), dm.Height())
-	_ = copy(ddm.data, dm.data)
+	copy(ddm.data, dm.data)
 	return ddm
 }
 
