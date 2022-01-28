@@ -39,6 +39,12 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 
 // Clone makes a copy of the image with depth.
 func (i *ImageWithDepth) Clone() *ImageWithDepth {
+	if i.Color == nil {
+		return &ImageWithDepth{nil, nil, i.aligned, i.camera}
+	}
+	if i.Depth == nil {
+		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned, i.camera}
+	}
 	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned, i.camera}
 }
 
