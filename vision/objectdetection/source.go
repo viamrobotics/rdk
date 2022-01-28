@@ -69,7 +69,7 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, d
 			if r.Err != nil && errors.Is(r.Err, context.Canceled) {
 				return
 			}
-			r.PreprocessedImage = rimage.CloneToImageWithDepth(r.OriginalImage)
+			r.PreprocessedImage = rimage.CloneToImageWithDepth(r.OriginalImage) // use depth info if available
 			r.PreprocessedImage = prep(r.PreprocessedImage)
 			r.Detections, r.Err = det(r.PreprocessedImage)
 			if r.Err == nil {

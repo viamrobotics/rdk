@@ -52,19 +52,17 @@ func init() {
 func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*camera.ImageSource, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
-	if len(attrs.ExcludeColors) != 0 {
-		for _, c := range attrs.ExcludeColors {
-			rc, err := objectdetection.RemoveColorChannel(c)
-			if err != nil {
-				return nil, err
-			}
-			pSlice = append(pSlice, rc)
+	for _, c := range attrs.ExcludeColors {
+		rc, err := objectdetection.RemoveColorChannel(c)
+		if err != nil {
+			return nil, err
 		}
+		pSlice = append(pSlice, rc)
 	}
 	p := objectdetection.ComposePreprocessors(pSlice)
 
 	// define the detector
-	tolerance := 10.0 // default value
+	tolerance := 0.05 // default value of 5%
 	if attrs.Tolerance != 0. {
 		tolerance = attrs.Tolerance
 	}
@@ -76,7 +74,10 @@ func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*came
 		col = rimage.NewColor(attrs.DetectColor[0], attrs.DetectColor[1], attrs.DetectColor[2])
 	}
 	hue, _, _ := col.HsvNormal()
-	d := objectdetection.NewColorDetector(tolerance, hue)
+	d, err := objectdetection.NewColorDetector(tolerance, hue)
+	if err != nil {
+		return nil, err
+	}
 
 	// define the filter
 	segmentSize := 5000 // default value

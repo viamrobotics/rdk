@@ -82,7 +82,7 @@ func TestCloneImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	i := ConvertImage(img)
-	ii := i.Clone()
+	ii := CloneImage(i)
 	for y := 0; y < i.Height(); y++ {
 		for x := 0; x < i.Width(); x++ {
 			test.That(t, ii.GetXY(x, y), test.ShouldResemble, i.GetXY(x, y))

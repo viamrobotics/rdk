@@ -81,7 +81,10 @@ func pipeline(src gostream.ImageSource, tol float64, size int, logger golog.Logg
 	// create detector
 	col := rimage.NewColor(79, 56, 21)
 	hue, _, _ := col.HsvNormal()
-	d := objectdetection.NewColorDetector(tol, hue)
+	d, err := objectdetection.NewColorDetector(tol, hue)
+	if err != nil {
+		logger.Fatal(err)
+	}
 	// create filter
 	f := objectdetection.NewAreaFilter(size)
 

@@ -79,7 +79,7 @@ func TestCloneImageWithDepth(t *testing.T) {
 	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	ii := iwd.Clone()
+	ii := CloneToImageWithDepth(iwd)
 	for y := 0; y < ii.Height(); y++ {
 		for x := 0; x < ii.Width(); x++ {
 			test.That(t, ii.Depth.GetDepth(x, y), test.ShouldResemble, iwd.Depth.GetDepth(x, y))

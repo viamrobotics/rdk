@@ -5,10 +5,11 @@ import (
 	"image"
 	"testing"
 
+	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/rimage"
+	"github.com/pkg/errors"
 )
 
 type simpleSource struct {
@@ -29,7 +30,10 @@ func TestColorDetection(t *testing.T) {
 	// make the detector
 	theColor := rimage.NewColor(79, 56, 21) // a yellow color
 	hue, _, _ := theColor.HsvNormal()
-	d := NewColorDetector(8., hue)
+	_, err = NewColorDetector(8., hue)
+	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
+	d, err := NewColorDetector(0.0444444444, hue)
+	test.That(t, err, test.ShouldBeNil)
 	// make the filter
 	f := NewAreaFilter(15000)
 

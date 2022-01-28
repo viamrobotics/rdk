@@ -16,7 +16,7 @@ func TestColorDetectionSource(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	source := &staticSource{img}
 
-	cfg := &rimage.AttrConfig{Tolerance: 10.0, SegmentSize: 15000, DetectColor: []uint8{79, 56, 21}, ExcludeColors: []string{"b"}}
+	cfg := &rimage.AttrConfig{Tolerance: 0.055556, SegmentSize: 15000, DetectColor: []uint8{79, 56, 21}, ExcludeColors: []string{"b"}}
 	cameraSource, err := NewColorDetector(source, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	detector := cameraSource.ImageSource.(*objectdetection.Source)
@@ -34,7 +34,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	test.That(b, err, test.ShouldBeNil)
 	source := &staticSource{img}
 
-	cfg := &rimage.AttrConfig{Tolerance: 10.0, SegmentSize: 15000, DetectColor: []uint8{79, 56, 21}, ExcludeColors: []string{"b"}}
+	cfg := &rimage.AttrConfig{Tolerance: 0.055556, SegmentSize: 15000, DetectColor: []uint8{79, 56, 21}, ExcludeColors: []string{"b"}}
 	cameraSource, err := NewColorDetector(source, cfg)
 	test.That(b, err, test.ShouldBeNil)
 	detector := cameraSource.ImageSource.(*objectdetection.Source)
