@@ -11,6 +11,16 @@ import (
 // Preprocessor will apply processing to an input image before feeding it into the detector.
 type Preprocessor func(image.Image) image.Image
 
+// ComposePreprocessors takes in a slice of Preprocessors and returns one Preprocessor function
+func ComposePreprocessors(pSlice []Preprocessor) Preprocessor {
+	return func(img image.Image) image.Image {
+		for _, p := range pSlice {
+			img = p(img)
+		}
+		return img
+	}
+}
+
 // RemoveColorChannel will set the requested channel color to 0 in every picture. only "R", "G", and "B" are allowed.
 func RemoveColorChannel(col string) (Preprocessor, error) {
 	switch col {
