@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 
 	// for Sensors.
+	_ "go.viam.com/rdk/component/sensor/ds18b20"
 	_ "go.viam.com/rdk/component/sensor/fake"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
