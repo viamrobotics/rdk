@@ -36,7 +36,7 @@ type Motor struct {
 	PositionSupportedFunc bool
 	GoForfunc             bool
 	ResetZeroPositionFunc error
-	PositionFunc          float64 //may need to be defined as a functions in future.
+	PositionFunc          float64 //may need to be defined as a functions.
 }
 
 // PID Return the underlying PID.

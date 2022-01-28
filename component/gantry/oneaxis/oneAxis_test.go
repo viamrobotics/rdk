@@ -1,4 +1,4 @@
-package oneAxis
+package oneaxis
 
 import (
 	"context"
@@ -64,7 +64,7 @@ func TestNewoneAxis(t *testing.T) {
 	}
 
 	fakegantry, err := NewOneAxis(ctx, fakeRobot, fakecfg, logger)
-	realG, ok := fakegantry.(*OneAxis)
+	realG, ok := fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, realG.limitType, test.ShouldEqual, "twoPin")
@@ -81,7 +81,7 @@ func TestNewoneAxis(t *testing.T) {
 		},
 	}
 	fakegantry, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
-	realG, ok = fakegantry.(*OneAxis)
+	realG, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -123,10 +123,10 @@ func TestNewoneAxis(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestInit(t *testing.T) {
+func TestHome(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
 		limitHigh:       true,
@@ -136,10 +136,10 @@ func TestInit(t *testing.T) {
 		limitType:       "onePinOneLength",
 	}
 
-	err := fakegantry.init(ctx)
+	err := fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakegantry = &OneAxis{
+	fakegantry = &oneAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
 		limitHigh:       true,
@@ -148,10 +148,10 @@ func TestInit(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		limitType:       "twoPin",
 	}
-	err = fakegantry.init(ctx)
+	err = fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
-	fakegantry = &OneAxis{
+	fakegantry = &oneAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
 		limitHigh:       true,
@@ -160,7 +160,7 @@ func TestInit(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		limitType:       "encoder",
 	}
-	err = fakegantry.init(ctx)
+	err = fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 }
@@ -169,7 +169,7 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	motor := createShamMotor()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
 		limitHigh:       true,
@@ -186,15 +186,15 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 	motor := createShamMotor()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		motor:           createFakeMotor(),
 		board:           createFakeBoard(),
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
-		limitSwitchPins: []string{"1", "2", "3"},
-		length_mm:       float64(1),
-		pulleyR_mm:      float64(.1),
+		limitSwitchPins: []string{"1"},
+		lengthMm:        float64(1),
+		pulleyRMm:       float64(.1),
 	}
 
 	err := fakegantry.homeOneLimSwitch(ctx)
@@ -202,7 +202,7 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 }
 
 func TestHomeEncoder(t *testing.T) {
-	fakegantry := &OneAxis{}
+	fakegantry := &oneAxis{}
 	ctx := context.Background()
 	err := fakegantry.homeEncoder(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -210,7 +210,7 @@ func TestHomeEncoder(t *testing.T) {
 
 func TestTestLimit(t *testing.T) {
 	ctx := context.Background()
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		limitSwitchPins: []string{"1", "2"},
 		motor:           createShamMotor(),
 		limitBoard:      createFakeBoard(),
@@ -224,7 +224,7 @@ func TestTestLimit(t *testing.T) {
 
 func TestLimitHit(t *testing.T) {
 	ctx := context.Background()
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		limitSwitchPins: []string{"1", "2", "3"},
 		limitBoard:      createFakeBoard(),
 		limitHigh:       true,
@@ -241,7 +241,7 @@ func TestCurrentPosition(t *testing.T) {
 
 	fakemotor := createShamMotor()
 	ctx := context.Background()
-	fakegantry := &OneAxis{
+	fakegantry := &oneAxis{
 		board:           createFakeBoard(),
 		limitHigh:       true,
 		motor:           fakemotor,
@@ -249,18 +249,18 @@ func TestCurrentPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1, 0, 1, 0, 1},
 		logger:          logger,
 	}
-	positions, err := fakegantry.CurrentPosition(ctx)
+	positions, err := fakegantry.GetPosition(ctx)
 
 	test.That(t, positions, test.ShouldResemble, []float64{1, 1, 1})
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestLengths(t *testing.T) {
-	fakegantry := &OneAxis{
-		length_mm: float64(1.0),
+	fakegantry := &oneAxis{
+		lengthMm: float64(1.0),
 	}
 	ctx := context.Background()
-	fakelengths, err := fakegantry.Lengths(ctx)
+	fakelengths, err := fakegantry.GetLengths(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.ShouldHaveLength(t, fakelengths, test.ShouldEqual(float64(1.0)))
 }

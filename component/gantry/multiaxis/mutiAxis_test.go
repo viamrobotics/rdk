@@ -1,4 +1,4 @@
-package multiAxis
+package multiaxis
 
 import (
 	"context"
@@ -7,35 +7,40 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/motor"
+	fm "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createShamMotor() *inject.Motor {
-	shamMotor := &inject.Motor{}
+func createFakeMotor() *inject.Motor {
+	fakemotor := &inject.Motor{}
 
-	shamMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+	fakemotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	shamMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	fakemotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 1, nil
 	}
 
-	shamMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+	fakemotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
 		return nil
 	}
 
-	shamMotor.StopFunc = func(ctx context.Context) error {
+	fakemotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 
-	shamMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+	fakemotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
 
-	return shamMotor
+	return fakemotor
 }
 
 func createFakeBoard() *inject.Board {
@@ -47,144 +52,179 @@ func createFakeBoard() *inject.Board {
 	return fakeboard
 }
 
+func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
+	fakeoneaxis := &inject.Gantry{
+		Gantry: nil,
+		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
+			return positions, nil
+		},
+		MoveToPositionFunc: func(ctx context.Context, positions []float64) error {
+			return nil
+		},
+		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
+			return []float64{length}, nil
+		},
+		CloseFunc: func(ctx context.Context) error {
+			return nil
+		},
+	}
+	return fakeoneaxis
+}
+
+func createFakeRobot() *inject.Robot {
+	fakerobot := &inject.Robot{}
+
+	fakerobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fm.Motor{PositionSupportedFunc: true, GoForfunc: true}, true
+	}
+
+	fakerobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return true, nil }}, true
+	}
+
+	// unsure if right way to test if ResourceByName is working correctly
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1, 0, 0}, nil }}, true
+	}
+	return fakerobot
+}
+
+var threeAxes = []gantry.Gantry{
+	createFakeOneaAxis(1, []float64{1, 2, 3}),
+	createFakeOneaAxis(2, []float64{4, 5, 6}),
+	createFakeOneaAxis(3, []float64{7, 8, 9}),
+}
+
+var twoAxes = []gantry.Gantry{
+	createFakeOneaAxis(5, []float64{1, 2, 3}),
+	createFakeOneaAxis(6, []float64{4, 5, 6}),
+}
+
 func TestNewMultiAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	shamRobot := &inject.Robot{}
+	fakeRobot := createFakeRobot()
 
-	shamcfg := config.Component{
+	fakeMultAxcfg := config.Component{
+		Name: "gantry",
 		Attributes: config.AttributeMap{
-			"motorList":       []string{},
-			"limitSwitchPins": []string{},
-			"lengthMeters":    []float64{},
-			"board":           "",
-		},
-	}
-	_, err := NewMultiAxis(ctx, shamRobot, shamcfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	shamcfg = config.Component{
-		Attributes: config.AttributeMap{
-			"motorList":       []string{"x", "y", "z"},
-			"limitSwitchPins": []string{"1", "2", "3", "4", "5", "6"},
-			"lengthMeters":    []float64{1.0, 1.0, 1.0},
-			"board":           "board",
+			"subaxes_list": []string{"1", "2", "3"},
 		},
 	}
 
-	_, err = NewMultiAxis(ctx, shamRobot, shamcfg, logger)
+	_, err := NewMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	fakeMultAxcfg = config.Component{
+		Name: "gantry",
+		Attributes: config.AttributeMap{
+			"subaxes_list": []string{},
+		},
+	}
+
+	_, err = NewMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestInit(t *testing.T) {
+func TestMoveToPosition(t *testing.T) {
 	ctx := context.Background()
-	fakemotor := createShamMotor()
-	_, err := fakemotor.PositionSupportedFunc(ctx)
-	test.That(t, err, test.ShouldBeNil)
-}
+	positions := []float64{}
 
-func TestHomeTwoLimitSwitch(t *testing.T) {
-	motors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	fakegantry := &multiAxis{
-		motorList:       []string{"x", "y", "z"},
-		motors:          motors,
-		limitBoard:      createFakeBoard(),
-		limitHigh:       true,
-		logger:          logger,
-		rpm:             []float64{300, 300, 300},
-		limitSwitchPins: []string{"1", "2", "3", "4", "5", "6"},
-	}
-
-	err := fakegantry.homeTwoLimSwitch(ctx, 0, []int{0, 1})
-	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestHomeOneLimitSwitch(t *testing.T) {
-	motors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
-	ctx := context.Background()
-	logger := golog.NewTestLogger(t)
-	fakegantry := &multiAxis{
-		motorList:         []string{"x", "y", "z"},
-		motors:            motors,
-		limitBoard:        createFakeBoard(),
-		limitHigh:         true,
-		logger:            logger,
-		rpm:               []float64{300, 300, 300},
-		limitSwitchPins:   []string{"1", "2", "3"},
-		lengthMillimeters: []float64{1, 1, 1},
-		pulleyR:           []float64{.1, .1, .1},
-	}
-
-	err := fakegantry.homeOneLimSwitch(ctx, 0, []int{0, 1})
-	test.That(t, err, test.ShouldBeNil)
-}
-
-func TestHomeEncoder(t *testing.T) {
-	fakegantry := &multiAxis{}
-	ctx := context.Background()
-	err := fakegantry.homeEncoder(ctx, 1)
+	fakemultiaxis := &multiAxis{}
+	err := fakemultiaxis.MoveToPosition(ctx, positions)
 	test.That(t, err, test.ShouldNotBeNil)
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	positions = []float64{1, 2, 3}
+	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	test.That(t, err, test.ShouldBeNil)
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	positions = []float64{1, 2}
+	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestTestLimit(t *testing.T) {
+func TestGoToInputs(t *testing.T) {
 	ctx := context.Background()
-	fakegantry := &multiAxis{
-		limitSwitchPins: []string{"1", "2"},
-		motors:          []motor.Motor{createShamMotor()},
-		limitBoard:      createFakeBoard(),
-		rpm:             []float64{300},
-		limitHigh:       true,
-	}
-	pos, err := fakegantry.testLimit(ctx, 0, []int{0, 1}, true)
+	inputs := []referenceframe.Input{}
+
+	fakemultiaxis := &multiAxis{}
+	err := fakemultiaxis.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldNotBeNil)
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos, test.ShouldEqual, float64(1))
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	err = fakemultiaxis.GoToInputs(ctx, inputs)
+	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestLimitHit(t *testing.T) {
+func TestGetPosition(t *testing.T) {
 	ctx := context.Background()
-	fakegantry := &multiAxis{
-		limitSwitchPins: []string{"1", "2", "3"},
-		limitBoard:      createFakeBoard(),
-		limitHigh:       true,
-	}
 
-	hit, err := fakegantry.limitHit(ctx, 0)
+	fakemultiaxis := &multiAxis{subAxes: threeAxes}
+	pos, err := fakemultiaxis.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, hit, test.ShouldEqual, true)
+	test.That(t, pos, test.ShouldResemble, []float64{1, 5, 9})
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	pos, err = fakemultiaxis.GetPosition(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pos, test.ShouldResemble, []float64{1, 5})
 }
 
-func TestCurrentPosition(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-
-	fakemotors := []motor.Motor{createShamMotor(), createShamMotor(), createShamMotor()}
+func TestGetLengths(t *testing.T) {
 	ctx := context.Background()
-	fakegantry := &multiAxis{
-		limitBoard:      createFakeBoard(),
-		limitHigh:       true,
-		motorList:       []string{"x", "y", "z"},
-		motors:          fakemotors,
-		limitSwitchPins: []string{"1", "2", "3", "4", "5", "6"},
-		positionLimits:  []float64{0, 1, 0, 1, 0, 1},
-		logger:          logger,
-	}
-	positions, err := fakegantry.CurrentPosition(ctx)
-
-	test.That(t, positions, test.ShouldResemble, []float64{1, 1, 1})
+	fakemultiaxis := &multiAxis{}
+	lengths, err := fakemultiaxis.GetLengths(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lengths, test.ShouldResemble, []float64{})
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	lengths, err = fakemultiaxis.GetLengths(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lengths, test.ShouldResemble, []float64{1, 2, 3})
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+
+	lengths, err = fakemultiaxis.GetLengths(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, lengths, test.ShouldResemble, []float64{5, 6})
 }
 
-func TestLengths(t *testing.T) {
-	fakegantry := &multiAxis{
-		motorList:         []string{"x", "y", "z"},
-		lengthMillimeters: []float64{1.0, 2.0, 3.0},
-	}
+func TestCurrentInputs(t *testing.T) {
 	ctx := context.Background()
-	fakelengths, err := fakegantry.Lengths(ctx)
+	fakemultiaxis := &multiAxis{}
+	inputs, err := fakemultiaxis.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.ShouldHaveLength(t, fakelengths, len(fakegantry.motorList))
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	inputs, err = fakemultiaxis.CurrentInputs(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
 }
 
-// TODO: tests for reference frame
+/*
+func TestModelFrame(t *testing.T) {
+	fakemultiaxis := &multiAxis{}
+	model := fakemultiaxis.ModelFrame()
+	test.That(t, model, test.ShouldResemble, nil)
+
+	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	model = fakemultiaxis.ModelFrame()
+	test.That(t, model, test.ShouldResemble, []referenceframe.Input{})
+
+	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	model = fakemultiaxis.ModelFrame()
+	test.That(t, model, test.ShouldResemble, []referenceframe.Input{})
+}
+*/

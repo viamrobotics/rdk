@@ -12,9 +12,9 @@
             "attributes": {
               "board": "local",
               "pins": {
-                "dir": "io21",
-                "enHigh": "io26",
-                "step": "io13"
+                "dir": "1",
+                "enHigh": "2",
+                "step": "3"
             },
               "stepperDelay": 50,
               "ticksPerRotation": 200
@@ -27,9 +27,9 @@
                 "attributes": {
                   "board": "local",
                   "pins": {
-                    "dir": "io21",
-                    "enHigh": "io26",
-                    "step": "io13"
+                    "dir": "4",
+                    "enHigh": "5",
+                    "step": "6"
                   },
                   "stepperDelay": 50,
                   "ticksPerRotation": 200
@@ -42,9 +42,9 @@
             "attributes": {
               "board": "local",
               "pins": {
-                "dir": "io21",
-                "enHigh": "io26",
-                "step": "io13"
+                "dir": "7",
+                "enHigh": "8",
+                "step": "9"
               },
               "stepperDelay": 50,
               "ticksPerRotation": 200
@@ -59,8 +59,8 @@
           "limitBoard": "local",
           "limitHigh": false,
           "limitPins": [
-            "1",
-            "2"
+            "10",
+            "11"
           ],
           "motor": "xmotor",
 
@@ -77,8 +77,8 @@
         "limitBoard": "local",
         "limitHigh": false,
         "limitPins": [ 
-          "3",
-          "4"
+          "12",
+          "13"
         ],
         "motor": "ymotor",
         "rpm": 300
