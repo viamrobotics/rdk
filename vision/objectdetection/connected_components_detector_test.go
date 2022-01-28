@@ -28,7 +28,8 @@ func TestColorDetection(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// make the detector
 	theColor := rimage.NewColor(79, 56, 21) // a yellow color
-	d := NewColorDetector(8., theColor)
+	hue, _, _ := theColor.HsvNormal()
+	d := NewColorDetector(8., hue)
 	// make the filter
 	f := NewAreaFilter(15000)
 

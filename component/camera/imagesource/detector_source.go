@@ -75,7 +75,8 @@ func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*came
 		}
 		col = rimage.NewColor(attrs.DetectColor[0], attrs.DetectColor[1], attrs.DetectColor[2])
 	}
-	d := objectdetection.NewColorDetector(tolerance, col)
+	hue, _, _ := col.HsvNormal()
+	d := objectdetection.NewColorDetector(tolerance, hue)
 
 	// define the filter
 	segmentSize := 5000 // default value
