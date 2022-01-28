@@ -30,10 +30,10 @@ func TestClient(t *testing.T) {
 	rs := []interface{}{1.1, 2.2}
 
 	injectSensor := &inject.Sensor{}
-	injectSensor.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
+	injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
 
 	injectSensor2 := &inject.Sensor{}
-	injectSensor2.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
+	injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
 
 	sensorSvc, err := subtype.New(
 		(map[resource.Name]interface{}{sensor.Named(testSensorName): injectSensor, sensor.Named(testSensorName2): injectSensor2}),
@@ -58,7 +58,7 @@ func TestClient(t *testing.T) {
 		sensor1Client, err := sensor.NewClient(context.Background(), testSensorName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
-		rs1, err := sensor1Client.Readings(context.Background())
+		rs1, err := sensor1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		sensor2Client := sensor.NewClientFromConn(context.Background(), conn, testSensorName2, logger)
 
-		_, err = sensor2Client.Readings(context.Background())
+		_, err = sensor2Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 

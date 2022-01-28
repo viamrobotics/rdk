@@ -111,12 +111,12 @@ func TestOrientiation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCalls, test.ShouldEqual, 1)
 }
 
-func TestReadings(t *testing.T) {
+func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: "imu1"}
 	fakeIMU1, _ := WrapWithReconfigurable(actualIMU1)
 
 	test.That(t, actualIMU1.readingsCalls, test.ShouldEqual, 0)
-	result, err := fakeIMU1.(*reconfigurableIMU).Readings(context.Background())
+	result, err := fakeIMU1.(*reconfigurableIMU).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{av, ea})
 	test.That(t, actualIMU1.readingsCalls, test.ShouldEqual, 1)
@@ -141,7 +141,7 @@ func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, er
 	return ea, nil
 }
 
-func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
+func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
 	m.readingsCalls++
 	return []interface{}{av, ea}, nil
 }

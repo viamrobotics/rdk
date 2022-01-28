@@ -53,8 +53,8 @@ func Named(name string) resource.Name {
 // A Sensor represents a general purpose sensors that can give arbitrary readings
 // of some thing that it is sensing.
 type Sensor interface {
-	// Readings return data specific to the type of sensor and can be of any type.
-	Readings(ctx context.Context) ([]interface{}, error)
+	// GetReadings return data specific to the type of sensor and can be of any type.
+	GetReadings(ctx context.Context) ([]interface{}, error)
 }
 
 var (
@@ -96,10 +96,10 @@ func (r *reconfigurableSensor) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableSensor) Readings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resource.Reconfigurable) error {

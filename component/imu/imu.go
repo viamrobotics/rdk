@@ -71,10 +71,10 @@ func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Or
 	return r.actual.ReadOrientation(ctx)
 }
 
-func (r *reconfigurableIMU) Readings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {

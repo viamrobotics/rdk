@@ -152,12 +152,12 @@ func TestReadValid(t *testing.T) {
 	test.That(t, actualGPS1.validCalls, test.ShouldEqual, 1)
 }
 
-func TestReadings(t *testing.T) {
+func TestGetReadings(t *testing.T) {
 	actualGPS1 := &mock{Name: "gps1"}
 	reconfGPS1, _ := WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.readingsCalls, test.ShouldEqual, 0)
-	result, err := reconfGPS1.(*reconfigurableGPS).Readings(context.Background())
+	result, err := reconfGPS1.(*reconfigurableGPS).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{loc})
 	test.That(t, actualGPS1.readingsCalls, test.ShouldEqual, 1)
@@ -232,7 +232,7 @@ func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 	return valid, nil
 }
 
-func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
+func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
 	m.readingsCalls++
 	return []interface{}{loc}, nil
 }
