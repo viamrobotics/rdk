@@ -6,21 +6,36 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// simpleDetector converts an image to gray and then finds the connected components with values below a certain
-// luminance threshold. threshold is between 0.0 and 256.0, with 256.0 being white, and 0.0 being black.
-type simpleDetector struct {
-	threshold float64
+// colorDetector identifies objects of a certain color in the scene. Based on hue, currently cannot do pure black/white objects.
+type colorDetector struct {
+	valid func(float64) bool
 }
 
-// NewSimpleDetector creates a detector useful for local testing purposes on the robot. Looks for dark objects in the image.
-// It finds pixels below the set threshold, and returns bounding box around the connected components.
-func NewSimpleDetector(threshold float64) Detector {
-	sd := simpleDetector{threshold}
-	return sd.Inference
+// NewColorDetector a detector that identifies objects based on color.
+// It takes in a color, converts it to HSV, and then defines a valid range around the hue of that color
+// based on the tolerance. The color is considered valid if the pixel is between hue - tol < color < hue + tol.
+func NewColorDetector(tol float64, c rimage.Color) Detector {
+	h, _, _ := c.HsvNormal()
+	hiValid := h + tol
+	if hiValid >= 360 {
+		hiValid -= 360
+	}
+	loValid := h - tol
+	if loValid < 0 {
+		loValid += 360
+	}
+	valid := func(v float64) bool { return v == h }
+	if hiValid > loValid {
+		valid = func(v float64) bool { return v < hiValid && v > loValid }
+	} else if loValid > hiValid {
+		valid = func(v float64) bool { return v < hiValid || v > loValid }
+	}
+	cd := colorDetector{valid}
+	return cd.Inference
 }
 
 // Inference takes in an image frame and returns the detection bounding boxes found in the image.
-func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
+func (cd *colorDetector) Inference(img image.Image) ([]Detection, error) {
 	rimg := rimage.ConvertImage(img)
 	seen := make([]bool, rimg.Width()*rimg.Height())
 	queue := []image.Point{}
@@ -32,7 +47,7 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 			if seen[indx] {
 				continue
 			}
-			if !sd.pass(rimg.Get(pt)) {
+			if !cd.pass(rimg.Get(pt)) {
 				seen[indx] = true
 				continue
 			}
@@ -55,7 +70,7 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 				if newPt.Y > y1 {
 					y1 = newPt.Y
 				}
-				neighbors := sd.getNeighbors(newPt, rimg, seen)
+				neighbors := cd.getNeighbors(newPt, rimg, seen)
 				queue = append(queue, neighbors...)
 			}
 			d := &detection2D{image.Rect(x0, y0, x1, y1), 1.0}
@@ -65,12 +80,18 @@ func (sd *simpleDetector) Inference(img image.Image) ([]Detection, error) {
 	return detections, nil
 }
 
-func (sd *simpleDetector) pass(c rimage.Color) bool {
-	lum := rimage.Luminance(c)
-	return lum < sd.threshold
+func (cd *colorDetector) pass(c rimage.Color) bool {
+	h, s, v := c.HsvNormal()
+	if s < .2 {
+		return false
+	}
+	if v < 0.5 {
+		return false
+	}
+	return cd.valid(h)
 }
 
-func (sd *simpleDetector) getNeighbors(pt image.Point, img *rimage.Image, seen []bool) []image.Point {
+func (cd *colorDetector) getNeighbors(pt image.Point, img *rimage.Image, seen []bool) []image.Point {
 	bounds := img.Bounds()
 	neighbors := make([]image.Point, 0, 4)
 	fourPoints := []image.Point{{pt.X, pt.Y - 1}, {pt.X, pt.Y + 1}, {pt.X - 1, pt.Y}, {pt.X + 1, pt.Y}}
@@ -79,7 +100,7 @@ func (sd *simpleDetector) getNeighbors(pt image.Point, img *rimage.Image, seen [
 		if !p.In(bounds) || seen[indx] {
 			continue
 		}
-		if sd.pass(img.Get(p)) {
+		if cd.pass(img.Get(p)) {
 			neighbors = append(neighbors, p)
 		}
 		seen[indx] = true
