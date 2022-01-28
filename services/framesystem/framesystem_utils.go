@@ -243,7 +243,7 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 		}
 		return nil, referenceframe.ErrNoModelInformation
 	case config.ComponentTypeArm:
-		part, ok := r.ResourceByName(arm.Named(name))
+		part, ok := arm.FromRobot(r, name)
 		if !ok {
 			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 		}
@@ -252,7 +252,7 @@ func extractModelFrameJSON(r robot.Robot, name string, compType config.Component
 		}
 		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
 	case config.ComponentTypeGantry:
-		part, ok := r.ResourceByName(gantry.Named(name))
+		part, ok := gantry.FromRobot(r, name)
 		if !ok {
 			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 		}

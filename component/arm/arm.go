@@ -49,7 +49,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named Arm's typed resource name.
+// Named is a helper for getting the named Arm'a typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -63,7 +63,7 @@ type Arm interface {
 	// MoveToPosition moves the arm to the given absolute position.
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
 
-	// MoveToJointPositions moves the arm's joints to the given positions.
+	// MoveToJointPositions moves the arm'a joints to the given positions.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
@@ -78,11 +78,11 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 )
 
-// FromRobot is a helper for getting the named Arm's from the given Robot.
+// FromRobot is a helper for getting the named Arm'a from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, bool) {
-	s, ok := r.ResourceByName(Named(name))
+	res, ok := r.ResourceByName(Named(name))
 	if ok {
-		part, ok := s.(Arm)
+		part, ok := res.(Arm)
 		if ok {
 			return part, true
 		}
