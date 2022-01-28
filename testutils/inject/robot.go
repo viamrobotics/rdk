@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -33,7 +32,6 @@ type Robot struct {
 	GripperByNameFunc         func(name string) (gripper.Gripper, bool)
 	CameraByNameFunc          func(name string) (camera.Camera, bool)
 	BoardByNameFunc           func(name string) (board.Board, bool)
-	SensorByNameFunc          func(name string) (sensor.Sensor, bool)
 	ServoByNameFunc           func(name string) (servo.Servo, bool)
 	MotorByNameFunc           func(name string) (motor.Motor, bool)
 	InputControllerByNameFunc func(name string) (input.Controller, bool)
@@ -44,7 +42,6 @@ type Robot struct {
 	CameraNamesFunc           func() []string
 	BaseNamesFunc             func() []string
 	BoardNamesFunc            func() []string
-	SensorNamesFunc           func() []string
 	ServoNamesFunc            func() []string
 	MotorNamesFunc            func() []string
 	InputControllerNamesFunc  func() []string
@@ -105,14 +102,6 @@ func (r *Robot) BoardByName(name string) (board.Board, bool) {
 		return r.Robot.BoardByName(name)
 	}
 	return r.BoardByNameFunc(name)
-}
-
-// SensorByName calls the injected SensorByName or the real version.
-func (r *Robot) SensorByName(name string) (sensor.Sensor, bool) {
-	if r.SensorByNameFunc == nil {
-		return r.Robot.SensorByName(name)
-	}
-	return r.SensorByNameFunc(name)
 }
 
 // ServoByName calls the injected ServoByName or the real version.
@@ -193,14 +182,6 @@ func (r *Robot) BoardNames() []string {
 		return r.Robot.BoardNames()
 	}
 	return r.BoardNamesFunc()
-}
-
-// SensorNames calls the injected SensorNames or the real version.
-func (r *Robot) SensorNames() []string {
-	if r.SensorNamesFunc == nil {
-		return r.Robot.SensorNames()
-	}
-	return r.SensorNamesFunc()
 }
 
 // ServoNames calls the injected ServoNames or the real version.

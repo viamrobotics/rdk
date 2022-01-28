@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -291,20 +290,6 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 	return actualBoard, true
 }
 
-// SensorByName returns a generic sensor by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	resource, ok := rc.ResourceByName(sensor.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualSensor, ok := resource.(sensor.Sensor)
-	if !ok {
-		return nil, false
-	}
-	return actualSensor, true
-}
-
 // ServoByName returns a servo by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
@@ -485,19 +470,6 @@ func (rc *RobotClient) BoardNames() []string {
 	names := []string{}
 	for _, v := range rc.ResourceNames() {
 		if v.Subtype == board.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// SensorNames returns the names of all known sensors.
-func (rc *RobotClient) SensorNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == sensor.Subtype {
 			names = append(names, v.Name)
 		}
 	}
