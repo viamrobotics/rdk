@@ -2,6 +2,7 @@ package inject
 
 import (
 	"context"
+	"errors"
 
 	"go.viam.com/rdk/component/motor"
 )
@@ -18,7 +19,7 @@ type Motor struct {
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
 	StopFunc              func(ctx context.Context) error
-	IsOnFunc              func(ctx context.Context) (bool, error)
+	IsInMotionFunc        func(ctx context.Context) (bool, error)
 }
 
 // SetPower calls the injected Power or the real version.
@@ -46,17 +47,21 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 }
 
 // GoTo calls the injected GoTo or the real version.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	if m.GoToFunc == nil {
-		return m.Motor.GoTo(ctx, rpm, position)
+		return m.Motor.GoTo(ctx, rpm, positionRevolutions)
 	}
-	return m.GoToFunc(ctx, rpm, position)
+	return m.GoToFunc(ctx, rpm, positionRevolutions)
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
 func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if m.GoTillStopFunc == nil {
-		return m.Motor.GoTillStop(ctx, rpm, stopFunc)
+		stoppableMotor, ok := m.Motor.(motor.GoTillStopSupportingMotor)
+		if !ok {
+			return errors.New("underlying motor does not implement GoTillStop")
+		}
+		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
 	}
 	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }
@@ -93,10 +98,10 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return m.StopFunc(ctx)
 }
 
-// IsOn calls the injected IsOn or the real version.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
-	if m.IsOnFunc == nil {
-		return m.Motor.IsOn(ctx)
+// IsInMotion calls the injected IsInMotion or the real version.
+func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
+	if m.IsInMotionFunc == nil {
+		return m.Motor.IsInMotion(ctx)
 	}
-	return m.IsOnFunc(ctx)
+	return m.IsInMotionFunc(ctx)
 }

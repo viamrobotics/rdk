@@ -29,9 +29,8 @@ type Motor interface {
 	// SetPower sets the percentage of power the motor should employ between 0-1.
 	SetPower(ctx context.Context, powerPct float64) error
 
-	// Go instructs the motor to go in a specific direction at a percentage
-	// of power between -1 and 1.
-	Go(ctx context.Context, powerPct float64) error
+	// Go instructs the motor to go in a specific direction at a particular rpm
+	Go(ctx context.Context, rpm float64) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
@@ -42,13 +41,7 @@ type Motor interface {
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
-	GoTo(ctx context.Context, rpm float64, position float64) error
-
-	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
-	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
-	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
-	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
-	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
+	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error
 
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64) error
@@ -65,8 +58,19 @@ type Motor interface {
 	// Stop turns the power to the motor off immediately, without any gradual step down.
 	Stop(ctx context.Context) error
 
-	// IsOn returns whether or not the motor is currently on.
-	IsOn(ctx context.Context) (bool, error)
+	// IsInMotion returns whether or not the motor is currently on.
+	IsInMotion(ctx context.Context) (bool, error)
+}
+
+// A GoTillStopSupportingMotor is a motor that supports the ability to run a motor
+// until it is somehow physically stopped.
+type GoTillStopSupportingMotor interface {
+	Motor
+	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
+	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
+	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
+	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
+	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -96,10 +100,10 @@ func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) er
 	return r.actual.SetPower(ctx, powerPct)
 }
 
-func (r *reconfigurableMotor) Go(ctx context.Context, powerPct float64) error {
+func (r *reconfigurableMotor) Go(ctx context.Context, rpm float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Go(ctx, powerPct)
+	return r.actual.Go(ctx, rpm)
 }
 
 func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
@@ -108,16 +112,10 @@ func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolution
 	return r.actual.GoFor(ctx, rpm, revolutions)
 }
 
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GoTo(ctx, rpm, position)
-}
-
-func (r *reconfigurableMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoTillStop(ctx, rpm, stopFunc)
+	return r.actual.GoTo(ctx, rpm, positionRevolutions)
 }
 
 func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
@@ -144,10 +142,10 @@ func (r *reconfigurableMotor) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableMotor) IsOn(ctx context.Context) (bool, error) {
+func (r *reconfigurableMotor) IsInMotion(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsOn(ctx)
+	return r.actual.IsInMotion(ctx)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {

@@ -156,14 +156,12 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	ticks := int(math.Abs(revolutions) * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 
-	powerPct := 0.003
 	if math.Signbit(rpm) != math.Signbit(revolutions) {
-		ticks *= -1
-		powerPct *= -1
+		rpm *= -1
 		// ticksPerSecond *= 1
 	}
 
-	err := m.Go(ctx, powerPct)
+	err := m.Go(ctx, rpm)
 	if err != nil {
 		return err
 	}
@@ -200,8 +198,8 @@ func (m *arduinoMotor) Stop(ctx context.Context) error {
 	return err
 }
 
-// IsOn returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns whether or not the motor is currently on.
+func (m *arduinoMotor) IsInMotion(ctx context.Context) (bool, error) {
 	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err

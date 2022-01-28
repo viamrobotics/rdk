@@ -286,7 +286,7 @@ func (m *EncodedMotor) doGo(ctx context.Context, powerPct float64, internal bool
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 
-	return m.real.Go(ctx, m.state.lastPowerPct)
+	return m.real.Go(ctx, m.state.lastPowerPct*(m.cfg.MaxRPM))
 }
 
 // RPMMonitorStart starts the RPM monitor.
@@ -514,7 +514,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
-	isOn, err := m.IsOn(ctx)
+	isOn, err := m.IsInMotion(ctx)
 	if err != nil {
 		m.stateMu.Unlock()
 		return err
@@ -545,9 +545,9 @@ func (m *EncodedMotor) Stop(ctx context.Context) error {
 	return m.off(ctx)
 }
 
-// IsOn returns if the motor is on or not.
-func (m *EncodedMotor) IsOn(ctx context.Context) (bool, error) {
-	return m.real.IsOn(ctx)
+// IsInMotion returns if the motor is on or not.
+func (m *EncodedMotor) IsInMotion(ctx context.Context) (bool, error) {
+	return m.real.IsInMotion(ctx)
 }
 
 // Close cleanly shuts down the motor.

@@ -54,7 +54,7 @@ const (
 
 // gripperV1 represents a Viam gripper with a single force sensor cell.
 type gripperV1 struct {
-	motor    motor.Motor
+	motor    motor.GoTillStopSupportingMotor
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
@@ -74,9 +74,13 @@ type gripperV1 struct {
 // newGripperV1 Returns a gripperV1.
 func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
 	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
-	motor, ok := r.MotorByName("g")
+	_motor, ok := r.MotorByName("g")
 	if !ok {
 		return nil, errors.New("failed to find motor 'g'")
+	}
+	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+	if !ok {
+		return nil, errors.New("motor 'g' is not a GoTillStopSupportingMotor")
 	}
 	current, ok := theBoard.AnalogReaderByName("current")
 	if !ok {
@@ -93,7 +97,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	vg := &gripperV1{
-		motor:           motor,
+		motor:           stoppableMotor,
 		current:         current,
 		pressure:        pressure,
 		holdingPressure: .5,
@@ -302,7 +306,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsInMotion(ctx)
 		if err != nil {
 			return err
 		}
@@ -344,7 +348,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsInMotion(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}

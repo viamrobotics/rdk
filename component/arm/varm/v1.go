@@ -294,8 +294,8 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJo
 
 // IsOn TODO.
 func (a *armV1) IsOn(ctx context.Context) (bool, error) {
-	on0, err0 := a.j0Motor.IsOn(ctx)
-	on1, err1 := a.j0Motor.IsOn(ctx)
+	on0, err0 := a.j0Motor.IsInMotion(ctx)
+	on1, err1 := a.j0Motor.IsInMotion(ctx)
 
 	return on0 || on1, multierr.Combine(err0, err1)
 }
