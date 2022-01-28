@@ -166,6 +166,7 @@
               rawStatus : null,
               status : {},
               pcdClick : {},
+              sensorReadings: {},
               resources: [],
               streamNames: [],
               fullcloud: null,
@@ -438,7 +439,10 @@
                   doSensorReadings : function(name) {
                       var req = new robotApi.SensorReadingsRequest();
                       req.setName(name);
-                      robotService.sensorReadings(req, {}, (err, resp) => grpcCallback(err, resp));
+                      robotService.sensorReadings(req, {}, (err, resp) => {
+                        grpcCallback(err, resp)
+                        theData.sensorReadings[name] = theData.res;
+                      });
                   },
                   processFunctionResults: function(err, resp) {
                     grpcCallback(err, resp, false)
@@ -1561,11 +1565,14 @@
         <tr>
           <th>Name</th>
           <th>Type</th>
+          <th>Reading</th>
+
         </tr>
 
         <tr v-for="(sensor, x) in status.sensorsMap">
           <td>${sensor[0]}</td>
           <td>${sensor[1].type}</td>
+          <td>${sensorReadings[sensor[0]]}</td>
           <td>
             <button v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
           </td>

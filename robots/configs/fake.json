@@ -13,6 +13,11 @@
         },
         {
             "model": "fake",
+            "name": "sensor1",
+            "type": "sensor"
+        },
+        {
+            "model": "fake",
             "name": "gripper1",
             "type": "gripper"
         },
