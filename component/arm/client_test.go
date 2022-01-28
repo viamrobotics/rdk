@@ -33,7 +33,6 @@ func TestClient(t *testing.T) {
 		capArmJointPos *componentpb.ArmJointPositions
 	)
 
-	arm1 := "arm1"
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
 	jointPos1 := &componentpb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
@@ -53,7 +52,6 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	arm2 := "arm2"
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
 	jointPos2 := &componentpb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
@@ -73,7 +71,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(arm1): injectArm, arm.Named(arm2): injectArm2}))
+	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc))
 
@@ -84,13 +82,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = arm.NewClient(cancelCtx, arm1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = arm.NewClient(cancelCtx, testArmName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	arm1Client, err := arm.NewClient(context.Background(), arm1, listener1.Addr().String(), logger, rpc.WithInsecure())
+	arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("arm client 1", func(t *testing.T) {
@@ -114,7 +112,7 @@ func TestClient(t *testing.T) {
 	t.Run("arm client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		arm1Client2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
+		arm1Client2 := arm.NewClientFromConn(context.Background(), conn, testArmName, logger)
 		test.That(t, err, test.ShouldBeNil)
 		pos, err := arm1Client2.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -130,9 +128,9 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectArm := &inject.Arm{}
-	arm1 := "arm1"
+	testArmName := "testArmName"
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(arm1): injectArm}))
+	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
 
@@ -141,9 +139,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := arm.NewClient(ctx, arm1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := arm.NewClient(ctx, arm1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
