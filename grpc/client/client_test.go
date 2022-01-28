@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
-	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/base"
 	_ "go.viam.com/rdk/component/base/register"
 	"go.viam.com/rdk/component/board"
@@ -32,7 +31,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
-	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
