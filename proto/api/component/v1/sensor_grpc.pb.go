@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SensorServiceClient interface {
-	// Readings returns the readings of a sensor of the underlying robot.
-	Readings(ctx context.Context, in *SensorServiceReadingsRequest, opts ...grpc.CallOption) (*SensorServiceReadingsResponse, error)
+	// GetReadings returns the readings of a sensor of the underlying robot.
+	GetReadings(ctx context.Context, in *SensorServiceGetReadingsRequest, opts ...grpc.CallOption) (*SensorServiceGetReadingsResponse, error)
 }
 
 type sensorServiceClient struct {
@@ -30,9 +30,9 @@ func NewSensorServiceClient(cc grpc.ClientConnInterface) SensorServiceClient {
 	return &sensorServiceClient{cc}
 }
 
-func (c *sensorServiceClient) Readings(ctx context.Context, in *SensorServiceReadingsRequest, opts ...grpc.CallOption) (*SensorServiceReadingsResponse, error) {
-	out := new(SensorServiceReadingsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.SensorService/Readings", in, out, opts...)
+func (c *sensorServiceClient) GetReadings(ctx context.Context, in *SensorServiceGetReadingsRequest, opts ...grpc.CallOption) (*SensorServiceGetReadingsResponse, error) {
+	out := new(SensorServiceGetReadingsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.SensorService/GetReadings", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -43,8 +43,8 @@ func (c *sensorServiceClient) Readings(ctx context.Context, in *SensorServiceRea
 // All implementations must embed UnimplementedSensorServiceServer
 // for forward compatibility
 type SensorServiceServer interface {
-	// Readings returns the readings of a sensor of the underlying robot.
-	Readings(context.Context, *SensorServiceReadingsRequest) (*SensorServiceReadingsResponse, error)
+	// GetReadings returns the readings of a sensor of the underlying robot.
+	GetReadings(context.Context, *SensorServiceGetReadingsRequest) (*SensorServiceGetReadingsResponse, error)
 	mustEmbedUnimplementedSensorServiceServer()
 }
 
@@ -52,8 +52,8 @@ type SensorServiceServer interface {
 type UnimplementedSensorServiceServer struct {
 }
 
-func (UnimplementedSensorServiceServer) Readings(context.Context, *SensorServiceReadingsRequest) (*SensorServiceReadingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Readings not implemented")
+func (UnimplementedSensorServiceServer) GetReadings(context.Context, *SensorServiceGetReadingsRequest) (*SensorServiceGetReadingsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetReadings not implemented")
 }
 func (UnimplementedSensorServiceServer) mustEmbedUnimplementedSensorServiceServer() {}
 
@@ -68,20 +68,20 @@ func RegisterSensorServiceServer(s grpc.ServiceRegistrar, srv SensorServiceServe
 	s.RegisterService(&SensorService_ServiceDesc, srv)
 }
 
-func _SensorService_Readings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SensorServiceReadingsRequest)
+func _SensorService_GetReadings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SensorServiceGetReadingsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SensorServiceServer).Readings(ctx, in)
+		return srv.(SensorServiceServer).GetReadings(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.SensorService/Readings",
+		FullMethod: "/proto.api.component.v1.SensorService/GetReadings",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SensorServiceServer).Readings(ctx, req.(*SensorServiceReadingsRequest))
+		return srv.(SensorServiceServer).GetReadings(ctx, req.(*SensorServiceGetReadingsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -94,8 +94,8 @@ var SensorService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SensorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Readings",
-			Handler:    _SensorService_Readings_Handler,
+			MethodName: "GetReadings",
+			Handler:    _SensorService_GetReadings_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

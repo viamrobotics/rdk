@@ -99,7 +99,7 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 	}, nil
 }
 
-func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
+func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	vel, err := c.ReadAngularVelocity(ctx)
 	if err != nil {
 		return nil, err

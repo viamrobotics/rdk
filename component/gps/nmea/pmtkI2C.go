@@ -147,7 +147,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
-func (g *pmtkI2CNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
+func (g *pmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.data}, nil
 }
 

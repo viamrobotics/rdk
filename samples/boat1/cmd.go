@@ -268,7 +268,7 @@ func doRecordDepth(ctx context.Context, depthSensor sensor.Sensor) error {
 		return errors.New("currentLocation is 0")
 	}
 
-	readings, err := depthSensor.Readings(ctx)
+	readings, err := depthSensor.GetReadings(ctx)
 	if err != nil {
 		return err
 	}

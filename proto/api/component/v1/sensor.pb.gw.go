@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_SensorService_Readings_0(ctx context.Context, marshaler runtime.Marshaler, client SensorServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorServiceReadingsRequest
+func request_SensorService_GetReadings_0(ctx context.Context, marshaler runtime.Marshaler, client SensorServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq SensorServiceGetReadingsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_SensorService_Readings_0(ctx context.Context, marshaler runtime.Mar
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Readings(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetReadings(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_SensorService_Readings_0(ctx context.Context, marshaler runtime.Marshaler, server SensorServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorServiceReadingsRequest
+func local_request_SensorService_GetReadings_0(ctx context.Context, marshaler runtime.Marshaler, server SensorServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq SensorServiceGetReadingsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,7 +78,7 @@ func local_request_SensorService_Readings_0(ctx context.Context, marshaler runti
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Readings(ctx, &protoReq)
+	msg, err := server.GetReadings(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -89,18 +89,18 @@ func local_request_SensorService_Readings_0(ctx context.Context, marshaler runti
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterSensorServiceHandlerFromEndpoint instead.
 func RegisterSensorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server SensorServiceServer) error {
 
-	mux.Handle("GET", pattern_SensorService_Readings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_SensorService_GetReadings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.SensorService/Readings", runtime.WithHTTPPathPattern("/api/v1/component/sensor/{name}/readings"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.SensorService/GetReadings", runtime.WithHTTPPathPattern("/api/v1/component/sensor/{name}/readings"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_SensorService_Readings_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_SensorService_GetReadings_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -108,7 +108,7 @@ func RegisterSensorServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_SensorService_Readings_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_SensorService_GetReadings_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -153,23 +153,23 @@ func RegisterSensorServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "SensorServiceClient" to call the correct interceptors.
 func RegisterSensorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client SensorServiceClient) error {
 
-	mux.Handle("GET", pattern_SensorService_Readings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_SensorService_GetReadings_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.SensorService/Readings", runtime.WithHTTPPathPattern("/api/v1/component/sensor/{name}/readings"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.SensorService/GetReadings", runtime.WithHTTPPathPattern("/api/v1/component/sensor/{name}/readings"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_SensorService_Readings_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_SensorService_GetReadings_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_SensorService_Readings_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_SensorService_GetReadings_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -177,9 +177,9 @@ func RegisterSensorServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_SensorService_Readings_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "sensor", "name", "readings"}, ""))
+	pattern_SensorService_GetReadings_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "sensor", "name", "readings"}, ""))
 )
 
 var (
-	forward_SensorService_Readings_0 = runtime.ForwardResponseMessage
+	forward_SensorService_GetReadings_0 = runtime.ForwardResponseMessage
 )
