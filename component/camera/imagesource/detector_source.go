@@ -18,7 +18,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
-		"simple_detector",
+		"color_detector",
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -39,7 +39,7 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(
 		config.ComponentTypeCamera,
-		"simple_detector",
+		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf rimage.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -72,9 +72,8 @@ func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*came
 	if len(attrs.DetectColor) != 0 {
 		if len(attrs.DetectColor) != 3 {
 			return nil, errors.Errorf("detect_color must be list of ints in format [r, g, b], got %v", attrs.DetectColor)
-		} else {
-			col = rimage.NewColor(attrs.DetectColor[0], attrs.DetectColor[1], attrs.DetectColor[2])
 		}
+		col = rimage.NewColor(attrs.DetectColor[0], attrs.DetectColor[1], attrs.DetectColor[2])
 	}
 	d := objectdetection.NewColorDetector(tolerance, col)
 
