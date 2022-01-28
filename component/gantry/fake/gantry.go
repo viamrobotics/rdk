@@ -31,7 +31,7 @@ func NewGantry(name string) gantry.Gantry {
 // Gantry is a fake gantry that can simply read and set properties.
 type Gantry struct {
 	name         string
-	positions    []float64
+	positionsMm  []float64
 	lengths      []float64
 	axis         r3.Vector
 	lengthMeters float64
@@ -64,7 +64,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	return m
 }
 
-// CurrentInputs TODO
+// CurrentInputs TODO.
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.GetPosition(ctx)
 	if err != nil {
