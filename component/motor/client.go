@@ -3,7 +3,6 @@ package motor
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
@@ -90,10 +89,10 @@ func (c *client) SetPower(ctx context.Context, powerPct float64) error {
 	return err
 }
 
-func (c *client) Go(ctx context.Context, powerPct float64) error {
+func (c *client) Go(ctx context.Context, rpm float64) error {
 	req := &pb.MotorServiceGoRequest{
-		Name:     c.name,
-		PowerPct: powerPct,
+		Name: c.name,
+		Rpm:  rpm,
 	}
 	_, err := c.client.Go(ctx, req)
 	return err
@@ -109,29 +108,13 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) er
 	return err
 }
 
-func (c *client) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	req := &pb.MotorServiceGoToRequest{
-		Name:     c.name,
-		Rpm:      rpm,
-		Position: position,
+		Name:                c.name,
+		Rpm:                 rpm,
+		PositionRevolutions: positionRevolutions,
 	}
 	_, err := c.client.GoTo(ctx, req)
-	return err
-}
-
-func (c *client) GoTillStop(
-	ctx context.Context,
-	rpm float64,
-	stopFunc func(ctx context.Context) bool,
-) error {
-	if stopFunc != nil {
-		return errors.New("stopFunc must be nil when using gRPC")
-	}
-	req := &pb.MotorServiceGoTillStopRequest{
-		Name: c.name,
-		Rpm:  rpm,
-	}
-	_, err := c.client.GoTillStop(ctx, req)
 	return err
 }
 
@@ -168,9 +151,9 @@ func (c *client) Stop(ctx context.Context) error {
 	return err
 }
 
-func (c *client) IsOn(ctx context.Context) (bool, error) {
-	req := &pb.MotorServiceIsOnRequest{Name: c.name}
-	resp, err := c.client.IsOn(ctx, req)
+func (c *client) IsInMotion(ctx context.Context) (bool, error) {
+	req := &pb.MotorServiceIsInMotionRequest{Name: c.name}
+	resp, err := c.client.IsInMotion(ctx, req)
 	if err != nil {
 		return false, err
 	}

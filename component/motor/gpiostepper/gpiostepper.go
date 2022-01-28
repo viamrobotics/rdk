@@ -126,13 +126,9 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("gpioStepper doesn't support raw power mode")
 }
 
-// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
-func (m *gpioStepper) Go(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) <= .0001 {
-		m.stop()
-		return nil
-	}
-	return errors.New("gpioStepper doesn't support raw power mode")
+// Go instructs the motor to go in a specific direction at an rpm.
+func (m *gpioStepper) Go(ctx context.Context, rpm float64) error {
+	return errors.New("gpioStepper doesn't support running without max revolutions")
 }
 
 func (m *gpioStepper) startThread(ctx context.Context) {
@@ -237,12 +233,12 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 // GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
-func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	curPos, err := m.Position(ctx)
 	if err != nil {
 		return err
 	}
-	moveDistance := position - curPos
+	moveDistance := positionRevolutions - curPos
 
 	return m.GoFor(ctx, math.Abs(rpm), moveDistance)
 }
@@ -293,8 +289,8 @@ func (m *gpioStepper) stop() {
 	m.targetStepsPerSecond = 0
 }
 
-// IsOn returns whether or not the motor is currently on.
-func (m *gpioStepper) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns whether or not the motor is currently on.
+func (m *gpioStepper) IsInMotion(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.stepPosition != m.targetStepPosition, nil

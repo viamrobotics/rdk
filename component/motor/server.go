@@ -56,7 +56,7 @@ func (server *subtypeServer) Go(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	return &pb.MotorServiceGoResponse{}, motor.Go(ctx, req.GetPowerPct())
+	return &pb.MotorServiceGoResponse{}, motor.Go(ctx, req.GetRpm())
 }
 
 // GoFor requests the motor of the underlying robot to go for a certain amount based off
@@ -136,22 +136,22 @@ func (server *subtypeServer) Stop(
 	return &pb.MotorServiceStopResponse{}, motor.Stop(ctx)
 }
 
-// IsOn returns whether or not the motor of the underlying robot is currently on.
-func (server *subtypeServer) IsOn(
+// IsInMotion returns whether or not the motor of the underlying robot is currently on.
+func (server *subtypeServer) IsInMotion(
 	ctx context.Context,
-	req *pb.MotorServiceIsOnRequest,
-) (*pb.MotorServiceIsOnResponse, error) {
+	req *pb.MotorServiceIsInMotionRequest,
+) (*pb.MotorServiceIsInMotionResponse, error) {
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	isOn, err := motor.IsOn(ctx)
+	isOn, err := motor.IsInMotion(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MotorServiceIsOnResponse{IsOn: isOn}, nil
+	return &pb.MotorServiceIsInMotionResponse{IsOn: isOn}, nil
 }
 
 // GoTo requests the motor of the underlying robot to go a specific position.
@@ -165,21 +165,7 @@ func (server *subtypeServer) GoTo(
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	return &pb.MotorServiceGoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPosition())
-}
-
-// GoTillStop requests the motor of the underlying robot to go until stopped either physically or by a limit switch.
-func (server *subtypeServer) GoTillStop(
-	ctx context.Context,
-	req *pb.MotorServiceGoTillStopRequest,
-) (*pb.MotorServiceGoTillStopResponse, error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
-	}
-
-	return &pb.MotorServiceGoTillStopResponse{}, motor.GoTillStop(ctx, req.GetRpm(), nil)
+	return &pb.MotorServiceGoToResponse{}, motor.GoTo(ctx, req.GetRpm(), req.GetPositionRevolutions())
 }
 
 // ResetZeroPosition sets the current position of the motor specified by the request

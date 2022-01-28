@@ -41,7 +41,7 @@ func TestMotorEncoder1(t *testing.T) {
 	motor.encoder = board.NewSingleEncoder(interrupt, motor)
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := motor.IsOn(context.Background())
+		isOn, err := motor.IsInMotion(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
 		supported, err := motor.PositionSupported(context.Background())

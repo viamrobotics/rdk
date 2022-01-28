@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/motor"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/robot"
 )
@@ -85,7 +86,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}
 	if err := engine.ImportFunction("robot.motorGo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 2 {
-			return nil, errors.New("expected 3 arguments for motor name, and power percentage")
+			return nil, errors.New("expected 3 arguments for motor name, and rpm")
 		}
 		motorName, err := args[0].String()
 		if err != nil {
@@ -96,12 +97,12 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
 
-		powerPct, err := args[1].Number()
+		rpm, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, motor.Go(context.TODO(), powerPct)
+		return nil, motor.Go(context.TODO(), rpm)
 	}); err != nil {
 		return nil, err
 	}
@@ -163,9 +164,13 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
+		_motor, ok := r.MotorByName(motorName)
 		if !ok {
 			return nil, errors.Errorf("no motor with that name %s", motorName)
+		}
+		stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+		if !ok {
+			return nil, errors.Errorf("motor with name %s does not support GoTillStop", motorName)
 		}
 
 		rpm, err := args[1].Number()
@@ -173,7 +178,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, err
 		}
 
-		return nil, motor.GoTillStop(context.TODO(), rpm, nil)
+		return nil, stoppableMotor.GoTillStop(context.TODO(), rpm, nil)
 	}); err != nil {
 		return nil, err
 	}
@@ -270,7 +275,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
 
-		isOn, err := motor.IsOn(context.TODO())
+		isOn, err := motor.IsInMotion(context.TODO())
 		if err != nil {
 			return nil, err
 		}

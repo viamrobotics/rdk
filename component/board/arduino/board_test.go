@@ -323,7 +323,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err := m.IsOn(ctx)
+			on, err := m.IsInMotion(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
@@ -344,7 +344,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err := m.IsOn(ctx)
+			on, err := m.IsInMotion(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
@@ -365,7 +365,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err := m.IsOn(ctx)
+			on, err := m.IsInMotion(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 
@@ -386,7 +386,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err := m.IsOn(ctx)
+			on, err := m.IsInMotion(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldBeFalse)
 

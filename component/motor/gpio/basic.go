@@ -149,12 +149,14 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	)
 }
 
-// Go instructs the motor to operate at a certain power percentage from -1 to 1
-// where the sign of the power dictates direction.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+// Go instructs the motor to operate at an rpm, where the sign of the rpm
+// indicates direction.
+func (m *Motor) Go(ctx context.Context, rpm float64) error {
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
+
+	powerPct := rpm / m.maxRPM
 
 	if math.Abs(powerPct) <= 0.001 {
 		return m.Stop(ctx)
@@ -185,18 +187,8 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
 }
 
-func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
-	// need to do this so time is reasonable
-	if rpm > maxRPM {
-		rpm = maxRPM
-	} else if rpm < -1*maxRPM {
-		rpm = -1 * maxRPM
-	}
-
-	dir := rpm * revolutions / math.Abs(revolutions*rpm)
-	powerPct := math.Abs(rpm) / maxRPM * dir
-	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
-	return powerPct, waitDur
+func calcWaitDur(rpm, revolutions float64) time.Duration {
+	return time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
 }
 
 // GoFor moves an inputted number of revolutations at the given rpm, no encoder is present
@@ -207,8 +199,8 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return errors.New("not supported, define max_rpm attribute")
 	}
 
-	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.Go(ctx, powerPct)
+	waitDur := calcWaitDur(rpm, revolutions)
+	err := m.Go(ctx, rpm)
 	if err != nil {
 		return err
 	}
@@ -247,8 +239,8 @@ func (m *Motor) cancelWaitProcesses() {
 	}
 }
 
-// IsOn returns if the motor is currently on or off.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns if the motor is currently on or off.
+func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
@@ -259,7 +251,7 @@ func (m *Motor) Stop(ctx context.Context) error {
 }
 
 // GoTo is not supported.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	return errors.New("not supported")
 }
 

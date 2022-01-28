@@ -310,14 +310,14 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("power not supported for stepper motors")
 }
 
-// Go sets a velocity as a percentage of maximum.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+// Go sets the motor at a particular rpm.
+func (m *Motor) Go(ctx context.Context, rpm float64) error {
 	mode := modeVelPos
-	if powerPct < 0 {
+	if rpm < 0 {
 		mode = modeVelNeg
 	}
 
-	speed := m.rpmToV(math.Abs(powerPct) * m.maxRPM)
+	speed := m.rpmToV(rpm)
 
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
@@ -368,17 +368,17 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	position *= float64(m.stepsPerRev)
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+	positionRevolutions *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
 		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),
-		m.writeReg(ctx, xTarget, int32(position)),
+		m.writeReg(ctx, xTarget, int32(positionRevolutions)),
 	)
 }
 
-// IsOn returns true if the motor is currently moving.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns true if the motor is currently moving.
+func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
 	vel, err := m.readReg(ctx, vActual)
 	on := vel != 0
 	return on, err
@@ -473,7 +473,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	on, err := m.IsOn(ctx)
+	on, err := m.IsInMotion(ctx)
 	if err != nil {
 		return err
 	} else if on {

@@ -45,15 +45,6 @@ service MotorService {
     };
   }
 
-  // To Do (FA): This will be deprecated in favor of a  MotorStop method
-  // GoTillStop moves a motor until it is stopped
-  // The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-  rpc GoTillStop(MotorServiceGoTillStopRequest) returns (MotorServiceGoTillStopResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_till_stop"
-    };
-  }
-
   // ResetZeroPosition sets the current position of the motor as the new zero position
   // This method will return an error if MotorPositionSupported is false
   rpc ResetZeroPosition(MotorServiceResetZeroPositionRequest) returns (MotorServiceResetZeroPositionResponse) {
@@ -85,9 +76,9 @@ service MotorService {
     };
   }
 
-  // IsOn returns true if the robot's motor off
+  // IsInMotion returns true if the robot's motor off
   // To Do (FA): This will be deprecated
-  rpc IsOn(MotorServiceIsOnRequest) returns (MotorServiceIsOnResponse) {
+  rpc IsInMotion(MotorServiceIsInMotionRequest) returns (MotorServiceIsInMotionResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/is_on"
     };
@@ -106,8 +97,8 @@ message MotorServiceSetPowerResponse {}
 message MotorServiceGoRequest {
   // Name of a motor
   string name = 1;
-  // Percentage of motor's power, between -1 and 1
-  double power_pct = 2;
+  // Revolutions per minute
+  double rpm = 2;
 }
 
 message MotorServiceGoResponse {}
@@ -129,19 +120,10 @@ message MotorServiceGoToRequest {
   // Speed of motor travel in rotations per minute
   double rpm = 2;
   // Number of revolutions relative to motor's home home/zero
-  double position = 3;
+  double position_revolutions = 3;
 }
 
 message MotorServiceGoToResponse {}
-
-message MotorServiceGoTillStopRequest {
-  // Name of a motor
-  string name = 1;
-  // Speed of motor travel in rotations per minute
-  double rpm = 2;
-}
-
-message MotorServiceGoTillStopResponse {}
 
 message MotorServiceResetZeroPositionRequest {
   // Name of a motor
@@ -179,13 +161,12 @@ message MotorServiceStopRequest {
 
 message MotorServiceStopResponse {}
 
-message MotorServiceIsOnRequest {
+message MotorServiceIsInMotionRequest {
   // Name of a motor
   string name = 1;
 }
 
-message MotorServiceIsOnResponse {
+message MotorServiceIsInMotionResponse {
   // Returns true if the motor is on
-
   bool is_on = 1;
 }

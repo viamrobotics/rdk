@@ -34,10 +34,6 @@ type MotorServiceClient interface {
 	// is relative to its home position at a specified speed which is expressed in RPM
 	// This method will return an error if MotorPositionSupported is false
 	GoTo(ctx context.Context, in *MotorServiceGoToRequest, opts ...grpc.CallOption) (*MotorServiceGoToResponse, error)
-	// To Do (FA): This will be deprecated in favor of a  MotorStop method
-	// GoTillStop moves a motor until it is stopped
-	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-	GoTillStop(ctx context.Context, in *MotorServiceGoTillStopRequest, opts ...grpc.CallOption) (*MotorServiceGoTillStopResponse, error)
 	// ResetZeroPosition sets the current position of the motor as the new zero position
 	// This method will return an error if MotorPositionSupported is false
 	ResetZeroPosition(ctx context.Context, in *MotorServiceResetZeroPositionRequest, opts ...grpc.CallOption) (*MotorServiceResetZeroPositionResponse, error)
@@ -49,9 +45,9 @@ type MotorServiceClient interface {
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(ctx context.Context, in *MotorServiceStopRequest, opts ...grpc.CallOption) (*MotorServiceStopResponse, error)
-	// IsOn returns true if the robot's motor off
+	// IsInMotion returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
-	IsOn(ctx context.Context, in *MotorServiceIsOnRequest, opts ...grpc.CallOption) (*MotorServiceIsOnResponse, error)
+	IsInMotion(ctx context.Context, in *MotorServiceIsInMotionRequest, opts ...grpc.CallOption) (*MotorServiceIsInMotionResponse, error)
 }
 
 type motorServiceClient struct {
@@ -98,15 +94,6 @@ func (c *motorServiceClient) GoTo(ctx context.Context, in *MotorServiceGoToReque
 	return out, nil
 }
 
-func (c *motorServiceClient) GoTillStop(ctx context.Context, in *MotorServiceGoTillStopRequest, opts ...grpc.CallOption) (*MotorServiceGoTillStopResponse, error) {
-	out := new(MotorServiceGoTillStopResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/GoTillStop", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *motorServiceClient) ResetZeroPosition(ctx context.Context, in *MotorServiceResetZeroPositionRequest, opts ...grpc.CallOption) (*MotorServiceResetZeroPositionResponse, error) {
 	out := new(MotorServiceResetZeroPositionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/ResetZeroPosition", in, out, opts...)
@@ -143,9 +130,9 @@ func (c *motorServiceClient) Stop(ctx context.Context, in *MotorServiceStopReque
 	return out, nil
 }
 
-func (c *motorServiceClient) IsOn(ctx context.Context, in *MotorServiceIsOnRequest, opts ...grpc.CallOption) (*MotorServiceIsOnResponse, error) {
-	out := new(MotorServiceIsOnResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/IsOn", in, out, opts...)
+func (c *motorServiceClient) IsInMotion(ctx context.Context, in *MotorServiceIsInMotionRequest, opts ...grpc.CallOption) (*MotorServiceIsInMotionResponse, error) {
+	out := new(MotorServiceIsInMotionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/IsInMotion", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -172,10 +159,6 @@ type MotorServiceServer interface {
 	// is relative to its home position at a specified speed which is expressed in RPM
 	// This method will return an error if MotorPositionSupported is false
 	GoTo(context.Context, *MotorServiceGoToRequest) (*MotorServiceGoToResponse, error)
-	// To Do (FA): This will be deprecated in favor of a  MotorStop method
-	// GoTillStop moves a motor until it is stopped
-	// The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-	GoTillStop(context.Context, *MotorServiceGoTillStopRequest) (*MotorServiceGoTillStopResponse, error)
 	// ResetZeroPosition sets the current position of the motor as the new zero position
 	// This method will return an error if MotorPositionSupported is false
 	ResetZeroPosition(context.Context, *MotorServiceResetZeroPositionRequest) (*MotorServiceResetZeroPositionResponse, error)
@@ -187,9 +170,9 @@ type MotorServiceServer interface {
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error)
-	// IsOn returns true if the robot's motor off
+	// IsInMotion returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
-	IsOn(context.Context, *MotorServiceIsOnRequest) (*MotorServiceIsOnResponse, error)
+	IsInMotion(context.Context, *MotorServiceIsInMotionRequest) (*MotorServiceIsInMotionResponse, error)
 	mustEmbedUnimplementedMotorServiceServer()
 }
 
@@ -209,9 +192,6 @@ func (UnimplementedMotorServiceServer) GoFor(context.Context, *MotorServiceGoFor
 func (UnimplementedMotorServiceServer) GoTo(context.Context, *MotorServiceGoToRequest) (*MotorServiceGoToResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GoTo not implemented")
 }
-func (UnimplementedMotorServiceServer) GoTillStop(context.Context, *MotorServiceGoTillStopRequest) (*MotorServiceGoTillStopResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GoTillStop not implemented")
-}
 func (UnimplementedMotorServiceServer) ResetZeroPosition(context.Context, *MotorServiceResetZeroPositionRequest) (*MotorServiceResetZeroPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResetZeroPosition not implemented")
 }
@@ -224,8 +204,8 @@ func (UnimplementedMotorServiceServer) PositionSupported(context.Context, *Motor
 func (UnimplementedMotorServiceServer) Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
-func (UnimplementedMotorServiceServer) IsOn(context.Context, *MotorServiceIsOnRequest) (*MotorServiceIsOnResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsOn not implemented")
+func (UnimplementedMotorServiceServer) IsInMotion(context.Context, *MotorServiceIsInMotionRequest) (*MotorServiceIsInMotionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsInMotion not implemented")
 }
 func (UnimplementedMotorServiceServer) mustEmbedUnimplementedMotorServiceServer() {}
 
@@ -312,24 +292,6 @@ func _MotorService_GoTo_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MotorService_GoTillStop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceGoTillStopRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MotorServiceServer).GoTillStop(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/GoTillStop",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).GoTillStop(ctx, req.(*MotorServiceGoTillStopRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _MotorService_ResetZeroPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MotorServiceResetZeroPositionRequest)
 	if err := dec(in); err != nil {
@@ -402,20 +364,20 @@ func _MotorService_Stop_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MotorService_IsOn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceIsOnRequest)
+func _MotorService_IsInMotion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorServiceIsInMotionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MotorServiceServer).IsOn(ctx, in)
+		return srv.(MotorServiceServer).IsInMotion(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/IsOn",
+		FullMethod: "/proto.api.component.v1.MotorService/IsInMotion",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).IsOn(ctx, req.(*MotorServiceIsOnRequest))
+		return srv.(MotorServiceServer).IsInMotion(ctx, req.(*MotorServiceIsInMotionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -444,10 +406,6 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MotorService_GoTo_Handler,
 		},
 		{
-			MethodName: "GoTillStop",
-			Handler:    _MotorService_GoTillStop_Handler,
-		},
-		{
 			MethodName: "ResetZeroPosition",
 			Handler:    _MotorService_ResetZeroPosition_Handler,
 		},
@@ -464,8 +422,8 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MotorService_Stop_Handler,
 		},
 		{
-			MethodName: "IsOn",
-			Handler:    _MotorService_IsOn_Handler,
+			MethodName: "IsInMotion",
+			Handler:    _MotorService_IsInMotion_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

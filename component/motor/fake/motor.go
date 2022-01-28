@@ -102,7 +102,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(.01)
@@ -127,8 +127,8 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return nil
 }
 
-// IsOn returns if the motor is pretending to be on or not.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns if the motor is pretending to be on or not.
+func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

@@ -71,7 +71,7 @@ func TestGo(t *testing.T) {
 	failingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return errors.New("motor go failed")
 	}
-	req = pb.MotorServiceGoRequest{Name: "failingMotor", PowerPct: 0.5}
+	req = pb.MotorServiceGoRequest{Name: "failingMotor", Rpm: 0.5}
 	resp, err = motorServer.Go(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -79,7 +79,7 @@ func TestGo(t *testing.T) {
 	workingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
-	req = pb.MotorServiceGoRequest{Name: "workingMotor", PowerPct: 0.5}
+	req = pb.MotorServiceGoRequest{Name: "workingMotor", Rpm: 0.5}
 	resp, err = motorServer.Go(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
@@ -196,24 +196,24 @@ func TestIsOn(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServiceIsOnRequest{Name: "notAMotor"}
-	resp, err := motorServer.IsOn(context.Background(), &req)
+	req := pb.MotorServiceIsInMotionRequest{Name: "notAMotor"}
+	resp, err := motorServer.IsInMotion(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	failingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
 		return false, errors.New("could not determine if motor is on")
 	}
-	req = pb.MotorServiceIsOnRequest{Name: "failingMotor"}
-	resp, err = motorServer.IsOn(context.Background(), &req)
+	req = pb.MotorServiceIsInMotionRequest{Name: "failingMotor"}
+	resp, err = motorServer.IsInMotion(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	workingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	req = pb.MotorServiceIsOnRequest{Name: "workingMotor"}
-	resp, err = motorServer.IsOn(context.Background(), &req)
+	req = pb.MotorServiceIsInMotionRequest{Name: "workingMotor"}
+	resp, err = motorServer.IsInMotion(context.Background(), &req)
 	test.That(t, resp.GetIsOn(), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -231,7 +231,7 @@ func TestGoTo(t *testing.T) {
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return errors.New("go to failed")
 	}
-	req = pb.MotorServiceGoToRequest{Name: "failingMotor", Rpm: 20.0, Position: 2.5}
+	req = pb.MotorServiceGoToRequest{Name: "failingMotor", Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -239,7 +239,7 @@ func TestGoTo(t *testing.T) {
 	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return nil
 	}
-	req = pb.MotorServiceGoToRequest{Name: "workingMotor", Rpm: 20.0, Position: 2.5}
+	req = pb.MotorServiceGoToRequest{Name: "workingMotor", Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)

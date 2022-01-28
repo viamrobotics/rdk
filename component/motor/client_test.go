@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 	workingMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
-	workingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	workingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
@@ -88,7 +88,7 @@ func TestClient(t *testing.T) {
 	failingMotor.StopFunc = func(ctx context.Context) error {
 		return errors.New("stop failed")
 	}
-	failingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	failingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
 		return false, errors.New("is on unavailable")
 	}
 
@@ -128,16 +128,6 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.GoTo(context.Background(), 42.0, 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = workingMotorClient.GoTillStop(context.Background(), 42.0, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		// error when trying to pass callback to GoTillStop
-		stopFunc := func(ctx context.Context) bool {
-			return false
-		}
-		err = workingMotorClient.GoTillStop(context.Background(), 42.0, stopFunc)
-		test.That(t, err, test.ShouldBeError, errors.New("stopFunc must be nil when using gRPC"))
-
 		err = workingMotorClient.ResetZeroPosition(context.Background(), 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -152,7 +142,7 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorClient.IsOn(context.Background())
+		isOn, err := workingMotorClient.IsInMotion(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -161,19 +151,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
-		err := failingMotorClient.SetPower(context.Background(), 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorClient.Go(context.Background(), 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorClient.GoTo(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorClient.GoTillStop(context.Background(), 42.0, nil)
+		err := failingMotorClient.GoTo(context.Background(), 42.0, 42.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		err = failingMotorClient.ResetZeroPosition(context.Background(), 0.5)
@@ -183,15 +161,24 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
+		err = failingMotorClient.SetPower(context.Background(), 42.0)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = failingMotorClient.Go(context.Background(), 42.0)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0)
+		test.That(t, err, test.ShouldNotBeNil)
+
 		posSupported, err := failingMotorClient.PositionSupported(context.Background())
 		test.That(t, posSupported, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		err = failingMotorClient.Stop(context.Background())
+		isOn, err := failingMotorClient.IsInMotion(context.Background())
+		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		isOn, err := failingMotorClient.IsOn(context.Background())
-		test.That(t, isOn, test.ShouldBeFalse)
+		err = failingMotorClient.Stop(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -199,31 +186,6 @@ func TestClient(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "workingMotor", logger)
-
-		err = workingMotorDialedClient.SetPower(context.Background(), 42.0)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = workingMotorDialedClient.Go(context.Background(), 42.0)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = workingMotorDialedClient.GoFor(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = workingMotorDialedClient.GoTo(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldBeNil)
-
-		err = workingMotorDialedClient.GoTillStop(context.Background(), 42.0, nil)
-		test.That(t, err, test.ShouldBeNil)
-
-		// error when trying to pass callback to GoTillStop
-		stopFunc := func(ctx context.Context) bool {
-			return false
-		}
-		err = workingMotorDialedClient.GoTillStop(context.Background(), 42.0, stopFunc)
-		test.That(t, err, test.ShouldBeError, errors.New("stopFunc must be nil when using gRPC"))
-
-		err = workingMotorDialedClient.ResetZeroPosition(context.Background(), 0.5)
-		test.That(t, err, test.ShouldBeNil)
 
 		pos, err := workingMotorDialedClient.Position(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -233,10 +195,16 @@ func TestClient(t *testing.T) {
 		test.That(t, posSupported, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 
+		err = workingMotorDialedClient.GoTo(context.Background(), 42.0, 42.0)
+		test.That(t, err, test.ShouldBeNil)
+
+		err = workingMotorDialedClient.ResetZeroPosition(context.Background(), 0.5)
+		test.That(t, err, test.ShouldBeNil)
+
 		err = workingMotorDialedClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorDialedClient.IsOn(context.Background())
+		isOn, err := workingMotorDialedClient.IsInMotion(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -246,36 +214,17 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "failingMotor", logger)
 
-		err = failingMotorDialedClient.SetPower(context.Background(), 42.0)
+		err = failingMotorDialedClient.SetPower(context.Background(), 39.2)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		err = failingMotorDialedClient.Go(context.Background(), 42.0)
+		err = failingMotorDialedClient.Go(context.Background(), 39.2)
 		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorDialedClient.GoFor(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorDialedClient.GoTo(context.Background(), 42.0, 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorDialedClient.GoTillStop(context.Background(), 42.0, nil)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorDialedClient.ResetZeroPosition(context.Background(), 0.5)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		pos, err := failingMotorDialedClient.Position(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, pos, test.ShouldEqual, 0.0)
 
 		posSupported, err := failingMotorDialedClient.PositionSupported(context.Background())
 		test.That(t, posSupported, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		err = failingMotorDialedClient.Stop(context.Background())
-		test.That(t, err, test.ShouldNotBeNil)
-
-		isOn, err := failingMotorDialedClient.IsOn(context.Background())
+		isOn, err := failingMotorDialedClient.IsInMotion(context.Background())
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

@@ -77,16 +77,20 @@ var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
-	m        []motor.Motor
+	m        []motor.GoTillStopSupportingMotor
 	mmPerRev float64
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
 func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
-		motor, ok := robot.MotorByName(n)
+		_motor, ok := robot.MotorByName(n)
 		if ok {
-			a.m = append(a.m, motor)
+			stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+			if !ok {
+				return errors.Errorf("motor named %s does not implement GoTillStop", n)
+			}
+			a.m = append(a.m, stoppableMotor)
 		} else {
 			return errors.Errorf("Cannot find motor named \"%s\"", n)
 		}
@@ -118,7 +122,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, _ func(ctx c
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
-		go func(motor motor.Motor) {
+		go func(motor motor.GoTillStopSupportingMotor) {
 			defer homeWorkers.Done()
 			multierr.AppendInto(&errs, motor.GoTillStop(ctx, speed*60/a.mmPerRev, nil))
 		}(m)
@@ -154,11 +158,11 @@ func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	return pos * a.mmPerRev, nil
 }
 
-// IsOn returns true if moving.
-func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
+// IsInMotion returns true if moving.
+func (a *LinearAxis) IsInMotion(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
-		on, err := m.IsOn(ctx)
+		on, err := m.IsInMotion(ctx)
 		multierr.AppendInto(&errs, err)
 		if on {
 			return true, errs
@@ -169,7 +173,7 @@ func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
 
 type positional interface {
 	Position(ctx context.Context) (float64, error)
-	IsOn(ctx context.Context) (bool, error)
+	IsInMotion(ctx context.Context) (bool, error)
 }
 
 // ResetBox is the parent structure for this project.
@@ -177,11 +181,12 @@ type ResetBox struct {
 	io.Closer
 	logger golog.Logger
 	// board                    board.Board
-	gate, squeeze            LinearAxis
-	elevator                 LinearAxis
-	hammer, tipper, vibrator motor.Motor
-	arm                      arm.Arm
-	gripper                  gripper.Gripper
+	gate, squeeze    LinearAxis
+	elevator         LinearAxis
+	tipper, vibrator motor.Motor
+	hammer           motor.GoTillStopSupportingMotor
+	arm              arm.Arm
+	gripper          gripper.Gripper
 
 	activeBackgroundWorkers *sync.WaitGroup
 
@@ -219,7 +224,11 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	if !ok {
 		return nil, errors.New("can't find motor named: hammer")
 	}
-	b.hammer = hammer
+	stoppableHammer, ok := hammer.(motor.GoTillStopSupportingMotor)
+	if !ok {
+		return nil, errors.New("hammer motor does not implement GoTillStop")
+	}
+	b.hammer = stoppableHammer
 
 	tipper, ok := r.MotorByName("tipper")
 	if !ok {
@@ -547,7 +556,7 @@ func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target 
 		if err != nil {
 			return err
 		}
-		on, err := motor.IsOn(ctx)
+		on, err := motor.IsInMotion(ctx)
 		if err != nil {
 			return err
 		}

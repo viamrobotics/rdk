@@ -210,7 +210,7 @@ class MotorCommand {
     switch (this.type) {
       case MotorCommandType.Go:
         req = new MotorServiceGoRequest();
-        req.setPowerPct(this.speed * this.direction / 100);
+        req.setRpm(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
         req = new MotorServiceGoForRequest();
@@ -220,7 +220,7 @@ class MotorCommand {
       case MotorCommandType.GoTo:
         req = new MotorServiceGoToRequest();
         req.setRpm(this.speed);
-        req.setPosition(this.position);
+        req.setPositionRevolutions(this.position);
         break;
     }
     return {
