@@ -131,12 +131,12 @@ func TestReconfigurableArm(t *testing.T) {
 	actualArm2 := &mock{Name: testArmName2}
 	reconfArm2, err := arm.WrapWithReconfigurable(actualArm2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualArm1.reconfCalls, test.ShouldEqual, 0)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 
 	err = reconfArm1.Reconfigure(context.Background(), reconfArm2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
-	test.That(t, actualArm1.reconfCalls, test.ShouldEqual, 1)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
 
 	test.That(t, actualArm1.endPosCalls, test.ShouldEqual, 0)
 	test.That(t, actualArm2.endPosCalls, test.ShouldEqual, 0)
@@ -156,9 +156,9 @@ func TestClose(t *testing.T) {
 	reconfArm1, err := arm.WrapWithReconfigurable(actualArm1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, actualArm1.reconfCalls, test.ShouldEqual, 0)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfArm1), test.ShouldBeNil)
-	test.That(t, actualArm1.reconfCalls, test.ShouldEqual, 1)
+	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
 }
 
 func TestArmPosition(t *testing.T) {
@@ -190,7 +190,7 @@ var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 type mock struct {
 	Name        string
 	endPosCalls int
-	reconfCalls int
+	reconfCount int
 }
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
@@ -220,4 +220,4 @@ func (m *mock) GoToInputs(ctx context.Context, goal []referenceframe.Input) erro
 	return nil
 }
 
-func (m *mock) Close(ctx context.Context) error { m.reconfCalls++; return nil }
+func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }

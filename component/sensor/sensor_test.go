@@ -127,12 +127,12 @@ func TestReconfigurableSensor(t *testing.T) {
 	actualSensor2 := &mock{Name: testSensorName2}
 	reconfSensor2, err := sensor.WrapWithReconfigurable(actualSensor2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 0)
 
 	err = reconfSensor1.Reconfigure(context.Background(), reconfSensor2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfSensor1, test.ShouldResemble, reconfSensor2)
-	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 1)
+	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 1)
 
 	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
 	test.That(t, actualSensor2.readingsCalls, test.ShouldEqual, 0)
@@ -162,9 +162,9 @@ func TestClose(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
 	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
-	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfSensor1), test.ShouldBeNil)
-	test.That(t, actualSensor1.reconfCalls, test.ShouldEqual, 1)
+	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 1)
 }
 
 var reading = 1.5
@@ -173,7 +173,7 @@ type mock struct {
 	sensor.Sensor
 	Name          string
 	readingsCalls int
-	reconfCalls   int
+	reconfCount   int
 }
 
 func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
@@ -181,4 +181,4 @@ func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{reading}, nil
 }
 
-func (m *mock) Close() { m.reconfCalls++ }
+func (m *mock) Close() { m.reconfCount++ }
