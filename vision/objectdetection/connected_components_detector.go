@@ -6,7 +6,7 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// validPixelFunc is a function that returns true if a pixel in an rimage.ImageWithDepth passes a certain criteria
+// validPixelFunc is a function that returns true if a pixel in an rimage.ImageWithDepth passes a certain criteria.
 type validPixelFunc func(*rimage.ImageWithDepth, image.Point) bool
 
 // connectedComponentDetector identifies objects in an image by merging neighbors that share similar properties.
@@ -93,13 +93,13 @@ func NewColorDetector(tol, hue float64) Detector {
 	if loValid < 0. {
 		loValid += 360.
 	}
-	valid := makeValidColorFunction(hue, tol, hiValid, loValid)
+	valid := makeValidColorFunction(hiValid, loValid)
 	cd := connectedComponentDetector{valid}
 	return cd.Inference
 }
 
-func makeValidColorFunction(hue, tol, hiValid, loValid float64) validPixelFunc {
-	valid := func(v float64) bool { return v == hue }
+func makeValidColorFunction(hiValid, loValid float64) validPixelFunc {
+	valid := func(v float64) bool { return v == loValid }
 	if hiValid > loValid {
 		valid = func(v float64) bool { return v < hiValid && v > loValid }
 	} else if loValid > hiValid {

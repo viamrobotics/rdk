@@ -102,14 +102,14 @@ func ConvertImage(img image.Image) *Image {
 }
 
 // CloneImage creates a copy of the input image.
-func CloneImage(img image.Image) image.Image {
+func CloneImage(img image.Image) *Image {
 	ii, ok := img.(*Image)
 	if ok {
 		return ii.Clone()
 	}
 	iwd, ok := img.(*ImageWithDepth)
 	if ok {
-		return iwd.Clone()
+		return iwd.Clone().Color
 	}
 
 	return ConvertImage(img)
