@@ -1,4 +1,4 @@
-package oneAxis
+package oneaxis
 
 import (
 	"context"
@@ -123,7 +123,7 @@ func TestNewoneAxis(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestInit(t *testing.T) {
+func TestHome(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &oneAxis{
@@ -136,7 +136,7 @@ func TestInit(t *testing.T) {
 		limitType:       "onePinOneLength",
 	}
 
-	err := fakegantry.init(ctx)
+	err := fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry = &oneAxis{
@@ -148,7 +148,7 @@ func TestInit(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		limitType:       "twoPin",
 	}
-	err = fakegantry.init(ctx)
+	err = fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry = &oneAxis{
@@ -160,7 +160,7 @@ func TestInit(t *testing.T) {
 		limitSwitchPins: []string{"1", "2"},
 		limitType:       "encoder",
 	}
-	err = fakegantry.init(ctx)
+	err = fakegantry.Home(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 }
@@ -192,9 +192,9 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
-		limitSwitchPins: []string{"1", "2", "3"},
-		length_mm:       float64(1),
-		pulleyR_mm:      float64(.1),
+		limitSwitchPins: []string{"1"},
+		lengthMm:        float64(1),
+		pulleyRMm:       float64(.1),
 	}
 
 	err := fakegantry.homeOneLimSwitch(ctx)
@@ -249,7 +249,7 @@ func TestCurrentPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1, 0, 1, 0, 1},
 		logger:          logger,
 	}
-	positions, err := fakegantry.CurrentPosition(ctx)
+	positions, err := fakegantry.GetPosition(ctx)
 
 	test.That(t, positions, test.ShouldResemble, []float64{1, 1, 1})
 	test.That(t, err, test.ShouldBeNil)
@@ -257,10 +257,10 @@ func TestCurrentPosition(t *testing.T) {
 
 func TestLengths(t *testing.T) {
 	fakegantry := &oneAxis{
-		length_mm: float64(1.0),
+		lengthMm: float64(1.0),
 	}
 	ctx := context.Background()
-	fakelengths, err := fakegantry.Lengths(ctx)
+	fakelengths, err := fakegantry.GetLengths(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.ShouldHaveLength(t, fakelengths, test.ShouldEqual(float64(1.0)))
 }
