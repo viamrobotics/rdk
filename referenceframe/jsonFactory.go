@@ -105,7 +105,8 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
 		for _, joint := range m.Joints {
 			// TODO(pl): Make this a switch once we support more than one joint type
-			if joint.Type == "revolute" {
+			switch joint.Type {
+			case "revolute":
 				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
 
 				rev, err := NewRotationalFrame(joint.ID, aa, Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
@@ -115,10 +116,16 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 				parentMap[joint.ID] = joint.Parent
 
 				transforms[joint.ID] = rev
-			} else if joint.Type == "prismatic" {
-				//prism, err := NewTranslationalFrame(joint.ID, []bool{}, Limit{Min: joint.Min, Max: joint.Max})
+			case "prismatic":
+				prism, err := NewTranslationalFrame(joint.ID, []bool{}, []Limit{{Min: joint.Min, Max: joint.Max}})
+				if err != nil {
+					return nil, err
+				}
+				parentMap[joint.ID] = joint.Parent
 
-			} else {
+				transforms[joint.ID] = prism
+
+			case "default":
 				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
 			}
 		}

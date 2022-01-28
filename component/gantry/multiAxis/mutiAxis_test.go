@@ -17,41 +17,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createFakeMotor() *inject.Motor {
-	fakemotor := &inject.Motor{}
-
-	fakemotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
-	}
-
-	fakemotor.PositionFunc = func(ctx context.Context) (float64, error) {
-		return 1, nil
-	}
-
-	fakemotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
-		return nil
-	}
-
-	fakemotor.StopFunc = func(ctx context.Context) error {
-		return nil
-	}
-
-	fakemotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return nil
-	}
-
-	return fakemotor
-}
-
-func createFakeBoard() *inject.Board {
-	fakeboard := &inject.Board{}
-
-	fakeboard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
-		return true, nil
-	}
-	return fakeboard
-}
-
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 	fakeoneaxis := &inject.Gantry{
 		Gantry: nil,

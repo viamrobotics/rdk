@@ -1,3 +1,4 @@
+// Package multiaxis implements a multi-axis gantry.
 package multiaxis
 
 import (
@@ -16,7 +17,8 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
-type MultiAxisConfig struct {
+// Config is used for converting multiAxis config attributes.
+type Config struct {
 	SubAxes []string `json:"subaxes_list"`
 }
 
@@ -27,8 +29,8 @@ type multiAxis struct {
 	logger    golog.Logger
 }
 
-func (config *MultiAxisConfig) Validate(path string) error {
-
+// Validate ensures all parts of the config are valid.
+func (config *Config) Validate(path string) error {
 	if len(config.SubAxes) == 0 {
 		return utils.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
@@ -43,7 +45,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			multaxisGantryConfig, ok := config.ConvertedAttributes.(*MultiAxisConfig)
+			multaxisGantryConfig, ok := config.ConvertedAttributes.(*Config)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(multaxisGantryConfig, config.ConvertedAttributes)
 			}
@@ -106,7 +108,10 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	}
 
 	for _, subAx := range g.subAxes {
-		subAx.MoveToPosition(ctx, referenceframe.InputsToFloats((goal)))
+		err := subAx.MoveToPosition(ctx, referenceframe.InputsToFloats((goal)))
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -151,10 +156,10 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return referenceframe.FloatsToInputs(resOut), nil
 }
 
-// TO DO test model frame with #471
+// TO DO test model frame with #471.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	for idx, _ := range g.subAxes {
+	for idx := range g.subAxes {
 		f, err := referenceframe.NewTranslationalFrame(
 			g.name,
 			[]bool{true}, // TODO convert to r3.Vector once #471 is merged.
