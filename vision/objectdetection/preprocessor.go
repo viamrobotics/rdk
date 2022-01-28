@@ -11,7 +11,7 @@ import (
 // Preprocessor will apply processing to an input image before feeding it into the detector.
 type Preprocessor func(image.Image) image.Image
 
-// ComposePreprocessors takes in a slice of Preprocessors and returns one Preprocessor function
+// ComposePreprocessors takes in a slice of Preprocessors and returns one Preprocessor function.
 func ComposePreprocessors(pSlice []Preprocessor) Preprocessor {
 	return func(img image.Image) image.Image {
 		for _, p := range pSlice {
