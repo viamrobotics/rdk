@@ -126,6 +126,12 @@ func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm [
 	return g.actual.MoveToPosition(ctx, positionsMm)
 }
 
+func (g *reconfigurableGantry) Close(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return viamutils.TryClose(ctx, g.actual)
+}
+
 // Reconfigure reconfigures the resource.
 func (g *reconfigurableGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	g.mu.Lock()

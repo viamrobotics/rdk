@@ -11,8 +11,6 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -188,6 +186,7 @@ func TestArmPositionDiff(t *testing.T) {
 var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
+	arm.Arm
 	Name        string
 	endPosCount int
 	reconfCount int
@@ -196,28 +195,6 @@ type mock struct {
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	m.endPosCount++
 	return pose, nil
-}
-
-func (m *mock) MoveToPosition(ctx context.Context, c *commonpb.Pose) error { return nil }
-
-func (m *mock) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
-	return nil
-}
-
-func (m *mock) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	return &pb.ArmJointPositions{}, nil
-}
-
-func (m *mock) ModelFrame() referenceframe.Model {
-	return nil
-}
-
-func (m *mock) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	return nil, nil
-}
-
-func (m *mock) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return nil
 }
 
 func (m *mock) Close(ctx context.Context) error { m.reconfCount++; return nil }

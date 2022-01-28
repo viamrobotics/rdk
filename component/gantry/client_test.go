@@ -29,7 +29,6 @@ func TestClient(t *testing.T) {
 
 	var gantryPos []float64
 
-	gantry1 := "gantry1"
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
 	injectGantry := &inject.Gantry{}
@@ -44,7 +43,6 @@ func TestClient(t *testing.T) {
 		return len1, nil
 	}
 
-	gantry2 := "gantry2"
 	pos2 := []float64{4.0, 5.0, 6.0}
 	len2 := []float64{5.0, 6.0, 7.0}
 	injectGantry2 := &inject.Gantry{}
@@ -59,7 +57,9 @@ func TestClient(t *testing.T) {
 		return len2, nil
 	}
 
-	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(gantry1): injectGantry, gantry.Named(gantry2): injectGantry2}))
+	gantrySvc, err := subtype.New(
+		(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
+	)
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGantryServiceServer(gServer1, gantry.NewServer(gantrySvc))
 
@@ -70,13 +70,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gantry.NewClient(cancelCtx, gantry1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = gantry.NewClient(cancelCtx, testGantryName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	gantry1Client, err := gantry.NewClient(context.Background(), gantry2, listener1.Addr().String(), logger, rpc.WithInsecure())
+	gantry1Client, err := gantry.NewClient(context.Background(), testGantryName2, listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("gantry client 1", func(t *testing.T) {
@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client2 := gantry.NewClientFromConn(context.Background(), conn, gantry1, logger)
+		gantry1Client2 := gantry.NewClientFromConn(context.Background(), conn, testGantryName, logger)
 		test.That(t, err, test.ShouldBeNil)
 		pos, err := gantry1Client2.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -112,9 +112,9 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectGantry := &inject.Gantry{}
-	gantry1 := "gantry1"
+	testGantryName := testGantryName
 
-	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(gantry1): injectGantry}))
+	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry}))
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGantryServiceServer(gServer, gantry.NewServer(gantrySvc))
 
@@ -123,9 +123,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gantry.NewClient(ctx, gantry1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := gantry.NewClient(ctx, gantry1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 
