@@ -33,14 +33,14 @@ func TestClient(t *testing.T) {
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
 	injectGantry := &inject.Gantry{}
-	injectGantry.CurrentPositionFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos1, nil
 	}
 	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len1, nil
 	}
 
@@ -48,14 +48,14 @@ func TestClient(t *testing.T) {
 	pos2 := []float64{4.0, 5.0, 6.0}
 	len2 := []float64{5.0, 6.0, 7.0}
 	injectGantry2 := &inject.Gantry{}
-	injectGantry2.CurrentPositionFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos2, nil
 	}
 	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
 		gantryPos = pos
 		return nil
 	}
-	injectGantry2.LengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return len2, nil
 	}
 
@@ -80,7 +80,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("gantry client 1", func(t *testing.T) {
-		pos, err := gantry1Client.CurrentPosition(context.Background())
+		pos, err := gantry1Client.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 
@@ -88,7 +88,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 
-		lens, err := gantry1Client.Lengths(context.Background())
+		lens, err := gantry1Client.GetLengths(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, lens, test.ShouldResemble, len2)
 	})
@@ -98,7 +98,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		gantry1Client2 := gantry.NewClientFromConn(context.Background(), conn, gantry1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		pos, err := gantry1Client2.CurrentPosition(context.Background())
+		pos, err := gantry1Client2.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos1)
 		test.That(t, conn.Close(), test.ShouldBeNil)

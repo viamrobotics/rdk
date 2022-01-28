@@ -101,7 +101,7 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 
 	for i := 0; i < 5; i++ {
 		logger.Debugf("upAndDown loop %d", i)
-		pos, err := arm.CurrentPosition(ctx)
+		pos, err := arm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func play(ctx context.Context, r robot.Robot) error {
 		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
 	}
 
-	start, err := arm.CurrentJointPositions(ctx)
+	start, err := arm.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}

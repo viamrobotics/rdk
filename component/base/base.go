@@ -32,14 +32,14 @@ type Base interface {
 	// MoveStraight moves the robot straight a given distance at a given speed. The method
 	// can be requested to block until the move is complete. If a distance or speed of zero is given,
 	// the base will stop.
-	MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error
+	MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error
 
 	// MoveArc moves the robot in an arc a given distance at a given speed and degs per second of movement.
 	// The degs per sec represents the angular velocity the robot has during its movement. This function
 	// can be requested to block until move is complete. If a distance of 0 is given the resultant motion
 	// is a spin and if speed of 0 is given the base will stop.
 	// Note: ramping affects when and how arc is performed, further improvements may be needed
-	MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool) error
+	MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error
 
 	// Spin spins the robot by a given angle in degrees at a given speed. The method can be requested
 	// to block until the move is complete. If a speed of 0 the base will stop.
@@ -47,19 +47,23 @@ type Base interface {
 
 	// Stop stops the base. It is assumed the base stops immediately.
 	Stop(ctx context.Context) error
+}
 
-	// WidthGet returns the width of the base in millimeters.
-	WidthGet(ctx context.Context) (int, error)
+// A LocalBase represents a physical base of a robot that can report the width of itself.
+type LocalBase interface {
+	Base
+	// GetWidth returns the width of the base in millimeters.
+	GetWidth(ctx context.Context) (int, error)
 }
 
 var (
-	_ = Base(&reconfigurableBase{})
+	_ = LocalBase(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
-	actual Base
+	actual LocalBase
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
@@ -69,19 +73,19 @@ func (r *reconfigurableBase) ProxyFor() interface{} {
 }
 
 func (r *reconfigurableBase) MoveStraight(
-	ctx context.Context, distanceMillis int, millisPerSec float64, block bool,
+	ctx context.Context, distanceMm int, mmPerSec float64, block bool,
 ) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveStraight(ctx, distanceMillis, millisPerSec, block)
+	return r.actual.MoveStraight(ctx, distanceMm, mmPerSec, block)
 }
 
 func (r *reconfigurableBase) MoveArc(
-	ctx context.Context, distanceMillis int, millisPerSec float64, degsPerSec float64, block bool,
+	ctx context.Context, distanceMm int, mmPerSec float64, degAngle float64, block bool,
 ) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveArc(ctx, distanceMillis, millisPerSec, degsPerSec, block)
+	return r.actual.MoveArc(ctx, distanceMm, mmPerSec, degAngle, block)
 }
 
 func (r *reconfigurableBase) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
@@ -96,10 +100,10 @@ func (r *reconfigurableBase) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableBase) WidthGet(ctx context.Context) (int, error) {
+func (r *reconfigurableBase) GetWidth(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.WidthGet(ctx)
+	return r.actual.GetWidth(ctx)
 }
 
 func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.Reconfigurable) error {
@@ -116,10 +120,10 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 	return nil
 }
 
-// WrapWithReconfigurable converts a regular Base implementation to a reconfigurableBase.
+// WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	base, ok := r.(Base)
+	base, ok := r.(LocalBase)
 	if !ok {
 		return nil, errors.Errorf("expected resource to be Base but got %T", r)
 	}
@@ -131,11 +135,11 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 
 // A Move describes instructions for a robot to spin followed by moving straight.
 type Move struct {
-	DistanceMillis int
-	MillisPerSec   float64
-	AngleDeg       float64
-	DegsPerSec     float64
-	Block          bool
+	DistanceMm int
+	MmPerSec   float64
+	AngleDeg   float64
+	DegsPerSec float64
+	Block      bool
 }
 
 // DoMove performs the given move on the given base.
@@ -147,8 +151,8 @@ func DoMove(ctx context.Context, move Move, base Base) error {
 		}
 	}
 
-	if move.DistanceMillis != 0 {
-		err := base.MoveStraight(ctx, move.DistanceMillis, move.MillisPerSec, move.Block)
+	if move.DistanceMm != 0 {
+		err := base.MoveStraight(ctx, move.DistanceMm, move.MmPerSec, move.Block)
 		if err != nil {
 			return err
 		}

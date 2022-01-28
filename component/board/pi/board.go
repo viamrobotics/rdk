@@ -76,7 +76,7 @@ var (
 )
 
 // NewPigpio makes a new pigpio based Board using the given config.
-func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (board.Board, error) {
+func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (board.LocalBoard, error) {
 	// this is so we can run it inside a daemon
 	internals := C.gpioCfgGetInternals()
 	internals |= C.PI_CFG_NOSIGHANDLER

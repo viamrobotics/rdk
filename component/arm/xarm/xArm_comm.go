@@ -357,7 +357,7 @@ func (x *xArm) Close(ctx context.Context) error {
 // MoveToJointPositions moves the arm to the requested joint positions.
 func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
 	to := referenceframe.JointPosToInputs(newPositions)
-	curPos, err := x.CurrentJointPositions(ctx)
+	curPos, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -393,14 +393,9 @@ func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJoi
 	return nil
 }
 
-// JointMoveDelta TODO.
-func (x *xArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
-}
-
-// CurrentPosition computes and returns the current cartesian position.
-func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := x.CurrentJointPositions(ctx)
+// GetEndPosition computes and returns the current cartesian position.
+func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +404,7 @@ func (x *xArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := x.CurrentJointPositions(ctx)
+	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -424,8 +419,8 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	return x.motionWait(ctx)
 }
 
-// CurrentJointPositions returns the current positions of all joints.
-func (x *xArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns the current positions of all joints.
+func (x *xArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)

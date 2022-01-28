@@ -248,10 +248,10 @@ func (svc *navService) startWaypoint() error {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
-				distanceMillis := distanceToGoal * 1000 * 1000
-				distanceMillis = math.Min(distanceMillis, 10*1000)
+				distanceMm := distanceToGoal * 1000 * 1000
+				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if err := svc.base.MoveStraight(ctx, int(distanceMillis), 500, true); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500, true); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 

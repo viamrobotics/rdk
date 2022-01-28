@@ -37,19 +37,19 @@ type Gantry struct {
 	lengthMeters float64
 }
 
-// CurrentPosition returns the position in meters.
-func (g *Gantry) CurrentPosition(ctx context.Context) ([]float64, error) {
-	return g.positions, nil
+// GetPosition returns the position in meters.
+func (g *Gantry) GetPosition(ctx context.Context) ([]float64, error) {
+	return g.positionsMm, nil
 }
 
-// Lengths returns the position in meters.
-func (g *Gantry) Lengths(ctx context.Context) ([]float64, error) {
+// GetLengths returns the position in meters.
+func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 	return g.lengths, nil
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positions []float64) error {
-	g.positions = positions
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	g.positionsMm = positionsMm
 	return nil
 }
 
@@ -64,9 +64,9 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	return m
 }
 
-// CurrentInputs TODO.
+// CurrentInputs TODO
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

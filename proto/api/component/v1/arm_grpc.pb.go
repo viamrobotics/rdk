@@ -18,16 +18,14 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ArmServiceClient interface {
-	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-	CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error)
+	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+	GetEndPosition(ctx context.Context, in *ArmServiceGetEndPositionRequest, opts ...grpc.CallOption) (*ArmServiceGetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(ctx context.Context, in *ArmServiceMoveToPositionRequest, opts ...grpc.CallOption) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
-	CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error)
+	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
+	GetJointPositions(ctx context.Context, in *ArmServiceGetJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceGetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(ctx context.Context, in *ArmServiceMoveToJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-	JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error)
 }
 
 type armServiceClient struct {
@@ -38,9 +36,9 @@ func NewArmServiceClient(cc grpc.ClientConnInterface) ArmServiceClient {
 	return &armServiceClient{cc}
 }
 
-func (c *armServiceClient) CurrentPosition(ctx context.Context, in *ArmServiceCurrentPositionRequest, opts ...grpc.CallOption) (*ArmServiceCurrentPositionResponse, error) {
-	out := new(ArmServiceCurrentPositionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/CurrentPosition", in, out, opts...)
+func (c *armServiceClient) GetEndPosition(ctx context.Context, in *ArmServiceGetEndPositionRequest, opts ...grpc.CallOption) (*ArmServiceGetEndPositionResponse, error) {
+	out := new(ArmServiceGetEndPositionResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/GetEndPosition", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +54,9 @@ func (c *armServiceClient) MoveToPosition(ctx context.Context, in *ArmServiceMov
 	return out, nil
 }
 
-func (c *armServiceClient) CurrentJointPositions(ctx context.Context, in *ArmServiceCurrentJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceCurrentJointPositionsResponse, error) {
-	out := new(ArmServiceCurrentJointPositionsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/CurrentJointPositions", in, out, opts...)
+func (c *armServiceClient) GetJointPositions(ctx context.Context, in *ArmServiceGetJointPositionsRequest, opts ...grpc.CallOption) (*ArmServiceGetJointPositionsResponse, error) {
+	out := new(ArmServiceGetJointPositionsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/GetJointPositions", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,29 +72,18 @@ func (c *armServiceClient) MoveToJointPositions(ctx context.Context, in *ArmServ
 	return out, nil
 }
 
-func (c *armServiceClient) JointMoveDelta(ctx context.Context, in *ArmServiceJointMoveDeltaRequest, opts ...grpc.CallOption) (*ArmServiceJointMoveDeltaResponse, error) {
-	out := new(ArmServiceJointMoveDeltaResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.ArmService/JointMoveDelta", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ArmServiceServer is the server API for ArmService service.
 // All implementations must embed UnimplementedArmServiceServer
 // for forward compatibility
 type ArmServiceServer interface {
-	// CurrentPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
-	CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error)
+	// GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
+	GetEndPosition(context.Context, *ArmServiceGetEndPositionRequest) (*ArmServiceGetEndPositionResponse, error)
 	// MoveToPosition moves the mount point of the robot's end effector to the requested position.
 	MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error)
-	// CurrentJointPositions lists the joint positions (in degrees) of every joint on a robot
-	CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error)
+	// GetJointPositions lists the joint positions (in degrees) of every joint on a robot
+	GetJointPositions(context.Context, *ArmServiceGetJointPositionsRequest) (*ArmServiceGetJointPositionsResponse, error)
 	// MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
 	MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error)
-	// JointMoveDelta moves a specific joint of a robot by the the specified number of degrees
-	JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error)
 	mustEmbedUnimplementedArmServiceServer()
 }
 
@@ -104,20 +91,17 @@ type ArmServiceServer interface {
 type UnimplementedArmServiceServer struct {
 }
 
-func (UnimplementedArmServiceServer) CurrentPosition(context.Context, *ArmServiceCurrentPositionRequest) (*ArmServiceCurrentPositionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CurrentPosition not implemented")
+func (UnimplementedArmServiceServer) GetEndPosition(context.Context, *ArmServiceGetEndPositionRequest) (*ArmServiceGetEndPositionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetEndPosition not implemented")
 }
 func (UnimplementedArmServiceServer) MoveToPosition(context.Context, *ArmServiceMoveToPositionRequest) (*ArmServiceMoveToPositionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToPosition not implemented")
 }
-func (UnimplementedArmServiceServer) CurrentJointPositions(context.Context, *ArmServiceCurrentJointPositionsRequest) (*ArmServiceCurrentJointPositionsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CurrentJointPositions not implemented")
+func (UnimplementedArmServiceServer) GetJointPositions(context.Context, *ArmServiceGetJointPositionsRequest) (*ArmServiceGetJointPositionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetJointPositions not implemented")
 }
 func (UnimplementedArmServiceServer) MoveToJointPositions(context.Context, *ArmServiceMoveToJointPositionsRequest) (*ArmServiceMoveToJointPositionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MoveToJointPositions not implemented")
-}
-func (UnimplementedArmServiceServer) JointMoveDelta(context.Context, *ArmServiceJointMoveDeltaRequest) (*ArmServiceJointMoveDeltaResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method JointMoveDelta not implemented")
 }
 func (UnimplementedArmServiceServer) mustEmbedUnimplementedArmServiceServer() {}
 
@@ -132,20 +116,20 @@ func RegisterArmServiceServer(s grpc.ServiceRegistrar, srv ArmServiceServer) {
 	s.RegisterService(&ArmService_ServiceDesc, srv)
 }
 
-func _ArmService_CurrentPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceCurrentPositionRequest)
+func _ArmService_GetEndPosition_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmServiceGetEndPositionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ArmServiceServer).CurrentPosition(ctx, in)
+		return srv.(ArmServiceServer).GetEndPosition(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/CurrentPosition",
+		FullMethod: "/proto.api.component.v1.ArmService/GetEndPosition",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).CurrentPosition(ctx, req.(*ArmServiceCurrentPositionRequest))
+		return srv.(ArmServiceServer).GetEndPosition(ctx, req.(*ArmServiceGetEndPositionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -168,20 +152,20 @@ func _ArmService_MoveToPosition_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ArmService_CurrentJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceCurrentJointPositionsRequest)
+func _ArmService_GetJointPositions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ArmServiceGetJointPositionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ArmServiceServer).CurrentJointPositions(ctx, in)
+		return srv.(ArmServiceServer).GetJointPositions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/CurrentJointPositions",
+		FullMethod: "/proto.api.component.v1.ArmService/GetJointPositions",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).CurrentJointPositions(ctx, req.(*ArmServiceCurrentJointPositionsRequest))
+		return srv.(ArmServiceServer).GetJointPositions(ctx, req.(*ArmServiceGetJointPositionsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -204,24 +188,6 @@ func _ArmService_MoveToJointPositions_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ArmService_JointMoveDelta_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ArmServiceJointMoveDeltaRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ArmServiceServer).JointMoveDelta(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.ArmService/JointMoveDelta",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ArmServiceServer).JointMoveDelta(ctx, req.(*ArmServiceJointMoveDeltaRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ArmService_ServiceDesc is the grpc.ServiceDesc for ArmService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -230,24 +196,20 @@ var ArmService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ArmServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "CurrentPosition",
-			Handler:    _ArmService_CurrentPosition_Handler,
+			MethodName: "GetEndPosition",
+			Handler:    _ArmService_GetEndPosition_Handler,
 		},
 		{
 			MethodName: "MoveToPosition",
 			Handler:    _ArmService_MoveToPosition_Handler,
 		},
 		{
-			MethodName: "CurrentJointPositions",
-			Handler:    _ArmService_CurrentJointPositions_Handler,
+			MethodName: "GetJointPositions",
+			Handler:    _ArmService_GetJointPositions_Handler,
 		},
 		{
 			MethodName: "MoveToJointPositions",
 			Handler:    _ArmService_MoveToJointPositions_Handler,
-		},
-		{
-			MethodName: "JointMoveDelta",
-			Handler:    _ArmService_JointMoveDelta_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

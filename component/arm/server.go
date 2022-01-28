@@ -35,40 +35,40 @@ func (s *subtypeServer) getArm(name string) (Arm, error) {
 	return arm, nil
 }
 
-// CurrentPosition returns the position of the arm specified.
-func (s *subtypeServer) CurrentPosition(
+// GetEndPosition returns the position of the arm specified.
+func (s *subtypeServer) GetEndPosition(
 	ctx context.Context,
-	req *pb.ArmServiceCurrentPositionRequest,
-) (*pb.ArmServiceCurrentPositionResponse, error) {
+	req *pb.ArmServiceGetEndPositionRequest,
+) (*pb.ArmServiceGetEndPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentPosition(ctx)
+	pos, err := arm.GetEndPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &commonpb.Pose{
 		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 	}
-	return &pb.ArmServiceCurrentPositionResponse{Position: convertedPos}, nil
+	return &pb.ArmServiceGetEndPositionResponse{Pose: convertedPos}, nil
 }
 
-// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *subtypeServer) CurrentJointPositions(
+// GetJointPositions gets the current joint position of an arm of the underlying robot.
+func (s *subtypeServer) GetJointPositions(
 	ctx context.Context,
-	req *pb.ArmServiceCurrentJointPositionsRequest,
-) (*pb.ArmServiceCurrentJointPositionsResponse, error) {
+	req *pb.ArmServiceGetJointPositionsRequest,
+) (*pb.ArmServiceGetJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentJointPositions(ctx)
+	pos, err := arm.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
-	return &pb.ArmServiceCurrentJointPositionsResponse{Positions: convertedPos}, nil
+	return &pb.ArmServiceGetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
@@ -80,7 +80,7 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
+	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
@@ -92,18 +92,5 @@ func (s *subtypeServer) MoveToJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
-}
-
-// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-func (s *subtypeServer) JointMoveDelta(
-	ctx context.Context,
-	req *pb.ArmServiceJointMoveDeltaRequest,
-) (*pb.ArmServiceJointMoveDeltaResponse, error) {
-	arm, err := s.getArm(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ArmServiceJointMoveDeltaResponse{}, arm.JointMoveDelta(ctx, int(req.Joint), req.AmountDegs)
+	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
 }
