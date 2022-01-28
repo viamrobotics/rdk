@@ -134,13 +134,13 @@ func TestReconfigurableSensor(t *testing.T) {
 	test.That(t, reconfSensor1, test.ShouldResemble, reconfSensor2)
 	test.That(t, actualSensor1.reconfCount, test.ShouldEqual, 1)
 
-	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
-	test.That(t, actualSensor2.readingsCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
+	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
-	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
-	test.That(t, actualSensor2.readingsCalls, test.ShouldEqual, 1)
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
+	test.That(t, actualSensor2.readingsCount, test.ShouldEqual, 1)
 
 	err = reconfSensor1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -151,11 +151,11 @@ func TestReadings(t *testing.T) {
 	actualSensor1 := &mock{Name: testSensorName}
 	reconfSensor1, _ := sensor.WrapWithReconfigurable(actualSensor1)
 
-	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 0)
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfSensor1.(sensor.Sensor).Readings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
-	test.That(t, actualSensor1.readingsCalls, test.ShouldEqual, 1)
+	test.That(t, actualSensor1.readingsCount, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
@@ -172,12 +172,12 @@ var reading = 1.5
 type mock struct {
 	sensor.Sensor
 	Name          string
-	readingsCalls int
+	readingsCount int
 	reconfCount   int
 }
 
 func (m *mock) Readings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCalls++
+	m.readingsCount++
 	return []interface{}{reading}, nil
 }
 

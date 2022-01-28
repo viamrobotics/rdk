@@ -138,13 +138,13 @@ func TestReconfigurableArm(t *testing.T) {
 	test.That(t, reconfArm1, test.ShouldResemble, reconfArm2)
 	test.That(t, actualArm1.reconfCount, test.ShouldEqual, 1)
 
-	test.That(t, actualArm1.endPosCalls, test.ShouldEqual, 0)
-	test.That(t, actualArm2.endPosCalls, test.ShouldEqual, 0)
+	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
+	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 0)
 	pose1, err := reconfArm1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
-	test.That(t, actualArm1.endPosCalls, test.ShouldEqual, 0)
-	test.That(t, actualArm2.endPosCalls, test.ShouldEqual, 1)
+	test.That(t, actualArm1.endPosCount, test.ShouldEqual, 0)
+	test.That(t, actualArm2.endPosCount, test.ShouldEqual, 1)
 
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -189,12 +189,12 @@ var pose = &commonpb.Pose{X: 1, Y: 2, Z: 3}
 
 type mock struct {
 	Name        string
-	endPosCalls int
+	endPosCount int
 	reconfCount int
 }
 
 func (m *mock) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	m.endPosCalls++
+	m.endPosCount++
 	return pose, nil
 }
 
