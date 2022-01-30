@@ -8,47 +8,65 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createShamMotor() *inject.Motor {
-	shamMotor := &inject.Motor{}
+func createFakeMotor() *inject.Motor {
+	fakeMotor := &inject.Motor{}
 
-	shamMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
+	fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
-	shamMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 1, nil
 	}
 
-	shamMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
+	fakeMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error {
 		return nil
 	}
 
-	shamMotor.StopFunc = func(ctx context.Context) error {
+	fakeMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
 
-	shamMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+	fakeMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
 
-	return shamMotor
+	return fakeMotor
 }
 
 func createFakeBoard() *inject.Board {
 	fakeboard := &inject.Board{}
 
-	fakeboard.GPIOGetFunc = func(ctx context.Context, pin string) (bool, error) {
+	fakeboard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {
 		return true, nil
 	}
 	return fakeboard
 }
 
-func TestNewoneAxis(t *testing.T) {
+func createFakeRobot() *inject.Robot {
+	fakerobot := &inject.Robot{}
+
+	fakerobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+		return &fake.Motor{PositionSupportedFunc: true, GoForfunc: true}, true
+	}
+
+	fakerobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
+			return true, nil
+		}}, true
+	}
+	return fakerobot
+}
+
+func TestNewOneAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakeRobot := createFakeRobot()
@@ -101,28 +119,31 @@ func TestNewoneAxis(t *testing.T) {
 	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry length has to be >= 0")
 
-	shamcfg := config.Component{
+	fakecfg = config.Component{
+		Name: "gantry",
 		Attributes: config.AttributeMap{
-			"motorList":       []string{},
+			"motor":           "x",
 			"limitSwitchPins": []string{},
-			"lengthMeters":    []float64{},
-			"board":           "",
-		},
-	}
-	_, err := NewOneAxis(ctx, shamRobot, shamcfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	shamcfg = config.Component{
-		Attributes: config.AttributeMap{
-			"motorList":       []string{"x", "y", "z"},
-			"limitSwitchPins": []string{"1", "2", "3", "4", "5", "6"},
-			"lengthMeters":    []float64{1.0, 1.0, 1.0},
+			"length_mm":       1.0,
 			"board":           "board",
 		},
 	}
 
-	_, err = NewOneAxis(ctx, shamRobot, shamcfg, logger)
-	test.That(t, err, test.ShouldNotBeNil)
+	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "encoder currently not supported")
+
+	fakecfg = config.Component{
+		Name: "gantry",
+		Attributes: config.AttributeMap{
+			"motor":           "x",
+			"limitSwitchPins": []string{"1", "2", "3"},
+			"length_mm":       1.0,
+			"board":           "board",
+		},
+	}
+
+	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 }
 
 func TestHome(t *testing.T) {
@@ -167,7 +188,6 @@ func TestHome(t *testing.T) {
 }
 
 func TestHomeTwoLimitSwitch(t *testing.T) {
-	motor := createShamMotor()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &oneAxis{
@@ -176,15 +196,15 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 		limitHigh:       true,
 		logger:          logger,
 		rpm:             float64(300),
-		limitSwitchPins: []string{"1", "2", "3", "4", "5", "6"},
+		limitSwitchPins: []string{"1", "2"},
 	}
 
 	err := fakegantry.homeTwoLimSwitch(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakegantry.positionLimits, test.ShouldResemble, []float64{1, 1})
 }
 
 func TestHomeOneLimitSwitch(t *testing.T) {
-	motor := createShamMotor()
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakegantry := &oneAxis{
@@ -200,6 +220,7 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 
 	err := fakegantry.homeOneLimSwitch(ctx)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fakegantry.positionLimits, test.ShouldResemble, []float64{1, 2.5915494309189535})
 }
 
 func TestHomeEncoder(t *testing.T) {
@@ -207,14 +228,15 @@ func TestHomeEncoder(t *testing.T) {
 	ctx := context.Background()
 	err := fakegantry.homeEncoder(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldEqual, "encoder currently not supported")
 }
 
 func TestTestLimit(t *testing.T) {
 	ctx := context.Background()
 	fakegantry := &oneAxis{
 		limitSwitchPins: []string{"1", "2"},
-		motor:           createShamMotor(),
-		limitBoard:      createFakeBoard(),
+		motor:           createFakeMotor(),
+		board:           createFakeBoard(),
 		rpm:             float64(300),
 		limitHigh:       true,
 	}
@@ -227,7 +249,7 @@ func TestLimitHit(t *testing.T) {
 	ctx := context.Background()
 	fakegantry := &oneAxis{
 		limitSwitchPins: []string{"1", "2", "3"},
-		limitBoard:      createFakeBoard(),
+		board:           createFakeBoard(),
 		limitHigh:       true,
 	}
 
