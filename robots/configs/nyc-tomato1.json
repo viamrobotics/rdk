@@ -3,7 +3,10 @@
         { "name" : "arm",
           "type": "arm",
           "model": "ur",
-          "host" : "10.237.115.232"
+          "attributes": {
+            "host" : "10.237.115.98",
+            "speed": 0.5
+          }
         },
         {
             "model": "pi",
@@ -50,4 +53,3 @@
         }
     ]
 }
-    
