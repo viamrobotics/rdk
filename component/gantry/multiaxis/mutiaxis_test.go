@@ -80,7 +80,7 @@ func TestNewMultiAxis(t *testing.T) {
 		},
 	}
 
-	_, err := NewMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	_, err := newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakeMultAxcfg = config.Component{
@@ -90,7 +90,7 @@ func TestNewMultiAxis(t *testing.T) {
 		},
 	}
 
-	_, err = NewMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	_, err = newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
