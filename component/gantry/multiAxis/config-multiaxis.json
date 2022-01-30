@@ -51,7 +51,7 @@
             }
     },
     {
-        "model": "oneAxis",
+        "model": "oneaxis",
         "name": "xaxis",
         "type": "gantry",
         "attributes": {
@@ -69,7 +69,7 @@
         "depends_on": "xmotor"
     },
     {
-      "model": "oneAxis",
+      "model": "oneaxis",
       "name": "yaxis",
       "type": "gantry",
       "attributes": {
@@ -86,7 +86,7 @@
       "depends_on": "ymotor"    
     },
     {
-      "model": "oneAxis",
+      "model": "oneaxis",
       "name": "zaxis",
       "type": "gantry",
       "attributes": {

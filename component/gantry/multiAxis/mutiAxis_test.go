@@ -32,6 +32,9 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		CloseFunc: func(ctx context.Context) error {
 			return nil
 		},
+		ModelFrameFunc: func() referenceframe.Model {
+			return nil
+		},
 	}
 	return fakeoneaxis
 }
@@ -165,31 +168,26 @@ func TestCurrentInputs(t *testing.T) {
 	fakemultiaxis := &multiAxis{}
 	inputs, err := fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input(nil))
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{1}, {5}, {9}})
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{1}, {5}})
 }
 
-/*
 func TestModelFrame(t *testing.T) {
-	fakemultiaxis := &multiAxis{}
+	// TO DO: improve this test with sample kinematics
+	fakemultiaxis := &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 1, 1}, name: "test"}
 	model := fakemultiaxis.ModelFrame()
-	test.That(t, model, test.ShouldResemble, nil)
+	test.That(t, model, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 1, 1}, name: "test"}
 	model = fakemultiaxis.ModelFrame()
-	test.That(t, model, test.ShouldResemble, []referenceframe.Input{})
-
-	fakemultiaxis = &multiAxis{subAxes: twoAxes}
-	model = fakemultiaxis.ModelFrame()
-	test.That(t, model, test.ShouldResemble, []referenceframe.Input{})
+	test.That(t, model, test.ShouldNotBeNil)
 }
-*/

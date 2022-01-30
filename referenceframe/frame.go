@@ -228,10 +228,13 @@ type translationalFrame struct {
 // NewTranslationalFrame creates a frame given a name and the axes in which to translate.
 func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
 	pf := &translationalFrame{name: name, axes: axes}
+	// change after #471
 	if len(limits) != pf.DoFInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
 	}
 	pf.limits = limits
+	pf.name = name
+	pf.axes = axes
 	return pf, nil
 }
 
@@ -239,10 +242,13 @@ func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, err
 // It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
 func NewTranslationalFrameWithVolume(name string, axes []bool, limits []Limit, volumeCreator spatial.VolumeCreator) (Frame, error) {
 	pf := &translationalFrame{name: name, axes: axes, volumeCreator: volumeCreator}
+	// change after #471
 	if len(limits) != pf.DoFInt() {
 		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
 	}
 	pf.limits = limits
+	pf.name = name
+	pf.axes = axes
 	return pf, nil
 }
 
@@ -293,7 +299,7 @@ func (pf *translationalFrame) DoF() []Limit {
 func (pf *translationalFrame) DoFInt() int {
 	DoF := 0
 	for _, v := range pf.axes {
-		if v {
+		if v { // change after #471
 			DoF++
 		}
 	}

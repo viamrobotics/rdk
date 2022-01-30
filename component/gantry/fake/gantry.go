@@ -47,6 +47,7 @@ func (g *fakeGantry) MoveToPosition(ctx context.Context, positionsMm []float64) 
 	return nil
 }
 
+// ModelFrame returns a Gantry frame.
 func (g *fakeGantry) ModelFrame() referenceframe.Model {
 	axes := []bool{}
 	limits := []referenceframe.Limit{}
@@ -69,6 +70,7 @@ func (g *fakeGantry) ModelFrame() referenceframe.Model {
 	return m
 }
 
+// Current inputs returns positions in the Gantry frame model.
 func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.GetPosition(ctx)
 	if err != nil {
@@ -77,6 +79,7 @@ func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 	return referenceframe.FloatsToInputs(res), nil
 }
 
+// GoToInputs moves using the Gantry frames.
 func (g *fakeGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }

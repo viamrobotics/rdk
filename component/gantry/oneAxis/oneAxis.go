@@ -37,7 +37,7 @@ type Config struct {
 	RPM             float64 `json:"rpm"`
 }
 
-//go:embed oneAxis_kinematics.json
+//go:embed oneaxis-kinematics.json
 var oneaxismodel []byte
 
 // Validate ensures all parts of the config are valid.
@@ -153,6 +153,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	gantry.rpm = config.Attributes.Float64("rpm", 10.0)
+	gantry.axes = config.Attributes.BoolSlice("axes", true) // change after #471 merge
 
 	var err error
 	gantry.model, err = referenceframe.ParseJSON(oneaxismodel, "")
@@ -310,7 +311,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	return high == g.limitHigh, err
 }
 
-// Position returns the position in meters.
+// GetPosition returns the position in millimeters.
 func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
@@ -325,25 +326,28 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 		return nil, err
 	}
 
-	limitAtOne, err := g.limitHit(ctx, false)
-	if err != nil {
-		return nil, err
+	if g.limitType == switchLimitTypetwoPin {
+		limitAtOne, err := g.limitHit(ctx, false)
+		if err != nil {
+			return nil, err
+		}
+		g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", g.name, x, limitAtZero, limitAtOne)
 	}
 
-	// Prints out Motor position, Gantry position along length, state of tlimit switches.
-	g.logger.Debugf("oneAxis CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", pos, x, limitAtZero, limitAtOne)
+	g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t", g.name, pos, x, limitAtZero)
 
 	return []float64{x}, nil
 }
 
+// GetLengths returns the physical lengths of an axis of a Gantry.
 func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMm}, nil
 }
 
-// Position is in meters.
+// MoveToPosition moves along an axis using inputs in millimeters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %.02f", positions)
+		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
 	}
 
 	if positions[0] < 0 || positions[0] > g.lengthMm {
@@ -393,6 +397,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	return nil
 }
 
+//  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, []referenceframe.Limit{{0, g.lengthMm}})
@@ -404,6 +409,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 	return m
 }
 
+// CurrentInputs returns the current inputs of the Gantry frame.
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.GetPosition(ctx)
 	if err != nil {
@@ -412,6 +418,7 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 	return referenceframe.FloatsToInputs(res), nil
 }
 
+// GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }
