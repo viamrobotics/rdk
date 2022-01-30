@@ -32,11 +32,14 @@ type Motor struct {
 	Name                  string
 	mu                    sync.Mutex
 	powerPct              float64
+<<<<<<< HEAD
 	pid                   motor.PID
-	PositionSupportedFunc bool
-	GoForfunc             bool
-	ResetZeroPositionFunc error
+=======
 	PositionFunc          float64 // may need to be defined as a functions.
+>>>>>>> 2a9cc6ae (test multiaxis and oneaxis gantry packages)
+	PositionSupportedFunc bool
+	ResetZeroPositionFunc error
+	GoForfunc             bool
 }
 
 // PID Return the underlying PID.

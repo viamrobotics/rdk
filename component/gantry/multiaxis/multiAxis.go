@@ -87,6 +87,7 @@ func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	return g, nil
 }
 
+// MoveToPosition moves along an axis using inputs in millimeters.
 func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
 	if len(positions) == 0 {
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
@@ -101,7 +102,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 	return nil
 }
 
-// Will be used in motor movement function above.
+// GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	if len(g.subAxes) == 0 {
 		return errors.New("no subaxes found for inputs")
@@ -116,6 +117,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	return nil
 }
 
+// GetPosition returns the position in millimeters.
 func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	posOut := []float64{}
 	for idx, subAx := range g.subAxes {
@@ -128,6 +130,7 @@ func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	return posOut, nil
 }
 
+// GetLengths returns the physical lengths of all axes of a multi-axis Gantry.
 func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	lengthsOut := []float64{}
 	for _, subAx := range g.subAxes {
@@ -140,6 +143,7 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return lengthsOut, nil
 }
 
+// CurrentInputs returns the current inputs of the Gantry frame.
 func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	if len(g.subAxes) == 0 {
 		return nil, errors.New("no subaxes found for inputs")
@@ -156,6 +160,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	return referenceframe.FloatsToInputs(resOut), nil
 }
 
+//  ModelFrame returns the frame model of the Gantry.
 // TO DO test model frame with #471.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()

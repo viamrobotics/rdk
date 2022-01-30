@@ -117,7 +117,8 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 
 				transforms[joint.ID] = rev
 			case "prismatic":
-				prism, err := NewTranslationalFrame(joint.ID, []bool{}, []Limit{{Min: joint.Min, Max: joint.Max}})
+				// TODO: change after #471, now always uses Z-axis as trnalsational axis for a prismatic frame.
+				prism, err := NewTranslationalFrame(joint.ID, []bool{false, false, true}, []Limit{{Min: joint.Min, Max: joint.Max}})
 				if err != nil {
 					return nil, err
 				}
