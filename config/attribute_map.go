@@ -33,7 +33,7 @@ func (am AttributeMap) IntSlice(name string) []int {
 			} else if i, ok := v.(float64); ok && i == float64(int64(i)) {
 				ints = append(ints, int(i))
 			} else {
-				panic(errors.Errorf("values in (%s) need to be float64s but got %T", name, v))
+				panic(errors.Errorf("values in (%s) need to be ints but got %T", name, v))
 			}
 		}
 		return ints
@@ -59,7 +59,7 @@ func (am AttributeMap) Float64Slice(name string) []float64 {
 			if i, ok := v.(float64); ok {
 				float64s = append(float64s, i)
 			} else {
-				panic(errors.Errorf("values in (%s) need to be ints but got %T", name, v))
+				panic(errors.Errorf("values in (%s) need to be float64 but got %T", name, v))
 			}
 		}
 		return float64s

@@ -45,7 +45,7 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return 0.0, nil
 }
 
-// PositionSupported returns .
+// PositionSupported returns bool.
 func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	if m.PositionSupportedFunc {
 		return m.PositionSupportedFunc, nil
