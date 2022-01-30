@@ -39,7 +39,7 @@ func (config *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, "multiAxis", registry.Component{
+	registry.RegisterComponent(gantry.Subtype, "multiaxis", registry.Component{
 		Constructor: func(ctx context.Context,
 			r robot.Robot,
 			config config.Component,
@@ -49,13 +49,13 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(multaxisGantryConfig, config.ConvertedAttributes)
 			}
-			return NewMultiAxis(ctx, r, config, logger)
+			return newMultiAxis(ctx, r, config, logger)
 		},
 	})
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
-func NewMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
+func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	g := &multiAxis{
 		name:   config.Name,
 		logger: logger,

@@ -83,7 +83,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 
-	fakegantry, err := NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	fakegantry, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	realG, ok := fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
@@ -100,7 +100,7 @@ func TestNewOneAxis(t *testing.T) {
 			"rpm":             float64(300),
 		},
 	}
-	fakegantry, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	realG, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
@@ -116,7 +116,7 @@ func TestNewOneAxis(t *testing.T) {
 			"board":           "board",
 		},
 	}
-	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry length has to be >= 0")
 
 	fakecfg = config.Component{
@@ -129,7 +129,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 
-	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "encoder currently not supported")
 
 	fakecfg = config.Component{
@@ -142,7 +142,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 
-	_, err = NewOneAxis(ctx, fakeRobot, fakecfg, logger)
+	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 }
 

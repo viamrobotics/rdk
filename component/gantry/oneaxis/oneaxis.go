@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelname = "oneaxis"
@@ -30,7 +31,7 @@ type Config struct {
 	Board           string  `json:"board"` // used to read limit switch pins and control motor with gpio pins
 	LimitSwitchPins string  `json:"limitPins"`
 	LimitHigh       string  `json:"limitHigh"`
-	MotorList       string  `json:"motor"`
+	Motor           string  `json:"motor"`
 	Axes            []bool  `json:"axes"`
 	LengthMm        float64 `json:"length_mm"`
 	PulleyRMm       string  `json:"pulleyRadius_mm"`
@@ -46,7 +47,7 @@ func (config *Config) Validate(path string) error {
 		return utils.NewConfigValidationFieldRequiredError(path, "board")
 	}
 
-	if len(config.MotorList) == 0 {
+	if len(config.Motor) == 0 {
 		return utils.NewConfigValidationError(path, errors.New("cannot find motors for gantry"))
 	}
 
@@ -67,8 +68,13 @@ func (config *Config) Validate(path string) error {
 
 func init() {
 	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
-		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return NewOneAxis(ctx, r, config, logger)
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newOneAxis(ctx, r, config, logger)
 		},
 	})
 
@@ -114,13 +120,16 @@ const (
 )
 
 // NewOneAxis creates a new one axis gantry.
-func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
+func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
 	gantry := &oneAxis{
 		name:   config.Name,
 		logger: logger,
 	}
 
-	var ok bool
+	gantryconfig, ok := config.ConvertedAttributes.(*Config)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(gantryconfig, config.ConvertedAttributes)
+	}
 
 	gantry.motor, ok = r.MotorByName(config.Attributes.String("motor"))
 	if !ok {
