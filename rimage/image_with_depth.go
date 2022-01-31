@@ -48,6 +48,9 @@ func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
 	if i.camera == nil {
 		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
 	}
+	if i.Depth == nil {
+		return r3.Vector{}, errors.New("no depth channel in ImageWithDepth")
+	}
 	if !p.In(i.Bounds()) {
 		return r3.Vector{}, errors.Errorf("point (%d,%d) not within image bounds", p.X, p.Y)
 	}
