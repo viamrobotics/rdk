@@ -9,13 +9,9 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/forcematrix"
-	"go.viam.com/rdk/component/gantry"
-	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
@@ -78,7 +74,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		seen[c.Name] = true
-		model, err := extractModelFrameJSON(r, c.Name, c.Type)
+		model, err := extractModelFrameJSON(r, c.ResourceName())
 		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return nil, err
 		}
@@ -155,116 +151,15 @@ func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(r robot.Robot, name string, compType config.ComponentType) (referenceframe.Model, error) {
-	switch compType {
-	case config.ComponentTypeForceMatrix:
-		part, ok := r.ResourceByName(forcematrix.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
-		}
-		fm, ok := part.(forcematrix.ForceMatrix)
-		if !ok {
-			return nil, errors.Errorf("no forcematrix found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(fm).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeBase:
-		part, ok := r.BaseByName(name)
-		if !ok {
-			return nil, errors.Errorf("no base found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeGripper:
-		part, ok := r.GripperByName(name)
-		if !ok {
-			return nil, errors.Errorf("no gripper found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeCamera:
-		part, ok := r.CameraByName(name)
-		if !ok {
-			return nil, errors.Errorf("no camera found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeSensor:
-		part, ok := sensor.FromRobot(r, name)
-		if !ok {
-			return nil, errors.Errorf("no sensor found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeBoard:
-		part, ok := r.BoardByName(name)
-		if !ok {
-			return nil, errors.Errorf("no board found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeServo:
-		part, ok := r.ServoByName(name)
-		if !ok {
-			return nil, errors.Errorf("no servo found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeGPS:
-		part, ok := r.ResourceByName(gps.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeMotor:
-		part, ok := r.MotorByName(name)
-		if !ok {
-			return nil, errors.Errorf("no motor found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, referenceframe.ErrNoModelInformation
-	case config.ComponentTypeArm:
-		part, ok := r.ResourceByName(arm.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-	case config.ComponentTypeGantry:
-		part, ok := r.ResourceByName(gantry.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-	case config.ComponentTypeInputController:
-		fallthrough
-	default:
-		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
+func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Model, error) {
+	part, ok := r.ResourceByName(name)
+	if !ok {
+		return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 	}
+	if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }
 
 func frameNamesWithDof(sys referenceframe.FrameSystem) []string {
