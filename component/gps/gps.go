@@ -74,7 +74,7 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
 
-// FromRobot is a helper for getting the named GPS's from the given Robot.
+// FromRobot is a helper for getting the named GPS from the given Robot.
 func FromRobot(r robot.Robot, name string) (GPS, bool) {
 	res, ok := r.ResourceByName(Named(name))
 	if ok {
@@ -86,7 +86,7 @@ func FromRobot(r robot.Robot, name string) (GPS, bool) {
 	return nil, false
 }
 
-// NamesFromRobot is a helper for getting all gps names from the given Robot.
+// NamesFromRobot is a helper for getting all GPS names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }

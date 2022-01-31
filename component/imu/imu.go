@@ -65,7 +65,7 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
 )
 
-// FromRobot is a helper for getting the named IMU's from the given Robot.
+// FromRobot is a helper for getting the named IMU from the given Robot.
 func FromRobot(r robot.Robot, name string) (IMU, bool) {
 	res, ok := r.ResourceByName(Named(name))
 	if ok {
@@ -77,7 +77,7 @@ func FromRobot(r robot.Robot, name string) (IMU, bool) {
 	return nil, false
 }
 
-// NamesFromRobot is a helper for getting all imu names from the given Robot.
+// NamesFromRobot is a helper for getting all IMU names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
