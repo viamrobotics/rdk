@@ -13,12 +13,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	testForceMatrixName    = "forcematrix1"
-	fakeForceMatrixName    = "forcematrix2"
-	missingForceMatrixName = "forcematrix3"
-)
-
 func newServer() (pb.ForceMatrixServiceServer, *inject.ForceMatrix, error) {
 	injectForceMatrix := &inject.ForceMatrix{}
 	forceMatrices := map[resource.Name]interface{}{
