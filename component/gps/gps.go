@@ -9,7 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -99,7 +100,7 @@ type reconfigurableGPS struct {
 func (r *reconfigurableGPS) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(ctx, r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
 func (r *reconfigurableGPS) ProxyFor() interface{} {
@@ -155,9 +156,9 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 	defer r.mu.Unlock()
 	actual, ok := newGPS.(*reconfigurableGPS)
 	if !ok {
-		return errors.Errorf("expected new GPS to be %T but got %T", r, newGPS)
+		return utils.NewUnexpectedTypeError(r, newGPS)
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
