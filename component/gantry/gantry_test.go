@@ -144,7 +144,7 @@ func TestReconfigurableGantry(t *testing.T) {
 
 	err = reconfGantry1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new gantry")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gantry.reconfigurableGantry")
 }
 
 func TestClose(t *testing.T) {

@@ -146,7 +146,7 @@ func TestReconfigurableArm(t *testing.T) {
 
 	err = reconfArm1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new arm")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *arm.reconfigurableArm")
 }
 
 func TestClose(t *testing.T) {

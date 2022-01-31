@@ -144,7 +144,7 @@ func TestReconfigurableSensor(t *testing.T) {
 
 	err = reconfSensor1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Sensor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *sensor.reconfigurableSensor")
 }
 
 func TestGetReadings(t *testing.T) {
