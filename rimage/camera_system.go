@@ -19,7 +19,7 @@ type Aligner interface {
 type Projector interface {
 	ImageWithDepthToPointCloud(*ImageWithDepth) (pointcloud.PointCloud, error)
 	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
-	ImagePointTo3DPoint(image.Point, *ImageWithDepth) (r3.Vector, error)
+	ImagePointTo3DPoint(image.Point, Depth) (r3.Vector, error)
 }
 
 // A CameraSystem stores the system of camera models, the intrinsic parameters of each camera,

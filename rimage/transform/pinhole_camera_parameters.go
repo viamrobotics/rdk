@@ -2,7 +2,6 @@ package transform
 
 import (
 	"encoding/json"
-	"fmt"
 	"image"
 	"image/color"
 	"io/ioutil"
@@ -181,8 +180,8 @@ func (params *PinholeCameraIntrinsics) PointToPixel(x, y, z float64) (float64, f
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
-func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(point, ii, params)
+func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d rimage.Depth) (r3.Vector, error) {
+	return intrinsics2DPtTo3DPt(point, d, params)
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -217,14 +216,8 @@ func (params *Extrinsics) TransformPointToPoint(x, y, z float64) (float64, float
 }
 
 // intrinsics2DPtTo3DPt takes in a image coordinate and returns the 3D point using the camera's intrinsic matrix.
-func intrinsics2DPtTo3DPt(pt image.Point, ii *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (r3.Vector, error) {
-	if !ii.IsAligned() {
-		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
-	}
-	if !(pt.In(ii.Bounds())) {
-		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", pt.X, pt.Y, ii.Width(), ii.Height())
-	}
-	px, py, pz := pci.PixelToPoint(float64(pt.X), float64(pt.Y), float64(ii.Depth.Get(pt)))
+func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntrinsics) (r3.Vector, error) {
+	px, py, pz := pci.PixelToPoint(float64(pt.X), float64(pt.Y), float64(d))
 	return r3.Vector{px, py, pz}, nil
 }
 
