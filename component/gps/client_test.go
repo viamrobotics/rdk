@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -26,7 +27,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	loc := geo.NewPoint(90, 1)
 	alt := 50.5
@@ -45,10 +47,11 @@ func TestClient(t *testing.T) {
 
 	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2}))
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterGPSServiceServer(gServer, gps.NewServer(gpsSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(gps.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -86,7 +89,9 @@ func TestClient(t *testing.T) {
 	t.Run("GPS client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		gps2Client := gps.NewClientFromConn(context.Background(), conn, failGPSName, logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, failGPSName, logger)
+		gps2Client, ok := client.(gps.GPS)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		_, err = gps2Client.ReadLocation(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

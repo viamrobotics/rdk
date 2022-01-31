@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/forcematrix"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -101,7 +102,8 @@ func TestClientWorking(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("working", func(t *testing.T) {
 		injectFsm := &inject.ForceMatrix{}
@@ -119,10 +121,11 @@ func TestClientWorking(t *testing.T) {
 		forceMatrixSvc, err := subtype.New(
 			(map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm}))
 		test.That(t, err, test.ShouldBeNil)
-		pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
+		resourceSubtype := registry.ResourceSubtypeLookup(forcematrix.Subtype)
+		resourceSubtype.RegisterRPCService(context.Background(), rpcServer, forceMatrixSvc)
 
-		go gServer.Serve(listener)
-		defer gServer.Stop()
+		go rpcServer.Serve(listener)
+		defer rpcServer.Stop()
 
 		t.Run("client 1", func(t *testing.T) {
 			forceMatrixClient, err := forcematrix.NewClient(
@@ -153,8 +156,9 @@ func TestClientWorking(t *testing.T) {
 			conn, err := viamgrpc.Dial(context.Background(),
 				listener.Addr().String(), logger, rpc.WithInsecure())
 			test.That(t, err, test.ShouldBeNil)
-			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
-				conn, testForceMatrixName, logger)
+			client := resourceSubtype.RPCClient(context.Background(), conn, testForceMatrixName, logger)
+			forceMatrixClient, ok := client.(forcematrix.ForceMatrix)
+			test.That(t, ok, test.ShouldBeTrue)
 
 			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)

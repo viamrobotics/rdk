@@ -150,13 +150,9 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if !ok {
 		return nil, errors.Errorf("no base named %q", baseName)
 	}
-	s, ok := r.ResourceByName(gps.Named(gpsName))
+	gpsDevice, ok := gps.FromRobot(r, gpsName)
 	if !ok {
-		return nil, errors.Errorf("no gps named %q", gpsName)
-	}
-	gpsDevice, ok := s.(gps.GPS)
-	if !ok {
-		return nil, errors.Errorf("%q is not a GPS device", gpsName)
+		return nil, errors.Errorf("%q not found or not a gps", gpsName)
 	}
 	fakeG, ok := utils.UnwrapProxy(gpsDevice).(*GPS)
 	if !ok {
