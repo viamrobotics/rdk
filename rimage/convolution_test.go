@@ -69,3 +69,23 @@ func TestConvolveGrayFloat64(t *testing.T) {
 	test.That(t, convolved.At(47, 97), test.ShouldResemble, gtGray.At(47, 97)) // 0 < val < 255
 	test.That(t, convolved.At(304, 536), test.ShouldEqual, -1)                 // val < 0 - not clamped
 }
+
+func TestGetSobelY(t *testing.T) {
+	k := GetSobelY()
+	test.That(t, k.Height, test.ShouldEqual, 3)
+	test.That(t, k.Width, test.ShouldEqual, 3)
+	test.That(t, k.At(0, 0), test.ShouldEqual, -1)
+	test.That(t, k.At(0, 1), test.ShouldEqual, -2)
+	test.That(t, k.At(0, 2), test.ShouldEqual, -1)
+	test.That(t, k.At(1, 0), test.ShouldEqual, 0)
+}
+
+func TestGetBlur3(t *testing.T) {
+	k := GetBlur3()
+	test.That(t, k.Height, test.ShouldEqual, 3)
+	test.That(t, k.Width, test.ShouldEqual, 3)
+	test.That(t, k.At(0, 0), test.ShouldEqual, 1)
+	test.That(t, k.At(0, 1), test.ShouldEqual, 1)
+	test.That(t, k.At(0, 2), test.ShouldEqual, 1)
+	test.That(t, k.At(1, 0), test.ShouldEqual, 1)
+}
