@@ -145,7 +145,7 @@ func TestReconfigurableGPS(t *testing.T) {
 
 	err = reconfGPS1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new GPS")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *gps.reconfigurableGPS")
 }
 
 func TestReadLocation(t *testing.T) {

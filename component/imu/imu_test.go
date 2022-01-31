@@ -148,7 +148,7 @@ func TestReconfigurableIMU(t *testing.T) {
 
 	err = reconfIMU1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new IMU")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *imu.reconfigurableIMU")
 }
 
 func TestReadAngularVelocity(t *testing.T) {
