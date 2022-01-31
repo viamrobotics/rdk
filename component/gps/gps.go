@@ -76,9 +76,9 @@ var (
 
 // FromRobot is a helper for getting the named GPS's from the given Robot.
 func FromRobot(r robot.Robot, name string) (GPS, bool) {
-	s, ok := r.ResourceByName(Named(name))
+	res, ok := r.ResourceByName(Named(name))
 	if ok {
-		part, ok := s.(GPS)
+		part, ok := res.(GPS)
 		if ok {
 			return part, true
 		}
