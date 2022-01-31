@@ -3,8 +3,8 @@ package merge
 
 import (
 	"context"
-	"errors"
-	"fmt"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
@@ -41,14 +41,9 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 	m := &mergeGPS{r, nil, logger}
 
 	for _, s := range subs {
-		sensor, ok := r.ResourceByName(gps.Named(s))
+		g, ok := gps.FromRobot(r, s)
 		if !ok {
-			return nil, fmt.Errorf("no gps named [%s]", s)
-		}
-
-		g, ok := sensor.(gps.GPS)
-		if !ok {
-			return nil, fmt.Errorf("sensor named [%s] is not a gps, is a %T", s, sensor)
+			return nil, errors.Errorf("%q not found or not a gps", s)
 		}
 
 		m.subs = append(m.subs, g)
