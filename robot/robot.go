@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
@@ -28,9 +27,6 @@ type Robot interface {
 
 	// BaseByName returns a base by name.
 	BaseByName(name string) (base.Base, bool)
-
-	// GripperByName returns a gripper by name.
-	GripperByName(name string) (gripper.Gripper, bool)
 
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
@@ -52,9 +48,6 @@ type Robot interface {
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// GripperNames returns the name of all known grippers.
-	GripperNames() []string
 
 	// CameraNames returns the name of all known cameras.
 	CameraNames() []string
