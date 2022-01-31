@@ -16,6 +16,7 @@ type VolumeCreator interface {
 // Volume is an entry point with which to access all types of collision geometries.
 type Volume interface {
 	Pose() Pose
+	Vertices() []r3.Vector
 	AlmostEqual(Volume) bool
 	Transform(Pose)
 	CollidesWith(Volume) (bool, error)
@@ -45,15 +46,15 @@ type VolumeConfig struct {
 }
 
 // ParseConfig converts a VolumeConfig into the correct VolumeCreator type, as specified in its Type field.
-func (config *VolumeConfig) ParseConfig(offset Pose) (VolumeCreator, error) {
-	if offset == nil {
-		orientation, err := config.OrientationOffset.ParseConfig()
-		if err != nil {
-			return nil, err
-		}
-		offset = Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
+func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
+	// determine offset to use
+	orientation, err := config.OrientationOffset.ParseConfig()
+	if err != nil {
+		return nil, err
 	}
+	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
 
+	// build VolumeCreator depending on specified type
 	switch config.Type {
 	case "box":
 		return NewBox(r3.Vector{config.X, config.Y, config.Z}, offset)
