@@ -94,7 +94,6 @@ func init() {
 			}
 			return homography, err
 		})
-
 }
 
 var alignCurrentlyWriting = false

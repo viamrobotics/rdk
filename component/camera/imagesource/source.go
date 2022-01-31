@@ -18,10 +18,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/mitchellh/mapstructure"
 
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
