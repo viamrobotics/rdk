@@ -60,8 +60,8 @@ type GPS struct {
 	valid      bool
 }
 
-// Readings always returns the set values.
-func (g *GPS) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings always returns the set values.
+func (g *GPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return []interface{}{g.Latitude, g.Longitude}, nil
