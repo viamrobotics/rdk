@@ -70,10 +70,10 @@ func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error
 	return r.actual.DetectSlip(ctx)
 }
 
-func (r *reconfigurableForceMatrix) Readings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,

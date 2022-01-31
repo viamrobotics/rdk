@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
-	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
 	}
 
@@ -74,7 +74,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.Readings(context.Background())
+		rs1, err := imu1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -94,7 +94,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
 
-		rs2, err := imu1Client2.Readings(context.Background())
+		rs2, err := imu1Client2.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
 
@@ -121,7 +121,7 @@ func TestClientZeroValues(t *testing.T) {
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
-	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
 	}
 
@@ -145,7 +145,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.Readings(context.Background())
+		rs1, err := imu1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
