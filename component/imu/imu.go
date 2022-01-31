@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -122,7 +123,7 @@ func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Rec
 	defer r.mu.Unlock()
 	actual, ok := newIMU.(*reconfigurableIMU)
 	if !ok {
-		return errors.Errorf("expected new IMU to be %T but got %T", r, newIMU)
+		return utils.NewUnexpectedTypeError(r, newIMU)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
