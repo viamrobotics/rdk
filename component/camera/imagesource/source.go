@@ -21,6 +21,7 @@ import (
 
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -28,6 +29,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/robot"
 )
 
@@ -51,6 +53,58 @@ func init() {
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&rimage.AttrConfig{})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "intrinsic",
+		func(val interface{}) (interface{}, error) {
+			intrinsics := &transform.PinholeCameraIntrinsics{}
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: intrinsics})
+			if err != nil {
+				return nil, err
+			}
+			err = decoder.Decode(val)
+			if err == nil {
+				err = intrinsics.CheckValid()
+			}
+			return intrinsics, err
+		})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "warp",
+		func(val interface{}) (interface{}, error) {
+			warp := &transform.AlignConfig{}
+			err := mapstructure.Decode(val, warp)
+			if err == nil {
+				err = warp.CheckValid()
+			}
+			return warp, err
+		})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "intrinsic_extrinsic",
+		func(val interface{}) (interface{}, error) {
+			matrices := &transform.DepthColorIntrinsicsExtrinsics{}
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: matrices})
+			if err != nil {
+				return nil, err
+			}
+			err = decoder.Decode(val)
+			if err == nil {
+				err = matrices.CheckValid()
+			}
+			return matrices, err
+		})
+
+	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "homography",
+		func(val interface{}) (interface{}, error) {
+			homography := &transform.RawPinholeCameraHomography{}
+			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
+			if err != nil {
+				return nil, err
+			}
+			err = decoder.Decode(val)
+			if err == nil {
+				err = homography.CheckValid()
+			}
+			return homography, err
+		})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,

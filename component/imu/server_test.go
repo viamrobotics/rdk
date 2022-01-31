@@ -15,12 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const (
-	testIMUName    = "imu1"
-	fakeIMUName    = "imu2"
-	missingIMUName = "imu3"
-)
-
 func newServer() (pb.IMUServiceServer, *inject.IMU, error) {
 	injectIMU := &inject.IMU{}
 	imus := map[resource.Name]interface{}{

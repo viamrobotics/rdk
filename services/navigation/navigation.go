@@ -111,13 +111,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
 	}
-	s, ok := r.ResourceByName(gps.Named(svcConfig.GPSName))
+	gpsDevice, ok := gps.FromRobot(r, svcConfig.GPSName)
 	if !ok {
-		return nil, errors.Errorf("no gps named %q", svcConfig.GPSName)
-	}
-	gpsDevice, ok := s.(gps.GPS)
-	if !ok {
-		return nil, errors.Errorf("%q is not a GPS device", svcConfig.GPSName)
+		return nil, errors.Errorf("%q not found or not a gps", svcConfig.GPSName)
 	}
 
 	var store navStore

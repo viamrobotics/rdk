@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/imu"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -25,7 +26,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
@@ -44,10 +46,11 @@ func TestClient(t *testing.T) {
 
 	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU}))
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(imu.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, imuSvc)
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -82,7 +85,9 @@ func TestClient(t *testing.T) {
 	t.Run("IMU client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		imu1Client2 := imu.NewClientFromConn(context.Background(), conn, testIMUName, logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testIMUName, logger)
+		imu1Client2, ok := client.(imu.IMU)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		av2, err := imu1Client2.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
