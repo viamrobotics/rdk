@@ -103,7 +103,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, grabbed, test.ShouldEqual, false)
 
-		test.That(t, conn.Close(), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), gripper2Client), test.ShouldBeNil)
 	})
 
 }
