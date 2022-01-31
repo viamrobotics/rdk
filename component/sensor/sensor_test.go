@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		switch name {
 		case sensor.Named(testSensorName):
 			return sensor1, true
-		case sensor.Named(testSensorName2):
+		case sensor.Named(fakeSensorName):
 			return "not a sensor", false
 		default:
 			return nil, false
@@ -51,11 +51,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
 
-	s, ok = sensor.FromRobot(r, testSensorName2)
+	s, ok = sensor.FromRobot(r, fakeSensorName)
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = sensor.FromRobot(r, fakeSensorName)
+	s, ok = sensor.FromRobot(r, missingSensorName)
 	test.That(t, s, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 }

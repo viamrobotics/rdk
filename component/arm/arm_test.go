@@ -30,7 +30,7 @@ func setupInjectRobot() *inject.Robot {
 		switch name {
 		case arm.Named(testArmName):
 			return arm1, true
-		case arm.Named(testArmName2):
+		case arm.Named(fakeArmName):
 			return "not a arm", false
 		default:
 			return nil, false
@@ -53,11 +53,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 
-	a, ok = arm.FromRobot(r, testArmName2)
+	a, ok = arm.FromRobot(r, fakeArmName)
 	test.That(t, a, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	a, ok = arm.FromRobot(r, fakeArmName)
+	a, ok = arm.FromRobot(r, missingArmName)
 	test.That(t, a, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 }
