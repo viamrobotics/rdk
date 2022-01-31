@@ -159,7 +159,7 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	defer r.mu.Unlock()
 	actual, ok := newArm.(*reconfigurableArm)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newArm)
+		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)

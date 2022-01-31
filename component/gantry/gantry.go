@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -138,7 +139,7 @@ func (g *reconfigurableGantry) Reconfigure(ctx context.Context, newGantry resour
 	defer g.mu.Unlock()
 	actual, ok := newGantry.(*reconfigurableGantry)
 	if !ok {
-		return errors.Errorf("expected new gantry to be %T but got %T", g, newGantry)
+		return utils.NewUnexpectedTypeError(g, newGantry)
 	}
 	if err := viamutils.TryClose(ctx, g.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
