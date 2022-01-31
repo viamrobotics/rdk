@@ -104,10 +104,10 @@ func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
 	return r.actual.ReadValid(ctx)
 }
 
-func (r *reconfigurableGPS) Readings(ctx context.Context) ([]interface{}, error) {
+func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Readings(ctx)
+	return r.actual.GetReadings(ctx)
 }
 
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {

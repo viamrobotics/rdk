@@ -161,7 +161,7 @@ func (s *Server) SensorReadings(
 	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
 	}
-	readings, err := sensorDevice.Readings(ctx)
+	readings, err := sensorDevice.GetReadings(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -560,7 +560,7 @@ func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) 
 	return &i.orientation, i.lastError
 }
 
-func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
+func (i *myIMU) GetReadings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 

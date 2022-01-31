@@ -69,8 +69,8 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return &i.orientation, nil
 }
 
-// Readings always returns the set values.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings always returns the set values.
+func (i *IMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return []interface{}{i.Latitude, i.Longitude}, nil

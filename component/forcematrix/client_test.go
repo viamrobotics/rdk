@@ -134,7 +134,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.Readings(context.Background())
+			rs, err := forceMatrixClient.GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
@@ -156,7 +156,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.Readings(context.Background())
+			rs, err := forceMatrixClient.GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 

@@ -152,11 +152,11 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	return false, allErrors
 }
 
-// Readings return data specific to the type of sensor and can be of any type.
-func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings return data specific to the type of sensor and can be of any type.
+func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		r, err := g.Readings(ctx)
+		r, err := g.GetReadings(ctx)
 		if err == nil {
 			return r, nil
 		}

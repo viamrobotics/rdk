@@ -37,9 +37,9 @@ type Sensor struct {
 	Name string
 }
 
-// Readings always returns the set values.
-func (s *Sensor) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings always returns the set values.
+func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return []interface{}{1}, nil
+	return []interface{}{1, 2, 3}, nil
 }

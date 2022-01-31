@@ -396,14 +396,14 @@ func TestServer(t *testing.T) {
 			return device, true
 		}
 
-		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return nil, err1
 		}
 		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
 			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return []interface{}{1.2, 2.3}, nil
 		}
 		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
