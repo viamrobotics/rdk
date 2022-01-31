@@ -71,7 +71,7 @@ func (d *dummyProjector) PointCloudToImageWithDepth(pointcloud.PointCloud) (*Ima
 	return &ImageWithDepth{}, nil
 }
 
-func (d *dummyProjector) ImagePointTo3DPoint(image.Point, *ImageWithDepth) (r3.Vector, error) {
+func (d *dummyProjector) ImagePointTo3DPoint(image.Point, Depth) (r3.Vector, error) {
 	return r3.Vector{}, nil
 }
 
