@@ -62,7 +62,7 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
 )
 
-// FromRobot is a helper for getting the named Sensor's from the given Robot.
+// FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, bool) {
 	res, ok := r.ResourceByName(Named(name))
 	if ok {
