@@ -6,14 +6,37 @@ import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.GPSService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterGPSServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "gps".
 const SubtypeName = resource.SubtypeName("gps")
@@ -50,6 +73,23 @@ var (
 	_ = LocalGPS(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
+
+// FromRobot is a helper for getting the named GPS's from the given Robot.
+func FromRobot(r robot.Robot, name string) (GPS, bool) {
+	s, ok := r.ResourceByName(Named(name))
+	if ok {
+		part, ok := s.(GPS)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+// NamesFromRobot is a helper for getting all gps names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableGPS struct {
 	mu     sync.RWMutex
