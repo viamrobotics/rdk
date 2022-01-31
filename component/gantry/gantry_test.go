@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		switch name {
 		case gantry.Named(testGantryName):
 			return gantry1, true
-		case gantry.Named(testGantryName2):
+		case gantry.Named(fakeGantryName):
 			return "not res gantry", false
 		default:
 			return nil, false
@@ -51,11 +51,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
-	res, ok = gantry.FromRobot(r, testGantryName2)
+	res, ok = gantry.FromRobot(r, fakeGantryName)
 	test.That(t, res, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = gantry.FromRobot(r, fakeGantryName)
+	res, ok = gantry.FromRobot(r, missingGantryName)
 	test.That(t, res, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeFalse)
 }
