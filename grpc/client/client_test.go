@@ -548,7 +548,7 @@ func TestClient(t *testing.T) {
 
 	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.GetReadings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 

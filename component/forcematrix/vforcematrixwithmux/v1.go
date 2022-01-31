@@ -211,8 +211,8 @@ func (fmsm *ForceMatrixWithMux) ReadMatrix(ctx context.Context) ([][]int, error)
 	return matrix, nil
 }
 
-// Readings returns a flattened matrix of measurements from the force sensor.
-func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings returns a flattened matrix of measurements from the force sensor.
+func (fmsm *ForceMatrixWithMux) GetReadings(ctx context.Context) ([]interface{}, error) {
 	matrix, err := fmsm.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err
