@@ -88,14 +88,14 @@ func TestGPSName(t *testing.T) {
 		},
 		{
 			"all fields included",
-			"gps1",
+			testGPSName,
 			resource.Name{
 				UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: gps.SubtypeName,
 				},
-				Name: "gps1",
+				Name: testGPSName,
 			},
 		},
 	} {
@@ -107,7 +107,7 @@ func TestGPSName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualGPS1 gps.GPS = &mock{Name: "gps1"}
+	var actualGPS1 gps.GPS = &mock{Name: testGPSName}
 	reconfGPS1, err := gps.WrapWithReconfigurable(actualGPS1)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -149,7 +149,7 @@ func TestReconfigurableGPS(t *testing.T) {
 }
 
 func TestReadLocation(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.locCount, test.ShouldEqual, 0)
@@ -160,7 +160,7 @@ func TestReadLocation(t *testing.T) {
 }
 
 func TestReadAltitude(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.altCount, test.ShouldEqual, 0)
@@ -171,7 +171,7 @@ func TestReadAltitude(t *testing.T) {
 }
 
 func TestReadSpeed(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.speedCount, test.ShouldEqual, 0)
@@ -182,7 +182,7 @@ func TestReadSpeed(t *testing.T) {
 }
 
 func TestReadSatellites(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.satCount, test.ShouldEqual, 0)
@@ -194,7 +194,7 @@ func TestReadSatellites(t *testing.T) {
 }
 
 func TestReadAccuracy(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.accCount, test.ShouldEqual, 0)
@@ -206,7 +206,7 @@ func TestReadAccuracy(t *testing.T) {
 }
 
 func TestReadValid(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.validCount, test.ShouldEqual, 0)
@@ -217,7 +217,7 @@ func TestReadValid(t *testing.T) {
 }
 
 func TestGetReadings(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.readingsCount, test.ShouldEqual, 0)
@@ -228,7 +228,7 @@ func TestGetReadings(t *testing.T) {
 }
 
 func TestClose(t *testing.T) {
-	actualGPS1 := &mock{Name: "gps1"}
+	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
 	test.That(t, actualGPS1.reconfCount, test.ShouldEqual, 0)
