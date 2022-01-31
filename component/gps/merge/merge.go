@@ -4,10 +4,9 @@ package merge
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/gps"
