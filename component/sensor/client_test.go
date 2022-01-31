@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -25,7 +26,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	rs := []interface{}{1.1, 2.2}
 
@@ -36,13 +38,14 @@ func TestClient(t *testing.T) {
 	injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
 
 	sensorSvc, err := subtype.New(
-		(map[resource.Name]interface{}{sensor.Named(testSensorName): injectSensor, sensor.Named(testSensorName2): injectSensor2}),
+		(map[resource.Name]interface{}{sensor.Named(testSensorName): injectSensor, sensor.Named(failSensorName): injectSensor2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterSensorServiceServer(gServer, sensor.NewServer(sensorSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(sensor.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, sensorSvc)
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -68,7 +71,9 @@ func TestClient(t *testing.T) {
 	t.Run("Sensor client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		sensor2Client := sensor.NewClientFromConn(context.Background(), conn, testSensorName2, logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, failSensorName, logger)
+		sensor2Client, ok := client.(sensor.Sensor)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		_, err = sensor2Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

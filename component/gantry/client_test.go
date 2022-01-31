@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -24,8 +25,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	gServer1 := grpc.NewServer()
 
 	var gantryPos []float64
 
@@ -61,10 +62,11 @@ func TestClient(t *testing.T) {
 		(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry, gantry.Named(testGantryName2): injectGantry2}),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGantryServiceServer(gServer1, gantry.NewServer(gantrySvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(gantry.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gantrySvc)
 
-	go gServer1.Serve(listener1)
-	defer gServer1.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
@@ -96,8 +98,10 @@ func TestClient(t *testing.T) {
 	t.Run("gantry client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		gantry1Client2 := gantry.NewClientFromConn(context.Background(), conn, testGantryName, logger)
-		test.That(t, err, test.ShouldBeNil)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName, logger)
+		gantry1Client2, ok := client.(gantry.Gantry)
+		test.That(t, ok, test.ShouldBeTrue)
+
 		pos, err := gantry1Client2.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos1)
