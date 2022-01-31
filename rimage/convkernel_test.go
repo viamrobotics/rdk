@@ -25,4 +25,15 @@ func TestNewKernel(t *testing.T) {
 	// test Normalize
 	normalized := k.Normalize()
 	test.That(t, normalized.At(3, 2), test.ShouldEqual, 0.5)
+
+	k2, err := NewKernel(-1, 5)
+	// test error
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, k2, test.ShouldBeNil)
+
+	// test in normalize sum = 0
+	k3, err := NewKernel(5, 5)
+	test.That(t, err, test.ShouldBeNil)
+	normalized3 := k3.Normalize()
+	test.That(t, normalized3, test.ShouldNotBeNil)
 }
