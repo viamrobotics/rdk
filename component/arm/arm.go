@@ -49,7 +49,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named Arm'a typed resource name.
+// Named is a helper for getting the named Arm's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -78,7 +78,7 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 )
 
-// FromRobot is a helper for getting the named Arm'a from the given Robot.
+// FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, bool) {
 	res, ok := r.ResourceByName(Named(name))
 	if ok {

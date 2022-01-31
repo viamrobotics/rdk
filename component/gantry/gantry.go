@@ -45,7 +45,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Named is a helper for getting the named Gantry'g typed resource name.
+// Named is a helper for getting the named Gantry's typed resource name.
 func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
@@ -65,7 +65,7 @@ type Gantry interface {
 	referenceframe.InputEnabled
 }
 
-// FromRobot is a helper for getting the named gantry'g from the given Robot.
+// FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, bool) {
 	res, ok := r.ResourceByName(Named(name))
 	if ok {
