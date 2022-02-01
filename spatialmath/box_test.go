@@ -29,15 +29,21 @@ func TestBoxAlmostEqual(t *testing.T) {
 }
 
 func TestBoxVertices(t *testing.T) {
-	vertices := makeBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}).Vertices()
-	test.That(t, R3VectorAlmostEqual(vertices[0], r3.Vector{1, 1, 1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[1], r3.Vector{1, 1, -1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[2], r3.Vector{1, -1, 1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[3], r3.Vector{1, -1, -1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[4], r3.Vector{-1, 1, 1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[5], r3.Vector{-1, 1, -1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[6], r3.Vector{-1, -1, 1}, 1e-8), test.ShouldBeTrue)
-	test.That(t, R3VectorAlmostEqual(vertices[7], r3.Vector{-1, -1, -1}, 1e-8), test.ShouldBeTrue)
+	offset := r3.Vector{2, 2, 2}
+	box := makeBox(NewZeroOrientation(), offset, r3.Vector{2, 2, 2})
+	vertices := box.Vertices()
+	test.That(t, R3VectorAlmostEqual(vertices[0], r3.Vector{1, 1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[1], r3.Vector{1, 1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[2], r3.Vector{1, -1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[3], r3.Vector{1, -1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[4], r3.Vector{-1, 1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[5], r3.Vector{-1, 1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[6], r3.Vector{-1, -1, 1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(vertices[7], r3.Vector{-1, -1, -1}.Add(offset), 1e-8), test.ShouldBeTrue)
+	box = makeBox(&R4AA{deg45, 0, 1, 1}, r3.Vector{}, r3.Vector{2, 2, 2})
+	m := make(map[string]Volume, 0)
+	m[""] = box
+	MarshalVolumesToFile(m, "../../visualizer/temp.json")
 }
 
 func TestBoxVsBoxCollision(t *testing.T) {

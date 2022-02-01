@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"io/ioutil"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -66,4 +67,13 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 		}
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
+}
+
+func MarshalVolumesToFile(vols map[string]Volume, path string) {
+	vertices := make([][]r3.Vector, 0, len(vols))
+	for _, vol := range vols {
+		vertices = append(vertices, vol.Vertices())
+	}
+	bytes, _ := json.MarshalIndent(vertices, "", " ")
+	ioutil.WriteFile(path, bytes, 0644)
 }
