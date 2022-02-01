@@ -68,6 +68,17 @@ var twoAxes = []gantry.Gantry{
 	createFakeOneaAxis(6, []float64{4, 5, 6}),
 }
 
+func TestValidate(t *testing.T) {
+	fakecfg := &AttrConfig{SubAxes: []string{}}
+	err := fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "need at least one axis")
+
+	fakecfg = &AttrConfig{SubAxes: []string{"singleaxis"}}
+	err = fakecfg.Validate("path")
+	test.That(t, err, test.ShouldBeNil)
+
+}
+
 func TestNewMultiAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -75,13 +86,16 @@ func TestNewMultiAxis(t *testing.T) {
 
 	fakeMultAxcfg := config.Component{
 		Name: "gantry",
-		Attributes: config.AttributeMap{
-			"subaxes_list": []string{"1", "2", "3"},
+		ConvertedAttributes: &AttrConfig{
+			SubAxes: []string{"1", "2", "3"},
 		},
 	}
-
-	_, err := newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	fmag, err := newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
+	fakemulax, ok := fmag.(*multiAxis)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fmag, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, fakemulax.lengthsMm, test.ShouldResemble, []float64{1, 1, 1})
 
 	fakeMultAxcfg = config.Component{
 		Name: "gantry",
@@ -89,7 +103,6 @@ func TestNewMultiAxis(t *testing.T) {
 			"subaxes_list": []string{},
 		},
 	}
-
 	_, err = newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 }

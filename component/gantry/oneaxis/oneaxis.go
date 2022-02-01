@@ -27,41 +27,50 @@ import (
 const modelname = "oneaxis"
 
 // Config is used for converting oneAxis config attributes.
-type Config struct {
-	Board           string  `json:"board"` // used to read limit switch pins and control motor with gpio pins
-	LimitSwitchPins string  `json:"limitPins"`
-	LimitHigh       string  `json:"limitHigh"`
-	Motor           string  `json:"motor"`
-	Axes            []bool  `json:"axes"`
-	LengthMm        float64 `json:"length_mm"`
-	PulleyRMm       string  `json:"pulleyRadius_mm"`
-	RPM             float64 `json:"rpm"`
+type AttrConfig struct {
+	Board           string   `json:"board"` // used to read limit switch pins and control motor with gpio pins
+	Motor           string   `json:"motor"`
+	LimitSwitchPins []string `json:"limitPins"`
+	LimitHigh       bool     `json:"limitHigh"`
+	Axes            []bool   `json:"axes"`
+	LengthMm        float64  `json:"length_mm"`
+	PulleyRMm       float64  `json:"pulley_radius_mm"`
+	RPM             float64  `json:"rpm"`
 }
 
 //go:embed oneaxis-kinematics.json
 var oneaxismodel []byte
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) error {
 	if config.Board == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "board")
+		return utils.NewConfigValidationError(path, errors.New("cannot find board for gantry."))
 	}
 
 	if len(config.Motor) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("cannot find motors for gantry"))
+		return utils.NewConfigValidationError(path, errors.New("cannot find motor for gantry."))
 	}
 
 	if config.LengthMm <= 0 {
-		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
+		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length."))
 	}
 
-	if config.LimitHigh == "" {
-		return utils.NewConfigValidationFieldRequiredError(path, "limitHigh")
+	if len(config.LimitSwitchPins) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("each axis needs at least one limit switch pin."))
 	}
 
-	if len(config.Axes) != 3 {
-		return utils.NewConfigValidationError(path, errors.New(""))
+	if len(config.LimitSwitchPins) == 1 && config.PulleyRMm == 0 {
+		return utils.NewConfigValidationError(path, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits."))
 	}
+
+	if len(config.Axes) == 0 {
+		return utils.NewConfigValidationError(path, errors.New("axes not set.")) //change after #471
+	}
+
+	// Need another way to test if LimitHigh is unset.
+	// if config.LimitHigh {
+	//		return utils.NewConfigValidationFieldRequiredError(path, "limitHigh")
+	// }
 
 	return nil
 }
@@ -80,10 +89,10 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf Config
+			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{})
+		&AttrConfig{})
 }
 
 // Model returns the kinematics model of the oneaxis Gantry with all the frame information.
@@ -94,19 +103,20 @@ func Model() (referenceframe.Model, error) {
 type oneAxis struct {
 	name string
 
-	board           board.Board
+	board board.Board
+	motor motor.Motor
+
 	limitSwitchPins []string
 	limitHigh       bool
-	motor           motor.Motor
-	lengthMm        float64
-	pulleyRMm       float64
-	rpm             float64
-	axes            []bool // TODO convert to r3.Vector once #471 is merged.
+	limitType       switchLimitType
+	positionLimits  []float64
 
-	limitType      switchLimitType
-	positionLimits []float64
+	lengthMm  float64
+	pulleyRMm float64
+	rpm       float64
 
 	model referenceframe.Model
+	axes  []bool // TODO (rh) convert to r3.Vector once #471 is merged.
 
 	logger golog.Logger
 }
@@ -121,27 +131,40 @@ const (
 
 // NewOneAxis creates a new one axis gantry.
 func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
-	gantry := &oneAxis{
-		name:   config.Name,
-		logger: logger,
-	}
-
-	gantryconfig, ok := config.ConvertedAttributes.(*Config)
+	gconf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(gantryconfig, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(gconf, config.ConvertedAttributes)
 	}
 
-	gantry.motor, ok = r.MotorByName(config.Attributes.String("motor"))
+	motor, ok := r.MotorByName(gconf.Motor)
 	if !ok {
 		return nil, errors.Errorf("cannot find motor named %v for gantry", config.Attributes.String("motor"))
 	}
 
-	gantry.board, ok = r.BoardByName(config.Attributes.String("board"))
+	board, ok := r.BoardByName(gconf.Board)
 	if !ok {
 		return nil, errors.New("cannot find board for gantry")
 	}
 
-	gantry.limitSwitchPins = config.Attributes.StringSlice("limitSwitchPins")
+	model, err := referenceframe.ParseJSON(oneaxismodel, "")
+	if err != nil {
+		return nil, err
+	}
+
+	gantry := &oneAxis{
+		name:            config.Name,
+		board:           board,
+		motor:           motor,
+		model:           model,
+		logger:          logger,
+		limitSwitchPins: gconf.LimitSwitchPins,
+		limitHigh:       gconf.LimitHigh,
+		lengthMm:        gconf.LengthMm,
+		pulleyRMm:       gconf.PulleyRMm,
+		rpm:             gconf.RPM,
+		axes:            gconf.Axes, // revisit axes def afer #471 (rh)
+	}
+
 	switch {
 	case len(gantry.limitSwitchPins) == 1:
 		gantry.limitType = switchLimitTypeOnePin
@@ -149,25 +172,14 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		gantry.limitType = switchLimitTypetwoPin
 	case len(gantry.limitSwitchPins) == 0:
 		gantry.limitType = switchLimitTypeEncoder
+		return nil, errors.New("encoder currently not supported")
 	default:
 		np := len(gantry.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	gantry.limitHigh = config.Attributes.Bool("limitHigh", true)
-
-	gantry.lengthMm = config.Attributes.Float64("length_mm", 0.0)
-	if gantry.lengthMm <= 0 {
-		return nil, errors.New("gantry length has to be >= 0")
-	}
-
-	gantry.rpm = config.Attributes.Float64("rpm", 10.0)
-	gantry.axes = config.Attributes.BoolSlice("axes", true) // change after #471 merge
-
-	var err error
-	gantry.model, err = referenceframe.ParseJSON(oneaxismodel, "")
-	if err != nil {
-		return nil, err
+	if gantry.limitType == switchLimitTypeOnePin && gantry.pulleyRMm <= 0 {
+		return nil, errors.New("gantry with one limit switch per axis needs a pulley radius defined.")
 	}
 
 	if err := gantry.Home(ctx); err != nil {
@@ -295,7 +307,6 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 			break
 		}
 
-		// want to test out elapse error
 		elapsed := start.Sub(start)
 		if elapsed > (time.Second * 15) {
 			return 0, errors.New("gantry timed out testing limit")
@@ -394,7 +405,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 2)
+			return g.motor.GoFor(ctx, dir*g.rpm, 0.2*g.lengthMm)
 		}
 		return g.motor.Stop(ctx)
 	}
