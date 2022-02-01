@@ -1,4 +1,4 @@
-// Package register registers all relevant Sensors and also subtype specific functions
+// Package register registers all relevant Sensors
 package register
 
 import (
