@@ -32,11 +32,11 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 var (
-	filter_CameraService_Frame_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_CameraService_GetFrame_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceFrameRequest
+func request_CameraService_GetFrame_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetFrameRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -59,17 +59,17 @@ func request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marsha
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_Frame_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetFrame_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.Frame(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetFrame(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_CameraService_Frame_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceFrameRequest
+func local_request_CameraService_GetFrame_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetFrameRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -92,11 +92,11 @@ func local_request_CameraService_Frame_0(ctx context.Context, marshaler runtime.
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_Frame_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetFrame_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.Frame(ctx, &protoReq)
+	msg, err := server.GetFrame(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -172,11 +172,11 @@ func local_request_CameraService_RenderFrame_0(ctx context.Context, marshaler ru
 }
 
 var (
-	filter_CameraService_PointCloud_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_CameraService_GetPointCloud_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_CameraService_PointCloud_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServicePointCloudRequest
+func request_CameraService_GetPointCloud_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetPointCloudRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -199,17 +199,17 @@ func request_CameraService_PointCloud_0(ctx context.Context, marshaler runtime.M
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_PointCloud_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetPointCloud_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.PointCloud(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetPointCloud(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_CameraService_PointCloud_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServicePointCloudRequest
+func local_request_CameraService_GetPointCloud_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetPointCloudRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -232,21 +232,21 @@ func local_request_CameraService_PointCloud_0(ctx context.Context, marshaler run
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_PointCloud_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetPointCloud_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.PointCloud(ctx, &protoReq)
+	msg, err := server.GetPointCloud(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
 var (
-	filter_CameraService_ObjectPointClouds_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+	filter_CameraService_GetObjectPointClouds_0 = &utilities.DoubleArray{Encoding: map[string]int{"name": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
 )
 
-func request_CameraService_ObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceObjectPointCloudsRequest
+func request_CameraService_GetObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, client CameraServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetObjectPointCloudsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -269,17 +269,17 @@ func request_CameraService_ObjectPointClouds_0(ctx context.Context, marshaler ru
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_ObjectPointClouds_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetObjectPointClouds_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.ObjectPointClouds(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetObjectPointClouds(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_CameraService_ObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq CameraServiceObjectPointCloudsRequest
+func local_request_CameraService_GetObjectPointClouds_0(ctx context.Context, marshaler runtime.Marshaler, server CameraServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq CameraServiceGetObjectPointCloudsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -302,11 +302,11 @@ func local_request_CameraService_ObjectPointClouds_0(ctx context.Context, marsha
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_ObjectPointClouds_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_CameraService_GetObjectPointClouds_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.ObjectPointClouds(ctx, &protoReq)
+	msg, err := server.GetObjectPointClouds(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -317,18 +317,18 @@ func local_request_CameraService_ObjectPointClouds_0(ctx context.Context, marsha
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterCameraServiceHandlerFromEndpoint instead.
 func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server CameraServiceServer) error {
 
-	mux.Handle("GET", pattern_CameraService_Frame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetFrame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/Frame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CameraService_Frame_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CameraService_GetFrame_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -336,7 +336,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_CameraService_Frame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetFrame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -363,18 +363,18 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_CameraService_PointCloud_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetPointCloud_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/PointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/pointcloud"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/point_cloud"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CameraService_PointCloud_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CameraService_GetPointCloud_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -382,22 +382,22 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_CameraService_PointCloud_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetPointCloud_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_CameraService_ObjectPointClouds_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetObjectPointClouds_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/ObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/objectpointclouds"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_CameraService_ObjectPointClouds_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_CameraService_GetObjectPointClouds_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -405,7 +405,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_CameraService_ObjectPointClouds_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetObjectPointClouds_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -450,23 +450,23 @@ func RegisterCameraServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "CameraServiceClient" to call the correct interceptors.
 func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client CameraServiceClient) error {
 
-	mux.Handle("GET", pattern_CameraService_Frame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetFrame_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/Frame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CameraService_Frame_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CameraService_GetFrame_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_CameraService_Frame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetFrame_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -490,43 +490,43 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_CameraService_PointCloud_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetPointCloud_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/PointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/pointcloud"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/point_cloud"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CameraService_PointCloud_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CameraService_GetPointCloud_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_CameraService_PointCloud_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetPointCloud_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_CameraService_ObjectPointClouds_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_CameraService_GetObjectPointClouds_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/ObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/objectpointclouds"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.CameraService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_CameraService_ObjectPointClouds_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_CameraService_GetObjectPointClouds_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_CameraService_ObjectPointClouds_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_CameraService_GetObjectPointClouds_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -534,21 +534,21 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_CameraService_Frame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "frame"}, ""))
+	pattern_CameraService_GetFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "frame"}, ""))
 
 	pattern_CameraService_RenderFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "render_frame"}, ""))
 
-	pattern_CameraService_PointCloud_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "pointcloud"}, ""))
+	pattern_CameraService_GetPointCloud_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "point_cloud"}, ""))
 
-	pattern_CameraService_ObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "objectpointclouds"}, ""))
+	pattern_CameraService_GetObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "object_point_clouds"}, ""))
 )
 
 var (
-	forward_CameraService_Frame_0 = runtime.ForwardResponseMessage
+	forward_CameraService_GetFrame_0 = runtime.ForwardResponseMessage
 
 	forward_CameraService_RenderFrame_0 = runtime.ForwardResponseMessage
 
-	forward_CameraService_PointCloud_0 = runtime.ForwardResponseMessage
+	forward_CameraService_GetPointCloud_0 = runtime.ForwardResponseMessage
 
-	forward_CameraService_ObjectPointClouds_0 = runtime.ForwardResponseMessage
+	forward_CameraService_GetObjectPointClouds_0 = runtime.ForwardResponseMessage
 )

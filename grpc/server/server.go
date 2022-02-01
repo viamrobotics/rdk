@@ -17,6 +17,7 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -154,11 +155,11 @@ func (s *Server) SensorReadings(
 	ctx context.Context,
 	req *pb.SensorReadingsRequest,
 ) (*pb.SensorReadingsResponse, error) {
-	sensorDevice, ok := s.r.SensorByName(req.Name)
+	sensorDevice, ok := sensor.FromRobot(s.r, req.Name)
 	if !ok {
 		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
 	}
-	readings, err := sensorDevice.Readings(ctx)
+	readings, err := sensorDevice.GetReadings(ctx)
 	if err != nil {
 		return nil, err
 	}

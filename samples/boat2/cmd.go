@@ -190,7 +190,7 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	)
 }
 
-func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Base, error) {
+func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
 	b := &boat{myRobot: r}
 
@@ -200,13 +200,9 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Base
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	tempIMU, ok := r.ResourceByName(imu.Named("imu"))
+	b.myImu, ok = imu.FromRobot(r, "imu")
 	if !ok {
-		return nil, errors.New("need imu")
-	}
-	b.myImu, ok = tempIMU.(imu.IMU)
-	if !ok {
-		return nil, fmt.Errorf("wanted an imu but got an %T %#v", tempIMU, tempIMU)
+		return nil, errors.New("'imu' not found or not an IMU")
 	}
 
 	// get all motors
@@ -281,9 +277,9 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Base
 	return b, nil
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	speed := 0.7
-	if distanceMillis >= 9*1000 {
+	if distanceMm >= 9*1000 {
 		speed = 1.0
 	}
 
@@ -315,7 +311,7 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 }
 
 // MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
-func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	return errors.New("boat can't move in arc yet")
 }
 
@@ -329,7 +325,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 
 	if true { // try to spin now
 		logger.Infof("want to turn %v\n", angleDeg)
-		start, err := b.myImu.Orientation(ctx)
+		start, err := b.myImu.ReadOrientation(ctx)
 		if err != nil {
 			return err
 		}
@@ -350,7 +346,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 				return nil
 			}
 
-			now, err := b.myImu.Orientation(ctx)
+			now, err := b.myImu.ReadOrientation(ctx)
 			if err != nil {
 				return err
 			}
@@ -366,7 +362,7 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 	return nil
 }
 
-func (b *boat) WidthGet(ctx context.Context) (int, error) {
+func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
@@ -409,7 +405,7 @@ func runRC(ctx context.Context, myBoat *boat) {
 		if vals["a"] < 1500 {
 			// push mode
 
-			now, err := myBoat.myImu.Orientation(ctx)
+			now, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
 				logger.Errorw("error getting orientation: %w", err)
 				continue
@@ -552,7 +548,7 @@ func (i *myIMU) parse(line string) error {
 	return nil
 }
 
-func (i *myIMU) AngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
+func (i *myIMU) ReadAngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
 	return i.angularVelocity, i.lastError
 }
 
@@ -560,7 +556,7 @@ func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) 
 	return &i.orientation, i.lastError
 }
 
-func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
+func (i *myIMU) GetReadings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
@@ -571,13 +567,13 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 				return
 			}
 
-			r, err := myBoat.myImu.AngularVelocity(ctx)
+			r, err := myBoat.myImu.ReadAngularVelocity(ctx)
 			if err != nil {
 				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
-			r2, err := myBoat.myImu.Orientation(ctx)
+			r2, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
 				logger.Infof("error from imu %v\n", err)
 				continue

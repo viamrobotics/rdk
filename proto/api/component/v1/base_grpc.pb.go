@@ -22,15 +22,13 @@ type BaseServiceClient interface {
 	// and a given speed, expressed in millimeters per second
 	MoveStraight(ctx context.Context, in *BaseServiceMoveStraightRequest, opts ...grpc.CallOption) (*BaseServiceMoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
 	MoveArc(ctx context.Context, in *BaseServiceMoveArcRequest, opts ...grpc.CallOption) (*BaseServiceMoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
 	Spin(ctx context.Context, in *BaseServiceSpinRequest, opts ...grpc.CallOption) (*BaseServiceSpinResponse, error)
 	// Stop stops a robot's base
 	Stop(ctx context.Context, in *BaseServiceStopRequest, opts ...grpc.CallOption) (*BaseServiceStopResponse, error)
-	// WidthGet returns the width of a robot's base expressed in millimeters
-	WidthGet(ctx context.Context, in *BaseServiceWidthGetRequest, opts ...grpc.CallOption) (*BaseServiceWidthGetResponse, error)
 }
 
 type baseServiceClient struct {
@@ -77,15 +75,6 @@ func (c *baseServiceClient) Stop(ctx context.Context, in *BaseServiceStopRequest
 	return out, nil
 }
 
-func (c *baseServiceClient) WidthGet(ctx context.Context, in *BaseServiceWidthGetRequest, opts ...grpc.CallOption) (*BaseServiceWidthGetResponse, error) {
-	out := new(BaseServiceWidthGetResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.BaseService/WidthGet", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // BaseServiceServer is the server API for BaseService service.
 // All implementations must embed UnimplementedBaseServiceServer
 // for forward compatibility
@@ -94,15 +83,13 @@ type BaseServiceServer interface {
 	// and a given speed, expressed in millimeters per second
 	MoveStraight(context.Context, *BaseServiceMoveStraightRequest) (*BaseServiceMoveStraightResponse, error)
 	// MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-	// a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+	// a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
 	MoveArc(context.Context, *BaseServiceMoveArcRequest) (*BaseServiceMoveArcResponse, error)
 	// Spin spins a robot's base by an given angle, expressed in degrees, and a given
 	// angular speed, expressed in degrees per second
 	Spin(context.Context, *BaseServiceSpinRequest) (*BaseServiceSpinResponse, error)
 	// Stop stops a robot's base
 	Stop(context.Context, *BaseServiceStopRequest) (*BaseServiceStopResponse, error)
-	// WidthGet returns the width of a robot's base expressed in millimeters
-	WidthGet(context.Context, *BaseServiceWidthGetRequest) (*BaseServiceWidthGetResponse, error)
 	mustEmbedUnimplementedBaseServiceServer()
 }
 
@@ -121,9 +108,6 @@ func (UnimplementedBaseServiceServer) Spin(context.Context, *BaseServiceSpinRequ
 }
 func (UnimplementedBaseServiceServer) Stop(context.Context, *BaseServiceStopRequest) (*BaseServiceStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
-}
-func (UnimplementedBaseServiceServer) WidthGet(context.Context, *BaseServiceWidthGetRequest) (*BaseServiceWidthGetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method WidthGet not implemented")
 }
 func (UnimplementedBaseServiceServer) mustEmbedUnimplementedBaseServiceServer() {}
 
@@ -210,24 +194,6 @@ func _BaseService_Stop_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
-func _BaseService_WidthGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BaseServiceWidthGetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BaseServiceServer).WidthGet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.BaseService/WidthGet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BaseServiceServer).WidthGet(ctx, req.(*BaseServiceWidthGetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // BaseService_ServiceDesc is the grpc.ServiceDesc for BaseService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -250,10 +216,6 @@ var BaseService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Stop",
 			Handler:    _BaseService_Stop_Handler,
-		},
-		{
-			MethodName: "WidthGet",
-			Handler:    _BaseService_WidthGet_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -187,23 +187,32 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		default:
 		}
 
-		var seedReached, goalReached *configuration
+		var m1reached, m2reached *configuration
 
 		// extend seed tree first
 		nearest := nn.nearestNeighbor(ctxWithCancel, target, map1)
 		// Extend map1 as far towards target as it can get. It may or may not reach it.
-		seedReached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
+		m1reached = mp.constrainedExtend(ctx, opt, map1, nearest, target)
 		// Find the nearest point in map2 to the furthest point reached in map1
-		near2 := nn.nearestNeighbor(ctxWithCancel, seedReached, map2)
+		near2 := nn.nearestNeighbor(ctxWithCancel, m1reached, map2)
 		// extend map1 towards the point in map1
-		goalReached = mp.constrainedExtend(ctx, opt, map2, near2, seedReached)
-		rSeed = seedReached
+		m2reached = mp.constrainedExtend(ctx, opt, map2, near2, m1reached)
+		rSeed = m1reached
 
-		corners[seedReached] = true
-		corners[goalReached] = true
+		corners[m1reached] = true
+		corners[m2reached] = true
 
-		if inputDist(seedReached.inputs, goalReached.inputs) < mp.solDist {
+		if inputDist(m1reached.inputs, m2reached.inputs) < mp.solDist {
 			cancel()
+
+			// extract the path to the seed
+			var seedReached, goalReached *configuration
+			// Need to figure out which of m1/m2 is seed/goal
+			if _, ok := seedMap[m1reached]; ok {
+				seedReached, goalReached = m1reached, m2reached
+			} else {
+				seedReached, goalReached = m2reached, m1reached
+			}
 
 			// extract the path to the seed
 			for seedReached != nil {

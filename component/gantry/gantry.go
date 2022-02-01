@@ -29,14 +29,14 @@ func Named(name string) resource.Name {
 
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
-	// CurrentPosition returns the position in meters
-	CurrentPosition(ctx context.Context) ([]float64, error)
+	// GetPosition returns the position in meters
+	GetPosition(ctx context.Context) ([]float64, error)
 
 	// MoveToPosition is in meters
-	MoveToPosition(ctx context.Context, positions []float64) error
+	MoveToPosition(ctx context.Context, positionsMm []float64) error
 
-	// Lengths is the length of gantries in meters
-	Lengths(ctx context.Context) ([]float64, error)
+	// GetLengths is the length of gantries in meters
+	GetLengths(ctx context.Context) ([]float64, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -65,25 +65,25 @@ func (g *reconfigurableGantry) ProxyFor() interface{} {
 	return g.actual
 }
 
-// CurrentPosition returns the position in meters.
-func (g *reconfigurableGantry) CurrentPosition(ctx context.Context) ([]float64, error) {
+// GetPosition returns the position in meters.
+func (g *reconfigurableGantry) GetPosition(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.CurrentPosition(ctx)
+	return g.actual.GetPosition(ctx)
 }
 
-// Lengths returns the position in meters.
-func (g *reconfigurableGantry) Lengths(ctx context.Context) ([]float64, error) {
+// GetLengths returns the position in meters.
+func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.Lengths(ctx)
+	return g.actual.GetLengths(ctx)
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positions []float64) error {
+func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positions)
+	return g.actual.MoveToPosition(ctx, positionsMm)
 }
 
 // Reconfigure reconfigures the resource.

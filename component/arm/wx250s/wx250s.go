@@ -130,9 +130,9 @@ func NewArm(ctx context.Context, attributes config.AttributeMap, logger golog.Lo
 	}, nil
 }
 
-// CurrentPosition computes and returns the current cartesian position.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.CurrentJointPositions(ctx)
+// GetEndPosition computes and returns the current cartesian position.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the specified cartesian position.
 func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -170,14 +170,9 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 	return a.WaitForMovement(ctx)
 }
 
-// CurrentJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+// GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	return &pb.ArmJointPositions{}, nil
-}
-
-// JointMoveDelta TODO.
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("not done yet")
 }
 
 // Close will get the arm ready to be turned off.
@@ -366,7 +361,7 @@ func (a *Arm) HomePosition(ctx context.Context) error {
 
 // CurrentInputs TODO.
 func (a *Arm) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

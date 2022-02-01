@@ -31,8 +31,8 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
-func request_GantryService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, client GantryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GantryServiceCurrentPositionRequest
+func request_GantryService_GetPosition_0(ctx context.Context, marshaler runtime.Marshaler, client GantryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GantryServiceGetPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -52,13 +52,13 @@ func request_GantryService_CurrentPosition_0(ctx context.Context, marshaler runt
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.CurrentPosition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetPosition(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_GantryService_CurrentPosition_0(ctx context.Context, marshaler runtime.Marshaler, server GantryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GantryServiceCurrentPositionRequest
+func local_request_GantryService_GetPosition_0(ctx context.Context, marshaler runtime.Marshaler, server GantryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GantryServiceGetPositionRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -78,7 +78,7 @@ func local_request_GantryService_CurrentPosition_0(ctx context.Context, marshale
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.CurrentPosition(ctx, &protoReq)
+	msg, err := server.GetPosition(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -153,8 +153,8 @@ func local_request_GantryService_MoveToPosition_0(ctx context.Context, marshaler
 
 }
 
-func request_GantryService_Lengths_0(ctx context.Context, marshaler runtime.Marshaler, client GantryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GantryServiceLengthsRequest
+func request_GantryService_GetLengths_0(ctx context.Context, marshaler runtime.Marshaler, client GantryServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GantryServiceGetLengthsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -174,13 +174,13 @@ func request_GantryService_Lengths_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Lengths(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.GetLengths(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_GantryService_Lengths_0(ctx context.Context, marshaler runtime.Marshaler, server GantryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GantryServiceLengthsRequest
+func local_request_GantryService_GetLengths_0(ctx context.Context, marshaler runtime.Marshaler, server GantryServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GantryServiceGetLengthsRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -200,7 +200,7 @@ func local_request_GantryService_Lengths_0(ctx context.Context, marshaler runtim
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.Lengths(ctx, &protoReq)
+	msg, err := server.GetLengths(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -211,18 +211,18 @@ func local_request_GantryService_Lengths_0(ctx context.Context, marshaler runtim
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterGantryServiceHandlerFromEndpoint instead.
 func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server GantryServiceServer) error {
 
-	mux.Handle("GET", pattern_GantryService_CurrentPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GantryService_GetPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GantryService/CurrentPosition", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/current_position"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/current_position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_CurrentPosition_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_GetPosition_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -230,7 +230,7 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_GantryService_CurrentPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GantryService_GetPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -257,18 +257,18 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_GantryService_Lengths_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GantryService_GetLengths_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GantryService/Lengths", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/lengths"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/lengths"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_GantryService_Lengths_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_GantryService_GetLengths_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -276,7 +276,7 @@ func RegisterGantryServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_GantryService_Lengths_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GantryService_GetLengths_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -321,23 +321,23 @@ func RegisterGantryServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "GantryServiceClient" to call the correct interceptors.
 func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client GantryServiceClient) error {
 
-	mux.Handle("GET", pattern_GantryService_CurrentPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GantryService_GetPosition_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GantryService/CurrentPosition", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/current_position"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GantryService/GetPosition", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/current_position"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_CurrentPosition_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_GetPosition_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_GantryService_CurrentPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GantryService_GetPosition_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -361,23 +361,23 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 
 	})
 
-	mux.Handle("GET", pattern_GantryService_Lengths_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_GantryService_GetLengths_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GantryService/Lengths", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/lengths"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.GantryService/GetLengths", runtime.WithHTTPPathPattern("/api/v1/component/gantry/{name}/lengths"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_GantryService_Lengths_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_GantryService_GetLengths_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_GantryService_Lengths_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_GantryService_GetLengths_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -385,17 +385,17 @@ func RegisterGantryServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_GantryService_CurrentPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gantry", "name", "current_position"}, ""))
+	pattern_GantryService_GetPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gantry", "name", "current_position"}, ""))
 
 	pattern_GantryService_MoveToPosition_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gantry", "name", "move_to_position"}, ""))
 
-	pattern_GantryService_Lengths_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gantry", "name", "lengths"}, ""))
+	pattern_GantryService_GetLengths_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gantry", "name", "lengths"}, ""))
 )
 
 var (
-	forward_GantryService_CurrentPosition_0 = runtime.ForwardResponseMessage
+	forward_GantryService_GetPosition_0 = runtime.ForwardResponseMessage
 
 	forward_GantryService_MoveToPosition_0 = runtime.ForwardResponseMessage
 
-	forward_GantryService_Lengths_0 = runtime.ForwardResponseMessage
+	forward_GantryService_GetLengths_0 = runtime.ForwardResponseMessage
 )

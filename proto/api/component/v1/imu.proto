@@ -8,15 +8,15 @@ import "google/api/annotations.proto";
 
 // IMUService services maintains all IMUs associated with a robot
 service IMUService {
-  // AngularVelocity returns the most recent angular velocity reading from the given IMU.
-  rpc AngularVelocity(IMUServiceAngularVelocityRequest) returns (IMUServiceAngularVelocityResponse) {
+  // ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
+  rpc ReadAngularVelocity(IMUServiceReadAngularVelocityRequest) returns (IMUServiceReadAngularVelocityResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/angular_velocity"
     };
   }
 
-  // Orientation returns the most recent orientation reading from the given IMU.
-  rpc Orientation(IMUServiceOrientationRequest) returns (IMUServiceOrientationResponse) {
+  // ReadOrientation returns the most recent orientation reading from the given IMU.
+  rpc ReadOrientation(IMUServiceReadOrientationRequest) returns (IMUServiceReadOrientationResponse) {
       option (google.api.http) = {
       get: "/api/v1/component/imu/{name}/orientation"
     };
@@ -26,40 +26,40 @@ service IMUService {
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
 message AngularVelocity {
   // Velocity in deg/s across the x-axis
-  double x = 1;
+  double x_degs_per_sec = 1;
   // Velocity in deg/s across the y-axis
-  double y = 2;
+  double y_degs_per_sec = 2;
   // Velocity in deg/s across the z-axis
-  double z = 3;
+  double z_degs_per_sec = 3;
 }
 
 // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
 // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
 message EulerAngles {
   // Rotation in deg around the x-axis
-  double roll = 1;
+  double roll_deg = 1;
   // Rotation in deg around the y-axis
-  double pitch = 2;
+  double pitch_deg = 2;
   // Rotation in deg around the z-axis
-  double yaw = 3;
+  double yaw_deg = 3;
 }
 
-message IMUServiceAngularVelocityRequest {
+message IMUServiceReadAngularVelocityRequest {
   // Name of an IMU
   string name = 1;
 }
 
-message IMUServiceAngularVelocityResponse {
+message IMUServiceReadAngularVelocityResponse {
   // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
   AngularVelocity angular_velocity = 1;
 }
 
-message IMUServiceOrientationRequest {
+message IMUServiceReadOrientationRequest {
   // Name of an IMU
   string name = 1;
 }
 
-message IMUServiceOrientationResponse {
+message IMUServiceReadOrientationResponse {
   // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
   // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
   EulerAngles orientation = 1;

@@ -53,7 +53,6 @@ import (
 
 	// register motor.
 	_ "go.viam.com/rdk/component/motor/register"
-	"go.viam.com/rdk/component/sensor"
 
 	// register sensor.
 	_ "go.viam.com/rdk/component/sensor/register"
@@ -133,12 +132,6 @@ func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
-// SensorByName returns a sensor by name. If it does not exist
-// nil is returned.
-func (r *localRobot) SensorByName(name string) (sensor.Sensor, bool) {
-	return r.parts.SensorByName(name)
-}
-
 // ServoByName returns a servo by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ServoByName(name string) (servo.Servo, bool) {
@@ -191,11 +184,6 @@ func (r *localRobot) BaseNames() []string {
 // BoardNames returns the name of all known boards.
 func (r *localRobot) BoardNames() []string {
 	return r.parts.BoardNames()
-}
-
-// SensorNames returns the name of all known sensors.
-func (r *localRobot) SensorNames() []string {
-	return r.parts.SensorNames()
 }
 
 // ServoNames returns the name of all known servos.

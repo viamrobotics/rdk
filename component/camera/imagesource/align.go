@@ -94,20 +94,6 @@ func init() {
 			}
 			return homography, err
 		})
-
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "intrinsic",
-		func(val interface{}) (interface{}, error) {
-			intrinsics := &transform.PinholeCameraIntrinsics{}
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: intrinsics})
-			if err != nil {
-				return nil, err
-			}
-			err = decoder.Decode(val)
-			if err == nil {
-				err = intrinsics.CheckValid()
-			}
-			return intrinsics, err
-		})
 }
 
 var alignCurrentlyWriting = false

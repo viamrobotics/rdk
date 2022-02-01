@@ -376,7 +376,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.Board
+	board.LocalBoard
 	closeCount int
 }
 

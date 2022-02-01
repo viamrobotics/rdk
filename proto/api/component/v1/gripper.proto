@@ -35,5 +35,5 @@ message GripperServiceGrabRequest {
 }
 
 message GripperServiceGrabResponse {
-  bool grabbed = 1;
+  bool success = 1;
 }

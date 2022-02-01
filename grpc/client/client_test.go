@@ -237,9 +237,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
-	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return nil, false
-	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
@@ -258,7 +255,7 @@ func TestClient(t *testing.T) {
 	injectBase := &inject.Base{}
 
 	injectArm := &inject.Arm{}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
 		convertedPos := &commonpb.Pose{
 			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
@@ -469,11 +466,11 @@ func TestClient(t *testing.T) {
 
 	arm1, ok := client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = arm1.CurrentPosition(context.Background())
+	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = arm1.CurrentJointPositions(context.Background())
+	_, err = arm1.GetJointPositions(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -482,10 +479,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = arm1.MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-	err = arm1.JointMoveDelta(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -532,19 +525,19 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-	sensorDevice, ok := client.SensorByName("sensor1")
+	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.GetReadings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = resource1.(arm.Arm).CurrentJointPositions(context.Background())
+	_, err = resource1.(arm.Arm).GetJointPositions(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -553,10 +546,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-	err = resource1.(arm.Arm).JointMoveDelta(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -584,7 +573,7 @@ func TestClient(t *testing.T) {
 
 	arm1, ok = client.ArmByName("arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := arm1.CurrentPosition(context.Background())
+	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
@@ -638,7 +627,7 @@ func TestClient(t *testing.T) {
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
@@ -737,9 +726,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -813,9 +801,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),
@@ -871,9 +858,8 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet("board2", "board3"),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
 		utils.NewStringSet(client.ServoNames()...),

@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
@@ -57,7 +58,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			gridPosition, err := arm.CurrentPosition(ctx)
+			gridPosition, err := arm.GetEndPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +74,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				}
 			}
 
-			jointPositions, err := arm.CurrentJointPositions(ctx)
+			jointPositions, err := arm.GetJointPositions(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -100,12 +101,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			gantryStatus := &pb.GantryStatus{}
 
-			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			gantryStatus.Positions, err = g.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
 
-			gantryStatus.Lengths, err = g.Lengths(ctx)
+			gantryStatus.Lengths, err = g.GetLengths(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -152,7 +153,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.SensorNames(); len(names) != 0 {
+	if names := sensor.NamesFromRobot(r); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {
 			status.Sensors[name] = &pb.SensorStatus{

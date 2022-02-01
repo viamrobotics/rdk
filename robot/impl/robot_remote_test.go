@@ -93,9 +93,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.BaseNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(baseNames...)
 	}
-	injectRobot.SensorNamesFunc = func() []string {
-		return []string{}
-	}
 	injectRobot.ServoNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(servoNames...)
 	}
@@ -175,9 +172,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return nil, false
 	}
 	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.ServoNames()...)[name]; !ok {
@@ -326,14 +320,9 @@ func TestRemoteRobot(t *testing.T) {
 	)
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.SensorNames()...), test.ShouldResemble, utils.NewStringSet())
+	test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 	robot.conf.Prefix = true
-	test.That(
-		t,
-		utils.NewStringSet(robot.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
-	)
+	test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 	prefixedServoNames := []resource.Name{servo.Named("one.servo1"), servo.Named("one.servo2")}
@@ -636,12 +625,12 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	_, ok = robot.SensorByName("sensor1")
+	_, ok = sensor.FromRobot(robot, "sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
 	robot.conf.Prefix = true
-	_, ok = robot.SensorByName("one.sensor1")
+	_, ok = sensor.FromRobot(robot, "one.sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = robot.SensorByName("sensor1_what")
+	_, ok = sensor.FromRobot(robot, "sensor1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
@@ -688,9 +677,9 @@ func TestRemoteRobot(t *testing.T) {
 	_, ok = robot.GripperByName("one.pieceGripper")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = robot.SensorByName("sensor1")
+	_, ok = sensor.FromRobot(robot, "sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = robot.SensorByName("one.sensor1")
+	_, ok = sensor.FromRobot(robot, "one.sensor1")
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, wrapped.Robot.Close(context.Background()), test.ShouldBeNil)

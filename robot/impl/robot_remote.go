@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -166,12 +165,6 @@ func (rr *remoteRobot) BoardNames() []string {
 	return rr.prefixNames(rr.parts.BoardNames())
 }
 
-func (rr *remoteRobot) SensorNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.SensorNames())
-}
-
 func (rr *remoteRobot) ServoNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -240,12 +233,6 @@ func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.BoardByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) SensorByName(name string) (sensor.Sensor, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.SensorByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ServoByName(name string) (servo.Servo, bool) {
