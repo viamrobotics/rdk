@@ -52,11 +52,11 @@ func (b *box) Pose() Pose {
 
 func (b *box) Vertices() []r3.Vector {
 	vertices := make([]r3.Vector, 8)
-	rm := b.pose.Orientation().RotationMatrix()
 	for i, x := range []float64{1, -1} {
 		for j, y := range []float64{1, -1} {
 			for k, z := range []float64{1, -1} {
-				vertices[4*i+2*j+k] = rm.Mul(r3.Vector{X: x * b.halfSize.X, Y: y * b.halfSize.Y, Z: z * b.halfSize.Z})
+				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize.X, Y: y * b.halfSize.Y, Z: z * b.halfSize.Z})
+				vertices[4*i+2*j+k] = Compose(b.pose, offset).Point()
 			}
 		}
 	}
