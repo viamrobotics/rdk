@@ -76,7 +76,6 @@ func TestValidate(t *testing.T) {
 	fakecfg = &AttrConfig{SubAxes: []string{"singleaxis"}}
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestNewMultiAxis(t *testing.T) {
