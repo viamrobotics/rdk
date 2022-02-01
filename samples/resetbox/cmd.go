@@ -239,7 +239,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	}
 	b.arm = rArm
 
-	rGripper, ok := r.GripperByName(gripperName)
+	rGripper, ok := gripper.FromRobot(r, gripperName)
 	if !ok {
 		return nil, fmt.Errorf("failed to find gripper %s", gripperName)
 	}

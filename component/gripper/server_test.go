@@ -28,6 +28,7 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 	}
 	return gripper.NewServer(gripperSvc), injectGripper, injectGripper2, nil
 }
+
 func TestServer(t *testing.T) {
 	gripperServer, injectGripper, injectGripper2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)

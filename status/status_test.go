@@ -47,9 +47,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 			sensor.Named("sensor2"),
 		}
 	}
-	injectRobot.GripperNamesFunc = func() []string {
-		return []string{"gripper1", "gripper2"}
-	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
 	}
@@ -99,9 +96,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return &fakebase.Base{Name: name}, true
-	}
-	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return &fakegripper.Gripper{Name: name}, true
 	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return &fakecamera.Camera{Name: name}, true

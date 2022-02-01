@@ -223,9 +223,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return nil, false
 	}
-	injectRobot1.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return nil, false
-	}
 	injectRobot1.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return nil, false
 	}
@@ -498,7 +495,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	gripper1, ok := client.GripperByName("gripper1")
+	gripper1, ok := gripper.FromRobot(client, "gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -593,7 +590,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	gripper1, ok = client.GripperByName("gripper1")
+	gripper1, ok = gripper.FromRobot(client, "gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -722,7 +719,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
@@ -797,7 +794,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
@@ -854,7 +851,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
