@@ -35,12 +35,6 @@ func Named(name string) resource.Name {
 // A Board represents a physical general purpose board that contains various
 // components such as analog readers, and digital interrupts.
 type Board interface {
-	// SPIByName returns an SPI bus by name.
-	SPIByName(name string) (SPI, bool)
-
-	// I2CByName returns an I2C bus by name.
-	I2CByName(name string) (I2C, bool)
-
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
@@ -78,6 +72,17 @@ type Board interface {
 
 	// ModelAttributes returns attributes related to the model of this board.
 	ModelAttributes() ModelAttributes
+}
+
+// A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
+type LocalBoard interface {
+	Board
+
+	// SPIByName returns an SPI bus by name.
+	SPIByName(name string) (SPI, bool)
+
+	// I2CByName returns an I2C bus by name.
+	I2CByName(name string) (I2C, bool)
 }
 
 // ModelAttributes provide info related to a board model.
@@ -147,13 +152,13 @@ type AnalogReader interface {
 type PostProcessor func(raw int64) int64
 
 var (
-	_ = Board(&reconfigurableBoard{})
+	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
 
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
-	actual   Board
+	actual   LocalBoard
 	spis     map[string]*reconfigurableSPI
 	i2cs     map[string]*reconfigurableI2C
 	analogs  map[string]*reconfigurableAnalogReader
@@ -379,9 +384,9 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
 // If board is already a reconfigurableBoard, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	board, ok := r.(Board)
+	board, ok := r.(LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Board but got %T", r)
+		return nil, errors.Errorf("expected resource to be LocalBoard but got %T", r)
 	}
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil

@@ -26,7 +26,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var gpioMappings map[int]gpioBoardMapping
+var (
+	_ = board.LocalBoard(&jetsonBoard{})
+
+	gpioMappings map[int]gpioBoardMapping
+)
 
 const modelName = "jetson"
 

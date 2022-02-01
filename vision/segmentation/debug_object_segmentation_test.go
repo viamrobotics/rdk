@@ -47,9 +47,9 @@ func (h *segmentObjectTestHelper) Process(
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
 	objConfig := ObjectConfig{
-		MinPtsInPlane:    50000,
-		MinPtsInSegment:  500,
-		ClusteringRadius: 10.0,
+		MinPtsInPlane:      50000,
+		MinPtsInSegment:    500,
+		ClusteringRadiusMm: 10.0,
 	}
 
 	// Do object segmentation with point clouds
@@ -113,9 +113,9 @@ func (h *gripperSegmentTestHelper) Process(
 
 	// Do object segmentation with point clouds
 	objConfig := ObjectConfig{
-		MinPtsInPlane:    15000,
-		MinPtsInSegment:  100,
-		ClusteringRadius: 10.0,
+		MinPtsInPlane:      15000,
+		MinPtsInSegment:    100,
+		ClusteringRadiusMm: 10.0,
 	}
 
 	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
@@ -141,9 +141,9 @@ func (h *gripperSegmentTestHelper) Process(
 		distanceThresh: 0.1,
 	}
 	voxObjConfig := ObjectConfig{
-		MinPtsInPlane:    15000,
-		MinPtsInSegment:  100,
-		ClusteringRadius: 7.5,
+		MinPtsInPlane:      15000,
+		MinPtsInSegment:    100,
+		ClusteringRadiusMm: 7.5,
 	}
 
 	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)

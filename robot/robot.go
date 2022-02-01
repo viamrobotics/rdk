@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -42,9 +41,6 @@ type Robot interface {
 
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
-
-	// SensorByName returns a sensor by name.
-	SensorByName(name string) (sensor.Sensor, bool)
 
 	// ServoByName returns a servo by name.
 	ServoByName(name string) (servo.Servo, bool)
@@ -75,9 +71,6 @@ type Robot interface {
 
 	// BoardNames returns the name of all known boards.
 	BoardNames() []string
-
-	// SensorNames returns the name of all known sensors.
-	SensorNames() []string
 
 	// ServoNames returns the name of all known servos.
 	ServoNames() []string
@@ -148,4 +141,15 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 	}
 
 	return all
+}
+
+// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
+func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+	names := []string{}
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }

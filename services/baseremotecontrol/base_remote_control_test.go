@@ -103,51 +103,51 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// Math tests: Starting point - high speed, straight
 	t.Run("full speed to half speed", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("full speed to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("full speed to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("full speed to gentle turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
 	// Math tests: Starting point - low speed, arcing
 	t.Run("slow arc to straight", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("slow arc to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("slow arc to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("slow arc to slow turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
@@ -187,38 +187,38 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("trigger speed control mode for input X", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventX, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventX, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("trigger speed control mode for input Z", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.8, 0.8)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.75, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.8, 0.8)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.75, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("trigger speed control mode for input RZ", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventRZ, 0.8, 0.8)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.85, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventRZ, 0.8, 0.8)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.85, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("one joy stick control mode for input X", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 
 	t.Run("one joy stick control mode for input Z", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventZ, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventZ, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 
@@ -227,8 +227,8 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.45, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.45, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 }

@@ -127,6 +127,6 @@ func TestMultiplePieces(t *testing.T) {
 
 	// remove after this
 	theArm, _ := myRobot.ArmByName("a")
-	temp, _ := theArm.CurrentJointPositions(ctx)
+	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
 }
