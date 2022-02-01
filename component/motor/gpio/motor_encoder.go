@@ -272,9 +272,10 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 }
 
 // Go instructs the motor to go in a given direction at a given power level between -1 and 1.
-func (m *EncodedMotor) Go(ctx context.Context, powerPct float64) error {
+func (m *EncodedMotor) Go(ctx context.Context, rpm float64) error {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
+	powerPct := rpm / m.cfg.MaxRPM
 	return m.doGo(ctx, powerPct, false)
 }
 

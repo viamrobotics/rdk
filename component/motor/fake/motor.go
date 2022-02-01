@@ -18,7 +18,7 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return &Motor{Name: config.Name}, nil
+			return &Motor{Name: config.Name, MaxRPM: config.Attributes.Float64("max_rpm", 0)}, nil
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, "fake", _motor)
@@ -30,6 +30,7 @@ func init() {
 // direction.
 type Motor struct {
 	Name     string
+	MaxRPM   float64
 	mu       sync.Mutex
 	powerPct float64
 }
@@ -78,12 +79,12 @@ func (m *Motor) Direction() int {
 	return 0
 }
 
-// Go sets the given direction and power.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+// Go sets the given direction and rpm.
+func (m *Motor) Go(ctx context.Context, rpm float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.setPowerPct(powerPct)
+	m.setPowerPct(rpm / m.MaxRPM)
 	return nil
 }
 

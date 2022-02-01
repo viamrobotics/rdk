@@ -27,8 +27,8 @@ func TestMotorEncoder1(t *testing.T) {
 	undo := SetRPMSleepDebug(1, false)
 	defer undo()
 
-	cfg := motor.Config{TicksPerRotation: 100}
-	fakeMotor := &fakemotor.Motor{}
+	cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
+	fakeMotor := &fakemotor.Motor{MaxRPM: 100}
 	interrupt := &board.BasicDigitalInterrupt{}
 
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, nil, logger)
@@ -58,7 +58,7 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing Go", func(t *testing.T) {
-		test.That(t, motor.Go(context.Background(), .01), test.ShouldBeNil)
+		test.That(t, motor.Go(context.Background(), 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldEqual, .01)
 	})
@@ -86,7 +86,7 @@ func TestMotorEncoder1(t *testing.T) {
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
-		motor.Go(context.Background(), .25)
+		motor.Go(context.Background(), 25)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 
 		// we should still be moving at the previous force
@@ -241,7 +241,7 @@ func TestMotorEncoderHall(t *testing.T) {
 	}
 	setup := func(t *testing.T) testHarness {
 		t.Helper()
-		cfg := motor.Config{TicksPerRotation: 100}
+		cfg := motor.Config{TicksPerRotation: 100, MaxRPM: 100}
 		fakeMotor := &fakemotor.Motor{}
 		encoderA := &board.BasicDigitalInterrupt{}
 		encoderB := &board.BasicDigitalInterrupt{}

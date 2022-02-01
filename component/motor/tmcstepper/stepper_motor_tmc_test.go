@@ -44,6 +44,8 @@ func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
 	}
 }
 
+const maxRpm = 500
+
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -64,7 +66,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		CalFactor:  1.0,
 		Config: motor.Config{
 			MaxAcceleration:  500,
-			MaxRPM:           500,
+			MaxRPM:           maxRpm,
 			TicksPerRotation: 200,
 		},
 	}
@@ -106,14 +108,14 @@ func TestTMCStepperMotor(t *testing.T) {
 			{160, 0, 0, 0, 1},
 			{167, 0, 4, 35, 42},
 		})
-		test.That(t, _motor.Go(ctx, 0.5), test.ShouldBeNil)
+		test.That(t, _motor.Go(ctx, 0.5*maxRpm), test.ShouldBeNil)
 
 		// Test Go backward at quarter speed
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 2},
 			{167, 0, 2, 17, 149},
 		})
-		test.That(t, _motor.Go(ctx, -0.25), test.ShouldBeNil)
+		test.That(t, _motor.Go(ctx, -0.25*maxRpm), test.ShouldBeNil)
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {
