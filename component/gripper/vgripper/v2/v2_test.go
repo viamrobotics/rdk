@@ -29,7 +29,7 @@ func createWorkingMotor() *inject.Motor {
 	injectMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error {
 		return nil
 	}
-	injectMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
+	injectMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
 	injectMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
