@@ -317,7 +317,7 @@ func (m *Motor) Go(ctx context.Context, rpm float64) error {
 		mode = modeVelNeg
 	}
 
-	speed := m.rpmToV(rpm)
+	speed := m.rpmToV(math.Abs(rpm))
 
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
