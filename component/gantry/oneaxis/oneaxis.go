@@ -26,7 +26,7 @@ import (
 
 const modelname = "oneaxis"
 
-// Config is used for converting oneAxis config attributes.
+// AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
 	Board           string   `json:"board"` // used to read limit switch pins and control motor with gpio pins
 	Motor           string   `json:"motor"`
@@ -44,27 +44,29 @@ var oneaxismodel []byte
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if config.Board == "" {
-		return utils.NewConfigValidationError(path, errors.New("cannot find board for gantry."))
+		return utils.NewConfigValidationError(path, errors.New("cannot find board for gantry"))
 	}
 
 	if len(config.Motor) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("cannot find motor for gantry."))
+		return utils.NewConfigValidationError(path, errors.New("cannot find motor for gantry"))
 	}
 
 	if config.LengthMm <= 0 {
-		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length."))
+		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
 	}
 
 	if len(config.LimitSwitchPins) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("each axis needs at least one limit switch pin."))
+		return utils.NewConfigValidationError(path, errors.New("each axis needs at least one limit switch pin"))
 	}
 
 	if len(config.LimitSwitchPins) == 1 && config.PulleyRMm == 0 {
-		return utils.NewConfigValidationError(path, errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits."))
+		return utils.NewConfigValidationError(path,
+			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"),
+		)
 	}
 
 	if len(config.Axes) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("axes not set.")) //change after #471
+		return utils.NewConfigValidationError(path, errors.New("axes not set")) // change after #471
 	}
 
 	// Need another way to test if LimitHigh is unset.
@@ -179,7 +181,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	if gantry.limitType == switchLimitTypeOnePin && gantry.pulleyRMm <= 0 {
-		return nil, errors.New("gantry with one limit switch per axis needs a pulley radius defined.")
+		return nil, errors.New("gantry with one limit switch per axis needs a pulley radius defined")
 	}
 
 	if err := gantry.Home(ctx); err != nil {

@@ -140,12 +140,13 @@ func TestModel(t *testing.T) {
 	test.That(t, model, test.ShouldNotBeNil)
 	test.That(t, len(model.DoF()), test.ShouldEqual, 1)
 }
+
 func TestNewOneAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 	fakeRobot := createFakeRobot()
 	fakecfg := config.Component{Name: "gantry"}
-	fakegantry, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
+	_, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *oneaxis.AttrConfig but got <nil>")
 
 	fakecfg = config.Component{
@@ -159,7 +160,7 @@ func TestNewOneAxis(t *testing.T) {
 			RPM:             float64(300),
 		},
 	}
-	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
+	fakegantry, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	fakeoneax, ok := fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
@@ -195,7 +196,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	fakeoneax, ok = fakegantry.(*oneAxis)
+	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a pulley radius defined.")
 
@@ -483,7 +484,7 @@ func TestGetPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
 	}
-	positions, err = fakegantry.GetPosition(ctx)
+	_, err = fakegantry.GetPosition(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry = &oneAxis{
@@ -505,7 +506,7 @@ func TestGetPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
 	}
-	positions, err = fakegantry.GetPosition(ctx)
+	_, err = fakegantry.GetPosition(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
