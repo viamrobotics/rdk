@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -117,7 +118,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.GripperNames(); len(names) != 0 {
+	if names := gripper.NamesFromRobot(r); len(names) != 0 {
 		status.Grippers = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Grippers[name] = true

@@ -105,7 +105,6 @@ func TestClient(t *testing.T) {
 
 		test.That(t, utils.TryClose(context.Background(), gripper2Client), test.ShouldBeNil)
 	})
-
 }
 
 func TestClientDialerOption(t *testing.T) {
