@@ -132,7 +132,6 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectArm := &inject.Arm{}
-	testArmName := "testArmName"
 
 	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm}))
 	test.That(t, err, test.ShouldBeNil)
