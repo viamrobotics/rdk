@@ -79,11 +79,11 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
-	gripper, ok := gripper.FromRobot(theRobot, gripperName)
+	gGripper, ok := gripper.FromRobot(theRobot, gripperName)
 	if !ok {
 		return fmt.Errorf("failed to find gripper %s", gripperName)
 	}
-	gripper.Open(ctx)
+	gGripper.Open(ctx)
 
 	// Dump the platform,
 	toggleTrigger(ctx, theRobot)

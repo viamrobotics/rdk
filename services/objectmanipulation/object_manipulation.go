@@ -65,12 +65,12 @@ type objectMService struct {
 // to that location and commands it to grab the object.
 func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 	// get gripper component
-	rGripper, ok := gripper.FromRobot(mgs.r, gripperName)
+	gripper, ok := gripper.FromRobot(mgs.r, gripperName)
 	if !ok {
 		return false, fmt.Errorf("failed to find gripper %q", gripperName)
 	}
 	// do gripper movement
-	err := rGripper.Open(ctx)
+	err := gripper.Open(ctx)
 	if err != nil {
 		return false, err
 	}
@@ -79,7 +79,7 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 	if err != nil {
 		return false, err
 	}
-	return rGripper.Grab(ctx)
+	return gripper.Grab(ctx)
 }
 
 // moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the
