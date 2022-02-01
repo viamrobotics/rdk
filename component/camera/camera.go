@@ -37,6 +37,12 @@ type Camera interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
+// CameraWithProjector is a camera with the capability to project images to 3D
+type CameraWithProjector interface {
+	Camera
+	rimage.Projector
+}
+
 // ImageSource implements a Camera with a gostream.ImageSource.
 type ImageSource struct {
 	gostream.ImageSource
@@ -52,12 +58,34 @@ func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
+	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
+// ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
+type imageSourceWithProjector struct {
+	gostream.ImageSource
+	rimage.Projector
+}
+
+// NewImageSourceWithProjector creates a new CameraWithProjector by forcing it to have a non-nil Projector.
+func NewImageSourceWithProjector(source gostream.ImageSource, proj rimage.Projector) (CameraWithProjector, error) {
+	if source == nil || proj == nil {
+		return nil, errors.New("cannot have a nil image source or projector")
+	}
+	return &imageSourceWithProjector{source, proj}, nil
+}
+
+// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
+func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if c, ok := iswp.ImageSource.(Camera); ok {
+		return c.NextPointCloud(ctx)
+	}
 	img, closer, err := is.Next(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
-	return rimage.ConvertToImageWithDepth(img).ToPointCloud()
+	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.

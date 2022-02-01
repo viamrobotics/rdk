@@ -18,13 +18,12 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
-	camera  Projector
 }
 
-// MakeImageWithDepth returns a new image with depth from the given color and depth arguments. It
-// is also associated with a camera that captured the color and depth.
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera Projector) *ImageWithDepth {
-	return &ImageWithDepth{img, dm, aligned, camera}
+// MakeImageWithDepth returns a new image with depth from the given color and depth arguments.
+// aligned is true if the two channels are aligned, false if not.
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned}
 }
 
 // Bounds returns the bounds.
@@ -54,10 +53,15 @@ func (i *ImageWithDepth) At(x, y int) color.Color {
 	return i.Color.At(x, y)
 }
 
+// IsAligned returns if the image and depth are aligned.
+func (i *ImageWithDepth) IsAligned() bool {
+	return i.aligned
+}
+
 // To3D takes an image pixel coordinate and returns the 3D coordinate in the world.
-func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
-	if i.camera == nil {
-		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
+func (i *ImageWithDepth) To3D(p image.Point, proj Projector) (r3.Vector, error) {
+	if proj == nil {
+		return r3.Vector{}, errors.New("the Projector cannot be nil")
 	}
 	if i.Depth == nil {
 		return r3.Vector{}, errors.New("no depth channel in ImageWithDepth")
@@ -66,7 +70,7 @@ func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
 		return r3.Vector{}, errors.Errorf("point (%d,%d) not within image bounds", p.X, p.Y)
 	}
 	d := i.Depth.Get(p)
-	return i.camera.ImagePointTo3DPoint(p, d)
+	return proj.ImagePointTo3DPoint(p, d)
 }
 
 // Width returns the horizontal width of the image.
@@ -81,7 +85,7 @@ func (i *ImageWithDepth) Height() int {
 
 // Rotate rotates the color and depth about the origin by the given angle clockwise.
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.camera}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}
 }
 
 // Warp adapts the image to a new size.
@@ -95,7 +99,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = i.Depth.Warp(m2, newSize)
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned}
 }
 
 // CropToDepthData TODO.
