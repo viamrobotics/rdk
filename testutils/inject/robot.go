@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
@@ -27,7 +26,6 @@ import (
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc          func(name string) (robot.Robot, bool)
-	ArmByNameFunc             func(name string) (arm.Arm, bool)
 	BaseByNameFunc            func(name string) (base.Base, bool)
 	GripperByNameFunc         func(name string) (gripper.Gripper, bool)
 	CameraByNameFunc          func(name string) (camera.Camera, bool)
@@ -37,7 +35,6 @@ type Robot struct {
 	InputControllerByNameFunc func(name string) (input.Controller, bool)
 	ResourceByNameFunc        func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc           func() []string
-	ArmNamesFunc              func() []string
 	GripperNamesFunc          func() []string
 	CameraNamesFunc           func() []string
 	BaseNamesFunc             func() []string
@@ -62,14 +59,6 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 		return r.Robot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
-}
-
-// ArmByName calls the injected ArmByName or the real version.
-func (r *Robot) ArmByName(name string) (arm.Arm, bool) {
-	if r.ArmByNameFunc == nil {
-		return r.Robot.ArmByName(name)
-	}
-	return r.ArmByNameFunc(name)
 }
 
 // BaseByName calls the injected BaseByName or the real version.
@@ -142,14 +131,6 @@ func (r *Robot) RemoteNames() []string {
 		return r.Robot.RemoteNames()
 	}
 	return r.RemoteNamesFunc()
-}
-
-// ArmNames calls the injected ArmNames or the real version.
-func (r *Robot) ArmNames() []string {
-	if r.ArmNamesFunc == nil {
-		return r.Robot.ArmNames()
-	}
-	return r.ArmNamesFunc()
 }
 
 // GripperNames calls the injected GripperNames or the real version.

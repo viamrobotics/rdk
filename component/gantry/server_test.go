@@ -2,6 +2,7 @@ package gantry_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -17,9 +18,9 @@ func newServer() (pb.GantryServiceServer, *inject.Gantry, *inject.Gantry, error)
 	injectGantry := &inject.Gantry{}
 	injectGantry2 := &inject.Gantry{}
 	gantries := map[resource.Name]interface{}{
-		gantry.Named("gantry1"): injectGantry,
-		gantry.Named("gantry2"): injectGantry2,
-		gantry.Named("gantry3"): "notGantry",
+		gantry.Named(testGantryName): injectGantry,
+		gantry.Named(failGantryName): injectGantry2,
+		gantry.Named(fakeGantryName): "notGantry",
 	}
 	gantrySvc, err := subtype.New(gantries)
 	if err != nil {
@@ -34,7 +35,6 @@ func TestServer(t *testing.T) {
 
 	var gantryPos []float64
 
-	gantry1 := "gantry1"
 	pos1 := []float64{1.0, 2.0, 3.0}
 	len1 := []float64{2.0, 3.0, 4.0}
 	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
@@ -48,63 +48,71 @@ func TestServer(t *testing.T) {
 		return len1, nil
 	}
 
-	gantry2 := "gantry2"
 	pos2 := []float64{4.0, 5.0, 6.0}
-	len2 := []float64{5.0, 6.0, 7.0}
 	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
-		return pos2, nil
+		return nil, errors.New("can't get position")
 	}
 	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
 		gantryPos = pos
-		return nil
+		return errors.New("can't move to position")
 	}
 	injectGantry2.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
-		return len2, nil
+		return nil, errors.New("can't get lengths")
 	}
 
 	t.Run("gantry position", func(t *testing.T) {
-		_, err := gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: "g4"})
+		_, err := gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		_, err = gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: "gantry3"})
+		_, err = gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: fakeGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a gantry")
 
-		resp, err := gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: gantry1})
+		resp, err := gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.PositionsMm, test.ShouldResemble, pos1)
 
-		resp, err = gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: gantry2})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.PositionsMm, test.ShouldResemble, pos2)
+		_, err = gantryServer.GetPosition(context.Background(), &pb.GantryServiceGetPositionRequest{Name: failGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get position")
 	})
 
 	t.Run("move to position", func(t *testing.T) {
-		_, err := gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: "g4", PositionsMm: pos2})
+		_, err := gantryServer.MoveToPosition(
+			context.Background(),
+			&pb.GantryServiceMoveToPositionRequest{Name: missingGantryName, PositionsMm: pos2},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry1, PositionsMm: pos2})
+		_, err = gantryServer.MoveToPosition(
+			context.Background(),
+			&pb.GantryServiceMoveToPositionRequest{Name: testGantryName, PositionsMm: pos2},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos2)
 
-		_, err = gantryServer.MoveToPosition(context.Background(), &pb.GantryServiceMoveToPositionRequest{Name: gantry2, PositionsMm: pos1})
-		test.That(t, err, test.ShouldBeNil)
+		_, err = gantryServer.MoveToPosition(
+			context.Background(),
+			&pb.GantryServiceMoveToPositionRequest{Name: failGantryName, PositionsMm: pos1},
+		)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to position")
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 	})
 
 	t.Run("lengths", func(t *testing.T) {
-		_, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: "g4"})
+		_, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: missingGantryName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gantry")
 
-		resp, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: gantry1})
+		resp, err := gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: testGantryName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.LengthsMm, test.ShouldResemble, len1)
 
-		resp, err = gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: gantry2})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.LengthsMm, test.ShouldResemble, len2)
+		_, err = gantryServer.GetLengths(context.Background(), &pb.GantryServiceGetLengthsRequest{Name: failGantryName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get lengths")
 	})
 }

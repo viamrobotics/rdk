@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
-	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/base"
 	_ "go.viam.com/rdk/component/base/register"
 	"go.viam.com/rdk/component/board"
@@ -32,7 +31,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
-	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
 	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
@@ -223,9 +221,6 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	injectRobot1.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return nil, false
-	}
-	injectRobot1.ArmByNameFunc = func(name string) (arm.Arm, bool) {
 		return nil, false
 	}
 	injectRobot1.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
@@ -485,7 +480,7 @@ func TestClient(t *testing.T) {
 	_, ok := client.BaseByName("base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	arm1, ok := client.ArmByName("arm1")
+	arm1, ok := arm.FromRobot(client, "arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -592,7 +587,7 @@ func TestClient(t *testing.T) {
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, ok = client.ArmByName("arm1")
+	arm1, ok = arm.FromRobot(client, "arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -722,7 +717,7 @@ func TestClientRefresh(t *testing.T) {
 	motorNames := []resource.Name{motor.Named("motor2"), motor.Named("motor3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
@@ -797,7 +792,7 @@ func TestClientRefresh(t *testing.T) {
 	cameraNames = []resource.Name{camera.Named("camera1")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
@@ -854,7 +849,7 @@ func TestClientRefresh(t *testing.T) {
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
