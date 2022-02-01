@@ -191,7 +191,21 @@ func calcWaitDur(rpm, revolutions float64) time.Duration {
 	return time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
 }
 
-// GoFor moves an inputted number of revolutations at the given rpm, no encoder is present
+func adjustRPMByMaxAndSign(maxRPM, rpm, revolutions float64) float64 {
+	adjusted := rpm
+	if rpm > maxRPM {
+		adjusted = maxRPM
+	} else if rpm < -1*maxRPM {
+		adjusted = -1 * maxRPM
+	}
+
+	dir := rpm * revolutions / math.Abs(revolutions*rpm)
+	adjusted = math.Abs(adjusted) * dir
+
+	return adjusted
+}
+
+// GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
 // for this so power is deteremiend via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
@@ -199,13 +213,14 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return errors.New("not supported, define max_rpm attribute")
 	}
 
-	waitDur := calcWaitDur(rpm, revolutions)
-	err := m.Go(ctx, rpm)
+	adjustedRPM := adjustRPMByMaxAndSign(m.maxRPM, rpm, revolutions)
+	err := m.Go(ctx, adjustedRPM)
 	if err != nil {
 		return err
 	}
 
 	// Begin go process to track timing and turn off motors after estimated distances has been traveled
+	waitDur := calcWaitDur(adjustedRPM, revolutions)
 	ctxWithTimeout, cancelForFunc := context.WithTimeout(context.Background(), waitDur)
 	waitCh := make(chan struct{})
 
