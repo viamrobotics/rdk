@@ -116,7 +116,6 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectGantry := &inject.Gantry{}
-	testGantryName := testGantryName
 
 	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry}))
 	test.That(t, err, test.ShouldBeNil)

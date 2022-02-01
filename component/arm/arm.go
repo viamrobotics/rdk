@@ -63,7 +63,7 @@ type Arm interface {
 	// MoveToPosition moves the arm to the given absolute position.
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
 
-	// MoveToJointPositions moves the arm'a joints to the given positions.
+	// MoveToJointPositions moves the arm's joints to the given positions.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
