@@ -25,7 +25,7 @@
               "ticksPerRotation": 200
             },
             "model": "gpiostepper",
-            "name": "xmotor",
+            "name": "tomato-motor",
             "type": "motor"
           },
           {

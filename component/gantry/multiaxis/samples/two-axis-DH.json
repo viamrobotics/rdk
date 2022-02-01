@@ -3,7 +3,7 @@
     "kinematic_param_type": "DH",
     "dhParams": [
         {
-            "id": "axis1",
+            "id": "xaxis",
             "parent": "world",
             "a": 0,
             "d": 100,
@@ -12,8 +12,8 @@
             "min": 0
         },
         {
-            "id": "axis2",
-            "parent": "axis1",
+            "id": "yaxis",
+            "parent": "xaxis",
             "a": 0,
             "d" : 100,
             "alpha": 1.57079632679,
@@ -22,7 +22,7 @@
         },
         {
             "id": "endEffector",
-            "parent": "axis2",
+            "parent": "yaxis",
             "a": 0,
             "d": 100,
             "alpha": 0,

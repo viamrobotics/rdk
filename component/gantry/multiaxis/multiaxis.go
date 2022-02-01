@@ -17,8 +17,10 @@ import (
 	rdkutils "go.viam.com/rdk/utils"
 )
 
+const modelname = "multiaxis"
+
 // Config is used for converting multiAxis config attributes.
-type Config struct {
+type AttrConfig struct {
 	SubAxes []string `json:"subaxes_list"`
 }
 
@@ -30,7 +32,7 @@ type multiAxis struct {
 }
 
 // Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
+func (config *AttrConfig) Validate(path string) error {
 	if len(config.SubAxes) == 0 {
 		return utils.NewConfigValidationError(path, errors.New("need at least one axis"))
 	}
@@ -39,34 +41,37 @@ func (config *Config) Validate(path string) error {
 }
 
 func init() {
-	registry.RegisterComponent(gantry.Subtype, "multiaxis", registry.Component{
+	registry.RegisterComponent(gantry.Subtype, modelname, registry.Component{
 		Constructor: func(ctx context.Context,
 			r robot.Robot,
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			multaxisGantryConfig, ok := config.ConvertedAttributes.(*Config)
-			if !ok {
-				return nil, rdkutils.NewUnexpectedTypeError(multaxisGantryConfig, config.ConvertedAttributes)
-			}
 			return newMultiAxis(ctx, r, config, logger)
 		},
 	})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&AttrConfig{})
 }
 
 // NewMultiAxis creates a new-multi axis gantry.
 func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
-	g := &multiAxis{
+	magconf, ok := config.ConvertedAttributes.(*AttrConfig)
+	if !ok {
+		return nil, rdkutils.NewUnexpectedTypeError(magconf, config.ConvertedAttributes)
+	}
+
+	mag := &multiAxis{
 		name:   config.Name,
 		logger: logger,
 	}
 
-	subAxes := config.Attributes.StringSlice("subaxes_list")
-	if len(subAxes) == 0 {
-		return nil, errors.New("no subaxes found for multiaxis gantry")
-	}
-
-	for _, s := range subAxes {
+	for _, s := range magconf.SubAxes {
 		oneAx, ok := r.ResourceByName(gantry.Named(s))
 		if !ok {
 			return nil, errors.Errorf("no axes named [%s]", s)
@@ -75,16 +80,16 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		if !ok {
 			return nil, errors.Errorf("gantry named [%s] is not a gantry, is a %T", s, oneAx)
 		}
-		g.subAxes = append(g.subAxes, subAxis)
+		mag.subAxes = append(mag.subAxes, subAxis)
 	}
 
-	lengthsMm, err := g.GetLengths(ctx)
+	var err error
+	mag.lengthsMm, err = mag.GetLengths(ctx)
 	if err != nil {
 		return nil, err
 	}
-	g.lengthsMm = lengthsMm
 
-	return g, nil
+	return mag, nil
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
