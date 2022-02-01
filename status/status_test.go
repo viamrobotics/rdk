@@ -42,6 +42,8 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return []resource.Name{
 			arm.Named("arm1"),
 			arm.Named("arm2"),
+			gripper.Named("gripper1"),
+			gripper.Named("gripper2"),
 			resource.NameFromSubtype(framesystem.Subtype, ""),
 			sensor.Named("sensor1"),
 			sensor.Named("sensor2"),
