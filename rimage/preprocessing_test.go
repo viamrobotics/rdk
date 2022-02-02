@@ -91,7 +91,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(drawAverageHoleDepth(closedDM), "hole-depths")
 
 	// filled
-	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned(), ii.Projector())
+	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned())
 	FillDepthMap(morphed)
 	closedDM = morphed.Depth
 	filledEdges, err := cannyDepth.DetectDepthEdges(closedDM, 0.0)

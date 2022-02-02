@@ -39,12 +39,12 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 // Clone makes a copy of the image with depth.
 func (i *ImageWithDepth) Clone() *ImageWithDepth {
 	if i.Color == nil {
-		return &ImageWithDepth{nil, nil, i.aligned, i.camera}
+		return &ImageWithDepth{nil, nil, i.aligned}
 	}
 	if i.Depth == nil {
-		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned, i.camera}
+		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned}
 	}
-	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned, i.camera}
+	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned}
 }
 
 // At returns the color at the given point.
@@ -216,7 +216,7 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 // NewImageWithDepth returns a new image from the given color image and depth data files.
@@ -238,7 +238,7 @@ func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth
 		}
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 func imageToDepthMap(img image.Image) *DepthMap {
@@ -269,9 +269,9 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x
 	case *Image:
-		return &ImageWithDepth{x, nil, false, nil}
+		return &ImageWithDepth{x, nil, false}
 	default:
-		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
+		return &ImageWithDepth{ConvertImage(img), nil, false}
 	}
 }
 
@@ -282,9 +282,9 @@ func CloneToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x.Clone()
 	case *Image:
-		return &ImageWithDepth{x.Clone(), nil, false, nil}
+		return &ImageWithDepth{x.Clone(), nil, false}
 	default:
-		return &ImageWithDepth{CloneImage(img), nil, false, nil}
+		return &ImageWithDepth{CloneImage(img), nil, false}
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // DistortionModel TODO.
@@ -82,15 +81,6 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
 	}
-}
-
-// NewDepthColorIntrinsicsExtrinsics TODO.
-func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
-	matrices, ok := attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs.IntrinsicExtrinsic)
-	}
-	return matrices, nil
 }
 
 // NewDepthColorIntrinsicsExtrinsicsFromBytes TODO.
@@ -245,7 +235,7 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, depth, true, pci), nil
+	return rimage.MakeImageWithDepth(color, depth, true), nil
 }
 
 // intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.

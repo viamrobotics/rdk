@@ -40,7 +40,7 @@ func NewPinholeCameraHomography(inp *RawPinholeCameraHomography) (*PinholeCamera
 // AlignImageWithDepth will take the depth and the color image and overlay the two properly.
 func (dch *PinholeCameraHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
-		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dch), nil
+		return ii, nil
 	}
 	if ii.Color == nil {
 		return nil, errors.New("no color image present to align")
@@ -84,7 +84,7 @@ func (dch *PinholeCameraHomography) AlignImageWithDepth(ii *rimage.ImageWithDept
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(ii.Color, newDepth, true, dch), nil
+	return rimage.MakeImageWithDepth(ii.Color, newDepth, true), nil
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.

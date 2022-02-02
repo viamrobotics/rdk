@@ -40,7 +40,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
-	iwdBad := rimage.MakeImageWithDepth(img, nil, false, nil)
+	iwdBad := rimage.MakeImageWithDepth(img, nil, false)
 	pcBad, err := dct.ImageWithDepthToPointCloud(iwdBad)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pcBad, test.ShouldBeNil)
