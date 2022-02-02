@@ -23,7 +23,7 @@ func (fss *FrameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 	return fss.ConfigFunc(ctx)
 }
 
-// FrameSystem calls the injected FrameSystem or the real version.
+// LocalFrameSystem calls the injected FrameSystem or the real version.
 func (fss *FrameSystemService) LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
 	if fss.LocalFrameSystemFunc == nil {
 		return fss.LocalFrameSystem(ctx, name, prefix)

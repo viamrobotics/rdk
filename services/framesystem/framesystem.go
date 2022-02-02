@@ -136,7 +136,7 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 	return fsConfig, nil
 }
 
-// FrameSystem returns just the local components of the robot (excludes any parts from remote robots).
+// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots).
 func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
