@@ -115,12 +115,7 @@ func (dch *PinholeCameraHomography) ImageWithDepthToPointCloud(ii *rimage.ImageW
 func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {
-	iwd, err := intrinsics3DTo2D(cloud, &dch.ColorCamera)
-	if err != nil {
-		return nil, err
-	}
-	iwd.SetProjector(dch)
-	return iwd, nil
+	return intrinsics3DTo2D(cloud, &dch.ColorCamera)
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the perspective of the color camera.

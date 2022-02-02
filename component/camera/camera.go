@@ -80,7 +80,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	if c, ok := iswp.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
-	img, closer, err := is.Next(ctx)
+	img, closer, err := iswp.Next(ctx)
 	if err != nil {
 		return nil, err
 	}

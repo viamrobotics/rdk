@@ -35,7 +35,7 @@ func (h *homographyTestHelper) Process(
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay_homography")
 
 	// get pointcloud
-	pc, err := fixed.ToPointCloud()
+	pc, err := h.params.ImageWithDepthToPointCloud(fixed)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_homography")
 

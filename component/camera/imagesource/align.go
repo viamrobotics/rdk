@@ -132,13 +132,6 @@ func getCameraSystems(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Ali
 		}
 		alignCamera = cam
 		projectCamera = cam
-	case attrs.Intrinsic != nil:
-		alignCamera = nil
-		var ok bool
-		projectCamera, ok = attrs.Intrinsic.(*transform.PinholeCameraIntrinsics)
-		if !ok {
-			return nil, nil, rdkutils.NewUnexpectedTypeError(projectCamera, attrs.Intrinsic)
-		}
 	default: // default is no camera systems returned
 		return nil, nil, nil
 	}
@@ -189,7 +182,7 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 		return nil, nil, err
 	}
 
-	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned, nil)
+	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned)
 
 	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
@@ -212,7 +205,5 @@ func (dc *depthComposed) Next(ctx context.Context) (image.Image, func(), error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	aligned.SetProjector(dc.projectionCamera)
-
 	return aligned, func() {}, err
 }

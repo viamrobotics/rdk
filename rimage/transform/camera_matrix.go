@@ -105,12 +105,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {
-	iwd, err := intrinsics3DTo2D(cloud, &dcie.ColorCamera)
-	if err != nil {
-		return nil, err
-	}
-	iwd.SetProjector(dcie)
-	return iwd, nil
+	return intrinsics3DTo2D(cloud, &dcie.ColorCamera)
 }
 
 // DepthPixelToColorPixel takes a pixel+depth (x,y, depth) from the depth camera and output is the coordinates
