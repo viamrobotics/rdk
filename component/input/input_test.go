@@ -89,7 +89,7 @@ func TestInputControllerName(t *testing.T) {
 			"all fields included",
 			testInputControllerName,
 			resource.Name{
-				UUID: "bd8e8873-6bf0-52c7-9034-6527a245a943",
+				UUID: "6a00798b-dab4-5abc-b3d9-7fc45f9cfea0",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: input.SubtypeName,
