@@ -109,7 +109,6 @@ func TestClient(t *testing.T) {
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-
 }
 
 func TestClientDialerOption(t *testing.T) {

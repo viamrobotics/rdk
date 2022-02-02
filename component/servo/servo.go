@@ -6,6 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
@@ -13,8 +15,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
-	viamutils "go.viam.com/utils"
-	"go.viam.com/utils/rpc"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -115,7 +116,7 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 	defer r.mu.RUnlock()
 	actual, ok := newServo.(*reconfigurableServo)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newServo)
+		return utils.NewUnexpectedTypeError(r, newServo)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
