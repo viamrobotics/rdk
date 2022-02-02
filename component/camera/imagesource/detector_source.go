@@ -25,9 +25,9 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *rimage.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
 			source, ok := r.CameraByName(sourceName)
@@ -41,15 +41,15 @@ func init() {
 		config.ComponentTypeCamera,
 		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		rimage.AttrConfig{},
+		camera.AttrConfig{},
 	)
 }
 
 // NewColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*camera.ImageSource, error) {
+func NewColorDetector(src gostream.ImageSource, attrs *camera.AttrConfig) (*camera.ImageSource, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {

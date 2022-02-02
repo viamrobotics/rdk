@@ -37,10 +37,10 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			if config.ConvertedAttributes.(*rimage.AttrConfig).Stream == "" {
+			if config.ConvertedAttributes.(*camera.AttrConfig).Stream == "" {
 				return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 			}
-			source, err := NewServerSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			source, err := NewServerSource(config.ConvertedAttributes.(*camera.AttrConfig), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -49,10 +49,10 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "intrinsic",
 		func(val interface{}) (interface{}, error) {
@@ -109,38 +109,38 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			if (config.ConvertedAttributes.(*rimage.AttrConfig).Color == "") || (config.ConvertedAttributes.(*rimage.AttrConfig).Depth == "") {
+			if (config.ConvertedAttributes.(*camera.AttrConfig).Color == "") || (config.ConvertedAttributes.(*camera.AttrConfig).Depth == "") {
 				return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 			}
 			return &camera.ImageSource{ImageSource: &dualServerSource{
-				ColorURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Color,
-				DepthURL:  config.ConvertedAttributes.(*rimage.AttrConfig).Depth,
-				isAligned: config.ConvertedAttributes.(*rimage.AttrConfig).Aligned,
+				ColorURL:  config.ConvertedAttributes.(*camera.AttrConfig).Color,
+				DepthURL:  config.ConvertedAttributes.(*camera.AttrConfig).Depth,
+				isAligned: config.ConvertedAttributes.(*camera.AttrConfig).Aligned,
 			}}, nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 
 	registry.RegisterComponent(camera.Subtype, "file",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
 			return &camera.ImageSource{ImageSource: &fileSource{
-				config.ConvertedAttributes.(*rimage.AttrConfig).Color,
-				config.ConvertedAttributes.(*rimage.AttrConfig).Depth, config.ConvertedAttributes.(*rimage.AttrConfig).Aligned,
+				config.ConvertedAttributes.(*camera.AttrConfig).Color,
+				config.ConvertedAttributes.(*camera.AttrConfig).Depth, config.ConvertedAttributes.(*camera.AttrConfig).Aligned,
 			}}, nil
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 }
 
 // staticSource is a fixed, stored image.
@@ -318,7 +318,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
-func NewServerSource(cfg *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
+func NewServerSource(cfg *camera.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
 	_, camera, err := getCameraSystems(cfg, logger)
 	if err != nil {
 		return nil, err

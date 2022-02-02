@@ -25,7 +25,7 @@ func TestAlignIntrinsics(t *testing.T) {
 
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*rimage.AttrConfig), logger)
+	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*camera.AttrConfig), logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
@@ -42,7 +42,7 @@ func TestAlignWarp(t *testing.T) {
 
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*rimage.AttrConfig), logger)
+	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*camera.AttrConfig), logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
@@ -59,14 +59,14 @@ func TestAlignHomography(t *testing.T) {
 
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*rimage.AttrConfig), logger)
+	aligned, _ := applyAlignment(t, ii, *c.ConvertedAttributes.(*camera.AttrConfig), logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
 func applyAlignment(
 	t *testing.T,
 	ii *rimage.ImageWithDepth,
-	attrs rimage.AttrConfig,
+	attrs camera.AttrConfig,
 	logger golog.Logger,
 ) (*rimage.ImageWithDepth, *depthComposed) {
 	t.Helper()
@@ -84,7 +84,7 @@ func applyAlignment(
 }
 
 type alignTestHelper struct {
-	attrs rimage.AttrConfig
+	attrs camera.AttrConfig
 	name  string
 }
 
@@ -126,7 +126,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.Warp = nil
@@ -141,7 +141,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.IntrinsicExtrinsic = nil
@@ -156,7 +156,7 @@ func TestAlignGripperHomography(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.IntrinsicExtrinsic = nil

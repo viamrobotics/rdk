@@ -33,7 +33,7 @@ func TestSegmentationSource(t *testing.T) {
 }
 
 type segmentationSourceTestHelper struct {
-	attrs  rimage.AttrConfig
+	attrs  camera.AttrConfig
 	config segmentation.ObjectConfig
 }
 
@@ -85,7 +85,7 @@ func TestSegmentationSourceIntel(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)

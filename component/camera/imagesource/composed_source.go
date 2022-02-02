@@ -25,14 +25,14 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthToPretty(r, config.ConvertedAttributes.(*rimage.AttrConfig))
+			return newDepthToPretty(r, config.ConvertedAttributes.(*camera.AttrConfig))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -43,14 +43,14 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newOverlay(r, config.ConvertedAttributes.(*rimage.AttrConfig))
+			return newOverlay(r, config.ConvertedAttributes.(*camera.AttrConfig))
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 type overlaySource struct {
@@ -70,7 +70,7 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
@@ -95,7 +95,7 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)

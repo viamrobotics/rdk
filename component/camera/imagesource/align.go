@@ -27,7 +27,7 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "depth_composed",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
 				return nil, errors.New("cannot retrieve converted attributes")
 			}
@@ -53,9 +53,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_composed",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "depth_composed", "warp",
 		func(val interface{}) (interface{}, error) {
@@ -98,7 +98,7 @@ func init() {
 
 var alignCurrentlyWriting = false
 
-func getCameraSystems(attrs *rimage.AttrConfig, logger golog.Logger) (rimage.Aligner, rimage.Projector, error) {
+func getCameraSystems(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Aligner, rimage.Projector, error) {
 	var alignCamera rimage.Aligner
 	var projectCamera rimage.Projector
 
@@ -157,7 +157,7 @@ type depthComposed struct {
 }
 
 // NewDepthComposed TODO.
-func NewDepthComposed(color, depth gostream.ImageSource, attrs *rimage.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
+func NewDepthComposed(color, depth gostream.ImageSource, attrs *camera.AttrConfig, logger golog.Logger) (gostream.ImageSource, error) {
 	alignCamera, projectCamera, err := getCameraSystems(attrs, logger)
 	if err != nil {
 		return nil, err
