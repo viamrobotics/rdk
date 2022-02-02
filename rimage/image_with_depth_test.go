@@ -2,10 +2,14 @@ package rimage
 
 import (
 	"bytes"
+	"image"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/pointcloud"
 )
 
 func TestPCRoundTrip(t *testing.T) {
@@ -55,6 +59,39 @@ func TestDefaultToPointCloud(t *testing.T) {
 	pc2, err := iwd2.ToPointCloud()
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pc2, test.ShouldBeNil)
+}
+
+type dummyProjector struct{}
+
+func (d *dummyProjector) ImageWithDepthToPointCloud(*ImageWithDepth) (pointcloud.PointCloud, error) {
+	return nil, nil
+}
+
+func (d *dummyProjector) PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error) {
+	return &ImageWithDepth{}, nil
+}
+
+func (d *dummyProjector) ImagePointTo3DPoint(image.Point, Depth) (r3.Vector, error) {
+	return r3.Vector{}, nil
+}
+
+func TestCloneImageWithDepth(t *testing.T) {
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
+	test.That(t, err, test.ShouldBeNil)
+
+	ii := CloneToImageWithDepth(iwd)
+	for y := 0; y < ii.Height(); y++ {
+		for x := 0; x < ii.Width(); x++ {
+			test.That(t, ii.Depth.GetDepth(x, y), test.ShouldResemble, iwd.Depth.GetDepth(x, y))
+			test.That(t, ii.Color.GetXY(x, y), test.ShouldResemble, iwd.Color.GetXY(x, y))
+		}
+	}
+	test.That(t, ii.IsAligned(), test.ShouldEqual, iwd.IsAligned())
+	test.That(t, ii.Projector(), test.ShouldResemble, iwd.Projector())
+
+	dummy := &dummyProjector{}
+	ii.SetProjector(dummy)
+	test.That(t, ii.Projector(), test.ShouldNotResemble, iwd.Projector())
 }
 
 func TestImageWithDepthFromImages(t *testing.T) {
