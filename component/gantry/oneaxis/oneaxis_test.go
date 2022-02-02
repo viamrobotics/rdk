@@ -74,7 +74,7 @@ func TestValidate(t *testing.T) {
 		Board:           "board",
 	}
 	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "each axis needs a non-zero and positive length.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "each axis needs a non-zero and positive length")
 
 	fakecfg = &AttrConfig{
 		LimitSwitchPins: []string{"1"},
@@ -83,7 +83,7 @@ func TestValidate(t *testing.T) {
 		PulleyRMm:       0.1,
 	}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
 
 	fakecfg = &AttrConfig{
 		LimitSwitchPins: []string{"1"},
@@ -91,7 +91,7 @@ func TestValidate(t *testing.T) {
 		PulleyRMm:       0.1,
 	}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
 
 	fakecfg = &AttrConfig{
 		Motor:           "x",
@@ -101,7 +101,7 @@ func TestValidate(t *testing.T) {
 		PulleyRMm:       0.0,
 	}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry has one limit switch per axis, needs pulley radius to set position limits.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry has one limit switch per axis, needs pulley radius to set position limits")
 
 	fakecfg = &AttrConfig{
 		Motor:           "x",
@@ -111,7 +111,7 @@ func TestValidate(t *testing.T) {
 		PulleyRMm:       0.1,
 	}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "each axis needs at least one limit switch pin.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "each axis needs at least one limit switch pin")
 
 	fakecfg = &AttrConfig{
 		Motor:           "x",
@@ -120,7 +120,7 @@ func TestValidate(t *testing.T) {
 		Board:           "board",
 	}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "axes not set.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "axes not set")
 
 	fakecfg = &AttrConfig{
 		Motor:           "x",
@@ -198,7 +198,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a pulley radius defined.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a pulley radius defined")
 
 	fakecfg = config.Component{
 		Name: "gantry",
@@ -546,7 +546,7 @@ func TestMoveToPosition(t *testing.T) {
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	fakegantry.motor = &inject.Motor{}
+	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context) error { return errors.New("err") }}
 	err = fakegantry.MoveToPosition(ctx, pos)
 	test.That(t, err, test.ShouldNotBeNil)
 
