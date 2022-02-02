@@ -2,7 +2,6 @@ package servo_test
 
 import (
 	"context"
-
 	"testing"
 
 	"go.viam.com/test"
@@ -172,6 +171,7 @@ func (mServo *mock) Move(ctx context.Context, angleDegs uint8) error {
 }
 
 func (mServo *mock) GetPosition(ctx context.Context) (uint8, error) {
+	mServo.posCount++
 	return pos, nil
 }
 
