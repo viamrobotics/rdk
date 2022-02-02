@@ -59,6 +59,14 @@ service MotorService {
     };
   }
 
+  // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+  rpc GetFeatures(MotorServiceGetFeaturesRequest) returns (MotorServiceGetFeaturesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/motor/{name}/get_features"
+    };
+  }
+
+
   // Stop turns the robot's motor off
   // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {
@@ -151,4 +159,14 @@ message MotorServiceIsInMotionRequest {
 message MotorServiceIsInMotionResponse {
   // Returns true if the motor is on
   bool is_on = 1;
+}
+
+message MotorServiceGetFeaturesRequest {
+  // Name of a motor
+  string name = 1;
+}
+
+message MotorServiceGetFeaturesResponse {
+  // Returns true if the motor supports reporting its position
+  bool position_reporting = 1;
 }

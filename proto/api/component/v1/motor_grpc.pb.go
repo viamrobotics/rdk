@@ -38,6 +38,8 @@ type MotorServiceClient interface {
 	Position(ctx context.Context, in *MotorServicePositionRequest, opts ...grpc.CallOption) (*MotorServicePositionResponse, error)
 	// PositionSupported returns whether or not the robot's motor supports reporting of its position
 	PositionSupported(ctx context.Context, in *MotorServicePositionSupportedRequest, opts ...grpc.CallOption) (*MotorServicePositionSupportedResponse, error)
+	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+	GetFeatures(ctx context.Context, in *MotorServiceGetFeaturesRequest, opts ...grpc.CallOption) (*MotorServiceGetFeaturesResponse, error)
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(ctx context.Context, in *MotorServiceStopRequest, opts ...grpc.CallOption) (*MotorServiceStopResponse, error)
@@ -108,6 +110,15 @@ func (c *motorServiceClient) PositionSupported(ctx context.Context, in *MotorSer
 	return out, nil
 }
 
+func (c *motorServiceClient) GetFeatures(ctx context.Context, in *MotorServiceGetFeaturesRequest, opts ...grpc.CallOption) (*MotorServiceGetFeaturesResponse, error) {
+	out := new(MotorServiceGetFeaturesResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/GetFeatures", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *motorServiceClient) Stop(ctx context.Context, in *MotorServiceStopRequest, opts ...grpc.CallOption) (*MotorServiceStopResponse, error) {
 	out := new(MotorServiceStopResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/Stop", in, out, opts...)
@@ -150,6 +161,8 @@ type MotorServiceServer interface {
 	Position(context.Context, *MotorServicePositionRequest) (*MotorServicePositionResponse, error)
 	// PositionSupported returns whether or not the robot's motor supports reporting of its position
 	PositionSupported(context.Context, *MotorServicePositionSupportedRequest) (*MotorServicePositionSupportedResponse, error)
+	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+	GetFeatures(context.Context, *MotorServiceGetFeaturesRequest) (*MotorServiceGetFeaturesResponse, error)
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error)
@@ -180,6 +193,9 @@ func (UnimplementedMotorServiceServer) Position(context.Context, *MotorServicePo
 }
 func (UnimplementedMotorServiceServer) PositionSupported(context.Context, *MotorServicePositionSupportedRequest) (*MotorServicePositionSupportedResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PositionSupported not implemented")
+}
+func (UnimplementedMotorServiceServer) GetFeatures(context.Context, *MotorServiceGetFeaturesRequest) (*MotorServiceGetFeaturesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetFeatures not implemented")
 }
 func (UnimplementedMotorServiceServer) Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
@@ -308,6 +324,24 @@ func _MotorService_PositionSupported_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MotorService_GetFeatures_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorServiceGetFeaturesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MotorServiceServer).GetFeatures(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.v1.MotorService/GetFeatures",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MotorServiceServer).GetFeatures(ctx, req.(*MotorServiceGetFeaturesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MotorService_Stop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MotorServiceStopRequest)
 	if err := dec(in); err != nil {
@@ -374,6 +408,10 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PositionSupported",
 			Handler:    _MotorService_PositionSupported_Handler,
+		},
+		{
+			MethodName: "GetFeatures",
+			Handler:    _MotorService_GetFeatures_Handler,
 		},
 		{
 			MethodName: "Stop",
