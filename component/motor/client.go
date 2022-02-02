@@ -89,15 +89,6 @@ func (c *client) SetPower(ctx context.Context, powerPct float64) error {
 	return err
 }
 
-func (c *client) Go(ctx context.Context, rpm float64) error {
-	req := &pb.MotorServiceGoRequest{
-		Name: c.name,
-		Rpm:  rpm,
-	}
-	_, err := c.client.Go(ctx, req)
-	return err
-}
-
 func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	req := &pb.MotorServiceGoForRequest{
 		Name:        c.name,

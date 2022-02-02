@@ -284,7 +284,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 		startPos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = m.Go(ctx, 0.9)
+		err = m.SetPower(ctx, 0.9)
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
@@ -301,7 +301,7 @@ func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 		startPos, err := m.Position(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = m.Go(ctx, -0.9)
+		err = m.SetPower(ctx, -0.9)
 		test.That(t, err, test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {

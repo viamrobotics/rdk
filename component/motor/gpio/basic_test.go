@@ -42,8 +42,8 @@ func TestMotorABPWM(t *testing.T) {
 	})
 
 	//nolint:dupl
-	t.Run("motor (A/B/PWM) Go testing", func(t *testing.T) {
-		test.That(t, m.Go(ctx, 0.43*maxRPM), test.ShouldBeNil)
+	t.Run("motor (A/B/PWM) SetPower testing", func(t *testing.T) {
+		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
@@ -52,7 +52,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		test.That(t, m.Go(ctx, -0.44*maxRPM), test.ShouldBeNil)
+		test.That(t, m.SetPower(ctx, -0.44), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(112))
@@ -61,7 +61,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		test.That(t, m.Go(ctx, 0), test.ShouldBeNil)
+		test.That(t, m.SetPower(ctx, 0), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
@@ -150,34 +150,6 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
-	//nolint:dupl
-	t.Run("motor (DIR/PWM) Go testing", func(t *testing.T) {
-		test.That(t, m.Go(ctx, 0.43*maxRPM), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
-		on, err := m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		test.That(t, m.Go(ctx, -0.44*maxRPM), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(112))
-		on, err = m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		test.That(t, m.Go(ctx, 0), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
-
-		on, err = m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeFalse)
-	})
-
 	t.Run("motor (DIR/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -203,6 +175,10 @@ func TestMotorDirPWM(t *testing.T) {
 	t.Run("motor (DIR/PWM) Power testing", func(t *testing.T) {
 		test.That(t, m.SetPower(ctx, 0.45), test.ShouldBeNil)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
+
+		on, err := m.IsInMotion(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldBeFalse)
 	})
 
 	t.Run("motor (DIR/PWM) Position testing", func(t *testing.T) {
@@ -246,33 +222,6 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, b.PWM["2"], test.ShouldEqual, 0)
 
 		on, err := m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeFalse)
-	})
-
-	t.Run("motor (A/B) Go testing", func(t *testing.T) {
-		test.That(t, m.Go(ctx, 0.43*maxRPM), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(145))
-		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
-		on, err := m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		test.That(t, m.Go(ctx, -0.44*maxRPM), test.ShouldBeNil)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["1"], test.ShouldEqual, byte(142))
-		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
-		on, err = m.IsInMotion(ctx)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeTrue)
-
-		test.That(t, m.Go(ctx, 0), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["3"], test.ShouldEqual, true)
-
-		on, err = m.IsInMotion(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -325,34 +274,24 @@ func TestMotorAB(t *testing.T) {
 	})
 }
 
-func TestAdjustmentHelpers(t *testing.T) {
-	revolutions := 100.0
-	adjusted := adjustRPMByMaxAndSign(maxRPM, 100, revolutions)
-	waitDur := calcWaitDur(adjusted, revolutions)
-	test.That(t, adjusted, test.ShouldEqual, 100)
+func TestGoForMath(t *testing.T) {
+	powerPct, waitDur := goForMath(100, 100, 100)
+	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, time.Minute)
 
-	revolutions = 100.0
-	adjusted = adjustRPMByMaxAndSign(maxRPM, -100, revolutions)
-	waitDur = calcWaitDur(adjusted, revolutions)
-	test.That(t, adjusted, test.ShouldEqual, -100)
+	powerPct, waitDur = goForMath(100, -100, 100)
+	test.That(t, powerPct, test.ShouldEqual, -1)
 	test.That(t, waitDur, test.ShouldEqual, time.Minute)
 
-	revolutions = 100.0
-	adjusted = adjustRPMByMaxAndSign(maxRPM, -1000, revolutions)
-	waitDur = calcWaitDur(adjusted, revolutions)
-	test.That(t, adjusted, test.ShouldEqual, -100)
+	powerPct, waitDur = goForMath(100, -1000, 100)
+	test.That(t, powerPct, test.ShouldEqual, -1)
 	test.That(t, waitDur, test.ShouldEqual, time.Minute)
 
-	revolutions = 200.0
-	adjusted = adjustRPMByMaxAndSign(maxRPM, 1000, revolutions)
-	waitDur = calcWaitDur(adjusted, revolutions)
-	test.That(t, adjusted, test.ShouldEqual, 100)
+	powerPct, waitDur = goForMath(100, 1000, 200)
+	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, 2*time.Minute)
 
-	revolutions = 50.0
-	adjusted = adjustRPMByMaxAndSign(maxRPM, 1000, revolutions)
-	waitDur = calcWaitDur(adjusted, revolutions)
-	test.That(t, adjusted, test.ShouldEqual, 100)
+	powerPct, waitDur = goForMath(100, 1000, 50)
+	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
 }

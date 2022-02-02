@@ -148,7 +148,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 				}
 				bigger = true
 				positions = []float64{}
-				err := m.Go(ctx, float64(dir)*TestingForce)
+				err := m.SetPower(ctx, float64(dir)*TestingForce)
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
