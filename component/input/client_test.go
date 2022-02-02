@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -26,8 +27,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
-	gServer1 := grpc.NewServer()
 
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
@@ -72,10 +73,11 @@ func TestClient(t *testing.T) {
 	}
 	inputControllerSvc, err := subtype.New(resources)
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(input.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, inputControllerSvc)
 
-	go gServer1.Serve(listener1)
-	defer gServer1.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -219,8 +221,9 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		inputController2Client := input.NewClientFromConn(context.Background(), conn, failInputControllerName, logger)
-		test.That(t, err, test.ShouldBeNil)
+		client := resourceSubtype.RPCClient(context.Background(), conn, failInputControllerName, logger)
+		inputController2Client, ok := client.(input.Controller)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		_, err = inputController2Client.GetControls(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)

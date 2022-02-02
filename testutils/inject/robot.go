@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -25,32 +24,30 @@ import (
 // Robot is an injected robot.
 type Robot struct {
 	robot.Robot
-	RemoteByNameFunc          func(name string) (robot.Robot, bool)
-	BaseByNameFunc            func(name string) (base.Base, bool)
-	GripperByNameFunc         func(name string) (gripper.Gripper, bool)
-	CameraByNameFunc          func(name string) (camera.Camera, bool)
-	BoardByNameFunc           func(name string) (board.Board, bool)
-	ServoByNameFunc           func(name string) (servo.Servo, bool)
-	MotorByNameFunc           func(name string) (motor.Motor, bool)
-	InputControllerByNameFunc func(name string) (input.Controller, bool)
-	ResourceByNameFunc        func(name resource.Name) (interface{}, bool)
-	RemoteNamesFunc           func() []string
-	GripperNamesFunc          func() []string
-	CameraNamesFunc           func() []string
-	BaseNamesFunc             func() []string
-	BoardNamesFunc            func() []string
-	ServoNamesFunc            func() []string
-	MotorNamesFunc            func() []string
-	InputControllerNamesFunc  func() []string
-	FunctionNamesFunc         func() []string
-	FrameSystemFunc           func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
-	ResourceNamesFunc         func() []resource.Name
-	ProcessManagerFunc        func() pexec.ProcessManager
-	ConfigFunc                func(ctx context.Context) (*config.Config, error)
-	StatusFunc                func(ctx context.Context) (*pb.Status, error)
-	LoggerFunc                func() golog.Logger
-	CloseFunc                 func(ctx context.Context) error
-	RefreshFunc               func(ctx context.Context) error
+	RemoteByNameFunc   func(name string) (robot.Robot, bool)
+	BaseByNameFunc     func(name string) (base.Base, bool)
+	GripperByNameFunc  func(name string) (gripper.Gripper, bool)
+	CameraByNameFunc   func(name string) (camera.Camera, bool)
+	BoardByNameFunc    func(name string) (board.Board, bool)
+	ServoByNameFunc    func(name string) (servo.Servo, bool)
+	MotorByNameFunc    func(name string) (motor.Motor, bool)
+	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
+	RemoteNamesFunc    func() []string
+	GripperNamesFunc   func() []string
+	CameraNamesFunc    func() []string
+	BaseNamesFunc      func() []string
+	BoardNamesFunc     func() []string
+	ServoNamesFunc     func() []string
+	MotorNamesFunc     func() []string
+	FunctionNamesFunc  func() []string
+	FrameSystemFunc    func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
+	ResourceNamesFunc  func() []resource.Name
+	ProcessManagerFunc func() pexec.ProcessManager
+	ConfigFunc         func(ctx context.Context) (*config.Config, error)
+	StatusFunc         func(ctx context.Context) (*pb.Status, error)
+	LoggerFunc         func() golog.Logger
+	CloseFunc          func(ctx context.Context) error
+	RefreshFunc        func(ctx context.Context) error
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -107,14 +104,6 @@ func (r *Robot) MotorByName(name string) (motor.Motor, bool) {
 		return r.Robot.MotorByName(name)
 	}
 	return r.MotorByNameFunc(name)
-}
-
-// InputControllerByName calls the injected InputControllerByName or the real version.
-func (r *Robot) InputControllerByName(name string) (input.Controller, bool) {
-	if r.InputControllerByNameFunc == nil {
-		return r.Robot.InputControllerByName(name)
-	}
-	return r.InputControllerByNameFunc(name)
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
@@ -179,14 +168,6 @@ func (r *Robot) MotorNames() []string {
 		return r.Robot.MotorNames()
 	}
 	return r.MotorNamesFunc()
-}
-
-// InputControllerNames calls the injected InputControllerNames or the real version.
-func (r *Robot) InputControllerNames() []string {
-	if r.InputControllerNamesFunc == nil {
-		return r.Robot.InputControllerNames()
-	}
-	return r.InputControllerNamesFunc()
 }
 
 // FunctionNames calls the injected FunctionNames or the real version.

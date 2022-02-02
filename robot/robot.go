@@ -11,7 +11,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -44,9 +43,6 @@ type Robot interface {
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
 
-	// InputControllerByName returns a input.Controller by name.
-	InputControllerByName(name string) (input.Controller, bool)
-
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
 
@@ -70,9 +66,6 @@ type Robot interface {
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
-
-	// InputControllerNames returns the name of all known input controllers.
-	InputControllerNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
