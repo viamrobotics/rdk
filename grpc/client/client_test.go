@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
-	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
 	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
