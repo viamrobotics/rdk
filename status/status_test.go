@@ -47,9 +47,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 			sensor.Named("sensor2"),
 		}
 	}
-	injectRobot.ArmNamesFunc = func() []string {
-		return []string{"arm1", "arm2"}
-	}
 	injectRobot.GripperNamesFunc = func() []string {
 		return []string{"gripper1", "gripper2"}
 	}
@@ -79,10 +76,26 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fakearm.Arm{Name: name.Name}, true
-	}
-	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return &fakearm.Arm{Name: name}, true
+		switch name.Subtype {
+		case arm.Subtype:
+			return &fakearm.Arm{Name: name.Name}, true
+		case base.Subtype:
+			return &fakebase.Base{Name: name.Name}, true
+		case gripper.Subtype:
+			return &fakegripper.Gripper{Name: name.Name}, true
+		case camera.Subtype:
+			return &fakecamera.Camera{Name: name.Name}, true
+		case board.Subtype:
+			return &fakeboard.Board{Name: name.Name}, true
+		case servo.Subtype:
+			return &fakeservo.Servo{Name: name.Name}, true
+		case motor.Subtype:
+			return &fakemotor.Motor{Name: name.Name}, true
+		case input.Subtype:
+			return &fakeinput.InputController{Name: name.Name}, true
+		default:
+			return nil, false
+		}
 	}
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return &fakebase.Base{Name: name}, true

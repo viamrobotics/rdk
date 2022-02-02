@@ -7,7 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/proto/api/component/v1"
@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -62,11 +63,11 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableSensor{})
 )
 
-// FromRobot is a helper for getting the named Sensor's from the given Robot.
+// FromRobot is a helper for getting the named Sensor from the given Robot.
 func FromRobot(r robot.Robot, name string) (Sensor, bool) {
-	s, ok := r.ResourceByName(Named(name))
+	res, ok := r.ResourceByName(Named(name))
 	if ok {
-		part, ok := s.(Sensor)
+		part, ok := res.(Sensor)
 		if ok {
 			return part, true
 		}
@@ -87,7 +88,7 @@ type reconfigurableSensor struct {
 func (r *reconfigurableSensor) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(ctx, r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
 func (r *reconfigurableSensor) ProxyFor() interface{} {
@@ -107,9 +108,9 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 	defer r.mu.Unlock()
 	actual, ok := newSensor.(*reconfigurableSensor)
 	if !ok {
-		return errors.Errorf("expected new Sensor to be %T but got %T", r, newSensor)
+		return utils.NewUnexpectedTypeError(r, newSensor)
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual

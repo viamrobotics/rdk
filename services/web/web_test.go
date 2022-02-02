@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
-	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/client"
