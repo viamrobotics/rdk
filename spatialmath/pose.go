@@ -168,8 +168,19 @@ func PoseAlmostEqual(a, b Pose) bool {
 }
 
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses the same epsilon as the default value for the Viam IK solver.
 func PoseAlmostCoincident(a, b Pose) bool {
-	const epsilon = 1e-8
+	const epsilon = 0.001
+	ap := a.Point()
+	bp := b.Point()
+	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
+}
+
+// PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses a passed in epsilon value.
+func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
 	ap := a.Point()
 	bp := b.Point()
 	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&

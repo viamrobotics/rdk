@@ -75,5 +75,5 @@ func MarshalVolumesToFile(vols map[string]Volume, path string) {
 		vertices = append(vertices, vol.Vertices())
 	}
 	bytes, _ := json.MarshalIndent(vertices, "", " ")
-	ioutil.WriteFile(path, bytes, 0644)
+	ioutil.WriteFile(path, bytes, 0o644)
 }
