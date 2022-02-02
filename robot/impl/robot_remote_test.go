@@ -75,9 +75,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.RemoteNamesFunc = func() []string {
 		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
 	}
-	injectRobot.ArmNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(armNames...)
-	}
 	injectRobot.BoardNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(boardNames...)
 	}
@@ -127,14 +124,9 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return &remoteRobot{conf: config.Remote{Name: name}}, true
 	}
-	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.ArmNames()...)[name]; !ok {
-			return nil, false
-		}
-		return &fakearm.Arm{Name: name}, true
-	}
+
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.ArmNames()...)[name]; !ok {
+		if _, ok := utils.NewStringSet(injectRobot.BaseNames()...)[name]; !ok {
 			return nil, false
 		}
 		return &fakebase.Base{Name: name}, true
@@ -194,7 +186,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
-				// TODO: some kind of mapping based on resource name may be needed
 				switch name.Subtype {
 				case arm.Subtype:
 					return &fakearm.Arm{Name: name.Name}, true
@@ -249,14 +240,14 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	test.That(
 		t,
-		utils.NewStringSet(robot.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedArmNames...)...),
 	)
@@ -578,12 +569,12 @@ func TestRemoteRobot(t *testing.T) {
 	})
 
 	robot.conf.Prefix = false
-	_, ok := robot.ArmByName("arm1")
+	_, ok := arm.FromRobot(robot, "arm1")
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
-	_, ok = robot.ArmByName("one.arm1")
+	_, ok = arm.FromRobot(robot, "one.arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.ArmByName("arm1_what")
+	_, ok = arm.FromRobot(robot, "arm1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false

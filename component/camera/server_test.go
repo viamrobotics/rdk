@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"testing"
 
@@ -41,6 +42,8 @@ func TestServer(t *testing.T) {
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
 	test.That(t, png.Encode(&imgBuf, img), test.ShouldBeNil)
+	var imgBufJpeg bytes.Buffer
+	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
 
 	pcA := pointcloud.New()
 	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
@@ -73,8 +76,8 @@ func TestServer(t *testing.T) {
 		resp, err := cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: camera1})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.MimeType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Frame, test.ShouldResemble, imgBuf.Bytes())
+		test.That(t, resp.MimeType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Frame, test.ShouldResemble, imgBufJpeg.Bytes())
 
 		imageReleased = false
 		resp, err = cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{
@@ -110,8 +113,8 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, imageReleased, test.ShouldBeTrue)
-		test.That(t, resp.ContentType, test.ShouldEqual, "image/png")
-		test.That(t, resp.Data, test.ShouldResemble, imgBuf.Bytes())
+		test.That(t, resp.ContentType, test.ShouldEqual, "image/jpeg")
+		test.That(t, resp.Data, test.ShouldResemble, imgBufJpeg.Bytes())
 
 		imageReleased = false
 		resp, err = cameraServer.RenderFrame(context.Background(), &pb.CameraServiceRenderFrameRequest{
