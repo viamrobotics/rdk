@@ -72,7 +72,7 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 }
 
 // FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
-func (c *client) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+func (c *client) LocalFrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	// request the full config from the remote robot's frame system service.FrameSystemConfig()
 	parts, err := c.Config(ctx)

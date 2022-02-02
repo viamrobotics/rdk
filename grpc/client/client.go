@@ -357,7 +357,7 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 	if !ok {
 		return nil, errors.New("frame system service improperly implemented")
 	}
-	return actual.FrameSystem(ctx, name, prefix)
+	return actual.LocalFrameSystem(ctx, name, prefix)
 }
 
 // Refresh manually updates the underlying parts of the robot based
