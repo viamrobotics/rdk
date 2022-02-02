@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -56,7 +57,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 		logger.Debugw("NextPointCloud", "took", time.Since(start).String())
 		startInner := time.Now()
-		config := segmentation.ObjectConfig{50000, 500, 10}
+		config := vision.Parameters3D{50000, 500, 10}
 		_, err = segmentation.NewObjectSegmentation(ctx, pc, config)
 		if err != nil {
 			return err

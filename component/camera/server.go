@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -203,7 +204,7 @@ func (s *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	config := segmentation.ObjectConfig{
+	config := vision.Parameters3D{
 		MinPtsInPlane:      int(req.MinPointsInPlane),
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
@@ -223,9 +224,9 @@ func (s *subtypeServer) GetObjectPointClouds(
 	}, nil
 }
 
-func segmentsToProto(segs *segmentation.ObjectSegmentation) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, segs.N())
-	for _, seg := range segs.Objects {
+func segmentsToProto(segs vision.Scene) ([]*pb.PointCloudObject, error) {
+	protoSegs := make([]*pb.PointCloudObject, 0, len(segs.Objects()))
+	for _, seg := range segs.Objects() {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {

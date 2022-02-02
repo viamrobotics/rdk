@@ -17,6 +17,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 // serviceClient is a client satisfies the camera.proto contract.
@@ -116,6 +117,47 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	}
 
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
+}
+
+func (c *client) NextObjects(ctx context.Context, params vision.Parameters3D) (vision.Scene, error) {
+	resp, err := c.client.GetObjectPointClouds(ctx, &pb.CameraServiceGetObjectPointCloudsRequest{
+		Name:               c.name,
+		MimeType:           utils.MimeTypePCD,
+		MinPointsInPlane:   int64(params.MinPtsInPlane),
+		MinPointsInSegment: int64(params.MinPtsInSegment),
+		ClusteringRadiusMm: params.ClusteringRadiusMm,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.MimeType != utils.MimeTypePCD {
+		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+	}
+
+	return protoToScene(resp.Objects)
+}
+
+func protoToScene(objs []*pb.PointCloudObject) (vision.Scene, error) {
+	objects := make([]*pointcloud.WithMetadata, len(objs))
+	for i, o := range objs {
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.Frame))
+		if err != nil {
+			return nil, err
+		}
+		center := pointcloud.Vec3{
+			o.CenterCoordinatesMm.X,
+			o.CenterCoordinatesMm.Y,
+			o.CenterCoordinatesMm.Z,
+		}
+		bb := pointcloud.BoxGeometry{
+			o.BoundingBoxMm.WidthMm,
+			o.BoundingBoxMm.LengthMm,
+			o.BoundingBoxMm.DepthMm,
+		}
+		objects[i] = &pointcloud.WithMetadata{pc, center, bb}
+	}
+	return vision.NewScene(objects)
 }
 
 // Close cleanly closes the underlying connections.

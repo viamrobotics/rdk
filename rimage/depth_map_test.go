@@ -128,7 +128,7 @@ func TestToGray16Picture(t *testing.T) {
 }
 
 //nolint:dupl
-func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
+func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -144,11 +144,11 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 			i++
 		}
 	}
-	return Image{data: oriData, width: oriWidth, height: oriHeight}, Image{data: cropData, width: cropWidth, height: cropHeight}
+	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
 //nolint:dupl
-func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap) {
+func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -164,7 +164,7 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap
 			i++
 		}
 	}
-	return DepthMap{width: oriWidth, height: oriHeight, data: oriData}, DepthMap{width: cropWidth, height: cropHeight, data: cropData}
+	return &DepthMap{width: oriWidth, height: oriHeight, data: oriData}, &DepthMap{width: cropWidth, height: cropHeight, data: cropData}
 }
 
 func TestSubImage(t *testing.T) {

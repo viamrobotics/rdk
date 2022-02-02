@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision"
 )
 
 // Result holds all useful information for the detector: contains the original image, the preprocessed image, and the final detections.
@@ -28,6 +29,7 @@ type Result struct {
 type Source struct {
 	pipelineOutput          chan *Result
 	activeBackgroundWorkers sync.WaitGroup
+	proj                    rimage.Projector
 	cancelCtx               context.Context
 	cancelFunc              func()
 }
@@ -51,6 +53,7 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, post P
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	s := &Source{
 		pipelineOutput: make(chan *Result),
+		proj:           proj,
 		cancelCtx:      cancelCtx,
 		cancelFunc:     cancel,
 	}
@@ -113,6 +116,15 @@ func (s *Source) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 	ovImg = OverlayText(ovImg, fmt.Sprintf("FPS: %.2f", fps))
 	return ovImg, res.Release, nil
+}
+
+// NextObjects returns the 3D objects in the scene if there Projector for the camera
+func (s *Source) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
+	res, err := s.NextResult(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ToScene(res.Detections, rimage.ConvertToImageWithDepth(res.OriginalImage), s.proj)
 }
 
 // NextResult returns all the components required to build the overlaid image, but is useful if you only want the Detections.

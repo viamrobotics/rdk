@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 const debugObjSeg = "VIAM_DEBUG"
@@ -45,7 +46,7 @@ func (h *segmentObjectTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
-	objConfig := ObjectConfig{
+	objConfig := vision.Parameters3D{
 		MinPtsInPlane:      50000,
 		MinPtsInSegment:    500,
 		ClusteringRadiusMm: 10.0,
@@ -111,7 +112,7 @@ func (h *gripperSegmentTestHelper) Process(
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// Do object segmentation with point clouds
-	objConfig := ObjectConfig{
+	objConfig := vision.Parameters3D{
 		MinPtsInPlane:      15000,
 		MinPtsInSegment:    100,
 		ClusteringRadiusMm: 10.0,
@@ -139,7 +140,7 @@ func (h *gripperSegmentTestHelper) Process(
 		cosineThresh:   0.1,
 		distanceThresh: 0.1,
 	}
-	voxObjConfig := ObjectConfig{
+	voxObjConfig := vision.Parameters3D{
 		MinPtsInPlane:      15000,
 		MinPtsInSegment:    100,
 		ClusteringRadiusMm: 7.5,
