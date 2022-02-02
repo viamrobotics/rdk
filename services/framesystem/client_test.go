@@ -162,7 +162,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSys, err := workingDialedClient.FrameSystem(context.Background(), "", "")
+		frameSys, err := workingDialedClient.LocalFrameSystem(context.Background(), "", "")
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, frameSys, test.ShouldNotBeNil)
 		frame1 := frameSys.GetFrame("frame1")
@@ -203,7 +203,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		failingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSys, err := failingDialedClient.FrameSystem(context.Background(), "", "")
+		frameSys, err := failingDialedClient.LocalFrameSystem(context.Background(), "", "")
 		test.That(t, frameSys, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -218,7 +218,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test frame system for failing frame service", func(t *testing.T) {
-		frameSys, err := failingFSClient2.FrameSystem(context.Background(), "", "")
+		frameSys, err := failingFSClient2.LocalFrameSystem(context.Background(), "", "")
 		test.That(t, frameSys, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

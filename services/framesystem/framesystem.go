@@ -55,7 +55,7 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
-	FrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
+	LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -137,7 +137,7 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 }
 
 // FrameSystem returns just the local components of the robot (excludes any parts from remote robots).
-func (svc *frameSystemService) FrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
+func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	fs, err := BuildFrameSystem(ctx, name, svc.childrenMap, svc.logger)
