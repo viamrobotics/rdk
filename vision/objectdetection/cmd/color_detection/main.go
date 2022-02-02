@@ -61,7 +61,7 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		cfg := &rimage.AttrConfig{Host: host, Port: int(portNum), Args: args, Stream: *streamPtr, Aligned: false}
+		cfg := &camera.AttrConfig{Host: host, Port: int(portNum), Args: args, Stream: *streamPtr, Aligned: false}
 		src, err := imagesource.NewServerSource(cfg, logger)
 		if err != nil {
 			logger.Fatal(err)

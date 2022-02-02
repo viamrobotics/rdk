@@ -104,9 +104,9 @@ func getCameraSystems(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Ali
 
 	switch {
 	case attrs.IntrinsicExtrinsic != nil:
-		cam, err := transform.NewDepthColorIntrinsicsExtrinsics(*attrs)
-		if err != nil {
-			return nil, nil, err
+		cam, ok := attrs.IntrinsicExtrinsic.(*transform.DepthColorIntrinsicsExtrinsics)
+		if !ok {
+			return nil, nil, rdkutils.NewUnexpectedTypeError(cam, attrs.IntrinsicExtrinsic)
 		}
 		alignCamera = cam
 		projectCamera = cam

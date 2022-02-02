@@ -15,7 +15,7 @@ import (
 // AlignImageWithDepth takes an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
 func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
-		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie), nil
+		return ii, nil
 	}
 	if ii.Color == nil {
 		return nil, errors.New("no color image present to align")
@@ -69,7 +69,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
+	return rimage.MakeImageWithDepth(img.Color, outmap, true), nil
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
@@ -84,7 +84,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 	var err error
 	// color and depth images need to already be aligned
 	if ii.IsAligned() {
-		iwd = rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie)
+		iwd = ii
 	} else {
 		iwd, err = dcie.AlignImageWithDepth(ii)
 		if err != nil {
