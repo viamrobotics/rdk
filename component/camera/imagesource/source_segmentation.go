@@ -41,6 +41,7 @@ func init() {
 type colorSegmentsSource struct {
 	source gostream.ImageSource
 	config segmentation.ObjectConfig
+	proj   rimage.Projector
 }
 
 // Next applies segmentation to the next image and gives each distinct object a unique color.
@@ -54,10 +55,10 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if ii.Depth == nil {
 		return nil, nil, errors.New("colorSegmentsSource Next(): no depth")
 	}
-	if ii.Projector() == nil {
-		return nil, nil, errors.New("colorSegmentsSource Next(): no camera system")
+	if cs.proj == nil {
+		return nil, nil, errors.New("colorSegmentsSource Next(): no projector")
 	}
-	cloud, err := ii.ToPointCloud()
+	cloud, err := cs.proj.ImageWithDepthToPointCloud(ii)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,7 +70,8 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segmentedIwd, err := ii.Projector().PointCloudToImageWithDepth(colorCloud)
+	segmentedIwd, err := cs.proj.PointCloudToImageWithDepth(colorCloud)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,5 +102,6 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	cfg := segmentation.ObjectConfig{
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadiusMm: clusterRadius,
 	}
-	return &camera.ImageSource{ImageSource: &colorSegmentsSource{source, cfg}}, nil
+	segSrc := &colorSegmentsSource{source, cfg, attrs.CameraParameters}
+	return camera.NewImageSourceWithProjector(segSrc, segSrc.proj)
 }

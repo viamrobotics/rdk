@@ -65,7 +65,7 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 // AlignImageWithDepth TODO.
 func (dct *DepthColorWarpTransforms) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
 	if ii.IsAligned() {
-		return ii
+		return ii, nil
 	}
 	if ii.Color == nil {
 		return nil, errors.New("no color image present to align")

@@ -237,7 +237,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 
-	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.IsAligned(), nil), func() {}, nil
+	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.IsAligned()), func() {}, nil
 }
 
 // Close closes the connection to both servers.
@@ -297,19 +297,18 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false, s.Projector())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
 	case DepthStream:
 		depth, err := decodeDepth(allData)
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true, s.Projector())
+		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
 	case BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}
-		img.SetProjector(s.Projector())
 	default:
 		return nil, nil, errors.Errorf("do not know how to decode stream type %q", string(s.stream))
 	}
