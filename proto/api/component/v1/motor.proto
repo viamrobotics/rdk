@@ -18,15 +18,6 @@ service MotorService {
     };
   }
 
-  // Go instructs the motor to turn using a specified percentage of its total power,
-  // expressed as a value between -1 and 1 where negative values indiciate a backwards
-  // direction and positive values a forward direction
-  rpc Go(MotorServiceGoRequest) returns (MotorServiceGoResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go"
-    };
-  }
-
   // GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
   // for a specified number of rotations relative to its starting position
   // This method will return an error if MotorPositionSupported is false
@@ -93,15 +84,6 @@ message MotorServiceSetPowerRequest {
 }
 
 message MotorServiceSetPowerResponse {}
-
-message MotorServiceGoRequest {
-  // Name of a motor
-  string name = 1;
-  // Revolutions per minute
-  double rpm = 2;
-}
-
-message MotorServiceGoResponse {}
 
 message MotorServiceGoForRequest {
   // Name of a motor

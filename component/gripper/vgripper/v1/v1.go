@@ -371,7 +371,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			err = vg.motor.Go(ctx, float64(vg.closeDirection)*vg.holdingPressure)
+			err = vg.motor.SetPower(ctx, float64(vg.closeDirection)*vg.holdingPressure)
 			return true, err
 		}
 

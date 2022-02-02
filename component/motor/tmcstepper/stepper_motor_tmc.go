@@ -304,14 +304,10 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// SetPower exists on the motor interface but is unsupported for
-// stepper motors. TODO (Should it be amps, not throttle?)
+// SetPower sets the motor at a particular rpm based on the percent of
+// maxRPM supplied by powerPct (between -1 and 1)
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	return errors.New("power not supported for stepper motors")
-}
-
-// Go sets the motor at a particular rpm.
-func (m *Motor) Go(ctx context.Context, rpm float64) error {
+	rpm := powerPct * m.maxRPM
 	mode := modeVelPos
 	if rpm < 0 {
 		mode = modeVelNeg
@@ -391,7 +387,7 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 
 // Stop stops the motor.
 func (m *Motor) Stop(ctx context.Context) error {
-	return m.Go(ctx, 0)
+	return m.SetPower(ctx, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.

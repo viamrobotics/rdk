@@ -126,11 +126,6 @@ func (m *gpioStepper) SetPower(ctx context.Context, powerPct float64) error {
 	return errors.New("gpioStepper doesn't support raw power mode")
 }
 
-// Go instructs the motor to go in a specific direction at an rpm.
-func (m *gpioStepper) Go(ctx context.Context, rpm float64) error {
-	return errors.New("gpioStepper doesn't support running without max revolutions")
-}
-
 func (m *gpioStepper) startThread(ctx context.Context) {
 	m.lock.Lock()
 	defer m.lock.Unlock()

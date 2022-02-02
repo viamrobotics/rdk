@@ -209,8 +209,8 @@ class MotorCommand {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorServiceGoRequest();
-        req.setRpm(this.speed * this.direction);
+        req = new MotorServiceSetPowerRequest();
+        req.setPowerPct(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
         req = new MotorServiceGoForRequest();

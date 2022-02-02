@@ -117,101 +117,6 @@ func (*MotorServiceSetPowerResponse) Descriptor() ([]byte, []int) {
 	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{1}
 }
 
-type MotorServiceGoRequest struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-
-	// Name of a motor
-	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Revolutions per minute
-	Rpm float64 `protobuf:"fixed64,2,opt,name=rpm,proto3" json:"rpm,omitempty"`
-}
-
-func (x *MotorServiceGoRequest) Reset() {
-	*x = MotorServiceGoRequest{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[2]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MotorServiceGoRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MotorServiceGoRequest) ProtoMessage() {}
-
-func (x *MotorServiceGoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[2]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MotorServiceGoRequest.ProtoReflect.Descriptor instead.
-func (*MotorServiceGoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *MotorServiceGoRequest) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *MotorServiceGoRequest) GetRpm() float64 {
-	if x != nil {
-		return x.Rpm
-	}
-	return 0
-}
-
-type MotorServiceGoResponse struct {
-	state         protoimpl.MessageState
-	sizeCache     protoimpl.SizeCache
-	unknownFields protoimpl.UnknownFields
-}
-
-func (x *MotorServiceGoResponse) Reset() {
-	*x = MotorServiceGoResponse{}
-	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[3]
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		ms.StoreMessageInfo(mi)
-	}
-}
-
-func (x *MotorServiceGoResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*MotorServiceGoResponse) ProtoMessage() {}
-
-func (x *MotorServiceGoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[3]
-	if protoimpl.UnsafeEnabled && x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use MotorServiceGoResponse.ProtoReflect.Descriptor instead.
-func (*MotorServiceGoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{3}
-}
-
 type MotorServiceGoForRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -228,7 +133,7 @@ type MotorServiceGoForRequest struct {
 func (x *MotorServiceGoForRequest) Reset() {
 	*x = MotorServiceGoForRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[4]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -241,7 +146,7 @@ func (x *MotorServiceGoForRequest) String() string {
 func (*MotorServiceGoForRequest) ProtoMessage() {}
 
 func (x *MotorServiceGoForRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[4]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -254,7 +159,7 @@ func (x *MotorServiceGoForRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceGoForRequest.ProtoReflect.Descriptor instead.
 func (*MotorServiceGoForRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{4}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *MotorServiceGoForRequest) GetName() string {
@@ -287,7 +192,7 @@ type MotorServiceGoForResponse struct {
 func (x *MotorServiceGoForResponse) Reset() {
 	*x = MotorServiceGoForResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[5]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -300,7 +205,7 @@ func (x *MotorServiceGoForResponse) String() string {
 func (*MotorServiceGoForResponse) ProtoMessage() {}
 
 func (x *MotorServiceGoForResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[5]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -313,7 +218,7 @@ func (x *MotorServiceGoForResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceGoForResponse.ProtoReflect.Descriptor instead.
 func (*MotorServiceGoForResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{5}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{3}
 }
 
 type MotorServiceGoToRequest struct {
@@ -332,7 +237,7 @@ type MotorServiceGoToRequest struct {
 func (x *MotorServiceGoToRequest) Reset() {
 	*x = MotorServiceGoToRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[6]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -345,7 +250,7 @@ func (x *MotorServiceGoToRequest) String() string {
 func (*MotorServiceGoToRequest) ProtoMessage() {}
 
 func (x *MotorServiceGoToRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[6]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,7 +263,7 @@ func (x *MotorServiceGoToRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceGoToRequest.ProtoReflect.Descriptor instead.
 func (*MotorServiceGoToRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{6}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *MotorServiceGoToRequest) GetName() string {
@@ -391,7 +296,7 @@ type MotorServiceGoToResponse struct {
 func (x *MotorServiceGoToResponse) Reset() {
 	*x = MotorServiceGoToResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[7]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -404,7 +309,7 @@ func (x *MotorServiceGoToResponse) String() string {
 func (*MotorServiceGoToResponse) ProtoMessage() {}
 
 func (x *MotorServiceGoToResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[7]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -417,7 +322,7 @@ func (x *MotorServiceGoToResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceGoToResponse.ProtoReflect.Descriptor instead.
 func (*MotorServiceGoToResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{7}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{5}
 }
 
 type MotorServiceResetZeroPositionRequest struct {
@@ -434,7 +339,7 @@ type MotorServiceResetZeroPositionRequest struct {
 func (x *MotorServiceResetZeroPositionRequest) Reset() {
 	*x = MotorServiceResetZeroPositionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[8]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -447,7 +352,7 @@ func (x *MotorServiceResetZeroPositionRequest) String() string {
 func (*MotorServiceResetZeroPositionRequest) ProtoMessage() {}
 
 func (x *MotorServiceResetZeroPositionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[8]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -460,7 +365,7 @@ func (x *MotorServiceResetZeroPositionRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use MotorServiceResetZeroPositionRequest.ProtoReflect.Descriptor instead.
 func (*MotorServiceResetZeroPositionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{8}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MotorServiceResetZeroPositionRequest) GetName() string {
@@ -486,7 +391,7 @@ type MotorServiceResetZeroPositionResponse struct {
 func (x *MotorServiceResetZeroPositionResponse) Reset() {
 	*x = MotorServiceResetZeroPositionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[9]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -499,7 +404,7 @@ func (x *MotorServiceResetZeroPositionResponse) String() string {
 func (*MotorServiceResetZeroPositionResponse) ProtoMessage() {}
 
 func (x *MotorServiceResetZeroPositionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[9]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -512,7 +417,7 @@ func (x *MotorServiceResetZeroPositionResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use MotorServiceResetZeroPositionResponse.ProtoReflect.Descriptor instead.
 func (*MotorServiceResetZeroPositionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{9}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{7}
 }
 
 type MotorServicePositionRequest struct {
@@ -527,7 +432,7 @@ type MotorServicePositionRequest struct {
 func (x *MotorServicePositionRequest) Reset() {
 	*x = MotorServicePositionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[10]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -540,7 +445,7 @@ func (x *MotorServicePositionRequest) String() string {
 func (*MotorServicePositionRequest) ProtoMessage() {}
 
 func (x *MotorServicePositionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[10]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +458,7 @@ func (x *MotorServicePositionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServicePositionRequest.ProtoReflect.Descriptor instead.
 func (*MotorServicePositionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{10}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *MotorServicePositionRequest) GetName() string {
@@ -575,7 +480,7 @@ type MotorServicePositionResponse struct {
 func (x *MotorServicePositionResponse) Reset() {
 	*x = MotorServicePositionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[11]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -588,7 +493,7 @@ func (x *MotorServicePositionResponse) String() string {
 func (*MotorServicePositionResponse) ProtoMessage() {}
 
 func (x *MotorServicePositionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[11]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -601,7 +506,7 @@ func (x *MotorServicePositionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServicePositionResponse.ProtoReflect.Descriptor instead.
 func (*MotorServicePositionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{11}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *MotorServicePositionResponse) GetPosition() float64 {
@@ -623,7 +528,7 @@ type MotorServicePositionSupportedRequest struct {
 func (x *MotorServicePositionSupportedRequest) Reset() {
 	*x = MotorServicePositionSupportedRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[12]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -636,7 +541,7 @@ func (x *MotorServicePositionSupportedRequest) String() string {
 func (*MotorServicePositionSupportedRequest) ProtoMessage() {}
 
 func (x *MotorServicePositionSupportedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[12]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -649,7 +554,7 @@ func (x *MotorServicePositionSupportedRequest) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use MotorServicePositionSupportedRequest.ProtoReflect.Descriptor instead.
 func (*MotorServicePositionSupportedRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{12}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *MotorServicePositionSupportedRequest) GetName() string {
@@ -671,7 +576,7 @@ type MotorServicePositionSupportedResponse struct {
 func (x *MotorServicePositionSupportedResponse) Reset() {
 	*x = MotorServicePositionSupportedResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[13]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -684,7 +589,7 @@ func (x *MotorServicePositionSupportedResponse) String() string {
 func (*MotorServicePositionSupportedResponse) ProtoMessage() {}
 
 func (x *MotorServicePositionSupportedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[13]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -697,7 +602,7 @@ func (x *MotorServicePositionSupportedResponse) ProtoReflect() protoreflect.Mess
 
 // Deprecated: Use MotorServicePositionSupportedResponse.ProtoReflect.Descriptor instead.
 func (*MotorServicePositionSupportedResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{13}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *MotorServicePositionSupportedResponse) GetSupported() bool {
@@ -719,7 +624,7 @@ type MotorServiceStopRequest struct {
 func (x *MotorServiceStopRequest) Reset() {
 	*x = MotorServiceStopRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[14]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -732,7 +637,7 @@ func (x *MotorServiceStopRequest) String() string {
 func (*MotorServiceStopRequest) ProtoMessage() {}
 
 func (x *MotorServiceStopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[14]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -745,7 +650,7 @@ func (x *MotorServiceStopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceStopRequest.ProtoReflect.Descriptor instead.
 func (*MotorServiceStopRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{14}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *MotorServiceStopRequest) GetName() string {
@@ -764,7 +669,7 @@ type MotorServiceStopResponse struct {
 func (x *MotorServiceStopResponse) Reset() {
 	*x = MotorServiceStopResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[15]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[13]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -777,7 +682,7 @@ func (x *MotorServiceStopResponse) String() string {
 func (*MotorServiceStopResponse) ProtoMessage() {}
 
 func (x *MotorServiceStopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[15]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[13]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -790,7 +695,7 @@ func (x *MotorServiceStopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceStopResponse.ProtoReflect.Descriptor instead.
 func (*MotorServiceStopResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{15}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{13}
 }
 
 type MotorServiceIsInMotionRequest struct {
@@ -805,7 +710,7 @@ type MotorServiceIsInMotionRequest struct {
 func (x *MotorServiceIsInMotionRequest) Reset() {
 	*x = MotorServiceIsInMotionRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[16]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -818,7 +723,7 @@ func (x *MotorServiceIsInMotionRequest) String() string {
 func (*MotorServiceIsInMotionRequest) ProtoMessage() {}
 
 func (x *MotorServiceIsInMotionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[16]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +736,7 @@ func (x *MotorServiceIsInMotionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceIsInMotionRequest.ProtoReflect.Descriptor instead.
 func (*MotorServiceIsInMotionRequest) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{16}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *MotorServiceIsInMotionRequest) GetName() string {
@@ -853,7 +758,7 @@ type MotorServiceIsInMotionResponse struct {
 func (x *MotorServiceIsInMotionResponse) Reset() {
 	*x = MotorServiceIsInMotionResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_component_v1_motor_proto_msgTypes[17]
+		mi := &file_proto_api_component_v1_motor_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -866,7 +771,7 @@ func (x *MotorServiceIsInMotionResponse) String() string {
 func (*MotorServiceIsInMotionResponse) ProtoMessage() {}
 
 func (x *MotorServiceIsInMotionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_component_v1_motor_proto_msgTypes[17]
+	mi := &file_proto_api_component_v1_motor_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -879,7 +784,7 @@ func (x *MotorServiceIsInMotionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MotorServiceIsInMotionResponse.ProtoReflect.Descriptor instead.
 func (*MotorServiceIsInMotionResponse) Descriptor() ([]byte, []int) {
-	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{17}
+	return file_proto_api_component_v1_motor_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *MotorServiceIsInMotionResponse) GetIsOn() bool {
@@ -906,83 +811,69 @@ var file_proto_api_component_v1_motor_proto_rawDesc = []byte{
 	0x6f, 0x77, 0x65, 0x72, 0x5f, 0x70, 0x63, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08,
 	0x70, 0x6f, 0x77, 0x65, 0x72, 0x50, 0x63, 0x74, 0x22, 0x1e, 0x0a, 0x1c, 0x4d, 0x6f, 0x74, 0x6f,
 	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x53, 0x65, 0x74, 0x50, 0x6f, 0x77, 0x65, 0x72,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x3d, 0x0a, 0x15, 0x4d, 0x6f, 0x74, 0x6f,
-	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x62, 0x0a, 0x18, 0x4d, 0x6f, 0x74, 0x6f,
+	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x72, 0x70, 0x6d, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x03, 0x72, 0x70, 0x6d, 0x12, 0x20, 0x0a, 0x0b, 0x72, 0x65,
+	0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x01, 0x52,
+	0x0b, 0x72, 0x65, 0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x1b, 0x0a, 0x19,
+	0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x46, 0x6f,
+	0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x72, 0x0a, 0x17, 0x4d, 0x6f, 0x74,
+	0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x54, 0x6f, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x72, 0x70, 0x6d, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x03, 0x72, 0x70, 0x6d, 0x12, 0x31, 0x0a, 0x14, 0x70, 0x6f,
+	0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x5f, 0x72, 0x65, 0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f,
+	0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x01, 0x52, 0x13, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x1a, 0x0a,
+	0x18, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x54,
+	0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x52, 0x0a, 0x24, 0x4d, 0x6f, 0x74,
+	0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x65, 0x74, 0x5a, 0x65,
+	0x72, 0x6f, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
 	0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x72, 0x70, 0x6d, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x01, 0x52, 0x03, 0x72, 0x70, 0x6d, 0x22, 0x18, 0x0a, 0x16, 0x4d, 0x6f, 0x74, 0x6f, 0x72,
-	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x62, 0x0a, 0x18, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a,
+	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x18,
+	0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x22, 0x27, 0x0a,
+	0x25, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73,
+	0x65, 0x74, 0x5a, 0x65, 0x72, 0x6f, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x31, 0x0a, 0x1b, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53,
+	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20,
+	0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x3a, 0x0a, 0x1c, 0x4d, 0x6f, 0x74,
+	0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f,
+	0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x70, 0x6f, 0x73,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08, 0x70, 0x6f, 0x73,
+	0x69, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x3a, 0x0a, 0x24, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65,
+	0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x75, 0x70,
+	0x70, 0x6f, 0x72, 0x74, 0x65, 0x64, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a,
 	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
-	0x65, 0x12, 0x10, 0x0a, 0x03, 0x72, 0x70, 0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x03,
-	0x72, 0x70, 0x6d, 0x12, 0x20, 0x0a, 0x0b, 0x72, 0x65, 0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f,
-	0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x01, 0x52, 0x0b, 0x72, 0x65, 0x76, 0x6f, 0x6c, 0x75,
-	0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x1b, 0x0a, 0x19, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65,
-	0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x72, 0x0a, 0x17, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x47, 0x6f, 0x54, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
-	0x65, 0x12, 0x10, 0x0a, 0x03, 0x72, 0x70, 0x6d, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x03,
-	0x72, 0x70, 0x6d, 0x12, 0x31, 0x0a, 0x14, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x5f,
-	0x72, 0x65, 0x76, 0x6f, 0x6c, 0x75, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28,
-	0x01, 0x52, 0x13, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x76, 0x6f, 0x6c,
-	0x75, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x22, 0x1a, 0x0a, 0x18, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53,
-	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x54, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x22, 0x52, 0x0a, 0x24, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x52, 0x65, 0x73, 0x65, 0x74, 0x5a, 0x65, 0x72, 0x6f, 0x50, 0x6f, 0x73, 0x69, 0x74,
-	0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61,
-	0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x16,
-	0x0a, 0x06, 0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x01, 0x52, 0x06,
-	0x6f, 0x66, 0x66, 0x73, 0x65, 0x74, 0x22, 0x27, 0x0a, 0x25, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53,
-	0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x52, 0x65, 0x73, 0x65, 0x74, 0x5a, 0x65, 0x72, 0x6f, 0x50,
-	0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22,
-	0x31, 0x0a, 0x1b, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50,
-	0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12,
-	0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61,
-	0x6d, 0x65, 0x22, 0x3a, 0x0a, 0x1c, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x01, 0x52, 0x08, 0x70, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x22, 0x3a,
-	0x0a, 0x24, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x6f,
-	0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x75, 0x70, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x64, 0x52,
-	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x45, 0x0a, 0x25, 0x4d, 0x6f,
-	0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69,
-	0x6f, 0x6e, 0x53, 0x75, 0x70, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x73, 0x75, 0x70, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x64,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x73, 0x75, 0x70, 0x70, 0x6f, 0x72, 0x74, 0x65,
-	0x64, 0x22, 0x2d, 0x0a, 0x17, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04,
-	0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65,
-	0x22, 0x1a, 0x0a, 0x18, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
-	0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x33, 0x0a, 0x1d,
-	0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x49, 0x73, 0x49, 0x6e,
-	0x4d, 0x6f, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a,
-	0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d,
-	0x65, 0x22, 0x35, 0x0a, 0x1e, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x49, 0x73, 0x49, 0x6e, 0x4d, 0x6f, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x12, 0x13, 0x0a, 0x05, 0x69, 0x73, 0x5f, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01,
-	0x28, 0x08, 0x52, 0x04, 0x69, 0x73, 0x4f, 0x6e, 0x32, 0x9e, 0x0b, 0x0a, 0x0c, 0x4d, 0x6f, 0x74,
-	0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x12, 0x99, 0x01, 0x0a, 0x08, 0x53, 0x65,
-	0x74, 0x50, 0x6f, 0x77, 0x65, 0x72, 0x12, 0x33, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
-	0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e,
-	0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x53, 0x65, 0x74, 0x50,
-	0x6f, 0x77, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x34, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e,
-	0x74, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x53, 0x65, 0x74, 0x50, 0x6f, 0x77, 0x65, 0x72, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
-	0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c, 0x1a, 0x1a, 0x2f, 0x61, 0x70, 0x69, 0x2f,
-	0x76, 0x31, 0x2f, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f,
-	0x70, 0x6f, 0x77, 0x65, 0x72, 0x12, 0x84, 0x01, 0x0a, 0x02, 0x47, 0x6f, 0x12, 0x2d, 0x2e, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65,
-	0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69,
-	0x63, 0x65, 0x47, 0x6f, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x2e, 0x2e, 0x70, 0x72,
-	0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e,
-	0x74, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
-	0x65, 0x47, 0x6f, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x1f, 0x82, 0xd3, 0xe4,
-	0x93, 0x02, 0x19, 0x1a, 0x17, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6d, 0x6f, 0x74,
-	0x6f, 0x72, 0x2f, 0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x67, 0x6f, 0x12, 0x91, 0x01, 0x0a,
+	0x65, 0x22, 0x45, 0x0a, 0x25, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63,
+	0x65, 0x50, 0x6f, 0x73, 0x69, 0x74, 0x69, 0x6f, 0x6e, 0x53, 0x75, 0x70, 0x70, 0x6f, 0x72, 0x74,
+	0x65, 0x64, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x73, 0x75,
+	0x70, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x09, 0x73,
+	0x75, 0x70, 0x70, 0x6f, 0x72, 0x74, 0x65, 0x64, 0x22, 0x2d, 0x0a, 0x17, 0x4d, 0x6f, 0x74, 0x6f,
+	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x71, 0x75,
+	0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x1a, 0x0a, 0x18, 0x4d, 0x6f, 0x74, 0x6f, 0x72,
+	0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x53, 0x74, 0x6f, 0x70, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x33, 0x0a, 0x1d, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76,
+	0x69, 0x63, 0x65, 0x49, 0x73, 0x49, 0x6e, 0x4d, 0x6f, 0x74, 0x69, 0x6f, 0x6e, 0x52, 0x65, 0x71,
+	0x75, 0x65, 0x73, 0x74, 0x12, 0x12, 0x0a, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01,
+	0x28, 0x09, 0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x22, 0x35, 0x0a, 0x1e, 0x4d, 0x6f, 0x74, 0x6f,
+	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x49, 0x73, 0x49, 0x6e, 0x4d, 0x6f, 0x74, 0x69,
+	0x6f, 0x6e, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x13, 0x0a, 0x05, 0x69, 0x73,
+	0x5f, 0x6f, 0x6e, 0x18, 0x01, 0x20, 0x01, 0x28, 0x08, 0x52, 0x04, 0x69, 0x73, 0x4f, 0x6e, 0x32,
+	0x97, 0x0a, 0x0a, 0x0c, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
+	0x12, 0x99, 0x01, 0x0a, 0x08, 0x53, 0x65, 0x74, 0x50, 0x6f, 0x77, 0x65, 0x72, 0x12, 0x33, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e,
+	0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76,
+	0x69, 0x63, 0x65, 0x53, 0x65, 0x74, 0x50, 0x6f, 0x77, 0x65, 0x72, 0x52, 0x65, 0x71, 0x75, 0x65,
+	0x73, 0x74, 0x1a, 0x34, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63,
+	0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e, 0x4d, 0x6f, 0x74, 0x6f,
+	0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x53, 0x65, 0x74, 0x50, 0x6f, 0x77, 0x65, 0x72,
+	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x22, 0x82, 0xd3, 0xe4, 0x93, 0x02, 0x1c,
+	0x1a, 0x1a, 0x2f, 0x61, 0x70, 0x69, 0x2f, 0x76, 0x31, 0x2f, 0x6d, 0x6f, 0x74, 0x6f, 0x72, 0x2f,
+	0x7b, 0x6e, 0x61, 0x6d, 0x65, 0x7d, 0x2f, 0x70, 0x6f, 0x77, 0x65, 0x72, 0x12, 0x91, 0x01, 0x0a,
 	0x05, 0x47, 0x6f, 0x46, 0x6f, 0x72, 0x12, 0x30, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61,
 	0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x70, 0x6f, 0x6e, 0x65, 0x6e, 0x74, 0x2e, 0x76, 0x31, 0x2e,
 	0x4d, 0x6f, 0x74, 0x6f, 0x72, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x47, 0x6f, 0x46, 0x6f,
@@ -1073,48 +964,44 @@ func file_proto_api_component_v1_motor_proto_rawDescGZIP() []byte {
 	return file_proto_api_component_v1_motor_proto_rawDescData
 }
 
-var file_proto_api_component_v1_motor_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_proto_api_component_v1_motor_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_proto_api_component_v1_motor_proto_goTypes = []interface{}{
 	(*MotorServiceSetPowerRequest)(nil),           // 0: proto.api.component.v1.MotorServiceSetPowerRequest
 	(*MotorServiceSetPowerResponse)(nil),          // 1: proto.api.component.v1.MotorServiceSetPowerResponse
-	(*MotorServiceGoRequest)(nil),                 // 2: proto.api.component.v1.MotorServiceGoRequest
-	(*MotorServiceGoResponse)(nil),                // 3: proto.api.component.v1.MotorServiceGoResponse
-	(*MotorServiceGoForRequest)(nil),              // 4: proto.api.component.v1.MotorServiceGoForRequest
-	(*MotorServiceGoForResponse)(nil),             // 5: proto.api.component.v1.MotorServiceGoForResponse
-	(*MotorServiceGoToRequest)(nil),               // 6: proto.api.component.v1.MotorServiceGoToRequest
-	(*MotorServiceGoToResponse)(nil),              // 7: proto.api.component.v1.MotorServiceGoToResponse
-	(*MotorServiceResetZeroPositionRequest)(nil),  // 8: proto.api.component.v1.MotorServiceResetZeroPositionRequest
-	(*MotorServiceResetZeroPositionResponse)(nil), // 9: proto.api.component.v1.MotorServiceResetZeroPositionResponse
-	(*MotorServicePositionRequest)(nil),           // 10: proto.api.component.v1.MotorServicePositionRequest
-	(*MotorServicePositionResponse)(nil),          // 11: proto.api.component.v1.MotorServicePositionResponse
-	(*MotorServicePositionSupportedRequest)(nil),  // 12: proto.api.component.v1.MotorServicePositionSupportedRequest
-	(*MotorServicePositionSupportedResponse)(nil), // 13: proto.api.component.v1.MotorServicePositionSupportedResponse
-	(*MotorServiceStopRequest)(nil),               // 14: proto.api.component.v1.MotorServiceStopRequest
-	(*MotorServiceStopResponse)(nil),              // 15: proto.api.component.v1.MotorServiceStopResponse
-	(*MotorServiceIsInMotionRequest)(nil),         // 16: proto.api.component.v1.MotorServiceIsInMotionRequest
-	(*MotorServiceIsInMotionResponse)(nil),        // 17: proto.api.component.v1.MotorServiceIsInMotionResponse
+	(*MotorServiceGoForRequest)(nil),              // 2: proto.api.component.v1.MotorServiceGoForRequest
+	(*MotorServiceGoForResponse)(nil),             // 3: proto.api.component.v1.MotorServiceGoForResponse
+	(*MotorServiceGoToRequest)(nil),               // 4: proto.api.component.v1.MotorServiceGoToRequest
+	(*MotorServiceGoToResponse)(nil),              // 5: proto.api.component.v1.MotorServiceGoToResponse
+	(*MotorServiceResetZeroPositionRequest)(nil),  // 6: proto.api.component.v1.MotorServiceResetZeroPositionRequest
+	(*MotorServiceResetZeroPositionResponse)(nil), // 7: proto.api.component.v1.MotorServiceResetZeroPositionResponse
+	(*MotorServicePositionRequest)(nil),           // 8: proto.api.component.v1.MotorServicePositionRequest
+	(*MotorServicePositionResponse)(nil),          // 9: proto.api.component.v1.MotorServicePositionResponse
+	(*MotorServicePositionSupportedRequest)(nil),  // 10: proto.api.component.v1.MotorServicePositionSupportedRequest
+	(*MotorServicePositionSupportedResponse)(nil), // 11: proto.api.component.v1.MotorServicePositionSupportedResponse
+	(*MotorServiceStopRequest)(nil),               // 12: proto.api.component.v1.MotorServiceStopRequest
+	(*MotorServiceStopResponse)(nil),              // 13: proto.api.component.v1.MotorServiceStopResponse
+	(*MotorServiceIsInMotionRequest)(nil),         // 14: proto.api.component.v1.MotorServiceIsInMotionRequest
+	(*MotorServiceIsInMotionResponse)(nil),        // 15: proto.api.component.v1.MotorServiceIsInMotionResponse
 }
 var file_proto_api_component_v1_motor_proto_depIdxs = []int32{
 	0,  // 0: proto.api.component.v1.MotorService.SetPower:input_type -> proto.api.component.v1.MotorServiceSetPowerRequest
-	2,  // 1: proto.api.component.v1.MotorService.Go:input_type -> proto.api.component.v1.MotorServiceGoRequest
-	4,  // 2: proto.api.component.v1.MotorService.GoFor:input_type -> proto.api.component.v1.MotorServiceGoForRequest
-	6,  // 3: proto.api.component.v1.MotorService.GoTo:input_type -> proto.api.component.v1.MotorServiceGoToRequest
-	8,  // 4: proto.api.component.v1.MotorService.ResetZeroPosition:input_type -> proto.api.component.v1.MotorServiceResetZeroPositionRequest
-	10, // 5: proto.api.component.v1.MotorService.Position:input_type -> proto.api.component.v1.MotorServicePositionRequest
-	12, // 6: proto.api.component.v1.MotorService.PositionSupported:input_type -> proto.api.component.v1.MotorServicePositionSupportedRequest
-	14, // 7: proto.api.component.v1.MotorService.Stop:input_type -> proto.api.component.v1.MotorServiceStopRequest
-	16, // 8: proto.api.component.v1.MotorService.IsInMotion:input_type -> proto.api.component.v1.MotorServiceIsInMotionRequest
-	1,  // 9: proto.api.component.v1.MotorService.SetPower:output_type -> proto.api.component.v1.MotorServiceSetPowerResponse
-	3,  // 10: proto.api.component.v1.MotorService.Go:output_type -> proto.api.component.v1.MotorServiceGoResponse
-	5,  // 11: proto.api.component.v1.MotorService.GoFor:output_type -> proto.api.component.v1.MotorServiceGoForResponse
-	7,  // 12: proto.api.component.v1.MotorService.GoTo:output_type -> proto.api.component.v1.MotorServiceGoToResponse
-	9,  // 13: proto.api.component.v1.MotorService.ResetZeroPosition:output_type -> proto.api.component.v1.MotorServiceResetZeroPositionResponse
-	11, // 14: proto.api.component.v1.MotorService.Position:output_type -> proto.api.component.v1.MotorServicePositionResponse
-	13, // 15: proto.api.component.v1.MotorService.PositionSupported:output_type -> proto.api.component.v1.MotorServicePositionSupportedResponse
-	15, // 16: proto.api.component.v1.MotorService.Stop:output_type -> proto.api.component.v1.MotorServiceStopResponse
-	17, // 17: proto.api.component.v1.MotorService.IsInMotion:output_type -> proto.api.component.v1.MotorServiceIsInMotionResponse
-	9,  // [9:18] is the sub-list for method output_type
-	0,  // [0:9] is the sub-list for method input_type
+	2,  // 1: proto.api.component.v1.MotorService.GoFor:input_type -> proto.api.component.v1.MotorServiceGoForRequest
+	4,  // 2: proto.api.component.v1.MotorService.GoTo:input_type -> proto.api.component.v1.MotorServiceGoToRequest
+	6,  // 3: proto.api.component.v1.MotorService.ResetZeroPosition:input_type -> proto.api.component.v1.MotorServiceResetZeroPositionRequest
+	8,  // 4: proto.api.component.v1.MotorService.Position:input_type -> proto.api.component.v1.MotorServicePositionRequest
+	10, // 5: proto.api.component.v1.MotorService.PositionSupported:input_type -> proto.api.component.v1.MotorServicePositionSupportedRequest
+	12, // 6: proto.api.component.v1.MotorService.Stop:input_type -> proto.api.component.v1.MotorServiceStopRequest
+	14, // 7: proto.api.component.v1.MotorService.IsInMotion:input_type -> proto.api.component.v1.MotorServiceIsInMotionRequest
+	1,  // 8: proto.api.component.v1.MotorService.SetPower:output_type -> proto.api.component.v1.MotorServiceSetPowerResponse
+	3,  // 9: proto.api.component.v1.MotorService.GoFor:output_type -> proto.api.component.v1.MotorServiceGoForResponse
+	5,  // 10: proto.api.component.v1.MotorService.GoTo:output_type -> proto.api.component.v1.MotorServiceGoToResponse
+	7,  // 11: proto.api.component.v1.MotorService.ResetZeroPosition:output_type -> proto.api.component.v1.MotorServiceResetZeroPositionResponse
+	9,  // 12: proto.api.component.v1.MotorService.Position:output_type -> proto.api.component.v1.MotorServicePositionResponse
+	11, // 13: proto.api.component.v1.MotorService.PositionSupported:output_type -> proto.api.component.v1.MotorServicePositionSupportedResponse
+	13, // 14: proto.api.component.v1.MotorService.Stop:output_type -> proto.api.component.v1.MotorServiceStopResponse
+	15, // 15: proto.api.component.v1.MotorService.IsInMotion:output_type -> proto.api.component.v1.MotorServiceIsInMotionResponse
+	8,  // [8:16] is the sub-list for method output_type
+	0,  // [0:8] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -1151,30 +1038,6 @@ func file_proto_api_component_v1_motor_proto_init() {
 			}
 		}
 		file_proto_api_component_v1_motor_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MotorServiceGoRequest); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_proto_api_component_v1_motor_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*MotorServiceGoResponse); i {
-			case 0:
-				return &v.state
-			case 1:
-				return &v.sizeCache
-			case 2:
-				return &v.unknownFields
-			default:
-				return nil
-			}
-		}
-		file_proto_api_component_v1_motor_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceGoForRequest); i {
 			case 0:
 				return &v.state
@@ -1186,7 +1049,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceGoForResponse); i {
 			case 0:
 				return &v.state
@@ -1198,7 +1061,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceGoToRequest); i {
 			case 0:
 				return &v.state
@@ -1210,7 +1073,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceGoToResponse); i {
 			case 0:
 				return &v.state
@@ -1222,7 +1085,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceResetZeroPositionRequest); i {
 			case 0:
 				return &v.state
@@ -1234,7 +1097,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceResetZeroPositionResponse); i {
 			case 0:
 				return &v.state
@@ -1246,7 +1109,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServicePositionRequest); i {
 			case 0:
 				return &v.state
@@ -1258,7 +1121,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServicePositionResponse); i {
 			case 0:
 				return &v.state
@@ -1270,7 +1133,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServicePositionSupportedRequest); i {
 			case 0:
 				return &v.state
@@ -1282,7 +1145,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServicePositionSupportedResponse); i {
 			case 0:
 				return &v.state
@@ -1294,7 +1157,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceStopRequest); i {
 			case 0:
 				return &v.state
@@ -1306,7 +1169,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceStopResponse); i {
 			case 0:
 				return &v.state
@@ -1318,7 +1181,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceIsInMotionRequest); i {
 			case 0:
 				return &v.state
@@ -1330,7 +1193,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 				return nil
 			}
 		}
-		file_proto_api_component_v1_motor_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
+		file_proto_api_component_v1_motor_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*MotorServiceIsInMotionResponse); i {
 			case 0:
 				return &v.state
@@ -1349,7 +1212,7 @@ func file_proto_api_component_v1_motor_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_component_v1_motor_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   18,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

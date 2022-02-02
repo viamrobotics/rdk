@@ -149,14 +149,12 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	)
 }
 
-// Go instructs the motor to operate at an rpm, where the sign of the rpm
+//  instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
-func (m *Motor) Go(ctx context.Context, rpm float64) error {
+func (m *Motor) setPowerWithDirection(ctx context.Context, powerPct float64) error {
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
-
-	powerPct := rpm / m.maxRPM
 
 	if math.Abs(powerPct) <= 0.001 {
 		return m.Stop(ctx)
@@ -187,22 +185,18 @@ func (m *Motor) Go(ctx context.Context, rpm float64) error {
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
 }
 
-func calcWaitDur(rpm, revolutions float64) time.Duration {
-	return time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
-}
-
-func adjustRPMByMaxAndSign(maxRPM, rpm, revolutions float64) float64 {
-	adjusted := rpm
+func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
+	// need to do this so time is reasonable
 	if rpm > maxRPM {
-		adjusted = maxRPM
+		rpm = maxRPM
 	} else if rpm < -1*maxRPM {
-		adjusted = -1 * maxRPM
+		rpm = -1 * maxRPM
 	}
 
 	dir := rpm * revolutions / math.Abs(revolutions*rpm)
-	adjusted = math.Abs(adjusted) * dir
-
-	return adjusted
+	powerPct := math.Abs(rpm) / maxRPM * dir
+	waitDur := time.Duration(math.Abs(revolutions/rpm)*60*1000) * time.Millisecond
+	return powerPct, waitDur
 }
 
 // GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
@@ -213,14 +207,13 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 		return errors.New("not supported, define max_rpm attribute")
 	}
 
-	adjustedRPM := adjustRPMByMaxAndSign(m.maxRPM, rpm, revolutions)
-	err := m.Go(ctx, adjustedRPM)
+	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
+	err := m.setPowerWithDirection(ctx, powerPct)
 	if err != nil {
 		return err
 	}
 
 	// Begin go process to track timing and turn off motors after estimated distances has been traveled
-	waitDur := calcWaitDur(adjustedRPM, revolutions)
 	ctxWithTimeout, cancelForFunc := context.WithTimeout(context.Background(), waitDur)
 	waitCh := make(chan struct{})
 

@@ -22,10 +22,6 @@ type MotorServiceClient interface {
 	// expressed a value between -1 and 1 where negative values indiciate a backwards
 	// direction and positive values a forward direction
 	SetPower(ctx context.Context, in *MotorServiceSetPowerRequest, opts ...grpc.CallOption) (*MotorServiceSetPowerResponse, error)
-	// Go instructs the motor to turn using a specified percentage of its total power,
-	// expressed as a value between -1 and 1 where negative values indiciate a backwards
-	// direction and positive values a forward direction
-	Go(ctx context.Context, in *MotorServiceGoRequest, opts ...grpc.CallOption) (*MotorServiceGoResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if MotorPositionSupported is false
@@ -61,15 +57,6 @@ func NewMotorServiceClient(cc grpc.ClientConnInterface) MotorServiceClient {
 func (c *motorServiceClient) SetPower(ctx context.Context, in *MotorServiceSetPowerRequest, opts ...grpc.CallOption) (*MotorServiceSetPowerResponse, error) {
 	out := new(MotorServiceSetPowerResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/SetPower", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *motorServiceClient) Go(ctx context.Context, in *MotorServiceGoRequest, opts ...grpc.CallOption) (*MotorServiceGoResponse, error) {
-	out := new(MotorServiceGoResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/Go", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,10 +134,6 @@ type MotorServiceServer interface {
 	// expressed a value between -1 and 1 where negative values indiciate a backwards
 	// direction and positive values a forward direction
 	SetPower(context.Context, *MotorServiceSetPowerRequest) (*MotorServiceSetPowerResponse, error)
-	// Go instructs the motor to turn using a specified percentage of its total power,
-	// expressed as a value between -1 and 1 where negative values indiciate a backwards
-	// direction and positive values a forward direction
-	Go(context.Context, *MotorServiceGoRequest) (*MotorServiceGoResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
 	// This method will return an error if MotorPositionSupported is false
@@ -182,9 +165,6 @@ type UnimplementedMotorServiceServer struct {
 
 func (UnimplementedMotorServiceServer) SetPower(context.Context, *MotorServiceSetPowerRequest) (*MotorServiceSetPowerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPower not implemented")
-}
-func (UnimplementedMotorServiceServer) Go(context.Context, *MotorServiceGoRequest) (*MotorServiceGoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Go not implemented")
 }
 func (UnimplementedMotorServiceServer) GoFor(context.Context, *MotorServiceGoForRequest) (*MotorServiceGoForResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GoFor not implemented")
@@ -234,24 +214,6 @@ func _MotorService_SetPower_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MotorServiceServer).SetPower(ctx, req.(*MotorServiceSetPowerRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _MotorService_Go_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceGoRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MotorServiceServer).Go(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/Go",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).Go(ctx, req.(*MotorServiceGoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -392,10 +354,6 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetPower",
 			Handler:    _MotorService_SetPower_Handler,
-		},
-		{
-			MethodName: "Go",
-			Handler:    _MotorService_Go_Handler,
 		},
 		{
 			MethodName: "GoFor",

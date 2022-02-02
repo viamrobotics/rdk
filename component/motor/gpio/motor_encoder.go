@@ -271,14 +271,6 @@ func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal 
 	return m.real.SetPower(ctx, m.state.lastPowerPct)
 }
 
-// Go instructs the motor to go in a given direction at a given power level between -1 and 1.
-func (m *EncodedMotor) Go(ctx context.Context, rpm float64) error {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
-	powerPct := rpm / m.cfg.MaxRPM
-	return m.doGo(ctx, powerPct, false)
-}
-
 // doGo assumes the state lock is held.
 func (m *EncodedMotor) doGo(ctx context.Context, powerPct float64, internal bool) error {
 	if !internal {
@@ -287,7 +279,7 @@ func (m *EncodedMotor) doGo(ctx context.Context, powerPct float64, internal bool
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
 
-	return m.real.Go(ctx, m.state.lastPowerPct*(m.cfg.MaxRPM))
+	return m.real.SetPower(ctx, m.state.lastPowerPct*(m.cfg.MaxRPM))
 }
 
 // RPMMonitorStart starts the RPM monitor.

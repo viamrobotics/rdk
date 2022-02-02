@@ -46,19 +46,6 @@ func (server *subtypeServer) SetPower(
 	return &pb.MotorServiceSetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct())
 }
 
-// Go requests the motor of the underlying robot to go.
-func (server *subtypeServer) Go(
-	ctx context.Context,
-	req *pb.MotorServiceGoRequest,
-) (*pb.MotorServiceGoResponse, error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
-	}
-	return &pb.MotorServiceGoResponse{}, motor.Go(ctx, req.GetRpm())
-}
-
 // GoFor requests the motor of the underlying robot to go for a certain amount based off
 // the request.
 func (server *subtypeServer) GoFor(

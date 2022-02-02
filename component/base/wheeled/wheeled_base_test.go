@@ -98,7 +98,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].Go(ctx, 1)
+		err = base.allMotors[0].SetPower(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
 		isOn, err := base.allMotors[0].IsInMotion(ctx)
 		test.That(t, err, test.ShouldBeNil)

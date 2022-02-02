@@ -11,7 +11,6 @@ import (
 type Motor struct {
 	motor.Motor
 	SetPowerFunc          func(ctx context.Context, powerPct float64) error
-	GoFunc                func(ctx context.Context, powerPct float64) error
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
 	GoTillStopFunc        func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
@@ -28,14 +27,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 		return m.Motor.SetPower(ctx, powerPct)
 	}
 	return m.SetPowerFunc(ctx, powerPct)
-}
-
-// Go calls the injected Go or the real version.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
-	if m.GoFunc == nil {
-		return m.Motor.Go(ctx, powerPct)
-	}
-	return m.GoFunc(ctx, powerPct)
 }
 
 // GoFor calls the injected GoFor or the real version.

@@ -84,28 +84,6 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.motorGo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 2 {
-			return nil, errors.New("expected 3 arguments for motor name, and rpm")
-		}
-		motorName, err := args[0].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
-		}
-
-		rpm, err := args[1].Number()
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, motor.Go(context.TODO(), rpm)
-	}); err != nil {
-		return nil, err
-	}
 	if err := engine.ImportFunction("robot.motorGoFor", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 3 {
 			return nil, errors.New("expected 3 arguments for motor name, rpm, and revolutions")

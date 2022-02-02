@@ -33,9 +33,6 @@ func TestClient(t *testing.T) {
 	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		return nil
 	}
-	workingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return nil
-	}
 	workingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64) error {
 		return nil
 	}
@@ -63,9 +60,6 @@ func TestClient(t *testing.T) {
 
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		return errors.New("set power failed")
-	}
-	failingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return errors.New("go failed")
 	}
 	failingMotor.GoForFunc = func(ctx context.Context, rpm, rotations float64) error {
 		return errors.New("go for failed")
@@ -119,9 +113,6 @@ func TestClient(t *testing.T) {
 		err := workingMotorClient.SetPower(context.Background(), 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = workingMotorClient.Go(context.Background(), 42.0)
-		test.That(t, err, test.ShouldBeNil)
-
 		err = workingMotorClient.GoFor(context.Background(), 42.0, 42.0)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -162,9 +153,6 @@ func TestClient(t *testing.T) {
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
 		err = failingMotorClient.SetPower(context.Background(), 42.0)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorClient.Go(context.Background(), 42.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0)
@@ -215,9 +203,6 @@ func TestClient(t *testing.T) {
 		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "failingMotor", logger)
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2)
-		test.That(t, err, test.ShouldNotBeNil)
-
-		err = failingMotorDialedClient.Go(context.Background(), 39.2)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		posSupported, err := failingMotorDialedClient.PositionSupported(context.Background())

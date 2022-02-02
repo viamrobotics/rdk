@@ -126,27 +126,11 @@ type arduinoMotor struct {
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) <= .001 {
+	if math.Abs(powerPct) <= .0001 {
 		return m.Stop(ctx)
 	}
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
-	return err
-}
-
-// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
-func (m *arduinoMotor) Go(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) < 0.0001 {
-		return m.Stop(ctx)
-	}
-	var dir string
-	if !math.Signbit(powerPct) {
-		dir = "f"
-	} else {
-		dir = "n"
-	}
-
-	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*math.Abs(powerPct))))
 	return err
 }
 
@@ -156,12 +140,14 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	ticks := int(math.Abs(revolutions) * float64(m.cfg.TicksPerRotation))
 	ticksPerSecond := int(math.Abs(rpm) * float64(m.cfg.TicksPerRotation) / 60.0)
 
+	powerPct := 0.003
 	if math.Signbit(rpm) != math.Signbit(revolutions) {
-		rpm *= -1
+		ticks *= -1
+		powerPct *= -1
 		// ticksPerSecond *= 1
 	}
 
-	err := m.Go(ctx, rpm)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}

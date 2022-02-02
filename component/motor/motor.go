@@ -29,9 +29,6 @@ type Motor interface {
 	// SetPower sets the percentage of power the motor should employ between 0-1.
 	SetPower(ctx context.Context, powerPct float64) error
 
-	// Go instructs the motor to go in a specific direction at a particular rpm
-	Go(ctx context.Context, rpm float64) error
-
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
 	// can be assigned negative values to move in a backwards direction. Note: if both are
@@ -98,12 +95,6 @@ func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) er
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.SetPower(ctx, powerPct)
-}
-
-func (r *reconfigurableMotor) Go(ctx context.Context, rpm float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Go(ctx, rpm)
 }
 
 func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {

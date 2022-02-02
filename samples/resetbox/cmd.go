@@ -536,7 +536,7 @@ func (b *ResetBox) vibrate(ctx context.Context, level float64) {
 		b.vibrator.Stop(ctx)
 		b.vibeState = false
 	} else {
-		b.vibrator.Go(ctx, level)
+		b.vibrator.SetPower(ctx, level)
 		b.vibeState = true
 	}
 }
@@ -594,7 +594,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	}
 
 	// Go mostly up
-	b.tipper.Go(ctx, 1.0)
+	b.tipper.SetPower(ctx, 1.0)
 	utils.SelectContextOrWait(ctx, 11000*time.Millisecond)
 
 	// All off
@@ -605,7 +605,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 }
 
 func (b *ResetBox) tipTableDown(ctx context.Context) error {
-	if err := b.tipper.Go(ctx, -1.0); err != nil {
+	if err := b.tipper.SetPower(ctx, -1.0); err != nil {
 		return err
 	}
 	if !utils.SelectContextOrWait(ctx, 10000*time.Millisecond) {

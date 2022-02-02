@@ -59,33 +59,6 @@ func TestSetPower(t *testing.T) {
 }
 
 //nolint:dupl
-func TestGo(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
-
-	// fails on a bad motor
-	req := pb.MotorServiceGoRequest{Name: "notAMotor"}
-	resp, err := motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	failingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return errors.New("motor go failed")
-	}
-	req = pb.MotorServiceGoRequest{Name: "failingMotor", Rpm: 0.5}
-	resp, err = motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	workingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return nil
-	}
-	req = pb.MotorServiceGoRequest{Name: "workingMotor", Rpm: 0.5}
-	resp, err = motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-}
-
-//nolint:dupl
 func TestGoFor(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
