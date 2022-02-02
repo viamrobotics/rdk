@@ -29,7 +29,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
 
-	inputController1 := "inputController1"
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
@@ -59,7 +58,6 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	inputController2 := "inputController2"
 	injectInputController2 := &inject.InputController{}
 	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
@@ -69,8 +67,8 @@ func TestClient(t *testing.T) {
 	}
 
 	resources := map[resource.Name]interface{}{
-		input.Named(inputController1): injectInputController,
-		input.Named(inputController2): injectInputController2,
+		input.Named(testInputControllerName): injectInputController,
+		input.Named(failInputControllerName): injectInputController2,
 	}
 	inputControllerSvc, err := subtype.New(resources)
 	test.That(t, err, test.ShouldBeNil)
@@ -82,7 +80,7 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = input.NewClient(cancelCtx, inputController1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = input.NewClient(cancelCtx, testInputControllerName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -90,7 +88,7 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 1", func(t *testing.T) {
 		inputController1Client, err := input.NewClient(
 			context.Background(),
-			inputController1,
+			testInputControllerName,
 			listener1.Addr().String(),
 			logger,
 			rpc.WithInsecure(),
@@ -221,7 +219,7 @@ func TestClient(t *testing.T) {
 	t.Run("input controller client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		inputController2Client := input.NewClientFromConn(context.Background(), conn, inputController2, logger)
+		inputController2Client := input.NewClientFromConn(context.Background(), conn, failInputControllerName, logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = inputController2Client.GetControls(context.Background())
@@ -254,9 +252,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectInputController := &inject.InputController{}
-	inputController1 := "inputController1"
 
-	inputControllerSvc, err := subtype.New((map[resource.Name]interface{}{input.Named(inputController1): injectInputController}))
+	inputControllerSvc, err := subtype.New((map[resource.Name]interface{}{input.Named(testInputControllerName): injectInputController}))
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterInputControllerServiceServer(gServer, input.NewServer(inputControllerSvc))
 
@@ -265,14 +262,10 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := input.NewClient(ctx, inputController1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := input.NewClient(ctx, testInputControllerName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := input.NewClient(ctx, inputController1, listener.Addr().String(), logger, rpc.WithInsecure())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.DialCalled, test.ShouldEqual, 1)
 
 	err = utils.TryClose(context.Background(), client1)
-	test.That(t, err, test.ShouldBeNil)
-	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
 }
