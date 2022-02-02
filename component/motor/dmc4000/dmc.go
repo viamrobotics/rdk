@@ -105,26 +105,12 @@ func init() {
 }
 
 func validAxis(axis string) bool {
-	switch axis {
-	case "A":
-		fallthrough
-	case "B":
-		fallthrough
-	case "C":
-		fallthrough
-	case "D":
-		fallthrough
-	case "E":
-		fallthrough
-	case "F":
-		fallthrough
-	case "G":
-		fallthrough
-	case "H":
+	c := []byte(axis)[0]
+	// ascii A through H
+	if c >= 65 && c <= 72 && len(axis) == 1 {
 		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // NewMotor returns a DMC4000 driven motor.
@@ -142,9 +128,28 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 		ctrl.activeAxes = make(map[string]bool)
 		ctrl.serialDevice = c.SerialDevice
 		ctrl.amplifierModel = c.AmplifierModel
-	}
-	if ctrl.amplifierModel == "" {
-		ctrl.amplifierModel = D4140 // only one supported for now
+		ctrl.logger = logger
+
+		if ctrl.amplifierModel == "" {
+			ctrl.amplifierModel = D4140 // only one supported for now
+		}
+
+		// TODO (James): Search for usb/serial device when not set
+
+		serialOptions := serial.OpenOptions{
+			PortName:          c.SerialDevice,
+			BaudRate:          115200,
+			DataBits:          8,
+			StopBits:          1,
+			MinimumReadSize:   1,
+			RTSCTSFlowControl: true,
+		}
+
+		port, err := serial.Open(serialOptions)
+		if err != nil {
+			return nil, err
+		}
+		ctrl.port = port
 	}
 	globalMu.Unlock()
 
@@ -163,21 +168,6 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 		ctrl.activeAxes[c.Axis] = true
 	}
 
-	serialOptions := serial.OpenOptions{
-		PortName:          c.SerialDevice,
-		BaudRate:          115200,
-		DataBits:          8,
-		StopBits:          1,
-		MinimumReadSize:   1,
-		RTSCTSFlowControl: true,
-	}
-
-	port, err := serial.Open(serialOptions)
-	if err != nil {
-		return nil, err
-	}
-	ctrl.port = port
-
 	m := &Motor{
 		c:                ctrl,
 		Axis:             c.Axis,
@@ -187,8 +177,19 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 		HomeRPM:          c.HomeRPM,
 	}
 
-	err = m.configure(c)
-	if err != nil {
+	if m.MaxRPM <= 0 {
+		m.MaxRPM = 1000
+	}
+
+	if m.MaxAcceleration <= 0 {
+		m.MaxAcceleration = 1000
+	}
+
+	if m.HomeRPM <= 0 {
+		m.HomeRPM = m.MaxRPM / 4
+	}
+
+	if err := m.configure(c); err != nil {
 		return nil, err
 	}
 
@@ -238,19 +239,31 @@ func (m *Motor) configure(c *Config) error {
 		}
 
 		// Set motor type to stepper (possibly reversed)
-		_, err = m.c.sendCmd(fmt.Sprintf("MT%s= %s", m.Axis, motorType))
+		_, err = m.c.sendCmd(fmt.Sprintf("MT%s=%s", m.Axis, motorType))
 		if err != nil {
 			return err
 		}
 
 		// Set amplifier gain
-		_, err = m.c.sendCmd(fmt.Sprintf("AG%s= %d", m.Axis, c.AmplifierGain))
+		_, err = m.c.sendCmd(fmt.Sprintf("AG%s=%d", m.Axis, c.AmplifierGain))
 		if err != nil {
 			return err
 		}
 
 		// Set low current mode
-		_, err = m.c.sendCmd(fmt.Sprintf("LC%s= %d", m.Axis, c.LowCurrent))
+		_, err = m.c.sendCmd(fmt.Sprintf("LC%s=%d", m.Axis, c.LowCurrent))
+		if err != nil {
+			return err
+		}
+
+		// Acceleration
+		_, err = m.c.sendCmd(fmt.Sprintf("AC%s=%d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
+		if err != nil {
+			return err
+		}
+
+		// Deceleration
+		_, err = m.c.sendCmd(fmt.Sprintf("DC%s=%d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
 		if err != nil {
 			return err
 		}
@@ -284,11 +297,11 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 		}
 	}
 
-	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret) {
+	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret)-1 {
 		return string(bytes.TrimSpace(ret[:len(ret)-1])), nil
 	}
 
-	if bytes.LastIndexByte(ret, []byte("?")[0]) == len(ret) {
+	if bytes.LastIndexByte(ret, []byte("?")[0]) == len(ret)-1 {
 		errorDetail, err := c.sendCmd("TC1")
 		if err != nil {
 			return string(ret), fmt.Errorf("error when trying to get error code from previous command (%s): %w", cmd, err)
@@ -352,34 +365,11 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 // Go instructs the motor to go in a specific direction at a percentage
 // of power between -1 and 1. Scaled to maxRPM.
 func (m *Motor) Go(ctx context.Context, powerPct float64) error {
-	m.c.mu.Lock()
-	defer m.c.mu.Unlock()
-
-	speed := m.rpmToV(math.Abs(powerPct) * m.MaxRPM)
-
-	if math.Signbit(powerPct) {
-		speed *= -1
+	if math.Abs(powerPct) < 0.001 {
+		return m.Stop(ctx)
 	}
 
-	// Acceleration
-	_, err := m.c.sendCmd(fmt.Sprintf("AC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
-	if err != nil {
-		return err
-	}
-
-	// Deceleration
-	_, err = m.c.sendCmd(fmt.Sprintf("DC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
-	if err != nil {
-		return err
-	}
-
-	// Speed
-	_, err = m.c.sendCmd(fmt.Sprintf("JG%s= %d", m.Axis, speed))
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return m.GoFor(ctx, powerPct*m.MaxRPM, 100000)
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -427,40 +417,18 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 		}
 
 		if stopFunc != nil && stopFunc(ctx) {
-			return nil
+			break
 		}
 
-		// check velocity
 		m.c.mu.Lock()
-		ret, err := m.c.sendCmd(fmt.Sprintf("TV%s", m.Axis))
+		stopped, err := m.isStopped()
 		m.c.mu.Unlock()
 		if err != nil {
 			return err
 		}
-		vel, err := strconv.Atoi(ret)
-		if err != nil {
-			return err
-		}
 
-		// stopped or decellerating
-		if math.Abs(float64(vel)) == 0 {
-			// extra check that stop was actually commanded
-			m.c.mu.Lock()
-			ret, err := m.c.sendCmd(fmt.Sprintf("SC%s", m.Axis))
-			m.c.mu.Unlock()
-			if err != nil {
-				return err
-			}
-			sc, err := strconv.Atoi(ret)
-			if err != nil {
-				return err
-			}
-
-			if sc != 0 && sc != 30 && sc != 50 && sc != 60 && sc != 100 {
-				break
-			}
-
-			return fmt.Errorf("stop code (%d) indicates motor still running", sc)
+		if stopped {
+			break
 		}
 
 		if fails >= 6000 {
@@ -476,7 +444,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	_, err := m.c.sendCmd(fmt.Sprintf("DP%s= %d", m.Axis, int(offset*float64(m.StepsPerRotation))))
+	_, err := m.c.sendCmd(fmt.Sprintf("DP%s=%d", m.Axis, int(offset*float64(m.StepsPerRotation))))
 	return err
 }
 
@@ -504,15 +472,44 @@ func (m *Motor) Stop(ctx context.Context) error {
 func (m *Motor) IsOn(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	ret, err := m.c.sendCmd(fmt.Sprintf("TV%s", m.Axis))
+	stopped, err := m.isStopped()
 	if err != nil {
 		return false, err
 	}
-	speed, err := strconv.Atoi(ret)
+	return !stopped, nil
+}
+
+// Must be run inside a lock.
+func (m *Motor) isStopped() (bool, error) {
+	// check that stop was actually commanded
+	ret, err := m.c.sendCmd(fmt.Sprintf("SC%s", m.Axis))
 	if err != nil {
 		return false, err
 	}
-	return speed != 0, nil
+	sc, err := strconv.Atoi(ret)
+	if err != nil {
+		return false, err
+	}
+
+	if sc == 0 || sc == 30 || sc == 50 || sc == 60 || sc == 100 {
+		return false, nil
+	}
+
+	// check that total error is zero (not coasting)
+	ret, err = m.c.sendCmd(fmt.Sprintf("TE%s", m.Axis))
+	if err != nil {
+		return false, err
+	}
+	te, err := strconv.Atoi(ret)
+	if err != nil {
+		return false, err
+	}
+
+	if te != 0 {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // Home runs the dmc homing routine.
@@ -557,26 +554,14 @@ func (m *Motor) startHome() error {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 
-	// Acceleration
-	_, err := m.c.sendCmd(fmt.Sprintf("AC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
-	if err != nil {
-		return err
-	}
-
-	// Deceleration
-	_, err = m.c.sendCmd(fmt.Sprintf("DC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
-	if err != nil {
-		return err
-	}
-
 	// Speed (stage 1)
-	_, err = m.c.sendCmd(fmt.Sprintf("SP%s= %d", m.Axis, m.rpmToV(m.HomeRPM)))
+	_, err := m.c.sendCmd(fmt.Sprintf("SP%s=%d", m.Axis, m.rpmToV(m.HomeRPM)))
 	if err != nil {
 		return err
 	}
 
 	// Speed (stage 2)
-	_, err = m.c.sendCmd(fmt.Sprintf("HV%s= %d", m.Axis, m.rpmToV(m.HomeRPM/10)))
+	_, err = m.c.sendCmd(fmt.Sprintf("HV%s=%d", m.Axis, m.rpmToV(m.HomeRPM/10)))
 	if err != nil {
 		return err
 	}
@@ -597,31 +582,19 @@ func (m *Motor) startHome() error {
 // Must be run inside a lock.
 func (m *Motor) doGoTo(rpm float64, position float64) error {
 	// Position tracking mode
-	_, err := m.c.sendCmd(fmt.Sprintf("PT%s= 1", m.Axis))
-	if err != nil {
-		return err
-	}
-
-	// Acceleration
-	_, err = m.c.sendCmd(fmt.Sprintf("AC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
-	if err != nil {
-		return err
-	}
-
-	// Deceleration
-	_, err = m.c.sendCmd(fmt.Sprintf("DC%s= %d", m.Axis, m.rpmsToA(m.MaxAcceleration)))
+	_, err := m.c.sendCmd(fmt.Sprintf("PT%s=1", m.Axis))
 	if err != nil {
 		return err
 	}
 
 	// Speed
-	_, err = m.c.sendCmd(fmt.Sprintf("SP%s= %d", m.Axis, m.rpmToV(rpm)))
+	_, err = m.c.sendCmd(fmt.Sprintf("SP%s=%d", m.Axis, m.rpmToV(rpm)))
 	if err != nil {
 		return err
 	}
 
 	// Position target
-	_, err = m.c.sendCmd(fmt.Sprintf("PA%s= %d", m.Axis, m.posToSteps(position)))
+	_, err = m.c.sendCmd(fmt.Sprintf("PA%s=%d", m.Axis, m.posToSteps(position)))
 	if err != nil {
 		return err
 	}
@@ -630,7 +603,7 @@ func (m *Motor) doGoTo(rpm float64, position float64) error {
 
 // Must be run inside a lock.
 func (m *Motor) doPosition() (float64, error) {
-	ret, err := m.c.sendCmd("TP" + m.Axis)
+	ret, err := m.c.sendCmd(fmt.Sprintf("RP%s", m.Axis))
 	if err != nil {
 		return 0, err
 	}
