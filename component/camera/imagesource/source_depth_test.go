@@ -26,7 +26,7 @@ func TestDepthSource(t *testing.T) {
 }
 
 type depthSourceTestHelper struct {
-	attrs rimage.AttrConfig
+	attrs camera.AttrConfig
 }
 
 func (h *depthSourceTestHelper) Process(
@@ -92,7 +92,7 @@ func TestDepthSourceGripper(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
@@ -105,7 +105,7 @@ func TestDepthSourceIntel(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)

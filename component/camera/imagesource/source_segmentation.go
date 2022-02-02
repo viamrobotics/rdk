@@ -32,9 +32,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 // colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
@@ -77,7 +77,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 }
 
 func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+	attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 	if !ok {
 		return nil, errors.New("cannot retrieve converted attributes")
 	}

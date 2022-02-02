@@ -30,9 +30,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "preprocess_depth",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 // preprocessDepthSource applies pre-processing functions to depth maps in order to smooth edges and fill holes.
@@ -59,9 +59,9 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 }
 
 func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+	source, ok := r.CameraByName(config.ConvertedAttributes.(*camera.AttrConfig).Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*camera.AttrConfig).Source)
 	}
 	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
 }

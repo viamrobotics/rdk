@@ -30,9 +30,9 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.
@@ -61,9 +61,9 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+	source, ok := r.CameraByName(config.ConvertedAttributes.(*camera.AttrConfig).Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*camera.AttrConfig).Source)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	return &camera.ImageSource{ImageSource: &depthEdgesSource{source, canny, 3.0}}, nil

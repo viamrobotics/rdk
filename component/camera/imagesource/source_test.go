@@ -64,7 +64,7 @@ func TestDualServerSource(t *testing.T) {
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := rimage.AttrConfig{}
+	attrs := camera.AttrConfig{}
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
 	s, err := NewServerSource(&attrs, logger)

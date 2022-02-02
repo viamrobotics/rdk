@@ -28,7 +28,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			sourceName := config.ConvertedAttributes.(*rimage.AttrConfig).Source
+			sourceName := config.ConvertedAttributes.(*camera.AttrConfig).Source
 			source, ok := r.CameraByName(sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
@@ -39,10 +39,10 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -53,7 +53,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
 				return nil, errors.New("cannot retrieve converted attributes")
 			}
@@ -79,10 +79,10 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 }
 
 // rotateImageDepthSource TODO.
