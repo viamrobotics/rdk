@@ -265,21 +265,11 @@ func (m *EncodedMotor) SetPower(ctx context.Context, powerPct float64) error {
 // setPower assumes the state lock is held.
 func (m *EncodedMotor) setPower(ctx context.Context, powerPct float64, internal bool) error {
 	if !internal {
-		m.state.desiredRPM = 0 // if we're setting power externally, don't control RPM
-	}
-	m.state.lastPowerPct = m.fixPowerPct(powerPct)
-	return m.real.SetPower(ctx, m.state.lastPowerPct)
-}
-
-// doGo assumes the state lock is held.
-func (m *EncodedMotor) doGo(ctx context.Context, powerPct float64, internal bool) error {
-	if !internal {
 		m.state.desiredRPM = 0    // if we're setting power externally, don't control RPM
 		m.state.regulated = false // user wants direct control, so we stop trying to control the world
 	}
 	m.state.lastPowerPct = m.fixPowerPct(powerPct)
-
-	return m.real.SetPower(ctx, m.state.lastPowerPct*(m.cfg.MaxRPM))
+	return m.real.SetPower(ctx, m.state.lastPowerPct)
 }
 
 // RPMMonitorStart starts the RPM monitor.
@@ -485,7 +475,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 			m.stateMu.Unlock()
 			return nil
 		}
-		err := m.doGo(ctx, float64(d)*.06, true) // power of 6% is random
+		err := m.setPower(ctx, float64(d)*.06, true) // power of 6% is random
 		m.stateMu.Unlock()
 		return err
 	}
@@ -514,7 +504,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 	}
 	if !isOn {
 		// if we're off we start slow, otherwise we just set the desired rpm
-		err := m.doGo(ctx, float64(d)*0.03, true)
+		err := m.setPower(ctx, float64(d)*0.03, true)
 		if err != nil {
 			m.stateMu.Unlock()
 			return err

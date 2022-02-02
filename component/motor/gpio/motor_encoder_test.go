@@ -68,7 +68,7 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
 	})
 
-	t.Run("encoded motor testing doGo interrupt GoFor", func(t *testing.T) {
+	t.Run("encoded motor testing setPower interrupt GoFor", func(t *testing.T) {
 		test.That(t, motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
@@ -81,12 +81,12 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 
-		motor.doGo(context.Background(), .25, false)
+		motor.setPower(context.Background(), .25, false)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
-		motor.doGo(context.Background(), 25, false)
+		motor.setPower(context.Background(), 25, false)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 
 		// we should still be moving at the previous force
