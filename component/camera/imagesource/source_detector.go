@@ -87,7 +87,15 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 	}
 	f := objectdetection.NewAreaFilter(segmentSize)
 
-	detector, err := objectdetection.NewSource(src, p, d, f)
+	// need a projector for the 3D Objects in Object Detection
+	var proj rimage.Projector
+	if attrs.CameraParameters != nil {
+		proj = attrs.CameraParameters
+	} else if cam, ok := src.(camera.WithProjector); ok {
+		proj = cam.GetProjector()
+	}
+	// define the detector
+	detector, err := objectdetection.NewSource(src, proj, p, d, f)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,22 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
+// Merge creates a union of point clouds from the slice of point clouds
+func Merge(clusters []PointCloud) (PointCloud, error) {
+	var err error
+	Union := New()
+	for _, cluster := range clusters {
+		cluster.Iterate(func(pt Point) bool {
+			err = Union.Set(pt)
+			return err == nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return Union, nil
+}
+
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
 // each element of the slice a unique color.
 func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {

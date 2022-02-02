@@ -7,14 +7,8 @@ import (
 	"github.com/golang/geo/r3"
 
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/vision"
 )
-
-// ObjectConfig specifies the necessary parameters for object segmentation.
-type ObjectConfig struct {
-	MinPtsInPlane      int
-	MinPtsInSegment    int
-	ClusteringRadiusMm float64
-}
 
 // ObjectSegmentation is a struct to store the full point cloud as well as a point cloud array of the objects in the scene.
 type ObjectSegmentation struct {
@@ -22,8 +16,18 @@ type ObjectSegmentation struct {
 	*Segments
 }
 
+// Scene returns the entire point cloud of the scene
+func (os *ObjectSegmentation) Image() pc.PointCloud {
+	return os.FullCloud
+}
+
+// Objects returns the list of objects in the scene
+func (os *ObjectSegmentation) Objects() []*pc.WithMetadata {
+	return os.Segments.Objects
+}
+
 // NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud.
-func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg ObjectConfig) (*ObjectSegmentation, error) {
+func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg vision.Parameters3D) (*ObjectSegmentation, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
@@ -135,7 +139,7 @@ func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) 
 func NewObjectSegmentationFromVoxelGrid(
 	ctx context.Context,
 	vg *pc.VoxelGrid,
-	objConfig ObjectConfig,
+	objConfig vision.Parameters3D,
 	planeConfig VoxelGridPlaneConfig,
 ) (*ObjectSegmentation, error) {
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)

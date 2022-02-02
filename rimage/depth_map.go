@@ -108,11 +108,14 @@ func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
 }
 
 // SubImage TODO.
-func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
+func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
+	if r.Empty() {
+		return &DepthMap{}
+	}
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
 	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
 	if xmin == xmax || ymin == ymax { // return empty DepthMap
-		return DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
+		return &DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
 	}
 	width := xmax - xmin
 	height := ymax - ymin
@@ -121,7 +124,7 @@ func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
 		newData = append(newData, dm.data[begin:end]...)
 	}
-	return DepthMap{width: width, height: height, data: newData}
+	return &DepthMap{width: width, height: height, data: newData}
 }
 
 func _readNext(r io.Reader) (int64, error) {

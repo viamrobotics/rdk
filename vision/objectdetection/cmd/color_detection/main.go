@@ -93,7 +93,7 @@ func pipeline(src gostream.ImageSource, tol float64, size int, logger golog.Logg
 	f := objectdetection.NewAreaFilter(size)
 
 	// make a pipeline
-	pipe, err := objectdetection.NewSource(src, p, d, f)
+	pipe, err := objectdetection.NewSource(src, nil, p, d, f)
 	if err != nil {
 		logger.Fatal(err)
 	}

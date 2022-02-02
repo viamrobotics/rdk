@@ -55,10 +55,16 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Camera represents anything that can capture frames.
+// A ThreeDimImageSource is anything that generates 3D point clouds
+type ThreeDimImageSource interface {
+	NextPointCloud(context.Context) (pointcloud.PointCloud, error)
+}
+
+// A Camera represents anything that can capture frames and find objects in a scene.
 type Camera interface {
 	gostream.ImageSource
-	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
+	ThreeDimImageSource
+	NextObjects(context.Context, vision.Parameters3D) (vision.Scene, error)
 }
 
 // WithProjector is a camera with the capability to project images to 3D.
@@ -108,6 +114,22 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
 }
 
+// NextObjects returns the next ObjectSegmentation from the camera scene,
+// or will error if not supported.
+func (is *imageSource) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
+	if c, ok := is.ImageSource.(Camera); ok {
+		return c.NextObjects(ctx, conf)
+	}
+	if c, ok := is.ImageSource.(ThreeDimImageSource); ok {
+		pc, err := c.NextPointCloud(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return segmentation.NewObjectSegmentation(ctx, pc, conf)
+	}
+	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
 type imageSourceWithProjector struct {
 	gostream.ImageSource
@@ -126,7 +148,7 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if c, ok := iswp.ImageSource.(Camera); ok {
+	if c, ok := iswp.ImageSource.(ThreeDimImageSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	img, closer, err := iswp.Next(ctx)
@@ -135,6 +157,31 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	}
 	defer closer()
 	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+}
+
+// NextObjects returns the next ObjectSegmentation from the camera scene,
+// or will error if not supported.
+func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
+	if c, ok := iswp.ImageSource.(Camera); ok {
+		return c.NextObjects(ctx, conf)
+	}
+	if c, ok := iswp.ImageSource.(ThreeDimImageSource); ok {
+		pc, err := c.NextPointCloud(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return segmentation.NewObjectSegmentation(ctx, pc, conf)
+	}
+	img, closer, err := iswp.Next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer closer()
+	pc, err := iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+	if err != nil {
+		return nil, err
+	}
+	return segmentation.NewObjectSegmentation(ctx, pc, conf)
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -193,6 +240,12 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.NextPointCloud(ctx)
+}
+
+func (c *reconfigurableCamera) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.actual.NextObjects(ctx, conf)
 }
 
 func (c *reconfigurableCamera) Close(ctx context.Context) error {

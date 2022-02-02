@@ -4,6 +4,11 @@ package objectdetection
 
 import (
 	"image"
+
+	"github.com/pkg/errors"
+	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision"
 )
 
 // Detector returns a slice of object detections from an input image.
@@ -29,4 +34,22 @@ func (d *detection2D) BoundingBox() *image.Rectangle {
 // Score returns a confidence score of the detection between 0.0 and 1.0.
 func (d *detection2D) Score() float64 {
 	return d.score
+}
+
+// ToScene projects the detections to 3D using the camera's Projector
+func ToScene(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Projector) (vision.Scene, error) {
+	if proj == nil {
+		return nil, errors.New("objectdetection: cannot have nil Projector when projecting objects to 3D")
+	}
+	objects := make([]*pointcloud.WithMetadata, len(dets))
+	for i, d := range dets {
+		bb := d.BoundingBox()
+		crop := img.SubImage(*bb)
+		pc, err := proj.ImageWithDepthToPointCloud(crop)
+		if err != nil {
+			return nil, err
+		}
+		objects[i] = pointcloud.NewWithMetadata(pc)
+	}
+	return vision.NewScene(objects)
 }
