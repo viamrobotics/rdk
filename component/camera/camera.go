@@ -41,20 +41,39 @@ type Camera interface {
 type CameraWithProjector interface {
 	Camera
 	rimage.Projector
+	GetProjector() rimage.Projector
+}
+
+// New creates a Camera either with or without a projector, depending on the attributes, or if it has a parent
+// Camera with attributes. parentSource and attrs can be nil.
+func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
+	if imgSrc == nil {
+		return nil, errors.New("cannot have a nil image source")
+	}
+	// if the camera parameters are specified in the config, use those over anything.
+	if attrs != nil && attrs.CameraParameters != nil {
+		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters}, nil
+	}
+	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
+	camera, ok := parentSource.(CameraWithProjector)
+	if ok {
+		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
+	}
+	return &imageSource{imgSrc}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
-type ImageSource struct {
+type imageSource struct {
 	gostream.ImageSource
 }
 
 // Close closes the underlying ImageSource.
-func (is *ImageSource) Close(ctx context.Context) error {
+func (is *imageSource) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, is.ImageSource)
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
@@ -67,12 +86,14 @@ type imageSourceWithProjector struct {
 	rimage.Projector
 }
 
-// NewImageSourceWithProjector creates a new CameraWithProjector by forcing it to have a non-nil Projector.
-func NewImageSourceWithProjector(source gostream.ImageSource, proj rimage.Projector) (CameraWithProjector, error) {
-	if source == nil || proj == nil {
-		return nil, errors.New("cannot have a nil image source or projector")
-	}
-	return &imageSourceWithProjector{source, proj}, nil
+// Close closes the underlying ImageSource.
+func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, iswp.ImageSource)
+}
+
+// Projector returns the camera's Projector
+func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
+	return iswp.Projector
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.

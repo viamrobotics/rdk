@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
@@ -29,12 +28,7 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
-			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
-			}
-			return NewColorDetector(source, attrs)
+			return newColorDetector(attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
@@ -48,8 +42,13 @@ func init() {
 	)
 }
 
-// NewColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func NewColorDetector(src gostream.ImageSource, attrs *camera.AttrConfig) (*camera.ImageSource, error) {
+// newColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
+func newColorDetector(attrs *camera.AttrConfig) (camera.Camera, error) {
+	sourceName := attrs.Source
+	src, ok := r.CameraByName(sourceName)
+	if !ok {
+		return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
+	}
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {
@@ -90,5 +89,5 @@ func NewColorDetector(src gostream.ImageSource, attrs *camera.AttrConfig) (*came
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: detector}, nil
+	return camera.New(detector, attrs, src)
 }

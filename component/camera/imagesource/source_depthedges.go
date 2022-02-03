@@ -25,7 +25,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthEdgesSource(r, config)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			return newDepthEdgesSource(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
@@ -60,11 +64,12 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	return edges, func() {}, nil
 }
 
-func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.ConvertedAttributes.(*camera.AttrConfig).Source)
+func newDepthEdgesSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*camera.AttrConfig).Source)
+		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &camera.ImageSource{ImageSource: &depthEdgesSource{source, canny, 3.0}}, nil
+	imgSrc := &depthEdgesSource{source, canny, 3.0}
+	return camera.New(imgSrc, attrs, source)
 }
