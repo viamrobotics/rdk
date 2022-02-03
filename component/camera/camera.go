@@ -50,13 +50,15 @@ func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (C
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")
 	}
-	// if the camera parameters are specified in the config, use those over anything.
+	// if the camera parameters are specified in the config, those get priority.
 	if attrs != nil && attrs.CameraParameters != nil {
 		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters}, nil
 	}
 	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
-	camera, ok := parentSource.(CameraWithProjector)
-	if ok {
+	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
+		parentSource = reconfigCam.ProxyFor().(Camera)
+	}
+	if camera, ok := parentSource.(CameraWithProjector); ok {
 		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
 	}
 	return &imageSource{imgSrc}, nil

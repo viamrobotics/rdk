@@ -243,6 +243,14 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) 
 	if !iwd.IsAligned() {
 		return nil, errors.New("image with depth is not aligned. Cannot project to Pointcloud")
 	}
+	if iwd.Depth == nil {
+		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	}
+	// Check dimensions, they should be equal between the color and depth frame
+	if iwd.Depth.Width() != iwd.Color.Width() || iwd.Depth.Height() != iwd.Color.Height() {
+		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
+			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
+	}
 	pc := pointcloud.New()
 	for y := 0; y < pci.Height; y++ {
 		for x := 0; x < pci.Width; x++ {

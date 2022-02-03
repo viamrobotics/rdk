@@ -68,7 +68,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
 	// align the image now
-	iwd, err = dct.AlignImageWithDepth(iwd)
+	iwd, err = dct.AlignColorAndDepthImage(iwd.Color, iwd.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, true)
 	// Check to see if the origin point on the pointcloud transformed correctly
