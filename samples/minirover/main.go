@@ -56,7 +56,7 @@ func dock(ctx context.Context, r robot.Robot) error {
 			return errors.New("no back camera")
 		}
 
-		base, ok := r.BaseByName("pierre")
+		base, ok := base.FromRobot(r,"pierre")
 		if !ok {
 			return errors.New("no pierre")
 		}

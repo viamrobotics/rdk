@@ -624,7 +624,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b, ok := myRobot.BaseByName("base1")
+	b, ok := base.FromRobot(myRobot, "base1")
 	if !ok {
 		return errors.New("no base")
 	}
