@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -75,21 +76,24 @@ func TestModelVolumes(t *testing.T) {
 
 	inputs := make([]Input, len(sm.DoF()))
 	vols, _ := sm.Volumes(inputs)
-	spatial.MarshalVolumesToFile(vols, "../../visualizer/temp.json")
 
 	test.That(t, vols, test.ShouldNotBeNil)
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// calculate the midpoint of each link and compare to volume position
-	prev := spatial.NewZeroPose()
 	for _, joint := range expected {
 		if joint.volumeCreator != nil {
-			linkMidpoint := spatial.Interpolate(prev, joint.transform, 0.5)
-			volCenter := vols[sm.Name()+":"+joint.Name()].Pose()
-			coincident := spatial.PoseAlmostCoincident(volCenter, linkMidpoint)
-			test.That(t, coincident, test.ShouldBeTrue)
-			prev = joint.transform
+			var offset r3.Vector
+			for _, tf := range m.(*SimpleModel).OrdTransforms {
+				if tf.Name() == joint.Name() {
+					vol, err := tf.Volumes([]Input{})
+					test.That(t, err, test.ShouldBeNil)
+					offset = vol[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
+				}
+			}
+			expected := joint.transform.Point().Add(offset)
+			volCenter := vols[sm.Name()+":"+joint.Name()].Pose().Point()
+			test.That(t, spatial.R3VectorAlmostEqual(expected, volCenter, 1e-3), test.ShouldBeTrue)
 		}
 	}
 }
