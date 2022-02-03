@@ -55,7 +55,6 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
-	LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -99,7 +98,6 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		r:                r,
 		fsParts:          parts,
 		sortedFrameNames: sortedFrameNames,
-		childrenMap:      children,
 		logger:           logger,
 	}
 	logger.Debugf("frame system for robot: %v", sortedFrameNames)
@@ -111,7 +109,6 @@ type frameSystemService struct {
 	r                robot.Robot
 	fsParts          map[string]*config.FrameSystemPart
 	sortedFrameNames []string // topologically sorted frame names in the frame system, includes world frame
-	childrenMap      map[string][]referenceframe.Frame
 	logger           golog.Logger
 }
 
@@ -136,13 +133,31 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 	return fsConfig, nil
 }
 
-// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots).
-func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	fs, err := BuildFrameSystem(ctx, name, svc.childrenMap, svc.logger)
-	if err != nil {
-		return nil, err
+func NewFrameSystemFromParts(
+	name, prefix string, parts []*config.FrameSystemPart,
+	logger golog.Logger,
+) (referenceframe.FrameSystem, error) {
+	fs := referenceframe.NewEmptySimpleFrameSystem(name)
+	for _, part := range parts {
+		// rename everything with prefixes
+		part.Name = prefix + part.Name
+		if part.FrameConfig.Parent != referenceframe.World {
+			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
+		}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return fs, nil
 }
