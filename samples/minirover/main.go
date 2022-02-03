@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -51,7 +52,7 @@ func dock(ctx context.Context, r robot.Robot) error {
 	/*
 		logger.Info("docking started")
 
-		cam, ok := r.CameraByName("back")
+		cam, ok := camera.FromRobot(r,"back")
 		if !ok {
 			return errors.New("no back camera")
 		}
@@ -210,7 +211,7 @@ func (r *Rover) neckPosition(ctx context.Context, pan, tilt uint8) error {
 // Ready TODO.
 func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	logger.Debug("minirover2 Ready called")
-	cam, ok := theRobot.CameraByName("front")
+	cam, ok := camera.FromRobot(theRobot, "front")
 	if !ok {
 		return errors.New("no camera named front")
 	}
