@@ -192,7 +192,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 			cc.Frame = &config.Frame{Parent: c.Parent}
 		}
 		if cc.Frame != nil && c.Pose != nil {
-			cc.Frame.Translation = spatialmath.Translation{
+			cc.Frame.Translation = spatialmath.TranslationConfig{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
