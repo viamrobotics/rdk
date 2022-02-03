@@ -90,9 +90,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.BaseNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(baseNames...)
 	}
-	injectRobot.ServoNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(servoNames...)
-	}
 	injectRobot.MotorNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(motorNames...)
 	}
@@ -164,12 +161,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			return nil, false
 		}
 		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.ServoNames()...)[name]; !ok {
-			return nil, false
-		}
-		return &fakeservo.Servo{Name: name}, true
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.MotorNames()...)[name]; !ok {
@@ -320,14 +311,14 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	test.That(
 		t,
-		utils.NewStringSet(robot.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(servoNames...)...),
 	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedServoNames...)...),
 	)
@@ -625,12 +616,12 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	_, ok = robot.ServoByName("servo1")
+	_, ok = servo.FromRobot(robot, "servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
-	_, ok = robot.ServoByName("one.servo1")
+	_, ok = servo.FromRobot(robot, "one.servo1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.ServoByName("servo1_what")
+	_, ok = servo.FromRobot(robot, "servo1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
