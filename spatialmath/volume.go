@@ -69,11 +69,15 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }
 
-func MarshalVolumesToFile(vols map[string]Volume, path string) {
+// MarshalVolumesToFile writes the contents of a map of volumes to a json file, with each volume being represented by its vertices.
+func MarshalVolumesToFile(vols map[string]Volume, path string) error {
 	vertices := make([][]r3.Vector, 0, len(vols))
 	for _, vol := range vols {
 		vertices = append(vertices, vol.Vertices())
 	}
-	bytes, _ := json.MarshalIndent(vertices, "", " ")
-	ioutil.WriteFile(path, bytes, 0o644)
+	bytes, err := json.MarshalIndent(vertices, "", " ")
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, bytes, 0o222)
 }

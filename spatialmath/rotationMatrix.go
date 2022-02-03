@@ -90,6 +90,7 @@ func (rm *RotationMatrix) At(row, col int) float64 {
 	return rm.mat[3*row+col]
 }
 
+// Mul returns the product of the rotation Matrix with an r3 Vector.
 func (rm *RotationMatrix) Mul(v r3.Vector) r3.Vector {
 	return r3.Vector{
 		X: rm.mat[0]*v.X + rm.mat[1]*v.Y + rm.mat[2]*v.Z,
