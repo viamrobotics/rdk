@@ -26,7 +26,6 @@ import (
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
-	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
@@ -231,9 +230,6 @@ func TestClient(t *testing.T) {
 		return nil, false
 	}
 	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return nil, false
-	}
-	injectRobot1.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
 		return nil, false
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -627,7 +623,7 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 
-	inputDev, ok := client.InputControllerByName("inputController1")
+	inputDev, ok := input.FromRobot(client, "inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
 	controlList, err := inputDev.GetControls(context.Background())
 	test.That(t, err, test.ShouldBeNil)

@@ -70,12 +70,6 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2"),
@@ -112,10 +106,6 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	_, ok = parts.MotorByName("motor1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.MotorByName("motor1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.InputControllerByName("inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.InputControllerByName("inputController1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 	_, ok = parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
@@ -194,12 +184,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
@@ -254,15 +238,6 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	_, ok = parts.MotorByName("motor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = parts.MotorByName("motor1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
-	_, ok = parts.InputControllerByName("inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.InputControllerByName("inputController1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.InputControllerByName("inputController1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.InputControllerByName("inputController1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, ok = parts.ResourceByName(arm.Named("arm1"))
@@ -353,12 +328,6 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 		utils.NewStringSet(parts.MotorNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(parts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
 	)
 	test.That(
 		t,
@@ -467,12 +436,6 @@ func TestPartsClone(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(newParts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(newParts.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
@@ -533,15 +496,6 @@ func TestPartsClone(t *testing.T) {
 	_, ok = newParts.MotorByName("motor1_r2")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, ok = newParts.MotorByName("motor1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
-	_, ok = newParts.InputControllerByName("inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.InputControllerByName("inputController1_r1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.InputControllerByName("inputController1_r2")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.InputControllerByName("inputController1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	_, ok = newParts.ResourceByName(arm.Named("arm1"))
@@ -720,7 +674,7 @@ func TestPartsAdd(t *testing.T) {
 	cfg = &config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
 	rName = cfg.ResourceName()
 	parts.addResource(rName, injectInputController)
-	inputController1, ok := parts.InputControllerByName("inputController1")
+	inputController1, ok := parts.ResourceByName(rName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, inputController1, test.ShouldEqual, injectInputController)
 	resource1, ok = parts.ResourceByName(rName)
@@ -938,7 +892,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
@@ -946,7 +899,6 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
@@ -1011,12 +963,6 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet(toCheck.MotorNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
-		)
-		test.That(
-			t,
-			utils.NewStringSet(toCheck.InputControllerNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
 		)
 		test.That(
 			t,
@@ -1130,12 +1076,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(
@@ -1227,12 +1167,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(parts.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(
@@ -1277,7 +1211,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.InputControllerNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
 	test.That(
@@ -1366,12 +1299,6 @@ func TestPartsMergeModify(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.InputControllerNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-		)
-		test.That(
-			t,
 			utils.NewStringSet(toCheck.FunctionNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
@@ -1438,7 +1365,6 @@ func TestPartsMergeModify(t *testing.T) {
 	test.That(t, utils.NewStringSet(emptyParts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.InputControllerNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
@@ -1603,12 +1529,6 @@ func TestPartsMergeRemove(t *testing.T) {
 		)
 		test.That(
 			t,
-			utils.NewStringSet(toCheck.InputControllerNames()...),
-			test.ShouldResemble,
-			utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-		)
-		test.That(
-			t,
 			utils.NewStringSet(toCheck.FunctionNames()...),
 			test.ShouldResemble,
 			utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
@@ -1669,7 +1589,6 @@ func TestPartsMergeRemove(t *testing.T) {
 	test.That(t, utils.NewStringSet(parts.BaseNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.BoardNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.MotorNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.InputControllerNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldBeEmpty)
 	test.That(t, parts.ResourceNames(), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
@@ -1693,7 +1612,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
@@ -1701,7 +1619,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.BaseNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.MotorNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(toCheck.InputControllerNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, toCheck.ResourceNames(), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
@@ -1867,12 +1784,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(filtered.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
-	)
-	test.That(
-		t,
 		utils.NewStringSet(filtered.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func2"),
@@ -2023,12 +1934,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet(filtered.MotorNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
 	)
 	test.That(
 		t,
@@ -2254,12 +2159,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet(filtered.MotorNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
-	)
-	test.That(
-		t,
-		utils.NewStringSet(filtered.InputControllerNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(rdktestutils.ExtractNames(inputNames...)...),
 	)
 	test.That(
 		t,

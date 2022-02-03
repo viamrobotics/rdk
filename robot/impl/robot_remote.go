@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -156,12 +155,6 @@ func (rr *remoteRobot) MotorNames() []string {
 	return rr.prefixNames(rr.parts.MotorNames())
 }
 
-func (rr *remoteRobot) InputControllerNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.InputControllerNames())
-}
-
 func (rr *remoteRobot) FunctionNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -206,12 +199,6 @@ func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.MotorByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) InputControllerByName(name string) (input.Controller, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.InputControllerByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {

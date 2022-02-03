@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -151,17 +150,6 @@ func (parts *robotParts) MotorNames() []string {
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
-}
-
-// InputControllerNames returns the names of all controllers in the parts.
-func (parts *robotParts) InputControllerNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == input.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.InputControllerNames)
 }
 
 // FunctionNames returns the names of all functions in the parts.
@@ -465,26 +453,6 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.MotorByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// InputControllerByName returns the given input.Controller by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
-	rName := input.Named(name)
-	resource, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := resource.(input.Controller)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.InputControllerByName(name)
 		if ok {
 			return part, true
 		}
