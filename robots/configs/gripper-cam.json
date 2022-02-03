@@ -48,12 +48,28 @@
         {
             "name": "combined",
             "type": "camera",
-            "model": "depth_composed",
+            "model": "align_color_depth",
             "attributes":
             {
                 "debug": false,
                 "color": "color",
                 "depth": "depth",
+                "camera_parameters": {
+                    "height": 768,
+                    "width": 1024,
+                    "fx": 821.32642889,
+                    "fy": 821.68607359,
+                    "ppx": 494.95941428,
+                    "ppy": 370.70529534,
+                    "distortion":
+                    {
+                        "rk1": 0.11297234,
+                        "rk2": -0.21375332,
+                        "rk3": -0.01584774,
+                        "tp1": -0.00302002,
+                        "tp2": 0.19969297
+                    }
+                },
                 "homography":
                 {
                     "color":

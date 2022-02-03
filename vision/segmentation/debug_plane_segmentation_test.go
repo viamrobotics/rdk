@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugPlaneSeg = "VIAM_DEBUG_PLANESEG"
+const debugPlaneSeg = "VIAM_DEBUG"
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageWithDepth(t *testing.T) {

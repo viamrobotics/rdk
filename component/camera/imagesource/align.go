@@ -31,8 +31,18 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
+			colorName := attrs.Color
+			color, ok := r.CameraByName(colorName)
+			if !ok {
+				return nil, errors.Errorf("cannot find color camera (%s)", colorName)
+			}
 
-			return newAlignColorDepth(attrs, logger)
+			depthName := attrs.Depth
+			depth, ok := r.CameraByName(depthName)
+			if !ok {
+				return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
+			}
+			return newAlignColorDepth(color, depth, attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "align_color_depth",
@@ -93,7 +103,7 @@ func getAligner(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Aligner, 
 	case attrs.Homography != nil:
 		conf, ok := attrs.Homography.(*transform.RawPinholeCameraHomography)
 		if !ok {
-			return nil, nil, rdkutils.NewUnexpectedTypeError(conf, attrs.Homography)
+			return nil, rdkutils.NewUnexpectedTypeError(conf, attrs.Homography)
 		}
 		cam, err := transform.NewPinholeCameraHomography(conf)
 		if err != nil {
@@ -124,38 +134,26 @@ type alignColorDepth struct {
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
-func newAlignColorDepth(attrs *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
-	colorName := attrs.Color
-	color, ok := r.CameraByName(colorName)
-	if !ok {
-		return nil, errors.Errorf("cannot find color camera (%s)", colorName)
-	}
-
-	depthName := attrs.Depth
-	depth, ok := r.CameraByName(depthName)
-	if !ok {
-		return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
-	}
-
+func newAlignColorDepth(color, depth camera.Camera, attrs *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	imgSrc := &alignColorDepth{color, depth, alignCamera, attrs.Debug, logger}
-	return camera.New(imgSrc, attrs, nil)
+	return camera.New(imgSrc, attrs, color) // aligns the image to the color camera
 }
 
 // Next aligns the next images from the color and the depth sources
-func (dc *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error) {
-	c, cCloser, err := dc.color.Next(ctx)
+func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error) {
+	c, cCloser, err := acd.color.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	defer cCloser()
 
-	d, dCloser, err := dc.depth.Next(ctx)
+	d, dCloser, err := acd.depth.Next(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -165,27 +163,26 @@ func (dc *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error
 	if err != nil {
 		return nil, nil, err
 	}
-
-	ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, dc.aligned)
-
 	_, span := trace.StartSpan(ctx, "AlignImageWithDepth")
 	defer span.End()
-	if dc.debug {
+	if acd.debug {
 		if !alignCurrentlyWriting {
 			alignCurrentlyWriting = true
 			utils.PanicCapturingGo(func() {
 				defer func() { alignCurrentlyWriting = false }()
 				fn := artifact.MustNewPath(fmt.Sprintf("rimage/imagesource/align-test-%d.both.gz", time.Now().Unix()))
+				ii := rimage.MakeImageWithDepth(rimage.ConvertImage(c), dm, false)
 				err := ii.WriteTo(fn)
 				if err != nil {
-					dc.logger.Debugf("error writing debug file: %s", err)
+					acd.logger.Debugf("error writing debug file: %s", err)
 				} else {
-					dc.logger.Debugf("wrote debug file to %s", fn)
+					acd.logger.Debugf("wrote debug file to %s", fn)
 				}
 			})
 		}
 	}
-	aligned, err := dc.alignmentCamera.AlignImageWithDepth(ii)
+
+	aligned, err := acd.alignmentCamera.AlignColorAndDepthImage(rimage.ConvertImage(c), dm)
 	if err != nil {
 		return nil, nil, err
 	}

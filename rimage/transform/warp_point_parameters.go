@@ -37,6 +37,11 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 			return nil, err
 		}
 	}
+	// Check dimensions, they should be equal between the color and depth frame
+	if iwd.Depth.Width() != iwd.Color.Width() || iwd.Depth.Height() != iwd.Color.Height() {
+		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
+			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
+	}
 	// All points now in Common frame
 	pc := pointcloud.New()
 
