@@ -96,11 +96,12 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.Errorf("failed to find motor named '%v'", motorName)
 	}
 
-	supported, err := _motor.PositionSupported(ctx)
+	supportedFeatures, err := _motor.GetFeatures(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !supported {
+	supported, ok := supportedFeatures[motor.PositionReporting]
+	if !supported || !ok {
 		return nil, errors.New("gripper motor needs to support position")
 	}
 

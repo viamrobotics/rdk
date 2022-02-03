@@ -33,43 +33,43 @@ func TestMotorEncoder1(t *testing.T) {
 
 	motorIfc, err := NewEncodedMotor(config.Component{}, cfg, fakeMotor, nil, logger)
 	test.That(t, err, test.ShouldBeNil)
-	motor, ok := motorIfc.(*EncodedMotor)
+	_motor, ok := motorIfc.(*EncodedMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 	defer func() {
-		test.That(t, utils.TryClose(context.Background(), motor), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), _motor), test.ShouldBeNil)
 	}()
-	motor.encoder = board.NewSingleEncoder(interrupt, motor)
+	_motor.encoder = board.NewSingleEncoder(interrupt, _motor)
 
 	t.Run("encoded motor testing the basics", func(t *testing.T) {
-		isOn, err := motor.IsInMotion(context.Background())
+		isOn, err := _motor.IsInMotion(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeFalse)
-		supported, err := motor.PositionSupported(context.Background())
+		features, err := _motor.GetFeatures(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, supported, test.ShouldBeTrue)
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 	})
 
 	t.Run("encoded motor testing regulation", func(t *testing.T) {
-		test.That(t, motor.IsRegulated(), test.ShouldBeFalse)
-		motor.SetRegulated(true)
-		test.That(t, motor.IsRegulated(), test.ShouldBeTrue)
-		motor.SetRegulated(false)
-		test.That(t, motor.IsRegulated(), test.ShouldBeFalse)
+		test.That(t, _motor.IsRegulated(), test.ShouldBeFalse)
+		_motor.SetRegulated(true)
+		test.That(t, _motor.IsRegulated(), test.ShouldBeTrue)
+		_motor.SetRegulated(false)
+		test.That(t, _motor.IsRegulated(), test.ShouldBeFalse)
 	})
 
 	t.Run("encoded motor testing Go", func(t *testing.T) {
-		test.That(t, motor.SetPower(context.Background(), .01), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(context.Background(), .01), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldEqual, .01)
 	})
 
 	t.Run("encoded motor testing Stop", func(t *testing.T) {
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 0)
 	})
 
 	t.Run("encoded motor testing setPower interrupt GoFor", func(t *testing.T) {
-		test.That(t, motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
+		test.That(t, _motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, float32(0))
 
@@ -81,12 +81,12 @@ func TestMotorEncoder1(t *testing.T) {
 		test.That(t, interrupt.Ticks(context.Background(), 99, nowNanosTest()), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 
-		motor.setPower(context.Background(), .25, false)
+		_motor.setPower(context.Background(), .25, false)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 	})
 
 	t.Run("encoded motor testing Go (non controlled)", func(t *testing.T) {
-		motor.setPower(context.Background(), 25, false)
+		_motor.setPower(context.Background(), 25, false)
 		test.That(t, interrupt.Ticks(context.Background(), 1000, nowNanosTest()), test.ShouldBeNil) // go far!
 
 		// we should still be moving at the previous force
@@ -96,18 +96,18 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 1)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := motor.Position(context.Background())
+			pos, err := _motor.Position(context.Background())
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos, test.ShouldEqual, 20.99)
 		})
 	})
 
 	t.Run("encoded motor testing GoFor (REV + | REV +)", func(t *testing.T) {
-		test.That(t, motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
+		test.That(t, _motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
 
@@ -123,21 +123,21 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 
-		test.That(t, motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
-		atStart := motor.RPMMonitorCalls()
+		test.That(t, _motor.GoFor(context.Background(), 1000, 1), test.ShouldBeNil)
+		atStart := _motor.RPMMonitorCalls()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
+			test.That(tb, _motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV - | REV +)", func(t *testing.T) {
-		test.That(t, motor.GoFor(context.Background(), -1000, 1), test.ShouldBeNil)
+		test.That(t, _motor.GoFor(context.Background(), -1000, 1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 
@@ -153,20 +153,20 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 
-		test.That(t, motor.GoFor(context.Background(), -1000, 1), test.ShouldBeNil)
-		atStart := motor.RPMMonitorCalls()
+		test.That(t, _motor.GoFor(context.Background(), -1000, 1), test.ShouldBeNil)
+		atStart := _motor.RPMMonitorCalls()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
+			test.That(tb, _motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
 		})
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV + | REV -)", func(t *testing.T) {
-		test.That(t, motor.GoFor(context.Background(), 1000, -1), test.ShouldBeNil)
+		test.That(t, _motor.GoFor(context.Background(), 1000, -1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, -1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeLessThan, 0)
 
@@ -182,21 +182,21 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 
-		test.That(t, motor.GoFor(context.Background(), 1000, -1), test.ShouldBeNil)
-		atStart := motor.RPMMonitorCalls()
+		test.That(t, _motor.GoFor(context.Background(), 1000, -1), test.ShouldBeNil)
+		atStart := _motor.RPMMonitorCalls()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
+			test.That(tb, _motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldEqual, -1)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 	})
 
 	t.Run("encoded motor testing GoFor (REV - | REV -)", func(t *testing.T) {
-		test.That(t, motor.GoFor(context.Background(), -1000, -1), test.ShouldBeNil)
+		test.That(t, _motor.GoFor(context.Background(), -1000, -1), test.ShouldBeNil)
 		test.That(t, fakeMotor.Direction(), test.ShouldEqual, 1)
 		test.That(t, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0)
 
@@ -212,17 +212,17 @@ func TestMotorEncoder1(t *testing.T) {
 			test.That(tb, fakeMotor.Direction(), test.ShouldEqual, 0)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 
-		test.That(t, motor.GoFor(context.Background(), -1000, -1), test.ShouldBeNil)
-		atStart := motor.RPMMonitorCalls()
+		test.That(t, _motor.GoFor(context.Background(), -1000, -1), test.ShouldBeNil)
+		atStart := _motor.RPMMonitorCalls()
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			test.That(tb, motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
+			test.That(tb, _motor.RPMMonitorCalls(), test.ShouldBeGreaterThan, atStart+10)
 			test.That(tb, fakeMotor.PowerPct(), test.ShouldBeGreaterThan, 0.5)
 		})
 
-		test.That(t, motor.Stop(context.Background()), test.ShouldBeNil)
+		test.That(t, _motor.Stop(context.Background()), test.ShouldBeNil)
 	})
 }
 

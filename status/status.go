@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -194,10 +195,11 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			positionSupported, err := x.PositionSupported(ctx)
+			features, err := x.GetFeatures(ctx)
 			if err != nil {
 				return nil, err
 			}
+			positionSupported, _ := features[motor.PositionReporting]
 			var str *structpb.Struct
 			status.Motors[name] = &pb.MotorStatus{
 				On:                isOn,
