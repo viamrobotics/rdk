@@ -27,7 +27,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newColorSegmentsSource(r, config)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			return newColorSegmentsSource(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
@@ -78,11 +82,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	return segmentedIwd, func() {}, nil
 }
 
-func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
-	if !ok {
-		return nil, errors.New("cannot retrieve converted attributes")
-	}
+func newColorSegmentsSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
@@ -103,5 +103,5 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadiusMm: clusterRadius,
 	}
 	segSrc := &colorSegmentsSource{source, cfg, attrs.CameraParameters}
-	return camera.NewImageSourceWithProjector(segSrc, segSrc.proj)
+	return camera.New(segSrc, attrs, source)
 }

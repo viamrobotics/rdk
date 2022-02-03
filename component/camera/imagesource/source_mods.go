@@ -28,13 +28,17 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			sourceName := config.ConvertedAttributes.(*camera.AttrConfig).Source
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			sourceName := attrs.Source
 			source, ok := r.CameraByName(sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 			}
-
-			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
+			imgSrc := &rotateImageDepthSource{source}
+			return camera.New(imgSrc, attrs, source)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
@@ -55,7 +59,7 @@ func init() {
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.New("cannot retrieve converted attributes")
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
 			source, ok := r.CameraByName(sourceName)
@@ -72,9 +76,8 @@ func init() {
 				height = 640
 			}
 
-			return &camera.ImageSource{
-				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
-			}, nil
+			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
+			return camera.New(imgSrc, attrs, nil) // camera parameters from source camera do not work for resized images
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",

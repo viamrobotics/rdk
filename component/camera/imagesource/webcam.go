@@ -95,7 +95,7 @@ func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Came
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(attrs.Path, constraints)
+		return tryWebcamOpen(attrs, attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -119,7 +119,7 @@ func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Came
 			continue
 		}
 
-		s, err := tryWebcamOpen(label, constraints)
+		s, err := tryWebcamOpen(attrs, label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -135,10 +135,10 @@ func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Came
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(attrs *camera.AttrConfig, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: reader}, nil
+	return camera.New(reader, attrs, nil)
 }
