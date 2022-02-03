@@ -66,15 +66,11 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	listener3, err := net.Listen("tcp", "localhost:0")
-	test.That(t, err, test.ShouldBeNil)
 	workingServer := grpc.NewServer()
 	failingServer := grpc.NewServer()
-	failingServer2 := grpc.NewServer()
 
 	workingFrameService := &inject.FrameSystemService{}
 	failingFrameService := &inject.FrameSystemService{}
-	failingFrameService2 := &inject.FrameSystemService{}
 
 	fsConfigs := []*config.FrameSystemPart{
 		{
@@ -102,19 +98,6 @@ func TestClientConfig(t *testing.T) {
 		return nil, configErr
 	}
 
-	badFSConfigs := []*config.FrameSystemPart{
-		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
-		},
-	}
-	failingFrameService2.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-		return badFSConfigs, nil
-	}
-
 	workingSvc, err := subtype.New(map[resource.Name]interface{}{
 		framesystem.Name: workingFrameService,
 	})
@@ -123,14 +106,9 @@ func TestClientConfig(t *testing.T) {
 		framesystem.Name: failingFrameService,
 	})
 	test.That(t, err, test.ShouldBeNil)
-	failingSvc2, err := subtype.New(map[resource.Name]interface{}{
-		framesystem.Name: failingFrameService2,
-	})
-	test.That(t, err, test.ShouldBeNil)
 
 	servicepb.RegisterFrameSystemServiceServer(workingServer, framesystem.NewServer(workingSvc))
 	servicepb.RegisterFrameSystemServiceServer(failingServer, framesystem.NewServer(failingSvc))
-	servicepb.RegisterFrameSystemServiceServer(failingServer2, framesystem.NewServer(failingSvc2))
 
 	go workingServer.Serve(listener1)
 	defer workingServer.Stop()
@@ -158,30 +136,16 @@ func TestClientConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	t.Run("dialed client test frame system for working frame service", func(t *testing.T) {
+	t.Run("dialed client test config for working frame service", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSys, err := workingDialedClient.LocalFrameSystem(context.Background(), "", "")
+		frameSystemParts, err := workingDialedClient.Config(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, frameSys, test.ShouldNotBeNil)
-		frame1 := frameSys.GetFrame("frame1")
-		frame1Offset := frameSys.GetFrame("frame1_offset")
-		frame2 := frameSys.GetFrame("frame2")
-		frame2Offset := frameSys.GetFrame("frame2_offset")
-
-		resFrame, err := frameSys.Parent(frame2)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resFrame, test.ShouldResemble, frame2Offset)
-		resFrame, err = frameSys.Parent(frame2Offset)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resFrame, test.ShouldResemble, frame1)
-		resFrame, err = frameSys.Parent(frame1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resFrame, test.ShouldResemble, frame1Offset)
-		resFrame, err = frameSys.Parent(frame1Offset)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resFrame, test.ShouldResemble, frameSys.World())
 	})
 
 	go failingServer.Serve(listener2)
@@ -199,27 +163,13 @@ func TestClientConfig(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	t.Run("dialed client test frame system for failing frame service with failing config", func(t *testing.T) {
+	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 		failingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSys, err := failingDialedClient.LocalFrameSystem(context.Background(), "", "")
-		test.That(t, frameSys, test.ShouldBeNil)
+		parts, err := failingDialedClient.Config(context.Background())
+		test.That(t, parts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	go failingServer2.Serve(listener3)
-	defer failingServer2.Stop()
-
-	failingFSClient2, err := framesystem.NewClient(
-		context.Background(), framesystem.Name.String(),
-		listener3.Addr().String(), logger, rpc.WithInsecure(),
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	t.Run("client test frame system for failing frame service", func(t *testing.T) {
-		frameSys, err := failingFSClient2.LocalFrameSystem(context.Background(), "", "")
-		test.That(t, frameSys, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
-	})
 }

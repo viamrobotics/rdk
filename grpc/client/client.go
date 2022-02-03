@@ -332,19 +332,6 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	return resourceClient, true
 }
 
-// FrameSystem returns the robot's underlying frame system.
-func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	resource, ok := rc.ResourceByName(framesystem.Name)
-	if !ok {
-		return nil, errors.New("frame system service not found")
-	}
-	actual, ok := resource.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("frame system service improperly implemented")
-	}
-	return actual.LocalFrameSystem(ctx, name, prefix)
-}
-
 // Refresh manually updates the underlying parts of the robot based
 // on a status retrieved from the server.
 // TODO(https://github.com/viamrobotics/rdk/issues/57) - do not use status
@@ -529,6 +516,23 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 		)
 	}
 	return names
+}
+
+// FrameSystem returns the robot's underlying frame system.
+func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	resource, ok := rc.ResourceByName(framesystem.Name)
+	if !ok {
+		return nil, errors.New("frame system service not found")
+	}
+	fs, ok := resource.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("frame system service improperly implemented")
+	}
+	parts, err := fs.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return framesystem.NewFrameSystemFromParts(name, prefix, parts, rc.logger)
 }
 
 // Logger returns the logger being used for this robot.

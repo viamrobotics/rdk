@@ -10,7 +10,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/v1"
-	"go.viam.com/rdk/referenceframe"
 )
 
 // client is a client satisfies the framesystem.proto contract.
@@ -69,36 +68,4 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		result = append(result, part)
 	}
 	return result, nil
-}
-
-// LocalFrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
-func (c *client) LocalFrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	// request the full config from the remote robot's frame system service.FrameSystemConfig()
-	parts, err := c.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, part := range parts {
-		// rename everything with prefixes
-		part.Name = prefix + part.Name
-		if part.FrameConfig.Parent != referenceframe.World {
-			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
-		}
-		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, c.logger)
-		if err != nil {
-			return nil, err
-		}
-		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
-		if err != nil {
-			return nil, err
-		}
-		err = fs.AddFrame(modelFrame, staticOffsetFrame)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return fs, nil
 }

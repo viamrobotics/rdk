@@ -16,47 +16,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a
-// completed frame system.
-func BuildFrameSystem(
-	ctx context.Context,
-	name string,
-	children map[string][]referenceframe.Frame,
-	logger golog.Logger,
-) (referenceframe.FrameSystem, error) {
-	// If there are no frames, build an empty frame system with only a world node and return.
-	if len(children) == 0 {
-		return referenceframe.NewEmptySimpleFrameSystem(name), nil
-	}
-	// use a stack to populate the frame system
-	stack := make([]string, 0)
-	visited := make(map[string]bool)
-	// check to see if world exists, and start with the frames attached to world
-	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
-	}
-	stack = append(stack, referenceframe.World)
-	// begin adding frames to the frame system
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
-		}
-		visited[parent] = true
-		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, frame.Name())
-			err := fs.AddFrame(frame, fs.GetFrame(parent))
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
-	return fs, nil
-}
-
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 // don't collect remote components, even though the Config lists them.
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {

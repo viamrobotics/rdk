@@ -62,11 +62,3 @@ func (server *subtypeServer) Config(
 	}
 	return &pb.FrameSystemServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
-
-func (server *subtypeServer) LocalFrameSystem(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
-	svc, err := server.service()
-	if err != nil {
-		return nil, err
-	}
-	return svc.LocalFrameSystem(ctx, name, prefix)
-}
