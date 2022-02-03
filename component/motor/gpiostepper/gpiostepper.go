@@ -269,6 +269,13 @@ func (m *gpioStepper) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// GetFeatures returns the status of whether the motor supports certain optional features
+func (m *gpioStepper) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	return map[motor.MotorFeature]bool{
+		motor.PositionReporting: true,
+	}, nil
+}
+
 // Stop turns the power to the motor off immediately, without any gradual step down.
 func (m *gpioStepper) Stop(ctx context.Context) error {
 	m.stop()

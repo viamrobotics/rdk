@@ -109,6 +109,34 @@ func (server *subtypeServer) PositionSupported(
 	return &pb.MotorServicePositionSupportedResponse{Supported: supported}, nil
 }
 
+// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+func (server *subtypeServer) GetFeatures(
+	ctx context.Context,
+	req *pb.MotorServiceGetFeaturesRequest,
+) (*pb.MotorServiceGetFeaturesResponse, error) {
+	motorName := req.GetName()
+	motor, err := server.getMotor(motorName)
+	if err != nil {
+		return nil, errors.Errorf("no motor (%s) found", motorName)
+	}
+	result := &pb.MotorServiceGetFeaturesResponse{}
+	features, err := motor.GetFeatures(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for feature, isSupported := range features {
+		responseSetter, ok := FeatureToResponseSetter[feature]
+		if !ok {
+			return nil, errors.Errorf(
+				"%s does not have a corresponding updater for the GetFeatures response",
+				feature.String(),
+			)
+		}
+		responseSetter(result, isSupported)
+	}
+	return result, nil
+}
+
 // Stop turns the motor of the underlying robot off.
 func (server *subtypeServer) Stop(
 	ctx context.Context,

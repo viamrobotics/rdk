@@ -136,6 +136,19 @@ func (c *client) PositionSupported(ctx context.Context) (bool, error) {
 	return resp.GetSupported(), nil
 }
 
+func (c *client) GetFeatures(ctx context.Context) (map[MotorFeature]bool, error) {
+	result := map[MotorFeature]bool{}
+	req := &pb.MotorServiceGetFeaturesRequest{Name: c.name}
+	resp, err := c.client.GetFeatures(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	for feature, reader := range FeatureToResponseReader {
+		result[feature] = reader(resp)
+	}
+	return result, nil
+}
+
 func (c *client) Stop(ctx context.Context) error {
 	req := &pb.MotorServiceStopRequest{Name: c.name}
 	_, err := c.client.Stop(ctx, req)
