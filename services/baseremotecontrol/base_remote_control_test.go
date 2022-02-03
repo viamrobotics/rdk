@@ -12,6 +12,7 @@ import (
 	fakebase "go.viam.com/rdk/component/base/fake"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -26,7 +27,7 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	fakeController := &inject.InputController{}
 
-	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return fakeController, true
 	}
 
@@ -70,7 +71,7 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
-	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return fakeController, false
 	}
 

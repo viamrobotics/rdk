@@ -42,13 +42,16 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return []resource.Name{
 			arm.Named("arm1"),
 			arm.Named("arm2"),
+			gripper.Named("gripper1"),
+			gripper.Named("gripper2"),
 			resource.NameFromSubtype(framesystem.Subtype, ""),
 			sensor.Named("sensor1"),
 			sensor.Named("sensor2"),
+			input.Named("inputController1"),
+			input.Named("inputController2"),
+			servo.Named("servo1"),
+			servo.Named("servo2"),
 		}
-	}
-	injectRobot.GripperNamesFunc = func() []string {
-		return []string{"gripper1", "gripper2"}
 	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return []string{"camera1", "camera2"}
@@ -59,14 +62,8 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.BoardNamesFunc = func() []string {
 		return []string{"board1", "board2"}
 	}
-	injectRobot.ServoNamesFunc = func() []string {
-		return []string{"servo1", "servo2"}
-	}
 	injectRobot.MotorNamesFunc = func() []string {
 		return []string{"motor1", "motor2"}
-	}
-	injectRobot.InputControllerNamesFunc = func() []string {
-		return []string{"inputController1", "inputController2"}
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
@@ -100,23 +97,14 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return &fakebase.Base{Name: name}, true
 	}
-	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return &fakegripper.Gripper{Name: name}, true
-	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return &fakecamera.Camera{Name: name}, true
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return &fakeboard.Board{Name: name}, true
 	}
-	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return &fakeservo.Servo{Name: name}, true
-	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return &fakemotor.Motor{Name: name}, true
-	}
-	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {

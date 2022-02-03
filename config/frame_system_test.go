@@ -18,7 +18,7 @@ import (
 func TestFrameModelPart(t *testing.T) {
 	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
-	model, err := referenceframe.ParseJSON(jsonData, "")
+	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// minimally specified part
@@ -62,7 +62,7 @@ func TestFrameModelPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.Translation{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	result, err = part.ToProtobuf()
@@ -95,7 +95,7 @@ func TestFramesFromPart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	jsonData, err := ioutil.ReadFile(rdkutils.ResolveFile("config/data/model_frame.json"))
 	test.That(t, err, test.ShouldBeNil)
-	model, err := referenceframe.ParseJSON(jsonData, "")
+	model, err := referenceframe.UnmarshalModelJSON(jsonData, "")
 	test.That(t, err, test.ShouldBeNil)
 	// minimally specified part
 	part := &FrameSystemPart{
@@ -120,7 +120,7 @@ func TestFramesFromPart(t *testing.T) {
 	// fully specified part
 	part = &FrameSystemPart{
 		Name:        "test",
-		FrameConfig: &Frame{Parent: "world", Translation: spatial.Translation{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
+		FrameConfig: &Frame{Parent: "world", Translation: spatial.TranslationConfig{1, 2, 3}, Orientation: spatial.NewZeroOrientation()},
 		ModelFrame:  model,
 	}
 	modelFrame, offsetFrame, err = CreateFramesFromPart(part, logger)

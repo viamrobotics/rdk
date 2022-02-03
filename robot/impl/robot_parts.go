@@ -15,10 +15,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
@@ -111,17 +108,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 	return names
 }
 
-// GripperNames returns the names of all grippers in the parts.
-func (parts *robotParts) GripperNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == gripper.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.GripperNames)
-}
-
 // CameraNames returns the names of all cameras in the parts.
 func (parts *robotParts) CameraNames() []string {
 	names := []string{}
@@ -155,17 +141,6 @@ func (parts *robotParts) BoardNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
 
-// ServoNames returns the names of all servos in the parts.
-func (parts *robotParts) ServoNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == servo.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ServoNames)
-}
-
 // MotorNames returns the names of all motors in the parts.
 func (parts *robotParts) MotorNames() []string {
 	names := []string{}
@@ -175,17 +150,6 @@ func (parts *robotParts) MotorNames() []string {
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
-}
-
-// InputControllerNames returns the names of all controllers in the parts.
-func (parts *robotParts) InputControllerNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == input.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.InputControllerNames)
 }
 
 // FunctionNames returns the names of all functions in the parts.
@@ -456,26 +420,6 @@ func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	return nil, false
 }
 
-// GripperByName returns the given gripper by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
-	rName := gripper.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(gripper.Gripper)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.GripperByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // CameraByName returns the given camera by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
@@ -496,26 +440,6 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 	return nil, false
 }
 
-// ServoByName returns the given servo by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
-	servoResourceName := servo.Named(name)
-	resource, ok := parts.resources.Nodes[servoResourceName]
-	if ok {
-		part, ok := resource.(servo.Servo)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ServoByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // MotorByName returns the given motor by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
@@ -529,26 +453,6 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.MotorByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// InputControllerByName returns the given input.Controller by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
-	rName := input.Named(name)
-	resource, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := resource.(input.Controller)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.InputControllerByName(name)
 		if ok {
 			return part, true
 		}

@@ -31,7 +31,7 @@ func setupInjectRobot() *inject.Robot {
 		case arm.Named(testArmName):
 			return arm1, true
 		case arm.Named(fakeArmName):
-			return "not a arm", false
+			return "not an arm", false
 		default:
 			return nil, false
 		}
