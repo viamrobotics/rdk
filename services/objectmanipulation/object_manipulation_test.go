@@ -29,7 +29,7 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r = &inject.Robot{}
-	r.GripperByNameFunc = func(string) (gripper.Gripper, bool) {
+	r.ResourceByNameFunc = func(resource.Name) (interface{}, bool) {
 		return nil, false
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
@@ -44,9 +44,6 @@ func TestDoGrabFailures(t *testing.T) {
 	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return errors.New("failure to open")
-	}
-	r.GripperByNameFunc = func(string) (gripper.Gripper, bool) {
-		return _gripper, true
 	}
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -70,17 +67,12 @@ func TestDoGrabFailures(t *testing.T) {
 	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", &r3.Vector{10.0, 10.0, 10.0})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	r = &inject.Robot{}
-	_arm = &inject.Arm{}
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return nil
 	}
+
 	// can't move gripper with respect to gripper
-	_, err = mgs.DoGrab(context.Background(), "fakeGripperName", "fakeArm", "fakeGripperName", &r3.Vector{0, 0, 200})
+	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeGripper", &r3.Vector{0, 0, 200})
 	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 }
 
