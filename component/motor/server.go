@@ -90,25 +90,6 @@ func (server *subtypeServer) Position(
 	return &pb.MotorServicePositionResponse{Position: pos}, nil
 }
 
-// PositionSupported returns whether or not the motor of the underlying robot supports reporting of its position which
-// is reliant on having an encoder.
-func (server *subtypeServer) PositionSupported(
-	ctx context.Context,
-	req *pb.MotorServicePositionSupportedRequest,
-) (*pb.MotorServicePositionSupportedResponse, error) {
-	motorName := req.GetName()
-	motor, err := server.getMotor(motorName)
-	if err != nil {
-		return nil, errors.Errorf("no motor (%s) found", motorName)
-	}
-
-	supported, err := motor.PositionSupported(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.MotorServicePositionSupportedResponse{Supported: supported}, nil
-}
-
 // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 func (server *subtypeServer) GetFeatures(
 	ctx context.Context,

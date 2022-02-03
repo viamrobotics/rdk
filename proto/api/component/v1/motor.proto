@@ -52,13 +52,6 @@ service MotorService {
     };
   }
 
-  // PositionSupported returns whether or not the robot's motor supports reporting of its position
-  rpc PositionSupported(MotorServicePositionSupportedRequest) returns (MotorServicePositionSupportedResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position_supported"
-    };
-  }
-
   // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
   rpc GetFeatures(MotorServiceGetFeaturesRequest) returns (MotorServiceGetFeaturesResponse) {
     option (google.api.http) = {
@@ -132,16 +125,6 @@ message MotorServicePositionRequest {
 message MotorServicePositionResponse {
   // Current position of the motor relative to its home
   double position = 1;
-}
-
-message MotorServicePositionSupportedRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorServicePositionSupportedResponse {
-  // Returns true if the motor supports reporting its position
-  bool supported = 1;
 }
 
 message MotorServiceStopRequest {

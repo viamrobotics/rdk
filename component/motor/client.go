@@ -127,15 +127,6 @@ func (c *client) Position(ctx context.Context) (float64, error) {
 	return resp.GetPosition(), nil
 }
 
-func (c *client) PositionSupported(ctx context.Context) (bool, error) {
-	req := &pb.MotorServicePositionSupportedRequest{Name: c.name}
-	resp, err := c.client.PositionSupported(ctx, req)
-	if err != nil {
-		return false, err
-	}
-	return resp.GetSupported(), nil
-}
-
 func (c *client) GetFeatures(ctx context.Context) (map[MotorFeature]bool, error) {
 	result := map[MotorFeature]bool{}
 	req := &pb.MotorServiceGetFeaturesRequest{Name: c.name}

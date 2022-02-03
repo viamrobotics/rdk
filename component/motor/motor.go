@@ -124,12 +124,6 @@ func (r *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
 	return r.actual.Position(ctx)
 }
 
-func (r *reconfigurableMotor) PositionSupported(ctx context.Context) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.PositionSupported(ctx)
-}
-
 func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[MotorFeature]bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
