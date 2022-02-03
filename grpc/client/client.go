@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -274,20 +273,6 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 	return actualMotor, true
 }
 
-// InputControllerByName returns an input.Controller by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) InputControllerByName(name string) (input.Controller, bool) {
-	resource, ok := rc.ResourceByName(input.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(input.Controller)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
@@ -411,19 +396,6 @@ func (rc *RobotClient) MotorNames() []string {
 	names := []string{}
 	for _, res := range rc.ResourceNames() {
 		if res.Subtype == motor.Subtype {
-			names = append(names, res.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// InputControllerNames returns the names of all known input controllers.
-func (rc *RobotClient) InputControllerNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == input.Subtype {
 			names = append(names, res.Name)
 		}
 	}

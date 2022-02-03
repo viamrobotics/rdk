@@ -42,7 +42,6 @@ import (
 
 	// register imu.
 	_ "go.viam.com/rdk/component/imu/register"
-	"go.viam.com/rdk/component/input"
 
 	// register input.
 	_ "go.viam.com/rdk/component/input/register"
@@ -122,12 +121,6 @@ func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
 }
 
-// InputControllerByName returns an input.Controller by name. If it does not exist
-// nil is returned.
-func (r *localRobot) InputControllerByName(name string) (input.Controller, bool) {
-	return r.parts.InputControllerByName(name)
-}
-
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -157,11 +150,6 @@ func (r *localRobot) BoardNames() []string {
 // MotorNames returns the name of all known motors.
 func (r *localRobot) MotorNames() []string {
 	return r.parts.MotorNames()
-}
-
-// InputControllerNames returns the name of all known input Controllers.
-func (r *localRobot) InputControllerNames() []string {
-	return r.parts.InputControllerNames()
 }
 
 // FunctionNames returns the name of all known functions.

@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -210,10 +211,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.InputControllerNames(); len(names) != 0 {
+	if names := input.NamesFromRobot(r); len(names) != 0 {
 		status.InputControllers = make(map[string]*pb.InputControllerStatus, len(names))
 		for _, name := range names {
-			controller, ok := r.InputControllerByName(name)
+			controller, ok := input.FromRobot(r, name)
 			if !ok {
 				return nil, fmt.Errorf("input controller %q not found", name)
 			}

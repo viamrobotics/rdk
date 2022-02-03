@@ -43,9 +43,9 @@ func newServer() (pb.InputControllerServiceServer, *inject.TriggerableInputContr
 	injectInputController := &inject.TriggerableInputController{}
 	injectInputController2 := &inject.InputController{}
 	inputControllers := map[resource.Name]interface{}{
-		input.Named("inputController1"): injectInputController,
-		input.Named("inputController2"): injectInputController2,
-		input.Named("inputController3"): "notInputController",
+		input.Named(testInputControllerName): injectInputController,
+		input.Named(failInputControllerName): injectInputController2,
+		input.Named(fakeInputControllerName): "notInputController",
 	}
 	inputControllerSvc, err := subtype.New(inputControllers)
 	if err != nil {
@@ -58,7 +58,6 @@ func TestServer(t *testing.T) {
 	inputControllerServer, injectInputController, injectInputController2, err := newServer()
 	test.That(t, err, test.ShouldBeNil)
 
-	inputController1 := "inputController1"
 	injectInputController.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
@@ -79,7 +78,6 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	inputController2 := "inputController2"
 	injectInputController2.GetControlsFunc = func(ctx context.Context) ([]input.Control, error) {
 		return nil, errors.New("can't get controls")
 	}
@@ -96,41 +94,47 @@ func TestServer(t *testing.T) {
 	}
 
 	t.Run("GetControls", func(t *testing.T) {
-		_, err := inputControllerServer.GetControls(context.Background(), &pb.InputControllerServiceGetControlsRequest{Controller: "i4"})
+		_, err := inputControllerServer.GetControls(
+			context.Background(),
+			&pb.InputControllerServiceGetControlsRequest{Controller: missingInputControllerName},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		_, err = inputControllerServer.GetControls(
 			context.Background(),
-			&pb.InputControllerServiceGetControlsRequest{Controller: "inputController3"},
+			&pb.InputControllerServiceGetControlsRequest{Controller: fakeInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an input controller")
 
 		resp, err := inputControllerServer.GetControls(
 			context.Background(),
-			&pb.InputControllerServiceGetControlsRequest{Controller: inputController1},
+			&pb.InputControllerServiceGetControlsRequest{Controller: testInputControllerName},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Controls, test.ShouldResemble, []string{"AbsoluteX", "ButtonStart"})
 
 		_, err = inputControllerServer.GetControls(
 			context.Background(),
-			&pb.InputControllerServiceGetControlsRequest{Controller: inputController2},
+			&pb.InputControllerServiceGetControlsRequest{Controller: failInputControllerName},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get controls")
 	})
 
 	t.Run("GetEvents", func(t *testing.T) {
-		_, err := inputControllerServer.GetEvents(context.Background(), &pb.InputControllerServiceGetEventsRequest{Controller: "i4"})
+		_, err := inputControllerServer.GetEvents(
+			context.Background(),
+			&pb.InputControllerServiceGetEventsRequest{Controller: missingInputControllerName},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		startTime := time.Now()
 		resp, err := inputControllerServer.GetEvents(
 			context.Background(),
-			&pb.InputControllerServiceGetEventsRequest{Controller: inputController1},
+			&pb.InputControllerServiceGetEventsRequest{Controller: testInputControllerName},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		var absEv, buttonEv *pb.InputControllerServiceEvent
@@ -154,7 +158,10 @@ func TestServer(t *testing.T) {
 		test.That(t, buttonEv.Time.AsTime().After(startTime), test.ShouldBeTrue)
 		test.That(t, buttonEv.Time.AsTime().Before(time.Now()), test.ShouldBeTrue)
 
-		_, err = inputControllerServer.GetEvents(context.Background(), &pb.InputControllerServiceGetEventsRequest{Controller: inputController2})
+		_, err = inputControllerServer.GetEvents(
+			context.Background(),
+			&pb.InputControllerServiceGetEventsRequest{Controller: failInputControllerName},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get last events")
 	})
@@ -169,12 +176,12 @@ func TestServer(t *testing.T) {
 		}
 
 		startTime := time.Now()
-		err := inputControllerServer.StreamEvents(&pb.InputControllerServiceStreamEventsRequest{Controller: "i4"}, s)
+		err := inputControllerServer.StreamEvents(&pb.InputControllerServiceStreamEventsRequest{Controller: missingInputControllerName}, s)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		eventReqList := &pb.InputControllerServiceStreamEventsRequest{
-			Controller: inputController1,
+			Controller: testInputControllerName,
 			Events: []*pb.InputControllerServiceStreamEventsRequest_Events{
 				{
 					Control: string(input.ButtonStart),
@@ -225,14 +232,17 @@ func TestServer(t *testing.T) {
 		<-done
 		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
 
-		eventReqList.Controller = inputController2
+		eventReqList.Controller = failInputControllerName
 		err = inputControllerServer.StreamEvents(eventReqList, s)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't register callbacks")
 	})
 
 	t.Run("TriggerEvent", func(t *testing.T) {
-		_, err := inputControllerServer.TriggerEvent(context.Background(), &pb.InputControllerServiceTriggerEventRequest{Controller: "i4"})
+		_, err := inputControllerServer.TriggerEvent(
+			context.Background(),
+			&pb.InputControllerServiceTriggerEventRequest{Controller: missingInputControllerName},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
@@ -255,7 +265,7 @@ func TestServer(t *testing.T) {
 		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
 			&pb.InputControllerServiceTriggerEventRequest{
-				Controller: inputController1,
+				Controller: testInputControllerName,
 				Event:      pbEvent,
 			},
 		)
@@ -271,7 +281,7 @@ func TestServer(t *testing.T) {
 
 		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.InputControllerServiceTriggerEventRequest{Controller: inputController1, Event: pbEvent},
+			&pb.InputControllerServiceTriggerEventRequest{Controller: testInputControllerName, Event: pbEvent},
 		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, injectedEvent, test.ShouldResemble, event1)
@@ -279,7 +289,7 @@ func TestServer(t *testing.T) {
 
 		_, err = inputControllerServer.TriggerEvent(
 			context.Background(),
-			&pb.InputControllerServiceTriggerEventRequest{Controller: inputController2, Event: pbEvent},
+			&pb.InputControllerServiceTriggerEventRequest{Controller: failInputControllerName, Event: pbEvent},
 		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "is not of type Triggerable")
