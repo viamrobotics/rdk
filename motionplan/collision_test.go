@@ -1,7 +1,6 @@
 package motionplan
 
 import (
-	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -57,14 +56,14 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = frame.Input{math.Pi / 2}
+	input[4] = frame.Input{2}
 	vols, _ = m.Volumes(input)
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckUniqueCollisions(vols, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
 	cols := cg.Collisions()
 	test.That(t, len(cols), test.ShouldEqual, 2)
-	equal := collisionsEqual(cols, [2]Collision{{"UR5e:forearm_link", "UR5e:ee_link", 9}, {"UR5e:wrist_1_link", "UR5e:ee_link", 0}})
+	equal := collisionsEqual(cols, [2]Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}})
 	test.That(t, equal, test.ShouldBeTrue)
 }
 
