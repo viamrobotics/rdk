@@ -67,14 +67,16 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestVerboseTransform(t *testing.T) {
-	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+func TestModelVolumes(t *testing.T) {
+	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(sm.DoF()))
 	vols, _ := sm.Volumes(inputs)
+	spatial.MarshalVolumesToFile(vols, "../../visualizer/temp.json")
+
 	test.That(t, vols, test.ShouldNotBeNil)
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
