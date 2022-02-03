@@ -36,7 +36,6 @@ import (
 
 	// register gps.
 	_ "go.viam.com/rdk/component/gps/register"
-	"go.viam.com/rdk/component/gripper"
 
 	// register gripper.
 	_ "go.viam.com/rdk/component/gripper/register"
@@ -111,12 +110,6 @@ func (r *localRobot) BaseByName(name string) (base.Base, bool) {
 	return r.parts.BaseByName(name)
 }
 
-// GripperByName returns a gripper by name. If it does not exist
-// nil is returned.
-func (r *localRobot) GripperByName(name string) (gripper.Gripper, bool) {
-	return r.parts.GripperByName(name)
-}
-
 // CameraByName returns a camera by name. If it does not exist
 // nil is returned.
 func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
@@ -144,11 +137,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// GripperNames returns the name of all known grippers.
-func (r *localRobot) GripperNames() []string {
-	return r.parts.GripperNames()
 }
 
 // CameraNames returns the name of all known cameras.

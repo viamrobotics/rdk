@@ -81,9 +81,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.BoardNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(boardNames...)
 	}
-	injectRobot.GripperNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(gripperNames...)
-	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(cameraNames...)
 	}
@@ -149,12 +146,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 			panic(err)
 		}
 		return fakeBoard, true
-	}
-	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.GripperNames()...)[name]; !ok {
-			return nil, false
-		}
-		return &fakegripper.Gripper{Name: name}, true
 	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
@@ -248,14 +239,14 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	test.That(
 		t,
-		utils.NewStringSet(robot.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(gripperNames...)...),
 	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedGripperNames...)...),
 	)
@@ -578,12 +569,12 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
-	_, ok = robot.GripperByName("gripper1")
+	_, ok = gripper.FromRobot(robot, "gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
-	_, ok = robot.GripperByName("one.gripper1")
+	_, ok = gripper.FromRobot(robot, "one.gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.GripperByName("gripper1_what")
+	_, ok = gripper.FromRobot(robot, "gripper1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false
@@ -643,20 +634,25 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	robot.conf.Prefix = false
-	test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldResemble, utils.NewStringSet("pieceGripper", "pieceGripper2"))
+	test.That(
+		t,
+		utils.NewStringSet(gripper.NamesFromRobot(robot)...),
+		test.ShouldResemble,
+		utils.NewStringSet("pieceGripper", "pieceGripper2"),
+	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet("one.pieceGripper", "one.pieceGripper2"),
 	)
 
 	robot.conf.Prefix = false
-	_, ok = robot.GripperByName("pieceGripper")
+	_, ok = gripper.FromRobot(robot, "pieceGripper")
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
-	_, ok = robot.GripperByName("one.pieceGripper")
+	_, ok = gripper.FromRobot(robot, "one.pieceGripper")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	_, ok = sensor.FromRobot(robot, "sensor1")

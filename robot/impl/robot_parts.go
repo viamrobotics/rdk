@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -108,17 +107,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 		}
 	}
 	return names
-}
-
-// GripperNames returns the names of all grippers in the parts.
-func (parts *robotParts) GripperNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == gripper.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.GripperNames)
 }
 
 // CameraNames returns the names of all cameras in the parts.
@@ -437,26 +425,6 @@ func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BaseByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// GripperByName returns the given gripper by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
-	rName := gripper.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(gripper.Gripper)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.GripperByName(name)
 		if ok {
 			return part, true
 		}

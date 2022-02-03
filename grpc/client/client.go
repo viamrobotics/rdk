@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -232,20 +231,6 @@ func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
 	return actualBase, true
 }
 
-// GripperByName returns a gripper by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
-	resource, ok := rc.ResourceByName(gripper.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(gripper.Gripper)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
 // CameraByName returns a camera by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
@@ -378,19 +363,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// GripperNames returns the names of all known grippers.
-func (rc *RobotClient) GripperNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == gripper.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // CameraNames returns the names of all known cameras.
