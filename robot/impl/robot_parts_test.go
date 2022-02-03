@@ -892,7 +892,6 @@ func TestPartsMergeAdd(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
@@ -1613,7 +1612,6 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	//nolint:dupl
 	checkEmpty := func(toCheck *robotParts) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
