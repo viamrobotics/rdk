@@ -14,6 +14,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -72,48 +73,48 @@ func init() {
 }
 
 func chrisCirlce(ctx context.Context, r robot.Robot) error {
-	if len(r.ArmNames()) != 1 {
+	if len(arm.NamesFromRobot(r)) != 1 {
 		return errors.New("need 1 arm name")
 	}
 
-	arm, ok := r.ArmByName(r.ArmNames()[0])
+	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
 	if !ok {
-		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
 	}
 
 	return multierr.Combine(
-		arm.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}),
-		arm.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}),
-		arm.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}),
-		arm.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}),
 	)
 }
 
 func upAndDown(ctx context.Context, r robot.Robot) error {
-	if len(r.ArmNames()) != 1 {
+	if len(arm.NamesFromRobot(r)) != 1 {
 		return errors.New("need 1 arm name")
 	}
 
-	arm, ok := r.ArmByName(r.ArmNames()[0])
+	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
 	if !ok {
-		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
 	}
 
 	for i := 0; i < 5; i++ {
 		logger.Debugf("upAndDown loop %d", i)
-		pos, err := arm.GetEndPosition(ctx)
+		pos, err := a.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
 
 		pos.Y += 550
-		err = arm.MoveToPosition(ctx, pos)
+		err = a.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
 
 		pos.Y -= 550
-		err = arm.MoveToPosition(ctx, pos)
+		err = a.MoveToPosition(ctx, pos)
 		if err != nil {
 			return err
 		}
@@ -123,23 +124,23 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 }
 
 func play(ctx context.Context, r robot.Robot) error {
-	if len(r.ArmNames()) != 1 {
+	if len(arm.NamesFromRobot(r)) != 1 {
 		return errors.New("need 1 arm name")
 	}
 
-	arm, ok := r.ArmByName(r.ArmNames()[0])
+	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
 	if !ok {
-		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
 	}
 
-	start, err := arm.GetJointPositions(ctx)
+	start, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < 180; i += 10 {
 		start.Degrees[0] = float64(i)
-		err := arm.MoveToJointPositions(ctx, start)
+		err := a.MoveToJointPositions(ctx, start)
 		if err != nil {
 			return err
 		}
@@ -161,7 +162,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	if err != nil {
 		return err
 	}
-	armFrame := fs.GetFrame(r.ArmNames()[0])
+	armFrame := fs.GetFrame(arm.NamesFromRobot(r)[0])
 
 	markerOffFrame, err := referenceframe.NewStaticFrame(
 		"marker_offset", spatial.NewPoseFromOrientation(r3.Vector{}, &spatial.OrientationVectorDegrees{OY: 1, OZ: 1}))

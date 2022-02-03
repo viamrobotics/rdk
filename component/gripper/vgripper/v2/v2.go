@@ -111,14 +111,9 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	forceMatrixName := config.Attributes.String("forcematrix")
-	forceMatrix, exists := r.ResourceByName(forcematrix.Named(forceMatrixName))
-	if !exists {
-		return nil, errors.Errorf("failed to find a forcematrix sensor named '%v'", forceMatrixName)
-	}
-
-	forceMatrixDevice, ok := forceMatrix.(forcematrix.ForceMatrix)
+	forceMatrixDevice, ok := forcematrix.FromRobot(r, forceMatrixName)
 	if !ok {
-		return nil, errors.Errorf("(%v) is not a ForceMatrix device", forceMatrixName)
+		return nil, errors.Errorf("%q not found or not a force matrix sensor", forceMatrixName)
 	}
 
 	hasPressureThreshold := config.Attributes.Float64("has_pressure_threshold", 30)

@@ -18,9 +18,9 @@ func newServer() (pb.GripperServiceServer, *inject.Gripper, *inject.Gripper, err
 	injectGripper := &inject.Gripper{}
 	injectGripper2 := &inject.Gripper{}
 	grippers := map[resource.Name]interface{}{
-		gripper.Named("gripper1"): injectGripper,
-		gripper.Named("gripper2"): injectGripper2,
-		gripper.Named("gripper3"): "notGripper",
+		gripper.Named(testGripperName):  injectGripper,
+		gripper.Named(testGripperName2): injectGripper2,
+		gripper.Named(fakeGripperName):  "notGripper",
 	}
 	gripperSvc, err := subtype.New(grippers)
 	if err != nil {
@@ -35,50 +35,48 @@ func TestServer(t *testing.T) {
 
 	var gripperOpen string
 
-	gripper1 := "gripper1"
 	success1 := true
 	injectGripper.OpenFunc = func(ctx context.Context) error {
-		gripperOpen = gripper1
+		gripperOpen = testGripperName
 		return nil
 	}
 	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) { return success1, nil }
 
-	gripper2 := "gripper2"
 	injectGripper2.OpenFunc = func(ctx context.Context) error {
-		gripperOpen = gripper2
+		gripperOpen = testGripperName2
 		return errors.New("can't open")
 	}
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
 	t.Run("open", func(t *testing.T) {
-		_, err := gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: "g4"})
+		_, err := gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: "gripper3"})
+		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: fakeGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a gripper")
 
-		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: gripper1})
+		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: testGripperName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, gripperOpen, test.ShouldEqual, gripper1)
+		test.That(t, gripperOpen, test.ShouldEqual, testGripperName)
 
-		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: gripper2})
+		_, err = gripperServer.Open(context.Background(), &pb.GripperServiceOpenRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't open")
-		test.That(t, gripperOpen, test.ShouldEqual, gripper2)
+		test.That(t, gripperOpen, test.ShouldEqual, testGripperName2)
 	})
 
 	t.Run("grab", func(t *testing.T) {
-		_, err := gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: "g4"})
+		_, err := gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: missingGripperName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-		resp, err := gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: gripper1})
+		resp, err := gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: testGripperName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Success, test.ShouldEqual, success1)
 
-		resp, err = gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: gripper2})
+		resp, err = gripperServer.Grab(context.Background(), &pb.GripperServiceGrabRequest{Name: testGripperName2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't grab")
 		test.That(t, resp, test.ShouldBeNil)

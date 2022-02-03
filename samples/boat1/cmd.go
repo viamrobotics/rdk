@@ -268,7 +268,7 @@ func doRecordDepth(ctx context.Context, depthSensor sensor.Sensor) error {
 		return errors.New("currentLocation is 0")
 	}
 
-	readings, err := depthSensor.Readings(ctx)
+	readings, err := depthSensor.GetReadings(ctx)
 	if err != nil {
 		return err
 	}
@@ -408,7 +408,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close(ctx)
 
-	depth1, ok := myRobot.SensorByName("depth1")
+	depth1, ok := sensor.FromRobot(myRobot, "depth1")
 	if !ok {
 		return errors.New("failed to find depth1 sensor")
 	}

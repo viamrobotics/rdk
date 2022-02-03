@@ -29,10 +29,8 @@ const (
 	ResourceTypeService   = TypeName("service")
 	ResourceTypeFunction  = TypeName("function")
 
-	ResourceSubtypeBase     = SubtypeName("base")
 	ResourceSubtypeFunction = SubtypeName("function")
 	ResourceSubtypeRemote   = SubtypeName("remote")
-	ResourceSubtypeSensor   = SubtypeName("sensor")
 )
 
 // Type represents a known component/service type of a robot.

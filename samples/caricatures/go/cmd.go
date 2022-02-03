@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/robot"
@@ -39,20 +40,20 @@ func init() {
 
 // drawPoint instructs a robot to draw by moving its arm into specific positions sequentially.
 func drawPoint(ctx context.Context, r robot.Robot) error {
-	if len(r.ArmNames()) != 1 {
+	if len(arm.NamesFromRobot(r)) != 1 {
 		return errors.New("need 1 arm name")
 	}
-	arm, ok := r.ArmByName(r.ArmNames()[0])
+	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
 	if !ok {
-		return fmt.Errorf("failed to find arm %q", r.ArmNames()[0])
+		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
 	}
 
 	for i := 0; i < numFacialLandmarks; i++ {
-		pos, err := arm.GetEndPosition(ctx)
+		pos, err := a.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
-		arm.MoveToPosition(ctx, pos)
+		a.MoveToPosition(ctx, pos)
 	}
 	return nil
 }

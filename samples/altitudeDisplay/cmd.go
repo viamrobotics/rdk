@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -54,14 +55,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	i2c, _ := localB.I2CByName("bus1")
 
-	s, ok := myRobot.ResourceByName(gps.Named(gpsName))
+	gpsDevice, ok := gps.FromRobot(myRobot, gpsName)
 	if !ok {
-		return fmt.Errorf("no gps named %q", gpsName)
-	}
-
-	gpsDevice, ok := s.(gps.GPS)
-	if !ok {
-		return fmt.Errorf("%q is not a GPS device", gpsName)
+		return errors.Errorf("%q not found or not a gps", gpsName)
 	}
 
 	handle, err := i2c.OpenHandle(dispAddr)

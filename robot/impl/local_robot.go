@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
-
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/base"
@@ -38,14 +36,12 @@ import (
 
 	// register gps.
 	_ "go.viam.com/rdk/component/gps/register"
-	"go.viam.com/rdk/component/gripper"
 
 	// register gripper.
 	_ "go.viam.com/rdk/component/gripper/register"
 
 	// register imu.
 	_ "go.viam.com/rdk/component/imu/register"
-	"go.viam.com/rdk/component/input"
 
 	// register input.
 	_ "go.viam.com/rdk/component/input/register"
@@ -53,11 +49,9 @@ import (
 
 	// register motor.
 	_ "go.viam.com/rdk/component/motor/register"
-	"go.viam.com/rdk/component/sensor"
 
 	// register sensor.
 	_ "go.viam.com/rdk/component/sensor/register"
-	"go.viam.com/rdk/component/servo"
 
 	// register servo.
 	_ "go.viam.com/rdk/component/servo/register"
@@ -109,22 +103,10 @@ func (r *localRobot) BoardByName(name string) (board.Board, bool) {
 	return r.parts.BoardByName(name)
 }
 
-// ArmByName returns an arm by name. If it does not exist
-// nil is returned.
-func (r *localRobot) ArmByName(name string) (arm.Arm, bool) {
-	return r.parts.ArmByName(name)
-}
-
 // BaseByName returns a base by name. If it does not exist
 // nil is returned.
 func (r *localRobot) BaseByName(name string) (base.Base, bool) {
 	return r.parts.BaseByName(name)
-}
-
-// GripperByName returns a gripper by name. If it does not exist
-// nil is returned.
-func (r *localRobot) GripperByName(name string) (gripper.Gripper, bool) {
-	return r.parts.GripperByName(name)
 }
 
 // CameraByName returns a camera by name. If it does not exist
@@ -133,28 +115,10 @@ func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
 	return r.parts.CameraByName(name)
 }
 
-// SensorByName returns a sensor by name. If it does not exist
-// nil is returned.
-func (r *localRobot) SensorByName(name string) (sensor.Sensor, bool) {
-	return r.parts.SensorByName(name)
-}
-
-// ServoByName returns a servo by name. If it does not exist
-// nil is returned.
-func (r *localRobot) ServoByName(name string) (servo.Servo, bool) {
-	return r.parts.ServoByName(name)
-}
-
 // MotorByName returns a motor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
 	return r.parts.MotorByName(name)
-}
-
-// InputControllerByName returns an input.Controller by name. If it does not exist
-// nil is returned.
-func (r *localRobot) InputControllerByName(name string) (input.Controller, bool) {
-	return r.parts.InputControllerByName(name)
 }
 
 // ResourceByName returns a resource by name. If it does not exist
@@ -166,16 +130,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// ArmNames returns the name of all known arms.
-func (r *localRobot) ArmNames() []string {
-	return r.parts.ArmNames()
-}
-
-// GripperNames returns the name of all known grippers.
-func (r *localRobot) GripperNames() []string {
-	return r.parts.GripperNames()
 }
 
 // CameraNames returns the name of all known cameras.
@@ -193,24 +147,9 @@ func (r *localRobot) BoardNames() []string {
 	return r.parts.BoardNames()
 }
 
-// SensorNames returns the name of all known sensors.
-func (r *localRobot) SensorNames() []string {
-	return r.parts.SensorNames()
-}
-
-// ServoNames returns the name of all known servos.
-func (r *localRobot) ServoNames() []string {
-	return r.parts.ServoNames()
-}
-
 // MotorNames returns the name of all known motors.
 func (r *localRobot) MotorNames() []string {
 	return r.parts.MotorNames()
-}
-
-// InputControllerNames returns the name of all known input Controllers.
-func (r *localRobot) InputControllerNames() []string {
-	return r.parts.InputControllerNames()
 }
 
 // FunctionNames returns the name of all known functions.

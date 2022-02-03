@@ -200,13 +200,9 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	tempIMU, ok := r.ResourceByName(imu.Named("imu"))
+	b.myImu, ok = imu.FromRobot(r, "imu")
 	if !ok {
-		return nil, errors.New("need imu")
-	}
-	b.myImu, ok = tempIMU.(imu.IMU)
-	if !ok {
-		return nil, fmt.Errorf("wanted an imu but got an %T %#v", tempIMU, tempIMU)
+		return nil, errors.New("'imu' not found or not an IMU")
 	}
 
 	// get all motors
@@ -560,7 +556,7 @@ func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) 
 	return &i.orientation, i.lastError
 }
 
-func (i *myIMU) Readings(_ context.Context) ([]interface{}, error) {
+func (i *myIMU) GetReadings(_ context.Context) ([]interface{}, error) {
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 

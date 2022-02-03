@@ -27,10 +27,10 @@ window.commonApi = require('./gen/proto/api/common/v1/common_pb.js');
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
 const { dialDirect, dialWebRTC } = require("@viamrobotics/rpc");
-window.THREE = require("three/build/three.module.js")
-window.pcdLib = require("three/examples/jsm/loaders/PCDLoader.js")
-window.orbitLib = require("three/examples/jsm/controls/OrbitControls.js")
-window.trackLib = require("three/examples/jsm/controls/TrackballControls.js")
+window.THREE = require("three")
+window.pcdLib = require("../node_modules/three/examples/jsm/loaders/PCDLoader.js")
+window.orbitLib = require("../node_modules/three/examples/jsm/controls/OrbitControls.js")
+window.trackLib = require("../node_modules/three/examples/jsm/controls/TrackballControls.js")
 const rtcConfig = {
 	iceServers: [
 		{

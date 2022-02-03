@@ -69,8 +69,8 @@ func clientFromSvcClient(sc *serviceClient, name string) Sensor {
 	return &client{sc, name}
 }
 
-func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
-	resp, err := c.client.Readings(ctx, &pb.SensorServiceReadingsRequest{
+func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
+	resp, err := c.client.GetReadings(ctx, &pb.SensorServiceGetReadingsRequest{
 		Name: c.name,
 	})
 	if err != nil {
