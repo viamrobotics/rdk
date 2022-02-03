@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
@@ -275,21 +274,6 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 	return actualBoard, true
 }
 
-// ServoByName returns a servo by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
-	nameObj := servo.Named(name)
-	resource, ok := rc.ResourceByName(nameObj)
-	if !ok {
-		return nil, false
-	}
-	actualServo, ok := resource.(servo.Servo)
-	if !ok {
-		return nil, false
-	}
-	return actualServo, true
-}
-
 // MotorByName returns a motor by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
@@ -443,19 +427,6 @@ func (rc *RobotClient) BoardNames() []string {
 	for _, v := range rc.ResourceNames() {
 		if v.Subtype == board.Subtype {
 			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// ServoNames returns the names of all known servos.
-func (rc *RobotClient) ServoNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == servo.Subtype {
-			names = append(names, res.Name)
 		}
 	}
 	return copyStringSlice(names)

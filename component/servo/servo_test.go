@@ -1,16 +1,71 @@
-package servo
+package servo_test
 
 import (
 	"context"
-
-	// "math".
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
-	// pb "go.viam.com/rdk/proto/api/v1".
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+const (
+	testServoName    = "servo1"
+	testServoName2   = "servo2"
+	failServoName    = "servo3"
+	fakeServoName    = "servo4"
+	missingServoName = "servo5"
+)
+
+func setupInjectRobot() *inject.Robot {
+	servo1 := &mock{Name: testServoName}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name {
+		case servo.Named(testServoName):
+			return servo1, true
+		case servo.Named(fakeServoName):
+			return "not a servo", false
+		default:
+			return nil, false
+		}
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{servo.Named(testServoName), arm.Named("arm1")}
+	}
+	return r
+}
+
+func TestFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	s, ok := servo.FromRobot(r, testServoName)
+	test.That(t, s, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	result, err := s.GetPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, pos)
+
+	s, ok = servo.FromRobot(r, fakeServoName)
+	test.That(t, s, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	s, ok = servo.FromRobot(r, missingServoName)
+	test.That(t, s, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestNamesFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	names := servo.NamesFromRobot(r)
+	test.That(t, names, test.ShouldResemble, []string{testServoName})
+}
 
 func TestServoName(t *testing.T) {
 	for _, tc := range []struct {
@@ -25,66 +80,99 @@ func TestServoName(t *testing.T) {
 				UUID: "90cdc3ec-bf17-568f-8340-c6add982e00f",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: servo.SubtypeName,
 				},
 				Name: "",
 			},
 		},
 		{
 			"all fields included",
-			"servo1",
+			testServoName,
 			resource.Name{
 				UUID: "85bbeb08-07b7-5fef-8706-27258bc67859",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: servo.SubtypeName,
 				},
-				Name: "servo1",
+				Name: testServoName,
 			},
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := Named(tc.Name)
+			observed := servo.Named(tc.Name)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	actualServo1 := &mockServo{Name: "servo1"}
-	fakeServo1, err := WrapWithReconfigurable(actualServo1)
+	var actualServo1 servo.Servo = &mock{Name: testServoName}
+	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeServo1.(*reconfigurableServo).actual, test.ShouldEqual, actualServo1)
+
+	_, err = servo.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+
+	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfServo2, test.ShouldEqual, reconfServo1)
 }
 
 func TestReconfigurableServo(t *testing.T) {
-	actualServo1 := &mockServo{Name: "servo1"}
-	fakeServo1, err := WrapWithReconfigurable(actualServo1)
+	actualServo1 := &mock{Name: testServoName}
+	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeServo1.(*reconfigurableServo).actual, test.ShouldEqual, actualServo1)
 
-	actualServo2 := &mockServo{Name: "servo2"}
-	fakeServo2, err := WrapWithReconfigurable(actualServo2)
+	actualServo2 := &mock{Name: testServoName2}
+	reconfServo2, err := servo.WrapWithReconfigurable(actualServo2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeServo1.(*reconfigurableServo).Reconfigure(context.Background(), fakeServo2)
+	err = reconfServo1.Reconfigure(context.Background(), reconfServo2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeServo1.(*reconfigurableServo).actual, test.ShouldEqual, actualServo2)
+	test.That(t, reconfServo1, test.ShouldResemble, reconfServo2)
+	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
+
+	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
+	test.That(t, actualServo2.posCount, test.ShouldEqual, 0)
+	result, err := reconfServo1.(servo.Servo).GetPosition(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, pos)
+	test.That(t, actualServo1.posCount, test.ShouldEqual, 0)
+	test.That(t, actualServo2.posCount, test.ShouldEqual, 1)
+
+	err = reconfServo1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *servo.reconfigurableServo")
+}
+
+func TestClose(t *testing.T) {
+	actualServo1 := &mock{Name: testServoName}
+	reconfServo1, err := servo.WrapWithReconfigurable(actualServo1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, utils.TryClose(context.Background(), reconfServo1), test.ShouldBeNil)
 	test.That(t, actualServo1.reconfCount, test.ShouldEqual, 1)
 }
 
-type mockServo struct {
-	Name        string
+const pos = 3
+
+type mock struct {
+	Name string
+
+	posCount    int
 	reconfCount int
 }
 
-func (mServo *mockServo) Move(ctx context.Context, angleDegs uint8) error {
+func (mServo *mock) Move(ctx context.Context, angleDegs uint8) error {
 	return nil
 }
 
-func (mServo *mockServo) GetPosition(ctx context.Context) (uint8, error) {
-	return 0, nil
+func (mServo *mock) GetPosition(ctx context.Context) (uint8, error) {
+	mServo.posCount++
+	return pos, nil
 }
 
-func (mServo *mockServo) Close() { mServo.reconfCount++ }
+func (mServo *mock) Close() { mServo.reconfCount++ }
