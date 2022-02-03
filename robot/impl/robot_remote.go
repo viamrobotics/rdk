@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
@@ -137,12 +136,6 @@ func (rr *remoteRobot) CameraNames() []string {
 	return rr.prefixNames(rr.parts.CameraNames())
 }
 
-func (rr *remoteRobot) BaseNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.BaseNames())
-}
-
 func (rr *remoteRobot) BoardNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -175,12 +168,6 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.BaseByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {

@@ -21,14 +21,16 @@ func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
 
 	fakeRobot := &inject.Robot{}
-	fakeRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fakebase.Base{}, true
-	}
-
 	fakeController := &inject.InputController{}
 
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return fakeController, true
+		switch name.Subtype {
+		case input.Subtype:
+			return fakeController, true
+		case base.Subtype:
+			return &fakebase.Base{}, true
+		}
+		return nil, false
 	}
 
 	fakeController.RegisterControlCallbackFunc = func(
@@ -72,7 +74,10 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// Controller import failure
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return fakeController, false
+		if name.Subtype == base.Subtype {
+			return &fakebase.Base{}, true
+		}
+		return nil, false
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -85,8 +90,11 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("no input controller named %q", cfg.InputControllerName))
 
 	// Base import failure
-	fakeRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fakebase.Base{}, false
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		if name.Subtype == input.Subtype {
+			return fakeController, true
+		}
+		return nil, false
 	}
 
 	_, err = New(ctx, fakeRobot,

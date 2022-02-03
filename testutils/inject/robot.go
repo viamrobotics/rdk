@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
@@ -23,14 +22,12 @@ import (
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
-	BaseByNameFunc     func(name string) (base.Base, bool)
 	CameraByNameFunc   func(name string) (camera.Camera, bool)
 	BoardByNameFunc    func(name string) (board.Board, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc    func() []string
 	CameraNamesFunc    func() []string
-	BaseNamesFunc      func() []string
 	BoardNamesFunc     func() []string
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
@@ -50,14 +47,6 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 		return r.Robot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
-}
-
-// BaseByName calls the injected BaseByName or the real version.
-func (r *Robot) BaseByName(name string) (base.Base, bool) {
-	if r.BaseByNameFunc == nil {
-		return r.Robot.BaseByName(name)
-	}
-	return r.BaseByNameFunc(name)
 }
 
 // CameraByName calls the injected CameraByName or the real version.
@@ -106,14 +95,6 @@ func (r *Robot) CameraNames() []string {
 		return r.Robot.CameraNames()
 	}
 	return r.CameraNamesFunc()
-}
-
-// BaseNames calls the injected BaseNames or the real version.
-func (r *Robot) BaseNames() []string {
-	if r.BaseNamesFunc == nil {
-		return r.Robot.BaseNames()
-	}
-	return r.BaseNamesFunc()
 }
 
 // BoardNames calls the injected BoardNames or the real version.
