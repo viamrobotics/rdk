@@ -37,32 +37,29 @@ func NewPinholeCameraHomography(inp *RawPinholeCameraHomography) (*PinholeCamera
 	}, nil
 }
 
-// AlignImageWithDepth will take the depth and the color image and overlay the two properly.
-func (dch *PinholeCameraHomography) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
-	if ii.IsAligned() {
-		return ii, nil
-	}
-	if ii.Color == nil {
+// AlignColorAndDepthImage will take the depth and the color image and overlay the two properly.
+func (dch *PinholeCameraHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+	if col == nil {
 		return nil, errors.New("no color image present to align")
 	}
-	if ii.Depth == nil {
+	if dep == nil {
 		return nil, errors.New("no depth image present to align")
 	}
-	if ii.Color.Width() != dch.ColorCamera.Width || ii.Color.Height() != dch.ColorCamera.Height {
+	if col.Width() != dch.ColorCamera.Width || col.Height() != dch.ColorCamera.Height {
 		return nil, errors.Errorf(
 			"dimension of color image (%d, %d) does not match color camera parameters (%d, %d)",
-			ii.Color.Width(),
-			ii.Color.Height(),
+			col.Width(),
+			col.Height(),
 			dch.ColorCamera.Width,
 			dch.ColorCamera.Height,
 		)
 	}
 	// rotate depth image if necessary
 	if dch.RotateDepth != 0. {
-		ii.Depth = ii.Depth.Rotate(dch.RotateDepth)
+		dep = dep.Rotate(dch.RotateDepth)
 	}
 	// make a new depth map that is as big as the color image
-	width, height := ii.Color.Width(), ii.Color.Height()
+	width, height := col.Width(), col.Height()
 	newDepth := rimage.NewEmptyDepthMap(width, height)
 	// get the homography that will turn color pixels into depth pixels
 	var err error
@@ -78,13 +75,13 @@ func (dch *PinholeCameraHomography) AlignImageWithDepth(ii *rimage.ImageWithDept
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			depthPt := colorToDepth.Apply(r2.Point{float64(x), float64(y)})
-			depthVal := rimage.NearestNeighborDepth(depthPt, ii.Depth)
+			depthVal := rimage.NearestNeighborDepth(depthPt, dep)
 			if depthVal != nil {
 				newDepth.Set(x, y, *depthVal)
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(ii.Color, newDepth, true), nil
+	return rimage.MakeImageWithDepth(col, newDepth, true), nil
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
@@ -96,18 +93,12 @@ func (dch *PinholeCameraHomography) ImageWithDepthToPointCloud(ii *rimage.ImageW
 	if ii.IsAligned() {
 		iwd = ii
 	} else {
-		iwd, err = dch.AlignImageWithDepth(ii)
+		iwd, err = dch.AlignColorAndDepthImage(ii.Color, ii.Depth)
 		if err != nil {
 			return nil, err
 		}
 	}
-	// Check dimensions, they should be aligned to the color frame
-	if iwd.Depth.Width() != iwd.Color.Width() ||
-		iwd.Depth.Height() != iwd.Color.Height() {
-		return nil, errors.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
-			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
-	}
-	return intrinsics2DTo3D(ii, &dch.ColorCamera)
+	return intrinsics2DTo3D(iwd, &dch.ColorCamera)
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth

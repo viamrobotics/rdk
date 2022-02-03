@@ -10,7 +10,7 @@ import (
 
 // Aligner aligns a color and depth image together.
 type Aligner interface {
-	AlignImageWithDepth(*ImageWithDepth) (*ImageWithDepth, error)
+	AlignColorAndDepthImage(*Image, *DepthMap) (*ImageWithDepth, error)
 }
 
 // Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud.

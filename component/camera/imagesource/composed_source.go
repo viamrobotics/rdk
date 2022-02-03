@@ -25,7 +25,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthToPretty(r, config.ConvertedAttributes.(*camera.AttrConfig))
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			return newDepthToPretty(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
@@ -43,7 +47,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newOverlay(r, config.ConvertedAttributes.(*camera.AttrConfig))
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			return newOverlay(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
@@ -75,7 +83,8 @@ func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) 
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
-	return &camera.ImageSource{ImageSource: &overlaySource{source}}, nil
+	imgSrc := &overlaySource{source}
+	return camera.New(imgSrc, attrs, source)
 }
 
 type depthToPretty struct {
@@ -100,5 +109,6 @@ func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, e
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
-	return &camera.ImageSource{ImageSource: &depthToPretty{source}}, nil
+	imgSrc := &depthToPretty{source}
+	return camera.New(imgSrc, attrs, source)
 }

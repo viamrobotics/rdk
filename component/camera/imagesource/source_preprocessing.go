@@ -25,7 +25,11 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newPreprocessDepth(r, config)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+			}
+			return newPreprocessDepth(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "preprocess_depth",
@@ -58,10 +62,11 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 	return ii, func() {}, nil
 }
 
-func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := r.CameraByName(config.ConvertedAttributes.(*camera.AttrConfig).Source)
+func newPreprocessDepth(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, ok := r.CameraByName(attrs.Source)
 	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*camera.AttrConfig).Source)
+		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
-	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
+	imgSrc := &preprocessDepthSource{source}
+	return camera.New(imgSrc, attrs, source)
 }
