@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gripper"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/robot"
 	webserver "go.viam.com/rdk/web/server"
@@ -78,11 +79,11 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
-	gripper, ok := theRobot.GripperByName(gripperName)
+	gGripper, ok := gripper.FromRobot(theRobot, gripperName)
 	if !ok {
 		return fmt.Errorf("failed to find gripper %s", gripperName)
 	}
-	gripper.Open(ctx)
+	gGripper.Open(ctx)
 
 	// Dump the platform,
 	toggleTrigger(ctx, theRobot)
@@ -181,7 +182,7 @@ func resetCube(ctx context.Context, theRobot robot.Robot) error {
 	if !ok {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
-	gripper, ok := theRobot.GripperByName(gripperName)
+	rGripper, ok := gripper.FromRobot(theRobot, gripperName)
 	if !ok {
 		return fmt.Errorf("failed to find gripper %s", gripperName)
 	}
@@ -190,19 +191,19 @@ func resetCube(ctx context.Context, theRobot robot.Robot) error {
 	rArm.MoveToJointPositions(ctx, safeDumpPos)
 	rArm.MoveToJointPositions(ctx, grabReadyPos)
 	rArm.MoveToJointPositions(ctx, cube1grab)
-	gripper.Grab(ctx)
+	rGripper.Grab(ctx)
 	rArm.MoveToJointPositions(ctx, grabReadyPos)
 	rArm.MoveToJointPositions(ctx, cube1place)
-	gripper.Open(ctx)
+	rGripper.Open(ctx)
 	rArm.MoveToJointPositions(ctx, cube1placePost)
 
 	// Grab cube 2 and reset it on the field
 	rArm.MoveToJointPositions(ctx, grabReadyPos)
 	rArm.MoveToJointPositions(ctx, cube2grab)
-	gripper.Grab(ctx)
+	rGripper.Grab(ctx)
 	rArm.MoveToJointPositions(ctx, grabReadyPos)
 	rArm.MoveToJointPositions(ctx, cube2place)
-	return gripper.Open(ctx)
+	return rGripper.Open(ctx)
 }
 
 func resetDuck(ctx context.Context, theRobot robot.Robot) error {
@@ -210,7 +211,7 @@ func resetDuck(ctx context.Context, theRobot robot.Robot) error {
 	if !ok {
 		return fmt.Errorf("failed to find arm %s", armName)
 	}
-	gripper, ok := theRobot.GripperByName(gripperName)
+	rGripper, ok := gripper.FromRobot(theRobot, gripperName)
 	if !ok {
 		return fmt.Errorf("failed to find gripper %s", gripperName)
 	}
@@ -223,20 +224,20 @@ func resetDuck(ctx context.Context, theRobot robot.Robot) error {
 	waitForReady(ctx, theRobot)
 
 	// Try to grab- this should succeed if the duck is facing forwards, and fail if facing backwards
-	grabbed, _ := gripper.Grab(ctx)
+	grabbed, _ := rGripper.Grab(ctx)
 	if grabbed {
 		rArm.MoveToJointPositions(ctx, grabReadyPos)
 		rArm.MoveToJointPositions(ctx, duckplaceFW)
-		gripper.Open(ctx)
+		rGripper.Open(ctx)
 	} else {
 		// Duck was facing backwards. Grab where the backwards-facing head should be
 		rArm.MoveToJointPositions(ctx, grabReadyPos)
-		gripper.Open(ctx)
+		rGripper.Open(ctx)
 		rArm.MoveToJointPositions(ctx, duckgrabREV)
-		gripper.Grab(ctx)
+		rGripper.Grab(ctx)
 		rArm.MoveToJointPositions(ctx, grabReadyPos)
 		rArm.MoveToJointPositions(ctx, duckplaceREV)
-		gripper.Open(ctx)
+		rGripper.Open(ctx)
 	}
 	return nil
 }

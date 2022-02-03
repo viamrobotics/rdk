@@ -17,6 +17,16 @@
                 "x": 0,
                 "y": 0,
                 "z": 267
+            },
+            "volume": {
+                "x": 120,
+                "y": 120,
+                "z": 320,
+                "translation": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 160
+                }
             }
         },
         {
@@ -26,6 +36,16 @@
                 "x": 53.5,
                 "y": 0,
                 "z": 284.5
+            },
+            "volume": {
+                "x": 110,
+                "y": 190,
+                "z": 370,
+                "translation": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 135
+                }
             }
         },
         {
@@ -34,16 +54,64 @@
             "translation": {
                 "x": 77.5,
                 "y": 0,
-                "z": -342.5
-            }
+                "z": -172.5
+            },
+            "volume": {
+                "x": 100,
+                "y": 190,
+                "z": 250,
+                "translation": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 70
+                },
+                "orientation": {
+                     "type": "ov_degrees",
+                     "value": {
+                         "x": 0.707106,
+                         "y": 0,
+                         "z": -0.707106,
+                         "th": 0
+                     }
+                 }
+             }
         },
         {
             "id": "lower_forearm",
+            "parent": "forearm_rot",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": -170
+            },
+            "volume": {
+                "x": 100,
+                "y": 190,
+                "z": 210,
+                "translation": {
+                  "x": 0,
+                  "y": 0,
+                  "z": -105
+                }
+            }
+        },
+        {
+            "id": "wrist_link",
             "parent": "wrist",
             "translation": {
                 "x": 76,
                 "y": 0,
                 "z": -97
+            },
+            "volume": {
+                "x": 150,
+                "y": 100,
+                "z": 135,
+                "translation": {
+                  "x": 75,
+                  "y": 10,
+                  "z": -67.5
+                }
             }
         },
         {
@@ -117,7 +185,7 @@
         {
             "id": "wrist",
             "type": "revolute",
-            "parent": "forearm_rot",
+            "parent": "lower_forearm",
             "axis": {
                 "x": 0,
                 "y": 1,
@@ -129,7 +197,7 @@
         {
             "id": "gripper_rot",
             "type": "revolute",
-            "parent": "lower_forearm",
+            "parent": "wrist_link",
             "axis": {
                 "x": 0,
                 "y": 0,

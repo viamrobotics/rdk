@@ -29,13 +29,13 @@ func TestParseJSONFile(t *testing.T) {
 
 	for _, f := range goodFiles {
 		t.Run(f, func(tt *testing.T) {
-			model, err := ParseJSONFile(utils.ResolveFile(f), "")
+			model, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldBeNil)
 
 			data, err := model.MarshalJSON()
 			test.That(t, err, test.ShouldBeNil)
 
-			model2, err := ParseJSON(data, "")
+			model2, err := UnmarshalModelJSON(data, "")
 			test.That(t, err, test.ShouldBeNil)
 
 			test.That(t, model.AlmostEquals(model2), test.ShouldBeTrue)
@@ -44,7 +44,7 @@ func TestParseJSONFile(t *testing.T) {
 
 	for _, f := range badFiles {
 		t.Run(f, func(tt *testing.T) {
-			_, err := ParseJSONFile(utils.ResolveFile(f), "")
+			_, err := ParseModelJSONFile(utils.ResolveFile(f), "")
 			test.That(t, err, test.ShouldNotBeNil)
 		})
 	}

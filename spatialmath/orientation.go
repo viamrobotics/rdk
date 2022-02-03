@@ -22,7 +22,7 @@ func NewZeroOrientation() Orientation {
 
 // OrientationAlmostEqual will return a bool describing whether 2 poses have approximately the same orientation.
 func OrientationAlmostEqual(o1, o2 Orientation) bool {
-	return QuaternionAlmostEqual(o1.Quaternion(), o2.Quaternion(), 1e-5)
+	return QuatToR3AA(OrientationBetween(o1, o2).Quaternion()).Norm2() < 1e-4
 }
 
 // OrientationBetween returns the orientation representing the difference between the two given Orientations.

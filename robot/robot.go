@@ -10,10 +10,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -29,32 +26,20 @@ type Robot interface {
 	// BaseByName returns a base by name.
 	BaseByName(name string) (base.Base, bool)
 
-	// GripperByName returns a gripper by name.
-	GripperByName(name string) (gripper.Gripper, bool)
-
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
 
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
 
-	// ServoByName returns a servo by name.
-	ServoByName(name string) (servo.Servo, bool)
-
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
-
-	// InputControllerByName returns a input.Controller by name.
-	InputControllerByName(name string) (input.Controller, bool)
 
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// GripperNames returns the name of all known grippers.
-	GripperNames() []string
 
 	// CameraNames returns the name of all known cameras.
 	CameraNames() []string
@@ -65,14 +50,8 @@ type Robot interface {
 	// BoardNames returns the name of all known boards.
 	BoardNames() []string
 
-	// ServoNames returns the name of all known servos.
-	ServoNames() []string
-
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
-
-	// InputControllerNames returns the name of all known input controllers.
-	InputControllerNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string

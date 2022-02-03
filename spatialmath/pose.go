@@ -19,13 +19,6 @@ import (
 // considered equivalent.
 const Epsilon = 1e-8
 
-// Translation is the translation between two objects in the grid system. It is always in millimeters.
-type Translation struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
-
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
 // and the Orientation() method returns an Orientation object, which has methods to parametrize
@@ -180,12 +173,19 @@ func PoseAlmostEqual(a, b Pose) bool {
 }
 
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses the same epsilon as the default value for the Viam IK solver.
 func PoseAlmostCoincident(a, b Pose) bool {
+	return PoseAlmostCoincidentEps(a, b, Epsilon)
+}
+
+// PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses a passed in epsilon value.
+func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
 	ap := a.Point()
 	bp := b.Point()
-	return utils.Float64AlmostEqual(ap.X, bp.X, Epsilon) &&
-		utils.Float64AlmostEqual(ap.Y, bp.Y, Epsilon) &&
-		utils.Float64AlmostEqual(ap.Z, bp.Z, Epsilon)
+	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
 }
 
 // distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a
