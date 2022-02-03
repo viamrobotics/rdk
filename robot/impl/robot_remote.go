@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -133,12 +132,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) GripperNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.GripperNames())
-}
-
 func (rr *remoteRobot) CameraNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -195,12 +188,6 @@ func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.BaseByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) GripperByName(name string) (gripper.Gripper, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.GripperByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {
