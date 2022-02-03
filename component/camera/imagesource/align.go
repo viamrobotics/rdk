@@ -144,7 +144,7 @@ func newAlignColorDepth(color, depth camera.Camera, attrs *camera.AttrConfig, lo
 	return camera.New(imgSrc, attrs, color) // aligns the image to the color camera
 }
 
-// Next aligns the next images from the color and the depth sources
+// Next aligns the next images from the color and the depth sources.
 func (acd *alignColorDepth) Next(ctx context.Context) (image.Image, func(), error) {
 	c, cCloser, err := acd.color.Next(ctx)
 	if err != nil {

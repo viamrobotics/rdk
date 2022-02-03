@@ -67,7 +67,7 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 	return pc, nil
 }
 
-// AlignColorAndDepthImage will warp the color and depth map in order to have them aligned on top of each other
+// AlignColorAndDepthImage will warp the color and depth map in order to have them aligned on top of each other.
 func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
 	if col == nil {
 		return nil, errors.New("no color image present to align")

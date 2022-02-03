@@ -43,7 +43,9 @@ func TestAlignWarp(t *testing.T) {
 	delete(c.Attributes, "homography")
 
 	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
-	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color")
+	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	attrs.CameraParameters = warpParams
 
@@ -154,7 +156,9 @@ func TestAlignGripperWarp(t *testing.T) {
 
 	c.IntrinsicExtrinsic = nil
 	c.Homography = nil
-	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color")
+	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
+		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
+	)
 	test.That(t, err, test.ShouldBeNil)
 	c.CameraParameters = warpParams
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
