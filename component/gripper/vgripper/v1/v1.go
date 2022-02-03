@@ -87,7 +87,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		return nil, errors.New("failed to find analog reader 'pressure'")
 	}
 
-	model, err := referenceframe.ParseJSON(vgripperv1json, "")
+	model, err := referenceframe.UnmarshalModelJSON(vgripperv1json, "")
 	if err != nil {
 		return nil, err
 	}

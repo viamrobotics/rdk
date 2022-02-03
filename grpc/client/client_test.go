@@ -385,7 +385,7 @@ func TestClient(t *testing.T) {
 				Type: config.ComponentTypeArm,
 				Frame: &config.Frame{
 					Parent:      "b",
-					Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
+					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
@@ -404,7 +404,7 @@ func TestClient(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.Translation{1, 2, 3},
+				Translation: spatialmath.TranslationConfig{1, 2, 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -412,7 +412,7 @@ func TestClient(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.Translation{4, 5, 6},
+				Translation: spatialmath.TranslationConfig{4, 5, 6},
 			},
 		},
 	}

@@ -8,55 +8,48 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/spatialmath"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
-type vectorJSON struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
-
-// ModelJSON represents all supported fields in a kinematics JSON file.
-type ModelJSON struct {
+// ModelConfig represents all supported fields in a kinematics JSON file.
+type ModelConfig struct {
 	Name         string `json:"name"`
 	KinParamType string `json:"kinematic_param_type"`
 	Links        []struct {
-		ID          string                     `json:"id"`
-		Parent      string                     `json:"parent"`
-		Translation spatialmath.Translation    `json:"translation"`
-		Orientation spatialmath.RawOrientation `json:"orientation"`
-
-		// Box represents the diagonal vector for a rectangular prism comprising the volume around the link
-		BoxVolume vectorJSON `json:"volume"`
+		ID          string                    `json:"id"`
+		Parent      string                    `json:"parent"`
+		Translation spatial.TranslationConfig `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
+		Volume      spatial.VolumeConfig      `json:"volume"`
 	} `json:"links"`
 	Joints []struct {
-		ID     string     `json:"id"`
-		Type   string     `json:"type"`
-		Parent string     `json:"parent"`
-		Axis   vectorJSON `json:"axis"`
-		Max    float64    `json:"max"`
-		Min    float64    `json:"min"`
+		ID     string             `json:"id"`
+		Type   string             `json:"type"`
+		Parent string             `json:"parent"`
+		Axis   spatial.AxisConfig `json:"axis"`
+		Max    float64            `json:"max"`
+		Min    float64            `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
-		ID        string     `json:"id"`
-		Parent    string     `json:"parent"`
-		A         float64    `json:"a"`
-		D         float64    `json:"d"`
-		Alpha     float64    `json:"alpha"`
-		Max       float64    `json:"max"`
-		Min       float64    `json:"min"`
-		BoxVolume vectorJSON `json:"volume"`
+		ID     string               `json:"id"`
+		Parent string               `json:"parent"`
+		A      float64              `json:"a"`
+		D      float64              `json:"d"`
+		Alpha  float64              `json:"alpha"`
+		Max    float64              `json:"max"`
+		Min    float64              `json:"min"`
+		Volume spatial.VolumeConfig `json:"volume"`
 	} `json:"dhParams"`
-	RawFrames []map[string]interface{} `json:"frames"`
+	RawFrames []FrameMapConfig `json:"frames"`
 }
 
-// Model turns the ModelJSON struct into a full Model with the name modelName.
-func (m *ModelJSON) Model(modelName string) (Model, error) {
+// ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
+func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
+	var err error
 	model := NewSimpleModel()
 
 	if modelName == "" {
-		model.ChangeName(m.Name)
+		model.ChangeName(config.Name)
 	} else {
 		model.ChangeName(modelName)
 	}
@@ -66,77 +59,68 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 	// Make a map of parents for each element for post-process, to allow items to be processed out of order
 	parentMap := map[string]string{}
 
-	switch m.KinParamType {
+	switch config.KinParamType {
 	case "SVA", "":
-		for _, link := range m.Links {
+		for _, link := range config.Links {
 			if link.ID == World {
 				return nil, errors.New("reserved word: cannot name a link 'world'")
 			}
 		}
-		for _, joint := range m.Joints {
+		for _, joint := range config.Joints {
 			if joint.ID == World {
 				return nil, errors.New("reserved word: cannot name a joint 'world'")
 			}
 		}
 
-		for _, link := range m.Links {
+		for _, link := range config.Links {
 			parentMap[link.ID] = link.Parent
-			orientation, err := spatialmath.ParseOrientation(link.Orientation)
+			orientation, err := link.Orientation.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
-			ov := orientation.OrientationVectorRadians()
-			pt := r3.Vector{link.Translation.X, link.Translation.Y, link.Translation.Z}
-			pose := spatialmath.NewPoseFromOrientationVector(pt, ov)
-
-			var vol spatialmath.VolumeCreator
-			if link.BoxVolume.X != 0 && link.BoxVolume.Y != 0 && link.BoxVolume.Z != 0 {
-				dims := r3.Vector{link.BoxVolume.X, link.BoxVolume.Y, link.BoxVolume.Z}.Mul(0.5)
-				offset := spatialmath.Invert(spatialmath.NewPoseFromOrientation(pt.Mul(0.5), ov))
-				vol = spatialmath.NewBoxFromOffset(dims, offset)
+			pose := spatial.NewPoseFromOrientation(link.Translation.ParseConfig(), orientation)
+			volumeCreator, err := link.Volume.ParseConfig()
+			if err == nil {
+				transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
+			} else {
+				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
 			}
-			transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, vol)
-
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		// Now we add all of the transforms. Will eventually support: "cylindrical|fixed|helical|prismatic|revolute|spherical"
-		for _, joint := range m.Joints {
-			// TODO(pl): Make this a switch once we support more than one joint type
-			if joint.Type == "revolute" {
-				aa := spatialmath.R4AA{RX: joint.Axis.X, RY: joint.Axis.Y, RZ: joint.Axis.Z}
-
-				rev, err := NewRotationalFrame(joint.ID, aa, Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
-				if err != nil {
-					return nil, err
-				}
-				parentMap[joint.ID] = joint.Parent
-
-				transforms[joint.ID] = rev
-			} else {
+		for _, joint := range config.Joints {
+			parentMap[joint.ID] = joint.Parent
+			switch joint.Type {
+			case "revolute":
+				transforms[joint.ID], err = NewRotationalFrame(joint.ID, joint.Axis.ParseConfig(),
+					Limit{Min: joint.Min * math.Pi / 180, Max: joint.Max * math.Pi / 180})
+			case "prismatic":
+				transforms[joint.ID], err = NewTranslationalFrame(joint.ID, r3.Vector(joint.Axis),
+					Limit{Min: joint.Min, Max: joint.Max})
+			default:
 				return nil, errors.Errorf("unsupported joint type detected: %v", joint.Type)
 			}
-		}
-	case "DH":
-		for _, dh := range m.DHParams {
-			// Joint part of DH param
-			jointID := dh.ID + "_j"
-			parentMap[jointID] = dh.Parent
-			j, err := NewRotationalFrame(
-				jointID,
-				spatialmath.R4AA{RX: 0, RY: 0, RZ: 1},
-				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180},
-			)
 			if err != nil {
 				return nil, err
 			}
-			transforms[jointID] = j
+		}
+	case "DH":
+		for _, dh := range config.DHParams {
+			// Joint part of DH param
+			jointID := dh.ID + "_j"
+			parentMap[jointID] = dh.Parent
+			transforms[jointID], err = NewRotationalFrame(jointID, spatial.R4AA{RX: 0, RY: 0, RZ: 1},
+				Limit{Min: dh.Min * math.Pi / 180, Max: dh.Max * math.Pi / 180})
+			if err != nil {
+				return nil, err
+			}
 
 			// Link part of DH param
 			linkID := dh.ID
-			linkQuat := spatialmath.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
+			linkQuat := spatial.NewPoseFromDH(dh.A, dh.D, dh.Alpha)
 
 			transforms[linkID], err = NewStaticFrame(linkID, linkQuat)
 			if err != nil {
@@ -146,8 +130,8 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 		}
 
 	case "frames":
-		for _, x := range m.RawFrames {
-			f, err := UnmarshalFrameMap(x)
+		for _, x := range config.RawFrames {
+			f, err := x.ParseConfig()
 			if err != nil {
 				return nil, err
 			}
@@ -156,7 +140,7 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 		return model, nil
 
 	default:
-		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", m.KinParamType)
+		return nil, errors.Errorf("unsupported param type: %s, supported params are SVA and DH", config.KinParamType)
 	}
 
 	// Determine which transforms have no children
@@ -209,23 +193,23 @@ func (m *ModelJSON) Model(modelName string) (Model, error) {
 	return model, nil
 }
 
-// ParseJSONFile will read a given file and then parse the contained JSON data.
-func ParseJSONFile(filename, modelName string) (Model, error) {
+// ParseModelJSONFile will read a given file and then parse the contained JSON data.
+func ParseModelJSONFile(filename, modelName string) (Model, error) {
 	//nolint:gosec
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	return ParseJSON(jsonData, modelName)
+	return UnmarshalModelJSON(jsonData, modelName)
 }
 
 // ErrNoModelInformation is used when there is no model information.
 var ErrNoModelInformation = errors.New("no model information")
 
-// ParseJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
+// UnmarshalModelJSON will parse the given JSON data into a kinematics model. modelName sets the name of the model,
 // will use the name from the JSON if string is empty.
-func ParseJSON(jsonData []byte, modelName string) (Model, error) {
-	m := &ModelJSON{}
+func UnmarshalModelJSON(jsonData []byte, modelName string) (Model, error) {
+	m := &ModelConfig{}
 
 	// empty data probably means that the robot component has no model information
 	if len(jsonData) == 0 {
@@ -237,5 +221,5 @@ func ParseJSON(jsonData []byte, modelName string) (Model, error) {
 		return nil, errors.Wrap(err, "failed to unmarshal json file")
 	}
 
-	return m.Model(modelName)
+	return m.ParseConfig(modelName)
 }

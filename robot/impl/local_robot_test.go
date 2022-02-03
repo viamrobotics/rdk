@@ -114,7 +114,7 @@ func TestConfigRemote(t *testing.T) {
 				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -129,7 +129,7 @@ func TestConfigRemote(t *testing.T) {
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -210,15 +210,15 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, 16, test.ShouldEqual, len(cfg2.Components))
 
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
