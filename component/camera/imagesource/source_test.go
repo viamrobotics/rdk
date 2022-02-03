@@ -12,10 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 )
 
-const debugImageSource = "VIAM_DEBUG_IMAGESOURCE"
+const debugImageSource = "VIAM_DEBUG"
 
 func debugImageSourceOrSkip(t *testing.T) {
 	t.Helper()
@@ -67,7 +68,8 @@ func TestServerSource(t *testing.T) {
 	attrs := camera.AttrConfig{}
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
-	s, err := NewServerSource(&attrs, logger)
+	attrs.Stream = "both"
+	s, err := newServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }

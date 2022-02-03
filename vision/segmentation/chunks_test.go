@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugChunks = "VIAM_DEBUG_CHUNKS"
+const debugChunks = "VIAM_DEBUG"
 
 func init() {
 	utils.ParallelFactor = 1

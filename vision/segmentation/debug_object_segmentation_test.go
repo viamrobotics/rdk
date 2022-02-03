@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugObjSeg = "VIAM_DEBUG_OBJSEG"
+const debugObjSeg = "VIAM_DEBUG"
 
 // Test finding the objects in an aligned intel image.
 type segmentObjectTestHelper struct {

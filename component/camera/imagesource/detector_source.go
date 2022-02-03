@@ -28,7 +28,12 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
-			return newColorDetector(attrs)
+			sourceName := attrs.Source
+			src, ok := r.CameraByName(sourceName)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
+			}
+			return newColorDetector(src, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
@@ -43,12 +48,7 @@ func init() {
 }
 
 // newColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func newColorDetector(attrs *camera.AttrConfig) (camera.Camera, error) {
-	sourceName := attrs.Source
-	src, ok := r.CameraByName(sourceName)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
-	}
+func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {

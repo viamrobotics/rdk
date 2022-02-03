@@ -31,7 +31,11 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
-			return newColorSegmentsSource(r, attrs)
+			source, ok := r.CameraByName(attrs.Source)
+			if !ok {
+				return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+			}
+			return newColorSegmentsSource(source, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
@@ -82,11 +86,7 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	return segmentedIwd, func() {}, nil
 }
 
-func newColorSegmentsSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, ok := r.CameraByName(attrs.Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
-	}
+func newColorSegmentsSource(source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
 	planeSize := attrs.PlaneSize
 	if attrs.PlaneSize == 0 {
 		attrs.PlaneSize = 10000
