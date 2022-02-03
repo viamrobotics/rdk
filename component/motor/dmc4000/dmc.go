@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,12 +39,13 @@ var (
 
 // controller is common across all DMC4000 motor instances sharing a controller.
 type controller struct {
-	mu             sync.Mutex
-	port           io.ReadWriteCloser
-	serialDevice   string
-	logger         golog.Logger
-	activeAxes     map[string]bool
-	amplifierModel string
+	mu           sync.Mutex
+	port         io.ReadWriteCloser
+	serialDevice string
+	logger       golog.Logger
+	activeAxes   map[string]bool
+	ampModel1    string
+	ampModel2    string
 }
 
 // Motor is a single axis/motor/component instance.
@@ -79,11 +81,7 @@ func init() {
 
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*Config), logger)
-			if err != nil {
-				return nil, err
-			}
-			return m, nil
+			return NewMotor(ctx, r, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -101,16 +99,9 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &Config{})
-}
-
-func validAxis(axis string) bool {
-	c := []byte(axis)[0]
-	// ascii A through H
-	if c >= 65 && c <= 72 && len(axis) == 1 {
-		return true
-	}
-	return false
+		},
+		&Config{},
+	)
 }
 
 // NewMotor returns a DMC4000 driven motor.
@@ -123,50 +114,27 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 	globalMu.Lock()
 	ctrl, ok := controllers[c.SerialDevice]
 	if !ok {
-		ctrl = new(controller)
-		controllers[c.SerialDevice] = ctrl
-		ctrl.activeAxes = make(map[string]bool)
-		ctrl.serialDevice = c.SerialDevice
-		ctrl.amplifierModel = c.AmplifierModel
-		ctrl.logger = logger
-
-		if ctrl.amplifierModel == "" {
-			ctrl.amplifierModel = D4140 // only one supported for now
-		}
-
-		// TODO (James): Search for usb/serial device when not set
-
-		serialOptions := serial.OpenOptions{
-			PortName:          c.SerialDevice,
-			BaudRate:          115200,
-			DataBits:          8,
-			StopBits:          1,
-			MinimumReadSize:   1,
-			RTSCTSFlowControl: true,
-		}
-
-		port, err := serial.Open(serialOptions)
+		newCtrl, err := newController(c, logger)
 		if err != nil {
 			return nil, err
 		}
-		ctrl.port = port
+		controllers[c.SerialDevice] = newCtrl
+		ctrl = newCtrl
 	}
 	globalMu.Unlock()
 
-	if ctrl.amplifierModel != D4140 {
-		return nil, errors.New("only amplifier model D4140 (stepper motor) is supported")
-	}
-
-	if !validAxis(c.Axis) {
-		return nil, fmt.Errorf("invalid dmc4000 motor axis: %s", c.Axis)
-	}
-
 	ctrl.mu.Lock()
 	defer ctrl.mu.Unlock()
+
+	// is on a known/supported amplifier only when map entry exists
 	claimed, ok := ctrl.activeAxes[c.Axis]
-	if !ok || !claimed {
-		ctrl.activeAxes[c.Axis] = true
+	if !ok {
+		return nil, fmt.Errorf("invalid dmc4000 motor axis: %s", c.Axis)
 	}
+	if claimed {
+		return nil, fmt.Errorf("axis %s is already in use", c.Axis)
+	}
+	ctrl.activeAxes[c.Axis] = true
 
 	m := &Motor{
 		c:                ctrl,
@@ -175,6 +143,10 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 		MaxRPM:           c.MaxRPM,
 		MaxAcceleration:  c.MaxAcceleration,
 		HomeRPM:          c.HomeRPM,
+	}
+
+	if m.StepsPerRotation <= 0 {
+		m.StepsPerRotation = 200
 	}
 
 	if m.MaxRPM <= 0 {
@@ -220,10 +192,83 @@ func (m *Motor) Close() {
 	delete(controllers, m.c.serialDevice)
 }
 
+func newController(c *Config, logger golog.Logger) (*controller, error) {
+	ctrl := new(controller)
+	ctrl.activeAxes = make(map[string]bool)
+	ctrl.serialDevice = c.SerialDevice
+	ctrl.logger = logger
+
+	serialOptions := serial.OpenOptions{
+		PortName:          c.SerialDevice,
+		BaudRate:          115200,
+		DataBits:          8,
+		StopBits:          1,
+		MinimumReadSize:   1,
+		RTSCTSFlowControl: true,
+	}
+
+	port, err := serial.Open(serialOptions)
+	if err != nil {
+		return nil, err
+	}
+	ctrl.port = port
+
+	ret, err := ctrl.sendCmd("ID")
+	if err != nil {
+		return nil, err
+	}
+
+	var modelNum string
+	for _, line := range strings.Split(ret, "\n") {
+		tokens := strings.Split(line, ", ")
+		switch tokens[0] {
+		case "DMC":
+			modelNum = tokens[1]
+			logger.Infof("Found DMC4000 (%s) on port: %s\n%s", modelNum, c.SerialDevice, ret)
+		case "AMP1":
+			ctrl.ampModel1 = tokens[1]
+		case "AMP2":
+			ctrl.ampModel2 = tokens[1]
+		}
+	}
+
+	if modelNum != "4000" && modelNum != "4103" && modelNum != "4200" {
+		return nil, fmt.Errorf("unsupported DMC model number: %s", modelNum)
+	}
+
+	if ctrl.ampModel1 != "44140" && ctrl.ampModel2 != "44140" {
+		return nil, fmt.Errorf("unsupported amplifier model(s) found, amp1: %s, amp2, %s", ctrl.ampModel1, ctrl.ampModel2)
+	}
+
+	// Add to the map if it's valid
+	if ctrl.ampModel1 == "44140" {
+		ctrl.activeAxes["A"] = false
+		ctrl.activeAxes["B"] = false
+		ctrl.activeAxes["C"] = false
+		ctrl.activeAxes["D"] = false
+	}
+
+	if ctrl.ampModel2 == "44140" {
+		ctrl.activeAxes["E"] = false
+		ctrl.activeAxes["F"] = false
+		ctrl.activeAxes["G"] = false
+		ctrl.activeAxes["H"] = false
+	}
+
+	return ctrl, nil
+}
+
 // Must be run inside a lock.
 func (m *Motor) configure(c *Config) error {
-	switch m.c.amplifierModel {
-	case D4140:
+	var amp string
+	if m.Axis == "A" || m.Axis == "B" || m.Axis == "C" || m.Axis == "D" {
+		amp = m.c.ampModel1
+	} else {
+		amp = m.c.ampModel2
+	}
+
+	switch amp {
+	case "44140":
 		m.StepsPerRotation *= 64 // fixed microstepping
 
 		// Stepper type, with optional reversing
@@ -273,7 +318,7 @@ func (m *Motor) configure(c *Config) error {
 		return err
 
 	default:
-		return fmt.Errorf("unsupported amplifier model: %s", m.c.amplifierModel)
+		return fmt.Errorf("unsupported amplifier model: %s", amp)
 	}
 }
 
@@ -296,9 +341,10 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 			break
 		}
 	}
-
 	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret)-1 {
-		return string(bytes.TrimSpace(ret[:len(ret)-1])), nil
+		ret := string(bytes.TrimSpace(ret[:len(ret)-1]))
+		c.logger.Debugf("CMD (%s) OK: %s", cmd, ret)
+		return ret, nil
 	}
 
 	if bytes.LastIndexByte(ret, []byte("?")[0]) == len(ret)-1 {
@@ -313,27 +359,27 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 }
 
 // Convert rpm to DMC4000 counts/sec.
-func (m *Motor) rpmToV(rpm float64) int32 {
+func (m *Motor) rpmToV(rpm float64) int {
 	rpm = math.Abs(rpm)
 	if rpm > m.MaxRPM {
 		rpm = m.MaxRPM
 	}
-	speed := int32(rpm * float64(m.StepsPerRotation) / 60)
+	speed := rpm * float64(m.StepsPerRotation) / 60
 
 	// Hard limits from controller
 	if speed > 3000000 {
 		speed = 3000000
 	}
-	return speed
+	return int(speed)
 }
 
 // Convert rpm/s to DMC4000 counts/sec^2.
-func (m *Motor) rpmsToA(rpms float64) int32 {
+func (m *Motor) rpmsToA(rpms float64) int {
 	rpms = math.Abs(rpms)
 	if rpms > m.MaxAcceleration {
 		rpms = m.MaxAcceleration
 	}
-	acc := int32(rpms * float64(m.StepsPerRotation) / 60)
+	acc := rpms * float64(m.StepsPerRotation) / 60
 
 	// Hard limits from controller
 	if acc > 1073740800 {
@@ -341,7 +387,7 @@ func (m *Motor) rpmsToA(rpms float64) int32 {
 	} else if acc < 1024 {
 		acc = 1024
 	}
-	return acc
+	return int(acc)
 }
 
 // Convert revolutions to steps.
