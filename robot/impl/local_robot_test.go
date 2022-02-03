@@ -383,10 +383,6 @@ func (db *dummyBoard) MotorNames() []string {
 	return nil
 }
 
-func (db *dummyBoard) ServoNames() []string {
-	return nil
-}
-
 func (db *dummyBoard) SPINames() []string {
 	return nil
 }
