@@ -117,7 +117,7 @@ import {
   MotorStatus,
 } from "proto/api/v1/robot_pb";
 import {
-  MotorServiceGoRequest,
+  MotorServiceSetPowerRequest,
   MotorServiceGoForRequest,
   MotorServiceGoToRequest,
 } from "proto/api/component/v1/motor_pb";
@@ -204,7 +204,7 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
+    request: MotorServiceSetPowerRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
   } {
     let req;
     switch (this.type) {

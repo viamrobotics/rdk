@@ -48,10 +48,6 @@ type Motor interface {
 	// back into calls of GoFor.
 	Position(ctx context.Context) (float64, error)
 
-	// PositionSupported returns whether or not the motor supports reporting of its position which
-	// is reliant on having an encoder.
-	PositionSupported(ctx context.Context) (bool, error)
-
 	// GetFeatures returns whether or not the motor supports certain optional features.
 	GetFeatures(ctx context.Context) (map[MotorFeature]bool, error)
 
