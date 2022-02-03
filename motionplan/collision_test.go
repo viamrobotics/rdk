@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"math"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -25,18 +26,19 @@ func TestCheckCollisions(t *testing.T) {
 	test.That(t, len(collisions), test.ShouldEqual, 1)
 	test.That(t, collisionEqual(collisions[0], Collision{"cube222", "cube333", 1}), test.ShouldBeTrue)
 
-	// case 2: zero position of ur5e arm
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	// case 2: zero position of xArm6 arm - should have number of collisions = to number of volumes - 1
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	vols, _ = m.Volumes(make([]frame.Input, len(m.DoF())))
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckCollisions(vols)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cg.Collisions()), test.ShouldEqual, len(m.DoF()))
+	cols := cg.Collisions()
+	test.That(t, len(cols), test.ShouldEqual, len(cg.indices)-1)
 }
 
 func TestUniqueCollisions(t *testing.T) {
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	// zero position of ur5e arm
@@ -47,17 +49,15 @@ func TestUniqueCollisions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[3] = frame.Input{1}
+	input[0] = frame.Input{1}
 	vols, _ = m.Volumes(input)
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err := CheckUniqueCollisions(vols, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
-	a := cg.Collisions()
 	test.That(t, len(cg.Collisions()), test.ShouldEqual, 0)
-	test.That(t, len(a), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = frame.Input{2.5}
+	input[4] = frame.Input{math.Pi / 2}
 	vols, _ = m.Volumes(input)
 	test.That(t, vols, test.ShouldNotBeNil)
 	cg, err = CheckUniqueCollisions(vols, zeroPositionCG)
