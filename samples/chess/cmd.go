@@ -534,7 +534,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return errors.New("need an arm called pieceArm")
 	}
 
-	myGripper, ok := myRobot.GripperByName("grippie")
+	myGripper, ok := gripper.FromRobot(myRobot, "grippie")
 	if !ok {
 		return errors.New("need a gripper called gripped")
 	}
