@@ -47,6 +47,13 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 	return false, nil
 }
 
+// GetFeatures returns the status of whether the motor supports certain optional features
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	return map[motor.MotorFeature]bool{
+		motor.PositionReporting: false,
+	}, nil
+}
+
 // SetPower sets the given power percentage.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.mu.Lock()

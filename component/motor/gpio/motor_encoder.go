@@ -229,6 +229,13 @@ func (m *EncodedMotor) PositionSupported(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// GetFeatures returns the status of whether the motor supports certain optional features
+func (m *EncodedMotor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	return map[motor.MotorFeature]bool{
+		motor.PositionReporting: true,
+	}, nil
+}
+
 // RPMMonitorCalls returns the number of calls RPM monitor has made.
 func (m *EncodedMotor) RPMMonitorCalls() int64 {
 	return atomic.LoadInt64(&m.rpmMonitorCalls)
