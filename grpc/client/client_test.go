@@ -31,7 +31,6 @@ import (
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
-	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
 	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
@@ -232,9 +231,6 @@ func TestClient(t *testing.T) {
 		return nil, false
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
-	}
-	injectRobot1.ServoByNameFunc = func(name string) (servo.Servo, bool) {
 		return nil, false
 	}
 	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
@@ -503,7 +499,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-	servo1, ok := client.ServoByName("servo1")
+	servo1, ok := servo.FromRobot(client, "servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = servo1.Move(context.Background(), 5)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -597,7 +593,7 @@ func TestClient(t *testing.T) {
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 	gripperOpenCalled = false
 
-	servo1, ok = client.ServoByName("servo1")
+	servo1, ok = servo.FromRobot(client, "servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
@@ -742,7 +738,7 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)
@@ -817,7 +813,7 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldBeEmpty,
 	)
 
@@ -874,7 +870,7 @@ func TestClientRefresh(t *testing.T) {
 		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)

@@ -255,11 +255,11 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 func NewRover(ctx context.Context, r robot.Robot) (*Rover, error) {
 	rover := &Rover{}
 	var ok bool
-	rover.pan, ok = r.ServoByName("pan")
+	rover.pan, ok = servo.FromRobot(r, "pan")
 	if !ok {
 		return nil, errors.New("failed to find pan servo")
 	}
-	rover.tilt, ok = r.ServoByName("tilt")
+	rover.tilt, ok = servo.FromRobot(r, "tilt")
 	if !ok {
 		return nil, errors.New("failed to find tilt servo")
 	}

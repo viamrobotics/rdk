@@ -47,6 +47,8 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 			sensor.Named("sensor2"),
 			input.Named("inputController1"),
 			input.Named("inputController2"),
+			servo.Named("servo1"),
+			servo.Named("servo2"),
 		}
 	}
 	injectRobot.GripperNamesFunc = func() []string {
@@ -60,9 +62,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.BoardNamesFunc = func() []string {
 		return []string{"board1", "board2"}
-	}
-	injectRobot.ServoNamesFunc = func() []string {
-		return []string{"servo1", "servo2"}
 	}
 	injectRobot.MotorNamesFunc = func() []string {
 		return []string{"motor1", "motor2"}
@@ -107,9 +106,6 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
 		return &fakeboard.Board{Name: name}, true
-	}
-	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return &fakeservo.Servo{Name: name}, true
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return &fakemotor.Motor{Name: name}, true

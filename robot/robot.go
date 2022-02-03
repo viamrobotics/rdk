@@ -12,7 +12,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -37,9 +36,6 @@ type Robot interface {
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
 
-	// ServoByName returns a servo by name.
-	ServoByName(name string) (servo.Servo, bool)
-
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
 
@@ -60,9 +56,6 @@ type Robot interface {
 
 	// BoardNames returns the name of all known boards.
 	BoardNames() []string
-
-	// ServoNames returns the name of all known servos.
-	ServoNames() []string
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
