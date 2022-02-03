@@ -17,8 +17,10 @@ import (
 
 func createWorkingMotor() *inject.Motor {
 	injectMotor := &inject.Motor{}
-	injectMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
+	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+		return map[motor.MotorFeature]bool{
+			motor.PositionReporting: true,
+		}, nil
 	}
 	injectMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 		return nil
@@ -73,8 +75,10 @@ func TestNew(t *testing.T) {
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 			fakeMotor := &inject.Motor{}
-			fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-				return false, nil
+			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+				map[motor.MotorFeature]bool, error,
+			) {
+				return map[motor.MotorFeature]bool{}, nil
 			}
 			return fakeMotor, true
 		}
@@ -91,8 +95,12 @@ func TestNew(t *testing.T) {
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 			fakeMotor := &inject.Motor{}
-			fakeMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-				return true, nil
+			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+				map[motor.MotorFeature]bool, error,
+			) {
+				return map[motor.MotorFeature]bool{
+					motor.PositionReporting: true,
+				}, nil
 			}
 			return fakeMotor, true
 		}

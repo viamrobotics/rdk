@@ -17,6 +17,7 @@ type Motor struct {
 	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	PositionSupportedFunc func(ctx context.Context) (bool, error)
+	GetFeaturesFunc       func(ctx context.Context) (map[motor.MotorFeature]bool, error)
 	StopFunc              func(ctx context.Context) error
 	IsInMotionFunc        func(ctx context.Context) (bool, error)
 }
@@ -79,6 +80,14 @@ func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
 		return m.Motor.PositionSupported(ctx)
 	}
 	return m.PositionSupportedFunc(ctx)
+}
+
+// GetFeatures calls the injected GetFeatures or the real version
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	if m.GetFeaturesFunc == nil {
+		return m.Motor.GetFeatures(ctx)
+	}
+	return m.GetFeaturesFunc(ctx)
 }
 
 // Stop calls the injected Off or the real version.

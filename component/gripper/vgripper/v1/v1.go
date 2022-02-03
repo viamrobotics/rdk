@@ -109,11 +109,12 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
 	}
-	supported, err := vg.motor.PositionSupported(ctx)
+	supportedFeatures, err := vg.motor.GetFeatures(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if !supported {
+	supported, ok := supportedFeatures[motor.PositionReporting]
+	if !supported || !ok {
 		return nil, errors.New("gripper motor needs to support position")
 	}
 

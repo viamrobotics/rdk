@@ -82,11 +82,12 @@ type oneAxis struct {
 }
 
 func (g *oneAxis) init(ctx context.Context) error {
-	ok, err := g.motor.PositionSupported(ctx)
+	supportedFeatures, err := g.motor.GetFeatures(ctx)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	posSupported, ok := supportedFeatures[motor.PositionReporting]
+	if !posSupported || !ok {
 		return errors.New("gantry motor needs to support position")
 	}
 

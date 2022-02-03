@@ -48,8 +48,10 @@ func TestClient(t *testing.T) {
 	workingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 42.0, nil
 	}
-	workingMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
+	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+		return map[motor.MotorFeature]bool{
+			motor.PositionReporting: true,
+		}, nil
 	}
 	workingMotor.StopFunc = func(ctx context.Context) error {
 		return nil
@@ -76,8 +78,8 @@ func TestClient(t *testing.T) {
 	failingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
-	failingMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return false, errors.New("position supported unavailable")
+	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+		return nil, errors.New("supported features unavailable")
 	}
 	failingMotor.StopFunc = func(ctx context.Context) error {
 		return errors.New("stop failed")
@@ -126,8 +128,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
-		posSupported, err := workingMotorClient.PositionSupported(context.Background())
-		test.That(t, posSupported, test.ShouldBeTrue)
+		features, err := workingMotorClient.GetFeatures(context.Background())
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingMotorClient.Stop(context.Background())
@@ -158,8 +160,8 @@ func TestClient(t *testing.T) {
 		err = failingMotorClient.GoFor(context.Background(), 42.0, 42.0)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		posSupported, err := failingMotorClient.PositionSupported(context.Background())
-		test.That(t, posSupported, test.ShouldBeFalse)
+		features, err := failingMotorClient.GetFeatures(context.Background())
+		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		isOn, err := failingMotorClient.IsInMotion(context.Background())
@@ -179,8 +181,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
-		posSupported, err := workingMotorDialedClient.PositionSupported(context.Background())
-		test.That(t, posSupported, test.ShouldBeTrue)
+		features, err := workingMotorDialedClient.GetFeatures(context.Background())
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 
 		err = workingMotorDialedClient.GoTo(context.Background(), 42.0, 42.0)
@@ -205,8 +207,8 @@ func TestClient(t *testing.T) {
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		posSupported, err := failingMotorDialedClient.PositionSupported(context.Background())
-		test.That(t, posSupported, test.ShouldBeFalse)
+		features, err := failingMotorDialedClient.GetFeatures(context.Background())
+		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		isOn, err := failingMotorDialedClient.IsInMotion(context.Background())
