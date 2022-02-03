@@ -69,7 +69,7 @@ func TestServerSource(t *testing.T) {
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
 	attrs.Stream = "both"
-	s, err := newServerSource(&attrs, logger)
+	s, err := NewServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)
 }

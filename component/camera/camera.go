@@ -37,8 +37,8 @@ type Camera interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
-// CameraWithProjector is a camera with the capability to project images to 3D
-type CameraWithProjector interface {
+// WithProjector is a camera with the capability to project images to 3D.
+type WithProjector interface {
 	Camera
 	rimage.Projector
 	GetProjector() rimage.Projector
@@ -56,9 +56,11 @@ func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (C
 	}
 	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
 	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
-		parentSource = reconfigCam.ProxyFor().(Camera)
+		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
+			return &imageSourceWithProjector{imgSrc, c.GetProjector()}, nil
+		}
 	}
-	if camera, ok := parentSource.(CameraWithProjector); ok {
+	if camera, ok := parentSource.(WithProjector); ok {
 		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
 	}
 	return &imageSource{imgSrc}, nil
@@ -93,7 +95,7 @@ func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, iswp.ImageSource)
 }
 
-// Projector returns the camera's Projector
+// Projector returns the camera's Projector.
 func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 	return iswp.Projector
 }

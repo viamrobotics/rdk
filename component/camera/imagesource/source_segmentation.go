@@ -79,7 +79,6 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 		return nil, nil, err
 	}
 	segmentedIwd, err := cs.proj.PointCloudToImageWithDepth(colorCloud)
-
 	if err != nil {
 		return nil, nil, err
 	}

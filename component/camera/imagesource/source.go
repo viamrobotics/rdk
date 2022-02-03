@@ -38,7 +38,7 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
-			return newServerSource(attrs, logger)
+			return NewServerSource(attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
@@ -55,7 +55,7 @@ func init() {
 			if !ok {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
 			}
-			return newDualServerSource(attrs, logger)
+			return newDualServerSource(attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
@@ -151,7 +151,7 @@ type dualServerSource struct {
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
-func newDualServerSource(cfg *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func newDualServerSource(cfg *camera.AttrConfig) (camera.Camera, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -264,8 +264,8 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, func() {}, nil
 }
 
-// newServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
-func newServerSource(cfg *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+// NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
+func NewServerSource(cfg *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 	}
