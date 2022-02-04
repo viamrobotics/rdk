@@ -185,8 +185,8 @@ func (m *arduinoMotor) Stop(ctx context.Context) error {
 	return err
 }
 
-// IsInMotion returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns whether or not the motor is currently on.
+func (m *arduinoMotor) IsPowered(ctx context.Context) (bool, error) {
 	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err

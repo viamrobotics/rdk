@@ -36,7 +36,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(0))
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -48,7 +48,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -57,7 +57,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(112))
 
-		on, err = m.IsInMotion(ctx)
+		on, err = m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -66,7 +66,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
 
-		on, err = m.IsInMotion(ctx)
+		on, err = m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -145,7 +145,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, b.PWM["1"], test.ShouldEqual, 0)
 		test.That(t, b.PWM["2"], test.ShouldEqual, 255)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -176,7 +176,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, m.SetPower(ctx, 0.45), test.ShouldBeNil)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -208,7 +208,7 @@ func TestMotorAB(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B) On testing", func(t *testing.T) {
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
@@ -221,7 +221,7 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, b.PWM["1"], test.ShouldEqual, 0)
 		test.That(t, b.PWM["2"], test.ShouldEqual, 0)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})

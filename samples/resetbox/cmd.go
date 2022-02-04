@@ -158,11 +158,11 @@ func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
 	return pos * a.mmPerRev, nil
 }
 
-// IsInMotion returns true if moving.
-func (a *LinearAxis) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns true if moving.
+func (a *LinearAxis) IsPowered(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		multierr.AppendInto(&errs, err)
 		if on {
 			return true, errs
@@ -173,7 +173,7 @@ func (a *LinearAxis) IsInMotion(ctx context.Context) (bool, error) {
 
 type positional interface {
 	Position(ctx context.Context) (float64, error)
-	IsInMotion(ctx context.Context) (bool, error)
+	IsPowered(ctx context.Context) (bool, error)
 }
 
 // ResetBox is the parent structure for this project.
@@ -556,7 +556,7 @@ func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target 
 		if err != nil {
 			return err
 		}
-		on, err := motor.IsInMotion(ctx)
+		on, err := motor.IsPowered(ctx)
 		if err != nil {
 			return err
 		}

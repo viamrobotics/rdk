@@ -43,7 +43,7 @@ func Test1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor test isOn functionality", func(t *testing.T) {
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
 	})
@@ -52,13 +52,13 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsInMotion(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
@@ -72,13 +72,13 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsInMotion(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
@@ -92,13 +92,13 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsInMotion(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
@@ -112,13 +112,13 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsInMotion(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
@@ -132,7 +132,7 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, 200)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsInMotion(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 

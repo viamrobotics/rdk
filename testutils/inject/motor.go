@@ -18,7 +18,7 @@ type Motor struct {
 	PositionFunc          func(ctx context.Context) (float64, error)
 	GetFeaturesFunc       func(ctx context.Context) (map[motor.MotorFeature]bool, error)
 	StopFunc              func(ctx context.Context) error
-	IsInMotionFunc        func(ctx context.Context) (bool, error)
+	IsPoweredFunc         func(ctx context.Context) (bool, error)
 }
 
 // SetPower calls the injected Power or the real version.
@@ -89,10 +89,10 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return m.StopFunc(ctx)
 }
 
-// IsInMotion calls the injected IsInMotion or the real version.
-func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
-	if m.IsInMotionFunc == nil {
-		return m.Motor.IsInMotion(ctx)
+// IsPowered calls the injected IsPowered or the real version.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	if m.IsPoweredFunc == nil {
+		return m.Motor.IsPowered(ctx)
 	}
-	return m.IsInMotionFunc(ctx)
+	return m.IsPoweredFunc(ctx)
 }

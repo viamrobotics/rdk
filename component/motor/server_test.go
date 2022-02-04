@@ -171,24 +171,24 @@ func TestIsOn(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServiceIsInMotionRequest{Name: "notAMotor"}
-	resp, err := motorServer.IsInMotion(context.Background(), &req)
+	req := pb.MotorServiceIsPoweredRequest{Name: "notAMotor"}
+	resp, err := motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+	failingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return false, errors.New("could not determine if motor is on")
 	}
-	req = pb.MotorServiceIsInMotionRequest{Name: "failingMotor"}
-	resp, err = motorServer.IsInMotion(context.Background(), &req)
+	req = pb.MotorServiceIsPoweredRequest{Name: "failingMotor"}
+	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	req = pb.MotorServiceIsInMotionRequest{Name: "workingMotor"}
-	resp, err = motorServer.IsInMotion(context.Background(), &req)
+	req = pb.MotorServiceIsPoweredRequest{Name: "workingMotor"}
+	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp.GetIsOn(), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }

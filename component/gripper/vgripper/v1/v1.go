@@ -307,7 +307,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
-		isOn, err := vg.motor.IsInMotion(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
-		isOn, err := vg.motor.IsInMotion(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}

@@ -375,8 +375,8 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 	)
 }
 
-// IsInMotion returns true if the motor is currently moving.
-func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns true if the motor is currently moving.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	vel, err := m.readReg(ctx, vActual)
 	on := vel != 0
 	return on, err
@@ -471,7 +471,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	on, err := m.IsInMotion(ctx)
+	on, err := m.IsPowered(ctx)
 	if err != nil {
 		return err
 	} else if on {

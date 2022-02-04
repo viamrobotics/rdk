@@ -41,9 +41,9 @@ type MotorServiceClient interface {
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(ctx context.Context, in *MotorServiceStopRequest, opts ...grpc.CallOption) (*MotorServiceStopResponse, error)
-	// IsInMotion returns true if the robot's motor off
+	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
-	IsInMotion(ctx context.Context, in *MotorServiceIsInMotionRequest, opts ...grpc.CallOption) (*MotorServiceIsInMotionResponse, error)
+	IsPowered(ctx context.Context, in *MotorServiceIsPoweredRequest, opts ...grpc.CallOption) (*MotorServiceIsPoweredResponse, error)
 }
 
 type motorServiceClient struct {
@@ -117,9 +117,9 @@ func (c *motorServiceClient) Stop(ctx context.Context, in *MotorServiceStopReque
 	return out, nil
 }
 
-func (c *motorServiceClient) IsInMotion(ctx context.Context, in *MotorServiceIsInMotionRequest, opts ...grpc.CallOption) (*MotorServiceIsInMotionResponse, error) {
-	out := new(MotorServiceIsInMotionResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/IsInMotion", in, out, opts...)
+func (c *motorServiceClient) IsPowered(ctx context.Context, in *MotorServiceIsPoweredRequest, opts ...grpc.CallOption) (*MotorServiceIsPoweredResponse, error) {
+	out := new(MotorServiceIsPoweredResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.MotorService/IsPowered", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,9 +153,9 @@ type MotorServiceServer interface {
 	// Stop turns the robot's motor off
 	// To Do (FA): This will be deprecated
 	Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error)
-	// IsInMotion returns true if the robot's motor off
+	// IsPowered returns true if the robot's motor off
 	// To Do (FA): This will be deprecated
-	IsInMotion(context.Context, *MotorServiceIsInMotionRequest) (*MotorServiceIsInMotionResponse, error)
+	IsPowered(context.Context, *MotorServiceIsPoweredRequest) (*MotorServiceIsPoweredResponse, error)
 	mustEmbedUnimplementedMotorServiceServer()
 }
 
@@ -184,8 +184,8 @@ func (UnimplementedMotorServiceServer) GetFeatures(context.Context, *MotorServic
 func (UnimplementedMotorServiceServer) Stop(context.Context, *MotorServiceStopRequest) (*MotorServiceStopResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Stop not implemented")
 }
-func (UnimplementedMotorServiceServer) IsInMotion(context.Context, *MotorServiceIsInMotionRequest) (*MotorServiceIsInMotionResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method IsInMotion not implemented")
+func (UnimplementedMotorServiceServer) IsPowered(context.Context, *MotorServiceIsPoweredRequest) (*MotorServiceIsPoweredResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IsPowered not implemented")
 }
 func (UnimplementedMotorServiceServer) mustEmbedUnimplementedMotorServiceServer() {}
 
@@ -326,20 +326,20 @@ func _MotorService_Stop_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MotorService_IsInMotion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(MotorServiceIsInMotionRequest)
+func _MotorService_IsPowered_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MotorServiceIsPoweredRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MotorServiceServer).IsInMotion(ctx, in)
+		return srv.(MotorServiceServer).IsPowered(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.component.v1.MotorService/IsInMotion",
+		FullMethod: "/proto.api.component.v1.MotorService/IsPowered",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MotorServiceServer).IsInMotion(ctx, req.(*MotorServiceIsInMotionRequest))
+		return srv.(MotorServiceServer).IsPowered(ctx, req.(*MotorServiceIsPoweredRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -380,8 +380,8 @@ var MotorService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MotorService_Stop_Handler,
 		},
 		{
-			MethodName: "IsInMotion",
-			Handler:    _MotorService_IsInMotion_Handler,
+			MethodName: "IsPowered",
+			Handler:    _MotorService_IsPowered_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -467,8 +467,8 @@ func local_request_MotorService_Stop_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-func request_MotorService_IsInMotion_0(ctx context.Context, marshaler runtime.Marshaler, client MotorServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MotorServiceIsInMotionRequest
+func request_MotorService_IsPowered_0(ctx context.Context, marshaler runtime.Marshaler, client MotorServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MotorServiceIsPoweredRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -488,13 +488,13 @@ func request_MotorService_IsInMotion_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.IsInMotion(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.IsPowered(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_MotorService_IsInMotion_0(ctx context.Context, marshaler runtime.Marshaler, server MotorServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq MotorServiceIsInMotionRequest
+func local_request_MotorService_IsPowered_0(ctx context.Context, marshaler runtime.Marshaler, server MotorServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MotorServiceIsPoweredRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -514,7 +514,7 @@ func local_request_MotorService_IsInMotion_0(ctx context.Context, marshaler runt
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := server.IsInMotion(ctx, &protoReq)
+	msg, err := server.IsPowered(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -686,18 +686,18 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("GET", pattern_MotorService_IsInMotion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_MotorService_IsPowered_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsInMotion", runtime.WithHTTPPathPattern("/api/v1/motor/{name}/is_on"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/motor/{name}/is_on"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotorService_IsInMotion_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotorService_IsPowered_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -705,7 +705,7 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 			return
 		}
 
-		forward_MotorService_IsInMotion_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_MotorService_IsPowered_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -890,23 +890,23 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 
 	})
 
-	mux.Handle("GET", pattern_MotorService_IsInMotion_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_MotorService_IsPowered_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsInMotion", runtime.WithHTTPPathPattern("/api/v1/motor/{name}/is_on"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/motor/{name}/is_on"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotorService_IsInMotion_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotorService_IsPowered_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_MotorService_IsInMotion_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_MotorService_IsPowered_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -928,7 +928,7 @@ var (
 
 	pattern_MotorService_Stop_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "motor", "name", "off"}, ""))
 
-	pattern_MotorService_IsInMotion_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "motor", "name", "is_on"}, ""))
+	pattern_MotorService_IsPowered_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "motor", "name", "is_on"}, ""))
 )
 
 var (
@@ -946,5 +946,5 @@ var (
 
 	forward_MotorService_Stop_0 = runtime.ForwardResponseMessage
 
-	forward_MotorService_IsInMotion_0 = runtime.ForwardResponseMessage
+	forward_MotorService_IsPowered_0 = runtime.ForwardResponseMessage
 )

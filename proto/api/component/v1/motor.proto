@@ -68,9 +68,9 @@ service MotorService {
     };
   }
 
-  // IsInMotion returns true if the robot's motor off
+  // IsPowered returns true if the robot's motor off
   // To Do (FA): This will be deprecated
-  rpc IsInMotion(MotorServiceIsInMotionRequest) returns (MotorServiceIsInMotionResponse) {
+  rpc IsPowered(MotorServiceIsPoweredRequest) returns (MotorServiceIsPoweredResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/is_on"
     };
@@ -134,12 +134,12 @@ message MotorServiceStopRequest {
 
 message MotorServiceStopResponse {}
 
-message MotorServiceIsInMotionRequest {
+message MotorServiceIsPoweredRequest {
   // Name of a motor
   string name = 1;
 }
 
-message MotorServiceIsInMotionResponse {
+message MotorServiceIsPoweredResponse {
   // Returns true if the motor is on
   bool is_on = 1;
 }

@@ -499,7 +499,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 
 	m.state.desiredRPM = rpm
 	m.state.regulated = true
-	isOn, err := m.IsInMotion(ctx)
+	isOn, err := m.IsPowered(ctx)
 	if err != nil {
 		m.stateMu.Unlock()
 		return err
@@ -530,9 +530,9 @@ func (m *EncodedMotor) Stop(ctx context.Context) error {
 	return m.off(ctx)
 }
 
-// IsInMotion returns if the motor is on or not.
-func (m *EncodedMotor) IsInMotion(ctx context.Context) (bool, error) {
-	return m.real.IsInMotion(ctx)
+// IsPowered returns if the motor is on or not.
+func (m *EncodedMotor) IsPowered(ctx context.Context) (bool, error) {
+	return m.real.IsPowered(ctx)
 }
 
 // Close cleanly shuts down the motor.

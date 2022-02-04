@@ -254,7 +254,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
 
-		isOn, err := motor.IsInMotion(context.TODO())
+		isOn, err := motor.IsPowered(context.TODO())
 		if err != nil {
 			return nil, err
 		}

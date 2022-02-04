@@ -56,7 +56,7 @@ func TestClient(t *testing.T) {
 	workingMotor.StopFunc = func(ctx context.Context) error {
 		return nil
 	}
-	workingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
 
@@ -84,7 +84,7 @@ func TestClient(t *testing.T) {
 	failingMotor.StopFunc = func(ctx context.Context) error {
 		return errors.New("stop failed")
 	}
-	failingMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+	failingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return false, errors.New("is on unavailable")
 	}
 
@@ -135,7 +135,7 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorClient.IsInMotion(context.Background())
+		isOn, err := workingMotorClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -164,7 +164,7 @@ func TestClient(t *testing.T) {
 		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		isOn, err := failingMotorClient.IsInMotion(context.Background())
+		isOn, err := failingMotorClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 
@@ -194,7 +194,7 @@ func TestClient(t *testing.T) {
 		err = workingMotorDialedClient.Stop(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 
-		isOn, err := workingMotorDialedClient.IsInMotion(context.Background())
+		isOn, err := workingMotorDialedClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -211,7 +211,7 @@ func TestClient(t *testing.T) {
 		test.That(t, features, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		isOn, err := failingMotorDialedClient.IsInMotion(context.Background())
+		isOn, err := failingMotorDialedClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
 	})

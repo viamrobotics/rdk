@@ -202,7 +202,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("no error when position of fingers is within the allowed tolerance", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
@@ -221,7 +221,7 @@ func TestOpen(t *testing.T) {
 
 	t.Run("return error when position of fingers is not within the allowed tolerance", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
@@ -241,7 +241,7 @@ func TestOpen(t *testing.T) {
 	t.Run("return error when the open position isn't reached before the timeout", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
 		// The motor will always be running, until the function hits the timeout
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
@@ -280,7 +280,7 @@ func TestGrab(t *testing.T) {
 	t.Run("return error when motor stops mid-air while closing the gripper", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
 		// The motor stopped
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 		// Gripper didn't reach the closed position
@@ -318,7 +318,7 @@ func TestGrab(t *testing.T) {
 	t.Run("return false but no error when gripper closed completely without grabbing anything", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
 		// The motor stopped
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
 		// Gripper didn't reach the closed position
@@ -360,7 +360,7 @@ func TestGrab(t *testing.T) {
 	t.Run("return (true, nil) when something is successfully grabbed", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
 		// The motor is still running
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 		// Gripper didn't reach the closed position since it now holds an object
@@ -394,7 +394,7 @@ func TestGrab(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, grabbedSuccessfully, test.ShouldBeTrue)
 		// Make sure that the motor is still on after it detected pressure & is holding the object
-		motorIsOn, err := injectedGripper.motor.IsInMotion(context.Background())
+		motorIsOn, err := injectedGripper.motor.IsPowered(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, motorIsOn, test.ShouldBeTrue)
 	})
@@ -402,7 +402,7 @@ func TestGrab(t *testing.T) {
 	t.Run("return error when grabbing or closing wasn't successful before the timeout", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
 		// The motor will always be running, until the function hits the timeout
-		fakeMotor.IsInMotionFunc = func(ctx context.Context) (bool, error) {
+		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
 		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {

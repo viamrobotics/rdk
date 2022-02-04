@@ -54,8 +54,8 @@ type Motor interface {
 	// Stop turns the power to the motor off immediately, without any gradual step down.
 	Stop(ctx context.Context) error
 
-	// IsInMotion returns whether or not the motor is currently on.
-	IsInMotion(ctx context.Context) (bool, error)
+	// IsPowered returns whether or not the motor is currently on.
+	IsPowered(ctx context.Context) (bool, error)
 }
 
 // A GoTillStopSupportingMotor is a motor that supports the ability to run a motor
@@ -132,10 +132,10 @@ func (r *reconfigurableMotor) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableMotor) IsInMotion(ctx context.Context) (bool, error) {
+func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsInMotion(ctx)
+	return r.actual.IsPowered(ctx)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {

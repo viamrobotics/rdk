@@ -285,8 +285,8 @@ func (m *gpioStepper) stop() {
 	m.targetStepsPerSecond = 0
 }
 
-// IsInMotion returns whether or not the motor is currently on.
-func (m *gpioStepper) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns whether or not the motor is currently on.
+func (m *gpioStepper) IsPowered(ctx context.Context) (bool, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return m.stepPosition != m.targetStepPosition, nil
