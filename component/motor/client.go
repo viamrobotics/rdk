@@ -146,9 +146,9 @@ func (c *client) Stop(ctx context.Context) error {
 	return err
 }
 
-func (c *client) IsInMotion(ctx context.Context) (bool, error) {
-	req := &pb.MotorServiceIsInMotionRequest{Name: c.name}
-	resp, err := c.client.IsInMotion(ctx, req)
+func (c *client) IsPowered(ctx context.Context) (bool, error) {
+	req := &pb.MotorServiceIsPoweredRequest{Name: c.name}
+	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
 		return false, err
 	}

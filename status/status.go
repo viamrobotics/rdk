@@ -187,7 +187,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if !ok {
 				return nil, fmt.Errorf("motor %q not found", name)
 			}
-			isOn, err := x.IsInMotion(ctx)
+			isOn, err := x.IsPowered(ctx)
 			if err != nil {
 				return nil, err
 			}

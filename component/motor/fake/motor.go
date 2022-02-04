@@ -130,8 +130,8 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return nil
 }
 
-// IsInMotion returns if the motor is pretending to be on or not.
-func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns if the motor is pretending to be on or not.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

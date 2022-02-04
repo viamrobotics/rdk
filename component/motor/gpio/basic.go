@@ -249,8 +249,8 @@ func (m *Motor) cancelWaitProcesses() {
 	}
 }
 
-// IsInMotion returns if the motor is currently on or off.
-func (m *Motor) IsInMotion(ctx context.Context) (bool, error) {
+// IsPowered returns if the motor is currently on or off.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 

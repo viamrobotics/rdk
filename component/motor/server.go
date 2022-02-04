@@ -132,22 +132,22 @@ func (server *subtypeServer) Stop(
 	return &pb.MotorServiceStopResponse{}, motor.Stop(ctx)
 }
 
-// IsInMotion returns whether or not the motor of the underlying robot is currently on.
-func (server *subtypeServer) IsInMotion(
+// IsPowered returns whether or not the motor of the underlying robot is currently on.
+func (server *subtypeServer) IsPowered(
 	ctx context.Context,
-	req *pb.MotorServiceIsInMotionRequest,
-) (*pb.MotorServiceIsInMotionResponse, error) {
+	req *pb.MotorServiceIsPoweredRequest,
+) (*pb.MotorServiceIsPoweredResponse, error) {
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	isOn, err := motor.IsInMotion(ctx)
+	isOn, err := motor.IsPowered(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MotorServiceIsInMotionResponse{IsOn: isOn}, nil
+	return &pb.MotorServiceIsPoweredResponse{IsOn: isOn}, nil
 }
 
 // GoTo requests the motor of the underlying robot to go a specific position.
