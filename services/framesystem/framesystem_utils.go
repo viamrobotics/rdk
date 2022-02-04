@@ -16,6 +16,40 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// NewFrameSystemFromParts assembles a frame system from a collection of parts,
+// usually acquired by calling Config on a frame system service. WARNING: for now,
+// this function requires that the parts are already topologically sorted (see
+// topologicallySortFrameNames below for a loose example of that process).
+func NewFrameSystemFromParts(
+	name, prefix string, parts []*config.FrameSystemPart,
+	logger golog.Logger,
+) (referenceframe.FrameSystem, error) {
+	fs := referenceframe.NewEmptySimpleFrameSystem(name)
+	for _, part := range parts {
+		// rename everything with prefixes
+		part.Name = prefix + part.Name
+		if part.FrameConfig.Parent != referenceframe.World {
+			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
+		}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
+	return fs, nil
+}
+
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
 // don't collect remote components, even though the Config lists them.
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {

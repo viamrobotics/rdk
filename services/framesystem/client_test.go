@@ -77,7 +77,7 @@ func TestClientConfig(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -85,7 +85,7 @@ func TestClientConfig(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
 			},
 		},
 	}
@@ -171,5 +171,4 @@ func TestClientConfig(t *testing.T) {
 		test.That(t, parts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
-
 }

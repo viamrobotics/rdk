@@ -35,7 +35,6 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	fs, err := framesystem.NewFrameSystemFromParts("test", "", parts, logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 0)
-
 }
 
 func TestNewFrameSystemFromParts(t *testing.T) {
@@ -85,7 +84,7 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 		{
 			Name: "frame1",
 			FrameConfig: &config.Frame{
-				Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
+				Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
