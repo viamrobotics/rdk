@@ -21,6 +21,7 @@ import (
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
+	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -101,14 +102,9 @@ type fileSource struct {
 	isAligned bool // are color and depth image already aligned
 }
 
-// IsAligned returns a bool that is true if the color and depth images are aligned.
-func (fs *fileSource) IsAligned() bool {
-	return fs.isAligned
-}
-
 // Next returns the image stored in the color and depth files as an ImageWithDepth.
 func (fs *fileSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.IsAligned())
+	img, err := rimage.NewImageWithDepth(fs.ColorFN, fs.DepthFN, fs.isAligned)
 	return img, func() {}, err
 }
 
@@ -136,7 +132,7 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	}
 
 	defer func() {
-		utils.UncheckedError(resp.Body.Close())
+		viamutils.UncheckedError(resp.Body.Close())
 	}()
 	return ioutil.ReadAll(resp.Body)
 }
@@ -163,12 +159,6 @@ func newDualServerSource(cfg *camera.AttrConfig) (camera.Camera, error) {
 	return camera.New(imgSrc, cfg, nil)
 }
 
-// IsAligned returns true if the images returned from the two servers are already aligned
-// with each other.
-func (ds *dualServerSource) IsAligned() bool {
-	return ds.isAligned
-}
-
 // Next requests the next images from both the color and depth source, and combines them
 // together as an ImageWithDepth before returning them.
 func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), error) {
@@ -191,7 +181,7 @@ func (ds *dualServerSource) Next(ctx context.Context) (image.Image, func(), erro
 		return nil, nil, err
 	}
 
-	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.IsAligned()), func() {}, nil
+	return rimage.MakeImageWithDepth(rimage.ConvertImage(img), depth, ds.isAligned), func() {}, nil
 }
 
 // Close closes the connection to both servers.
@@ -216,12 +206,6 @@ type serverSource struct {
 	host      string
 	stream    StreamType // specifies color, depth, or both stream
 	isAligned bool       // are the color and depth image already aligned
-}
-
-// IsAligned is a bool that returns true if both.gz image is already aligned. If the server is only returning a single stream
-// (either color or depth) IsAligned will return false.
-func (s *serverSource) IsAligned() bool {
-	return s.isAligned
 }
 
 // Close closes the server connection.

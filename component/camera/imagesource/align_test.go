@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -15,6 +16,37 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 )
+
+func TestAlignTypeError(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	colorSrc := &staticSource{ii.Color}
+	colorCam, err := camera.New(colorSrc, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	depthSrc := &staticSource{ii.Depth}
+	depthCam, err := camera.New(depthSrc, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	attrs := &camera.AttrConfig{}
+	// test Warp error
+	attrs.Warp = []float64{4.5, 6.}
+	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.AlignConfig{}, attrs.Warp))
+	// test Homography error
+	attrs.Warp = nil
+	attrs.Homography = 4
+	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.RawDepthColorHomography{}, attrs.Homography))
+	// test Extrinsics errors
+	attrs.Homography = nil
+	attrs.IntrinsicExtrinsic = "a"
+	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeError, utils.NewUnexpectedTypeError(&transform.DepthColorIntrinsicsExtrinsics{}, attrs.IntrinsicExtrinsic))
+	// test no types error
+	attrs.IntrinsicExtrinsic = nil
+	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
+	test.That(t, err, test.ShouldBeError, errors.New("no valid alignment attribute field provided"))
+}
 
 func TestAlignIntrinsics(t *testing.T) {
 	logger := golog.NewTestLogger(t)

@@ -77,7 +77,7 @@ func init() {
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "align_color_depth", "homography",
 		func(val interface{}) (interface{}, error) {
-			homography := &transform.RawPinholeCameraHomography{}
+			homography := &transform.RawDepthColorHomography{}
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: homography})
 			if err != nil {
 				return nil, err
@@ -101,11 +101,11 @@ func getAligner(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Aligner, 
 		}
 		return cam, nil
 	case attrs.Homography != nil:
-		conf, ok := attrs.Homography.(*transform.RawPinholeCameraHomography)
+		conf, ok := attrs.Homography.(*transform.RawDepthColorHomography)
 		if !ok {
 			return nil, rdkutils.NewUnexpectedTypeError(conf, attrs.Homography)
 		}
-		cam, err := transform.NewPinholeCameraHomography(conf)
+		cam, err := transform.NewDepthColorHomography(conf)
 		if err != nil {
 			return nil, err
 		}
