@@ -6,31 +6,6 @@ import (
 	"gonum.org/v1/gonum/mat"
 )
 
-// RawPinholeCameraHomography is a structure that can be easily serialized and unserialized into JSON.
-type RawPinholeCameraHomography struct {
-	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	Homography   []float64               `json:"transform"`
-	DepthToColor bool                    `json:"depth_to_color"`
-	RotateDepth  int                     `json:"rotate_depth"`
-}
-
-// CheckValid runs checks on the fields of the struct to see if the inputs are valid.
-func (rdch *RawPinholeCameraHomography) CheckValid() error {
-	if rdch == nil {
-		return errors.New("pointer to PinholeCameraHomography is nil")
-	}
-	if rdch.Homography == nil {
-		return errors.New("pointer to Homography is nil")
-	}
-	if rdch.ColorCamera.Width == 0 || rdch.ColorCamera.Height == 0 {
-		return errors.Errorf("invalid ColorSize (%#v, %#v)", rdch.ColorCamera.Width, rdch.ColorCamera.Height)
-	}
-	if len(rdch.Homography) != 9 {
-		return errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(rdch.Homography))
-	}
-	return nil
-}
-
 // Homography is a 3x3 matrix used to transform a plane from the perspective of a 2D
 // camera to the perspective of another 2D camera.
 type Homography struct {

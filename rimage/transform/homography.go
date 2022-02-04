@@ -1,36 +1,51 @@
 package transform
 
 import (
-	"image"
-
 	"github.com/golang/geo/r2"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 )
 
-// PinholeCameraHomography stores the color camera intrinsics and the homography that aligns a depth map
+// RawDepthColorHomography is a structure that can be easily serialized and unserialized into JSON.
+type RawDepthColorHomography struct {
+	Homography   []float64 `json:"transform"`
+	DepthToColor bool      `json:"depth_to_color"`
+	RotateDepth  int       `json:"rotate_depth"`
+}
+
+// CheckValid runs checks on the fields of the struct to see if the inputs are valid.
+func (rdch *RawDepthColorHomography) CheckValid() error {
+	if rdch == nil {
+		return errors.New("pointer to DepthColorHomography is nil")
+	}
+	if rdch.Homography == nil {
+		return errors.New("pointer to Homography is nil")
+	}
+	if len(rdch.Homography) != 9 {
+		return errors.Errorf("input to NewHomography must have length of 9. Has length of %d", len(rdch.Homography))
+	}
+	return nil
+}
+
+// DepthColorHomography stores the color camera intrinsics and the homography that aligns a depth map
 // with the color image. DepthToColor is true if the homography maps from depth pixels to color pixels, and false
 // if it maps from color pixels to depth pixels.
 // These parameters can take the color and depth image and create a point cloud of 3D points
 // where the origin is the origin of the color camera, with units of mm.
-type PinholeCameraHomography struct {
-	ColorCamera  PinholeCameraIntrinsics `json:"color"`
-	Homography   *Homography             `json:"transform"`
-	DepthToColor bool                    `json:"depth_to_color"`
-	RotateDepth  int                     `json:"rotate_depth"`
+type DepthColorHomography struct {
+	Homography   *Homography `json:"transform"`
+	DepthToColor bool        `json:"depth_to_color"`
+	RotateDepth  int         `json:"rotate_depth"`
 }
 
-// NewPinholeCameraHomography takes in a struct that stores raw data from JSON and converts it into a PinholeCameraHomography struct.
-func NewPinholeCameraHomography(inp *RawPinholeCameraHomography) (*PinholeCameraHomography, error) {
+// NewDepthColorHomography takes in a struct that stores raw data from JSON and converts it into a DepthColorHomography struct.
+func NewDepthColorHomography(inp *RawDepthColorHomography) (*DepthColorHomography, error) {
 	homography, err := NewHomography(inp.Homography)
 	if err != nil {
 		return nil, err
 	}
-	return &PinholeCameraHomography{
-		ColorCamera:  inp.ColorCamera,
+	return &DepthColorHomography{
 		Homography:   homography,
 		DepthToColor: inp.DepthToColor,
 		RotateDepth:  inp.RotateDepth,
@@ -38,21 +53,12 @@ func NewPinholeCameraHomography(inp *RawPinholeCameraHomography) (*PinholeCamera
 }
 
 // AlignColorAndDepthImage will take the depth and the color image and overlay the two properly.
-func (dch *PinholeCameraHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+func (dch *DepthColorHomography) AlignColorAndDepthImage(col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
 	if col == nil {
 		return nil, errors.New("no color image present to align")
 	}
 	if dep == nil {
 		return nil, errors.New("no depth image present to align")
-	}
-	if col.Width() != dch.ColorCamera.Width || col.Height() != dch.ColorCamera.Height {
-		return nil, errors.Errorf(
-			"dimension of color image (%d, %d) does not match color camera parameters (%d, %d)",
-			col.Width(),
-			col.Height(),
-			dch.ColorCamera.Width,
-			dch.ColorCamera.Height,
-		)
 	}
 	// rotate depth image if necessary
 	if dch.RotateDepth != 0. {
@@ -82,34 +88,4 @@ func (dch *PinholeCameraHomography) AlignColorAndDepthImage(col *rimage.Image, d
 		}
 	}
 	return rimage.MakeImageWithDepth(col, newDepth, true), nil
-}
-
-// ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
-func (dch *PinholeCameraHomography) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
-	// if not already aligned, then align the picture
-	var iwd *rimage.ImageWithDepth
-	var err error
-	// color and depth images need to already be aligned
-	if ii.IsAligned() {
-		iwd = ii
-	} else {
-		iwd, err = dch.AlignColorAndDepthImage(ii.Color, ii.Depth)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return intrinsics2DTo3D(iwd, &dch.ColorCamera)
-}
-
-// PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
-// from the perspective of the color camera referenceframe.
-func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(
-	cloud pointcloud.PointCloud,
-) (*rimage.ImageWithDepth, error) {
-	return intrinsics3DTo2D(cloud, &dch.ColorCamera)
-}
-
-// ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the perspective of the color camera.
-func (dch *PinholeCameraHomography) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(pt, d, &dch.ColorCamera)
 }
