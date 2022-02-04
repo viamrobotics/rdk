@@ -28,6 +28,9 @@ func NewFrameSystemFromParts(
 	for _, part := range parts {
 		// rename everything with prefixes
 		part.Name = prefix + part.Name
+		// prefixing for the world frame is only necessary in the case
+		// of merging multiple frame systems together, so we leave that
+		// reponsibility to the corresponding merge function
 		if part.FrameConfig.Parent != referenceframe.World {
 			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}

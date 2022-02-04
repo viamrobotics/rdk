@@ -10,7 +10,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
@@ -30,6 +30,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -99,7 +100,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 	if rOpts.refreshEvery != 0 {
 		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
-		utils.ManagedGo(func() {
+		viamutils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
@@ -121,7 +122,7 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	ticker := time.NewTicker(every)
 	defer ticker.Stop()
 	for {
-		if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
+		if !viamutils.SelectContextOrWaitChan(ctx, ticker.C) {
 			return
 		}
 
@@ -441,7 +442,7 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 	}
 	fs, ok := resource.(framesystem.Service)
 	if !ok {
-		return nil, errors.New("frame system service improperly implemented")
+		return nil, utils.NewUnexpectedTypeError(fs, resource)
 	}
 	parts, err := fs.Config(ctx)
 	if err != nil {
