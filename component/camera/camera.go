@@ -44,8 +44,8 @@ type WithProjector interface {
 	GetProjector() rimage.Projector
 }
 
-// New creates a Camera either with or without a projector, depending on the attributes, or if it has a parent
-// Camera with attributes. parentSource and attrs can be nil.
+// New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
+// or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
 func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
 	if imgSrc == nil {
 		return nil, errors.New("cannot have a nil image source")

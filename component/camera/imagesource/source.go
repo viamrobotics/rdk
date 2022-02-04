@@ -21,13 +21,13 @@ import (
 	// register ppm.
 	_ "github.com/lmittmann/ppm"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -36,7 +36,7 @@ func init() {
 			config config.Component, logger golog.Logger) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			return NewServerSource(attrs, logger)
 		}})
@@ -53,7 +53,7 @@ func init() {
 			config config.Component, logger golog.Logger) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			return newDualServerSource(attrs)
 		}})
@@ -70,7 +70,7 @@ func init() {
 			config config.Component, logger golog.Logger) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.Aligned}
 			return camera.New(imgSrc, attrs, nil)
