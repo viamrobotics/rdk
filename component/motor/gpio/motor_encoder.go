@@ -224,11 +224,6 @@ func (m *EncodedMotor) directionMovingInLock() int64 {
 	return -1
 }
 
-// PositionSupported returns true.
-func (m *EncodedMotor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
-}
-
 // GetFeatures returns the status of whether the motor supports certain optional features
 func (m *EncodedMotor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
 	return map[motor.MotorFeature]bool{

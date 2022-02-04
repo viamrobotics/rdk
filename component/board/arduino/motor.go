@@ -172,10 +172,11 @@ func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// PositionSupported returns whether or not the motor supports reporting of its position which
-// is reliant on having an encoder.
-func (m *arduinoMotor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
+// GetFeatures returns the status of optional features supported by the motor
+func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	return map[motor.MotorFeature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.

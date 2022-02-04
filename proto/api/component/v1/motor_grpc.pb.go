@@ -24,17 +24,17 @@ type MotorServiceClient interface {
 	SetPower(ctx context.Context, in *MotorServiceSetPowerRequest, opts ...grpc.CallOption) (*MotorServiceSetPowerResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	GoFor(ctx context.Context, in *MotorServiceGoForRequest, opts ...grpc.CallOption) (*MotorServiceGoForResponse, error)
 	// GoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	GoTo(ctx context.Context, in *MotorServiceGoToRequest, opts ...grpc.CallOption) (*MotorServiceGoToResponse, error)
 	// ResetZeroPosition sets the current position of the motor as the new zero position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	ResetZeroPosition(ctx context.Context, in *MotorServiceResetZeroPositionRequest, opts ...grpc.CallOption) (*MotorServiceResetZeroPositionResponse, error)
 	// Position reports the position of the robot's motor relative to its zero position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	Position(ctx context.Context, in *MotorServicePositionRequest, opts ...grpc.CallOption) (*MotorServicePositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(ctx context.Context, in *MotorServiceGetFeaturesRequest, opts ...grpc.CallOption) (*MotorServiceGetFeaturesResponse, error)
@@ -136,17 +136,17 @@ type MotorServiceServer interface {
 	SetPower(context.Context, *MotorServiceSetPowerRequest) (*MotorServiceSetPowerResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
 	// for a specified number of rotations relative to its starting position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	GoFor(context.Context, *MotorServiceGoForRequest) (*MotorServiceGoForResponse, error)
 	// GoTo requests the robot's motor to move to a specific position that
 	// is relative to its home position at a specified speed which is expressed in RPM
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	GoTo(context.Context, *MotorServiceGoToRequest) (*MotorServiceGoToResponse, error)
 	// ResetZeroPosition sets the current position of the motor as the new zero position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	ResetZeroPosition(context.Context, *MotorServiceResetZeroPositionRequest) (*MotorServiceResetZeroPositionResponse, error)
 	// Position reports the position of the robot's motor relative to its zero position
-	// This method will return an error if MotorPositionSupported is false
+	// This method will return an error if position reporting is not supported
 	Position(context.Context, *MotorServicePositionRequest) (*MotorServicePositionResponse, error)
 	// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
 	GetFeatures(context.Context, *MotorServiceGetFeaturesRequest) (*MotorServiceGetFeaturesResponse, error)

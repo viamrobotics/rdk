@@ -20,7 +20,7 @@ service MotorService {
 
   // GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
   // for a specified number of rotations relative to its starting position
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc GoFor(MotorServiceGoForRequest) returns (MotorServiceGoForResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_for"
@@ -29,7 +29,7 @@ service MotorService {
 
   // GoTo requests the robot's motor to move to a specific position that
   // is relative to its home position at a specified speed which is expressed in RPM
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc GoTo(MotorServiceGoToRequest) returns (MotorServiceGoToResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/go_to"
@@ -37,7 +37,7 @@ service MotorService {
   }
 
   // ResetZeroPosition sets the current position of the motor as the new zero position
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc ResetZeroPosition(MotorServiceResetZeroPositionRequest) returns (MotorServiceResetZeroPositionResponse) {
     option (google.api.http) = {
       put: "/api/v1/motor/{name}/zero"
@@ -45,7 +45,7 @@ service MotorService {
   }
 
   // Position reports the position of the robot's motor relative to its zero position
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc Position(MotorServicePositionRequest) returns (MotorServicePositionResponse) {
     option (google.api.http) = {
       get: "/api/v1/motor/{name}/position"

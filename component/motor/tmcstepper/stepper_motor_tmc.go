@@ -299,9 +299,11 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
 
-// PositionSupported returns true.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
+// GetFeatures returns the status of optional features on the motor
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	return map[motor.MotorFeature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
 // SetPower sets the motor at a particular rpm based on the percent of
