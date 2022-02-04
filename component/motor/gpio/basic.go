@@ -86,11 +86,6 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// PositionSupported always returns false.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	return false, nil
-}
-
 // GetFeatures returns the status of whether the motor supports certain optional features
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
 	return map[motor.MotorFeature]bool{
