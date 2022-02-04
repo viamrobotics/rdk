@@ -29,7 +29,7 @@ func init() {
 			config config.Component, logger golog.Logger) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			colorName := attrs.Color
 			color, ok := r.CameraByName(colorName)

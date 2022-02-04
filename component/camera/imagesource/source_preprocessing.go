@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -27,7 +28,7 @@ func init() {
 		) (interface{}, error) {
 			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *camera.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			return newPreprocessDepth(r, attrs)
 		}})
