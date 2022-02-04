@@ -299,15 +299,15 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
 
-// GetFeatures returns the status of optional features on the motor
-func (m *Motor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
-	return map[motor.MotorFeature]bool{
+// GetFeatures returns the status of optional features on the motor.
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }
 
 // SetPower sets the motor at a particular rpm based on the percent of
-// maxRPM supplied by powerPct (between -1 and 1)
+// maxRPM supplied by powerPct (between -1 and 1).
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	rpm := powerPct * m.maxRPM
 	mode := modeVelPos

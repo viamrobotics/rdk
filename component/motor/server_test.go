@@ -111,7 +111,6 @@ func TestPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestGetFeatures(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -121,7 +120,7 @@ func TestGetFeatures(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
 		return nil, errors.New("unable to get supported features")
 	}
 	req = pb.MotorServiceGetFeaturesRequest{Name: "failingMotor"}
@@ -129,8 +128,8 @@ func TestGetFeatures(t *testing.T) {
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
-		return map[motor.MotorFeature]bool{
+	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
 	}
@@ -166,7 +165,6 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestIsOn(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 

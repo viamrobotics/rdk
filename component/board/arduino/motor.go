@@ -172,9 +172,9 @@ func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// GetFeatures returns the status of optional features supported by the motor
-func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.MotorFeature]bool, error) {
-	return map[motor.MotorFeature]bool{
+// GetFeatures returns the status of optional features supported by the motor.
+func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
 		motor.PositionReporting: true,
 	}, nil
 }

@@ -88,8 +88,8 @@ func (g *oneAxis) init(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	posSupported, ok := supportedFeatures[motor.PositionReporting]
-	if !posSupported || !ok {
+	posSupported := supportedFeatures[motor.PositionReporting]
+	if !posSupported {
 		return errors.New("gantry motor needs to support position")
 	}
 

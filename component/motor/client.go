@@ -127,8 +127,8 @@ func (c *client) Position(ctx context.Context) (float64, error) {
 	return resp.GetPosition(), nil
 }
 
-func (c *client) GetFeatures(ctx context.Context) (map[MotorFeature]bool, error) {
-	result := map[MotorFeature]bool{}
+func (c *client) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
+	result := map[Feature]bool{}
 	req := &pb.MotorServiceGetFeaturesRequest{Name: c.name}
 	resp, err := c.client.GetFeatures(ctx, req)
 	if err != nil {

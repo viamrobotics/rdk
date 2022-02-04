@@ -49,7 +49,7 @@ type Motor interface {
 	Position(ctx context.Context) (float64, error)
 
 	// GetFeatures returns whether or not the motor supports certain optional features.
-	GetFeatures(ctx context.Context) (map[MotorFeature]bool, error)
+	GetFeatures(ctx context.Context) (map[Feature]bool, error)
 
 	// Stop turns the power to the motor off immediately, without any gradual step down.
 	Stop(ctx context.Context) error
@@ -120,7 +120,7 @@ func (r *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
 	return r.actual.Position(ctx)
 }
 
-func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[MotorFeature]bool, error) {
+func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetFeatures(ctx)

@@ -90,7 +90,7 @@ func (server *subtypeServer) Position(
 	return &pb.MotorServicePositionResponse{Position: pos}, nil
 }
 
-// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+// GetFeatures returns a message of booleans indicating which optional features the robot's motor supports.
 func (server *subtypeServer) GetFeatures(
 	ctx context.Context,
 	req *pb.MotorServiceGetFeaturesRequest,

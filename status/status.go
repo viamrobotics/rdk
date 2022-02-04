@@ -202,7 +202,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			positionSupported, _ := features[motor.PositionReporting]
+			positionSupported := features[motor.PositionReporting]
 			var str *structpb.Struct
 			status.Motors[name] = &pb.MotorStatus{
 				On:                isOn,
