@@ -2,11 +2,16 @@ package camera
 
 import (
 	"context"
+	"image"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 )
 
 func TestCameraName(t *testing.T) {
@@ -90,3 +95,51 @@ type mock struct {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+type simpleSource struct {
+	filePath string
+}
+
+func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img, err := rimage.NewImageFromFile(s.filePath)
+	return img, func() {}, err
+}
+
+func TestNewCamera(t *testing.T) {
+	attrs1 := &AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
+	attrs2 := &AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
+	imgSrc := &simpleSource{artifact.MustPath("rimage/board1.png")}
+
+	_, err := New(nil, nil, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil image source"))
+
+	cam1, err := New(imgSrc, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok := cam1.(Camera)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = cam1.(WithProjector)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	cam2, err := New(imgSrc, attrs1, cam1)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam2.(Camera)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = cam2.(WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	cam3, err := New(imgSrc, nil, cam2)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam3.(Camera)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = cam3.(WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam3.(WithProjector).GetProjector(), test.ShouldResemble, cam2.(WithProjector).GetProjector())
+
+	cam4, err := New(imgSrc, attrs2, cam2)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam4.(Camera)
+	test.That(t, ok, test.ShouldBeTrue)
+	_, ok = cam4.(WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam4.(WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(WithProjector).GetProjector())
+}
