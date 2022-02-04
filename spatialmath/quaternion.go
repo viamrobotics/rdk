@@ -214,7 +214,8 @@ func Flip(q quat.Number) quat.Number {
 	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
 }
 
-// QuaternionAlmostEqual is an equality test for all the float components of a quaternion.
+// QuaternionAlmostEqual is an equality test for all the float components of a quaternion. Quaternions have double coverage, q == -q, and
+// this function will *not* account for this. Use OrientationAlmostEqual unless you're certain this is what you want.
 func QuaternionAlmostEqual(a, b quat.Number, tol float64) bool {
 	return utils.Float64AlmostEqual(a.Imag, b.Imag, tol) &&
 		utils.Float64AlmostEqual(a.Jmag, b.Jmag, tol) &&

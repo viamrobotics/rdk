@@ -131,7 +131,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	antiSlipGripPowerPctStepSize := config.Attributes.Float64("anti_slip_grip_power_pct_step_size", 0.005)
 	targetRPM := config.Attributes.Float64("target_rpm", 200)
 
-	model, err := referenceframe.ParseJSON(vgripperv2json, "")
+	model, err := referenceframe.UnmarshalModelJSON(vgripperv2json, "")
 	if err != nil {
 		return nil, err
 	}

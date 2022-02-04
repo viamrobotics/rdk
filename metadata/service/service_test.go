@@ -7,6 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/resource"
 )
@@ -16,16 +17,7 @@ func TestAdd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
 	arm := arm.Named("arm1")
-	test.That(t, err, test.ShouldBeNil)
-	sensor := resource.NewName(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeSensor,
-		"sensor1",
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, err, test.ShouldBeNil)
+	sensor := sensor.Named("sensor1")
 
 	for _, tc := range []struct {
 		Name        string
@@ -76,14 +68,7 @@ func TestReplace(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
 	arm := arm.Named("arm1")
-	test.That(t, err, test.ShouldBeNil)
-	sensor := resource.NewName(
-		resource.ResourceNamespaceRDK,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeSensor,
-		"sensor1",
-	)
-	test.That(t, err, test.ShouldBeNil)
+	sensor := sensor.Named("sensor1")
 
 	metadataSvc := resource.NameFromSubtype(service.Subtype, "")
 	test.That(t, err, test.ShouldBeNil)
