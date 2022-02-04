@@ -54,12 +54,15 @@ func TestAlignIntrinsics(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	c := conf.FindComponent("front")
 	test.That(t, c, test.ShouldNotBeNil)
-	delete(c.Attributes, "warp")
-	delete(c.Attributes, "homography")
+
+	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.Warp = nil
+	attrs.Homography = nil
 
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	aligned := applyAlignment(t, ii, c.ConvertedAttributes.(*camera.AttrConfig), logger)
+	aligned := applyAlignment(t, ii, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 
@@ -71,10 +74,11 @@ func TestAlignWarp(t *testing.T) {
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	delete(c.Attributes, "intrinsic_extrinsic")
-	delete(c.Attributes, "homography")
-
 	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.IntrinsicExtrinsic = nil
+	attrs.Homography = nil
+
 	warpParams, err := transform.NewPinholeCameraIntrinsicsFromJSONFile(
 		utils.ResolveFile("robots/configs/gripper_combo_parameters.json"), "color",
 	)
@@ -95,12 +99,14 @@ func TestAlignHomography(t *testing.T) {
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	delete(c.Attributes, "intrinsic_extrinsic")
-	delete(c.Attributes, "warp")
+	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	test.That(t, attrs, test.ShouldNotBeNil)
+	attrs.IntrinsicExtrinsic = nil
+	attrs.Warp = nil
 
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/gripper1/chess1.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	aligned := applyAlignment(t, ii, c.ConvertedAttributes.(*camera.AttrConfig), logger)
+	aligned := applyAlignment(t, ii, attrs, logger)
 	test.That(t, aligned, test.ShouldNotBeNil)
 }
 

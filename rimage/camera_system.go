@@ -40,7 +40,7 @@ func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth) (po
 		return nil, errors.New("input ImageWithDepth is not aligned")
 	}
 	if ii.Depth == nil {
-		return nil, errors.New("no depth")
+		return nil, errors.New("input ImageWithDepth has no depth channel to project")
 	}
 	pc := pointcloud.New()
 	height := ii.Height()
