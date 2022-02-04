@@ -132,32 +132,3 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 	}
 	return fsConfig, nil
 }
-
-func NewFrameSystemFromParts(
-	name, prefix string, parts []*config.FrameSystemPart,
-	logger golog.Logger,
-) (referenceframe.FrameSystem, error) {
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	for _, part := range parts {
-		// rename everything with prefixes
-		part.Name = prefix + part.Name
-		if part.FrameConfig.Parent != referenceframe.World {
-			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
-		}
-		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
-		if err != nil {
-			return nil, err
-		}
-		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
-		if err != nil {
-			return nil, err
-		}
-		err = fs.AddFrame(modelFrame, staticOffsetFrame)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return fs, nil
-}
