@@ -42,16 +42,25 @@ func TestMotorABPWM(t *testing.T) {
 	})
 
 	t.Run("motor (A/B/PWM) SetPower testing", func(t *testing.T) {
-		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
 
+		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		test.That(t, m.SetPower(ctx, -0.44), test.ShouldBeNil)
+		gpioMotor, ok := m.(*Motor)
+		test.That(t, ok, test.ShouldBeTrue)
+
+		test.That(t, setPowerWithDirection(ctx, gpioMotor, 0.43), test.ShouldBeNil)
+		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
+		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
+		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
+
+		on, err = m.IsPowered(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, on, test.ShouldBeTrue)
+
+		test.That(t, setPowerWithDirection(ctx, gpioMotor, -0.44), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(112))
@@ -60,7 +69,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
-		test.That(t, m.SetPower(ctx, 0), test.ShouldBeNil)
+		test.That(t, setPowerWithDirection(ctx, gpioMotor, 0), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
 		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
@@ -178,7 +187,7 @@ func TestMotorDirPWM(t *testing.T) {
 
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, on, test.ShouldBeFalse)
+		test.That(t, on, test.ShouldBeTrue)
 	})
 
 	t.Run("motor (DIR/PWM) Position testing", func(t *testing.T) {

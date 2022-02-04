@@ -153,12 +153,12 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 
 //  instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
-func (m *Motor) setPowerWithDirection(ctx context.Context, powerPct float64) error {
+func setPowerWithDirection(ctx context.Context, m *Motor, powerPct float64) error {
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
 
-	if math.Abs(powerPct) <= 0.001 {
+	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
 	}
 
@@ -210,7 +210,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.setPowerWithDirection(ctx, powerPct)
+	err := setPowerWithDirection(ctx, m, powerPct)
 	if err != nil {
 		return err
 	}
