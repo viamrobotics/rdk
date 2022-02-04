@@ -3,6 +3,7 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"image/jpeg"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -59,6 +60,8 @@ func WriteImageToFile(path string, img image.Image) (err error) {
 	switch filepath.Ext(path) {
 	case ".png":
 		return png.Encode(f, img)
+	case ".jpg", ".jpeg":
+		return jpeg.Encode(f, img, nil)
 	case ".ppm":
 		return ppm.Encode(f, img)
 	default:
@@ -96,6 +99,20 @@ func ConvertImage(img image.Image) *Image {
 		}
 	}
 	return ii
+}
+
+// CloneImage creates a copy of the input image.
+func CloneImage(img image.Image) *Image {
+	ii, ok := img.(*Image)
+	if ok {
+		return ii.Clone()
+	}
+	iwd, ok := img.(*ImageWithDepth)
+	if ok {
+		return iwd.Clone().Color
+	}
+
+	return ConvertImage(img)
 }
 
 func fastConvertNRGBA(dst *Image, src *image.NRGBA) {

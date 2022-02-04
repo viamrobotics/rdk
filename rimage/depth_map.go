@@ -33,6 +33,24 @@ type DepthMap struct {
 	data []Depth
 }
 
+// NewEmptyDepthMap returns an unset depth map with the given dimensions.
+func NewEmptyDepthMap(width, height int) *DepthMap {
+	dm := &DepthMap{
+		width:  width,
+		height: height,
+		data:   make([]Depth, width*height),
+	}
+
+	return dm
+}
+
+// Clone makes a copy of the depth map.
+func (dm *DepthMap) Clone() *DepthMap {
+	ddm := NewEmptyDepthMap(dm.Width(), dm.Height())
+	copy(ddm.data, dm.data)
+	return ddm
+}
+
 func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
@@ -574,17 +592,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	}
 
 	return out
-}
-
-// NewEmptyDepthMap returns an unset depth map with the given dimensions.
-func NewEmptyDepthMap(width, height int) *DepthMap {
-	dm := &DepthMap{
-		width:  width,
-		height: height,
-		data:   make([]Depth, width*height),
-	}
-
-	return dm
 }
 
 type dmWarpConnector struct {

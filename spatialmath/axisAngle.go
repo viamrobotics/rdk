@@ -81,7 +81,7 @@ func (r4 *R4AA) ToQuat() quat.Number {
 func (r4 *R4AA) Normalize() {
 	norm := math.Sqrt(r4.RX*r4.RX + r4.RY*r4.RY + r4.RZ*r4.RZ)
 	if norm == 0.0 { // prevent division by 0
-		panic("axis angle vector has length of 0")
+		panic("cannot normalize R4AA, divide by zero")
 	}
 	r4.RX /= norm
 	r4.RY /= norm

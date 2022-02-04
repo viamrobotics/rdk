@@ -433,7 +433,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return errors.New("can't find gripperCam")
 	}
 
-	arm, ok := robot.ArmByName("pieceArm")
+	arm, ok := arm.FromRobot(robot, "pieceArm")
 	if !ok {
 		return errors.New("can't find pieceArm")
 	}
@@ -529,12 +529,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(myRobot.Close(context.Background()))
 	}()
 
-	myArm, ok := myRobot.ArmByName("pieceArm")
+	myArm, ok := arm.FromRobot(myRobot, "pieceArm")
 	if !ok {
 		return errors.New("need an arm called pieceArm")
 	}
 
-	myGripper, ok := myRobot.GripperByName("grippie")
+	myGripper, ok := gripper.FromRobot(myRobot, "grippie")
 	if !ok {
 		return errors.New("need a gripper called gripped")
 	}

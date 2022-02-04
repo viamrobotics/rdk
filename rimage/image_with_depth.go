@@ -37,6 +37,17 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 	return i.Color.ColorModel()
 }
 
+// Clone makes a copy of the image with depth.
+func (i *ImageWithDepth) Clone() *ImageWithDepth {
+	if i.Color == nil {
+		return &ImageWithDepth{nil, nil, i.aligned, i.camera}
+	}
+	if i.Depth == nil {
+		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned, i.camera}
+	}
+	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned, i.camera}
+}
+
 // At returns the color at the given point.
 // TODO(erh): alpha encode with depth.
 func (i *ImageWithDepth) At(x, y int) color.Color {
@@ -257,6 +268,19 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 		return &ImageWithDepth{x, nil, false, nil}
 	default:
 		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
+	}
+}
+
+// CloneToImageWithDepth attempts to clone a go image into an image
+// with depth, if it contains any.
+func CloneToImageWithDepth(img image.Image) *ImageWithDepth {
+	switch x := img.(type) {
+	case *ImageWithDepth:
+		return x.Clone()
+	case *Image:
+		return &ImageWithDepth{x.Clone(), nil, false, nil}
+	default:
+		return &ImageWithDepth{CloneImage(img), nil, false, nil}
 	}
 }
 

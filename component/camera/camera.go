@@ -8,7 +8,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	viamutils "go.viam.com/utils"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/resource"
@@ -40,6 +40,11 @@ type Camera interface {
 // ImageSource implements a Camera with a gostream.ImageSource.
 type ImageSource struct {
 	gostream.ImageSource
+}
+
+// Close closes the underlying ImageSource.
+func (is *ImageSource) Close(ctx context.Context) error {
+	return utils.TryClose(ctx, is.ImageSource)
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
@@ -98,7 +103,7 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return viamutils.TryClose(ctx, c.actual)
+	return utils.TryClose(ctx, c.actual)
 }
 
 // Reconfigure reconfigures the resource.
@@ -109,7 +114,7 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	if !ok {
 		return errors.Errorf("expected new camera to be %T but got %T", c, newCamera)
 	}
-	if err := viamutils.TryClose(ctx, c.actual); err != nil {
+	if err := utils.TryClose(ctx, c.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	c.actual = actual.actual

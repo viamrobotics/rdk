@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/robot"
@@ -35,7 +36,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := r.GripperByName(gripperName)
+		gripper, ok := gripper.FromRobot(r, gripperName)
 		if !ok {
 			return nil, errors.Errorf("no gripper with that name %s", gripperName)
 		}
@@ -51,7 +52,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := r.GripperByName(gripperName)
+		gripper, ok := gripper.FromRobot(r, gripperName)
 		if !ok {
 			return nil, errors.Errorf("no gripper with that name %s", gripperName)
 		}

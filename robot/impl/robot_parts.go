@@ -12,14 +12,10 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
@@ -112,28 +108,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 	return names
 }
 
-// ArmNames returns the names of all arms in the parts.
-func (parts *robotParts) ArmNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == arm.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ArmNames)
-}
-
-// GripperNames returns the names of all grippers in the parts.
-func (parts *robotParts) GripperNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == gripper.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.GripperNames)
-}
-
 // CameraNames returns the names of all cameras in the parts.
 func (parts *robotParts) CameraNames() []string {
 	names := []string{}
@@ -167,17 +141,6 @@ func (parts *robotParts) BoardNames() []string {
 	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
 
-// ServoNames returns the names of all servos in the parts.
-func (parts *robotParts) ServoNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == servo.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.ServoNames)
-}
-
 // MotorNames returns the names of all motors in the parts.
 func (parts *robotParts) MotorNames() []string {
 	names := []string{}
@@ -187,17 +150,6 @@ func (parts *robotParts) MotorNames() []string {
 		}
 	}
 	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
-}
-
-// InputControllerNames returns the names of all controllers in the parts.
-func (parts *robotParts) InputControllerNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == input.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.InputControllerNames)
 }
 
 // FunctionNames returns the names of all functions in the parts.
@@ -448,26 +400,6 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 	return nil, false
 }
 
-// ArmByName returns the given arm by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) ArmByName(name string) (arm.Arm, bool) {
-	rName := arm.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(arm.Arm)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ArmByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // BaseByName returns the given base by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
@@ -481,26 +413,6 @@ func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BaseByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// GripperByName returns the given gripper by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) GripperByName(name string) (gripper.Gripper, bool) {
-	rName := gripper.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(gripper.Gripper)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.GripperByName(name)
 		if ok {
 			return part, true
 		}
@@ -528,26 +440,6 @@ func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
 	return nil, false
 }
 
-// ServoByName returns the given servo by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) ServoByName(name string) (servo.Servo, bool) {
-	servoResourceName := servo.Named(name)
-	resource, ok := parts.resources.Nodes[servoResourceName]
-	if ok {
-		part, ok := resource.(servo.Servo)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.ServoByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // MotorByName returns the given motor by name, if it exists;
 // returns nil otherwise.
 func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
@@ -561,26 +453,6 @@ func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.MotorByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// InputControllerByName returns the given input.Controller by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) InputControllerByName(name string) (input.Controller, bool) {
-	rName := input.Named(name)
-	resource, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := resource.(input.Controller)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.InputControllerByName(name)
 		if ok {
 			return part, true
 		}

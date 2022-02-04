@@ -4,13 +4,37 @@ import (
 	"context"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.GantryService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterGantryServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "gantry".
 const SubtypeName = resource.SubtypeName("gantry")
@@ -40,6 +64,23 @@ type Gantry interface {
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
+}
+
+// FromRobot is a helper for getting the named gantry from the given Robot.
+func FromRobot(r robot.Robot, name string) (Gantry, bool) {
+	res, ok := r.ResourceByName(Named(name))
+	if ok {
+		part, ok := res.(Gantry)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+// NamesFromRobot is a helper for getting all gantry names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
@@ -86,13 +127,19 @@ func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm [
 	return g.actual.MoveToPosition(ctx, positionsMm)
 }
 
+func (g *reconfigurableGantry) Close(ctx context.Context) error {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return viamutils.TryClose(ctx, g.actual)
+}
+
 // Reconfigure reconfigures the resource.
 func (g *reconfigurableGantry) Reconfigure(ctx context.Context, newGantry resource.Reconfigurable) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	actual, ok := newGantry.(*reconfigurableGantry)
 	if !ok {
-		return errors.Errorf("expected new gantry to be %T but got %T", g, newGantry)
+		return utils.NewUnexpectedTypeError(g, newGantry)
 	}
 	if err := viamutils.TryClose(ctx, g.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
