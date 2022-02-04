@@ -42,7 +42,6 @@ func TestMotorABPWM(t *testing.T) {
 	})
 
 	t.Run("motor (A/B/PWM) SetPower testing", func(t *testing.T) {
-
 		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
