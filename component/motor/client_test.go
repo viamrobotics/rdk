@@ -48,8 +48,8 @@ func TestClient(t *testing.T) {
 	workingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 42.0, nil
 	}
-	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
-		return map[motor.MotorFeature]bool{
+	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
 	}
@@ -78,7 +78,7 @@ func TestClient(t *testing.T) {
 	failingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
-	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
+	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
 		return nil, errors.New("supported features unavailable")
 	}
 	failingMotor.StopFunc = func(ctx context.Context) error {

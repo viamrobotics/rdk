@@ -41,7 +41,6 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
-	//nolint:dupl
 	t.Run("motor (A/B/PWM) SetPower testing", func(t *testing.T) {
 		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -71,6 +70,7 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeFalse)
 	})
 
+	//nolint:dupl
 	t.Run("motor (A/B/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
@@ -149,7 +149,7 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeFalse)
 	})
-
+	//nolint:dupl
 	t.Run("motor (DIR/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
 		test.That(t, b.GPIO["1"], test.ShouldEqual, true)

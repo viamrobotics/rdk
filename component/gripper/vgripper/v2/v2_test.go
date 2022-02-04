@@ -17,8 +17,8 @@ import (
 
 func createWorkingMotor() *inject.Motor {
 	injectMotor := &inject.Motor{}
-	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.MotorFeature]bool, error) {
-		return map[motor.MotorFeature]bool{
+	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
 		}, nil
 	}
@@ -76,9 +76,9 @@ func TestNew(t *testing.T) {
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 			fakeMotor := &inject.Motor{}
 			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.MotorFeature]bool, error,
+				map[motor.Feature]bool, error,
 			) {
-				return map[motor.MotorFeature]bool{}, nil
+				return map[motor.Feature]bool{}, nil
 			}
 			return fakeMotor, true
 		}
@@ -96,9 +96,9 @@ func TestNew(t *testing.T) {
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 			fakeMotor := &inject.Motor{}
 			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.MotorFeature]bool, error,
+				map[motor.Feature]bool, error,
 			) {
-				return map[motor.MotorFeature]bool{
+				return map[motor.Feature]bool{
 					motor.PositionReporting: true,
 				}, nil
 			}

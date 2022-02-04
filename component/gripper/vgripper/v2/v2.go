@@ -100,8 +100,8 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	if err != nil {
 		return nil, err
 	}
-	supported, ok := supportedFeatures[motor.PositionReporting]
-	if !supported || !ok {
+	supported := supportedFeatures[motor.PositionReporting]
+	if !supported {
 		return nil, errors.New("gripper motor needs to support position")
 	}
 

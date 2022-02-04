@@ -5,16 +5,15 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
-// MotorFeature is an enum representing an optional motor feature
-type MotorFeature int
+// Feature is an enum representing an optional motor feature.
+type Feature int
 
 // PositionReporting represesnts the feature of a motor being
-// able to report its own position
-const PositionReporting MotorFeature = iota
+// able to report its own position.
+const PositionReporting Feature = iota
 
-func (mf MotorFeature) String() string {
-	switch mf {
-	case PositionReporting:
+func (feature Feature) String() string {
+	if feature == PositionReporting {
 		return "position_reporting"
 	}
 	return "unknown_feature"
@@ -25,16 +24,16 @@ type setter func(resp *pb.MotorServiceGetFeaturesResponse, isSupported bool)
 type reader func(resp *pb.MotorServiceGetFeaturesResponse) bool
 
 // FeatureToResponseSetter is a mapping of motor feature to
-// the name of the corresponding key in the gRPC response to GetFeatures
-var FeatureToResponseSetter = map[MotorFeature]setter{
+// the name of the corresponding key in the gRPC response to GetFeatures.
+var FeatureToResponseSetter = map[Feature]setter{
 	PositionReporting: func(resp *pb.MotorServiceGetFeaturesResponse, isSupported bool) {
 		resp.PositionReporting = isSupported
 	},
 }
 
 // FeatureToResponseReader is a mapping of motor feature to
-// the name of the corresponding key in the gRPC response to GetFeatures
-var FeatureToResponseReader = map[MotorFeature]reader{
+// the name of the corresponding key in the gRPC response to GetFeatures.
+var FeatureToResponseReader = map[Feature]reader{
 	PositionReporting: func(resp *pb.MotorServiceGetFeaturesResponse) bool {
 		return resp.PositionReporting
 	},
