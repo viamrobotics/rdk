@@ -134,4 +134,12 @@ func TestNewCamera(t *testing.T) {
 	_, ok = cam4.(WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, cam4.(WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(WithProjector).GetProjector())
+
+	fakeCamera, err := WrapWithReconfigurable(cam4)
+	test.That(t, err, test.ShouldBeNil)
+	cam5, err := New(imgSrc, nil, fakeCamera.(Camera))
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam5.(WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam5.(WithProjector).GetProjector(), test.ShouldResemble, cam4.(WithProjector).GetProjector())
 }
