@@ -62,8 +62,6 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 
-	// detect pi.
-	_ "go.viam.com/rdk/platformdetector/pi"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
