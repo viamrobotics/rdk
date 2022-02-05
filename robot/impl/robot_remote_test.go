@@ -75,12 +75,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 	injectRobot.RemoteNamesFunc = func() []string {
 		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
 	}
-	injectRobot.BoardNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(boardNames...)
-	}
-	injectRobot.BoardNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(boardNames...)
-	}
 	injectRobot.CameraNamesFunc = func() []string {
 		return rdktestutils.ExtractNames(cameraNames...)
 	}
@@ -122,28 +116,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		}
 		return &fakebase.Base{Name: name}, true
 	}
-	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.BoardNames()...)[name]; !ok {
-			return nil, false
-		}
-		fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
-			Name: name,
-			ConvertedAttributes: &board.Config{
-				Analogs: []board.AnalogConfig{
-					{Name: "analog1"},
-					{Name: "analog2"},
-				},
-				DigitalInterrupts: []board.DigitalInterruptConfig{
-					{Name: "digital1"},
-					{Name: "digital2"},
-				},
-			},
-		}, logger)
-		if err != nil {
-			panic(err)
-		}
-		return fakeBoard, true
-	}
 	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		if _, ok := utils.NewStringSet(injectRobot.CameraNames()...)[name]; !ok {
 			return nil, false
@@ -165,7 +137,23 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 				case base.Subtype:
 					return &fakebase.Base{Name: name.Name}, true
 				case board.Subtype:
-					return injectRobot.BoardByNameFunc(name.Name)
+					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
+						Name: name.Name,
+						ConvertedAttributes: &board.Config{
+							Analogs: []board.AnalogConfig{
+								{Name: "analog1"},
+								{Name: "analog2"},
+							},
+							DigitalInterrupts: []board.DigitalInterruptConfig{
+								{Name: "digital1"},
+								{Name: "digital2"},
+							},
+						},
+					}, logger)
+					if err != nil {
+						panic(err)
+					}
+					return fakeBoard, true
 				case servo.Subtype:
 					return &fakeservo.Servo{Name: name.Name}, true
 				case gripper.Subtype:
@@ -271,14 +259,14 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	test.That(
 		t,
-		utils.NewStringSet(robot.BoardNames()...),
+		utils.NewStringSet(board.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.BoardNames()...),
+		utils.NewStringSet(board.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedBoardNames...)...),
 	)
@@ -580,12 +568,12 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 
 	robot.conf.Prefix = false
-	_, ok = robot.BoardByName("board1")
+	_, ok = board.FromRobot(robot, "board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
-	_, ok = robot.BoardByName("one.board1")
+	_, ok = board.FromRobot(robot, "one.board1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.BoardByName("board1_what")
+	_, ok = board.FromRobot(robot, "board1_what")
 	test.That(t, ok, test.ShouldBeFalse)
 
 	robot.conf.Prefix = false

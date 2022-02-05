@@ -17,9 +17,8 @@ import (
 const (
 	testBoardName    = "board1"
 	testBoardName2   = "board2"
-	failBoardName    = "board3"
-	fakeBoardName    = "board4"
-	missingBoardName = "board5"
+	fakeBoardName    = "board3"
+	missingBoardName = "board4"
 )
 
 func setupInjectRobot() *inject.Robot {
@@ -135,10 +134,6 @@ func TestReconfigurableBoard(t *testing.T) {
 	for _, actualBoard1 := range actualBoards {
 		reconfBoard1, err := board.WrapWithReconfigurable(actualBoard1)
 		test.That(t, err, test.ShouldBeNil)
-		err = reconfBoard1.Reconfigure(context.Background(), nil)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "expected new board")
-		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 0)
 
 		actualBoard2 := newBoard(testBoardName2)
 		reconfBoard2, err := board.WrapWithReconfigurable(actualBoard2)
@@ -312,6 +307,10 @@ func newBoard(name string) *mock {
 		spis:     []string{"spi1"},
 		analogs:  []string{"analog1"},
 		digitals: []string{"digital1"},
+		i2c:      &mockI2C{},
+		spi:      &mockSPI{},
+		analog:   &mockAnalogReader{},
+		digital:  &mockDigitalInterrupt{},
 	}
 }
 

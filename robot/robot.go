@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -29,9 +28,6 @@ type Robot interface {
 	// CameraByName returns a camera by name.
 	CameraByName(name string) (camera.Camera, bool)
 
-	// BoardByName returns a board by name.
-	BoardByName(name string) (board.Board, bool)
-
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
 
@@ -46,9 +42,6 @@ type Robot interface {
 
 	// BaseNames returns the name of all known bases.
 	BaseNames() []string
-
-	// BoardNames returns the name of all known boards.
-	BoardNames() []string
 
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string

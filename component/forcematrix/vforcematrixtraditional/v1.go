@@ -90,7 +90,7 @@ type ForceMatrixTraditional struct {
 
 // newForceMatrix returns a new ForceMatrixTraditional given gpio pins and analog channels.
 func newForceMatrix(r robot.Robot, c *ForceMatrixConfig) (*ForceMatrixTraditional, error) {
-	b, exists := r.BoardByName(c.BoardName)
+	b, exists := board.FromRobot(r, c.BoardName)
 	if !exists {
 		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
 	}

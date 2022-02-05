@@ -46,7 +46,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, ok := r.BoardByName(motorConfig.BoardName)
+	b, ok := board.FromRobot(r, motorConfig.BoardName)
 	if !ok {
 		return nil, nil, fmt.Errorf("expected to find board %q", motorConfig.BoardName)
 	}

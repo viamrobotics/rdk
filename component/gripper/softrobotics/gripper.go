@@ -20,7 +20,7 @@ import (
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "softrobotics", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			b, ok := r.BoardByName("local")
+			b, ok := board.FromRobot(r, "local")
 			if !ok {
 				return nil, errors.New("softrobotics gripper requires a board called local")
 			}

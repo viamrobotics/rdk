@@ -21,7 +21,6 @@ import (
 	"go.viam.com/rdk/component/base"
 	_ "go.viam.com/rdk/component/base/register"
 	"go.viam.com/rdk/component/board"
-	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
@@ -220,9 +219,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.BaseByNameFunc = func(name string) (base.Base, bool) {
 		return nil, false
 	}
-	injectRobot1.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return nil, false
-	}
 	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
@@ -269,9 +265,6 @@ func TestClient(t *testing.T) {
 	}
 	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
 		return 5, nil
-	}
-	injectRobot2.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return injectBoard, true
 	}
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
@@ -513,7 +506,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
-	board1, ok := client.BoardByName("board1")
+	board1, ok := board.FromRobot(client, "board1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, board1, test.ShouldNotBeNil)
 
@@ -607,11 +600,11 @@ func TestClient(t *testing.T) {
 	test.That(t, motor2, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	board1, ok = client.BoardByName("board1")
+	board1, ok = board.FromRobot(client, "board1")
 	test.That(t, board1, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = client.BoardByName("board3")
+	_, ok = board.FromRobot(client, "board3")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	camera1, ok = client.CameraByName("camera1")
@@ -725,7 +718,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
+		utils.NewStringSet(board.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
@@ -800,7 +793,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
+		utils.NewStringSet(board.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
@@ -857,7 +850,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
+		utils.NewStringSet(board.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet("board2", "board3"),
 	)

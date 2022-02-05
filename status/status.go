@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
@@ -134,10 +135,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.BoardNames(); len(names) != 0 {
+	if names := board.NamesFromRobot(r); len(names) != 0 {
 		status.Boards = make(map[string]*commonpb.BoardStatus, len(names))
 		for _, name := range names {
-			board, ok := r.BoardByName(name)
+			board, ok := board.FromRobot(r, name)
 			if !ok {
 				continue
 			}

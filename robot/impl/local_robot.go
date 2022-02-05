@@ -19,7 +19,6 @@ import (
 
 	// register base.
 	_ "go.viam.com/rdk/component/base/register"
-	"go.viam.com/rdk/component/board"
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"
@@ -61,7 +60,6 @@ import (
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
-
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -93,12 +91,6 @@ type localRobot struct {
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
-}
-
-// BoardByName returns a board by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BoardByName(name string) (board.Board, bool) {
-	return r.parts.BoardByName(name)
 }
 
 // BaseByName returns a base by name. If it does not exist
@@ -138,11 +130,6 @@ func (r *localRobot) CameraNames() []string {
 // BaseNames returns the name of all known bases.
 func (r *localRobot) BaseNames() []string {
 	return r.parts.BaseNames()
-}
-
-// BoardNames returns the name of all known boards.
-func (r *localRobot) BoardNames() []string {
-	return r.parts.BoardNames()
 }
 
 // MotorNames returns the name of all known motors.
