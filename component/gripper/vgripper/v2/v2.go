@@ -85,7 +85,7 @@ type gripperV2 struct {
 // newGripper returns a gripperV2 which operates with a ForceMatrix.
 func newGripper(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
 	boardName := config.Attributes.String("board")
-	board, exists := r.BoardByName(boardName)
+	board, exists := board.FromRobot(r, boardName)
 	if !exists {
 		return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
 	}

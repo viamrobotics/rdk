@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
@@ -30,7 +31,7 @@ func init() {
 			if motorConfig.BoardName == "" {
 				return nil, errors.New("expected board name in config for motor")
 			}
-			b, ok := r.BoardByName(motorConfig.BoardName)
+			b, ok := board.FromRobot(r, motorConfig.BoardName)
 			if !ok {
 				return nil, fmt.Errorf("expected to find board %q", motorConfig.BoardName)
 			}

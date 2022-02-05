@@ -197,7 +197,7 @@ type ResetBox struct {
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
-	// resetboard, ok := r.BoardByName("resetboard")
+	// resetboard, ok := board.FromRobot(r,"resetboard")
 	// if !ok {
 	// 	return nil, errors.New("can't find board: resetboard")
 	// }

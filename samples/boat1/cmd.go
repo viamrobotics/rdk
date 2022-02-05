@@ -328,7 +328,7 @@ func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
 	var ok bool
-	b.theBoard, ok = r.BoardByName("local")
+	b.theBoard, ok = board.FromRobot(r, "local")
 	if !ok {
 		return nil, errors.New("cannot find board")
 	}

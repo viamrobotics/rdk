@@ -119,7 +119,7 @@ const (
 
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
-	b, ok := r.BoardByName(c.BoardName)
+	b, ok := board.FromRobot(r, c.BoardName)
 	if !ok {
 		return nil, errors.Errorf("can't find Board (%s) requested by Motor", c.BoardName)
 	}

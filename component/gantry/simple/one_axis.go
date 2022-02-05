@@ -46,7 +46,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	if len(g.limitSwitchPins) != 2 {
 		return nil, errors.New("need 2 limitPins")
 	}
-	g.limitBoard, ok = r.BoardByName(config.Attributes.String("limitBoard"))
+	g.limitBoard, ok = board.FromRobot(r, config.Attributes.String("limitBoard"))
 	if !ok {
 		return nil, errors.New("cannot find board for gantry")
 	}

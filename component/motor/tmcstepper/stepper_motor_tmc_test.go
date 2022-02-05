@@ -8,12 +8,12 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
-	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/tmcstepper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -52,7 +52,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	b.SPIs = map[string]*fakeboard.SPI{}
 	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
 	r := inject.Robot{}
-	r.BoardByNameFunc = func(name string) (board.Board, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return b, true
 	}
 

@@ -33,13 +33,13 @@ func newBoardWithStatus(injectStatus *commonpb.BoardStatus) *inject.Board {
 	return injectBoard
 }
 
-func setupService(t *testing.T, name string, injectBoard *inject.Board) (net.Listener, func()) {
+func setupService(t *testing.T, injectBoard *inject.Board) (net.Listener, func()) {
 	t.Helper()
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	boardSvc, err := subtype.New(map[resource.Name]interface{}{board.Named(name): injectBoard})
+	boardSvc, err := subtype.New(map[resource.Name]interface{}{board.Named(testBoardName): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterBoardServiceServer(gServer, board.NewServer(boardSvc))
 
@@ -51,7 +51,7 @@ func TestFailingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
 
-	listener, cleanup := setupService(t, testBoardName, injectBoard)
+	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -66,7 +66,7 @@ func TestWorkingClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
 
-	listener, cleanup := setupService(t, testBoardName, injectBoard)
+	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
 	testWorkingClient := func(t *testing.T, client board.Board) {
@@ -183,7 +183,7 @@ func TestClientWithStatus(t *testing.T) {
 	}
 	injectBoard := newBoardWithStatus(injectStatus)
 
-	listener, cleanup := setupService(t, testBoardName, injectBoard)
+	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
 	client, err := board.NewClient(context.Background(), testBoardName, listener.Addr().String(), logger, rpc.WithInsecure())
@@ -249,7 +249,7 @@ func TestClientDialerOption(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectBoard := newBoardWithStatus(&commonpb.BoardStatus{})
 
-	listener, cleanup := setupService(t, testBoardName, injectBoard)
+	listener, cleanup := setupService(t, injectBoard)
 	defer cleanup()
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}

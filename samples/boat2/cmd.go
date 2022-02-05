@@ -194,7 +194,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	var err error
 	b := &boat{myRobot: r}
 
-	bb, ok := r.BoardByName("local")
+	bb, ok := board.FromRobot(r, "local")
 	if !ok {
 		return nil, errors.New("no local board")
 	}

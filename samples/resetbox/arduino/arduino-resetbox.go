@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gripper"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/robot"
@@ -105,7 +106,7 @@ func ResetBox(ctx context.Context, theRobot robot.Robot) error {
 // toggleTrigger will set the pin on which the arduino listens to high for 100ms, then back to low, to signal that the
 // arduino should proceed with whatever the next step.
 func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
-	resetBoard, ok := theRobot.BoardByName(boardName)
+	resetBoard, ok := board.FromRobot(theRobot, boardName)
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
@@ -128,7 +129,7 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 		return nil
 	case <-time.After(1500 * time.Millisecond):
 	}
-	resetBoard, ok := theRobot.BoardByName(boardName)
+	resetBoard, ok := board.FromRobot(theRobot, boardName)
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
@@ -149,7 +150,7 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 // Strobing means it is ready for a new reset cycle to begin.
 // This function will block until the "ready" pin has strobed 30 times.
 func waitForResetReady(ctx context.Context, theRobot robot.Robot) error {
-	resetBoard, ok := theRobot.BoardByName(boardName)
+	resetBoard, ok := board.FromRobot(theRobot, boardName)
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}

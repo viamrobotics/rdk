@@ -17,7 +17,6 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -244,20 +243,6 @@ func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
 	return actual, true
 }
 
-// BoardByName returns a board by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
-	resource, ok := rc.ResourceByName(board.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualBoard, ok := resource.(board.Board)
-	if !ok {
-		return nil, false
-	}
-	return actualBoard, true
-}
-
 // MotorByName returns a motor by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
@@ -370,19 +355,6 @@ func (rc *RobotClient) BaseNames() []string {
 	names := []string{}
 	for _, v := range rc.ResourceNames() {
 		if v.Subtype == base.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// BoardNames returns the names of all known boards.
-func (rc *RobotClient) BoardNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == board.Subtype {
 			names = append(names, v.Name)
 		}
 	}

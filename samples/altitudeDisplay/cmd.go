@@ -45,7 +45,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close(ctx)
 
-	gpsBoard, ok := myRobot.BoardByName(boardName)
+	gpsBoard, ok := board.FromRobot(myRobot, boardName)
 	if !ok {
 		return fmt.Errorf("failed to find board %s", boardName)
 	}
