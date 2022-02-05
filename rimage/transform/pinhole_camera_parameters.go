@@ -176,10 +176,6 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
-	// color and depth images need to already be aligned
-	if !ii.IsAligned() {
-		return nil, errors.New("color and depth channels are not aligned. Cannot project to pointcloud")
-	}
 	return intrinsics2DTo3D(ii, params)
 }
 
@@ -240,11 +236,11 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 
 // intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.
 func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (pointcloud.PointCloud, error) {
-	if !iwd.IsAligned() {
-		return nil, errors.New("image with depth is not aligned. Cannot project to Pointcloud")
-	}
 	if iwd.Depth == nil {
 		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	}
+	if !iwd.IsAligned() {
+		return nil, errors.New("color and depth are not aligned. Cannot project to Pointcloud")
 	}
 	// Check dimensions, they should be equal between the color and depth frame
 	if iwd.Depth.Width() != iwd.Color.Width() || iwd.Depth.Height() != iwd.Color.Height() {
