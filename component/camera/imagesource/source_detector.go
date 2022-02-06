@@ -30,7 +30,7 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			src, ok := r.CameraByName(sourceName)
+			src, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
 			}

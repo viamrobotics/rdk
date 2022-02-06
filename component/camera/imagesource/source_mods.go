@@ -34,7 +34,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
+			source, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 			}
@@ -63,7 +63,7 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
+			source, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
 			}

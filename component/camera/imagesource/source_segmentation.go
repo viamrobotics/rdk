@@ -32,7 +32,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			source, ok := r.CameraByName(attrs.Source)
+			source, ok := camera.FromRobot(r, attrs.Source)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 			}
