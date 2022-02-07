@@ -17,6 +17,7 @@ import (
 	viamgrpc "go.viam.com/rdk/grpc"
 	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -66,7 +67,8 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	listener2, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	workingServer := grpc.NewServer()
+	workingServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 	failingServer := grpc.NewServer()
 
 	workingFrameService := &inject.FrameSystemService{}
@@ -107,7 +109,8 @@ func TestClientConfig(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 
-	servicepb.RegisterFrameSystemServiceServer(workingServer, framesystem.NewServer(workingSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(framesystem.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), workingServer, workingSvc)
 	servicepb.RegisterFrameSystemServiceServer(failingServer, framesystem.NewServer(failingSvc))
 
 	go workingServer.Serve(listener1)
@@ -141,6 +144,20 @@ func TestClientConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
 		frameSystemParts, err := workingDialedClient.Config(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
+		test.That(t, err, test.ShouldBeNil)
+		err = ensurePartsAreEqual(fsConfigs[1], frameSystemParts[1])
+		test.That(t, err, test.ShouldBeNil)
+	})
+
+	t.Run("dialed client test 2 config for working frame service", func(t *testing.T) {
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		test.That(t, err, test.ShouldBeNil)
+		workingDialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
+		fsClient, ok := workingDialedClient.(framesystem.Service)
+		test.That(t, ok, test.ShouldBeTrue)
+		frameSystemParts, err := fsClient.Config(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)

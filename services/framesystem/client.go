@@ -55,10 +55,7 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 	if err != nil {
 		return nil, err
 	}
-	if err != nil {
-		return nil, err
-	}
-	cfgs := resp.FrameSystemConfigs
+	cfgs := resp.GetFrameSystemConfigs()
 	result := make([]*config.FrameSystemPart, 0, len(cfgs))
 	for _, cfg := range cfgs {
 		part, err := config.ProtobufToFrameSystemPart(cfg)
