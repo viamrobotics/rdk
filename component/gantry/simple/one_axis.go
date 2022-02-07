@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -68,6 +69,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 type oneAxis struct {
 	name  string
 	motor motor.Motor
+	axis  r3.Vector
 
 	limitSwitchPins []string
 	limitBoard      board.Board
@@ -201,16 +203,11 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positionsMm []float64) err
 
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(
-		g.name,
-		[]bool{true},
-		[]referenceframe.Limit{{0, g.lengthMeters}},
-	)
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
-		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+		panic(fmt.Errorf("error creating frame: %w", err))
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
-
 	return m
 }
 

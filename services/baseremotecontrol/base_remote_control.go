@@ -85,7 +85,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
 	}
-	controller, ok := r.InputControllerByName(svcConfig.InputControllerName)
+	controller, ok := input.FromRobot(r, svcConfig.InputControllerName)
 	if !ok {
 		return nil, errors.Errorf("no input controller named %q", svcConfig.InputControllerName)
 	}

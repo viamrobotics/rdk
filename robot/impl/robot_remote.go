@@ -12,14 +12,9 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -135,24 +130,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) ArmNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.ArmNames())
-}
-
-func (rr *remoteRobot) GripperNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.GripperNames())
-}
-
-func (rr *remoteRobot) CameraNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.CameraNames())
-}
-
 func (rr *remoteRobot) BaseNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -165,22 +142,10 @@ func (rr *remoteRobot) BoardNames() []string {
 	return rr.prefixNames(rr.parts.BoardNames())
 }
 
-func (rr *remoteRobot) ServoNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.ServoNames())
-}
-
 func (rr *remoteRobot) MotorNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.prefixNames(rr.parts.MotorNames())
-}
-
-func (rr *remoteRobot) InputControllerNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.InputControllerNames())
 }
 
 func (rr *remoteRobot) FunctionNames() []string {
@@ -205,28 +170,10 @@ func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-func (rr *remoteRobot) ArmByName(name string) (arm.Arm, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.ArmByName(rr.unprefixName(name))
-}
-
 func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.BaseByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) GripperByName(name string) (gripper.Gripper, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.GripperByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.CameraByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
@@ -235,22 +182,10 @@ func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
 	return rr.parts.BoardByName(rr.unprefixName(name))
 }
 
-func (rr *remoteRobot) ServoByName(name string) (servo.Servo, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.ServoByName(rr.unprefixName(name))
-}
-
 func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	return rr.parts.MotorByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) InputControllerByName(name string) (input.Controller, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.InputControllerByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {

@@ -103,7 +103,7 @@ func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		return nil, err
 	}
 
-	model, err := referenceframe.ParseJSON(vx300smodeljson, "")
+	model, err := referenceframe.UnmarshalModelJSON(vx300smodeljson, "")
 	if err != nil {
 		return nil, err
 	}

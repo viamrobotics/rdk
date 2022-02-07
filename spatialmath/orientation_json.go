@@ -35,48 +35,48 @@ func OrientationMap(o Orientation) (map[string]interface{}, error) {
 	}
 }
 
-// RawOrientation holds the underlying type of orientation, and the value.
-type RawOrientation struct {
+// OrientationConfig holds the underlying type of orientation, and the value.
+type OrientationConfig struct {
 	Type  string          `json:"type"`
 	Value json.RawMessage `json:"value"`
 }
 
-// ParseOrientation will use the Type in RawOrientation to unmarshal the Value into the correct struct that implements Orientation.
-func ParseOrientation(ro RawOrientation) (Orientation, error) {
+// ParseConfig will use the Type in OrientationConfig and convert into the correct struct that implements Orientation.
+func (config OrientationConfig) ParseConfig() (Orientation, error) {
 	var err error
 	// use the type to unmarshal the value
-	switch OrientationType(ro.Type) {
+	switch OrientationType(config.Type) {
 	case NoOrientationType:
 		return NewZeroOrientation(), nil
 	case OrientationVectorDegreesType:
 		var o OrientationVectorDegrees
-		err = json.Unmarshal(ro.Value, &o)
+		err = json.Unmarshal(config.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case OrientationVectorRadiansType:
 		var o OrientationVector
-		err = json.Unmarshal(ro.Value, &o)
+		err = json.Unmarshal(config.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case AxisAnglesType:
 		var o R4AA
-		err = json.Unmarshal(ro.Value, &o)
+		err = json.Unmarshal(config.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	case EulerAnglesType:
 		var o EulerAngles
-		err = json.Unmarshal(ro.Value, &o)
+		err = json.Unmarshal(config.Value, &o)
 		if err != nil {
 			return nil, err
 		}
 		return &o, nil
 	default:
-		return nil, fmt.Errorf("orientation type %s not recognized", ro.Type)
+		return nil, fmt.Errorf("orientation type %s not recognized", config.Type)
 	}
 }
