@@ -89,3 +89,20 @@ func TestGetBlur3(t *testing.T) {
 	test.That(t, k.At(0, 2), test.ShouldEqual, 1)
 	test.That(t, k.At(1, 0), test.ShouldEqual, 1)
 }
+
+func TestGetGaussian3(t *testing.T) {
+	k := GetGaussian3()
+	test.That(t, k.Height, test.ShouldEqual, 3)
+	test.That(t, k.Width, test.ShouldEqual, 3)
+	test.That(t, k.At(0, 0), test.ShouldEqual, 1)
+	test.That(t, k.At(0, 1), test.ShouldEqual, 2)
+	test.That(t, k.At(0, 2), test.ShouldEqual, 1)
+	test.That(t, k.At(1, 0), test.ShouldEqual, 2)
+	normalized := (&k).Normalize()
+	test.That(t, normalized.Height, test.ShouldEqual, 3)
+	test.That(t, normalized.Width, test.ShouldEqual, 3)
+	test.That(t, normalized.At(0, 0), test.ShouldEqual, 1./16.)
+	test.That(t, normalized.At(0, 1), test.ShouldEqual, 2./16.)
+	test.That(t, normalized.At(0, 2), test.ShouldEqual, 1./16.)
+	test.That(t, normalized.At(1, 0), test.ShouldEqual, 2./16.)
+}

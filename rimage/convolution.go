@@ -36,13 +36,26 @@ func GetSobelY() Kernel {
 	}
 }
 
-// GetBlur3 returns the Kernel corresponding to the Sobel kernel in the y direction.
+// GetBlur3 returns the Kernel corresponding to a mean averaging kernel.
 func GetBlur3() Kernel {
 	return Kernel{
 		[][]float64{
 			{1, 1, 1},
 			{1, 1, 1},
 			{1, 1, 1},
+		},
+		3,
+		3,
+	}
+}
+
+// GetGaussian3 returns the Kernel corresponding to 3x3 Gaussian blurring kernel.
+func GetGaussian3() Kernel {
+	return Kernel{
+		[][]float64{
+			{1, 2, 1},
+			{2, 4, 2},
+			{1, 2, 1},
 		},
 		3,
 		3,
