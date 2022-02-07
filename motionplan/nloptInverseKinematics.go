@@ -49,7 +49,7 @@ func CreateNloptIKSolver(mdl referenceframe.Frame, logger golog.Logger, iter int
 	ik.model = mdl
 	ik.id = 0
 	// How close we want to get to the goal
-	ik.epsilon = 0.001
+	ik.epsilon = defaultEpsilon
 	// Stop optimizing when iterations change by less than this much
 	ik.solveEpsilon = math.Pow(ik.epsilon, 4)
 	if iter < 1 {

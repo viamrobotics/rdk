@@ -27,17 +27,18 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantryOffset, fs.World())
 
-	limits := []frame.Limit{{math.Inf(-1), math.Inf(1)}, {math.Inf(-1), math.Inf(1)}}
-
-	gantry, err := frame.NewTranslationalFrame("gantry", []bool{true, true, false}, limits)
+	gantryX, err := frame.NewTranslationalFrame("gantryX", r3.Vector{1, 0, 0}, frame.Limit{math.Inf(-1), math.Inf(1)})
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(gantry, gantryOffset)
-
-	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	fs.AddFrame(gantryX, gantryOffset)
+	gantryY, err := frame.NewTranslationalFrame("gantryY", r3.Vector{0, 1, 0}, frame.Limit{math.Inf(-1), math.Inf(1)})
 	test.That(t, err, test.ShouldBeNil)
-	fs.AddFrame(modelXarm, gantry)
+	fs.AddFrame(gantryY, gantryX)
 
-	modelUR5e, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	fs.AddFrame(modelXarm, gantryY)
+
+	modelUR5e, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelUR5e, urOffset)
 
@@ -58,18 +59,13 @@ func makeTestFS(t *testing.T) *SolvableFrameSystem {
 func TestFrameSystemSolver(t *testing.T) {
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
-
-	pointXarmGripper := r3.Vector{157., -50, -288}
-
+	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})
 	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
-
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, transformPoint.Point().X, test.ShouldAlmostEqual, pointXarmGripper.X)
-	test.That(t, transformPoint.Point().Y, test.ShouldAlmostEqual, pointXarmGripper.Y)
-	test.That(t, transformPoint.Point().Z, test.ShouldAlmostEqual, pointXarmGripper.Z)
+	test.That(t, spatial.PoseAlmostCoincident(transformPoint, pointXarmGripper), test.ShouldBeTrue)
 
 	// Set a goal such that the gantry and arm must both be used to solve
-	goal1 := &commonpb.Pose{
+	goal1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:     257,
 		Y:     2100,
 		Z:     -300,
@@ -77,23 +73,21 @@ func TestFrameSystemSolver(t *testing.T) {
 		OX:    0,
 		OY:    0,
 		OZ:    -1,
-	}
+	})
 	newPos, err := solver.SolvePose(
 		context.Background(),
 		positions,
-		spatial.NewPoseFromProtobuf(goal1),
+		goal1,
 		solver.GetFrame("xArmVgripper"),
 		solver.GetFrame(frame.World),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal1.X, 0.01)
-	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal1.Y, 0.01)
-	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal1.Z, 0.01)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal1, 0.01), test.ShouldBeTrue)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
-	goal2 := &commonpb.Pose{
+	goal2 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:     0,
 		Y:     0,
 		Z:     60,
@@ -101,11 +95,11 @@ func TestFrameSystemSolver(t *testing.T) {
 		OX:    0,
 		OY:    0,
 		OZ:    -1,
-	}
+	})
 	newPos, err = solver.SolvePose(
 		context.Background(),
 		positions,
-		spatial.NewPoseFromProtobuf(goal2),
+		goal2,
 		solver.GetFrame("xArmVgripper"),
 		solver.GetFrame("urCamera"),
 	)
@@ -116,13 +110,8 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
 	test.That(t, err, test.ShouldBeNil)
-
-	test.That(t, solvedPose.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
-	test.That(t, solvedPose.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
-	test.That(t, solvedPose.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
-	test.That(t, solvedPose2.Point().X, test.ShouldAlmostEqual, goal2.X, 0.1)
-	test.That(t, solvedPose2.Point().Y, test.ShouldAlmostEqual, goal2.Y, 0.1)
-	test.That(t, solvedPose2.Point().Z, test.ShouldAlmostEqual, goal2.Z, 0.1)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal2, 0.1), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose2, goal2, 0.1), test.ShouldBeTrue)
 }
 
 func TestSliceUniq(t *testing.T) {
@@ -155,11 +144,10 @@ func TestSolverFrame(t *testing.T) {
 	inputs := frame.StartPositions(solver)
 	vols, _ := sf.Volumes(sf.mapToSlice(inputs))
 	test.That(t, vols, test.ShouldNotBeNil)
-	linkMidpoint := spatial.NewPoseFromPoint(r3.Vector{0, 0, -49.8})
-	poseExpect, err := sf.Transform(sf.mapToSlice(inputs))
-	test.That(t, err, test.ShouldBeNil)
-	poseExpect = spatial.Compose(poseExpect, linkMidpoint)
-	volPose := vols["UR5e:ee_link"].Pose()
+	jointExpected := spatial.NewPoseFromPoint(r3.Vector{-425, 0, 162.5})
+	linkOffset := spatial.NewPoseFromPoint(r3.Vector{-190, 0, 0})
+	poseExpect := spatial.Compose(jointExpected, linkOffset)
+	volPose := vols["UR5e:forearm_link"].Pose()
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
 }

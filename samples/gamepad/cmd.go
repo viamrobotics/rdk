@@ -52,7 +52,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
-	g, ok := r.InputControllerByName("Mux")
+	g, ok := input.FromRobot(r, "Mux")
 	if !ok {
 		return
 	}

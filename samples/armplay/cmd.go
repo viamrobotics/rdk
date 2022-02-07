@@ -25,7 +25,7 @@ import (
 
 var (
 	logger      = golog.NewDevelopmentLogger("armplay")
-	whiteboardY = -509.
+	whiteboardY = -529.
 )
 
 func init() {
@@ -225,7 +225,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	}
 
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
+	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY-15))
 	steps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 	if err != nil {
 		return err
@@ -247,7 +247,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
 
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
-		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
+		curPos, err = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
 		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, pathO, pathD)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)

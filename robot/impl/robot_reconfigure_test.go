@@ -15,7 +15,10 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/registry"
@@ -83,8 +86,8 @@ func TestRobotReconfigure(t *testing.T) {
 		copy(rCopy, svc.All())
 
 		armNames := []resource.Name{arm.Named("arm1")}
-		boardNames := []resource.Name{board.Named("board1")}
 		baseNames := []resource.Name{base.Named("base1")}
+		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
 		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -94,9 +97,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -104,15 +107,15 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
 				armNames,
+				baseNames,
 				boardNames,
 				mockNames,
 				serviceNames,
-				baseNames,
 			)...))
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldResemble, utils.NewStringSet("1", "2"))
 
@@ -124,9 +127,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -134,7 +137,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -149,7 +152,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, ok = robot.BaseByName("base1")
+		_, ok = base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = robot.BoardByName("board1")
@@ -201,12 +204,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, robot.ResourceNames(), test.ShouldResemble, serviceNames)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
@@ -223,9 +226,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -233,7 +236,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -248,7 +251,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, ok = robot.BaseByName("base1")
+		_, ok = base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = robot.BoardByName("board1")
@@ -299,9 +302,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -309,7 +312,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -336,12 +339,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1", "base2"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1"))
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -356,7 +359,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, ok = robot.BaseByName("base1")
+		_, ok = base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = robot.BoardByName("board1")
@@ -392,8 +395,8 @@ func TestRobotReconfigure(t *testing.T) {
 		}()
 
 		armNames := []resource.Name{arm.Named("arm1")}
-		boardNames := []resource.Name{board.Named("board1")}
 		baseNames := []resource.Name{base.Named("base1")}
+		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
 		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
 
@@ -404,9 +407,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -414,7 +417,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -429,7 +432,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		_, ok = robot.BaseByName("base1")
+		_, ok = base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = robot.BoardByName("board1")
@@ -441,12 +444,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, robot.Reconfigure(context.Background(), emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, robot.ResourceNames(), test.ShouldResemble, serviceNames)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
@@ -454,7 +457,7 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeFalse)
 
-		_, ok = robot.BaseByName("base1")
+		_, ok = base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeFalse)
 
 		_, ok = robot.BoardByName("board1")
@@ -492,9 +495,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -502,7 +505,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -517,7 +520,7 @@ func TestRobotReconfigure(t *testing.T) {
 		arm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		base1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		board1, ok := robot.BoardByName("board1")
@@ -544,12 +547,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.BoardNames()...), test.ShouldResemble, utils.NewStringSet("board1"))
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -567,7 +570,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1)
 
-		newBase1, ok := robot.BaseByName("base1")
+		newBase1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBase1, test.ShouldEqual, base1)
 
@@ -617,9 +620,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -627,7 +630,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -642,7 +645,7 @@ func TestRobotReconfigure(t *testing.T) {
 		arm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		base1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, base1, test.ShouldNotBeNil)
 
@@ -674,9 +677,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base2"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base2"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -684,7 +687,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -702,7 +705,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1)
 
-		newBase1, ok := robot.BaseByName("base1")
+		newBase1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeFalse)
 		test.That(t, newBase1, test.ShouldBeNil)
 
@@ -710,7 +713,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
-		_, ok = robot.BaseByName("base2")
+		_, ok = base.FromRobot(robot, "base2")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = robot.BoardByName("board2")
@@ -759,9 +762,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -769,7 +772,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -784,7 +787,7 @@ func TestRobotReconfigure(t *testing.T) {
 		arm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		base1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		board1, ok := robot.BoardByName("board1")
@@ -810,9 +813,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -820,7 +823,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -837,7 +840,7 @@ func TestRobotReconfigure(t *testing.T) {
 		newArm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1)
-		newBase1, ok := robot.BaseByName("base1")
+		newBase1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBase1, test.ShouldEqual, base1)
 		newBoard1, ok := robot.BoardByName("board1")
@@ -882,9 +885,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -892,7 +895,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -907,7 +910,7 @@ func TestRobotReconfigure(t *testing.T) {
 		arm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		base1, ok := robot.BaseByName("base1")
+		base1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		board1, ok := robot.BoardByName("board1")
@@ -938,9 +941,9 @@ func TestRobotReconfigure(t *testing.T) {
 			test.ShouldResemble,
 			utils.NewStringSet(rdktestutils.ExtractNames(armNames...)...),
 		)
-		test.That(t, utils.NewStringSet(robot.GripperNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.CameraNames()...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.BaseNames()...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(base.NamesFromRobot(robot)...), test.ShouldResemble, utils.NewStringSet("base1"))
+		test.That(t, utils.NewStringSet(camera.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(
 			t,
 			utils.NewStringSet(robot.BoardNames()...),
@@ -948,7 +951,7 @@ func TestRobotReconfigure(t *testing.T) {
 			utils.NewStringSet(rdktestutils.ExtractNames(boardNames...)...),
 		)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, utils.NewStringSet(robot.ServoNames()...), test.ShouldBeEmpty)
+		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, rdktestutils.NewResourceNameSet(robot.ResourceNames()...), test.ShouldResemble, rdktestutils.NewResourceNameSet(
 			rdktestutils.ConcatResourceNames(
@@ -963,7 +966,7 @@ func TestRobotReconfigure(t *testing.T) {
 		newArm1, ok := arm.FromRobot(robot, "arm1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newArm1, test.ShouldEqual, arm1)
-		newBase1, ok := robot.BaseByName("base1")
+		newBase1, ok := base.FromRobot(robot, "base1")
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(t, newBase1, test.ShouldEqual, base1)
 		newBoard1, ok := robot.BoardByName("board1")

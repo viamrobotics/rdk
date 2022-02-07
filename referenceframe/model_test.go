@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestModelLoading(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
 	simpleM, ok := m.(*SimpleModel)
@@ -33,13 +34,13 @@ func TestModelLoading(t *testing.T) {
 	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
 	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
 
-	m, err = ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "foo")
+	m, err = ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "foo")
 }
 
 func TestTransform(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	simpleM, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
@@ -67,27 +68,32 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestVerboseTransform(t *testing.T) {
-	m, err := ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+func TestModelVolumes(t *testing.T) {
+	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(sm.DoF()))
 	vols, _ := sm.Volumes(inputs)
+
 	test.That(t, vols, test.ShouldNotBeNil)
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
-	// calculate the midpoint of each link and compare to volume position
-	prev := spatial.NewZeroPose()
 	for _, joint := range expected {
 		if joint.volumeCreator != nil {
-			linkMidpoint := spatial.Interpolate(prev, joint.transform, 0.5)
-			volCenter := vols[sm.Name()+":"+joint.Name()].Pose()
-			coincident := spatial.PoseAlmostCoincident(volCenter, linkMidpoint)
-			test.That(t, coincident, test.ShouldBeTrue)
-			prev = joint.transform
+			var offset r3.Vector
+			for _, tf := range m.(*SimpleModel).OrdTransforms {
+				if tf.Name() == joint.Name() {
+					vol, err := tf.Volumes([]Input{})
+					test.That(t, err, test.ShouldBeNil)
+					offset = vol[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
+				}
+			}
+			expected := joint.transform.Point().Add(offset)
+			volCenter := vols[sm.Name()+":"+joint.Name()].Pose().Point()
+			test.That(t, spatial.R3VectorAlmostEqual(expected, volCenter, 1e-3), test.ShouldBeTrue)
 		}
 	}
 }

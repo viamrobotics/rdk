@@ -39,20 +39,17 @@ func TestStaticFrame(t *testing.T) {
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	limits := []Limit{{Min: -30, Max: 30}}
-	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
+	limit := Limit{Min: -30, Max: 30}
+	frame, err := NewTranslationalFrame("test", r3.Vector{3, 4, 0}, limit)
 	test.That(t, err, test.ShouldBeNil)
-	// this should return an error
-	badLimits := []Limit{{Min: 0, Max: 0}, {Min: -30, Max: 30}, {Min: 0, Max: 0}}
-	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
-	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
-	// expected output
-	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
+
 	// get expected transform back
-	input := FloatsToInputs([]float64{20})
+	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 4, 0})
+	input := FloatsToInputs([]float64{5})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldResemble, expPose)
+	test.That(t, spatial.PoseAlmostEqual(pose, expPose), test.ShouldBeTrue)
+
 	// if you feed in too many inputs, should get an error back
 	input = FloatsToInputs([]float64{0, 20, 0})
 	_, err = frame.Transform(input)
@@ -62,14 +59,16 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+
 	// if you try to move beyond set limits, should get an error
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF()[0]))
+
 	// gets the correct limits back
 	frameLimits := frame.DoF()
-	test.That(t, frameLimits, test.ShouldResemble, limits)
+	test.That(t, frameLimits[0], test.ShouldResemble, limit)
 
 	randomInputs := RandomFrameInputs(frame, nil)
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
@@ -111,7 +110,8 @@ func TestRevoluteFrame(t *testing.T) {
 }
 
 func TestVolumes(t *testing.T) {
-	bc := spatial.NewBox(r3.Vector{1, 1, 1})
+	bc, err := spatial.NewBox(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewVolume(pose)
 
@@ -123,7 +123,7 @@ func TestVolumes(t *testing.T) {
 	test.That(t, expectedBox.AlmostEqual(vols[""]), test.ShouldBeTrue)
 
 	// test creating a new translational frame with a volume"
-	tf, err := NewTranslationalFrameWithVolume("", []bool{false, true, false}, []Limit{{Min: -30, Max: 30}}, bc)
+	tf, err := NewTranslationalFrameWithVolume("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
 	test.That(t, err, test.ShouldBeNil)
 	vols, err = tf.Volumes(FloatsToInputs([]float64{10}))
 	test.That(t, err, test.ShouldBeNil)
@@ -158,7 +158,7 @@ func TestSerializationStatic(t *testing.T) {
 }
 
 func TestSerializationTranslation(t *testing.T) {
-	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1, 2}, {3, 4}})
+	f, err := NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{1, 2})
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()
