@@ -416,7 +416,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, referenceframe.Limit{0, g.lengthMm})
+	f, err := referenceframe.NewTranslationalFrame(g.name, r3.Vector{1, 0, 0}, referenceframe.Limit{0, g.lengthMm})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
 	}
