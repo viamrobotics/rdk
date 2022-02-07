@@ -3,7 +3,6 @@ package multiaxis
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -169,15 +168,8 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 // TO DO test model frame with #471.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	for idx := range g.subAxes {
-		f, err := referenceframe.NewTranslationalFrame(
-			g.name,
-			[]bool{true}, // TODO convert to r3.Vector once #471 is merged.
-			[]referenceframe.Limit{{0, g.lengthsMm[idx]}},
-		)
-		if err != nil {
-			panic(fmt.Errorf("error creating frame %v, should be impossible %w", idx, err))
-		}
+	for _, subAxis := range g.subAxes {
+		f := subAxis.ModelFrame()
 		m.OrdTransforms = append(m.OrdTransforms, f)
 	}
 

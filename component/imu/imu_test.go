@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		case imu.Named(testIMUName):
 			return imu1, true
 		case imu.Named(fakeIMUName):
-			return "not a imu", false
+			return "not an imu", false
 		default:
 			return nil, false
 		}

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -128,7 +129,6 @@ func TestValidate(t *testing.T) {
 		LengthMm:        1.0,
 		Board:           "board",
 		ReductionRatio:  0.1,
-		Axes:            []bool{true, false, false},
 	}
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
@@ -571,7 +571,7 @@ func TestModelFrame(t *testing.T) {
 	fakegantry := &oneAxis{
 		name:     "test",
 		lengthMm: 1.0,
-		axes:     []bool{false, false, true},
+		axes:     r3.Vector{},
 		model:    nil,
 	}
 
@@ -652,7 +652,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthMm:        1.0,
 		reductionRatio:  0.1,
 		rpm:             10,
-		axes:            []bool{true, false, false},
+		axes:            r3.Vector{},
 		limitType:       "",
 		positionLimits:  []float64{1, 2},
 		model:           nil,

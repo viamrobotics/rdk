@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -51,12 +52,12 @@ func dock(ctx context.Context, r robot.Robot) error {
 	/*
 		logger.Info("docking started")
 
-		cam, ok := r.CameraByName("back")
+		cam, ok := camera.FromRobot(r,"back")
 		if !ok {
 			return errors.New("no back camera")
 		}
 
-		base, ok := r.BaseByName("pierre")
+		base, ok := base.FromRobot(r,"pierre")
 		if !ok {
 			return errors.New("no pierre")
 		}
@@ -210,7 +211,7 @@ func (r *Rover) neckPosition(ctx context.Context, pan, tilt uint8) error {
 // Ready TODO.
 func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	logger.Debug("minirover2 Ready called")
-	cam, ok := theRobot.CameraByName("front")
+	cam, ok := camera.FromRobot(theRobot, "front")
 	if !ok {
 		return errors.New("no camera named front")
 	}
@@ -255,11 +256,11 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 func NewRover(ctx context.Context, r robot.Robot) (*Rover, error) {
 	rover := &Rover{}
 	var ok bool
-	rover.pan, ok = r.ServoByName("pan")
+	rover.pan, ok = servo.FromRobot(r, "pan")
 	if !ok {
 		return nil, errors.New("failed to find pan servo")
 	}
-	rover.tilt, ok = r.ServoByName("tilt")
+	rover.tilt, ok = servo.FromRobot(r, "tilt")
 	if !ok {
 		return nil, errors.New("failed to find tilt servo")
 	}

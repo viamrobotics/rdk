@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	utils "go.viam.com/utils"
 
@@ -32,7 +33,6 @@ type AttrConfig struct {
 	Motor           string   `json:"motor"`
 	LimitSwitchPins []string `json:"limit_pins"`
 	LimitPinEnabled bool     `json:"limit_pin_enabled"`
-	Axes            []bool   `json:"axes"`
 	LengthMm        float64  `json:"length_mm"`
 	ReductionRatio  float64  `json:"reduction_ratio"`
 	GantryRPM       float64  `json:"gantry_rpm"`
@@ -65,10 +65,6 @@ func (config *AttrConfig) Validate(path string) error {
 		)
 	}
 
-	if len(config.Axes) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("axes not set")) // change after #471
-	}
-
 	// Need another way to test if LimitHigh is unset.
 	// if config.LimitHigh {
 	//		return utils.NewConfigValidationFieldRequiredError(path, "limitHigh")
@@ -99,7 +95,7 @@ func init() {
 
 // Model returns the kinematics model of the oneaxis Gantry with all the frame information.
 func Model() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(oneaxismodel, "")
+	return referenceframe.UnmarshalModelJSON(oneaxismodel, "")
 }
 
 type oneAxis struct {
@@ -118,7 +114,7 @@ type oneAxis struct {
 	rpm            float64
 
 	model referenceframe.Model
-	axes  []bool // TODO (rh) convert to r3.Vector once #471 is merged.
+	axes  r3.Vector // TODO (rh) convert to r3.Vector once #471 is merged.
 
 	logger golog.Logger
 }
@@ -148,7 +144,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.New("cannot find board for gantry")
 	}
 
-	model, err := referenceframe.ParseJSON(oneaxismodel, "")
+	model, err := referenceframe.UnmarshalModelJSON(oneaxismodel, "")
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +160,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		lengthMm:        gconf.LengthMm,
 		reductionRatio:  gconf.ReductionRatio,
 		rpm:             gconf.GantryRPM,
-		axes:            gconf.Axes, // revisit axes def afer #471 (rh)
+		axes:            r3.Vector{}, // revisit axes def afer #471 (rh)
 	}
 
 	switch {
@@ -422,7 +418,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel() //changeafter merge
-	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, []referenceframe.Limit{{0, g.lengthMm}})
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, referenceframe.Limit{0, g.lengthMm})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
 	}

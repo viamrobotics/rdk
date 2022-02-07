@@ -64,21 +64,28 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, d
 	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		for {
-			var r Result
-			r.OriginalImage, r.Release, r.Err = src.Next(s.cancelCtx)
-			if r.Err != nil && errors.Is(r.Err, context.Canceled) {
+			original, release, err := src.Next(s.cancelCtx)
+			if err != nil && errors.Is(err, context.Canceled) {
 				return
 			}
-			r.PreprocessedImage = rimage.CloneToImageWithDepth(r.OriginalImage) // use depth info if available
-			r.PreprocessedImage = prep(r.PreprocessedImage)
-			r.Detections, r.Err = det(r.PreprocessedImage)
-			if r.Err == nil {
-				r.Detections = filt(r.Detections)
+			clone := rimage.CloneToImageWithDepth(original) // use depth info if available
+			preprocessed := prep(clone)
+			detections, err := det(preprocessed)
+			if err == nil {
+				detections = filt(detections)
+			}
+
+			r := &Result{
+				OriginalImage:     clone,
+				PreprocessedImage: preprocessed,
+				Detections:        detections,
+				Release:           release,
+				Err:               err,
 			}
 			select {
 			case <-s.cancelCtx.Done():
 				return
-			case s.pipelineOutput <- &r:
+			case s.pipelineOutput <- r:
 				// do nothing
 			}
 		}

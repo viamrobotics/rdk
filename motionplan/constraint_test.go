@@ -20,7 +20,7 @@ var logger = golog.NewDevelopmentLogger("armplay")
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/varm/v1.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -49,7 +49,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
@@ -123,7 +123,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	m, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -169,14 +169,14 @@ func TestCollisionConstraint(t *testing.T) {
 		expected bool
 	}{
 		{zeroInput, true},
-		{frame.FloatsToInputs([]float64{0, 0, 0, 1, 0, 0}), true},
-		{frame.FloatsToInputs([]float64{0, 0, 0, 1, 2.5, 0}), false},
+		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 2, 0}), false},
 	}
 
 	// setup zero position as reference CollisionGraph and use it in handler
-	ur5e, err := frame.ParseJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	zeroVols, _ := ur5e.Volumes(zeroInput)
+	zeroVols, _ := model.Volumes(zeroInput)
 	test.That(t, zeroVols, test.ShouldNotBeNil)
 	zeroCG, err := CheckCollisions(zeroVols)
 	test.That(t, err, test.ShouldBeNil)
@@ -186,7 +186,7 @@ func TestCollisionConstraint(t *testing.T) {
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
-			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: ur5e})
+			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
 			test.That(t, response, test.ShouldEqual, c.expected)
 		})
 	}
