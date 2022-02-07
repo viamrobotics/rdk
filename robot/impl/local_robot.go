@@ -22,7 +22,6 @@ import (
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"
-	"go.viam.com/rdk/component/camera"
 
 	// register camera.
 	_ "go.viam.com/rdk/component/camera/register"
@@ -102,12 +101,6 @@ func (r *localRobot) BoardByName(name string) (board.Board, bool) {
 	return r.parts.BoardByName(name)
 }
 
-// CameraByName returns a camera by name. If it does not exist
-// nil is returned.
-func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
-	return r.parts.CameraByName(name)
-}
-
 // MotorByName returns a motor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
@@ -123,11 +116,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// CameraNames returns the name of all known cameras.
-func (r *localRobot) CameraNames() []string {
-	return r.parts.CameraNames()
 }
 
 // BoardNames returns the name of all known boards.

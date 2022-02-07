@@ -11,6 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
@@ -150,7 +151,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.CameraNames(); len(names) != 0 {
+	if names := camera.NamesFromRobot(r); len(names) != 0 {
 		status.Cameras = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Cameras[name] = true

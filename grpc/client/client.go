@@ -17,7 +17,6 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -215,20 +214,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// CameraByName returns a camera by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
-	resource, ok := rc.ResourceByName(camera.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(camera.Camera)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
@@ -333,19 +318,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// CameraNames returns the names of all known cameras.
-func (rc *RobotClient) CameraNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == camera.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // BoardNames returns the names of all known boards.
