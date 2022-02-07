@@ -105,6 +105,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	return fsSvc, nil
 }
 
+// FromRobot retrieves the frame system service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, ok := r.ResourceByName(Name)
 	if !ok {
