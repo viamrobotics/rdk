@@ -29,7 +29,7 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			sourceName := config.ConvertedAttributes.(*rimage.AttrConfig).Source
-			source, ok := r.CameraByName(sourceName)
+			source, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
 			}
@@ -58,7 +58,7 @@ func init() {
 				return nil, errors.New("cannot retrieve converted attributes")
 			}
 			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
+			source, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
 			}
