@@ -27,7 +27,7 @@ func OverlayText(img image.Image, text string) image.Image {
 	rimg := rimage.ConvertToImageWithDepth(img)
 	gimg := gg.NewContextForImage(rimg.Color)
 	rimage.DrawString(gimg, text, image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
-	rimg.Color = rimage.ConvertToImage(gimg.Image())
+	rimg.Color = rimage.ConvertImage(gimg.Image())
 	return rimg
 }
 
