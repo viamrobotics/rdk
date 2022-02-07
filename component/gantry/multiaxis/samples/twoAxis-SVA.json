@@ -1,0 +1,67 @@
+{
+    "name": "threeaxisgantry",
+    "links": [
+        {
+            "id": "xaxis",
+            "parent": "world",
+            "translation": {
+                "x": 90,
+                "y": 0,
+                "z": 0
+            }
+        },
+        {
+            "id": "yaxis",
+            "parent": "zaxis",
+            "translation": {
+                "x": 0,
+                "y": 90,
+                "z": 0
+            }
+        },
+        {
+            "id": "endeffector",
+            "parent": "yaxis",
+            "translation": {
+                "x": 0,
+                "y": 0,
+                "z": 0
+            },
+            "orientation": {
+                "type": "ov_degrees",
+                "value": {
+                    "x": 0,
+                    "y": 0,
+                    "z": 1,
+                    "th": 0
+                }
+            }
+        }
+    ],
+    "joints": [
+        {
+            "id": "xaxis",
+            "type": "prismatic",
+            "parent": "world",
+            "axis": {
+                "x": 1,
+                "y": 0,
+                "z": 0
+            },
+            "max": 90,
+            "min": 0
+        },
+        {
+            "id": "yaxis",
+            "type": "prismatic",
+            "parent": "xaxis",
+            "axis": {
+                "x": 0,
+                "y": 1,
+                "z": 0
+            },
+            "max": 90,
+            "min": 0
+        }
+    ]
+}

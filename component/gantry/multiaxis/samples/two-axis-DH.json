@@ -1,0 +1,33 @@
+{
+    "name": "twoAxisGantry",
+    "kinematic_param_type": "DH",
+    "dhParams": [
+        {
+            "id": "xaxis",
+            "parent": "world",
+            "a": 0,
+            "d": 100,
+            "alpha": 1.57079632679, 
+            "max": 100,
+            "min": 0
+        },
+        {
+            "id": "yaxis",
+            "parent": "xaxis",
+            "a": 0,
+            "d" : 100,
+            "alpha": 1.57079632679,
+            "max": 100,
+            "min": 0
+        },
+        {
+            "id": "endEffector",
+            "parent": "yaxis",
+            "a": 0,
+            "d": 100,
+            "alpha": 0,
+            "max": 100,
+            "min": 0
+        }
+    ]        
+}
