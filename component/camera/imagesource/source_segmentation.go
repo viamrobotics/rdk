@@ -81,7 +81,7 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	if !ok {
 		return nil, errors.New("cannot retrieve converted attributes")
 	}
-	source, ok := r.CameraByName(attrs.Source)
+	source, ok := camera.FromRobot(r, attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}

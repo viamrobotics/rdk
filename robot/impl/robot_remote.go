@@ -12,8 +12,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -130,18 +128,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) CameraNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.CameraNames())
-}
-
-func (rr *remoteRobot) BaseNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.BaseNames())
-}
-
 func (rr *remoteRobot) MotorNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -168,18 +154,6 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.BaseByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) CameraByName(name string) (camera.Camera, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.CameraByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {

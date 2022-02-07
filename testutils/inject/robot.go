@@ -8,8 +8,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -22,13 +20,9 @@ import (
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
-	BaseByNameFunc     func(name string) (base.Base, bool)
-	CameraByNameFunc   func(name string) (camera.Camera, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc    func() []string
-	CameraNamesFunc    func() []string
-	BaseNamesFunc      func() []string
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
 	FrameSystemFunc    func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
@@ -47,22 +41,6 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 		return r.Robot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
-}
-
-// BaseByName calls the injected BaseByName or the real version.
-func (r *Robot) BaseByName(name string) (base.Base, bool) {
-	if r.BaseByNameFunc == nil {
-		return r.Robot.BaseByName(name)
-	}
-	return r.BaseByNameFunc(name)
-}
-
-// CameraByName calls the injected CameraByName or the real version.
-func (r *Robot) CameraByName(name string) (camera.Camera, bool) {
-	if r.CameraByNameFunc == nil {
-		return r.Robot.CameraByName(name)
-	}
-	return r.CameraByNameFunc(name)
 }
 
 // MotorByName calls the injected MotorByName or the real version.
@@ -87,22 +65,6 @@ func (r *Robot) RemoteNames() []string {
 		return r.Robot.RemoteNames()
 	}
 	return r.RemoteNamesFunc()
-}
-
-// CameraNames calls the injected CameraNames or the real version.
-func (r *Robot) CameraNames() []string {
-	if r.CameraNamesFunc == nil {
-		return r.Robot.CameraNames()
-	}
-	return r.CameraNamesFunc()
-}
-
-// BaseNames calls the injected BaseNames or the real version.
-func (r *Robot) BaseNames() []string {
-	if r.BaseNamesFunc == nil {
-		return r.Robot.BaseNames()
-	}
-	return r.BaseNamesFunc()
 }
 
 // MotorNames calls the injected MotorNames or the real version.

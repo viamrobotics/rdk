@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
@@ -79,21 +80,21 @@ func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
 }
 
 func setup(theRobot robot.Robot) (base.Base, gostream.ImageSource, error) {
-	baseNames := theRobot.BaseNames()
+	baseNames := base.NamesFromRobot(theRobot)
 	if len(baseNames) == 0 {
 		return nil, nil, errors.New("no bases, can't drive")
 	}
 
-	cameraNames := theRobot.CameraNames()
+	cameraNames := camera.NamesFromRobot(theRobot)
 	if len(cameraNames) == 0 {
 		return nil, nil, errors.New("no cameras, can't drive")
 	}
 
-	base, ok := theRobot.BaseByName(baseNames[0])
+	base, ok := base.FromRobot(theRobot, baseNames[0])
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot find %q", baseNames[0])
 	}
-	cam, ok := theRobot.CameraByName(cameraNames[0])
+	cam, ok := camera.FromRobot(theRobot, cameraNames[0])
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot find %q", cameraNames[0])
 	}

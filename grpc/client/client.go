@@ -16,8 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -215,34 +213,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// BaseByName returns a base by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
-	resource, ok := rc.ResourceByName(base.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualBase, ok := resource.(base.Base)
-	if !ok {
-		return nil, false
-	}
-	return actualBase, true
-}
-
-// CameraByName returns a camera by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
-	resource, ok := rc.ResourceByName(camera.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(camera.Camera)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
 // MotorByName returns a motor by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
@@ -333,32 +303,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// CameraNames returns the names of all known cameras.
-func (rc *RobotClient) CameraNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == camera.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// BaseNames returns the names of all known bases.
-func (rc *RobotClient) BaseNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == base.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // MotorNames returns the names of all known motors.
