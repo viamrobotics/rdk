@@ -402,16 +402,16 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceGetFrameRequest();
+                      req = new cameraApi.CameraServiceRenderFrameRequest();
                       req.setName(cameraName);
-                      const mimeType = 'image/png';
+                      const mimeType = 'image/jpeg';
                       req.setMimeType(mimeType)
-                      cameraService.getFrame(req,  {}, (err, resp) => {
+                      cameraService.renderFrame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
                         }
-                        let blob = new Blob([resp.getFrame_asU8()], { type: mimeType });
+                        let blob = new Blob([resp.getData_asU8()], { type: mimeType });
                         window.open(URL.createObjectURL(blob), "_blank");
                       });
                   },
