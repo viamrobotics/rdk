@@ -146,7 +146,7 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if gpsName == "" {
 		return nil, errors.New("'gps' name must be set")
 	}
-	b, ok := r.BaseByName(baseName)
+	b, ok := base.FromRobot(r, baseName)
 	if !ok {
 		return nil, errors.Errorf("no base named %q", baseName)
 	}

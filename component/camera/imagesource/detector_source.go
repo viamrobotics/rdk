@@ -30,7 +30,7 @@ func init() {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *rimage.AttrConfig but got %T", config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
+			source, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
 			}

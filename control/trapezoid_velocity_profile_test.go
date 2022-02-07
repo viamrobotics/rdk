@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"math"
 	"sync"
 	"testing"
 	"time"
@@ -67,13 +68,16 @@ func TestTrapezoidVelocityProfileConfig(t *testing.T) {
 func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
+	targetPos := 100.0
+	posWindow := 10.0
 	cfg := ControlBlockConfig{
 		Name:      "Trap1",
 		Type:      "trapezoidalVelocityProfile",
 		DependsOn: []string{},
 		Attribute: config.AttributeMap{
-			"max_acc": 1000.0,
-			"max_vel": 100.0,
+			"max_acc":    1000.0,
+			"max_vel":    100.0,
+			"pos_window": posWindow,
 		},
 	}
 	b, err := newTrapezoidVelocityProfile(cfg, logger)
@@ -84,7 +88,7 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 		{
 			name:   "set_point",
 			time:   []int{},
-			signal: []float64{100.0},
+			signal: []float64{targetPos},
 			mu:     &sync.Mutex{},
 		},
 		{
@@ -95,33 +99,38 @@ func TestTrapezoidVelocityProfileGenerator(t *testing.T) {
 		},
 	}
 
-	_, ok := s.Next(ctx, ins, time.Duration(0))
+	y, ok := s.Next(ctx, ins, (10 * time.Millisecond))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, s.currentPhase, test.ShouldEqual, accelPhase)
-	i := 0
+	test.That(t, s.currentPhase, test.ShouldEqual, active)
+	test.That(t, y[0].GetSignalValueAt(0), test.ShouldNotBeZeroValue)
 	for {
-		i++
-		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
-		if i == 102 {
-			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 10.0)
+		y, _ := s.Next(ctx, ins, (10 * time.Millisecond))
+		if math.Abs(ins[1].GetSignalValueAt(0)-targetPos) > posWindow {
+			test.That(t, s.currentPhase, test.ShouldEqual, active)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldNotBeZeroValue)
+		} else {
+			test.That(t, s.currentPhase, test.ShouldEqual, rest)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldBeZeroValue)
 			break
 		}
-		if i == 87 {
-			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 100.0)
-		}
+		ins[1].SetSignalValueAt(0, ins[1].GetSignalValueAt(0)+(10*time.Millisecond).Seconds()*y[0].GetSignalValueAt(0))
 	}
-	ins[0].SetSignalValueAt(0, 3)
-	_, ok = s.Next(ctx, ins, time.Duration(0))
+	ins[0].SetSignalValueAt(0, targetPos-4)
+	y, ok = s.Next(ctx, ins, (10 * time.Millisecond))
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, s.currentPhase, test.ShouldEqual, accelPhase)
-	i = 0
+	test.That(t, s.currentPhase, test.ShouldEqual, rest)
+	test.That(t, y[0].GetSignalValueAt(0), test.ShouldBeZeroValue)
+	ins[1].SetSignalValueAt(0, targetPos*2)
 	for {
-		i++
-		y, _ := s.Next(ctx, []Signal{}, (10 * time.Millisecond))
-		time.Sleep(100 * time.Millisecond)
-		if i == 5 {
-			test.That(t, y[0].GetSignalValueAt(0), test.ShouldEqual, 60.0)
+		y, _ := s.Next(ctx, ins, (10 * time.Millisecond))
+		if math.Abs(ins[1].GetSignalValueAt(0)-targetPos+4) > posWindow {
+			test.That(t, s.currentPhase, test.ShouldEqual, active)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldNotBeZeroValue)
+		} else {
+			test.That(t, s.currentPhase, test.ShouldEqual, rest)
+			test.That(t, y[0].GetSignalValueAt(0), test.ShouldBeZeroValue)
 			break
 		}
+		ins[1].SetSignalValueAt(0, ins[1].GetSignalValueAt(0)+(10*time.Millisecond).Seconds()*y[0].GetSignalValueAt(0))
 	}
 }
