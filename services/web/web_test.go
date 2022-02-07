@@ -11,7 +11,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
-	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/grpc/client"
@@ -310,7 +309,6 @@ func TestWebUpdate(t *testing.T) {
 func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
-	injectRobot.CameraNamesFunc = func() []string { return []string{} }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, false }
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }

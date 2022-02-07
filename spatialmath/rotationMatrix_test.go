@@ -101,3 +101,15 @@ func TestMatrixAtRowsCols(t *testing.T) {
 	test.That(t, rm.Col(1).Cmp(r3.Vector{2, 5, 8}) == 0, test.ShouldBeTrue)
 	test.That(t, rm.Col(2).Cmp(r3.Vector{3, 6, 9}) == 0, test.ShouldBeTrue)
 }
+
+func TestMatrixMul(t *testing.T) {
+	mat := [9]float64{
+		1, 2, 3,
+		4, 5, 6,
+		7, 8, 9,
+	}
+	rm := &RotationMatrix{mat}
+	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 0, 0}), r3.Vector{1, 4, 7}, 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 1, 0}), r3.Vector{3, 9, 15}, 1e-8), test.ShouldBeTrue)
+	test.That(t, R3VectorAlmostEqual(rm.Mul(r3.Vector{1, 1, 1}), r3.Vector{6, 15, 24}, 1e-8), test.ShouldBeTrue)
+}

@@ -160,9 +160,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectIMU := &inject.IMU{}
-	imu1 := "imu1"
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
+	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU}))
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
 
@@ -171,9 +170,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 

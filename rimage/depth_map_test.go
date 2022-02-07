@@ -53,6 +53,20 @@ func TestDepthMap2(t *testing.T) {
 	test.That(t, m.height, test.ShouldEqual, 720)
 }
 
+func TestCloneDepthMap(t *testing.T) {
+	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	test.That(t, err, test.ShouldBeNil)
+
+	mm := m.Clone()
+	for y := 0; y < m.Height(); y++ {
+		for x := 0; x < m.Width(); x++ {
+			test.That(t, mm.GetDepth(x, y), test.ShouldResemble, m.GetDepth(x, y))
+		}
+	}
+	mm.Set(0, 0, Depth(5000))
+	test.That(t, mm.GetDepth(0, 0), test.ShouldNotResemble, m.GetDepth(0, 0))
+}
+
 func TestDepthMapNewFormat(t *testing.T) {
 	m, err := ParseDepthMap(artifact.MustPath("rimage/depthformat2.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)

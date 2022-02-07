@@ -3,8 +3,10 @@ package fake
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/config"
@@ -16,60 +18,54 @@ import (
 func init() {
 	registry.RegisterComponent(gantry.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGantry(config.Name), nil
+			return NewGantry(config.Name), nil
 		},
 	})
 }
 
-func newGantry(name string) gantry.Gantry {
-	return &fakeGantry{name: name, positionsMm: []float64{1.2}, lengths: []float64{5}}
+// NewGantry returns a new fake gantry.
+func NewGantry(name string) gantry.Gantry {
+	return &Gantry{name, []float64{1.2}, []float64{5}, r3.Vector{1, 0, 0}, 2}
 }
 
-type fakeGantry struct {
-	name        string
-	positionsMm []float64
-	lengths     []float64
+// Gantry is a fake gantry that can simply read and set properties.
+type Gantry struct {
+	name         string
+	positionsMm  []float64
+	lengths      []float64
+	axis         r3.Vector
+	lengthMeters float64
 }
 
 // GetPosition returns the position in meters.
-func (g *fakeGantry) GetPosition(ctx context.Context) ([]float64, error) {
+func (g *Gantry) GetPosition(ctx context.Context) ([]float64, error) {
 	return g.positionsMm, nil
 }
 
 // GetLengths returns the position in meters.
-func (g *fakeGantry) GetLengths(ctx context.Context) ([]float64, error) {
+func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 	return g.lengths, nil
 }
 
 // MoveToPosition is in meters.
-func (g *fakeGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
 	g.positionsMm = positionsMm
 	return nil
 }
 
-func (g *fakeGantry) ModelFrame() referenceframe.Model {
-	axes := []bool{}
-	limits := []referenceframe.Limit{}
-
-	for _, l := range g.lengths {
-		axes = append(axes, true)
-		limits = append(limits, referenceframe.Limit{0, l})
-	}
-
-	f, err := referenceframe.NewTranslationalFrame(
-		g.name,
-		axes,
-		limits,
-	)
-	if err != nil {
-		panic(err)
-	}
+// ModelFrame TODO.
+func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
+	if err != nil {
+		panic(fmt.Errorf("error creating frame: %w", err))
+	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
 	return m
 }
 
-func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
+// CurrentInputs TODO.
+func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
@@ -77,6 +73,7 @@ func (g *fakeGantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input,
 	return referenceframe.FloatsToInputs(res), nil
 }
 
-func (g *fakeGantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
+// GoToInputs TODO.
+func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
 	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }
