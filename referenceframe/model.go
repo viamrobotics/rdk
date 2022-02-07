@@ -148,7 +148,6 @@ func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*stati
 			return nil, err
 		}
 		multierr.AppendInto(&err, errNew)
-		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 		if collectAll {
 			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
 			if pose == nil {
@@ -156,10 +155,9 @@ func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*stati
 			}
 			poses = append(poses, tf.(*staticFrame))
 		}
+		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
-	if !collectAll {
-		poses = append(poses, &staticFrame{"", composedTransformation, nil})
-	}
+	poses = append(poses, &staticFrame{"", composedTransformation, nil})
 	return poses, err
 }
 

@@ -32,7 +32,7 @@ type Motor struct {
 	Name                  string
 	mu                    sync.Mutex
 	powerPct              float64
-	PositionFunc          float64 // may need to be defined as a functions.
+	PositionFunc          float64
 	PositionSupportedFunc bool
 	ResetZeroPositionFunc error
 	GoForfunc             bool
