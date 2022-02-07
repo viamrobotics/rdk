@@ -58,7 +58,11 @@ func (k *Kernel) AbSum() float64 {
 
 // Normalize returns a normalized kernel where each value is divided by the absolute sum of the kernel.
 func (k *Kernel) Normalize() *Kernel {
-	normalized := &Kernel{nil, k.Width, k.Height}
+	m := make([][]float64, k.Height)
+	for i := range m {
+		m[i] = make([]float64, k.Width)
+	}
+	normalized := &Kernel{m, k.Width, k.Height}
 	sum := k.AbSum()
 	if sum == 0 {
 		sum = 1
