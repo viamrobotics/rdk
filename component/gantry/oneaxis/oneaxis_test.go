@@ -119,15 +119,6 @@ func TestValidate(t *testing.T) {
 		LimitSwitchPins: []string{"1", "2"},
 		LengthMm:        1.0,
 		Board:           "board",
-	}
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "axes not set")
-
-	fakecfg = &AttrConfig{
-		Motor:           "x",
-		LimitSwitchPins: []string{"1", "2"},
-		LengthMm:        1.0,
-		Board:           "board",
 		ReductionRatio:  0.1,
 	}
 	err = fakecfg.Validate("path")
@@ -571,21 +562,12 @@ func TestModelFrame(t *testing.T) {
 	fakegantry := &oneAxis{
 		name:     "test",
 		lengthMm: 1.0,
-		axes:     r3.Vector{},
+		axes:     r3.Vector{0, 0, 1},
 		model:    nil,
 	}
 
 	m := fakegantry.ModelFrame()
 	test.That(t, m, test.ShouldNotBeNil)
-
-	/*
-		fakegantry = &oneAxis{
-			name:     "test",
-			lengthMm: 1.0,
-			model:    nil,
-		}
-		//test.That(t, fakegantry.ModelFrame(), test.ShouldPanic)
-	*/
 }
 
 func TestCurrentInputs(t *testing.T) {
