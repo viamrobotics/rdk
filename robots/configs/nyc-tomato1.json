@@ -4,22 +4,46 @@
           "type": "arm",
           "model": "ur",
           "attributes": {
-              "host" : "10.237.115.66"
+            "host" : "10.237.115.98",
+            "speed": 0.5
           }
         },
         {
-            "name" : "armmover",
-            "type" : "gantry",
-            "model" : "simpleoneaxis",
-            "attributes" : {
-                "motor" : "linear",
-                "limitPins" : [ "io17", "io18"],
-                "limitBoard" : "local",
-                "limitHigh" : false,
-                "lengthMeters" : 2.3,
-                "rpm" : 300
-            }
-        }
+            "model": "pi",
+            "name": "local",
+            "type": "board"
+          },
+        {
+            "attributes": {
+              "board": "local",
+              "pins": {
+                "dir": "io21",
+                "enHigh": "io26",
+                "step": "io13"
+              },
+              "stepperDelay": 50,
+              "ticksPerRotation": 200
+            },
+            "model": "gpiostepper",
+            "name": "tomato-motor",
+            "type": "motor"
+          },
+          {
+            "attributes": {
+              "lengthMeters": 2.3,
+              "limitBoard": "local",
+              "limitHigh": false,
+              "limitPins": [
+                "io17",
+                "io18"
+              ],
+              "motor": "tomato-motor",
+              "rpm": 500
+            },
+            "model": "simpleoneaxis",
+            "name": "tomato-gantry",
+            "type": "gantry"
+          }
     ],
     "remotes" : [
         {
@@ -29,4 +53,3 @@
         }
     ]
 }
-    

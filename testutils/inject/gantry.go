@@ -6,6 +6,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // Gantry is an injected gantry.
@@ -15,6 +16,7 @@ type Gantry struct {
 	MoveToPositionFunc func(ctx context.Context, positions []float64) error
 	GetLengthsFunc     func(ctx context.Context) ([]float64, error)
 	CloseFunc          func(ctx context.Context) error
+	ModelFrameFunc     func() referenceframe.Model
 }
 
 // GetPosition calls the injected GetPosition or the real version.
@@ -39,6 +41,14 @@ func (a *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 		return a.Gantry.GetLengths(ctx)
 	}
 	return a.GetLengthsFunc(ctx)
+}
+
+// ModelFrame returns a Gantry ModelFrame.
+func (a *Gantry) ModelFrame() referenceframe.Model {
+	if a.ModelFrameFunc == nil {
+		return a.Gantry.ModelFrame()
+	}
+	return a.ModelFrameFunc()
 }
 
 // Close calls the injected Close or the real version.

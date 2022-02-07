@@ -1,0 +1,122 @@
+{
+  "components": [
+    {
+      "model": "pi",
+      "name": "local",
+      "type": "board"
+    },
+    {
+      "model": "gpiostepper",
+      "name": "xmotor",
+      "type": "motor",
+      "attributes": {
+        "board": "local",
+        "pins": {
+          "dir": "1",
+          "enHigh": "2",
+          "step": "3"
+        },
+        "stepperDelay": 50,
+        "ticksPerRotation": 200
+      }
+    },
+    {
+      "model": "gpiostepper",
+      "name": "ymotor",
+      "type": "motor",
+      "attributes": {
+        "board": "local",
+        "pins": {
+          "dir": "4",
+          "enHigh": "5",
+          "step": "6"
+        },
+        "stepperDelay": 50,
+        "ticksPerRotation": 200
+      }
+    },
+    {
+      "model": "gpiostepper",
+      "name": "zmotor",
+      "type": "motor",
+      "attributes": {
+        "board": "local",
+        "pins": {
+          "dir": "7",
+          "enHigh": "8",
+          "step": "9"
+        },
+        "stepperDelay": 50,
+        "ticksPerRotation": 200
+      }
+    },
+    {
+      "model": "oneAxis",
+      "name": "xaxis",
+      "type": "gantry",
+      "attributes": {
+        "length_mm": 90,
+        "board": "local",
+        "limitHigh": false,
+        "limit_pins": [
+          "10",
+          "11"
+        ],
+        "motor": "xmotor",
+        "gantry_rpm": 300
+      },
+      "depends_on": "xmotor"
+    },
+    {
+      "model": "oneAxis",
+      "name": "yaxis",
+      "type": "gantry",
+      "attributes": {
+        "length_mm": 1.5,
+        "board": "local",
+        "limit_pin_enabled": false,
+        "limit_pins": [
+          "12",
+          "13"
+        ],
+        "motor": "ymotor",
+        "gantry_rpm": 300
+      },
+      "depends_on": "ymotor"
+    },
+    {
+      "model": "oneAxis",
+      "name": "zaxis",
+      "type": "gantry",
+      "attributes": {
+        "length_mm": 1.5,
+        "board": "local",
+        "limit_pin_enabled": false,
+        "limit_pins": [
+          "5",
+          "6"
+        ],
+        "motor": "zmotor",
+        "gantry_rpm": 300
+      },
+      "depends_on": "zmotor"
+    },
+    {
+      "model": "mini-multi-axis",
+      "name": "testgantry",
+      "type": "gantry",
+      "attributes": {
+        "subaxes_list": [
+          "xaxis",
+          "yaxis",
+          "zaxis"
+        ]
+      },
+      "depends_on": [
+        "xaxis",
+        "yaxis",
+        "zaxis"
+      ]
+    }
+  ]
+}
