@@ -30,10 +30,10 @@
           },
           {
             "attributes": {
-              "lengthMeters": 2.3,
-              "limitBoard": "local",
-              "limitHigh": false,
-              "limitPins": [
+              "length_mm": 2.3,
+              "board": "local",
+              "limit_pin_enabled": false,
+              "limit_pins": [
                 "io17",
                 "io18"
               ],
