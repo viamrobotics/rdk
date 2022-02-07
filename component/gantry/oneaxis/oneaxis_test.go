@@ -80,7 +80,7 @@ func TestValidate(t *testing.T) {
 		LimitSwitchPins: []string{"1"},
 		LengthMm:        1.0,
 		Board:           "board",
-		PulleyRMm:       0.1,
+		ReductionRatio:  0.1,
 	}
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
@@ -88,7 +88,7 @@ func TestValidate(t *testing.T) {
 	fakecfg = &AttrConfig{
 		LimitSwitchPins: []string{"1"},
 		LengthMm:        1.0,
-		PulleyRMm:       0.1,
+		ReductionRatio:  0.1,
 	}
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
@@ -98,7 +98,7 @@ func TestValidate(t *testing.T) {
 		LimitSwitchPins: []string{"1"},
 		LengthMm:        1.0,
 		Board:           "board",
-		PulleyRMm:       0.0,
+		ReductionRatio:  0.0,
 	}
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry has one limit switch per axis, needs pulley radius to set position limits")
@@ -108,7 +108,7 @@ func TestValidate(t *testing.T) {
 		LimitSwitchPins: []string{},
 		LengthMm:        1.0,
 		Board:           "board",
-		PulleyRMm:       0.1,
+		ReductionRatio:  0.1,
 	}
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "each axis needs at least one limit switch pin")
@@ -127,7 +127,7 @@ func TestValidate(t *testing.T) {
 		LimitSwitchPins: []string{"1", "2"},
 		LengthMm:        1.0,
 		Board:           "board",
-		PulleyRMm:       0.1,
+		ReductionRatio:  0.1,
 		Axes:            []bool{true, false, false},
 	}
 	err = fakecfg.Validate("path")
@@ -156,8 +156,8 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1", "2"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitHigh:       true,
-			RPM:             float64(300),
+			LimitPinEnabled: true,
+			GantryRPM:       float64(300),
 		},
 	}
 	fakegantry, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -173,9 +173,9 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitHigh:       true,
-			PulleyRMm:       0.1,
-			RPM:             float64(300),
+			LimitPinEnabled: true,
+			ReductionRatio:  0.1,
+			GantryRPM:       float64(300),
 		},
 	}
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -191,8 +191,8 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitHigh:       true,
-			RPM:             float64(300),
+			LimitPinEnabled: true,
+			GantryRPM:       float64(300),
 		},
 	}
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -371,7 +371,7 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(1),
-		pulleyRMm:       float64(.1),
+		reductionRatio:  float64(.1),
 	}
 
 	err := fakegantry.homeOneLimSwitch(ctx)
@@ -650,7 +650,7 @@ func TestGoToInputs(t *testing.T) {
 		limitHigh:       true,
 		motor:           createFakeMotor(),
 		lengthMm:        1.0,
-		pulleyRMm:       0.1,
+		reductionRatio:  0.1,
 		rpm:             10,
 		axes:            []bool{true, false, false},
 		limitType:       "",

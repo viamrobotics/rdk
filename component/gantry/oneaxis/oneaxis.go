@@ -30,12 +30,12 @@ const modelname = "oneaxis"
 type AttrConfig struct {
 	Board           string   `json:"board"` // used to read limit switch pins and control motor with gpio pins
 	Motor           string   `json:"motor"`
-	LimitSwitchPins []string `json:"limitPins"`
-	LimitHigh       bool     `json:"limitHigh"`
+	LimitSwitchPins []string `json:"limit_pins"`
+	LimitPinEnabled bool     `json:"limit_pin_enabled"`
 	Axes            []bool   `json:"axes"`
 	LengthMm        float64  `json:"length_mm"`
-	PulleyRMm       float64  `json:"pulley_radius_mm"`
-	RPM             float64  `json:"rpm"`
+	ReductionRatio  float64  `json:"reduction_ratio"`
+	GantryRPM       float64  `json:"gantry_rpm"`
 }
 
 //go:embed oneaxis-kinematics.json
@@ -59,7 +59,7 @@ func (config *AttrConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("each axis needs at least one limit switch pin"))
 	}
 
-	if len(config.LimitSwitchPins) == 1 && config.PulleyRMm == 0 {
+	if len(config.LimitSwitchPins) == 1 && config.ReductionRatio == 0 {
 		return utils.NewConfigValidationError(path,
 			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"),
 		)
@@ -113,9 +113,9 @@ type oneAxis struct {
 	limitType       switchLimitType
 	positionLimits  []float64
 
-	lengthMm  float64
-	pulleyRMm float64
-	rpm       float64
+	lengthMm       float64
+	reductionRatio float64
+	rpm            float64
 
 	model referenceframe.Model
 	axes  []bool // TODO (rh) convert to r3.Vector once #471 is merged.
@@ -160,10 +160,10 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		model:           model,
 		logger:          logger,
 		limitSwitchPins: gconf.LimitSwitchPins,
-		limitHigh:       gconf.LimitHigh,
+		limitHigh:       gconf.LimitPinEnabled,
 		lengthMm:        gconf.LengthMm,
-		pulleyRMm:       gconf.PulleyRMm,
-		rpm:             gconf.RPM,
+		reductionRatio:  gconf.ReductionRatio,
+		rpm:             gconf.GantryRPM,
 		axes:            gconf.Axes, // revisit axes def afer #471 (rh)
 	}
 
@@ -180,7 +180,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	if gantry.limitType == switchLimitTypeOnePin && gantry.pulleyRMm <= 0 {
+	if gantry.limitType == switchLimitTypeOnePin && gantry.reductionRatio <= 0 {
 		return nil, errors.New("gantry with one limit switch per axis needs a pulley radius defined")
 	}
 
@@ -265,7 +265,7 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 		return err
 	}
 
-	radius := g.pulleyRMm
+	radius := g.reductionRatio
 	stepsPerLength := g.lengthMm / (radius * 2 * math.Pi)
 
 	positionB := positionA + stepsPerLength
@@ -421,7 +421,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel()
+	m := referenceframe.NewSimpleModel() //changeafter merge
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, []referenceframe.Limit{{0, g.lengthMm}})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))

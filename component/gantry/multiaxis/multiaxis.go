@@ -159,7 +159,7 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 		if err != nil {
 			return nil, err
 		}
-		resOut = append(resOut, res[idx]) // test if this returs the right thing
+		resOut = append(resOut, res[idx])
 	}
 
 	return referenceframe.FloatsToInputs(resOut), nil
