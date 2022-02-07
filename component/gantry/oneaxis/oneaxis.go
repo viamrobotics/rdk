@@ -193,14 +193,12 @@ func (g *oneAxis) Home(ctx context.Context) error {
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch g.limitType {
 	case switchLimitTypeOnePin:
-		// limitIDs := []int{0, 1}
-		err := g.homeOneLimSwitch(ctx) // , limitIDs)
+		err := g.homeOneLimSwitch(ctx)
 		if err != nil {
 			return err
 		}
 	case switchLimitTypetwoPin:
-		// limitIDs := []int{0, 1}
-		err := g.homeTwoLimSwitch(ctx) // , limitIDs)
+		err := g.homeTwoLimSwitch(ctx)
 		if err != nil {
 			return err
 		}
@@ -417,7 +415,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel() //changeafter merge
+	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axes, referenceframe.Limit{0, g.lengthMm})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))

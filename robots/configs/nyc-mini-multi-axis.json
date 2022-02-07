@@ -57,7 +57,7 @@
       "attributes": {
         "length_mm": 90,
         "board": "local",
-        "limitHigh": false,
+        "limit_pin_enabled": false,
         "limit_pins": [
           "10",
           "11"
@@ -72,7 +72,7 @@
       "name": "yaxis",
       "type": "gantry",
       "attributes": {
-        "length_mm": 1.5,
+        "length_mm": 90,
         "board": "local",
         "limit_pin_enabled": false,
         "limit_pins": [
@@ -89,7 +89,7 @@
       "name": "zaxis",
       "type": "gantry",
       "attributes": {
-        "length_mm": 1.5,
+        "length_mm": 90,
         "board": "local",
         "limit_pin_enabled": false,
         "limit_pins": [
