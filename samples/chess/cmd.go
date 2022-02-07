@@ -25,6 +25,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -377,7 +378,7 @@ func lookForBoardAdjust(
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
 	debugNumber := 0
 
-	wristCam, ok := myRobot.CameraByName("wristCam")
+	wristCam, ok := camera.FromRobot(myRobot, "wristCam")
 	if !ok {
 		return errors.New("can't find wristCam")
 	}
@@ -428,7 +429,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return ctx.Err()
 	}
 
-	cam, ok := robot.CameraByName("gripperCam")
+	cam, ok := camera.FromRobot(robot, "gripperCam")
 	if !ok {
 		return errors.New("can't find gripperCam")
 	}
@@ -539,7 +540,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return errors.New("need a gripper called gripped")
 	}
 
-	webcam, ok := myRobot.CameraByName("cameraOver")
+	webcam, ok := camera.FromRobot(myRobot, "cameraOver")
 	if !ok {
 		return errors.New("can't find cameraOver camera")
 	}
