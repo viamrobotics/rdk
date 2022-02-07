@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -105,17 +104,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 		}
 	}
 	return names
-}
-
-// CameraNames returns the names of all cameras in the parts.
-func (parts *robotParts) CameraNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == camera.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.CameraNames)
 }
 
 // BoardNames returns the names of all boards in the parts.
@@ -381,26 +369,6 @@ func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.BoardByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// CameraByName returns the given camera by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
-	rName := camera.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(camera.Camera)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.CameraByName(name)
 		if ok {
 			return part, true
 		}

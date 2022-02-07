@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -22,9 +21,6 @@ type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
-	// CameraByName returns a camera by name.
-	CameraByName(name string) (camera.Camera, bool)
-
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
 
@@ -36,9 +32,6 @@ type Robot interface {
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// CameraNames returns the name of all known cameras.
-	CameraNames() []string
 
 	// BoardNames returns the name of all known boards.
 	BoardNames() []string

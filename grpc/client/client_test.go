@@ -22,7 +22,6 @@ import (
 	"go.viam.com/rdk/component/board"
 	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
-	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
@@ -217,9 +216,6 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	injectRobot1.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return nil, false
-	}
-	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
 		return nil, false
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
@@ -519,7 +515,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
-	camera1, ok := client.CameraByName("camera1")
+	camera1, ok := camera.FromRobot(client, "camera1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, _, err = camera1.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -610,7 +606,7 @@ func TestClient(t *testing.T) {
 	_, ok = client.BoardByName("board3")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	camera1, ok = client.CameraByName("camera1")
+	camera1, ok = camera.FromRobot(client, "camera1")
 	test.That(t, ok, test.ShouldBeTrue)
 	frame, _, err := camera1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -711,7 +707,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
@@ -787,7 +783,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
@@ -845,7 +841,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
