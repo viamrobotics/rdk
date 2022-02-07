@@ -25,6 +25,7 @@ import (
 	"goji.io/pat"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
@@ -164,8 +165,8 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 		return nil, nil, err
 	}
 
-	for _, name := range theRobot.CameraNames() {
-		cam, ok := theRobot.CameraByName(name)
+	for _, name := range camera.NamesFromRobot(theRobot) {
+		cam, ok := camera.FromRobot(theRobot, name)
 		if !ok {
 			continue
 		}
