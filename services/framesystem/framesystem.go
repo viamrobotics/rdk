@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 // SubtypeName is the name of the type of service.
@@ -102,6 +103,18 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	}
 	logger.Debugf("frame system for robot: %v", sortedFrameNames)
 	return fsSvc, nil
+}
+
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, ok := r.ResourceByName(Name)
+	if !ok {
+		return nil, errors.New("frame system service not found")
+	}
+	fs, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnexpectedTypeError(fs, resource)
+	}
+	return fs, nil
 }
 
 type frameSystemService struct {
