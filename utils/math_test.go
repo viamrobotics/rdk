@@ -2,10 +2,10 @@ package utils
 
 import (
 	"fmt"
-	"github.com/golang/geo/r3"
 	"math"
 	"testing"
 
+	r3 "github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
