@@ -43,7 +43,7 @@ func (a *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 	return a.GetLengthsFunc(ctx)
 }
 
-// ModelFrame returns a Gnatry ModelFrame.
+// ModelFrame returns a Gantry ModelFrame.
 func (a *Gantry) ModelFrame() referenceframe.Model {
 	if a.ModelFrameFunc == nil {
 		return a.Gantry.ModelFrame()
