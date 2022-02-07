@@ -14,9 +14,11 @@ import (
 
 	"go.viam.com/rdk/component/base"
 	viamgrpc "go.viam.com/rdk/grpc"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -91,7 +93,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer1 := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	argsReceived := map[string][]interface{}{}
 
@@ -103,27 +106,28 @@ func TestClient(t *testing.T) {
 	brokenBaseErrMsg := setupBrokenBase(brokenBase)
 
 	resMap := map[resource.Name]interface{}{
-		base.Named("working"):    workingBase,
-		base.Named("notWorking"): brokenBase,
+		base.Named(testBaseName): workingBase,
+		base.Named(failBaseName): brokenBase,
 	}
 
 	baseSvc, err := subtype.New(resMap)
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(base.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, baseSvc)
 
-	go gServer1.Serve(listener1)
-	defer gServer1.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = base.NewClient(cancelCtx, "working", listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = base.NewClient(cancelCtx, testBaseName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingBaseClient, err := base.NewClient(context.Background(), "working", listener1.Addr().String(), logger, rpc.WithInsecure())
+	workingBaseClient, err := base.NewClient(context.Background(), testBaseName, listener1.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, utils.TryClose(context.Background(), workingBaseClient), test.ShouldBeNil)
@@ -145,7 +149,9 @@ func TestClient(t *testing.T) {
 	t.Run("working base client by dialing", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		workingBaseClient2 := base.NewClientFromConn(context.Background(), conn, "working", logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testBaseName, logger)
+		workingBaseClient2, ok := client.(base.Base)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		distance := 42
 		mmPerSec := 42.0
@@ -168,7 +174,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("failing base client", func(t *testing.T) {
-		failingBaseClient, err := base.NewClient(context.Background(), "notWorking", listener1.Addr().String(), logger, rpc.WithInsecure())
+		failingBaseClient, err := base.NewClient(context.Background(), failBaseName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		err = failingBaseClient.MoveStraight(context.Background(), 42, 42.0, false)
@@ -185,4 +191,32 @@ func TestClient(t *testing.T) {
 
 		test.That(t, utils.TryClose(context.Background(), failingBaseClient), test.ShouldBeNil)
 	})
+}
+
+func TestClientDialerOption(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectBase := &inject.Base{}
+
+	baseSvc, err := subtype.New((map[resource.Name]interface{}{base.Named(testBaseName): injectBase}))
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterBaseServiceServer(gServer, base.NewServer(baseSvc))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := base.NewClient(ctx, testBaseName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, err, test.ShouldBeNil)
+	client2, err := base.NewClient(ctx, testBaseName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+
+	err = utils.TryClose(context.Background(), client1)
+	test.That(t, err, test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), client2)
+	test.That(t, err, test.ShouldBeNil)
 }

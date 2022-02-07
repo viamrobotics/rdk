@@ -18,9 +18,9 @@ func newServer() (pb.BaseServiceServer, *inject.Base, *inject.Base, error) {
 	workingBase := &inject.Base{}
 	brokenBase := &inject.Base{}
 	bases := map[resource.Name]interface{}{
-		base.Named("working"):    workingBase,
-		base.Named("notWorking"): brokenBase,
-		base.Named("badBase"):    "not a base",
+		base.Named(testBaseName): workingBase,
+		base.Named(failBaseName): brokenBase,
+		base.Named(fakeBaseName): "not a base",
 	}
 	baseSvc, err := subtype.New(bases)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.BaseServiceMoveStraightRequest{
-			Name:       "working",
+			Name:       testBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 			Block:      true,
@@ -60,7 +60,7 @@ func TestServer(t *testing.T) {
 			return errors.New(errMsg)
 		}
 		req = &pb.BaseServiceMoveStraightRequest{
-			Name:       "notWorking",
+			Name:       failBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 		}
@@ -70,7 +70,7 @@ func TestServer(t *testing.T) {
 
 		// failure on bad base handled
 		req = &pb.BaseServiceMoveStraightRequest{
-			Name:       "badBase",
+			Name:       fakeBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 		}
@@ -98,7 +98,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.BaseServiceMoveArcRequest{
-			Name:       "working",
+			Name:       testBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 			AngleDeg:   42.0,
@@ -117,7 +117,7 @@ func TestServer(t *testing.T) {
 			return errors.New(errMsg)
 		}
 		req = &pb.BaseServiceMoveArcRequest{
-			Name:       "notWorking",
+			Name:       failBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 			AngleDeg:   42.0,
@@ -129,7 +129,7 @@ func TestServer(t *testing.T) {
 
 		// failure on bad base handled
 		req = &pb.BaseServiceMoveArcRequest{
-			Name:       "badBase",
+			Name:       fakeBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
 			AngleDeg:   42.0,
@@ -161,7 +161,7 @@ func TestServer(t *testing.T) {
 			return nil
 		}
 		req := &pb.BaseServiceSpinRequest{
-			Name:       "working",
+			Name:       testBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
 			Block:      true,
@@ -179,7 +179,7 @@ func TestServer(t *testing.T) {
 			return errors.New(errMsg)
 		}
 		req = &pb.BaseServiceSpinRequest{
-			Name:       "notWorking",
+			Name:       failBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
 			Block:      true,
@@ -190,7 +190,7 @@ func TestServer(t *testing.T) {
 
 		// failure on bad base handled
 		req = &pb.BaseServiceSpinRequest{
-			Name:       "badBase",
+			Name:       fakeBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
 			Block:      true,
@@ -216,7 +216,7 @@ func TestServer(t *testing.T) {
 		workingBase.StopFunc = func(ctx context.Context) error {
 			return nil
 		}
-		req := &pb.BaseServiceStopRequest{Name: "working"}
+		req := &pb.BaseServiceStopRequest{Name: testBaseName}
 		resp, err := server.Stop(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp, test.ShouldResemble, &pb.BaseServiceStopResponse{})
@@ -226,13 +226,13 @@ func TestServer(t *testing.T) {
 		brokenBase.StopFunc = func(ctx context.Context) error {
 			return errors.New(errMsg)
 		}
-		req = &pb.BaseServiceStopRequest{Name: "notWorking"}
+		req = &pb.BaseServiceStopRequest{Name: failBaseName}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
 		// failure on bad base handled
-		req = &pb.BaseServiceStopRequest{Name: "badBase"}
+		req = &pb.BaseServiceStopRequest{Name: fakeBaseName}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
