@@ -81,7 +81,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, ok := r.BaseByName(svcConfig.BaseName)
+	base1, ok := base.FromRobot(r, svcConfig.BaseName)
 	if !ok {
 		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
@@ -22,9 +21,6 @@ type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
-	// BaseByName returns a base by name.
-	BaseByName(name string) (base.Base, bool)
-
 	// BoardByName returns a board by name.
 	BoardByName(name string) (board.Board, bool)
 
@@ -36,9 +32,6 @@ type Robot interface {
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// BaseNames returns the name of all known bases.
-	BaseNames() []string
 
 	// BoardNames returns the name of all known boards.
 	BoardNames() []string

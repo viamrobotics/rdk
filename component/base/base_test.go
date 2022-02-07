@@ -6,10 +6,67 @@ import (
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
+
+const (
+	testBaseName    = "base1"
+	testBaseName2   = "base2"
+	failBaseName    = "base3"
+	fakeBaseName    = "base4"
+	missingBaseName = "base5"
+)
+
+func setupInjectRobot() *inject.Robot {
+	base1 := &mock{Name: testBaseName}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name {
+		case base.Named(testBaseName):
+			return base1, true
+		case base.Named(fakeBaseName):
+			return "not a base", false
+		default:
+			return nil, false
+		}
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{base.Named(testBaseName), arm.Named("arm1")}
+	}
+	return r
+}
+
+func TestFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	res, ok := base.FromRobot(r, testBaseName)
+	test.That(t, res, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	result, err := res.(base.LocalBase).GetWidth(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, width)
+
+	res, ok = base.FromRobot(r, fakeBaseName)
+	test.That(t, res, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	res, ok = base.FromRobot(r, missingBaseName)
+	test.That(t, res, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestNamesFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	names := base.NamesFromRobot(r)
+	test.That(t, names, test.ShouldResemble, []string{testBaseName})
+}
 
 func TestBaseNamed(t *testing.T) {
 	baseName := base.Named("test_base")
@@ -17,6 +74,73 @@ func TestBaseNamed(t *testing.T) {
 	test.That(t, baseName.Subtype, test.ShouldResemble, base.Subtype)
 	test.That(t, baseName.UUID, test.ShouldResemble, "026551c7-e5d4-55bd-ba08-61bcdc643bce")
 }
+
+func TestWrapWithReconfigurable(t *testing.T) {
+	var actualBase1 base.Base = &mock{Name: testBaseName}
+	reconfBase1, err := base.WrapWithReconfigurable(actualBase1)
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = base.WrapWithReconfigurable(nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+
+	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBase2, test.ShouldEqual, reconfBase1)
+}
+
+func TestReconfigurableBase(t *testing.T) {
+	actualBase1 := &mock{Name: testBaseName}
+	reconfBase1, err := base.WrapWithReconfigurable(actualBase1)
+	test.That(t, err, test.ShouldBeNil)
+
+	actualBase2 := &mock{Name: testBaseName2}
+	reconfBase2, err := base.WrapWithReconfigurable(actualBase2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBase1.reconfCount, test.ShouldEqual, 0)
+
+	err = reconfBase1.Reconfigure(context.Background(), reconfBase2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, reconfBase1, test.ShouldResemble, reconfBase2)
+	test.That(t, actualBase1.reconfCount, test.ShouldEqual, 1)
+
+	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
+	test.That(t, actualBase2.widthCount, test.ShouldEqual, 0)
+	result, err := reconfBase1.(base.LocalBase).GetWidth(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, width)
+	test.That(t, actualBase1.widthCount, test.ShouldEqual, 0)
+	test.That(t, actualBase2.widthCount, test.ShouldEqual, 1)
+
+	err = reconfBase1.Reconfigure(context.Background(), nil)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *base.reconfigurableBase")
+}
+
+func TestClose(t *testing.T) {
+	actualBase1 := &mock{Name: testBaseName}
+	reconfBase1, _ := base.WrapWithReconfigurable(actualBase1)
+
+	test.That(t, actualBase1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, utils.TryClose(context.Background(), reconfBase1), test.ShouldBeNil)
+	test.That(t, actualBase1.reconfCount, test.ShouldEqual, 1)
+}
+
+const width = 10
+
+type mock struct {
+	base.LocalBase
+	Name        string
+	widthCount  int
+	reconfCount int
+}
+
+func (m *mock) GetWidth(ctx context.Context) (int, error) {
+	m.widthCount++
+	return width, nil
+}
+
+func (m *mock) Close() { m.reconfCount++ }
 
 func TestDoMove(t *testing.T) {
 	dev := &inject.Base{}

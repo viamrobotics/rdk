@@ -80,7 +80,7 @@ func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
 }
 
 func setup(theRobot robot.Robot) (base.Base, gostream.ImageSource, error) {
-	baseNames := theRobot.BaseNames()
+	baseNames := base.NamesFromRobot(theRobot)
 	if len(baseNames) == 0 {
 		return nil, nil, errors.New("no bases, can't drive")
 	}
@@ -90,7 +90,7 @@ func setup(theRobot robot.Robot) (base.Base, gostream.ImageSource, error) {
 		return nil, nil, errors.New("no cameras, can't drive")
 	}
 
-	base, ok := theRobot.BaseByName(baseNames[0])
+	base, ok := base.FromRobot(theRobot, baseNames[0])
 	if !ok {
 		return nil, nil, fmt.Errorf("cannot find %q", baseNames[0])
 	}
