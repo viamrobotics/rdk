@@ -192,40 +192,40 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func TestNewCamera(t *testing.T) {
-	attrs1 := &AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
-	attrs2 := &AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
+	attrs1 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
+	attrs2 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
 	imgSrc := &simpleSource{artifact.MustPath("rimage/board1.png")}
 
-	_, err := New(nil, nil, nil)
+	_, err := camera.New(nil, nil, nil)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil image source"))
 
-	cam1, err := New(imgSrc, nil, nil)
+	cam1, err := camera.New(imgSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok := cam1.(WithProjector)
+	_, ok := cam1.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeFalse)
 
-	cam2, err := New(imgSrc, attrs1, cam1)
+	cam2, err := camera.New(imgSrc, attrs1, cam1)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam2.(WithProjector)
+	_, ok = cam2.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	cam3, err := New(imgSrc, nil, cam2)
+	cam3, err := camera.New(imgSrc, nil, cam2)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam3.(WithProjector)
+	_, ok = cam3.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam3.(WithProjector).GetProjector(), test.ShouldResemble, cam2.(WithProjector).GetProjector())
+	test.That(t, cam3.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam2.(camera.WithProjector).GetProjector())
 
-	cam4, err := New(imgSrc, attrs2, cam2)
+	cam4, err := camera.New(imgSrc, attrs2, cam2)
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam4.(WithProjector)
+	_, ok = cam4.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam4.(WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(WithProjector).GetProjector())
+	test.That(t, cam4.(camera.WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(camera.WithProjector).GetProjector())
 
-	fakeCamera, err := WrapWithReconfigurable(cam4)
+	fakeCamera, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
-	cam5, err := New(imgSrc, nil, fakeCamera.(Camera))
+	cam5, err := camera.New(imgSrc, nil, fakeCamera.(camera.Camera))
 	test.That(t, err, test.ShouldBeNil)
-	_, ok = cam5.(WithProjector)
+	_, ok = cam5.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, cam5.(WithProjector).GetProjector(), test.ShouldResemble, cam4.(WithProjector).GetProjector())
+	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
 }

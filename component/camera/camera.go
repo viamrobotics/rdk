@@ -96,7 +96,7 @@ type imageSource struct {
 }
 
 // Close closes the underlying ImageSource.
-func (is *ImageSource) Close(ctx context.Context) error {
+func (is *imageSource) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, is.ImageSource)
 }
 
