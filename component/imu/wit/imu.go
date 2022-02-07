@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"time"
 
 	"github.com/edaniels/golog"
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
+	rdkerr "github.com/pkg/errors"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -37,19 +39,35 @@ func init() {
 	})
 }
 
+type acceleration struct {
+	X, Y, Z float64
+}
+
+type velocity struct {
+	X, Y, Z float64
+}
+
+type position struct {
+	X, Y, Z float64
+}
+
 type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
+	acceleration    acceleration
 	lastError       error
 
 	mu sync.Mutex
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+	logger                  golog.Logger
 }
 
 func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
+	rdkerr.Errorf("angVel:", i.angularVelocity, "orient:", i.orientation)
+
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
@@ -115,7 +133,6 @@ func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IM
 			}()
 		}
 	})
-
 	return &i, nil
 }
 
@@ -126,10 +143,12 @@ func scale(a, b byte, r float64) float64 {
 	x = math.Mod(x, r*2)
 	x -= r
 
+	//fmt.Println(x)
 	return x
 }
 
 func (i *wit) parseWIT(line string) error {
+	//fmt.Println(line[0])
 	if line[0] == 0x52 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
@@ -137,6 +156,7 @@ func (i *wit) parseWIT(line string) error {
 		i.angularVelocity.X = scale(line[1], line[2], 2000)
 		i.angularVelocity.Y = scale(line[3], line[4], 2000)
 		i.angularVelocity.Z = scale(line[5], line[6], 2000)
+		//fmt.Println(i.angularVelocity)
 	}
 
 	if line[0] == 0x53 {
@@ -147,9 +167,42 @@ func (i *wit) parseWIT(line string) error {
 		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
 		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
 		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
+		//fmt.Println(i.orientation)
+	}
+
+	if line[0] == 0x51 { // TODO: Check for linear Velocity
+		if len(line) < 7 {
+			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
+		}
+		i.acceleration.X = scale(line[1], line[2], 16)
+		i.acceleration.Y = scale(line[3], line[4], 16)
+		i.acceleration.Z = scale(line[5], line[6], 16)
+		//fmt.Println(i.acceleration)
+		//fmt.Println(i.posFromAccn())
+		i.posFromAccn()
 	}
 
 	return nil
+}
+
+func (i *wit) posFromAccn() float64 {
+	prevAccn := i.acceleration.X
+	// fmt.Println("prevAcc init", prevAccn)
+	start := time.Now()
+	currAcc := i.acceleration.X
+	// fmt.Println("currAccn init:", currAcc)
+	elapsed := float64(start.Sub(start))
+	fmt.Println("elapsed integral 1:", elapsed)
+	vel := (currAcc - prevAccn) / 2 * elapsed
+	// fmt.Println("vel init:", vel)
+	elapsed = float64(start.Sub(start))
+	fmt.Println("elapsed integral 2:", elapsed)
+	pos := vel*elapsed + (prevAccn-currAcc)/2*elapsed*elapsed
+	// fmt.Println("pos end":, pos)
+	prevAccn = currAcc
+	// fmt.Println("currAccn end":, currAccn)
+
+	return pos
 }
 
 func (i *wit) Close() {
