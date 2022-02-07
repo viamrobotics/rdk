@@ -3,10 +3,11 @@
 package utils
 
 import (
-	"github.com/golang/geo/r3"
 	"math"
 	"math/rand"
 	"sort"
+
+	"github.com/golang/geo/r3"
 )
 
 // DegToRad converts degrees to radians.

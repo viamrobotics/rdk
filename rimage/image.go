@@ -7,10 +7,11 @@
 package rimage
 
 import (
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 	"math"
+
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
