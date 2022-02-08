@@ -27,6 +27,7 @@ type multiAxis struct {
 	name      string
 	subAxes   []gantry.Gantry
 	lengthsMm []float64
+	model     referenceframe.Model
 	logger    golog.Logger
 }
 
@@ -153,12 +154,12 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 		return nil, errors.New("no subaxes found for inputs")
 	}
 	resOut := []float64{}
-	for idx, subAx := range g.subAxes {
+	for _, subAx := range g.subAxes {
 		res, err := subAx.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
-		resOut = append(resOut, res[idx])
+		resOut = append(resOut, res[0])
 	}
 
 	return referenceframe.FloatsToInputs(resOut), nil
