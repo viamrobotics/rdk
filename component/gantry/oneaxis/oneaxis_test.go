@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -120,7 +121,13 @@ func TestValidate(t *testing.T) {
 		LengthMm:        1.0,
 		Board:           "board",
 		ReductionRatio:  0.1,
+		Axis: spatial.TranslationConfig{
+			X: 1,
+			Y: 0,
+			Z: 0,
+		},
 	}
+
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -562,7 +569,7 @@ func TestModelFrame(t *testing.T) {
 	fakegantry := &oneAxis{
 		name:     "test",
 		lengthMm: 1.0,
-		axes:     r3.Vector{0, 0, 1},
+		axis:     r3.Vector{0, 0, 1},
 		model:    nil,
 	}
 
@@ -634,7 +641,7 @@ func TestGoToInputs(t *testing.T) {
 		lengthMm:        1.0,
 		reductionRatio:  0.1,
 		rpm:             10,
-		axes:            r3.Vector{},
+		axis:            r3.Vector{},
 		limitType:       "",
 		positionLimits:  []float64{1, 2},
 		model:           nil,

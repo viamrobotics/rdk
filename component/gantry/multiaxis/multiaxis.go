@@ -3,10 +3,8 @@ package multiaxis
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
@@ -99,8 +97,8 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
 
-	for _, subAx := range g.subAxes {
-		err := subAx.MoveToPosition(ctx, positions)
+	for idx, subAx := range g.subAxes {
+		err := subAx.MoveToPosition(ctx, []float64{positions[idx]})
 		if err != nil {
 			return err
 		}
@@ -168,33 +166,10 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel()
-	axes := []r3.Vector{
-		r3.Vector{1, 0, 0},
-		r3.Vector{0, 1, 0},
-		r3.Vector{0, 0, 1},
-	}
-
-	for idx := range g.subAxes {
-		f, err := referenceframe.NewTranslationalFrame(g.name, axes[idx], referenceframe.Limit{0, g.lengthsMm[idx]})
-		if err != nil {
-			panic(fmt.Errorf("error creating frame, should be impossible %w", err))
-		}
-
-		m.OrdTransforms = append(m.OrdTransforms, f)
-	}
-
-	return m
-}
-
-/*
-func (g *multiAxis) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel()
+	modelOut := referenceframe.NewSimpleModel()
 	for _, subAxis := range g.subAxes {
-		f := subAxis.ModelFrame()
-		m.OrdTransforms = append(m.OrdTransforms, f)
+		modelOut.OrdTransforms = append(modelOut.OrdTransforms, subAxis.ModelFrame())
 	}
 
-	return m
+	return modelOut
 }
-*/
