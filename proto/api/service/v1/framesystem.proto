@@ -11,7 +11,7 @@ import "proto/api/common/v1/common.proto";
 service FrameSystemService {
   rpc Config(FrameSystemServiceConfigRequest) returns (FrameSystemServiceConfigResponse) {
     option (google.api.http) = {
-      get: "/api/v1/services/frame_system/config"
+      get: "/api/v1/service/frame_system/config"
     };
   }
 }
