@@ -108,14 +108,14 @@ func TestTMCStepperMotor(t *testing.T) {
 			{160, 0, 0, 0, 1},
 			{167, 0, 4, 35, 42},
 		})
-		test.That(t, _motor.SetPower(ctx, 0.5*maxRpm), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(ctx, 0.5), test.ShouldBeNil)
 
 		// Test Go backward at quarter speed
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 2},
 			{167, 0, 2, 17, 149},
 		})
-		test.That(t, _motor.SetPower(ctx, -0.25*maxRpm), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(ctx, -0.25), test.ShouldBeNil)
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {
