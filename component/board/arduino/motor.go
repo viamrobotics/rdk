@@ -20,7 +20,7 @@ import (
 )
 
 // SetPowerZeroThreshold represents a power below which value attempting
-// to run the motor simply stops it
+// to run the motor simply stops it.
 const SetPowerZeroThreshold = .0001
 
 // init registers an arduino motor.
