@@ -118,7 +118,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectServo := &inject.Servo{}
 
-	servoSvc, err := subtype.New((map[resource.Name]interface{}{servo.Named(testServoName): injectServo}))
+	servoSvc, err := subtype.New(map[resource.Name]interface{}{servo.Named(testServoName): injectServo})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterServoServiceServer(gServer, servo.NewServer(servoSvc))
 
