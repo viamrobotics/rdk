@@ -16,15 +16,8 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
@@ -197,7 +190,7 @@ func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
 			cc.Frame = &config.Frame{Parent: c.Parent}
 		}
 		if cc.Frame != nil && c.Pose != nil {
-			cc.Frame.Translation = spatialmath.Translation{
+			cc.Frame.Translation = spatialmath.TranslationConfig{
 				X: c.Pose.X,
 				Y: c.Pose.Y,
 				Z: c.Pose.Z,
@@ -221,62 +214,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// ArmByName returns an arm by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ArmByName(name string) (arm.Arm, bool) {
-	resource, ok := rc.ResourceByName(arm.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualArm, ok := resource.(arm.Arm)
-	if !ok {
-		return nil, false
-	}
-	return actualArm, true
-}
-
-// BaseByName returns a base by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) BaseByName(name string) (base.Base, bool) {
-	resource, ok := rc.ResourceByName(base.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualBase, ok := resource.(base.Base)
-	if !ok {
-		return nil, false
-	}
-	return actualBase, true
-}
-
-// GripperByName returns a gripper by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) GripperByName(name string) (gripper.Gripper, bool) {
-	resource, ok := rc.ResourceByName(gripper.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(gripper.Gripper)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
-// CameraByName returns a camera by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) CameraByName(name string) (camera.Camera, bool) {
-	resource, ok := rc.ResourceByName(camera.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(camera.Camera)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
-}
-
 // BoardByName returns a board by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
@@ -289,35 +226,6 @@ func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
 		return nil, false
 	}
 	return actualBoard, true
-}
-
-// SensorByName returns a generic sensor by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) SensorByName(name string) (sensor.Sensor, bool) {
-	resource, ok := rc.ResourceByName(sensor.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualSensor, ok := resource.(sensor.Sensor)
-	if !ok {
-		return nil, false
-	}
-	return actualSensor, true
-}
-
-// ServoByName returns a servo by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) ServoByName(name string) (servo.Servo, bool) {
-	nameObj := servo.Named(name)
-	resource, ok := rc.ResourceByName(nameObj)
-	if !ok {
-		return nil, false
-	}
-	actualServo, ok := resource.(servo.Servo)
-	if !ok {
-		return nil, false
-	}
-	return actualServo, true
 }
 
 // MotorByName returns a motor by name. It is assumed to exist on the
@@ -333,20 +241,6 @@ func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
 		return nil, false
 	}
 	return actualMotor, true
-}
-
-// InputControllerByName returns an input.Controller by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) InputControllerByName(name string) (input.Controller, bool) {
-	resource, ok := rc.ResourceByName(input.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actual, ok := resource.(input.Controller)
-	if !ok {
-		return nil, false
-	}
-	return actual, true
 }
 
 // ResourceByName returns resource by name.
@@ -426,58 +320,6 @@ func (rc *RobotClient) RemoteNames() []string {
 	return nil
 }
 
-// ArmNames returns the names of all known arms.
-func (rc *RobotClient) ArmNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == arm.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// GripperNames returns the names of all known grippers.
-func (rc *RobotClient) GripperNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == gripper.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// CameraNames returns the names of all known cameras.
-func (rc *RobotClient) CameraNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == camera.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// BaseNames returns the names of all known bases.
-func (rc *RobotClient) BaseNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == base.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
 // BoardNames returns the names of all known boards.
 func (rc *RobotClient) BoardNames() []string {
 	rc.namesMu.RLock()
@@ -491,32 +333,6 @@ func (rc *RobotClient) BoardNames() []string {
 	return copyStringSlice(names)
 }
 
-// SensorNames returns the names of all known sensors.
-func (rc *RobotClient) SensorNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == sensor.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// ServoNames returns the names of all known servos.
-func (rc *RobotClient) ServoNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == servo.Subtype {
-			names = append(names, res.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
 // MotorNames returns the names of all known motors.
 func (rc *RobotClient) MotorNames() []string {
 	rc.namesMu.RLock()
@@ -524,19 +340,6 @@ func (rc *RobotClient) MotorNames() []string {
 	names := []string{}
 	for _, res := range rc.ResourceNames() {
 		if res.Subtype == motor.Subtype {
-			names = append(names, res.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// InputControllerNames returns the names of all known input controllers.
-func (rc *RobotClient) InputControllerNames() []string {
-	rc.namesMu.Lock()
-	defer rc.namesMu.Unlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == input.Subtype {
 			names = append(names, res.Name)
 		}
 	}

@@ -14,7 +14,7 @@ type IMU struct {
 	imu.IMU
 	ReadAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
-	ReadingsFunc            func(ctx context.Context) ([]interface{}, error)
+	GetReadingsFunc         func(ctx context.Context) ([]interface{}, error)
 	CloseFunc               func(ctx context.Context) error
 }
 
@@ -34,12 +34,12 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return i.ReadOrientationFunc(ctx)
 }
 
-// Readings calls the injected Readings or the real version.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
-	if i.ReadingsFunc == nil {
-		return i.IMU.Readings(ctx)
+// GetReadings calls the injected GetReadings or the real version.
+func (i *IMU) GetReadings(ctx context.Context) ([]interface{}, error) {
+	if i.GetReadingsFunc == nil {
+		return i.IMU.GetReadings(ctx)
 	}
-	return i.ReadingsFunc(ctx)
+	return i.GetReadingsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

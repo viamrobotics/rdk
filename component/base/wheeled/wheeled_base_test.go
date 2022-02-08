@@ -28,12 +28,12 @@ func TestFourWheelBase1(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"frontRight":               "fr-m",
-			"frontLeft":                "fl-m",
-			"backRight":                "br-m",
-			"backLeft":                 "bl-m",
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"frontRight":           "fr-m",
+			"frontLeft":            "fl-m",
+			"backRight":            "br-m",
+			"backLeft":             "bl-m",
 		},
 	}
 	baseBase, err := CreateFourWheelBase(context.Background(), fakeRobot, cfg, rlog.Logger)
@@ -43,7 +43,7 @@ func TestFourWheelBase1(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("basics", func(t *testing.T) {
-		temp, err := base.WidthGet(ctx)
+		temp, err := base.GetWidth(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, temp, test.ShouldEqual, 100)
 	})
@@ -220,65 +220,65 @@ func TestFourWheelBase1(t *testing.T) {
 	})
 	t.Run("arc math", func(t *testing.T) {
 		rpms, rotations := base.arcMath(1000, 1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.052, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.01, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.948, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.99, .01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.99, .01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.523, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.01, .01)
 
 		rpms, rotations = base.arcMath(-1000, 1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.948, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.476, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.052, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.523, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(1000, -1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.948, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, -59.476, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.052, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, -60.523, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(1000, 1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.948, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.523, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.052, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(-1000, -1000, 10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.0524, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.476, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.948, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.5234, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(1000, -1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.052, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.523, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.948, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.476, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(-1000, 1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.0524, 0.01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, -60.5234, 0.01)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.00, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.948, 0.01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, -59.476, 0.01)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.00, .01)
 
 		rpms, rotations = base.arcMath(-1000, -1000, -10)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 59.948, 0.01)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, 0.99, .01)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, 60.052, 0.01)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, 1.01, .01)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 60.523, 0.01)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, 1.01, .01)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, 59.476, 0.01)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, 0.99, .01)
 	})
 
 	t.Run("arc math zero distance", func(t *testing.T) {
 		rpms, rotations := base.arcMath(0, 10, 90)
-		test.That(t, rpms[0], test.ShouldAlmostEqual, 7.5, .001)
-		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
-		test.That(t, rpms[1], test.ShouldAlmostEqual, -7.5, .001)
-		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
-
-		rpms, rotations = base.arcMath(0, 10, -90)
 		test.That(t, rpms[0], test.ShouldAlmostEqual, -7.5, .001)
 		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
 		test.That(t, rpms[1], test.ShouldAlmostEqual, 7.5, .001)
+		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
+
+		rpms, rotations = base.arcMath(0, 10, -90)
+		test.That(t, rpms[0], test.ShouldAlmostEqual, 7.5, .001)
+		test.That(t, rotations[0], test.ShouldAlmostEqual, .0785, .001)
+		test.That(t, rpms[1], test.ShouldAlmostEqual, -7.5, .001)
 		test.That(t, rotations[1], test.ShouldAlmostEqual, .0785, .001)
 	})
 
@@ -310,10 +310,10 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	cfg := config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"left":                     []string{"fl-m", "bl-m"},
-			"right":                    []string{"fr-m"},
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"left":                 []string{"fl-m", "bl-m"},
+			"right":                []string{"fr-m"},
 		},
 	}
 	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
@@ -321,10 +321,10 @@ func TestWheeledBaseConstructor(t *testing.T) {
 
 	cfg = config.Component{
 		Attributes: config.AttributeMap{
-			"widthMillis":              100,
-			"wheelCircumferenceMillis": 1000,
-			"left":                     []string{"fl-m", "bl-m"},
-			"right":                    []string{"fr-m", "br-m"},
+			"widthMm":              100,
+			"wheelCircumferenceMm": 1000,
+			"left":                 []string{"fl-m", "bl-m"},
+			"right":                []string{"fr-m", "br-m"},
 		},
 	}
 	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)

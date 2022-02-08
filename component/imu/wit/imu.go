@@ -60,7 +60,7 @@ func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return &i.orientation, i.lastError
 }
 
-func (i *wit) Readings(ctx context.Context) ([]interface{}, error) {
+func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return []interface{}{i.angularVelocity, i.orientation}, i.lastError

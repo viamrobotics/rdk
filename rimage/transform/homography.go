@@ -124,6 +124,6 @@ func (dch *PinholeCameraHomography) PointCloudToImageWithDepth(
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the perspective of the color camera.
-func (dch *PinholeCameraHomography) ImagePointTo3DPoint(pt image.Point, iwd *rimage.ImageWithDepth) (r3.Vector, error) {
-	return intrinsics2DPtTo3DPt(pt, iwd, &dch.ColorCamera)
+func (dch *PinholeCameraHomography) ImagePointTo3DPoint(pt image.Point, d rimage.Depth) (r3.Vector, error) {
+	return intrinsics2DPtTo3DPt(pt, d, &dch.ColorCamera)
 }

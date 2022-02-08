@@ -36,6 +36,13 @@ func (i *Image) ColorModel() color.Model {
 	return &TheColorModel{}
 }
 
+// Clone makes a copy of the image.
+func (i *Image) Clone() *Image {
+	ii := NewImage(i.Width(), i.Height())
+	copy(ii.data, i.data)
+	return ii
+}
+
 // In returns whether or not a point is within bounds of this image.
 func (i *Image) In(x, y int) bool {
 	return x >= 0 && y >= 0 && x < i.width && y < i.height

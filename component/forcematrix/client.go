@@ -91,7 +91,7 @@ func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 	return resp.SlipDetected, nil
 }
 
-func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
+func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	matrix, err := c.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err

@@ -60,7 +60,7 @@ func RegisterService(subtype resource.Subtype, creator Service) {
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
 func ServiceLookup(subtype resource.Subtype) *Service {
-	registration, ok := serviceRegistry[subtype.String()]
+	registration, ok := RegisteredServices()[subtype.String()]
 	if ok {
 		return &registration
 	}
@@ -123,7 +123,7 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 // there is no creator registered.
 func ComponentLookup(subtype resource.Subtype, model string) *Component {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
-	if registration, ok := componentRegistry[qName]; ok {
+	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration
 	}
 	return nil
@@ -144,7 +144,7 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
 func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
-	if registration, ok := subtypeRegistry[subtype]; ok {
+	if registration, ok := RegisteredResourceSubtypes()[subtype]; ok {
 		return &registration
 	}
 	return nil

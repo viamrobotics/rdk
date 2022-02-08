@@ -47,7 +47,7 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	m.ctxWithCancel = ctxWithCancel
 
 	for _, s := range config.ConvertedAttributes.(*Config).Sources {
-		c, ok := r.InputControllerByName(s)
+		c, ok := input.FromRobot(r, s)
 		if !ok {
 			return nil, errors.Errorf("cannot find input.Controller named: %s", s)
 		}

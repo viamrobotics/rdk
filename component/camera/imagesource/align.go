@@ -33,13 +33,13 @@ func init() {
 			}
 
 			colorName := attrs.Color
-			color, ok := r.CameraByName(colorName)
+			color, ok := camera.FromRobot(r, colorName)
 			if !ok {
 				return nil, errors.Errorf("cannot find color camera (%s)", colorName)
 			}
 
 			depthName := attrs.Depth
-			depth, ok := r.CameraByName(depthName)
+			depth, ok := camera.FromRobot(r, depthName)
 			if !ok {
 				return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
 			}
@@ -93,20 +93,6 @@ func init() {
 				err = homography.CheckValid()
 			}
 			return homography, err
-		})
-
-	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "single_stream", "intrinsic",
-		func(val interface{}) (interface{}, error) {
-			intrinsics := &transform.PinholeCameraIntrinsics{}
-			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: intrinsics})
-			if err != nil {
-				return nil, err
-			}
-			err = decoder.Decode(val)
-			if err == nil {
-				err = intrinsics.CheckValid()
-			}
-			return intrinsics, err
 		})
 }
 

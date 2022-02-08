@@ -39,9 +39,9 @@ func init() {
 }
 
 type wheeledBase struct {
-	widthMillis              int
-	wheelCircumferenceMillis int
-	spinSlipFactor           float64
+	widthMm              int
+	wheelCircumferenceMm int
+	spinSlipFactor       float64
 
 	left      []motor.Motor
 	right     []motor.Motor
@@ -64,10 +64,10 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	// Send motor commands
 	var err error
 	for _, m := range base.left {
-		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
+		err = multierr.Combine(err, m.GoFor(ctx, -rpm, revolutions))
 	}
 	for _, m := range base.right {
-		err = multierr.Combine(err, m.GoFor(ctx, -1*rpm, revolutions))
+		err = multierr.Combine(err, m.GoFor(ctx, rpm, revolutions))
 	}
 
 	if err != nil {
@@ -81,9 +81,9 @@ func (base *wheeledBase) Spin(ctx context.Context, angleDeg float64, degsPerSec 
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) error {
+func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	// Stop the motors if the speed or distance are 0
-	if math.Abs(millisPerSec) < 0.0001 || distanceMillis == 0 {
+	if math.Abs(mmPerSec) < 0.0001 || distanceMm == 0 {
 		err := base.Stop(ctx)
 		if err != nil {
 			return errors.Errorf("error when trying to move straight at a speed and/or distance of 0: %v", err)
@@ -92,7 +92,7 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 	}
 
 	// Straight math
-	rpm, rotations := base.straightDistanceToMotorInfo(distanceMillis, millisPerSec)
+	rpm, rotations := base.straightDistanceToMotorInfo(distanceMm, mmPerSec)
 
 	// Send motor commands
 	for _, m := range base.allMotors {
@@ -109,9 +109,9 @@ func (base *wheeledBase) MoveStraight(ctx context.Context, distanceMillis int, m
 	return base.WaitForMotorsToStop(ctx)
 }
 
-func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) error {
+func (base *wheeledBase) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
 	// Stop the motors if the speed is 0
-	if math.Abs(millisPerSec) < 0.0001 {
+	if math.Abs(mmPerSec) < 0.0001 {
 		err := base.Stop(ctx)
 		if err != nil {
 			return errors.Errorf("error when trying to arc at a speed of 0: %v", err)
@@ -120,7 +120,7 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 	}
 
 	// Arc math
-	rpmLR, revLR := base.arcMath(distanceMillis, millisPerSec, angleDeg)
+	rpmLR, revLR := base.arcMath(distanceMm, mmPerSec, angleDeg)
 
 	// Send motor commands
 	var err error
@@ -145,8 +145,8 @@ func (base *wheeledBase) MoveArc(ctx context.Context, distanceMillis int, millis
 
 // returns rpm, revolutions for a spin motion.
 func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64, float64) {
-	wheelTravel := base.spinSlipFactor * float64(base.widthMillis) * math.Pi * angleDeg / 360.0
-	revolutions := wheelTravel / float64(base.wheelCircumferenceMillis)
+	wheelTravel := base.spinSlipFactor * float64(base.widthMm) * math.Pi * angleDeg / 360.0
+	revolutions := wheelTravel / float64(base.wheelCircumferenceMm)
 
 	// RPM = revolutions (unit) * deg/sec * (1 rot / 2pi deg) * (60 sec / 1 min) = rot/min
 	rpm := revolutions * degsPerSec * 30 / math.Pi
@@ -155,31 +155,31 @@ func (base *wheeledBase) spinMath(angleDeg float64, degsPerSec float64) (float64
 	return rpm, revolutions
 }
 
-func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angleDeg float64) ([]float64, []float64) {
+func (base *wheeledBase) arcMath(distanceMm int, mmPerSec float64, angleDeg float64) ([]float64, []float64) {
 	// Spin the base if the distance is 0
-	if distanceMillis == 0 {
-		rpm, revolutions := base.spinMath(angleDeg, millisPerSec)
-		rpms := []float64{rpm, -1 * rpm}
+	if distanceMm == 0 {
+		rpm, revolutions := base.spinMath(angleDeg, mmPerSec)
+		rpms := []float64{-rpm, rpm}
 		rots := []float64{revolutions, revolutions}
 
 		return rpms, rots
 	}
 
-	if distanceMillis < 0 {
-		distanceMillis *= -1
-		millisPerSec *= -1
+	if distanceMm < 0 {
+		distanceMm *= -1
+		mmPerSec *= -1
 	}
 
 	// Base calculations
-	v := millisPerSec
-	t := float64(distanceMillis) / millisPerSec
-	r := float64(base.wheelCircumferenceMillis) / (2.0 * math.Pi)
-	l := float64(base.widthMillis)
+	v := mmPerSec
+	t := float64(distanceMm) / mmPerSec
+	r := float64(base.wheelCircumferenceMm) / (2.0 * math.Pi)
+	l := float64(base.widthMm)
 
-	degsPerSec := angleDeg / 10 /// t
+	degsPerSec := angleDeg / t
 	w0 := degsPerSec / 180 * math.Pi
-	wL := (v / r) + (l * w0 / (2 * r))
-	wR := (v / r) - (l * w0 / (2 * r))
+	wL := (v / r) - (l * w0 / (2 * r))
+	wR := (v / r) + (l * w0 / (2 * r))
 
 	// Calculate # of rotations
 	rotL := wL * t / (2 * math.Pi)
@@ -195,10 +195,10 @@ func (base *wheeledBase) arcMath(distanceMillis int, millisPerSec float64, angle
 	return rpms, rots
 }
 
-func (base *wheeledBase) straightDistanceToMotorInfo(distanceMillis int, millisPerSec float64) (float64, float64) {
-	rotations := float64(distanceMillis) / float64(base.wheelCircumferenceMillis)
+func (base *wheeledBase) straightDistanceToMotorInfo(distanceMm int, mmPerSec float64) (float64, float64) {
+	rotations := float64(distanceMm) / float64(base.wheelCircumferenceMm)
 
-	rotationsPerSec := millisPerSec / float64(base.wheelCircumferenceMillis)
+	rotationsPerSec := mmPerSec / float64(base.wheelCircumferenceMm)
 	rpm := 60 * rotationsPerSec
 
 	return rpm, rotations
@@ -248,12 +248,12 @@ func (base *wheeledBase) Close(ctx context.Context) error {
 	return base.Stop(ctx)
 }
 
-func (base *wheeledBase) WidthGet(ctx context.Context) (int, error) {
-	return base.widthMillis, nil
+func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
+	return base.widthMm, nil
 }
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
-func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
 	frontLeft, ok := r.MotorByName(config.Attributes.String("frontLeft"))
 	if !ok {
 		return nil, errors.New("frontLeft motor not found")
@@ -272,19 +272,19 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 	}
 
 	base := &wheeledBase{
-		widthMillis:              config.Attributes.Int("widthMillis", 0),
-		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
-		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
-		left:                     []motor.Motor{frontLeft, backLeft},
-		right:                    []motor.Motor{frontRight, backRight},
+		widthMm:              config.Attributes.Int("widthMm", 0),
+		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
+		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
+		left:                 []motor.Motor{frontLeft, backLeft},
+		right:                []motor.Motor{frontRight, backRight},
 	}
 
-	if base.widthMillis == 0 {
-		return nil, errors.New("need a widthMillis for a four-wheel base")
+	if base.widthMm == 0 {
+		return nil, errors.New("need a widthMm for a four-wheel base")
 	}
 
-	if base.wheelCircumferenceMillis == 0 {
-		return nil, errors.New("need a wheelCircumferenceMillis for a four-wheel base")
+	if base.wheelCircumferenceMm == 0 {
+		return nil, errors.New("need a wheelCircumferenceMm for a four-wheel base")
 	}
 
 	base.allMotors = append(base.allMotors, base.left...)
@@ -294,19 +294,19 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 }
 
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error) {
+func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
-		widthMillis:              config.Attributes.Int("widthMillis", 0),
-		wheelCircumferenceMillis: config.Attributes.Int("wheelCircumferenceMillis", 0),
-		spinSlipFactor:           config.Attributes.Float64("spinSlipFactor", 1.0),
+		widthMm:              config.Attributes.Int("widthMm", 0),
+		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
+		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
 	}
 
-	if base.widthMillis == 0 {
-		return nil, errors.New("need a widthMillis for a wheeled base")
+	if base.widthMm == 0 {
+		return nil, errors.New("need a widthMm for a wheeled base")
 	}
 
-	if base.wheelCircumferenceMillis == 0 {
-		return nil, errors.New("need a wheelCircumferenceMillis for a wheeled base")
+	if base.wheelCircumferenceMm == 0 {
+		return nil, errors.New("need a wheelCircumferenceMm for a wheeled base")
 	}
 
 	for _, name := range config.Attributes.StringSlice("left") {

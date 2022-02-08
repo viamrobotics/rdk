@@ -12,9 +12,7 @@ import (
 
 const (
 	rest = iota
-	accelPhase
-	steadyStatePhase
-	deccelPhase
+	active
 )
 
 type trapezoidVelocityGenerator struct {
@@ -22,12 +20,19 @@ type trapezoidVelocityGenerator struct {
 	cfg          ControlBlockConfig
 	maxAcc       float64
 	maxVel       float64
+	lastVelCmd   float64
 	trapDistance float64
-	t            []float64
+	kPP          float64 //nolint: revive
+	kPP0         float64 //nolint: revive
+	vDec         float64
+	targetPos    float64
 	y            []Signal
 	currentPhase int
 	lastsetPoint float64
+	dir          int
 	logger       golog.Logger
+	posWindow    float64
+	kppGain      float64
 }
 
 func newTrapezoidVelocityProfile(config ControlBlockConfig, logger golog.Logger) (ControlBlock, error) {
@@ -39,9 +44,9 @@ func newTrapezoidVelocityProfile(config ControlBlockConfig, logger golog.Logger)
 }
 
 func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt time.Duration) ([]Signal, bool) {
+	var pos float64
+	var setPoint float64
 	if len(x) == 2 {
-		var pos float64
-		var setPoint float64
 		for _, sig := range x {
 			switch sig.name {
 			case "set_point":
@@ -52,48 +57,44 @@ func (s *trapezoidVelocityGenerator) Next(ctx context.Context, x []Signal, dt ti
 				return s.y, false
 			}
 		}
-		if setPoint != s.lastsetPoint {
+		if setPoint != s.lastsetPoint && s.currentPhase == rest && pos != setPoint {
 			s.lastsetPoint = setPoint
-			// Right now we support forward direction only
-			s.trapDistance = math.Abs(setPoint-pos) * 0.94
-			aT := s.maxVel / s.maxAcc
-			if 0.5*math.Pow(aT, 2.0)*s.maxAcc > s.trapDistance {
-				aT = math.Sqrt(s.trapDistance / s.maxAcc)
+			if setPoint < pos {
+				s.dir = -1
+			} else {
+				s.dir = 1
 			}
-			s.t[0] = aT
-			s.t[1] = s.t[0] + (s.trapDistance-math.Pow(aT, 2.0)*s.maxAcc)/s.maxVel
-			s.t[2] = s.t[1] + s.t[0]
-			s.currentPhase = accelPhase
+			s.trapDistance = math.Abs(setPoint - pos)
+			s.lastVelCmd = 0
+			s.vDec = math.Min(math.Sqrt(s.trapDistance*s.maxAcc), s.maxVel)
+			s.kPP0 = 2.0 * s.maxAcc / s.vDec
+			s.kPP = s.kppGain * s.kPP0
+			s.targetPos = s.trapDistance*float64(s.dir) + pos
 		}
 	}
-	for i := range s.t {
-		if s.t[i] > 0 {
-			s.t[i] -= dt.Seconds()
-			if s.t[i] < 0 {
-				s.currentPhase++
-			}
-		}
+	var posErr float64
+	if s.dir == 1 {
+		posErr = s.targetPos - pos
+	} else {
+		posErr = pos - s.targetPos
 	}
-	if s.currentPhase > deccelPhase {
+	if math.Abs(posErr) > s.posWindow {
+		s.currentPhase = active
+		velMfd := math.Pow(s.lastVelCmd, 2.0)*s.kPP0/(2.0*s.maxAcc) - s.lastVelCmd/s.vDec
+		vel := s.kPP*posErr - velMfd
+		velUp := math.Min(s.lastVelCmd+s.maxAcc*dt.Seconds(), s.maxVel)
+		velDown := math.Max(s.lastVelCmd-s.maxAcc*dt.Seconds(), -s.maxVel)
+		if vel > velUp {
+			vel = velUp
+		} else if vel < velDown {
+			vel = velDown
+		}
+		s.lastVelCmd = vel
+		s.y[0].SetSignalValueAt(0, vel*float64(s.dir))
+	} else {
+		s.y[0].SetSignalValueAt(0, 0.0)
 		s.currentPhase = rest
 	}
-	switch s.currentPhase {
-	case accelPhase:
-		// s.y[0].signal[0] = s.maxAcc
-		s.y[0].SetSignalValueAt(0, s.y[0].GetSignalValueAt(0)+dt.Seconds()*s.maxAcc)
-	//	s.y[2].signal[0] += s.y[1].signal[0]*dt.Seconds() + 0.5*math.Pow(dt.Seconds(), 2.0)*s.maxAcc
-	case steadyStatePhase:
-		// s.y[0].signal[0] = 0
-		s.y[0].SetSignalValueAt(0, s.maxVel)
-	//	s.y[2].signal[0] += s.y[1].signal[0] * dt.Seconds()
-	case deccelPhase:
-		// s.y[0].signal[0] = -s.maxAcc
-		//	s.y[2].signal[0] += s.y[1].signal[0]*dt.Seconds() - 0.5*math.Pow(dt.Seconds(), 2.0)*s.maxAcc
-		s.y[0].SetSignalValueAt(0, s.y[0].GetSignalValueAt(0)-dt.Seconds()*s.maxAcc)
-	default:
-		s.y[0].SetSignalValueAt(0, 0.0)
-	}
-
 	return s.y, true
 }
 
@@ -106,7 +107,8 @@ func (s *trapezoidVelocityGenerator) reset() error {
 	}
 	s.maxAcc = s.cfg.Attribute.Float64("max_acc", 0.0)
 	s.maxVel = s.cfg.Attribute.Float64("max_vel", 0.0)
-	s.t = make([]float64, 3)
+	s.posWindow = s.cfg.Attribute.Float64("pos_window", 10.0)
+	s.kppGain = s.cfg.Attribute.Float64("kpp_gain", 0.45)
 	s.currentPhase = rest
 	s.y = make([]Signal, 1)
 	s.y[0] = makeSignal(s.cfg.Name, 1)

@@ -467,6 +467,7 @@ var (
 	Yellow = NewColor(255, 255, 0)
 	Cyan   = NewColor(0, 255, 255)
 	Purple = NewColor(255, 0, 255)
+	Pink   = NewColor(100, 30, 40)
 
 	Colors = []Color{
 		Red,
@@ -480,5 +481,6 @@ var (
 		Yellow,
 		Cyan,
 		Purple,
+		Pink,
 	}
 )

@@ -63,7 +63,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	}
 	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
 	point := pose.Point()
-	translation := spatialmath.Translation{X: point.X, Y: point.Y, Z: point.Z}
+	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
 	frameConfig := &Frame{
 		Parent:      fsc.FrameConfig.Parent,
 		Translation: translation,
@@ -73,7 +73,7 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 		Name:        fsc.Name,
 		FrameConfig: frameConfig,
 	}
-	modelFrame, err := referenceframe.ParseJSON(fsc.ModelJson, fsc.Name)
+	modelFrame, err := referenceframe.UnmarshalModelJSON(fsc.ModelJson, fsc.Name)
 	if err != nil {
 		if errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return part, nil

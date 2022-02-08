@@ -22,7 +22,7 @@ var gripperjson []byte
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "fake", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			model, err := referenceframe.ParseJSON(gripperjson, "")
+			model, err := referenceframe.UnmarshalModelJSON(gripperjson, "")
 			if err != nil {
 				return nil, err
 			}

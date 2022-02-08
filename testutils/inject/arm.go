@@ -13,20 +13,19 @@ import (
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
-	CurrentPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
-	MoveToPositionFunc        func(ctx context.Context, c *commonpb.Pose) error
-	MoveToJointPositionsFunc  func(ctx context.Context, pos *pb.ArmJointPositions) error
-	CurrentJointPositionsFunc func(ctx context.Context) (*pb.ArmJointPositions, error)
-	JointMoveDeltaFunc        func(ctx context.Context, joint int, amount float64) error
-	CloseFunc                 func(ctx context.Context) error
+	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
+	MoveToPositionFunc       func(ctx context.Context, c *commonpb.Pose) error
+	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.ArmJointPositions) error
+	GetJointPositionsFunc    func(ctx context.Context) (*pb.ArmJointPositions, error)
+	CloseFunc                func(ctx context.Context) error
 }
 
-// CurrentPosition calls the injected CurrentPosition or the real version.
-func (a *Arm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	if a.CurrentPositionFunc == nil {
-		return a.Arm.CurrentPosition(ctx)
+// GetEndPosition calls the injected GetEndPosition or the real version.
+func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	if a.GetEndPositionFunc == nil {
+		return a.Arm.GetEndPosition(ctx)
 	}
-	return a.CurrentPositionFunc(ctx)
+	return a.GetEndPositionFunc(ctx)
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
@@ -45,20 +44,12 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 	return a.MoveToJointPositionsFunc(ctx, jp)
 }
 
-// CurrentJointPositions calls the injected CurrentJointPositions or the real version.
-func (a *Arm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	if a.CurrentJointPositionsFunc == nil {
-		return a.Arm.CurrentJointPositions(ctx)
+// GetJointPositions calls the injected GetJointPositions or the real version.
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	if a.GetJointPositionsFunc == nil {
+		return a.Arm.GetJointPositions(ctx)
 	}
-	return a.CurrentJointPositionsFunc(ctx)
-}
-
-// JointMoveDelta calls the injected JointMoveDelta or the real version.
-func (a *Arm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	if a.JointMoveDeltaFunc == nil {
-		return a.Arm.JointMoveDelta(ctx, joint, amountDegs)
-	}
-	return a.JointMoveDeltaFunc(ctx, joint, amountDegs)
+	return a.GetJointPositionsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

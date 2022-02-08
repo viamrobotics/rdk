@@ -1,13 +1,71 @@
-package input
+package input_test
 
 import (
 	"context"
 	"testing"
 
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/testutils/inject"
 )
+
+const (
+	testInputControllerName    = "inputController1"
+	testInputControllerName2   = "inputController2"
+	failInputControllerName    = "inputController3"
+	fakeInputControllerName    = "inputController4"
+	missingInputControllerName = "inputController5"
+)
+
+func setupInjectRobot() *inject.Robot {
+	inputController1 := &mock{Name: testInputControllerName}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name {
+		case input.Named(testInputControllerName):
+			return inputController1, true
+		case input.Named(fakeInputControllerName):
+			return "not an input controller", false
+		default:
+			return nil, false
+		}
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{input.Named(testInputControllerName), arm.Named("arm1")}
+	}
+	return r
+}
+
+func TestFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	res, ok := input.FromRobot(r, testInputControllerName)
+	test.That(t, res, test.ShouldNotBeNil)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	result, err := res.GetControls(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, controls)
+
+	res, ok = input.FromRobot(r, fakeInputControllerName)
+	test.That(t, res, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	res, ok = input.FromRobot(r, missingInputControllerName)
+	test.That(t, res, test.ShouldBeNil)
+	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestNamesFromRobot(t *testing.T) {
+	r := setupInjectRobot()
+
+	names := input.NamesFromRobot(r)
+	test.That(t, names, test.ShouldResemble, []string{testInputControllerName})
+}
 
 func TestInputControllerName(t *testing.T) {
 	for _, tc := range []struct {
@@ -22,71 +80,95 @@ func TestInputControllerName(t *testing.T) {
 				UUID: "48d8bd5e-629b-51c1-8bf8-f2f308942012",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: input.SubtypeName,
 				},
 				Name: "",
 			},
 		},
 		{
 			"all fields included",
-			"input1",
+			testInputControllerName,
 			resource.Name{
-				UUID: "bd8e8873-6bf0-52c7-9034-6527a245a943",
+				UUID: "6a00798b-dab4-5abc-b3d9-7fc45f9cfea0",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
-					ResourceSubtype: SubtypeName,
+					ResourceSubtype: input.SubtypeName,
 				},
-				Name: "input1",
+				Name: testInputControllerName,
 			},
 		},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
-			observed := Named(tc.Name)
+			observed := input.Named(tc.Name)
 			test.That(t, observed, test.ShouldResemble, tc.Expected)
 		})
 	}
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualInput1 Controller = &mock{Name: "input1"}
-	fakeInput1, err := WrapWithReconfigurable(actualInput1)
+	var actualInput1 input.Controller = &mock{Name: testInputControllerName}
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput1)
 
-	_, err = WrapWithReconfigurable(nil)
+	_, err = input.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
 
-	fakeInput2, err := WrapWithReconfigurable(fakeInput1)
+	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeInput2, test.ShouldEqual, fakeInput1)
+	test.That(t, reconfInput2, test.ShouldEqual, reconfInput1)
 }
 
 func TestReconfigurableInputController(t *testing.T) {
-	actualInput1 := &mock{Name: "input1"}
-	fakeInput1, err := WrapWithReconfigurable(actualInput1)
+	actualInput1 := &mock{Name: testInputControllerName}
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput1)
 
-	actualInput2 := &mock{Name: "input2"}
-	fakeInput2, err := WrapWithReconfigurable(actualInput2)
+	actualInput2 := &mock{Name: testInputControllerName2}
+	reconfInput2, err := input.WrapWithReconfigurable(actualInput2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), fakeInput2)
+	err = reconfInput1.Reconfigure(context.Background(), reconfInput2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakeInput1.(*reconfigurableInputController).actual, test.ShouldEqual, actualInput2)
+	test.That(t, reconfInput1, test.ShouldResemble, reconfInput2)
 	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
 
-	err = fakeInput1.(*reconfigurableInputController).Reconfigure(context.Background(), nil)
+	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
+	test.That(t, actualInput2.controlsCount, test.ShouldEqual, 0)
+	result, err := reconfInput1.(input.Controller).GetControls(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, controls)
+	test.That(t, actualInput1.controlsCount, test.ShouldEqual, 0)
+	test.That(t, actualInput2.controlsCount, test.ShouldEqual, 1)
+
+	err = reconfInput1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected new Controller")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *input.reconfigurableInputController")
 }
 
+func TestClose(t *testing.T) {
+	actualInput1 := &mock{Name: testInputControllerName}
+	reconfInput1, err := input.WrapWithReconfigurable(actualInput1)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 0)
+	test.That(t, utils.TryClose(context.Background(), reconfInput1), test.ShouldBeNil)
+	test.That(t, actualInput1.reconfCount, test.ShouldEqual, 1)
+}
+
+var controls = []input.Control{input.AbsoluteX}
+
 type mock struct {
-	Controller
-	Name        string
-	reconfCount int
+	input.Controller
+	Name          string
+	controlsCount int
+	reconfCount   int
+}
+
+func (m *mock) GetControls(ctx context.Context) ([]input.Control, error) {
+	m.controlsCount++
+	return controls, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }

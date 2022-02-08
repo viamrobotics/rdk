@@ -1,7 +1,6 @@
 package transform
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -21,15 +20,9 @@ type DepthColorWarpTransforms struct {
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the warp points.
-func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, ii *rimage.ImageWithDepth) (r3.Vector, error) {
-	if !ii.IsAligned() {
-		return r3.Vector{}, errors.New("image with depth is not aligned. will not return correct 3D point")
-	}
-	if !(point.In(ii.Bounds())) {
-		return r3.Vector{}, fmt.Errorf("point (%d,%d) not in image bounds (%d,%d)", point.X, point.Y, ii.Width(), ii.Height())
-	}
+func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, d rimage.Depth) (r3.Vector, error) {
 	i, j := float64(point.X-dct.OutputOrigin.X), float64(point.Y-dct.OutputOrigin.Y)
-	return r3.Vector{i, j, float64(ii.Depth.Get(point))}, nil
+	return r3.Vector{i, j, float64(d)}, nil
 }
 
 // ImageWithDepthToPointCloud TODO.

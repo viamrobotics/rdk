@@ -30,7 +30,7 @@ import (
 var modeljson []byte
 
 func dofbotModel() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(modeljson, "yahboom-dofbot")
+	return referenceframe.UnmarshalModelJSON(modeljson, "yahboom-dofbot")
 }
 
 type jointConfig struct {
@@ -101,8 +101,11 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 	if !ok {
 		return nil, fmt.Errorf("no board for yahboom-dofbot arm %s", config.Name)
 	}
-
-	i2c, ok := b.I2CByName(config.Attributes.String("i2c"))
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+	}
+	i2c, ok := localB.I2CByName(config.Attributes.String("i2c"))
 	if !ok {
 		return nil, fmt.Errorf("no i2c for yahboom-dofbot arm %s", config.Name)
 	}
@@ -120,9 +123,9 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 	return &a, nil
 }
 
-// CurrentPosition returns the current position of the arm.
-func (a *dofBot) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	joints, err := a.CurrentJointPositions(ctx)
+// GetEndPosition returns the current position of the arm.
+func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +134,7 @@ func (a *dofBot) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
 
 // MoveToPosition moves the arm to the given absolute position.
 func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
-	joints, err := a.CurrentJointPositions(ctx)
+	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
 	}
@@ -158,7 +161,7 @@ func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJ
 			a.mu.Lock()
 			defer a.mu.Unlock()
 
-			current, err := a.currentJointPositionsInLock(ctx)
+			current, err := a.GetJointPositionsInLock(ctx)
 			if err != nil {
 				return false, err
 			}
@@ -218,15 +221,15 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 	return a.handle.Write(ctx, buf)
 }
 
-// CurrentJointPositions returns the current joint positions of the arm.
-func (a *dofBot) CurrentJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+// GetJointPositions returns the current joint positions of the arm.
+func (a *dofBot) GetJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	return a.currentJointPositionsInLock(ctx)
+	return a.GetJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) currentJointPositionsInLock(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+func (a *dofBot) GetJointPositionsInLock(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 	pos := componentpb.ArmJointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
@@ -257,11 +260,6 @@ func (a *dofBot) readJointInLock(ctx context.Context, joint int) (float64, error
 
 	res = (res >> 8 & 0xff) | (res << 8 & 0xff00)
 	return joints[joint-1].toDegrees(int(res)), nil
-}
-
-// JointMoveDelta moves a specific joint of the arm by the given amount.
-func (a *dofBot) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	return errors.New("yahboom dofBot doesn't support JointMoveDelta")
 }
 
 // ModelFrame returns all the information necessary for including the arm in a FrameSystem.
@@ -316,7 +314,7 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 }
 
 func (a *dofBot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := a.CurrentJointPositions(ctx)
+	res, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
