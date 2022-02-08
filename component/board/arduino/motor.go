@@ -19,6 +19,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// SetPowerZeroThreshold represents a power below which value attempting
+// to run the motor simply stops it
+const SetPowerZeroThreshold = .0001
+
 // init registers an arduino motor.
 func init() {
 	_motor := registry.Component{
@@ -126,7 +130,7 @@ type arduinoMotor struct {
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) <= .0001 {
+	if math.Abs(powerPct) <= SetPowerZeroThreshold {
 		return m.Stop(ctx)
 	}
 
