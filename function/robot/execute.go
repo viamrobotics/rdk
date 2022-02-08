@@ -149,7 +149,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		}
 		stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
 		if !ok {
-			return nil, errors.Errorf("motor with name %s does not support GoTillStop", motorName)
+			return nil, motor.NewGoTillStopUnsupportedError(motorName)
 		}
 
 		rpm, err := args[1].Number()

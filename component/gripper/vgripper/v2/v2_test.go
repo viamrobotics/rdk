@@ -15,8 +15,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createWorkingMotor() *inject.Motor {
-	injectMotor := &inject.Motor{}
+func createWorkingMotor() *inject.GoTillStopSupportingMotor {
+	injectMotor := &inject.GoTillStopSupportingMotor{}
 	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
@@ -85,6 +85,32 @@ func TestNew(t *testing.T) {
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
+	})
+
+	t.Run("expect the motor to support GoTillStop", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return &inject.Board{}, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := &inject.Motor{}
+			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+				map[motor.Feature]bool, error,
+			) {
+				return map[motor.Feature]bool{
+					motor.PositionReporting: true,
+				}, nil
+			}
+			return fakeMotor, true
+		}
+		motorName := "badMotor"
+		cfg := config.Component{
+			Attributes: config.AttributeMap{
+				"motor": motorName,
+			},
+		}
+		_, err := newGripper(context.Background(), fakeRobot, cfg, logger)
+		test.That(t, err, test.ShouldBeError, motor.NewGoTillStopUnsupportedError(motorName))
 	})
 
 	t.Run("return error when not able to find current analog reader", func(t *testing.T) {
@@ -473,7 +499,7 @@ func TestProcessCurrentReading(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	t.Run("make sure calling Close shuts down the motor", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
+		fakeMotor := &inject.GoTillStopSupportingMotor{}
 		counter := 0
 		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
@@ -490,7 +516,7 @@ func TestClose(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	t.Run("make sure calling Stops shuts down the motor", func(t *testing.T) {
-		fakeMotor := &inject.Motor{}
+		fakeMotor := &inject.GoTillStopSupportingMotor{}
 		counter := 0
 		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++

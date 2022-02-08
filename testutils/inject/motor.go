@@ -2,7 +2,6 @@ package inject
 
 import (
 	"context"
-	"errors"
 
 	"go.viam.com/rdk/component/motor"
 )
@@ -13,7 +12,6 @@ type Motor struct {
 	SetPowerFunc          func(ctx context.Context, powerPct float64) error
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
-	GoTillStopFunc        func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
 	PositionFunc          func(ctx context.Context) (float64, error)
 	GetFeaturesFunc       func(ctx context.Context) (map[motor.Feature]bool, error)
@@ -43,18 +41,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 		return m.Motor.GoTo(ctx, rpm, positionRevolutions)
 	}
 	return m.GoToFunc(ctx, rpm, positionRevolutions)
-}
-
-// GoTillStop calls the injected GoTillStop or the real version.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	if m.GoTillStopFunc == nil {
-		stoppableMotor, ok := m.Motor.(motor.GoTillStopSupportingMotor)
-		if !ok {
-			return errors.New("underlying motor does not implement GoTillStop")
-		}
-		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
-	}
-	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }
 
 // ResetZeroPosition calls the injected Zero or the real version.
@@ -95,4 +81,21 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 		return m.Motor.IsPowered(ctx)
 	}
 	return m.IsPoweredFunc(ctx)
+}
+
+type GoTillStopSupportingMotor struct {
+	Motor
+	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
+}
+
+// GoTillStop calls the injected GoTillStop or the real version.
+func (m *GoTillStopSupportingMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+	if m.GoTillStopFunc == nil {
+		stoppableMotor, ok := m.Motor.Motor.(motor.GoTillStopSupportingMotor)
+		if !ok {
+			return motor.NewGoTillStopUnsupportedError("unknownName")
+		}
+		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
+	}
+	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }

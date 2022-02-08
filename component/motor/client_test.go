@@ -39,9 +39,6 @@ func TestClient(t *testing.T) {
 	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return nil
 	}
-	workingMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		return nil
-	}
 	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return nil
 	}
@@ -68,9 +65,6 @@ func TestClient(t *testing.T) {
 	}
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return errors.New("go to failed")
-	}
-	failingMotor.GoTillStopFunc = func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-		return errors.New("go till stop failed")
 	}
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return errors.New("set to zero failed")
