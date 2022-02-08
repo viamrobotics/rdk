@@ -14,6 +14,11 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// Epsilon represents the acceptable discrepancy between two floats
+// representing spatial coordinates wherin the coordinates should be
+// considered equivalent.
+const Epsilon = 1e-8
+
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
 // and the Orientation() method returns an Orientation object, which has methods to parametrize
@@ -170,12 +175,7 @@ func PoseAlmostEqual(a, b Pose) bool {
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
 // This uses the same epsilon as the default value for the Viam IK solver.
 func PoseAlmostCoincident(a, b Pose) bool {
-	const epsilon = 0.001
-	ap := a.Point()
-	bp := b.Point()
-	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
-		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
-		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
+	return PoseAlmostCoincidentEps(a, b, Epsilon)
 }
 
 // PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.

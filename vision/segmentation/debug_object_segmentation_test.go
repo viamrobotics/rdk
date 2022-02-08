@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugObjSeg = "VIAM_DEBUG_OBJSEG"
+const debugObjSeg = "VIAM_DEBUG"
 
 // Test finding the objects in an aligned intel image.
 type segmentObjectTestHelper struct {
@@ -36,13 +36,12 @@ func (h *segmentObjectTestHelper) Process(
 	ii := rimage.ConvertToImageWithDepth(img)
 	test.That(t, ii.IsAligned(), test.ShouldEqual, true)
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
-	ii.SetProjector(h.cameraParams)
 
 	pCtx.GotDebugImage(ii.Overlay(), "overlay")
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := ii.ToPointCloud()
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
@@ -107,7 +106,7 @@ func (h *gripperSegmentTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := ii.ToPointCloud()
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 

@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -37,8 +38,14 @@ func TestFrameModelPart(t *testing.T) {
 	}
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
-	pose := &pb.Pose{OZ: 1, Theta: 0} // zero pose
-	exp := &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}}
+	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
+	exp := &servicepb.FrameSystemServiceConfig{
+		Name: "test",
+		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{
+			Parent: "world",
+			Pose:   pose,
+		},
+	}
 	test.That(t, result.Name, test.ShouldEqual, exp.Name)
 	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
 	test.That(t, result.ModelJson, test.ShouldResemble, exp.ModelJson)
@@ -60,8 +67,12 @@ func TestFrameModelPart(t *testing.T) {
 	}
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
-	pose = &pb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
-	exp = &pb.FrameSystemConfig{Name: "test", FrameConfig: &pb.FrameConfig{Parent: "world", Pose: pose}, ModelJson: jsonData}
+	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
+	exp = &servicepb.FrameSystemServiceConfig{
+		Name:        "test",
+		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{Parent: "world", Pose: pose},
+		ModelJson:   jsonData,
+	}
 	test.That(t, result.Name, test.ShouldEqual, exp.Name)
 	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
 	test.That(t, result.ModelJson, test.ShouldNotBeNil)

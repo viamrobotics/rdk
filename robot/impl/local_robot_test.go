@@ -44,7 +44,7 @@ func TestConfig1(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	c1, ok := r.CameraByName("c1")
+	c1, ok := camera.FromRobot(r, "c1")
 	test.That(t, ok, test.ShouldBeTrue)
 	pic, _, err := c1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -362,7 +362,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					"func2": true,
 				},
 				Services: map[string]bool{
-					"rdk:service:web": true,
+					"rdk:service:web":          true,
+					"rdk:service:frame_system": true,
 				},
 			}
 
