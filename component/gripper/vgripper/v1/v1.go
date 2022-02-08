@@ -80,7 +80,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
 	if !ok {
-		return nil, errors.New("motor 'g' is not a GoTillStopSupportingMotor")
+		return nil, motor.NewGoTillStopUnsupportedError("g")
 	}
 	current, ok := theBoard.AnalogReaderByName("current")
 	if !ok {

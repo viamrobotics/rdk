@@ -220,7 +220,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	}
 	stoppableMotor, ok := steeringMotor.(motor.GoTillStopSupportingMotor)
 	if !ok {
-		return nil, errors.New("steering motor does not implement GoTillStop")
+		return nil, motor.NewGoTillStopUnsupportedError("steering")
 	}
 	b.steering = stoppableMotor
 

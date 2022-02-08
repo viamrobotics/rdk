@@ -107,7 +107,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 
 	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
 	if !ok {
-		return nil, errors.New("gripper motor must support GoTillStop")
+		return nil, motor.NewGoTillStopUnsupportedError(motorName)
 	}
 
 	currentAnalogReaderName := config.Attributes.String("current")

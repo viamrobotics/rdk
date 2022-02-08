@@ -88,7 +88,7 @@ func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []str
 		if ok {
 			stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
 			if !ok {
-				return errors.Errorf("motor named %s does not implement GoTillStop", n)
+				return motor.NewGoTillStopUnsupportedError(n)
 			}
 			a.m = append(a.m, stoppableMotor)
 		} else {
@@ -226,7 +226,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	}
 	stoppableHammer, ok := hammer.(motor.GoTillStopSupportingMotor)
 	if !ok {
-		return nil, errors.New("hammer motor does not implement GoTillStop")
+		return nil, motor.NewGoTillStopUnsupportedError("hammer")
 	}
 	b.hammer = stoppableHammer
 
