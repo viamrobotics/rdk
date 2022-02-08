@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -71,9 +72,9 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 }
 
 func newOverlay(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
-	source, ok := camera.FromRobot(r, attrs.Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+	source, err := camera.FromRobot(r, attrs.Source)
+	if err != nil {
+		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	return &camera.ImageSource{ImageSource: &overlaySource{source}}, nil
 }
@@ -96,9 +97,9 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 }
 
 func newDepthToPretty(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
-	source, ok := camera.FromRobot(r, attrs.Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+	source, err := camera.FromRobot(r, attrs.Source)
+	if err != nil {
+		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	return &camera.ImageSource{ImageSource: &depthToPretty{source}}, nil
 }

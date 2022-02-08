@@ -36,6 +36,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	var ok bool
+	var err error
 
 	g.motor, ok = r.MotorByName(config.Attributes.String("motor"))
 	if !ok {
@@ -46,9 +47,9 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	if len(g.limitSwitchPins) != 2 {
 		return nil, errors.New("need 2 limitPins")
 	}
-	g.limitBoard, ok = board.FromRobot(r, config.Attributes.String("limitBoard"))
-	if !ok {
-		return nil, errors.New("cannot find board for gantry")
+	g.limitBoard, err = board.FromRobot(r, config.Attributes.String("limitBoard"))
+	if err != nil {
+		return nil, err
 	}
 	g.limitHigh = config.Attributes.Bool("limitHigh", true)
 

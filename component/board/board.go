@@ -180,15 +180,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named board from the given Robot.
-func FromRobot(r robot.Robot, name string) (Board, bool) {
+func FromRobot(r robot.Robot, name string) (Board, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Board)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Board)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Board", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.
@@ -426,7 +427,7 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	board, ok := r.(LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be LocalBoard but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalBoard", r)
 	}
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil

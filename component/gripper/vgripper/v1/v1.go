@@ -33,9 +33,9 @@ func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 			const boardName = "local"
-			b, ok := board.FromRobot(r, boardName)
-			if !ok {
-				return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
+			b, err := board.FromRobot(r, boardName)
+			if err != nil {
+				return nil, err
 			}
 			return newGripperV1(ctx, r, b, config, logger)
 		},

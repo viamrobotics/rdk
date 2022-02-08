@@ -450,11 +450,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	_, ok := base.FromRobot(client, "base1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base1")
+	test.That(t, err, test.ShouldBeNil)
 
-	arm1, ok := arm.FromRobot(client, "arm1")
-	test.That(t, ok, test.ShouldBeTrue)
+	arm1, err := arm.FromRobot(client, "arm1")
+	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -471,8 +471,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	gripper1, ok := gripper.FromRobot(client, "gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
+	gripper1, err := gripper.FromRobot(client, "gripper1")
+	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
@@ -480,8 +480,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-	servo1, ok := servo.FromRobot(client, "servo1")
-	test.That(t, ok, test.ShouldBeTrue)
+	servo1, err := servo.FromRobot(client, "servo1")
+	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 5)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
@@ -498,24 +498,23 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
 
-	board1, ok := board.FromRobot(client, "board1")
-	test.That(t, ok, test.ShouldBeTrue)
+	board1, err := board.FromRobot(client, "board1")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldNotBeNil)
-
 	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
 
 	_, err = board1.Status(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
-	camera1, ok := camera.FromRobot(client, "camera1")
-	test.That(t, ok, test.ShouldBeTrue)
+	camera1, err := camera.FromRobot(client, "camera1")
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = camera1.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
+	sensorDevice, err := sensor.FromRobot(client, "sensor1")
+	test.That(t, err, test.ShouldBeNil)
 	_, err = sensorDevice.GetReadings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
@@ -549,33 +548,33 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	_, ok = base.FromRobot(client, "base1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base1")
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = base.FromRobot(client, "base2")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base2")
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = base.FromRobot(client, "base3")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base3")
+	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, ok = arm.FromRobot(client, "arm1")
-	test.That(t, ok, test.ShouldBeTrue)
+	arm1, err = arm.FromRobot(client, "arm1")
+	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	gripper1, ok = gripper.FromRobot(client, "gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
+	gripper1, err = gripper.FromRobot(client, "gripper1")
+	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 	gripperOpenCalled = false
 
-	servo1, ok = servo.FromRobot(client, "servo1")
-	test.That(t, ok, test.ShouldBeTrue)
+	servo1, err = servo.FromRobot(client, "servo1")
+	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
@@ -585,22 +584,22 @@ func TestClient(t *testing.T) {
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
 	motor1, ok = client.MotorByName("motor1")
-	test.That(t, motor1, test.ShouldNotBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, motor1, test.ShouldNotBeNil)
 
 	motor2, ok := client.MotorByName("motor2")
+	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, motor2, test.ShouldNotBeNil)
+
+	_, err = board.FromRobot(client, "board1")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, ok, test.ShouldBeTrue)
 
-	board1, ok = board.FromRobot(client, "board1")
-	test.That(t, board1, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = board.FromRobot(client, "board3")
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = board.FromRobot(client, "board3")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	camera1, ok = camera.FromRobot(client, "camera1")
-	test.That(t, ok, test.ShouldBeTrue)
+	camera1, err = camera.FromRobot(client, "camera1")
+	test.That(t, err, test.ShouldBeNil)
 	frame, _, err := camera1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	compVal, _, err := rimage.CompareImages(img, frame)
@@ -608,8 +607,8 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 
-	inputDev, ok := input.FromRobot(client, "inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
+	inputDev, err := input.FromRobot(client, "inputController1")
+	test.That(t, err, test.ShouldBeNil)
 	controlList, err := inputDev.GetControls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})

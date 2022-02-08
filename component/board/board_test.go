@@ -29,7 +29,7 @@ func setupInjectRobot() *inject.Robot {
 		case board.Named(testBoardName):
 			return board1, true
 		case board.Named(fakeBoardName):
-			return "not a board", false
+			return "not a board", true
 		default:
 			return nil, false
 		}
@@ -43,21 +43,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := board.FromRobot(r, testBoardName)
+	res, err := board.FromRobot(r, testBoardName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := res.(board.LocalBoard).GetGPIO(context.Background(), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
-	res, ok = board.FromRobot(r, fakeBoardName)
+	res, err = board.FromRobot(r, fakeBoardName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Board")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = board.FromRobot(r, missingBoardName)
+	res, err = board.FromRobot(r, missingBoardName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -118,7 +120,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = board.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalBoard")
 
 	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
 	test.That(t, err, test.ShouldBeNil)
