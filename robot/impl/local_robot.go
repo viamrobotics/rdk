@@ -199,7 +199,11 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	if !ok {
 		return nil, errors.New("service is not a frame_system service")
 	}
-	baseFrameSys, err := fsService.LocalFrameSystem(ctx, name)
+	parts, err := fsService.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
 	if err != nil {
 		return nil, err
 	}
