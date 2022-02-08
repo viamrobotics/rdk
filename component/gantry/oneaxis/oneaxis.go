@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -29,13 +30,14 @@ const modelname = "oneaxis"
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
-	Board           string   `json:"board"` // used to read limit switch pins and control motor with gpio pins
-	Motor           string   `json:"motor"`
-	LimitSwitchPins []string `json:"limit_pins"`
-	LimitPinEnabled bool     `json:"limit_pin_enabled"`
-	LengthMm        float64  `json:"length_mm"`
-	ReductionRatio  float64  `json:"reduction_ratio"`
-	GantryRPM       float64  `json:"gantry_rpm"`
+	Board           string                    `json:"board"` // used to read limit switch pins and control motor with gpio pins
+	Motor           string                    `json:"motor"`
+	LimitSwitchPins []string                  `json:"limit_pins"`
+	LimitPinEnabled bool                      `json:"limit_pin_enabled"`
+	LengthMm        float64                   `json:"length_mm"`
+	ReductionRatio  float64                   `json:"reduction_ratio"`
+	GantryRPM       float64                   `json:"gantry_rpm"`
+	Axis            spatial.TranslationConfig `json:"axis"`
 }
 
 //go:embed oneaxis-kinematics.json
@@ -61,14 +63,17 @@ func (config *AttrConfig) Validate(path string) error {
 
 	if len(config.LimitSwitchPins) == 1 && config.ReductionRatio == 0 {
 		return utils.NewConfigValidationError(path,
-			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"),
-		)
+			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"))
 	}
 
-	// Need another way to test if LimitHigh is unset.
-	// if config.LimitHigh {
-	//		return utils.NewConfigValidationFieldRequiredError(path, "limitHigh")
-	// }
+	if config.Axis.X == 0 && config.Axis.Y == 0 && config.Axis.Z == 0 {
+		return utils.NewConfigValidationError(path, errors.New("gantry axis undefined, need one translational axis"))
+	}
+
+	if config.Axis.X == 1 && config.Axis.Y == 1 ||
+		config.Axis.X == 1 && config.Axis.Z == 1 || config.Axis.Y == 1 && config.Axis.Z == 1 {
+		return utils.NewConfigValidationError(path, errors.New("only one translational axis of movement allowed for single axis gantry"))
+	}
 
 	return nil
 }
@@ -114,7 +119,7 @@ type oneAxis struct {
 	rpm            float64
 
 	model referenceframe.Model
-	axes  r3.Vector // TODO (rh) convert to r3.Vector once #471 is merged.
+	axis  r3.Vector // TODO (rh) convert to r3.Vector once #471 is merged.
 
 	logger golog.Logger
 }
@@ -160,15 +165,15 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		lengthMm:        gconf.LengthMm,
 		reductionRatio:  gconf.ReductionRatio,
 		rpm:             gconf.GantryRPM,
-		axes:            r3.Vector{}, // revisit axes def afer #471 (rh)
+		axis:            r3.Vector(gconf.Axis), // revisit axes def afer #471 (rh)
 	}
 
-	switch {
-	case len(gantry.limitSwitchPins) == 1:
+	switch len(gantry.limitSwitchPins) {
+	case 1:
 		gantry.limitType = switchLimitTypeOnePin
-	case len(gantry.limitSwitchPins) == 2:
+	case 2:
 		gantry.limitType = switchLimitTypetwoPin
-	case len(gantry.limitSwitchPins) == 0:
+	case 0:
 		gantry.limitType = switchLimitTypeEncoder
 		return nil, errors.New("encoder currently not supported")
 	default:
@@ -416,7 +421,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(g.name, r3.Vector{1, 0, 0}, referenceframe.Limit{0, g.lengthMm})
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
 	if err != nil {
 		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
 	}

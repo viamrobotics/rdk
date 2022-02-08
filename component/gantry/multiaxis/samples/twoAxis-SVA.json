@@ -2,7 +2,7 @@
     "name": "threeaxisgantry",
     "links": [
         {
-            "id": "xaxis",
+            "id": "xaxis_link",
             "parent": "world",
             "translation": {
                 "x": 90,
@@ -11,8 +11,8 @@
             }
         },
         {
-            "id": "yaxis",
-            "parent": "zaxis",
+            "id": "yaxis_link",
+            "parent": "xaxis_link",
             "translation": {
                 "x": 0,
                 "y": 90,
@@ -21,7 +21,7 @@
         },
         {
             "id": "endeffector",
-            "parent": "yaxis",
+            "parent": "yaxis_link",
             "translation": {
                 "x": 0,
                 "y": 0,
