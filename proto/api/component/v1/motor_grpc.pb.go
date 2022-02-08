@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MotorServiceClient interface {
 	// SetPower sets the percentage of the motor's total power that should be employed
-	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// expressed a value between -1 and 1 where negative values indicate a backwards
 	// direction and positive values a forward direction
 	SetPower(ctx context.Context, in *MotorServiceSetPowerRequest, opts ...grpc.CallOption) (*MotorServiceSetPowerResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
@@ -131,7 +131,7 @@ func (c *motorServiceClient) IsPowered(ctx context.Context, in *MotorServiceIsPo
 // for forward compatibility
 type MotorServiceServer interface {
 	// SetPower sets the percentage of the motor's total power that should be employed
-	// expressed a value between -1 and 1 where negative values indiciate a backwards
+	// expressed a value between -1 and 1 where negative values indicate a backwards
 	// direction and positive values a forward direction
 	SetPower(context.Context, *MotorServiceSetPowerRequest) (*MotorServiceSetPowerResponse, error)
 	// GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,

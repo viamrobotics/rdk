@@ -10,11 +10,11 @@ import "google/api/annotations.proto";
 // A MotorService maintains all motors associated with a robot
 service MotorService {
   // SetPower sets the percentage of the motor's total power that should be employed
-  // expressed a value between -1 and 1 where negative values indiciate a backwards
+  // expressed a value between -1 and 1 where negative values indicate a backwards
   // direction and positive values a forward direction
   rpc SetPower(MotorServiceSetPowerRequest) returns (MotorServiceSetPowerResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/power"
+      put: "/api/v1/component/motor/{name}/power"
     };
   }
 
@@ -23,7 +23,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc GoFor(MotorServiceGoForRequest) returns (MotorServiceGoForResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_for"
+      put: "/api/v1/component/motor/{name}/go_for"
     };
   }
 
@@ -32,7 +32,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc GoTo(MotorServiceGoToRequest) returns (MotorServiceGoToResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_to"
+      put: "/api/v1/component/motor/{name}/go_to"
     };
   }
 
@@ -40,7 +40,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc ResetZeroPosition(MotorServiceResetZeroPositionRequest) returns (MotorServiceResetZeroPositionResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/zero"
+      put: "/api/v1/component/motor/{name}/zero"
     };
   }
 
@@ -48,14 +48,14 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc Position(MotorServicePositionRequest) returns (MotorServicePositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position"
+      get: "/api/v1/component/motor/{name}/position"
     };
   }
 
   // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
   rpc GetFeatures(MotorServiceGetFeaturesRequest) returns (MotorServiceGetFeaturesResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/get_features"
+      get: "/api/v1/component/motor/{name}/get_features"
     };
   }
 
@@ -64,7 +64,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/off"
+      put: "/api/v1/component/motor/{name}/off"
     };
   }
 
@@ -72,7 +72,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc IsPowered(MotorServiceIsPoweredRequest) returns (MotorServiceIsPoweredResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/is_on"
+      get: "/api/v1/component/motor/{name}/is_on"
     };
   }
 }
