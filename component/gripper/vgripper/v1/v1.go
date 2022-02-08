@@ -54,7 +54,7 @@ const (
 
 // gripperV1 represents a Viam gripper with a single force sensor cell.
 type gripperV1 struct {
-	motor    motor.GoTillStopSupportingMotor
+	motor    motor.LocalMotor
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
@@ -78,7 +78,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if !ok {
 		return nil, errors.New("failed to find motor 'g'")
 	}
-	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	if !ok {
 		return nil, motor.NewGoTillStopUnsupportedError("g")
 	}

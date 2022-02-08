@@ -77,7 +77,7 @@ var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
-	m        []motor.GoTillStopSupportingMotor
+	m        []motor.LocalMotor
 	mmPerRev float64
 }
 
@@ -86,7 +86,7 @@ func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []str
 	for _, n := range names {
 		_motor, ok := robot.MotorByName(n)
 		if ok {
-			stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+			stoppableMotor, ok := _motor.(motor.LocalMotor)
 			if !ok {
 				return motor.NewGoTillStopUnsupportedError(n)
 			}
@@ -122,7 +122,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, _ func(ctx c
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
-		go func(motor motor.GoTillStopSupportingMotor) {
+		go func(motor motor.LocalMotor) {
 			defer homeWorkers.Done()
 			multierr.AppendInto(&errs, motor.GoTillStop(ctx, speed*60/a.mmPerRev, nil))
 		}(m)
@@ -184,7 +184,7 @@ type ResetBox struct {
 	gate, squeeze    LinearAxis
 	elevator         LinearAxis
 	tipper, vibrator motor.Motor
-	hammer           motor.GoTillStopSupportingMotor
+	hammer           motor.LocalMotor
 	arm              arm.Arm
 	gripper          gripper.Gripper
 
@@ -224,7 +224,7 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	if !ok {
 		return nil, errors.New("can't find motor named: hammer")
 	}
-	stoppableHammer, ok := hammer.(motor.GoTillStopSupportingMotor)
+	stoppableHammer, ok := hammer.(motor.LocalMotor)
 	if !ok {
 		return nil, motor.NewGoTillStopUnsupportedError("hammer")
 	}

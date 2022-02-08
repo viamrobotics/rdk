@@ -80,7 +80,7 @@ type boat struct {
 
 	squirt, thrust  motor.Motor
 	starboard, port motor.Motor
-	steering        motor.GoTillStopSupportingMotor
+	steering        motor.LocalMotor
 	middle          float64
 	steeringRange   float64
 
@@ -218,7 +218,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	if !ok {
 		return nil, errors.New("no steering motor")
 	}
-	stoppableMotor, ok := steeringMotor.(motor.GoTillStopSupportingMotor)
+	stoppableMotor, ok := steeringMotor.(motor.LocalMotor)
 	if !ok {
 		return nil, motor.NewGoTillStopUnsupportedError("steering")
 	}
