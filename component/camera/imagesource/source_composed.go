@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -25,14 +26,18 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthToPretty(r, config.ConvertedAttributes.(*rimage.AttrConfig))
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			return newDepthToPretty(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_to_pretty",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -43,14 +48,18 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newOverlay(r, config.ConvertedAttributes.(*rimage.AttrConfig))
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			return newOverlay(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "overlay",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 type overlaySource struct {
@@ -70,12 +79,13 @@ func (os *overlaySource) Next(ctx context.Context) (image.Image, func(), error) 
 	return ii.Overlay(), func() {}, nil
 }
 
-func newOverlay(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+func newOverlay(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, ok := camera.FromRobot(r, attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
-	return &camera.ImageSource{ImageSource: &overlaySource{source}}, nil
+	imgSrc := &overlaySource{source}
+	return camera.New(imgSrc, attrs, source)
 }
 
 type depthToPretty struct {
@@ -95,10 +105,11 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
 }
 
-func newDepthToPretty(r robot.Robot, attrs *rimage.AttrConfig) (camera.Camera, error) {
+func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
 	source, ok := camera.FromRobot(r, attrs.Source)
 	if !ok {
 		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
 	}
-	return &camera.ImageSource{ImageSource: &depthToPretty{source}}, nil
+	imgSrc := &depthToPretty{source}
+	return camera.New(imgSrc, attrs, source)
 }

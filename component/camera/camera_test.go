@@ -5,13 +5,16 @@ import (
 	"image"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/artifact"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -178,3 +181,51 @@ func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (m *mock) Close() { m.reconfCount++ }
+
+type simpleSource struct {
+	filePath string
+}
+
+func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
+	img, err := rimage.NewImageFromFile(s.filePath)
+	return img, func() {}, err
+}
+
+func TestNewCamera(t *testing.T) {
+	attrs1 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
+	attrs2 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
+	imgSrc := &simpleSource{artifact.MustPath("rimage/board1.png")}
+
+	_, err := camera.New(nil, nil, nil)
+	test.That(t, err, test.ShouldBeError, errors.New("cannot have a nil image source"))
+
+	cam1, err := camera.New(imgSrc, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok := cam1.(camera.WithProjector)
+	test.That(t, ok, test.ShouldBeFalse)
+
+	cam2, err := camera.New(imgSrc, attrs1, cam1)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam2.(camera.WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+
+	cam3, err := camera.New(imgSrc, nil, cam2)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam3.(camera.WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam3.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam2.(camera.WithProjector).GetProjector())
+
+	cam4, err := camera.New(imgSrc, attrs2, cam2)
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam4.(camera.WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam4.(camera.WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(camera.WithProjector).GetProjector())
+
+	fakeCamera, err := camera.WrapWithReconfigurable(cam4)
+	test.That(t, err, test.ShouldBeNil)
+	cam5, err := camera.New(imgSrc, nil, fakeCamera.(camera.Camera))
+	test.That(t, err, test.ShouldBeNil)
+	_, ok = cam5.(camera.WithProjector)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
+}

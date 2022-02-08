@@ -27,7 +27,7 @@ func (ddd MyDebug) Process(
 		return err
 	}
 
-	pc := rimage.MakeImageWithDepth(rimage.ConvertImage(img), dm, false, nil)
+	pc := rimage.MakeImageWithDepth(rimage.ConvertImage(img), dm, false)
 
 	pc, err = pc.CropToDepthData()
 	if err != nil {
