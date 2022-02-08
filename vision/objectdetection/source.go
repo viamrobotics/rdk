@@ -35,7 +35,7 @@ type Source struct {
 }
 
 // NewSource builds the pipeline from an input ImageSource, Preprocessor, Detector and  Postprocessor.
-func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, post Postprocessor) (*Source, error) {
+func NewSource(src gostream.ImageSource, proj rimage.Projector, prep Preprocessor, det Detector, post Postprocessor) (*Source, error) {
 	// fill optional functions with identity operators
 	if src == nil {
 		return nil, errors.New("object detection source must include an image source to pull from")
