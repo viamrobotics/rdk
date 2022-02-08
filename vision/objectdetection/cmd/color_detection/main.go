@@ -43,8 +43,12 @@ func main() {
 		logger.Fatal("cannot have both a path argument and a url argument for image source, must choose one")
 	}
 	if *imgPtr != "" {
-		src := &camera.ImageSource{ImageSource: &simpleSource{*imgPtr}}
-		pipeline(src, *threshPtr, *sizePtr, logger)
+		src := &simpleSource{*imgPtr}
+		cam, err := camera.New(src, nil, nil)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		pipeline(cam, *threshPtr, *sizePtr, logger)
 	} else {
 		u, err := url.Parse(*urlPtr)
 		if err != nil {
@@ -61,7 +65,7 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		cfg := &rimage.AttrConfig{Host: host, Port: int(portNum), Args: args, Stream: *streamPtr, Aligned: false}
+		cfg := &camera.AttrConfig{Host: host, Port: int(portNum), Args: args, Stream: *streamPtr, Aligned: false}
 		src, err := imagesource.NewServerSource(cfg, logger)
 		if err != nil {
 			logger.Fatal(err)

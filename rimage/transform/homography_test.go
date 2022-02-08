@@ -12,7 +12,8 @@ import (
 )
 
 type homographyTestHelper struct {
-	params *PinholeCameraHomography
+	params *DepthColorHomography
+	proj   *PinholeCameraIntrinsics
 }
 
 func (h *homographyTestHelper) Process(
@@ -27,7 +28,7 @@ func (h *homographyTestHelper) Process(
 	ii := rimage.ConvertToImageWithDepth(img)
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth_homography")
 
-	fixed, err := h.params.AlignImageWithDepth(ii)
+	fixed, err := h.params.AlignColorAndDepthImage(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(fixed.Color, "color-fixed_homography")
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed_homography")
@@ -35,12 +36,12 @@ func (h *homographyTestHelper) Process(
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay_homography")
 
 	// get pointcloud
-	pc, err := fixed.ToPointCloud()
+	pc, err := h.proj.ImageWithDepthToPointCloud(fixed)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_homography")
 
 	// go back to image with depth
-	roundTrip, err := h.params.PointCloudToImageWithDepth(pc)
+	roundTrip, err := h.proj.PointCloudToImageWithDepth(pc)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(roundTrip.Overlay(), "from-pointcloud_homography")
 
@@ -66,8 +67,8 @@ func TestNewHomography(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestPinholeCameraHomography(t *testing.T) {
-	intrinsics := PinholeCameraIntrinsics{ // color camera intrinsic parameters
+func TestDepthColorHomography(t *testing.T) {
+	intrinsics := &PinholeCameraIntrinsics{ // color camera intrinsic parameters
 		Width:      1024,
 		Height:     768,
 		Fx:         821.32642889,
@@ -77,8 +78,7 @@ func TestPinholeCameraHomography(t *testing.T) {
 		Distortion: DistortionModel{0.11297234, -0.21375332, -0.01584774, -0.00302002, 0.19969297},
 	}
 
-	conf := &RawPinholeCameraHomography{
-		ColorCamera: intrinsics,
+	conf := &RawDepthColorHomography{
 		Homography: []float64{
 			2.32700501e-01,
 			-8.33535395e-03,
@@ -94,9 +94,9 @@ func TestPinholeCameraHomography(t *testing.T) {
 		RotateDepth:  -90,
 	}
 
-	dch, err := NewPinholeCameraHomography(conf)
+	dch, err := NewDepthColorHomography(conf)
 	test.That(t, err, test.ShouldBeNil)
 	d := rimage.NewMultipleImageTestDebugger(t, "transform/homography", "*.both.gz", false)
-	err = d.Process(t, &homographyTestHelper{dch})
+	err = d.Process(t, &homographyTestHelper{dch, intrinsics})
 	test.That(t, err, test.ShouldBeNil)
 }
