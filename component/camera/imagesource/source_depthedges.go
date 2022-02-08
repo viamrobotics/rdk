@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -26,14 +27,18 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newDepthEdgesSource(r, config)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			return newDepthEdgesSource(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "depth_edges",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 // depthEdgesSource applies a Canny Edge Detector to the depth map of the ImageWithDepth.
@@ -61,11 +66,12 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 	return edges, func() {}, nil
 }
 
-func newDepthEdgesSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, err := camera.FromRobot(r, config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+func newDepthEdgesSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
+	source, err := camera.FromRobot(r, attrs.Source)
 	if err != nil {
-		return nil, fmt.Errorf("no source camera (%s): %w", config.ConvertedAttributes.(*rimage.AttrConfig).Source, err)
+		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
-	return &camera.ImageSource{ImageSource: &depthEdgesSource{source, canny, 3.0}}, nil
+	imgSrc := &depthEdgesSource{source, canny, 3.0}
+	return camera.New(imgSrc, attrs, source)
 }
