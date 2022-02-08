@@ -151,7 +151,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		lengthMm:        gconf.LengthMm,
 		reductionRatio:  gconf.ReductionRatio,
 		rpm:             gconf.GantryRPM,
-		axis:            r3.Vector(gconf.Axis), // revisit axes def afer #471 (rh)
+		axis:            r3.Vector(gconf.Axis),
 	}
 
 	switch len(gantry.limitSwitchPins) {

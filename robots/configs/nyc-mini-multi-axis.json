@@ -62,10 +62,14 @@
           "10",
           "11"
         ],
+        "axis": {
+          "X": 1,
+          "Y": 0,
+          "Z": 0
+        },
         "motor": "xmotor",
         "gantry_rpm": 300
-      },
-      "depends_on": "xmotor"
+      }
     },
     {
       "model": "oneAxis",
@@ -79,10 +83,14 @@
           "12",
           "13"
         ],
+        "axis": {
+          "X": 0 ,
+          "Y": 1,
+          "Z":0
+        },
         "motor": "ymotor",
         "gantry_rpm": 300
-      },
-      "depends_on": "ymotor"
+      }
     },
     {
       "model": "oneAxis",
@@ -96,10 +104,14 @@
           "5",
           "6"
         ],
+        "axis": {
+          "X": 0,
+          "Y": 0,
+          "Z": 0
+        },
         "motor": "zmotor",
         "gantry_rpm": 300
-      },
-      "depends_on": "zmotor"
+      }
     },
     {
       "model": "mini-multi-axis",
