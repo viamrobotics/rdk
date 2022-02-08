@@ -2,7 +2,6 @@ package server_test
 
 import (
 	"context"
-	"math"
 	"testing"
 	"time"
 
@@ -19,12 +18,9 @@ import (
 	grpcserver "go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/objectmanipulation"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -129,103 +125,6 @@ func TestServer(t *testing.T) {
 		test.That(t, statusResp.Components[0].Name, test.ShouldEqual, cfg.Components[0].Name)
 		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Frame.Parent)
 		test.That(t, statusResp.Components[0].Type, test.ShouldResemble, string(cfg.Components[0].Type))
-	})
-
-	t.Run("FrameServiceConfig", func(t *testing.T) {
-		server, injectRobot := newServer()
-
-		// create a basic frame system
-		fsConfigs := []*config.FrameSystemPart{
-			{
-				Name: "frame1",
-				FrameConfig: &config.Frame{
-					Parent:      referenceframe.World,
-					Translation: spatialmath.TranslationConfig{1, 2, 3},
-					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-				},
-			},
-			{
-				Name: "frame2",
-				FrameConfig: &config.Frame{
-					Parent:      "frame1",
-					Translation: spatialmath.TranslationConfig{1, 2, 3},
-				},
-			},
-		}
-		fss := &inject.FrameSystemService{}
-		fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-			return fsConfigs, nil
-		}
-		// set up the robot without a frame system service
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			services := make(map[resource.Name]interface{})
-			service, ok := services[name]
-			return service, ok
-		}
-		_, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("no framesystem service"))
-
-		// set up the robot with something that is not a framesystem service
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			services := make(map[resource.Name]interface{})
-			services[framesystem.Name] = nil
-			service, ok := services[name]
-			return service, ok
-		}
-		_, err = server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeError, errors.New("service is not a framesystem.Service"))
-
-		// set up the robot with the frame system
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			services := make(map[resource.Name]interface{})
-			services[framesystem.Name] = fss
-			service, ok := services[name]
-			return service, ok
-		}
-
-		fssResp, err := server.FrameServiceConfig(context.Background(), &pb.FrameServiceConfigRequest{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(fssResp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
-		test.That(t, fssResp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
-		test.That(t, fssResp.FrameSystemConfigs[0].FrameConfig.Parent, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.X,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.X,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Y,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Y,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Z,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Translation.Z,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OX,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OY,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.OZ,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ,
-		)
-		test.That(t,
-			fssResp.FrameSystemConfigs[0].FrameConfig.Pose.Theta,
-			test.ShouldAlmostEqual,
-			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
-		)
-		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
-		_, err = referenceframe.UnmarshalModelJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
-		test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 	})
 
 	t.Run("ObjectManipulation", func(t *testing.T) {

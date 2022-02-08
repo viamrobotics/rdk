@@ -7,12 +7,15 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 )
 
 // SubtypeName is the name of the type of service.
@@ -29,19 +32,29 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.FrameSystemService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterFrameSystemServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
-	},
-	)
+	})
 }
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error)
-	LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
-	ModelFrame(ctx context.Context, name string) (referenceframe.Model, error)
+	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -85,11 +98,23 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		r:                r,
 		fsParts:          parts,
 		sortedFrameNames: sortedFrameNames,
-		childrenMap:      children,
 		logger:           logger,
 	}
 	logger.Debugf("frame system for robot: %v", sortedFrameNames)
 	return fsSvc, nil
+}
+
+// FromRobot retrieves the frame system service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, ok := r.ResourceByName(Name)
+	if !ok {
+		return nil, errors.New("frame system service not found")
+	}
+	fs, ok := resource.(Service)
+	if !ok {
+		return nil, errors.New("frame system improperly implemented")
+	}
+	return fs, nil
 }
 
 type frameSystemService struct {
@@ -97,14 +122,13 @@ type frameSystemService struct {
 	r                robot.Robot
 	fsParts          map[string]*config.FrameSystemPart
 	sortedFrameNames []string // topologically sorted frame names in the frame system, includes world frame
-	childrenMap      map[string][]referenceframe.Frame
 	logger           golog.Logger
 }
 
-// FrameSystemConfig returns a directed acyclic graph of the structure of the frame system
+// Config returns a directed acyclic graph of the structure of the frame system
 // The output of this function is to be sent over GRPC to the client, so the client can build the frame system.
 // the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up.
-func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config.FrameSystemPart, error) {
+func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	sortedFrameNames := svc.sortedFrameNames[1:] // skip the world frame at the beginning
@@ -120,26 +144,4 @@ func (svc *frameSystemService) FrameSystemConfig(ctx context.Context) ([]*config
 		}
 	}
 	return fsConfig, nil
-}
-
-// LocalFrameSystem returns just the local components of the robot (excludes any parts from remote robots).
-func (svc *frameSystemService) LocalFrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	fs, err := BuildFrameSystem(ctx, name, svc.childrenMap, svc.logger)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
-
-// ModelFrame returns the model frame for the named part in the local frame system.
-// If the part does not have a model frame, nil will be returned.
-func (svc *frameSystemService) ModelFrame(ctx context.Context, name string) (referenceframe.Model, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	if part, ok := svc.fsParts[name]; ok {
-		return part.ModelFrame, nil
-	}
-	return nil, errors.Errorf("no part with name %q in frame system", name)
 }
