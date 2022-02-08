@@ -40,9 +40,6 @@ type AttrConfig struct {
 	Axis            spatial.TranslationConfig `json:"axis"`
 }
 
-//go:embed oneaxis-kinematics.json
-var oneaxismodel []byte
-
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
 	if config.Board == "" {
@@ -98,11 +95,6 @@ func init() {
 		&AttrConfig{})
 }
 
-// Model returns the kinematics model of the oneaxis Gantry with all the frame information.
-func Model() (referenceframe.Model, error) {
-	return referenceframe.UnmarshalModelJSON(oneaxismodel, "")
-}
-
 type oneAxis struct {
 	name string
 
@@ -149,16 +141,10 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.New("cannot find board for gantry")
 	}
 
-	model, err := referenceframe.UnmarshalModelJSON(oneaxismodel, "")
-	if err != nil {
-		return nil, err
-	}
-
 	gantry := &oneAxis{
 		name:            config.Name,
 		board:           board,
 		motor:           motor,
-		model:           model,
 		logger:          logger,
 		limitSwitchPins: gconf.LimitSwitchPins,
 		limitHigh:       gconf.LimitPinEnabled,
@@ -192,7 +178,6 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	return gantry, nil
 }
 
-// For Reviewers: Rename Home to SetZero?
 func (g *oneAxis) Home(ctx context.Context) error {
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5

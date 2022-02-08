@@ -131,14 +131,6 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err, test.ShouldBeNil)
 }
-
-func TestModel(t *testing.T) {
-	model, err := Model()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, model, test.ShouldNotBeNil)
-	test.That(t, len(model.DoF()), test.ShouldEqual, 1)
-}
-
 func TestNewOneAxis(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)

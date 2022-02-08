@@ -75,11 +75,11 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		if !ok {
 			return nil, errors.Errorf("no axes named [%s]", s)
 		}
-		subAxis, ok := oneAx.(gantry.Gantry)
+		subAx, ok := oneAx.(gantry.Gantry)
 		if !ok {
 			return nil, errors.Errorf("gantry named [%s] is not a gantry, is a %T", s, oneAx)
 		}
-		mag.subAxes = append(mag.subAxes, subAxis)
+		mag.subAxes = append(mag.subAxes, subAx)
 	}
 
 	var err error
@@ -124,12 +124,12 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 // GetPosition returns the position in millimeters.
 func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	posOut := []float64{}
-	for idx, subAx := range g.subAxes {
+	for _, subAx := range g.subAxes {
 		pos, err := subAx.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
-		posOut = append(posOut, pos[idx])
+		posOut = append(posOut, pos[0])
 	}
 	return posOut, nil
 }
