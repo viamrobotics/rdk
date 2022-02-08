@@ -6,16 +6,38 @@ import (
 	"math"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.ArmService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterArmServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
 const SubtypeName = resource.SubtypeName("arm")
@@ -35,20 +57,17 @@ func Named(name string) resource.Name {
 // An Arm represents a physical robotic arm that exists in three-dimensional space.
 type Arm interface {
 
-	// CurrentPosition returns the current position of the arm.
-	CurrentPosition(ctx context.Context) (*commonpb.Pose, error)
+	// GetEndPosition returns the current position of the arm.
+	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, c *commonpb.Pose) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
 
-	// CurrentJointPositions returns the current joint positions of the arm.
-	CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
-
-	// JointMoveDelta moves a specific joint of the arm by the given amount.
-	JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error
+	// GetJointPositions returns the current joint positions of the arm.
+	GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -58,6 +77,23 @@ var (
 	_ = Arm(&reconfigurableArm{})
 	_ = resource.Reconfigurable(&reconfigurableArm{})
 )
+
+// FromRobot is a helper for getting the named Arm from the given Robot.
+func FromRobot(r robot.Robot, name string) (Arm, bool) {
+	res, ok := r.ResourceByName(Named(name))
+	if ok {
+		part, ok := res.(Arm)
+		if ok {
+			return part, true
+		}
+	}
+	return nil, false
+}
+
+// NamesFromRobot is a helper for getting all arm names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableArm struct {
 	mu     sync.RWMutex
@@ -70,34 +106,28 @@ func (r *reconfigurableArm) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableArm) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
+func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.CurrentPosition(ctx)
+	return r.actual.GetEndPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, c)
+	return r.actual.MoveToPosition(ctx, pose)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToJointPositions(ctx, pos)
+	return r.actual.MoveToJointPositions(ctx, positionDegs)
 }
 
-func (r *reconfigurableArm) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.CurrentJointPositions(ctx)
-}
-
-func (r *reconfigurableArm) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.JointMoveDelta(ctx, joint, amountDegs)
+	return r.actual.GetJointPositions(ctx)
 }
 
 func (r *reconfigurableArm) ModelFrame() referenceframe.Model {
@@ -129,7 +159,7 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 	defer r.mu.Unlock()
 	actual, ok := newArm.(*reconfigurableArm)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newArm)
+		return utils.NewUnexpectedTypeError(r, newArm)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)

@@ -11,7 +11,7 @@ import (
 
 // Board is an injected board.
 type Board struct {
-	board.Board
+	board.LocalBoard
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
@@ -42,7 +42,7 @@ type Board struct {
 func (b *Board) SPIByName(name string) (board.SPI, bool) {
 	b.spiByNameCap = []interface{}{name}
 	if b.SPIByNameFunc == nil {
-		return b.Board.SPIByName(name)
+		return b.LocalBoard.SPIByName(name)
 	}
 	return b.SPIByNameFunc(name)
 }
@@ -51,7 +51,7 @@ func (b *Board) SPIByName(name string) (board.SPI, bool) {
 func (b *Board) I2CByName(name string) (board.I2C, bool) {
 	b.i2cByNameCap = []interface{}{name}
 	if b.I2CByNameFunc == nil {
-		return b.Board.I2CByName(name)
+		return b.LocalBoard.I2CByName(name)
 	}
 	return b.I2CByNameFunc(name)
 }
@@ -60,7 +60,7 @@ func (b *Board) I2CByName(name string) (board.I2C, bool) {
 func (b *Board) AnalogReaderByName(name string) (board.AnalogReader, bool) {
 	b.analogReaderByNameCap = []interface{}{name}
 	if b.AnalogReaderByNameFunc == nil {
-		return b.Board.AnalogReaderByName(name)
+		return b.LocalBoard.AnalogReaderByName(name)
 	}
 	return b.AnalogReaderByNameFunc(name)
 }
@@ -78,7 +78,7 @@ func (b *Board) AnalogReaderByNameCap() []interface{} {
 func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool) {
 	b.digitalInterruptByNameCap = []interface{}{name}
 	if b.DigitalInterruptByNameFunc == nil {
-		return b.Board.DigitalInterruptByName(name)
+		return b.LocalBoard.DigitalInterruptByName(name)
 	}
 	return b.DigitalInterruptByNameFunc(name)
 }
@@ -95,7 +95,7 @@ func (b *Board) DigitalInterruptByNameCap() []interface{} {
 // SPINames calls the injected SPINames or the real version.
 func (b *Board) SPINames() []string {
 	if b.SPINamesFunc == nil {
-		return b.Board.SPINames()
+		return b.LocalBoard.SPINames()
 	}
 	return b.SPINamesFunc()
 }
@@ -103,7 +103,7 @@ func (b *Board) SPINames() []string {
 // I2CNames calls the injected SPINames or the real version.
 func (b *Board) I2CNames() []string {
 	if b.I2CNamesFunc == nil {
-		return b.Board.I2CNames()
+		return b.LocalBoard.I2CNames()
 	}
 	return b.I2CNamesFunc()
 }
@@ -111,7 +111,7 @@ func (b *Board) I2CNames() []string {
 // AnalogReaderNames calls the injected AnalogReaderNames or the real version.
 func (b *Board) AnalogReaderNames() []string {
 	if b.AnalogReaderNamesFunc == nil {
-		return b.Board.AnalogReaderNames()
+		return b.LocalBoard.AnalogReaderNames()
 	}
 	return b.AnalogReaderNamesFunc()
 }
@@ -119,7 +119,7 @@ func (b *Board) AnalogReaderNames() []string {
 // DigitalInterruptNames calls the injected DigitalInterruptNames or the real version.
 func (b *Board) DigitalInterruptNames() []string {
 	if b.DigitalInterruptNamesFunc == nil {
-		return b.Board.DigitalInterruptNames()
+		return b.LocalBoard.DigitalInterruptNames()
 	}
 	return b.DigitalInterruptNamesFunc()
 }
@@ -127,7 +127,7 @@ func (b *Board) DigitalInterruptNames() []string {
 // Close calls the injected Close or the real version.
 func (b *Board) Close(ctx context.Context) error {
 	if b.CloseFunc == nil {
-		return utils.TryClose(ctx, b.Board)
+		return utils.TryClose(ctx, b.LocalBoard)
 	}
 	return b.CloseFunc(ctx)
 }
@@ -136,7 +136,7 @@ func (b *Board) Close(ctx context.Context) error {
 func (b *Board) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	b.statusCap = []interface{}{ctx}
 	if b.StatusFunc == nil {
-		return b.Board.Status(ctx)
+		return b.LocalBoard.Status(ctx)
 	}
 	return b.StatusFunc(ctx)
 }
@@ -154,7 +154,7 @@ func (b *Board) StatusCap() []interface{} {
 func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
 	b.setGPIOCap = []interface{}{ctx, pin, high}
 	if b.SetGPIOFunc == nil {
-		return b.Board.SetGPIO(ctx, pin, high)
+		return b.LocalBoard.SetGPIO(ctx, pin, high)
 	}
 	return b.SetGPIOFunc(ctx, pin, high)
 }
@@ -172,7 +172,7 @@ func (b *Board) SetGPIOCap() []interface{} {
 func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
 	b.getGPIOCap = []interface{}{ctx, pin}
 	if b.GetGPIOFunc == nil {
-		return b.Board.GetGPIO(ctx, pin)
+		return b.LocalBoard.GetGPIO(ctx, pin)
 	}
 	return b.GetGPIOFunc(ctx, pin)
 }
@@ -190,7 +190,7 @@ func (b *Board) GetGPIOCap() []interface{} {
 func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
 	b.setPWMCap = []interface{}{ctx, pin, dutyCyclePct}
 	if b.SetPWMFunc == nil {
-		return b.Board.SetPWM(ctx, pin, dutyCyclePct)
+		return b.LocalBoard.SetPWM(ctx, pin, dutyCyclePct)
 	}
 	return b.SetPWMFunc(ctx, pin, dutyCyclePct)
 }
@@ -208,7 +208,7 @@ func (b *Board) SetPWMCap() []interface{} {
 func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
 	b.setPWMFreqCap = []interface{}{ctx, pin, freqHz}
 	if b.SetPWMFreqFunc == nil {
-		return b.Board.SetPWMFreq(ctx, pin, freqHz)
+		return b.LocalBoard.SetPWMFreq(ctx, pin, freqHz)
 	}
 	return b.SetPWMFreqFunc(ctx, pin, freqHz)
 }

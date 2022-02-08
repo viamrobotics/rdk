@@ -10,7 +10,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/component/servo"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/resource"
@@ -57,7 +63,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			gridPosition, err := arm.CurrentPosition(ctx)
+			gridPosition, err := arm.GetEndPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -73,7 +79,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				}
 			}
 
-			jointPositions, err := arm.CurrentJointPositions(ctx)
+			jointPositions, err := arm.GetJointPositions(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -100,12 +106,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			gantryStatus := &pb.GantryStatus{}
 
-			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			gantryStatus.Positions, err = g.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
 
-			gantryStatus.Lengths, err = g.Lengths(ctx)
+			gantryStatus.Lengths, err = g.GetLengths(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -116,14 +122,14 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.GripperNames(); len(names) != 0 {
+	if names := gripper.NamesFromRobot(r); len(names) != 0 {
 		status.Grippers = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Grippers[name] = true
 		}
 	}
 
-	if names := r.BaseNames(); len(names) != 0 {
+	if names := base.NamesFromRobot(r); len(names) != 0 {
 		status.Bases = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Bases[name] = true
@@ -145,14 +151,14 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.CameraNames(); len(names) != 0 {
+	if names := camera.NamesFromRobot(r); len(names) != 0 {
 		status.Cameras = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Cameras[name] = true
 		}
 	}
 
-	if names := r.SensorNames(); len(names) != 0 {
+	if names := sensor.NamesFromRobot(r); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {
 			status.Sensors[name] = &pb.SensorStatus{
@@ -161,10 +167,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.ServoNames(); len(names) != 0 {
+	if names := servo.NamesFromRobot(r); len(names) != 0 {
 		status.Servos = make(map[string]*pb.ServoStatus, len(names))
 		for _, name := range names {
-			x, ok := r.ServoByName(name)
+			x, ok := servo.FromRobot(r, name)
 			if !ok {
 				return nil, fmt.Errorf("servo %q not found", name)
 			}
@@ -207,10 +213,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.InputControllerNames(); len(names) != 0 {
+	if names := input.NamesFromRobot(r); len(names) != 0 {
 		status.InputControllers = make(map[string]*pb.InputControllerStatus, len(names))
 		for _, name := range names {
-			controller, ok := r.InputControllerByName(name)
+			controller, ok := input.FromRobot(r, name)
 			if !ok {
 				return nil, fmt.Errorf("input controller %q not found", name)
 			}

@@ -70,30 +70,30 @@ func clientFromSvcClient(sc *serviceClient, name string) Gantry {
 	return &client{sc, name}
 }
 
-func (c *client) CurrentPosition(ctx context.Context) ([]float64, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.GantryServiceCurrentPositionRequest{
+func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
+	resp, err := c.client.GetPosition(ctx, &pb.GantryServiceGetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
+	return resp.PositionsMm, nil
 }
 
-func (c *client) Lengths(ctx context.Context) ([]float64, error) {
-	lengths, err := c.client.Lengths(ctx, &pb.GantryServiceLengthsRequest{
+func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
+	lengths, err := c.client.GetLengths(ctx, &pb.GantryServiceGetLengthsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return lengths.Lengths, nil
+	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positions []float64) error {
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.GantryServiceMoveToPositionRequest{
-		Name:      c.name,
-		Positions: positions,
+		Name:        c.name,
+		PositionsMm: positionsMm,
 	})
 	return err
 }
@@ -104,7 +104,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.CurrentPosition(ctx)
+	res, err := c.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -73,7 +73,7 @@ func TestWarpPointsTo3D(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, true)
 	// Check to see if the origin point on the pointcloud transformed correctly
-	vec, err := dct.ImagePointTo3DPoint(config.OutputOrigin, iwd)
+	vec, err := dct.ImagePointTo3DPoint(config.OutputOrigin, iwd.Depth.Get(config.OutputOrigin))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.X, test.ShouldEqual, 0.0)
 	test.That(t, vec.Y, test.ShouldEqual, 0.0)

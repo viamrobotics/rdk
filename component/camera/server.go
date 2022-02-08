@@ -114,14 +114,14 @@ func (s *subtypeServer) GetFrame(
 		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
-	case utils.MimeTypeJPEG:
-		resp.MimeType = utils.MimeTypeJPEG
-		if err := jpeg.Encode(&buf, img, nil); err != nil {
-			return nil, err
-		}
-	case "", utils.MimeTypePNG:
+	case utils.MimeTypePNG:
 		resp.MimeType = utils.MimeTypePNG
 		if err := png.Encode(&buf, img); err != nil {
+			return nil, err
+		}
+	case "", utils.MimeTypeJPEG:
+		resp.MimeType = utils.MimeTypeJPEG
+		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
 	default:

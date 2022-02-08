@@ -18,9 +18,9 @@ func newServer() (pb.ServoServiceServer, *inject.Servo, *inject.Servo, error) {
 	injectServo := &inject.Servo{}
 	injectServo2 := &inject.Servo{}
 	resourceMap := map[resource.Name]interface{}{
-		servo.Named("workingServo"): injectServo,
-		servo.Named("failingServo"): injectServo2,
-		servo.Named(("notAServo")):  "not a servo",
+		servo.Named(testServoName):   injectServo,
+		servo.Named(failServoName):   injectServo2,
+		servo.Named((fakeServoName)): "not a servo",
 	}
 	injectSvc, err := subtype.New((resourceMap))
 	if err != nil {
@@ -40,23 +40,23 @@ func TestServoMove(t *testing.T) {
 		return errors.New("move failed")
 	}
 
-	req := pb.ServoServiceMoveRequest{Name: "workingServo"}
+	req := pb.ServoServiceMoveRequest{Name: testServoName}
 	resp, err := servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	req = pb.ServoServiceMoveRequest{Name: "failingServo"}
+	req = pb.ServoServiceMoveRequest{Name: failServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	req = pb.ServoServiceMoveRequest{Name: "notAServo"}
+	req = pb.ServoServiceMoveRequest{Name: fakeServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-func TestServoCurrent(t *testing.T) {
+func TestServoGetPosition(t *testing.T) {
 	servoServer, workingServo, failingServo, _ := newServer()
 
 	workingServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
@@ -66,17 +66,17 @@ func TestServoCurrent(t *testing.T) {
 		return 0, errors.New("current angle not readable")
 	}
 
-	req := pb.ServoServiceGetPositionRequest{Name: "workingServo"}
+	req := pb.ServoServiceGetPositionRequest{Name: testServoName}
 	resp, err := servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	req = pb.ServoServiceGetPositionRequest{Name: "failingServo"}
+	req = pb.ServoServiceGetPositionRequest{Name: failServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	req = pb.ServoServiceGetPositionRequest{Name: "notAServo"}
+	req = pb.ServoServiceGetPositionRequest{Name: fakeServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)

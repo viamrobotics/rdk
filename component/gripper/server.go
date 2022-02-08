@@ -49,9 +49,9 @@ func (s *subtypeServer) Grab(ctx context.Context, req *pb.GripperServiceGrabRequ
 	if err != nil {
 		return nil, err
 	}
-	grabbed, err := gripper.Grab(ctx)
+	success, err := gripper.Grab(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GripperServiceGrabResponse{Grabbed: grabbed}, nil
+	return &pb.GripperServiceGrabResponse{Success: success}, nil
 }

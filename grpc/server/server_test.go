@@ -140,7 +140,7 @@ func TestServer(t *testing.T) {
 				Name: "frame1",
 				FrameConfig: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.Translation{1, 2, 3},
+					Translation: spatialmath.TranslationConfig{1, 2, 3},
 					Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 				},
 			},
@@ -148,7 +148,7 @@ func TestServer(t *testing.T) {
 				Name: "frame2",
 				FrameConfig: &config.Frame{
 					Parent:      "frame1",
-					Translation: spatialmath.Translation{1, 2, 3},
+					Translation: spatialmath.TranslationConfig{1, 2, 3},
 				},
 			},
 		}
@@ -224,7 +224,7 @@ func TestServer(t *testing.T) {
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
 		)
 		t.Logf("the json frame should be empty:\n %v", fssResp.FrameSystemConfigs[0].ModelJson)
-		_, err = referenceframe.ParseJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
+		_, err = referenceframe.UnmarshalModelJSON(fssResp.FrameSystemConfigs[0].ModelJson, fssResp.FrameSystemConfigs[0].Name)
 		test.That(t, err, test.ShouldBeError, referenceframe.ErrNoModelInformation)
 	})
 
@@ -376,8 +376,8 @@ func TestServer(t *testing.T) {
 
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
-		var capName string
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		var capName resource.Name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			capName = name
 			return nil, false
 		}
@@ -387,23 +387,23 @@ func TestServer(t *testing.T) {
 		})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
-		test.That(t, capName, test.ShouldEqual, "compass1")
+		test.That(t, capName, test.ShouldResemble, sensor.Named("compass1"))
 
 		err1 := errors.New("whoops")
 
 		device := &inject.Sensor{}
-		injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return device, true
 		}
 
-		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return nil, err1
 		}
 		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
 			Name: "sensor1",
 		})
 		test.That(t, err, test.ShouldEqual, err1)
-		device.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return []interface{}{1.2, 2.3}, nil
 		}
 		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{

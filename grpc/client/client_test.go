@@ -18,23 +18,16 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
-	_ "go.viam.com/rdk/component/arm/register"
 	"go.viam.com/rdk/component/base"
-	_ "go.viam.com/rdk/component/base/register"
 	"go.viam.com/rdk/component/board"
 	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
-	_ "go.viam.com/rdk/component/camera/register"
 	"go.viam.com/rdk/component/gripper"
-	_ "go.viam.com/rdk/component/gripper/register"
 	"go.viam.com/rdk/component/input"
-	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
-	_ "go.viam.com/rdk/component/sensor/register"
 	"go.viam.com/rdk/component/servo"
-	_ "go.viam.com/rdk/component/servo/register"
 	"go.viam.com/rdk/config"
 	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
@@ -107,8 +100,8 @@ var emptyResources = []resource.Name{
 	base.Named("base1"),
 	board.Named("board1"),
 	board.Named("board3"),
-	gripper.Named("gripper1"),
 	camera.Named("camera1"),
+	gripper.Named("gripper1"),
 }
 
 var finalStatus = &pb.Status{
@@ -196,14 +189,14 @@ var finalResources = []resource.Name{
 	base.Named("base3"),
 	board.Named("board2"),
 	board.Named("board3"),
-	servo.Named("servo2"),
-	servo.Named("servo3"),
-	gripper.Named("gripper2"),
-	gripper.Named("gripper3"),
 	camera.Named("camera2"),
 	camera.Named("camera3"),
+	gripper.Named("gripper2"),
+	gripper.Named("gripper3"),
 	motor.Named("motor2"),
 	motor.Named("motor3"),
+	servo.Named("servo2"),
+	servo.Named("servo3"),
 }
 
 func TestClient(t *testing.T) {
@@ -222,34 +215,13 @@ func TestClient(t *testing.T) {
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
-	injectRobot1.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return nil, false
-	}
-	injectRobot1.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return nil, false
-	}
-	injectRobot1.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return nil, false
-	}
 	injectRobot1.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return nil, false
-	}
-	injectRobot1.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		return nil, false
-	}
-	injectRobot1.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
 		return nil, false
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
-	injectRobot1.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return nil, false
-	}
 	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return nil, false
-	}
-	injectRobot1.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
 		return nil, false
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -258,7 +230,7 @@ func TestClient(t *testing.T) {
 	injectBase := &inject.Base{}
 
 	injectArm := &inject.Arm{}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		pos := emptyStatus.Arms["arm1"].GridPosition
 		convertedPos := &commonpb.Pose{
 			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
@@ -405,7 +377,7 @@ func TestClient(t *testing.T) {
 				Type: config.ComponentTypeArm,
 				Frame: &config.Frame{
 					Parent:      "b",
-					Translation: spatialmath.Translation{X: 1, Y: 2, Z: 3},
+					Translation: spatialmath.TranslationConfig{X: 1, Y: 2, Z: 3},
 					Orientation: &spatialmath.OrientationVectorDegrees{OX: 0, OY: 0, OZ: 1.0000000000000002, Theta: 7},
 				},
 			},
@@ -424,7 +396,7 @@ func TestClient(t *testing.T) {
 			Name: "frame1",
 			FrameConfig: &config.Frame{
 				Parent:      referenceframe.World,
-				Translation: spatialmath.Translation{1, 2, 3},
+				Translation: spatialmath.TranslationConfig{1, 2, 3},
 				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
 			},
 		},
@@ -432,7 +404,7 @@ func TestClient(t *testing.T) {
 			Name: "frame2",
 			FrameConfig: &config.Frame{
 				Parent:      "frame1",
-				Translation: spatialmath.Translation{4, 5, 6},
+				Translation: spatialmath.TranslationConfig{4, 5, 6},
 			},
 		},
 	}
@@ -485,16 +457,16 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	_, ok := client.BaseByName("base1")
+	_, ok := base.FromRobot(client, "base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	arm1, ok := client.ArmByName("arm1")
+	arm1, ok := arm.FromRobot(client, "arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = arm1.CurrentPosition(context.Background())
+	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = arm1.CurrentJointPositions(context.Background())
+	_, err = arm1.GetJointPositions(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -506,11 +478,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.JointMoveDelta(context.Background(), 0, 0)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-	gripper1, ok := client.GripperByName("gripper1")
+	gripper1, ok := gripper.FromRobot(client, "gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -519,7 +487,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-	servo1, ok := client.ServoByName("servo1")
+	servo1, ok := servo.FromRobot(client, "servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = servo1.Move(context.Background(), 5)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -547,25 +515,25 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
 
-	camera1, ok := client.CameraByName("camera1")
+	camera1, ok := camera.FromRobot(client, "camera1")
 	test.That(t, ok, test.ShouldBeTrue)
 	_, _, err = camera1.Next(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
-	sensorDevice, ok := client.SensorByName("sensor1")
+	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = sensorDevice.Readings(context.Background())
+	_, err = sensorDevice.GetReadings(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 
 	resource1, ok := client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	_, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	_, err = resource1.(arm.Arm).CurrentJointPositions(context.Background())
+	_, err = resource1.(arm.Arm).GetJointPositions(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -574,10 +542,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
 	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-	err = resource1.(arm.Arm).JointMoveDelta(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -592,24 +556,24 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	_, ok = client.BaseByName("base1")
+	_, ok = base.FromRobot(client, "base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = client.BaseByName("base2")
+	_, ok = base.FromRobot(client, "base2")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	_, ok = client.BaseByName("base3")
+	_, ok = base.FromRobot(client, "base3")
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, ok = client.ArmByName("arm1")
+	arm1, ok = arm.FromRobot(client, "arm1")
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err := arm1.CurrentPosition(context.Background())
+	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	gripper1, ok = client.GripperByName("gripper1")
+	gripper1, ok = gripper.FromRobot(client, "gripper1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -617,7 +581,7 @@ func TestClient(t *testing.T) {
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
 	gripperOpenCalled = false
 
-	servo1, ok = client.ServoByName("servo1")
+	servo1, ok = servo.FromRobot(client, "servo1")
 	test.That(t, ok, test.ShouldBeTrue)
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
@@ -642,7 +606,7 @@ func TestClient(t *testing.T) {
 	_, ok = client.BoardByName("board3")
 	test.That(t, ok, test.ShouldBeTrue)
 
-	camera1, ok = client.CameraByName("camera1")
+	camera1, ok = camera.FromRobot(client, "camera1")
 	test.That(t, ok, test.ShouldBeTrue)
 	frame, _, err := camera1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -651,7 +615,7 @@ func TestClient(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
 	test.That(t, imageReleased, test.ShouldBeTrue)
 
-	inputDev, ok := client.InputControllerByName("inputController1")
+	inputDev, ok := input.FromRobot(client, "inputController1")
 	test.That(t, ok, test.ShouldBeTrue)
 	controlList, err := inputDev.GetControls(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -659,7 +623,7 @@ func TestClient(t *testing.T) {
 
 	resource1, ok = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
-	pos, err = resource1.(arm.Arm).CurrentPosition(context.Background())
+	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
@@ -724,31 +688,31 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, status.String(), test.ShouldResemble, finalStatus.String())
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
-	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
 	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
-
-	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+	boardNames := []resource.Name{board.Named("board2"), board.Named("board3")}
 	cameraNames := []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
-	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
+	gripperNames := []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	motorNames := []resource.Name{motor.Named("motor2"), motor.Named("motor3")}
+	servoNames := []resource.Name{servo.Named("servo2"), servo.Named("servo3")}
+
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BaseNames()...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
@@ -758,12 +722,11 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)
@@ -775,12 +738,12 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
-			boardNames,
-			gripperNames,
-			cameraNames,
-			servoNames,
-			motorNames,
 			baseNames,
+			boardNames,
+			cameraNames,
+			gripperNames,
+			motorNames,
+			servoNames,
 		)...))
 
 	err = client.Close(context.Background())
@@ -803,28 +766,29 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames = []resource.Name{arm.Named("arm1")}
-	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
 	baseNames = []resource.Name{base.Named("base1")}
-	gripperNames = []resource.Name{gripper.Named("gripper1")}
+	boardNames = []resource.Name{board.Named("board1"), board.Named("board3")}
 	cameraNames = []resource.Name{camera.Named("camera1")}
+	gripperNames = []resource.Name{gripper.Named("gripper1")}
+
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BaseNames()...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
@@ -834,22 +798,21 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldBeEmpty,
 	)
 
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
-			boardNames,
-			gripperNames,
-			cameraNames,
 			baseNames,
+			boardNames,
+			cameraNames,
+			gripperNames,
 		)...))
 
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -863,41 +826,41 @@ func TestClientRefresh(t *testing.T) {
 	armNames = []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	baseNames = []resource.Name{base.Named("base2"), base.Named("base3")}
 	boardNames = []resource.Name{board.Named("board2"), board.Named("board3")}
-	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
 	cameraNames = []resource.Name{camera.Named("camera2"), camera.Named("camera3")}
+	gripperNames = []resource.Name{gripper.Named("gripper2"), gripper.Named("gripper3")}
+
 	test.That(t, client.RemoteNames(), test.ShouldBeEmpty)
 	test.That(t,
-		utils.NewStringSet(client.ArmNames()...),
+		utils.NewStringSet(arm.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.GripperNames()...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.CameraNames()...),
+		utils.NewStringSet(camera.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BaseNames()...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(client.BoardNames()...),
 		test.ShouldResemble,
-		utils.NewStringSet("board2", "board3"),
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.SensorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(),
+		utils.NewStringSet(sensor.NamesFromRobot(client)...),
+		test.ShouldBeEmpty,
 	)
 	test.That(t,
-		utils.NewStringSet(client.ServoNames()...),
+		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
 	)
@@ -909,12 +872,12 @@ func TestClientRefresh(t *testing.T) {
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
 			armNames,
-			boardNames,
-			gripperNames,
-			cameraNames,
-			servoNames,
-			motorNames,
 			baseNames,
+			boardNames,
+			cameraNames,
+			gripperNames,
+			motorNames,
+			servoNames,
 		)...))
 
 	err = client.Close(context.Background())
