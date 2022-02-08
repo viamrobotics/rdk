@@ -21,6 +21,8 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
