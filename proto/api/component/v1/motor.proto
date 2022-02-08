@@ -55,7 +55,7 @@ service MotorService {
   // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
   rpc GetFeatures(MotorServiceGetFeaturesRequest) returns (MotorServiceGetFeaturesResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/motor/{name}/get_features"
+      get: "/api/v1/component/motor/{name}/features"
     };
   }
 
