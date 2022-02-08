@@ -158,6 +158,35 @@ func TestNew(t *testing.T) {
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
+
+	t.Run("initializing gripper struct successful with proper parameters", func(t *testing.T) {
+		fakeRobot := &inject.Robot{}
+		fakeBoard := &inject.Board{}
+		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+			return fakeBoard, true
+		}
+		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			fakeMotor := &inject.GoTillStopSupportingMotor{}
+			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+				map[motor.Feature]bool, error,
+			) {
+				return map[motor.Feature]bool{
+					motor.PositionReporting: true,
+				}, nil
+			}
+			return fakeMotor, true
+		}
+		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
+			return &inject.AnalogReader{}, true
+		}
+		// for forcematrix
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return &inject.ForceMatrix{}, true
+		}
+		vg, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, vg, test.ShouldNotBeNil)
+	})
 }
 
 func TestCalibrate(t *testing.T) {

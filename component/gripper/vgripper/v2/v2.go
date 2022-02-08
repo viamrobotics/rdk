@@ -34,7 +34,18 @@ var vgripperv2json []byte
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, r, config, logger)
+			grip, err := newGripper(ctx, r, config, logger)
+			if err != nil {
+				return nil, err
+			}
+			if err := grip.Calibrate(ctx); err != nil {
+				return nil, err
+			}
+
+			if err := grip.Open(ctx); err != nil {
+				return nil, err
+			}
+			return grip, nil
 		},
 	})
 }
@@ -155,14 +166,6 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 		// other
 		logger: logger,
 		model:  model,
-	}
-
-	if err := vg.Calibrate(ctx); err != nil {
-		return nil, err
-	}
-
-	if err := vg.Open(ctx); err != nil {
-		return nil, err
 	}
 
 	return vg, nil
