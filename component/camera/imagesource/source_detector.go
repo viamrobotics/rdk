@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
@@ -25,31 +25,31 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("expected config.ConvertedAttributes to be *rimage.AttrConfig but got %T", config.ConvertedAttributes)
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := camera.FromRobot(r, sourceName)
+			src, ok := camera.FromRobot(r, sourceName)
 			if !ok {
 				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
 			}
-			return NewColorDetector(source, attrs)
+			return newColorDetector(src, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
 		config.ComponentTypeCamera,
 		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		rimage.AttrConfig{},
+		camera.AttrConfig{},
 	)
 }
 
-// NewColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*camera.ImageSource, error) {
+// newColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
+func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {
@@ -90,5 +90,5 @@ func NewColorDetector(src gostream.ImageSource, attrs *rimage.AttrConfig) (*came
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: detector}, nil
+	return camera.New(detector, attrs, src)
 }
