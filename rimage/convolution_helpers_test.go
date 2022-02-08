@@ -1,12 +1,12 @@
 package rimage
 
 import (
-	"gonum.org/v1/gonum/mat"
 	"image"
 	"image/color"
 	"testing"
 
 	"go.viam.com/test"
+	"gonum.org/v1/gonum/mat"
 )
 
 func TestPaddingFloat64(t *testing.T) {
