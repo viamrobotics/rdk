@@ -83,6 +83,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	return m.IsPoweredFunc(ctx)
 }
 
+// GoTillStopSupportingMotor is an injected motor that supports GoTillStop.
 type GoTillStopSupportingMotor struct {
 	Motor
 	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
