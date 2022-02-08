@@ -378,9 +378,9 @@ func lookForBoardAdjust(
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
 	debugNumber := 0
 
-	wristCam, ok := camera.FromRobot(myRobot, "wristCam")
-	if !ok {
-		return errors.New("can't find wristCam")
+	wristCam, err := camera.FromRobot(myRobot, "wristCam")
+	if err != nil {
+		return err
 	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
@@ -429,14 +429,14 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return ctx.Err()
 	}
 
-	cam, ok := camera.FromRobot(robot, "gripperCam")
-	if !ok {
-		return errors.New("can't find gripperCam")
+	cam, err := camera.FromRobot(robot, "gripperCam")
+	if err != nil {
+		return err
 	}
 
-	arm, ok := arm.FromRobot(robot, "pieceArm")
-	if !ok {
-		return errors.New("can't find pieceArm")
+	arm, err := arm.FromRobot(robot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
 	for {
@@ -530,19 +530,19 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(myRobot.Close(context.Background()))
 	}()
 
-	myArm, ok := arm.FromRobot(myRobot, "pieceArm")
-	if !ok {
-		return errors.New("need an arm called pieceArm")
+	myArm, err := arm.FromRobot(myRobot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
-	myGripper, ok := gripper.FromRobot(myRobot, "grippie")
-	if !ok {
-		return errors.New("need a gripper called gripped")
+	myGripper, err := gripper.FromRobot(myRobot, "grippie")
+	if err != nil {
+		return err
 	}
 
-	webcam, ok := camera.FromRobot(myRobot, "cameraOver")
-	if !ok {
-		return errors.New("can't find cameraOver camera")
+	webcam, err := camera.FromRobot(myRobot, "cameraOver")
+	if err != nil {
+		return err
 	}
 
 	if false { // TODO(erh): put this back once we have a wrist camera again

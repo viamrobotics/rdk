@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -59,9 +60,9 @@ func (os *preprocessDepthSource) Next(ctx context.Context) (image.Image, func(),
 }
 
 func newPreprocessDepth(r robot.Robot, config config.Component) (camera.Camera, error) {
-	source, ok := camera.FromRobot(r, config.ConvertedAttributes.(*rimage.AttrConfig).Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+	source, err := camera.FromRobot(r, config.ConvertedAttributes.(*rimage.AttrConfig).Source)
+	if err != nil {
+		return nil, fmt.Errorf("no source camera (%s): %w", config.ConvertedAttributes.(*rimage.AttrConfig).Source, err)
 	}
 	return &camera.ImageSource{ImageSource: &preprocessDepthSource{source}}, nil
 }

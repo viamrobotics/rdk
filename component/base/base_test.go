@@ -30,7 +30,7 @@ func setupInjectRobot() *inject.Robot {
 		case base.Named(testBaseName):
 			return base1, true
 		case base.Named(fakeBaseName):
-			return "not a base", false
+			return "not a base", true
 		default:
 			return nil, false
 		}
@@ -44,21 +44,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := base.FromRobot(r, testBaseName)
+	res, err := base.FromRobot(r, testBaseName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := res.(base.LocalBase).GetWidth(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
-	res, ok = base.FromRobot(r, fakeBaseName)
+	res, err = base.FromRobot(r, fakeBaseName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Base")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = base.FromRobot(r, missingBaseName)
+	res, err = base.FromRobot(r, missingBaseName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -82,7 +84,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = base.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalBase")
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)

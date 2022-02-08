@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
@@ -30,9 +31,9 @@ func init() {
 				return nil, errors.Errorf("expected config.ConvertedAttributes to be *rimage.AttrConfig but got %T", config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
 			}
 			return NewColorDetector(source, attrs)
 		}})

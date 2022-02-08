@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		case gripper.Named(testGripperName):
 			return gripper1, true
 		case gripper.Named(fakeGripperName):
-			return "not a gripper", false
+			return "not a gripper", true
 		default:
 			return nil, false
 		}
@@ -42,21 +42,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := gripper.FromRobot(r, testGripperName)
+	res, err := gripper.FromRobot(r, testGripperName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := res.Grab(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, grabbed)
 
-	res, ok = gripper.FromRobot(r, fakeGripperName)
+	res, err = gripper.FromRobot(r, fakeGripperName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gripper")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = gripper.FromRobot(r, missingGripperName)
+	res, err = gripper.FromRobot(r, missingGripperName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -111,7 +113,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = gripper.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gripper")
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)

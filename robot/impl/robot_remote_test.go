@@ -507,72 +507,69 @@ func TestRemoteRobot(t *testing.T) {
 	})
 
 	robot.conf.Prefix = false
-	_, ok := arm.FromRobot(robot, "arm1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = arm.FromRobot(robot, "arm1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = arm.FromRobot(robot, "one.arm1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = arm.FromRobot(robot, "arm1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = arm.FromRobot(robot, "one.arm1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = arm.FromRobot(robot, "arm1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok = base.FromRobot(robot, "base1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(robot, "base1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = base.FromRobot(robot, "one.base1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = base.FromRobot(robot, "base1_what")
-	test.That(t, ok, test.ShouldBeFalse)
-
+	_, err = base.FromRobot(robot, "one.base1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = base.FromRobot(robot, "base1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 	robot.conf.Prefix = false
-	_, ok = gripper.FromRobot(robot, "gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = gripper.FromRobot(robot, "gripper1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = gripper.FromRobot(robot, "one.gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = gripper.FromRobot(robot, "gripper1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = gripper.FromRobot(robot, "one.gripper1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = gripper.FromRobot(robot, "gripper1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok = camera.FromRobot(robot, "camera1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = camera.FromRobot(robot, "camera1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = camera.FromRobot(robot, "one.camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = camera.FromRobot(robot, "camera1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = camera.FromRobot(robot, "one.camera1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = camera.FromRobot(robot, "camera1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-
-	robot.conf.Prefix = false
-	_, ok = board.FromRobot(robot, "board1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = board.FromRobot(robot, "board1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = board.FromRobot(robot, "one.board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = board.FromRobot(robot, "board1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = board.FromRobot(robot, "one.board1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = board.FromRobot(robot, "board1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok = sensor.FromRobot(robot, "sensor1")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = sensor.FromRobot(robot, "sensor1")
+	test.That(t, err, test.ShouldNotBeNil)
 	robot.conf.Prefix = true
-	_, ok = sensor.FromRobot(robot, "one.sensor1")
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = sensor.FromRobot(robot, "sensor1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = sensor.FromRobot(robot, "one.sensor1")
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = sensor.FromRobot(robot, "sensor1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok = servo.FromRobot(robot, "servo1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = servo.FromRobot(robot, "servo1")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = servo.FromRobot(robot, "one.servo1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = servo.FromRobot(robot, "servo1_what")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = servo.FromRobot(robot, "one.servo1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = servo.FromRobot(robot, "servo1_what")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok = robot.ResourceByName(arm.Named("arm1"))
+	_, ok := robot.ResourceByName(arm.Named("arm1"))
 	test.That(t, ok, test.ShouldBeTrue)
 	robot.conf.Prefix = true
 	_, ok = robot.ResourceByName(arm.Named("one.arm1"))
@@ -605,16 +602,17 @@ func TestRemoteRobot(t *testing.T) {
 	)
 
 	robot.conf.Prefix = false
-	_, ok = gripper.FromRobot(robot, "pieceGripper")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = gripper.FromRobot(robot, "pieceGripper")
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = gripper.FromRobot(robot, "one.pieceGripper")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = gripper.FromRobot(robot, "one.pieceGripper")
+	test.That(t, err, test.ShouldBeNil)
 
-	_, ok = sensor.FromRobot(robot, "sensor1")
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = sensor.FromRobot(robot, "one.sensor1")
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = sensor.FromRobot(robot, "sensor1")
+	test.That(t, err, test.ShouldNotBeNil)
+	_, err = sensor.FromRobot(robot, "one.sensor1")
+	test.That(t, err, test.ShouldNotBeNil)
+
 	test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, wrapped.Robot.Close(context.Background()), test.ShouldBeNil)
 }

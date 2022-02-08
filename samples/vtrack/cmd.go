@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"time"
 
@@ -40,9 +39,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	fc, ok := camera.FromRobot(myRobot, "front-composed")
-	if !ok {
-		return errors.New("no front-composed camera")
+	fc, err := camera.FromRobot(myRobot, "front-composed")
+	if err != nil {
+		return err
 	}
 
 	for {

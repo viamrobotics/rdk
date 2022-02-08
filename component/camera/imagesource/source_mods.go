@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 
@@ -29,9 +30,9 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			sourceName := config.ConvertedAttributes.(*rimage.AttrConfig).Source
-			source, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
 			}
 
 			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
@@ -58,9 +59,9 @@ func init() {
 				return nil, errors.New("cannot retrieve converted attributes")
 			}
 			sourceName := attrs.Source
-			source, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for resize (%s): %w", sourceName, err)
 			}
 
 			width := attrs.Width

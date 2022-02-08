@@ -52,8 +52,8 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
-	g, ok := input.FromRobot(r, "Mux")
-	if !ok {
+	g, err := input.FromRobot(r, "Mux")
+	if err != nil {
 		return
 	}
 
