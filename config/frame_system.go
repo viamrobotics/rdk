@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/spatialmath"
 )
@@ -20,12 +20,12 @@ type FrameSystemPart struct {
 }
 
 // ToProtobuf turns all the interfaces into serializable types.
-func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
+func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemServiceConfig, error) {
 	if part.FrameConfig == nil {
 		return nil, referenceframe.ErrNoModelInformation
 	}
 	pose := spatialmath.PoseToProtobuf(part.FrameConfig.Pose())
-	convertedPose := &pb.Pose{
+	convertedPose := &commonpb.Pose{
 		X:     pose.X,
 		Y:     pose.Y,
 		Z:     pose.Z,
@@ -34,7 +34,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 		OZ:    pose.OZ,
 		Theta: pose.Theta,
 	}
-	frameConfig := &pb.FrameConfig{Parent: part.FrameConfig.Parent, Pose: convertedPose}
+	frameConfig := &pb.FrameSystemServiceFrameConfig{Parent: part.FrameConfig.Parent, Pose: convertedPose}
 	var modelJSON []byte
 	var err error
 	if part.ModelFrame != nil {
@@ -43,7 +43,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			return nil, err
 		}
 	}
-	return &pb.FrameSystemConfig{
+	return &pb.FrameSystemServiceConfig{
 		Name:        part.Name,
 		FrameConfig: frameConfig,
 		ModelJson:   modelJSON,
@@ -51,7 +51,7 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
-func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
+func ProtobufToFrameSystemPart(fsc *pb.FrameSystemServiceConfig) (*FrameSystemPart, error) {
 	convertedPose := &commonpb.Pose{
 		X:     fsc.FrameConfig.Pose.X,
 		Y:     fsc.FrameConfig.Pose.Y,

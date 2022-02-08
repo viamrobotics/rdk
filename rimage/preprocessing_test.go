@@ -91,7 +91,7 @@ func (h *cannyTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn strin
 	pCtx.GotDebugImage(drawAverageHoleDepth(closedDM), "hole-depths")
 
 	// filled
-	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned(), ii.Projector())
+	morphed := MakeImageWithDepth(ii.Color, closedDM, ii.IsAligned())
 	FillDepthMap(morphed)
 	closedDM = morphed.Depth
 	filledEdges, err := cannyDepth.DetectDepthEdges(closedDM, 0.0)
@@ -148,10 +148,6 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 	missingDepth := MissingDepthData(depthImg)
 	pCtx.GotDebugImage(missingDepth, "depth-raw-missing-data")
 
-	pc, err := ii.ToPointCloud()
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(pc, "raw-depth-pointcloud")
-
 	preprocessedIwd, err := PreprocessDepthMap(ii)
 	preprocessedImg := preprocessedIwd.Depth
 	test.That(t, err, test.ShouldBeNil)
@@ -160,10 +156,6 @@ func (h *preprocessTestHelper) Process(t *testing.T, pCtx *ProcessorContext, fn 
 
 	missingPreprocessDepth := MissingDepthData(preprocessedImg)
 	pCtx.GotDebugImage(missingPreprocessDepth, "depth-preprocessed-missing-data")
-
-	pc2, err := preprocessedIwd.ToPointCloud()
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(pc2, "preprocess-depth-pointcloud")
 
 	return nil
 }

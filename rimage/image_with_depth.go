@@ -18,13 +18,12 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
-	camera  Projector
 }
 
-// MakeImageWithDepth returns a new image with depth from the given color and depth arguments. It
-// is also associated with a camera that captured the color and depth.
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera Projector) *ImageWithDepth {
-	return &ImageWithDepth{img, dm, aligned, camera}
+// MakeImageWithDepth returns a new image with depth from the given color and depth arguments.
+// aligned is true if the two channels are aligned, false if not.
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned}
 }
 
 // Bounds returns the bounds.
@@ -40,12 +39,12 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 // Clone makes a copy of the image with depth.
 func (i *ImageWithDepth) Clone() *ImageWithDepth {
 	if i.Color == nil {
-		return &ImageWithDepth{nil, nil, i.aligned, i.camera}
+		return &ImageWithDepth{nil, nil, i.aligned}
 	}
 	if i.Depth == nil {
-		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned, i.camera}
+		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned}
 	}
-	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned, i.camera}
+	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned}
 }
 
 // At returns the color at the given point.
@@ -54,10 +53,15 @@ func (i *ImageWithDepth) At(x, y int) color.Color {
 	return i.Color.At(x, y)
 }
 
+// IsAligned returns if the image and depth are aligned.
+func (i *ImageWithDepth) IsAligned() bool {
+	return i.aligned
+}
+
 // To3D takes an image pixel coordinate and returns the 3D coordinate in the world.
-func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
-	if i.camera == nil {
-		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
+func (i *ImageWithDepth) To3D(p image.Point, proj Projector) (r3.Vector, error) {
+	if proj == nil {
+		return r3.Vector{}, errors.New("the Projector cannot be nil")
 	}
 	if i.Depth == nil {
 		return r3.Vector{}, errors.New("no depth channel in ImageWithDepth")
@@ -66,7 +70,7 @@ func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
 		return r3.Vector{}, errors.Errorf("point (%d,%d) not within image bounds", p.X, p.Y)
 	}
 	d := i.Depth.Get(p)
-	return i.camera.ImagePointTo3DPoint(p, d)
+	return proj.ImagePointTo3DPoint(p, d)
 }
 
 // Width returns the horizontal width of the image.
@@ -81,7 +85,7 @@ func (i *ImageWithDepth) Height() int {
 
 // Rotate rotates the color and depth about the origin by the given angle clockwise.
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.camera}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}
 }
 
 // Warp adapts the image to a new size.
@@ -95,7 +99,7 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = i.Depth.Warp(m2, newSize)
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned}
 }
 
 // CropToDepthData TODO.
@@ -212,7 +216,7 @@ func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*Imag
 		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 // NewImageWithDepth returns a new image from the given color image and depth data files.
@@ -234,7 +238,7 @@ func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth
 		}
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 func imageToDepthMap(img image.Image) *DepthMap {
@@ -265,9 +269,9 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x
 	case *Image:
-		return &ImageWithDepth{x, nil, false, nil}
+		return &ImageWithDepth{x, nil, false}
 	default:
-		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
+		return &ImageWithDepth{ConvertImage(img), nil, false}
 	}
 }
 
@@ -278,9 +282,9 @@ func CloneToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x.Clone()
 	case *Image:
-		return &ImageWithDepth{x.Clone(), nil, false, nil}
+		return &ImageWithDepth{x.Clone(), nil, false}
 	default:
-		return &ImageWithDepth{CloneImage(img), nil, false, nil}
+		return &ImageWithDepth{CloneImage(img), nil, false}
 	}
 }
 
