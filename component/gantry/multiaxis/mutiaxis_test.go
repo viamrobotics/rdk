@@ -58,14 +58,14 @@ func createFakeRobot() *inject.Robot {
 }
 
 var threeAxes = []gantry.Gantry{
-	createFakeOneaAxis(1, []float64{1, 2, 3}),
-	createFakeOneaAxis(2, []float64{4, 5, 6}),
-	createFakeOneaAxis(3, []float64{7, 8, 9}),
+	createFakeOneaAxis(1, []float64{1}),
+	createFakeOneaAxis(2, []float64{5}),
+	createFakeOneaAxis(3, []float64{9}),
 }
 
 var twoAxes = []gantry.Gantry{
-	createFakeOneaAxis(5, []float64{1, 2, 3}),
-	createFakeOneaAxis(6, []float64{4, 5, 6}),
+	createFakeOneaAxis(5, []float64{1}),
+	createFakeOneaAxis(6, []float64{5}),
 }
 
 func TestValidate(t *testing.T) {
@@ -194,12 +194,11 @@ func TestCurrentInputs(t *testing.T) {
 }
 
 func TestModelFrame(t *testing.T) {
-	// TO DO: improve this test with sample kinematics
-	fakemultiaxis := &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 1, 1}, name: "test"}
+	fakemultiaxis := &multiAxis{subAxes: twoAxes, lengthsMm: []float64{1, 1}, name: "test2Axgood"}
 	model := fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
 
-	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 1, 1}, name: "test"}
+	fakemultiaxis = &multiAxis{subAxes: threeAxes, lengthsMm: []float64{1, 1, 1}, name: "test3Axgood"}
 	model = fakemultiaxis.ModelFrame()
 	test.That(t, model, test.ShouldNotBeNil)
 }
