@@ -83,16 +83,17 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	return m.IsPoweredFunc(ctx)
 }
 
-// GoTillStopSupportingMotor is an injected motor that supports GoTillStop.
-type GoTillStopSupportingMotor struct {
+// LocalMotor is an injected motor that supports additional features provided by RDK
+// (e.g. GoTillStop).
+type LocalMotor struct {
 	Motor
 	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
-func (m *GoTillStopSupportingMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *LocalMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
 	if m.GoTillStopFunc == nil {
-		stoppableMotor, ok := m.Motor.Motor.(motor.GoTillStopSupportingMotor)
+		stoppableMotor, ok := m.Motor.Motor.(motor.LocalMotor)
 		if !ok {
 			return motor.NewGoTillStopUnsupportedError("unknownName")
 		}

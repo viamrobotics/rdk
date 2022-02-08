@@ -15,8 +15,8 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-func createWorkingMotor() *inject.GoTillStopSupportingMotor {
-	injectMotor := &inject.GoTillStopSupportingMotor{}
+func createWorkingMotor() *inject.LocalMotor {
+	injectMotor := &inject.LocalMotor{}
 	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
 		return map[motor.Feature]bool{
 			motor.PositionReporting: true,
@@ -166,7 +166,7 @@ func TestNew(t *testing.T) {
 			return fakeBoard, true
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := &inject.GoTillStopSupportingMotor{}
+			fakeMotor := &inject.LocalMotor{}
 			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
 				map[motor.Feature]bool, error,
 			) {
@@ -528,7 +528,7 @@ func TestProcessCurrentReading(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	t.Run("make sure calling Close shuts down the motor", func(t *testing.T) {
-		fakeMotor := &inject.GoTillStopSupportingMotor{}
+		fakeMotor := &inject.LocalMotor{}
 		counter := 0
 		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++
@@ -545,7 +545,7 @@ func TestClose(t *testing.T) {
 
 func TestStop(t *testing.T) {
 	t.Run("make sure calling Stops shuts down the motor", func(t *testing.T) {
-		fakeMotor := &inject.GoTillStopSupportingMotor{}
+		fakeMotor := &inject.LocalMotor{}
 		counter := 0
 		fakeMotor.StopFunc = func(ctx context.Context) error {
 			counter++

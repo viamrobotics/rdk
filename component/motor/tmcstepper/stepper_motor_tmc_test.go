@@ -99,7 +99,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	}()
 	_motor, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
-	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	t.Run("motor SetPower testing", func(t *testing.T) {

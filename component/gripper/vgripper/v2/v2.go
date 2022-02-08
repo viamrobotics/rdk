@@ -64,7 +64,7 @@ const (
 // gripperV2 represents a Viam gripper which operates with a ForceMatrix.
 type gripperV2 struct {
 	// components of the gripper (board implicitly included)
-	motor       motor.GoTillStopSupportingMotor
+	motor       motor.LocalMotor
 	current     board.AnalogReader
 	forceMatrix forcematrix.ForceMatrix
 
@@ -116,7 +116,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.New("gripper motor needs to support position")
 	}
 
-	stoppableMotor, ok := _motor.(motor.GoTillStopSupportingMotor)
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	if !ok {
 		return nil, motor.NewGoTillStopUnsupportedError(motorName)
 	}

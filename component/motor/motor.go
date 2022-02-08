@@ -58,9 +58,9 @@ type Motor interface {
 	IsPowered(ctx context.Context) (bool, error)
 }
 
-// A GoTillStopSupportingMotor is a motor that supports the ability to run a motor
-// until it is somehow physically stopped.
-type GoTillStopSupportingMotor interface {
+// A LocalMotor is a motor that supports additional features provided by RDK
+// (e.g. GoTillStop).
+type LocalMotor interface {
 	Motor
 	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
 	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
