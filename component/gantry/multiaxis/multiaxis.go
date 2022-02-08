@@ -27,7 +27,6 @@ type multiAxis struct {
 	name      string
 	subAxes   []gantry.Gantry
 	lengthsMm []float64
-	model     referenceframe.Model
 	logger    golog.Logger
 }
 
