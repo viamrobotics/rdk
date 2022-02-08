@@ -5,7 +5,6 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
-	"math"
 	"net"
 	"testing"
 	"time"
@@ -33,9 +32,8 @@ import (
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/v1"
-	metadatapb "go.viam.com/rdk/proto/api/service/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
@@ -349,6 +347,14 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
 
+	frameSysSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	test.That(t, err, test.ShouldBeNil)
+	servicepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
+
+	frameSysSvc2, err := subtype.New((map[resource.Name]interface{}{framesystem.Name: "not a frame system"}))
+	test.That(t, err, test.ShouldBeNil)
+	servicepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
+
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
 	go gServer2.Serve(listener2)
@@ -391,63 +397,17 @@ func TestClient(t *testing.T) {
 		return &cfg, nil
 	}
 
-	fsConfigs := []*config.FrameSystemPart{
-		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Parent:      referenceframe.World,
-				Translation: spatialmath.TranslationConfig{1, 2, 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
-		},
-		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
-				Parent:      "frame1",
-				Translation: spatialmath.TranslationConfig{4, 5, 6},
-			},
-		},
-	}
-	fss := &inject.FrameSystemService{}
-	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-		return fsConfigs, nil
-	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		services := make(map[resource.Name]interface{})
-		services[framesystem.Name] = fss
-		service, ok := services[name]
-		return service, ok
-	}
-
 	client, err := New(context.Background(), listener1.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
+
+	_, err = client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	newCfg, err := client.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
-
-	// test robot frame system
-	frameSys, err := client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldBeNil)
-	frame1 := frameSys.GetFrame("frame1")
-	frame1Offset := frameSys.GetFrame("frame1_offset")
-	frame2 := frameSys.GetFrame("frame2")
-	frame2Offset := frameSys.GetFrame("frame2_offset")
-
-	resFrame, err := frameSys.Parent(frame2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame2Offset)
-	resFrame, err = frameSys.Parent(frame2Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1)
-	resFrame, err = frameSys.Parent(frame1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1Offset)
-	resFrame, err = frameSys.Parent(frame1Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frameSys.World())
 
 	// test status
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -556,6 +516,9 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
+	_, err = client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldNotBeNil)
+
 	_, ok = base.FromRobot(client, "base1")
 	test.That(t, ok, test.ShouldBeTrue)
 
@@ -639,7 +602,7 @@ func TestClientRefresh(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	servicepb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -892,7 +855,7 @@ func TestClientDialerOption(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	servicepb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

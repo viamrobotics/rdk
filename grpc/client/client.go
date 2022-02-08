@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -376,45 +377,20 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	return names
 }
 
-// Logger returns the logger being used for this robot.
-func (rc *RobotClient) Logger() golog.Logger {
-	return rc.logger
-}
-
-// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
+// FrameSystem returns the robot's underlying frame system.
 func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	// request the full config from the remote robot's frame system service.FrameSystemConfig()
-	resp, err := rc.client.FrameServiceConfig(ctx, &pb.FrameServiceConfigRequest{})
+	fs, err := framesystem.FromRobot(rc)
 	if err != nil {
 		return nil, err
 	}
-	configs := resp.FrameSystemConfigs
-	// using the configs, build a FrameSystem using model frames and static offset frames, the configs slice should already be sorted.
-	for _, conf := range configs {
-		part, err := config.ProtobufToFrameSystemPart(conf)
-		if err != nil {
-			return nil, err
-		}
-		// rename everything with prefixes
-		part.Name = prefix + part.Name
-		if part.FrameConfig.Parent != referenceframe.World {
-			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
-		}
-		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, rc.Logger())
-		if err != nil {
-			return nil, err
-		}
-		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
-		if err != nil {
-			return nil, err
-		}
-		err = fs.AddFrame(modelFrame, staticOffsetFrame)
-		if err != nil {
-			return nil, err
-		}
+	parts, err := fs.Config(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return fs, nil
+	return framesystem.NewFrameSystemFromParts(name, prefix, parts, rc.logger)
+}
+
+// Logger returns the logger being used for this robot.
+func (rc *RobotClient) Logger() golog.Logger {
+	return rc.logger
 }
