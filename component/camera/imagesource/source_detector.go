@@ -93,6 +93,8 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 		proj = attrs.CameraParameters
 	} else if cam, ok := src.(camera.WithProjector); ok {
 		proj = cam.GetProjector()
+	} else if cam, ok := utils.UnwrapProxy(src).(camera.WithProjector); ok {
+		proj = cam.GetProjector()
 	}
 	// define the detector
 	detector, err := objectdetection.NewSource(src, proj, p, d, f)
