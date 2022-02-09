@@ -46,7 +46,7 @@ func TestClientFailing(t *testing.T) {
 		}
 
 		forceMatrixSvc, err := subtype.New(
-			(map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm}))
+			map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm})
 		test.That(t, err, test.ShouldBeNil)
 		pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
 
@@ -118,7 +118,7 @@ func TestClientWorking(t *testing.T) {
 		}
 
 		forceMatrixSvc, err := subtype.New(
-			(map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm}))
+			map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm})
 		test.That(t, err, test.ShouldBeNil)
 		resourceSubtype := registry.ResourceSubtypeLookup(forcematrix.Subtype)
 		resourceSubtype.RegisterRPCService(context.Background(), rpcServer, forceMatrixSvc)
@@ -183,7 +183,7 @@ func TestClientDialerOption(t *testing.T) {
 	injectForceMatrix := &inject.ForceMatrix{}
 
 	forceMatrixSvc, err := subtype.New(
-		(map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectForceMatrix}))
+		map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectForceMatrix})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
 

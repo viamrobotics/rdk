@@ -10,6 +10,9 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
@@ -127,18 +130,18 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.BaseNames(); len(names) != 0 {
+	if names := base.NamesFromRobot(r); len(names) != 0 {
 		status.Bases = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Bases[name] = true
 		}
 	}
 
-	if names := r.BoardNames(); len(names) != 0 {
+	if names := board.NamesFromRobot(r); len(names) != 0 {
 		status.Boards = make(map[string]*commonpb.BoardStatus, len(names))
 		for _, name := range names {
-			board, ok := r.BoardByName(name)
-			if !ok {
+			board, err := board.FromRobot(r, name)
+			if err != nil {
 				continue
 			}
 			boardStatus, err := board.Status(ctx)
@@ -149,7 +152,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.CameraNames(); len(names) != 0 {
+	if names := camera.NamesFromRobot(r); len(names) != 0 {
 		status.Cameras = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Cameras[name] = true
@@ -168,9 +171,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	if names := servo.NamesFromRobot(r); len(names) != 0 {
 		status.Servos = make(map[string]*pb.ServoStatus, len(names))
 		for _, name := range names {
-			x, ok := servo.FromRobot(r, name)
-			if !ok {
-				return nil, fmt.Errorf("servo %q not found", name)
+			x, err := servo.FromRobot(r, name)
+			if err != nil {
+				return nil, err
 			}
 			current, err := x.GetPosition(ctx)
 			if err != nil {
@@ -214,9 +217,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	if names := input.NamesFromRobot(r); len(names) != 0 {
 		status.InputControllers = make(map[string]*pb.InputControllerStatus, len(names))
 		for _, name := range names {
-			controller, ok := input.FromRobot(r, name)
-			if !ok {
-				return nil, fmt.Errorf("input controller %q not found", name)
+			controller, err := input.FromRobot(r, name)
+			if err != nil {
+				return nil, err
 			}
 			eventsIn, err := controller.GetEvents(ctx)
 			if err != nil {

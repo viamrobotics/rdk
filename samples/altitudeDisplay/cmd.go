@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -43,9 +42,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close(ctx)
 
-	gpsBoard, ok := myRobot.BoardByName(boardName)
-	if !ok {
-		return fmt.Errorf("failed to find board %s", boardName)
+	gpsBoard, err := board.FromRobot(myRobot, boardName)
+	if err != nil {
+		return err
 	}
 	localB, ok := gpsBoard.(board.LocalBoard)
 	if !ok {
@@ -53,9 +52,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	i2c, _ := localB.I2CByName("bus1")
 
-	gpsDevice, ok := gps.FromRobot(myRobot, gpsName)
-	if !ok {
-		return errors.Errorf("%q not found or not a gps", gpsName)
+	gpsDevice, err := gps.FromRobot(myRobot, gpsName)
+	if err != nil {
+		return err
 	}
 
 	handle, err := i2c.OpenHandle(dispAddr)

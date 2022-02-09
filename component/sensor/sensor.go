@@ -64,15 +64,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
-func FromRobot(r robot.Robot, name string) (Sensor, bool) {
+func FromRobot(r robot.Robot, name string) (Sensor, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Sensor)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Sensor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
@@ -122,7 +123,7 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	Sensor, ok := r.(Sensor)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Sensor but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", r)
 	}
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil

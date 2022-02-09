@@ -46,9 +46,9 @@ type pmtkI2CNMEAGPS struct {
 }
 
 func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
-	b, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	if err != nil {
+		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {

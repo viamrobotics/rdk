@@ -46,7 +46,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("return error when not able to find board", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return nil, false
 		}
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -55,7 +55,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("return error when not able to find motor", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return &inject.Board{}, true
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
@@ -68,7 +68,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("expect the motor to support position measurements", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return &inject.Board{}, true
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
@@ -86,7 +86,7 @@ func TestNew(t *testing.T) {
 	t.Run("return error when not able to find current analog reader", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return fakeBoard, true
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
@@ -107,7 +107,7 @@ func TestNew(t *testing.T) {
 	t.Run("return error when not able to find forcematrix", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return fakeBoard, true
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {

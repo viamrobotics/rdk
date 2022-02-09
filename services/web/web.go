@@ -27,6 +27,7 @@ import (
 	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
@@ -36,7 +37,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	rutils "go.viam.com/rdk/utils"
@@ -164,14 +164,14 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 		return nil, nil, err
 	}
 
-	for _, name := range theRobot.CameraNames() {
-		cam, ok := theRobot.CameraByName(name)
-		if !ok {
+	for _, name := range camera.NamesFromRobot(theRobot) {
+		cam, err := camera.FromRobot(theRobot, name)
+		if err != nil {
 			continue
 		}
 		cmp := conf.FindComponent(name)
 		if cmp != nil {
-			attrs, ok := cmp.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := cmp.ConvertedAttributes.(*camera.AttrConfig)
 			if ok && attrs.Hide {
 				continue
 			}

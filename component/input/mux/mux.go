@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
@@ -47,9 +46,9 @@ func NewController(ctx context.Context, r robot.Robot, config config.Component, 
 	m.ctxWithCancel = ctxWithCancel
 
 	for _, s := range config.ConvertedAttributes.(*Config).Sources {
-		c, ok := input.FromRobot(r, s)
-		if !ok {
-			return nil, errors.Errorf("cannot find input.Controller named: %s", s)
+		c, err := input.FromRobot(r, s)
+		if err != nil {
+			return nil, err
 		}
 		m.sources = append(m.sources, c)
 	}

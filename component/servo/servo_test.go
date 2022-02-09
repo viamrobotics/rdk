@@ -29,7 +29,7 @@ func setupInjectRobot() *inject.Robot {
 		case servo.Named(testServoName):
 			return servo1, true
 		case servo.Named(fakeServoName):
-			return "not a servo", false
+			return "not a servo", true
 		default:
 			return nil, false
 		}
@@ -43,21 +43,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := servo.FromRobot(r, testServoName)
+	s, err := servo.FromRobot(r, testServoName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 
-	s, ok = servo.FromRobot(r, fakeServoName)
+	s, err = servo.FromRobot(r, fakeServoName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Servo")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = servo.FromRobot(r, missingServoName)
+	s, err = servo.FromRobot(r, missingServoName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -112,7 +114,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = servo.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Servo")
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)

@@ -12,21 +12,23 @@ import (
 
 // Overlay returns a color image with the bounding boxes overlaid on the original image.
 func Overlay(img image.Image, dets []Detection) (image.Image, error) {
-	rimg := rimage.ConvertImage(img)
+	rimg := rimage.ConvertToImageWithDepth(img)
 	for _, det := range dets {
 		if !det.BoundingBox().In(rimg.Bounds()) {
 			return nil, errors.Errorf("bounding box (%v) does not fit in image (%v)", det.BoundingBox(), rimg.Bounds())
 		}
-		drawBox(rimg, det.BoundingBox())
+		drawBox(rimg.Color, det.BoundingBox())
 	}
 	return rimg, nil
 }
 
 // OverlayText writes a string in the top of the image.
 func OverlayText(img image.Image, text string) image.Image {
-	gimg := gg.NewContextForImage(img)
+	rimg := rimage.ConvertToImageWithDepth(img)
+	gimg := gg.NewContextForImage(rimg.Color)
 	rimage.DrawString(gimg, text, image.Point{30, 30}, color.NRGBA{255, 0, 0, 255}, 30)
-	return gimg.Image()
+	rimg.Color = rimage.ConvertImage(gimg.Image())
+	return rimg
 }
 
 // drawBox draws a red box over the image, each side is 3 pixels wide.

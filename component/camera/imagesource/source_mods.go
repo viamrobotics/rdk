@@ -2,13 +2,13 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -28,21 +29,25 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			sourceName := config.ConvertedAttributes.(*rimage.AttrConfig).Source
-			source, ok := r.CameraByName(sourceName)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
+				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-
-			return &camera.ImageSource{ImageSource: &rotateImageDepthSource{source}}, nil
+			sourceName := attrs.Source
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
+			}
+			imgSrc := &rotateImageDepthSource{source}
+			return camera.New(imgSrc, attrs, source)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "rotate",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 
 	registry.RegisterComponent(
 		camera.Subtype,
@@ -53,14 +58,14 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
 			if !ok {
-				return nil, errors.New("cannot retrieve converted attributes")
+				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := r.CameraByName(sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for resize (%s): %w", sourceName, err)
 			}
 
 			width := attrs.Width
@@ -72,17 +77,16 @@ func init() {
 				height = 640
 			}
 
-			return &camera.ImageSource{
-				ImageSource: gostream.ResizeImageSource{Src: source, Width: width, Height: height},
-			}, nil
+			imgSrc := gostream.ResizeImageSource{Src: source, Width: width, Height: height}
+			return camera.New(imgSrc, attrs, nil) // camera parameters from source camera do not work for resized images
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "resize",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&rimage.AttrConfig{})
+		&camera.AttrConfig{})
 }
 
 // rotateImageDepthSource TODO.

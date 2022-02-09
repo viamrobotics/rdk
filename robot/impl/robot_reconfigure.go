@@ -75,9 +75,9 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 		original:      r,
 		diff:          diff,
 		parts:         r.parts.Clone(),
-		additions:     newRobotParts(r.parts.debug, r.parts.fromCommand, r.parts.allowInsecureCreds, r.parts.tlsConfig, r.logger),
-		modifications: newRobotParts(r.parts.debug, r.parts.fromCommand, r.parts.allowInsecureCreds, r.parts.tlsConfig, r.logger),
-		removals:      newRobotParts(r.parts.debug, r.parts.fromCommand, r.parts.allowInsecureCreds, r.parts.tlsConfig, r.logger),
+		additions:     newRobotParts(r.parts.opts, r.logger),
+		modifications: newRobotParts(r.parts.opts, r.logger),
+		removals:      newRobotParts(r.parts.opts, r.logger),
 	}
 }
 
