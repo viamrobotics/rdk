@@ -72,7 +72,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
 	go writeConf(&confToWrite)
 
@@ -94,7 +94,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
 	go writeConf(&confToWrite)
 
@@ -135,7 +135,7 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
 	go writeConf(&confToWrite)
 
@@ -154,13 +154,18 @@ func TestNewWatcherCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+	}
+
+	certsToReturn := Cloud{
+		TLSCertificate: "hello",
+		TLSPrivateKey:  "world",
 	}
 
 	var confToReturn Config
 	var confErr bool
-	var confErrMu sync.Mutex
+	var confMu sync.Mutex
+	var certsOnce bool
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			panic(err)
@@ -175,18 +180,32 @@ func TestNewWatcherCloud(t *testing.T) {
 			w.Write([]byte("bad secret"))
 			return
 		}
-		confErrMu.Lock()
+
+		if len(r.Form["cert"]) != 0 && !certsOnce {
+			certsOnce = true
+			md, err := json.Marshal(&certsToReturn)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("error marshaling certs: %s", err)))
+				return
+			}
+			w.Write(md)
+			return
+		}
+
+		confMu.Lock()
 		if confErr {
-			confErrMu.Unlock()
+			confMu.Unlock()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		confErr = true
-		confErrMu.Unlock()
+
 		md, err := json.Marshal(&confToReturn)
+		confMu.Unlock()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("error marshaling status: %s", err)))
+			w.Write([]byte(fmt.Sprintf("error marshaling conf: %s", err)))
 			return
 		}
 		w.Write(md)
@@ -201,7 +220,8 @@ func TestNewWatcherCloud(t *testing.T) {
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
 		ID:              "my_id",
 		Secret:          "my_secret",
-		FQDNs:           []string{"woo", "yee"},
+		FQDN:            "woo",
+		LocalFQDN:       "yee",
 		RefreshInterval: time.Second,
 	}
 	confToReturn = Config{
@@ -220,14 +240,18 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
+
+	confToExpect := confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
 
 	watcher, err := NewWatcher(context.Background(), &Config{Cloud: cloudConf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	confToReturn = Config{
 		Cloud: cloudConf,
@@ -245,14 +269,18 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
+
+	confToExpect = confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
@@ -278,14 +306,18 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
-		Network: NetworkConfig{BindAddress: "localhost:8080"},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
+
+	confToExpect = confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 	test.That(t, httpServer.Shutdown(context.Background()), test.ShouldBeNil)
