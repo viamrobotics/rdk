@@ -126,56 +126,56 @@ const (
 
 // NewOneAxis creates a new one axis gantry.
 func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
-	gconf, ok := config.ConvertedAttributes.(*AttrConfig)
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(gconf, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
-	motor, ok := r.MotorByName(gconf.Motor)
+	motor, ok := r.MotorByName(conf.Motor)
 	if !ok {
 		return nil, errors.Errorf("cannot find motor named %v for gantry", config.Attributes.String("motor"))
 	}
 
-	board, ok := r.BoardByName(gconf.Board)
+	board, ok := r.BoardByName(conf.Board)
 	if !ok {
 		return nil, errors.New("cannot find board for gantry")
 	}
 
-	gantry := &oneAxis{
+	oAx := &oneAxis{
 		name:            config.Name,
 		board:           board,
 		motor:           motor,
 		logger:          logger,
-		limitSwitchPins: gconf.LimitSwitchPins,
-		limitHigh:       gconf.LimitPinEnabled,
-		lengthMm:        gconf.LengthMm,
-		reductionRatio:  gconf.ReductionRatio,
-		rpm:             gconf.GantryRPM,
-		axis:            r3.Vector(gconf.Axis),
+		limitSwitchPins: conf.LimitSwitchPins,
+		limitHigh:       conf.LimitPinEnabled,
+		lengthMm:        conf.LengthMm,
+		reductionRatio:  conf.ReductionRatio,
+		rpm:             conf.GantryRPM,
+		axis:            r3.Vector(conf.Axis),
 	}
 
-	switch len(gantry.limitSwitchPins) {
+	switch len(oAx.limitSwitchPins) {
 	case 1:
-		gantry.limitType = switchLimitTypeOnePin
+		oAx.limitType = switchLimitTypeOnePin
 	case 2:
-		gantry.limitType = switchLimitTypetwoPin
+		oAx.limitType = switchLimitTypetwoPin
 	case 0:
-		gantry.limitType = switchLimitTypeEncoder
+		oAx.limitType = switchLimitTypeEncoder
 		return nil, errors.New("encoder currently not supported")
 	default:
-		np := len(gantry.limitSwitchPins)
+		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	if gantry.limitType == switchLimitTypeOnePin && gantry.reductionRatio <= 0 {
-		return nil, errors.New("gantry with one limit switch per axis needs a pulley radius defined")
+	if oAx.limitType == switchLimitTypeOnePin && oAx.reductionRatio <= 0 {
+		return nil, errors.New("gantry with one limit switch per axis needs a reduction ratio defined")
 	}
 
-	if err := gantry.Home(ctx); err != nil {
+	if err := oAx.Home(ctx); err != nil {
 		return nil, err
 	}
 
-	return gantry, nil
+	return oAx, nil
 }
 
 func (g *oneAxis) Home(ctx context.Context) error {
