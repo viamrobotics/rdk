@@ -5,7 +5,6 @@ import (
 	"context"
 
 	// for embedding model file.
-	_ "embed"
 	"fmt"
 	"math"
 	"time"
@@ -405,14 +404,17 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
-	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-	if err != nil {
-		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+	if g.model == nil {
+		m := referenceframe.NewSimpleModel()
+		f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		if err != nil {
+			panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+		}
+		m.OrdTransforms = append(m.OrdTransforms, f)
+		g.model = m
+		return g.model
 	}
-	m.OrdTransforms = append(m.OrdTransforms, f)
-
-	return m
+	return g.model
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.

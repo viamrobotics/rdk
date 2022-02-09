@@ -563,7 +563,7 @@ func TestModelFrame(t *testing.T) {
 	fakegantry := &oneAxis{
 		name:     "test",
 		lengthMm: 1.0,
-		axis:     r3.Vector{0, 0, 1},
+		axis:     r3.Vector{X: 0, Y: 0, Z: 1},
 		model:    nil,
 	}
 
@@ -644,19 +644,19 @@ func TestGoToInputs(t *testing.T) {
 	err := fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 0")
 
-	inputs = []referenceframe.Input{{1.0}, {2.0}}
+	inputs = []referenceframe.Input{{Value: 1.0}, {Value: 2.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
 
-	inputs = []referenceframe.Input{{-1.0}}
+	inputs = []referenceframe.Input{{Value: -1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got -1.00 max is 1.00")
 
-	inputs = []referenceframe.Input{{4.0}}
+	inputs = []referenceframe.Input{{Value: 4.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 4.00 max is 1.00")
 
-	inputs = []referenceframe.Input{{1.0}}
+	inputs = []referenceframe.Input{{Value: 1.0}}
 	err = fakegantry.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
