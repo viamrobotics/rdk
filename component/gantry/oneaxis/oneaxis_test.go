@@ -189,7 +189,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a pulley radius defined")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a reduction ratio defined")
 
 	fakecfg = config.Component{
 		Name: "gantry",
