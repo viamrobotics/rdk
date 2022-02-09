@@ -223,8 +223,8 @@ func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
 	rmB := b.pose.Orientation().RotationMatrix()
 	sum := math.Abs(positionDelta.Dot(plane))
 	for i := 0; i < 3; i++ {
-		sum += math.Abs(rmA.Row(i).Mul(a.halfSize[i]).Dot(plane))
-		sum += math.Abs(rmB.Row(i).Mul(b.halfSize[i]).Dot(plane))
+		sum -= math.Abs(rmA.Row(i).Mul(a.halfSize[i]).Dot(plane))
+		sum -= math.Abs(rmB.Row(i).Mul(b.halfSize[i]).Dot(plane))
 	}
 	return sum
 }
