@@ -45,7 +45,7 @@ func TestClient(t *testing.T) {
 	injectGPS2.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 
-	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2}))
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(gps.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
@@ -120,7 +120,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGPS := &inject.GPS{}
 
-	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS}))
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterGPSServiceServer(gServer, gps.NewServer(gpsSvc))
 

@@ -67,15 +67,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named IMU from the given Robot.
-func FromRobot(r robot.Robot, name string) (IMU, bool) {
+func FromRobot(r robot.Robot, name string) (IMU, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(IMU)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(IMU)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("IMU", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all IMU names from the given Robot.
@@ -137,7 +138,7 @@ func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Rec
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	imu, ok := r.(IMU)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be IMU but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("IMU", r)
 	}
 	if reconfigurable, ok := imu.(*reconfigurableIMU); ok {
 		return reconfigurable, nil

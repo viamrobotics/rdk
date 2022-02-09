@@ -6,16 +6,39 @@ package board
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.BoardService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterBoardServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "board".
 const SubtypeName = resource.SubtypeName("board")
@@ -156,6 +179,24 @@ var (
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
 
+// FromRobot is a helper for getting the named board from the given Robot.
+func FromRobot(r robot.Robot, name string) (Board, error) {
+	res, ok := r.ResourceByName(Named(name))
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
+	}
+	part, ok := res.(Board)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Board", res)
+	}
+	return part, nil
+}
+
+// NamesFromRobot is a helper for getting all board names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
+
 type reconfigurableBoard struct {
 	mu       sync.RWMutex
 	actual   LocalBoard
@@ -278,9 +319,9 @@ func (r *reconfigurableBoard) Reconfigure(ctx context.Context, newBoard resource
 
 	actual, ok := newBoard.(*reconfigurableBoard)
 	if !ok {
-		return errors.Errorf("expected new board to be %T but got %T", r, newBoard)
+		return utils.NewUnexpectedTypeError(r, newBoard)
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 
@@ -378,7 +419,7 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 func (r *reconfigurableBoard) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(ctx, r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
 // WrapWithReconfigurable converts a regular Board implementation to a reconfigurableBoard.
@@ -386,7 +427,7 @@ func (r *reconfigurableBoard) Close(ctx context.Context) error {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	board, ok := r.(LocalBoard)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be LocalBoard but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalBoard", r)
 	}
 	if reconfigurable, ok := board.(*reconfigurableBoard); ok {
 		return reconfigurable, nil
@@ -441,9 +482,9 @@ func (r *reconfigurableSPI) reconfigure(ctx context.Context, newSPI SPI) {
 	defer r.mu.Unlock()
 	actual, ok := newSPI.(*reconfigurableSPI)
 	if !ok {
-		panic(fmt.Errorf("expected new SPI to be %T but got %T", actual, newSPI))
+		panic(utils.NewUnexpectedTypeError(r, newSPI))
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -469,9 +510,9 @@ func (r *reconfigurableI2C) reconfigure(ctx context.Context, newI2C I2C) {
 	defer r.mu.Unlock()
 	actual, ok := newI2C.(*reconfigurableI2C)
 	if !ok {
-		panic(fmt.Errorf("expected new I2C to be %T but got %T", actual, newI2C))
+		panic(utils.NewUnexpectedTypeError(r, newI2C))
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -491,9 +532,9 @@ func (r *reconfigurableAnalogReader) reconfigure(ctx context.Context, newAnalogR
 	defer r.mu.Unlock()
 	actual, ok := newAnalogReader.(*reconfigurableAnalogReader)
 	if !ok {
-		panic(fmt.Errorf("expected new analog reader to be %T but got %T", actual, newAnalogReader))
+		panic(utils.NewUnexpectedTypeError(r, newAnalogReader))
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -512,7 +553,7 @@ func (r *reconfigurableAnalogReader) ProxyFor() interface{} {
 }
 
 func (r *reconfigurableAnalogReader) Close(ctx context.Context) error {
-	return utils.TryClose(ctx, r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
 type reconfigurableDigitalInterrupt struct {
@@ -531,15 +572,9 @@ func (r *reconfigurableDigitalInterrupt) reconfigure(ctx context.Context, newDig
 	defer r.mu.Unlock()
 	actual, ok := newDigitalInterrupt.(*reconfigurableDigitalInterrupt)
 	if !ok {
-		panic(
-			fmt.Errorf(
-				"expected new digital interrupt to be %T but got %T",
-				actual,
-				newDigitalInterrupt,
-			),
-		)
+		panic(utils.NewUnexpectedTypeError(r, newDigitalInterrupt))
 	}
-	if err := utils.TryClose(ctx, r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -572,5 +607,5 @@ func (r *reconfigurableDigitalInterrupt) AddPostProcessor(pp PostProcessor) {
 func (r *reconfigurableDigitalInterrupt) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return utils.TryClose(ctx, r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }

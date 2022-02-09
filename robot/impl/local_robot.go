@@ -18,7 +18,6 @@ import (
 
 	// register base.
 	_ "go.viam.com/rdk/component/base/register"
-	"go.viam.com/rdk/component/board"
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"
@@ -59,9 +58,6 @@ import (
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
-
-	// detect pi.
-	_ "go.viam.com/rdk/platformdetector/pi"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -95,12 +91,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
-// BoardByName returns a board by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BoardByName(name string) (board.Board, bool) {
-	return r.parts.BoardByName(name)
-}
-
 // MotorByName returns a motor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
@@ -116,11 +106,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// BoardNames returns the name of all known boards.
-func (r *localRobot) BoardNames() []string {
-	return r.parts.BoardNames()
 }
 
 // MotorNames returns the name of all known motors.

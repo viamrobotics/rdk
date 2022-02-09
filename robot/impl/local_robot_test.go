@@ -44,8 +44,8 @@ func TestConfig1(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	c1, ok := camera.FromRobot(r, "c1")
-	test.That(t, ok, test.ShouldBeTrue)
+	c1, err := camera.FromRobot(r, "c1")
+	test.That(t, err, test.ShouldBeNil)
 	pic, _, err := c1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -143,9 +143,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatus := &pb.Status{
-		Bases: map[string]bool{
-			"foo": true,
-		},
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
 				GridPosition: &pb.Pose{
@@ -178,15 +175,18 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Grippers: map[string]bool{
-			"pieceGripper":     true,
-			"foo.pieceGripper": true,
-			"bar.pieceGripper": true,
+		Bases: map[string]bool{
+			"foo": true,
 		},
 		Cameras: map[string]bool{
 			"cameraOver":     true,
 			"foo.cameraOver": true,
 			"bar.cameraOver": true,
+		},
+		Grippers: map[string]bool{
+			"pieceGripper":     true,
+			"foo.pieceGripper": true,
+			"bar.pieceGripper": true,
 		},
 		Sensors: nil,
 		Functions: map[string]bool{
@@ -350,11 +350,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						},
 					},
 				},
-				Grippers: map[string]bool{
-					"pieceGripper": true,
-				},
 				Cameras: map[string]bool{
 					"cameraOver": true,
+				},
+				Grippers: map[string]bool{
+					"pieceGripper": true,
 				},
 				Sensors: nil,
 				Functions: map[string]bool{
@@ -440,14 +440,14 @@ func TestNewTeardown(t *testing.T) {
     "components": [
         {
             "model": "%[1]s",
-            "name": "gripper1",
-            "type": "gripper",
-            "depends_on": ["board1"]
+            "name": "board1",
+            "type": "board"
         },
         {
             "model": "%[1]s",
-            "name": "board1",
-            "type": "board"
+            "name": "gripper1",
+            "type": "gripper",
+            "depends_on": ["board1"]
         }
     ]
 }
@@ -502,28 +502,6 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func1",
-		}: {},
-		{
-			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func2",
-		}: {},
-		{
 			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
 			Subtype: gripper.Subtype,
 			Name:    "pieceGripper",
@@ -549,6 +527,28 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: gps.SubtypeName,
 			},
 			Name: "gps2",
+		}: {},
+		{
+			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeFunction,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func1",
+		}: {},
+		{
+			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeFunction,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func2",
 		}: {},
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
