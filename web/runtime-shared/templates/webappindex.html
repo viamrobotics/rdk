@@ -611,8 +611,8 @@
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new robotApi.ObjectManipulationServiceDoGrabRequest();
-                      let cameraPoint = new robotApi.Vector3();
+                      let req = new objectManipulationApi.ObjectManipulationServiceDoGrabRequest();
+                      let cameraPoint = new commonApi.Vector3();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
                       cameraPoint.setZ(cameraPointZ);
@@ -624,7 +624,7 @@
                       console.log("making grab attempt");
                       console.log(gripperName);
 
-                      robotService.objectManipulationServiceDoGrab(req, {},
+                      objectManipulationService.doGrab(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
