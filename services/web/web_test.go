@@ -39,6 +39,7 @@ func TestWebStart(t *testing.T) {
 	client, err := client.New(context.Background(), "localhost:8080", logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
+	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 
 	err = svc.Start(context.Background(), NewOptions())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -70,6 +71,7 @@ func TestWebStartOptions(t *testing.T) {
 	client, err := client.New(context.Background(), addr, logger, client.WithDialOptions(rpc.WithInsecure()))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
+	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
@@ -144,6 +146,7 @@ func TestWebWithAuth(t *testing.T) {
 						))
 						test.That(t, err, test.ShouldBeNil)
 						test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+						test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 					})
 				}
 			} else {
@@ -156,6 +159,7 @@ func TestWebWithAuth(t *testing.T) {
 				))
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 			}
 
 			err = utils.TryClose(context.Background(), svc)
@@ -250,9 +254,10 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
+	test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	test.That(t, svc.(*webService).cancelFunc, test.ShouldBeNil)
-	test.That(t, conn.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
 
 	// now start it with the arm already in it
 	ctx, robot2 := setupRobotCtx()
@@ -301,6 +306,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
+	test.That(t, utils.TryClose(context.Background(), c2), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
 	test.That(t, svc2.(*webService).cancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -319,3 +325,50 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 
 	return ctx, injectRobot
 }
+
+func setupInjectRobot() (*inject.Robot, *mock) {
+	web1 := &mock{}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return web1, true
+	}
+	return r, web1
+}
+
+func TestFromRobot(t *testing.T) {
+	r, web1 := setupInjectRobot()
+
+	web, err := FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, web, test.ShouldNotBeNil)
+
+	err = web.Start(context.Background(), NewOptions())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, web1.startCount, test.ShouldEqual, 1)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return "not web", true
+	}
+
+	web, err = FromRobot(r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of web.Service")
+	test.That(t, web, test.ShouldBeNil)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return nil, false
+	}
+
+	web, err = FromRobot(r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, web, test.ShouldBeNil)
+}
+
+type mock struct {
+	Service
+
+	startCount int
+}
+
+func (m *mock) Start(context.Context, Options) error { m.startCount++; return nil }

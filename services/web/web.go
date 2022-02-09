@@ -17,7 +17,7 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
@@ -37,6 +37,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
 
@@ -52,6 +53,19 @@ var Subtype = resource.NewSubtype(
 
 // Name is the WebService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// FromRobot retrieves the web service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, ok := r.ResourceByName(Name)
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Name)
+	}
+	web, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("web.Service", resource)
+	}
+	return web, nil
+}
 
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
@@ -306,7 +320,7 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 	for idx, stream := range streams {
 		waitCh := make(chan struct{})
 		svc.activeBackgroundWorkers.Add(1)
-		utils.PanicCapturingGo(func() {
+		viamutils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
 			gostream.StreamSource(ctx, displaySources[idx], stream)
@@ -348,7 +362,7 @@ const DefaultFQDN = "local"
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
+	listener, secure, err := viamutils.NewPossiblySecureTCPListenerFromFile(
 		options.Network.BindAddress,
 		options.Network.TLSCertFile,
 		options.Network.TLSKeyFile,
@@ -525,14 +539,14 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
-	httpServer, err := utils.NewPlainTextHTTP2Server(mux)
+	httpServer, err := viamutils.NewPlainTextHTTP2Server(mux)
 	if err != nil {
 		return err
 	}
 	httpServer.Addr = listenerAddr
 
 	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	viamutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		<-ctx.Done()
 		defer func() {
@@ -552,7 +566,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	})
 	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	viamutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := rpcServer.Start(); err != nil {
 			svc.logger.Errorw("error starting rpc server", "error", err)
@@ -567,7 +581,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listenerAddr))
 	svc.activeBackgroundWorkers.Add(1)
-	utils.PanicCapturingGo(func() {
+	viamutils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			svc.logger.Errorw("error serving rpc server", "error", err)
