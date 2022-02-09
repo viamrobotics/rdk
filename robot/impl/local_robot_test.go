@@ -267,7 +267,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
-			options.LocalFQDN = "localhost" // this will allow authentication to work in unmanaged, default host
+			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecret := "locsosecret"
 
@@ -298,7 +298,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			entityName := tc.EntityName
 			if entityName == "" {
-				entityName = addr
+				entityName = options.LocalFQDN
 			}
 
 			remoteConfig := &config.Config{

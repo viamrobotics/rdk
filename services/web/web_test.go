@@ -106,7 +106,7 @@ func TestWebWithAuth(t *testing.T) {
 			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
 			options.FQDN = tc.EntityName
-			options.LocalFQDN = "localhost" // this will allow authentication to work in unmanaged, default host
+			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
 			locationSecret := "locsosecret"
 			options.Auth.Handlers = []config.AuthHandlerConfig{
@@ -158,7 +158,7 @@ func TestWebWithAuth(t *testing.T) {
 
 				entityName := tc.EntityName
 				if entityName == "" {
-					entityName = addr
+					entityName = options.LocalFQDN
 				}
 				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
