@@ -117,7 +117,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGantry := &inject.Gantry{}
 
-	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry}))
+	gantrySvc, err := subtype.New(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGantryServiceServer(gServer, gantry.NewServer(gantrySvc))
 
