@@ -120,13 +120,13 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
-func (c *client) NextObjects(ctx context.Context, params vision.Parameters3D) (vision.Scene, error) {
+func (c *client) NextObjects(ctx context.Context, params *vision.Parameters3D) (vision.Scene, error) {
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.CameraServiceGetObjectPointCloudsRequest{
 		Name:               c.name,
 		MimeType:           utils.MimeTypePCD,
 		MinPointsInPlane:   int64(params.MinPtsInPlane),
 		MinPointsInSegment: int64(params.MinPtsInSegment),
-		ClusteringRadiusMm: ClusteringRadiusMm,
+		ClusteringRadiusMm: params.ClusteringRadiusMm,
 	})
 	if err != nil {
 		return nil, err
@@ -148,8 +148,8 @@ func protoToScene(pco []*pb.PointCloudObject) (vision.Scene, error) {
 		}
 		withMeta := &pointcloud.WithMetadata{
 			PointCloud:  pc,
-			Center:      protoToPoint(pco.CenterCoordinatesMm),
-			BoundingBox: protoToBox(pco.BoundingBoxMm),
+			Center:      protoToPoint(o.CenterCoordinatesMm),
+			BoundingBox: protoToBox(o.BoundingBoxMm),
 		}
 		objects[i] = withMeta
 	}
