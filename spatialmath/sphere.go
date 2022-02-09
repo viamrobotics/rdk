@@ -41,7 +41,7 @@ func (sc *sphereCreator) NewVolume(pose Pose) Volume {
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 	return json.Marshal(VolumeConfig{
 		Type: "sphere",
-		R:    bc.radius,
+		R:    sc.radius,
 	})
 }
 
