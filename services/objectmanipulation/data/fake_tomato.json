@@ -1,11 +1,9 @@
 {
     "services": [
         {
-            "name": "frame_system",
             "type": "frame_system"
         },
         {
-            "name": "object_manipulation",
             "type": "object_manipulation"
         }
 
