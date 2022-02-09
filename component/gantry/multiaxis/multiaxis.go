@@ -60,17 +60,17 @@ func init() {
 
 // NewMultiAxis creates a new-multi axis gantry.
 func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gantry.Gantry, error) {
-	magconf, ok := config.ConvertedAttributes.(*AttrConfig)
+	conf, ok := config.ConvertedAttributes.(*AttrConfig)
 	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(magconf, config.ConvertedAttributes)
+		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
-	mag := &multiAxis{
+	mAx := &multiAxis{
 		name:   config.Name,
 		logger: logger,
 	}
 
-	for _, s := range magconf.SubAxes {
+	for _, s := range conf.SubAxes {
 		oneAx, ok := r.ResourceByName(gantry.Named(s))
 		if !ok {
 			return nil, errors.Errorf("no axes named [%s]", s)
@@ -79,16 +79,16 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 		if !ok {
 			return nil, errors.Errorf("gantry named [%s] is not a gantry, is a %T", s, oneAx)
 		}
-		mag.subAxes = append(mag.subAxes, subAx)
+		mAx.subAxes = append(mAx.subAxes, subAx)
 	}
 
 	var err error
-	mag.lengthsMm, err = mag.GetLengths(ctx)
+	mAx.lengthsMm, err = mAx.GetLengths(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return mag, nil
+	return mAx, nil
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
@@ -123,28 +123,28 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 
 // GetPosition returns the position in millimeters.
 func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
-	posOut := []float64{}
+	positions := []float64{}
 	for _, subAx := range g.subAxes {
 		pos, err := subAx.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
-		posOut = append(posOut, pos[0])
+		positions = append(positions, pos[0])
 	}
-	return posOut, nil
+	return positions, nil
 }
 
 // GetLengths returns the physical lengths of all axes of a multi-axis Gantry.
 func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
-	lengthsOut := []float64{}
+	lengths := []float64{}
 	for _, subAx := range g.subAxes {
-		length, err := subAx.GetLengths(ctx)
+		lng, err := subAx.GetLengths(ctx)
 		if err != nil {
 			return nil, err
 		}
-		lengthsOut = append(lengthsOut, length[0])
+		lengths = append(lengths, lng[0])
 	}
-	return lengthsOut, nil
+	return lengths, nil
 }
 
 // CurrentInputs returns the current inputs of the Gantry frame.
@@ -152,24 +152,24 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 	if len(g.subAxes) == 0 {
 		return nil, errors.New("no subaxes found for inputs")
 	}
-	resOut := []float64{}
+	inputs := []float64{}
 	for _, subAx := range g.subAxes {
-		res, err := subAx.GetPosition(ctx)
+		in, err := subAx.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
-		resOut = append(resOut, res[0])
+		inputs = append(inputs, in[0])
 	}
 
-	return referenceframe.FloatsToInputs(resOut), nil
+	return referenceframe.FloatsToInputs(inputs), nil
 }
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
-	modelOut := referenceframe.NewSimpleModel()
-	for _, subAxis := range g.subAxes {
-		modelOut.OrdTransforms = append(modelOut.OrdTransforms, subAxis.ModelFrame())
+	model := referenceframe.NewSimpleModel()
+	for _, subAx := range g.subAxes {
+		model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
 	}
 
-	return modelOut
+	return model
 }
