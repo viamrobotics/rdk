@@ -46,7 +46,7 @@ func createFakeRobot() *inject.Robot {
 	}
 
 	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1, 0, 0}, nil }}, true
+		return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, true
 	}
 	return fakerobot
 }
@@ -84,11 +84,12 @@ func TestNewMultiAxis(t *testing.T) {
 		},
 	}
 	fmag, err := newMultiAxis(ctx, fakeRobot, fakeMultAxcfg, logger)
-	fakemulax, ok := fmag.(*multiAxis)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fmag, test.ShouldNotBeNil)
+	fakemulax, ok := fmag.(*multiAxis)
 	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, fakemulax.lengthsMm, test.ShouldResemble, []float64{1, 1, 1})
+	lenfloat := []float64{1, 1, 1}
+	test.That(t, fakemulax.lengthsMm, test.ShouldResemble, lenfloat)
 
 	fakeMultAxcfg = config.Component{
 		Name: "gantry",
@@ -128,10 +129,12 @@ func TestGoToInputs(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
+	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}, {Value: 3}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
+	inputs = []referenceframe.Input{{Value: 1}, {Value: 2}}
 	err = fakemultiaxis.GoToInputs(ctx, inputs)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -179,12 +182,12 @@ func TestCurrentInputs(t *testing.T) {
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{1}, {5}, {9}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}, {Value: 9}})
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	inputs, err = fakemultiaxis.CurrentInputs(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{1}, {5}})
+	test.That(t, inputs, test.ShouldResemble, []referenceframe.Input{{Value: 1}, {Value: 5}})
 }
 
 func TestModelFrame(t *testing.T) {

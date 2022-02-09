@@ -28,6 +28,7 @@ type multiAxis struct {
 	subAxes   []gantry.Gantry
 	lengthsMm []float64
 	logger    golog.Logger
+	model     referenceframe.Model
 }
 
 // Validate ensures all parts of the config are valid.
@@ -97,10 +98,17 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
 
-	for idx, subAx := range g.subAxes {
-		err := subAx.MoveToPosition(ctx, []float64{positions[idx]})
+	for _, subAx := range g.subAxes {
+		subAxNum, err := subAx.GetLengths(ctx)
 		if err != nil {
 			return err
+		}
+
+		for idx := range subAxNum {
+			err := subAx.MoveToPosition(ctx, []float64{positions[idx]})
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -113,9 +121,18 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 	}
 
 	for _, subAx := range g.subAxes {
-		err := subAx.MoveToPosition(ctx, referenceframe.InputsToFloats((goal)))
+		subAxNum, err := subAx.GetLengths(ctx)
 		if err != nil {
 			return err
+		}
+
+		for idx := range subAxNum {
+			subGoal := goal[idx]
+			subGoalInputs := []referenceframe.Input{subGoal}
+			err := subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(subGoalInputs))
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -129,7 +146,7 @@ func (g *multiAxis) GetPosition(ctx context.Context) ([]float64, error) {
 		if err != nil {
 			return nil, err
 		}
-		positions = append(positions, pos[0])
+		positions = append(positions, pos...)
 	}
 	return positions, nil
 }
@@ -142,7 +159,7 @@ func (g *multiAxis) GetLengths(ctx context.Context) ([]float64, error) {
 		if err != nil {
 			return nil, err
 		}
-		lengths = append(lengths, lng[0])
+		lengths = append(lengths, lng...)
 	}
 	return lengths, nil
 }
@@ -158,18 +175,20 @@ func (g *multiAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, 
 		if err != nil {
 			return nil, err
 		}
-		inputs = append(inputs, in[0])
+		inputs = append(inputs, in...)
 	}
-
 	return referenceframe.FloatsToInputs(inputs), nil
 }
 
 //  ModelFrame returns the frame model of the Gantry.
 func (g *multiAxis) ModelFrame() referenceframe.Model {
-	model := referenceframe.NewSimpleModel()
-	for _, subAx := range g.subAxes {
-		model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
+	if g.model == nil {
+		model := referenceframe.NewSimpleModel()
+		for _, subAx := range g.subAxes {
+			model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
+		}
+		g.model = model
+		return g.model
 	}
-
-	return model
+	return g.model
 }
