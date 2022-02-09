@@ -199,7 +199,7 @@ func (s *subtypeServer) GetObjectPointClouds(
 		return nil, err
 	}
 
-	config := vision.Parameters3D{
+	config := &vision.Parameters3D{
 		MinPtsInPlane:      int(req.MinPointsInPlane),
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
