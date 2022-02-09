@@ -16,12 +16,11 @@ type gpsData struct {
 	satsInView int     // quantity satellites in view
 	satsInUse  int     // quantity satellites in view
 	valid      bool
-	// gga        string
 }
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func parseAndUpdate(line string, g *gpsData, n ntripInfo) error {
+func (g *gpsData) parseAndUpdate(line string, n ntripInfo) error {
 	s, err := nmea.Parse(line)
 	if err != nil {
 		return err

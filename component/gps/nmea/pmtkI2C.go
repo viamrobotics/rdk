@@ -133,7 +133,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
-						err = parseAndUpdate(strBuf, &g.data, g.ntripClient)
+						err = g.data.parseAndUpdate(strBuf, g.ntripClient)
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
