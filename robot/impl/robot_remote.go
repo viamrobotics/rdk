@@ -297,7 +297,7 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // which should be unaware of remotes.
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
-	parts := newRobotParts(robot.Logger().Named("parts"))
+	parts := newRobotParts(robotPartsOptions{}, robot.Logger().Named("parts"))
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
