@@ -453,7 +453,8 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	for _, result := range execResult.Results {
 		val := result.Interface()
 		if (val == functionvm.Undefined{}) {
-			val = "<undefined>" // TODO(erd): holdover for now to make my life easier :)
+			// TODO(https://github.com/viamrobotics/rdk/issues/518): holdover for now to make my life easier :)
+			val = "<undefined>"
 		}
 		pbVal, err := structpb.NewValue(val)
 		if err != nil {
