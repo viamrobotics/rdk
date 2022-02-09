@@ -256,7 +256,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectInputController := &inject.InputController{}
 
-	inputControllerSvc, err := subtype.New((map[resource.Name]interface{}{input.Named(testInputControllerName): injectInputController}))
+	inputControllerSvc, err := subtype.New(map[resource.Name]interface{}{input.Named(testInputControllerName): injectInputController})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterInputControllerServiceServer(gServer, input.NewServer(inputControllerSvc))
 

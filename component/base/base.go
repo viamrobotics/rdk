@@ -86,15 +86,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named base from the given Robot.
-func FromRobot(r robot.Robot, name string) (Base, bool) {
+func FromRobot(r robot.Robot, name string) (Base, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Base)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Base)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Base", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.
@@ -172,7 +173,7 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	base, ok := r.(LocalBase)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Base but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalBase", r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil
