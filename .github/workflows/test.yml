@@ -40,6 +40,7 @@ jobs:
         if [ -n "$GEN_DIFF" ]; then
             echo '"make build lint" resulted in changes not in git' 1>&2
             git status
+            echo $GEN_DIFF
             exit 1
         fi
 
