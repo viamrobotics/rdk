@@ -165,8 +165,8 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	}
 
 	for _, name := range camera.NamesFromRobot(theRobot) {
-		cam, ok := camera.FromRobot(theRobot, name)
-		if !ok {
+		cam, err := camera.FromRobot(theRobot, name)
+		if err != nil {
 			continue
 		}
 		cmp := conf.FindComponent(name)

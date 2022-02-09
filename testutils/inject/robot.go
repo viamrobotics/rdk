@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -21,11 +20,9 @@ import (
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
-	BoardByNameFunc    func(name string) (board.Board, bool)
 	MotorByNameFunc    func(name string) (motor.Motor, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
 	RemoteNamesFunc    func() []string
-	BoardNamesFunc     func() []string
 	MotorNamesFunc     func() []string
 	FunctionNamesFunc  func() []string
 	FrameSystemFunc    func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
@@ -44,14 +41,6 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 		return r.Robot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
-}
-
-// BoardByName calls the injected BoardByName or the real version.
-func (r *Robot) BoardByName(name string) (board.Board, bool) {
-	if r.BoardByNameFunc == nil {
-		return r.Robot.BoardByName(name)
-	}
-	return r.BoardByNameFunc(name)
 }
 
 // MotorByName calls the injected MotorByName or the real version.
@@ -76,14 +65,6 @@ func (r *Robot) RemoteNames() []string {
 		return r.Robot.RemoteNames()
 	}
 	return r.RemoteNamesFunc()
-}
-
-// BoardNames calls the injected BoardNames or the real version.
-func (r *Robot) BoardNames() []string {
-	if r.BoardNamesFunc == nil {
-		return r.Robot.BoardNames()
-	}
-	return r.BoardNamesFunc()
 }
 
 // MotorNames calls the injected MotorNames or the real version.

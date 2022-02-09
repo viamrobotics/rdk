@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		case forcematrix.Named(testForceMatrixName):
 			return forcematrix1, true
 		case forcematrix.Named(fakeForceMatrixName):
-			return "not a forcematrix", false
+			return "not a forcematrix", true
 		default:
 			return nil, false
 		}
@@ -42,21 +42,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := forcematrix.FromRobot(r, testForceMatrixName)
+	s, err := forcematrix.FromRobot(r, testForceMatrixName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.DetectSlip(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, slip)
 
-	s, ok = forcematrix.FromRobot(r, fakeForceMatrixName)
+	s, err = forcematrix.FromRobot(r, fakeForceMatrixName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of ForceMatrix")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = forcematrix.FromRobot(r, missingForceMatrixName)
+	s, err = forcematrix.FromRobot(r, missingForceMatrixName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -111,7 +113,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = forcematrix.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of ForceMatrix")
 
 	reconfForceMatrix2, err := forcematrix.WrapWithReconfigurable(reconfForceMatrix1)
 	test.That(t, err, test.ShouldBeNil)
