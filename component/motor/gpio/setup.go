@@ -2,7 +2,6 @@ package gpio
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -53,9 +52,9 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	if motorConfig.BoardName == "" {
 		return nil, nil, errors.New("expected board name in config for motor")
 	}
-	b, ok := r.BoardByName(motorConfig.BoardName)
-	if !ok {
-		return nil, nil, fmt.Errorf("expected to find board %q", motorConfig.BoardName)
+	b, err := board.FromRobot(r, motorConfig.BoardName)
+	if err != nil {
+		return nil, nil, err
 	}
 	return b, motorConfig, nil
 }

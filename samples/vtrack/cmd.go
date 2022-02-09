@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -39,9 +39,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	fc, ok := myRobot.CameraByName("front-composed")
-	if !ok {
-		return errors.New("no front-composed camera")
+	fc, err := camera.FromRobot(myRobot, "front-composed")
+	if err != nil {
+		return err
 	}
 
 	for {

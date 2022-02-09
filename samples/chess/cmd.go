@@ -25,6 +25,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -73,7 +74,7 @@ func getCoord(chess string) pos {
 
 func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis int64) error {
 	// first make sure in safe position
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -136,7 +137,7 @@ func movePiece(
 	}
 
 	height := boardState.NewestBoard().SquareCenterHeight(from, 35) // TODO(erh): change to something more intelligent
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -159,7 +160,7 @@ func movePiece(
 			return err
 		}
 		logger.Debug("no piece")
-		where, err = myArm.CurrentPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -184,7 +185,7 @@ func movePiece(
 			}
 			myGripper.Open(ctx)
 		})
-		err = myArm.JointMoveDelta(ctx, 4, -1)
+		err = moveJointDelta(ctx, myArm, 4, -1)
 		if err != nil {
 			return err
 		}
@@ -198,7 +199,7 @@ func movePiece(
 	}
 
 	// drop piece
-	where, err = myArm.CurrentPosition(ctx)
+	where, err = myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -209,7 +210,7 @@ func movePiece(
 	myGripper.Open(ctx)
 
 	if to != "-" {
-		where, err = myArm.CurrentPosition(ctx)
+		where, err = myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -224,7 +225,7 @@ func movePiece(
 func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
 
-	where, err := myArm.CurrentPosition(ctx)
+	where, err := myArm.GetEndPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -233,6 +234,15 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
 	return myArm.MoveToPosition(ctx, where)
+}
+
+func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
+	joints, err := myArm.GetJointPositions(ctx)
+	if err != nil {
+		return err
+	}
+	joints.Degrees[joint] += degAngle
+	return myArm.MoveToJointPositions(ctx, joints)
 }
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
@@ -323,7 +333,7 @@ func lookForBoardAdjust(
 ) error {
 	debugNumber := 100
 	for {
-		where, err := myArm.CurrentPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -368,14 +378,14 @@ func lookForBoardAdjust(
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
 	debugNumber := 0
 
-	wristCam, ok := myRobot.CameraByName("wristCam")
-	if !ok {
-		return errors.New("can't find wristCam")
+	wristCam, err := camera.FromRobot(myRobot, "wristCam")
+	if err != nil {
+		return err
 	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
 		// HARD CODED
-		where, err := myArm.CurrentPosition(ctx)
+		where, err := myArm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -393,7 +403,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 
 		d := .1
 		for i := 0.0; i < 1.6; i += d {
-			err = myArm.JointMoveDelta(ctx, 0, foo*d)
+			err = moveJointDelta(ctx, myArm, 0, foo*d)
 			if err != nil {
 				return err
 			}
@@ -419,18 +429,18 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return ctx.Err()
 	}
 
-	cam, ok := robot.CameraByName("gripperCam")
-	if !ok {
-		return errors.New("can't find gripperCam")
+	cam, err := camera.FromRobot(robot, "gripperCam")
+	if err != nil {
+		return err
 	}
 
-	arm, ok := robot.ArmByName("pieceArm")
-	if !ok {
-		return errors.New("can't find pieceArm")
+	arm, err := arm.FromRobot(robot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
 	for {
-		where, err := arm.CurrentPosition(ctx)
+		where, err := arm.GetEndPosition(ctx)
 		if err != nil {
 			return err
 		}
@@ -520,19 +530,19 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(myRobot.Close(context.Background()))
 	}()
 
-	myArm, ok := myRobot.ArmByName("pieceArm")
-	if !ok {
-		return errors.New("need an arm called pieceArm")
+	myArm, err := arm.FromRobot(myRobot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
-	myGripper, ok := myRobot.GripperByName("grippie")
-	if !ok {
-		return errors.New("need a gripper called gripped")
+	myGripper, err := gripper.FromRobot(myRobot, "grippie")
+	if err != nil {
+		return err
 	}
 
-	webcam, ok := myRobot.CameraByName("cameraOver")
-	if !ok {
-		return errors.New("can't find cameraOver camera")
+	webcam, err := camera.FromRobot(myRobot, "cameraOver")
+	if err != nil {
+		return err
 	}
 
 	if false { // TODO(erh): put this back once we have a wrist camera again

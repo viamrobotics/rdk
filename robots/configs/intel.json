@@ -8,6 +8,22 @@
             "attributes":
             {
                 "hide": true,
+                "camera_parameters": {
+                    "height": 720,
+                    "width": 1280,
+                    "fx": 900.538000,
+                    "fy": 900.818000,
+                    "ppx": 648.934000,
+                    "ppy": 367.736000,
+                    "distortion":
+                    {
+                        "rk1": 0.158701,
+                        "rk2": -0.485405,
+                        "rk3": 0.435342,
+                        "tp1": -0.00143327,
+                        "tp2": -0.000705919
+                    }
+                },
                 "path_pattern": "usb",
                 "width": 1280,
                 "rotate": true,
@@ -29,7 +45,7 @@
         {
             "name": "front",
             "type": "camera",
-            "model": "depth_composed",
+            "model": "align_color_depth",
             "attributes":
             {
                 "hide": true,
@@ -37,6 +53,22 @@
                 "depth": "front-depth",
                 "make": "intel515",
                 "debug": false,
+                "camera_parameters": {
+                    "height": 720,
+                    "width": 1280,
+                    "fx": 900.538000,
+                    "fy": 900.818000,
+                    "ppx": 648.934000,
+                    "ppy": 367.736000,
+                    "distortion":
+                    {
+                        "rk1": 0.158701,
+                        "rk2": -0.485405,
+                        "rk3": 0.435342,
+                        "tp1": -0.00143327,
+                        "tp2": -0.000705919
+                    }
+                },
                 "intrinsic_extrinsic":
                 {
                     "color":

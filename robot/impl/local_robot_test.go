@@ -44,8 +44,8 @@ func TestConfig1(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	c1, ok := r.CameraByName("c1")
-	test.That(t, ok, test.ShouldBeTrue)
+	c1, err := camera.FromRobot(r, "c1")
+	test.That(t, err, test.ShouldBeNil)
 	pic, _, err := c1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -114,7 +114,7 @@ func TestConfigRemote(t *testing.T) {
 				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -129,7 +129,7 @@ func TestConfigRemote(t *testing.T) {
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -143,9 +143,6 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatus := &pb.Status{
-		Bases: map[string]bool{
-			"foo": true,
-		},
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
 				GridPosition: &pb.Pose{
@@ -178,15 +175,18 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Grippers: map[string]bool{
-			"pieceGripper":     true,
-			"foo.pieceGripper": true,
-			"bar.pieceGripper": true,
+		Bases: map[string]bool{
+			"foo": true,
 		},
 		Cameras: map[string]bool{
 			"cameraOver":     true,
 			"foo.cameraOver": true,
 			"bar.cameraOver": true,
+		},
+		Grippers: map[string]bool{
+			"pieceGripper":     true,
+			"foo.pieceGripper": true,
+			"bar.pieceGripper": true,
 		},
 		Sensors: nil,
 		Functions: map[string]bool{
@@ -210,15 +210,15 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, 16, test.ShouldEqual, len(cfg2.Components))
 
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
@@ -350,11 +350,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						},
 					},
 				},
-				Grippers: map[string]bool{
-					"pieceGripper": true,
-				},
 				Cameras: map[string]bool{
 					"cameraOver": true,
+				},
+				Grippers: map[string]bool{
+					"pieceGripper": true,
 				},
 				Sensors: nil,
 				Functions: map[string]bool{
@@ -362,7 +362,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 					"func2": true,
 				},
 				Services: map[string]bool{
-					"rdk:service:web": true,
+					"rdk:service:web":          true,
+					"rdk:service:frame_system": true,
 				},
 			}
 
@@ -375,15 +376,11 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 }
 
 type dummyBoard struct {
-	board.Board
+	board.LocalBoard
 	closeCount int
 }
 
 func (db *dummyBoard) MotorNames() []string {
-	return nil
-}
-
-func (db *dummyBoard) ServoNames() []string {
 	return nil
 }
 
@@ -443,14 +440,14 @@ func TestNewTeardown(t *testing.T) {
     "components": [
         {
             "model": "%[1]s",
-            "name": "gripper1",
-            "type": "gripper",
-            "depends_on": ["board1"]
+            "name": "board1",
+            "type": "board"
         },
         {
             "model": "%[1]s",
-            "name": "board1",
-            "type": "board"
+            "name": "gripper1",
+            "type": "gripper",
+            "depends_on": ["board1"]
         }
     ]
 }
@@ -505,28 +502,6 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "cameraOver",
 		}: {},
 		{
-			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func1",
-		}: {},
-		{
-			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeFunction,
-				},
-				ResourceSubtype: resource.ResourceSubtypeFunction,
-			},
-			Name: "func2",
-		}: {},
-		{
 			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
 			Subtype: gripper.Subtype,
 			Name:    "pieceGripper",
@@ -552,6 +527,28 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: gps.SubtypeName,
 			},
 			Name: "gps2",
+		}: {},
+		{
+			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeFunction,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func1",
+		}: {},
+		{
+			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
+			Subtype: resource.Subtype{
+				Type: resource.Type{
+					Namespace:    resource.ResourceNamespaceRDK,
+					ResourceType: resource.ResourceTypeFunction,
+				},
+				ResourceSubtype: resource.ResourceSubtypeFunction,
+			},
+			Name: "func2",
 		}: {},
 		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",

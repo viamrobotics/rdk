@@ -25,6 +25,7 @@ import (
 	"goji.io/pat"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
@@ -34,7 +35,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/web"
@@ -164,14 +164,14 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 		return nil, nil, err
 	}
 
-	for _, name := range theRobot.CameraNames() {
-		cam, ok := theRobot.CameraByName(name)
-		if !ok {
+	for _, name := range camera.NamesFromRobot(theRobot) {
+		cam, err := camera.FromRobot(theRobot, name)
+		if err != nil {
 			continue
 		}
 		cmp := conf.FindComponent(name)
 		if cmp != nil {
-			attrs, ok := cmp.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := cmp.ConvertedAttributes.(*camera.AttrConfig)
 			if ok && attrs.Hide {
 				continue
 			}
@@ -276,41 +276,26 @@ func (svc *webService) Close(ctx context.Context) error {
 	return nil
 }
 
-func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot, options Options) (gostream.StreamServer, bool, error) {
+func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
 	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
 	if err != nil {
 		return nil, false, err
 	}
 	var streams []gostream.Stream
-	var autoCameraTiler *gostream.AutoTiler
 
 	if len(displaySources) == 0 {
 		noopServer, err := gostream.NewStreamServer(streams...)
 		return noopServer, false, err
 	}
 
-	if options.AutoTile {
+	for idx := range displaySources {
 		config := defaultStreamConfig
-		config.Name = "Cameras"
-		stream, err := gostream.NewStream(config)
+		config.Name = displayNames[idx]
+		view, err := gostream.NewStream(config)
 		if err != nil {
 			return nil, false, err
 		}
-		streams = append(streams, stream)
-
-		tilerHeight := 480 * len(displaySources)
-		autoCameraTiler = gostream.NewAutoTiler(640, tilerHeight)
-		autoCameraTiler.SetLogger(svc.logger)
-	} else {
-		for idx := range displaySources {
-			config := x264.DefaultStreamConfig
-			config.Name = displayNames[idx]
-			view, err := gostream.NewStream(config)
-			if err != nil {
-				return nil, false, err
-			}
-			streams = append(streams, view)
-		}
+		streams = append(streams, view)
 	}
 
 	streamServer, err := gostream.NewStreamServer(streams...)
@@ -318,30 +303,15 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 		return nil, false, err
 	}
 
-	// start background workers
-	if autoCameraTiler != nil {
-		for _, src := range displaySources {
-			autoCameraTiler.AddSource(src)
-		}
+	for idx, stream := range streams {
 		waitCh := make(chan struct{})
 		svc.activeBackgroundWorkers.Add(1)
 		utils.PanicCapturingGo(func() {
 			defer svc.activeBackgroundWorkers.Done()
 			close(waitCh)
-			gostream.StreamSource(ctx, autoCameraTiler, streams[0])
+			gostream.StreamSource(ctx, displaySources[idx], stream)
 		})
 		<-waitCh
-	} else {
-		for idx, stream := range streams {
-			waitCh := make(chan struct{})
-			svc.activeBackgroundWorkers.Add(1)
-			utils.PanicCapturingGo(func() {
-				defer svc.activeBackgroundWorkers.Done()
-				close(waitCh)
-				gostream.StreamSource(ctx, displaySources[idx], stream)
-			})
-			<-waitCh
-		}
 	}
 
 	return streamServer, true, nil
@@ -511,7 +481,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}
 	}
 
-	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r, options)
+	streamServer, hasStreams, err := svc.makeStreamServer(ctx, svc.r)
 	if err != nil {
 		return err
 	}

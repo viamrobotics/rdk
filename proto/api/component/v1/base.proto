@@ -16,7 +16,7 @@ service BaseService {
   }
 
   // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
-  // a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees
+  // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
   rpc MoveArc(BaseServiceMoveArcRequest) returns (BaseServiceMoveArcResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/base/{name}/move_arc"
@@ -35,13 +35,6 @@ service BaseService {
   rpc Stop(BaseServiceStopRequest) returns (BaseServiceStopResponse) {
     option (google.api.http) = {
       post: "/api/v1/component/base/{name}/stop"
-    };  
-  }
-
-  // WidthGet returns the width of a robot's base expressed in millimeters
-  rpc WidthGet(BaseServiceWidthGetRequest) returns (BaseServiceWidthGetResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/component/base/{name}/width_get"
     };  
   }
 }
@@ -96,13 +89,3 @@ message BaseServiceStopRequest {
 }
 
 message BaseServiceStopResponse {}
-
-message BaseServiceWidthGetRequest {
-  // Name of a base
-  string name = 1;
-}
-
-message BaseServiceWidthGetResponse {
-  // Width of the base represented in millimeters 
-  int64 width_mm = 1;
-}

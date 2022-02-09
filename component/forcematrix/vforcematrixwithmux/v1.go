@@ -101,9 +101,9 @@ type ForceMatrixWithMux struct {
 // newForceMatrix returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
 func newForceMatrix(r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixWithMux, error) {
-	b, exists := r.BoardByName(c.BoardName)
-	if !exists {
-		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
+	b, err := board.FromRobot(r, c.BoardName)
+	if err != nil {
+		return nil, err
 	}
 
 	reader, exists := b.AnalogReaderByName(c.AnalogChannel)
@@ -211,8 +211,8 @@ func (fmsm *ForceMatrixWithMux) ReadMatrix(ctx context.Context) ([][]int, error)
 	return matrix, nil
 }
 
-// Readings returns a flattened matrix of measurements from the force sensor.
-func (fmsm *ForceMatrixWithMux) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings returns a flattened matrix of measurements from the force sensor.
+func (fmsm *ForceMatrixWithMux) GetReadings(ctx context.Context) ([]interface{}, error) {
 	matrix, err := fmsm.ReadMatrix(ctx)
 	if err != nil {
 		return nil, err

@@ -9,18 +9,18 @@ import "google/api/annotations.proto";
 
 // SensorService services maintains all generic sensors associated with a robot
 service SensorService {
-  // Readings returns the readings of a sensor of the underlying robot.
-  rpc Readings(SensorServiceReadingsRequest) returns (SensorServiceReadingsResponse) {
-      option (google.api.http) = {
+  // GetReadings returns the readings of a sensor of the underlying robot.
+  rpc GetReadings(SensorServiceGetReadingsRequest) returns (SensorServiceGetReadingsResponse) {
+    option (google.api.http) = {
       get: "/api/v1/component/sensor/{name}/readings"
     };
   }
 }
 
-message SensorServiceReadingsRequest {
+message SensorServiceGetReadingsRequest {
   string name = 1;
 }
 
-message SensorServiceReadingsResponse {
+message SensorServiceGetReadingsResponse {
   repeated google.protobuf.Value readings = 1;
 }

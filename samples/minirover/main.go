@@ -18,6 +18,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -51,14 +52,14 @@ func dock(ctx context.Context, r robot.Robot) error {
 	/*
 		logger.Info("docking started")
 
-		cam, ok := r.CameraByName("back")
-		if !ok {
-			return errors.New("no back camera")
+		cam, err := camera.FromRobot(r,"back")
+		if err != nil {
+			return err
 		}
 
-		base, ok := r.BaseByName("pierre")
-		if !ok {
-			return errors.New("no pierre")
+		base, err := base.FromRobot(r,"pierre")
+		if err != nil {
+			return err
 		}
 
 		theLidar, ok := r.LidarByName("lidarOnBase")
@@ -210,9 +211,9 @@ func (r *Rover) neckPosition(ctx context.Context, pan, tilt uint8) error {
 // Ready TODO.
 func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 	logger.Debug("minirover2 Ready called")
-	cam, ok := theRobot.CameraByName("front")
-	if !ok {
-		return errors.New("no camera named front")
+	cam, err := camera.FromRobot(theRobot, "front")
+	if err != nil {
+		return err
 	}
 
 	// doing this in a goroutine so i can see camera and servo data in web ui, but probably not right long term
@@ -254,14 +255,14 @@ func (r *Rover) Ready(ctx context.Context, theRobot robot.Robot) error {
 // NewRover TODO.
 func NewRover(ctx context.Context, r robot.Robot) (*Rover, error) {
 	rover := &Rover{}
-	var ok bool
-	rover.pan, ok = r.ServoByName("pan")
-	if !ok {
-		return nil, errors.New("failed to find pan servo")
+	var err error
+	rover.pan, err = servo.FromRobot(r, "pan")
+	if err != nil {
+		return nil, err
 	}
-	rover.tilt, ok = r.ServoByName("tilt")
-	if !ok {
-		return nil, errors.New("failed to find tilt servo")
+	rover.tilt, err = servo.FromRobot(r, "tilt")
+	if err != nil {
+		return nil, err
 	}
 
 	if false {
@@ -338,7 +339,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 
 	options := web.NewOptions()
-	options.AutoTile = false
 	options.Pprof = true
 	return webserver.RunWeb(ctx, myRobot, options, logger)
 }

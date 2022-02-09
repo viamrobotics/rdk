@@ -7,15 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/gripper"
-	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
-	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -28,32 +20,8 @@ type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
-	// ArmByName returns an arm by name.
-	ArmByName(name string) (arm.Arm, bool)
-
-	// BaseByName returns a base by name.
-	BaseByName(name string) (base.Base, bool)
-
-	// GripperByName returns a gripper by name.
-	GripperByName(name string) (gripper.Gripper, bool)
-
-	// CameraByName returns a camera by name.
-	CameraByName(name string) (camera.Camera, bool)
-
-	// BoardByName returns a board by name.
-	BoardByName(name string) (board.Board, bool)
-
-	// SensorByName returns a sensor by name.
-	SensorByName(name string) (sensor.Sensor, bool)
-
-	// ServoByName returns a servo by name.
-	ServoByName(name string) (servo.Servo, bool)
-
 	// MotorByName returns a motor by name.
 	MotorByName(name string) (motor.Motor, bool)
-
-	// InputControllerByName returns a input.Controller by name.
-	InputControllerByName(name string) (input.Controller, bool)
 
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
@@ -61,32 +29,8 @@ type Robot interface {
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// ArmNames returns the name of all known arms.
-	ArmNames() []string
-
-	// GripperNames returns the name of all known grippers.
-	GripperNames() []string
-
-	// CameraNames returns the name of all known cameras.
-	CameraNames() []string
-
-	// BaseNames returns the name of all known bases.
-	BaseNames() []string
-
-	// BoardNames returns the name of all known boards.
-	BoardNames() []string
-
-	// SensorNames returns the name of all known sensors.
-	SensorNames() []string
-
-	// ServoNames returns the name of all known servos.
-	ServoNames() []string
-
 	// MotorNames returns the name of all known motors.
 	MotorNames() []string
-
-	// InputControllerNames returns the name of all known input controllers.
-	InputControllerNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
@@ -148,4 +92,15 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 	}
 
 	return all
+}
+
+// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
+func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+	names := []string{}
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }

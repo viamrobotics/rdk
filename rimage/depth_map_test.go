@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -51,6 +52,20 @@ func TestDepthMap2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
+}
+
+func TestCloneDepthMap(t *testing.T) {
+	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	test.That(t, err, test.ShouldBeNil)
+
+	mm := m.Clone()
+	for y := 0; y < m.Height(); y++ {
+		for x := 0; x < m.Width(); x++ {
+			test.That(t, mm.GetDepth(x, y), test.ShouldResemble, m.GetDepth(x, y))
+		}
+	}
+	mm.Set(0, 0, Depth(5000))
+	test.That(t, mm.GetDepth(0, 0), test.ShouldNotResemble, m.GetDepth(0, 0))
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
@@ -225,4 +240,18 @@ func TestDepthMapStats(t *testing.T) {
 
 	img = dm.InterestingPixels(10)
 	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
+}
+
+func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
+	nRows, nCols := fimg.Dims()
+	// test dimensions
+	test.That(t, nCols, test.ShouldEqual, iwd.Depth.Width())
+	test.That(t, nRows, test.ShouldEqual, iwd.Depth.Height())
+	// test values
+	// select random pixel
+	x, y := rand.Intn(nCols), rand.Intn(nRows)
+	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
 }

@@ -114,21 +114,3 @@ func (s *subtypeServer) Stop(
 	}
 	return &pb.BaseServiceStopResponse{}, nil
 }
-
-// WidthGet returns the width of a robot's base expressed in millimeters.
-func (s *subtypeServer) WidthGet(
-	ctx context.Context,
-	req *pb.BaseServiceWidthGetRequest,
-) (*pb.BaseServiceWidthGetResponse, error) {
-	resp := pb.BaseServiceWidthGetResponse{}
-	base, err := s.getBase(req.GetName())
-	if err != nil {
-		return nil, err
-	}
-	width, err := base.WidthGet(ctx)
-	if err != nil {
-		return nil, err
-	}
-	resp.WidthMm = int64(width)
-	return &resp, nil
-}

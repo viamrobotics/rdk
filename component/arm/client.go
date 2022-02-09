@@ -71,49 +71,40 @@ func clientFromSvcClient(sc *serviceClient, name string) Arm {
 	return &client{sc, name}
 }
 
-func (c *client) CurrentPosition(ctx context.Context) (*commonpb.Pose, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.ArmServiceCurrentPositionRequest{
+func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
+	resp, err := c.client.GetEndPosition(ctx, &pb.ArmServiceGetEndPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Position, nil
+	return resp.Pose, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.ArmServiceMoveToPositionRequest{
 		Name: c.name,
-		To:   pos,
+		Pose: pose,
 	})
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, pos *pb.ArmJointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmServiceMoveToJointPositionsRequest{
-		Name: c.name,
-		To:   pos,
+		Name:         c.name,
+		PositionDegs: positionDegs,
 	})
 	return err
 }
 
-func (c *client) CurrentJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	resp, err := c.client.CurrentJointPositions(ctx, &pb.ArmServiceCurrentJointPositionsRequest{
+func (c *client) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+	resp, err := c.client.GetJointPositions(ctx, &pb.ArmServiceGetJointPositionsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
-}
-
-func (c *client) JointMoveDelta(ctx context.Context, joint int, amountDegs float64) error {
-	_, err := c.client.JointMoveDelta(ctx, &pb.ArmServiceJointMoveDeltaRequest{
-		Name:       c.name,
-		Joint:      int32(joint),
-		AmountDegs: amountDegs,
-	})
-	return err
+	return resp.PositionDegs, nil
 }
 
 func (c *client) ModelFrame() referenceframe.Model {
@@ -122,7 +113,7 @@ func (c *client) ModelFrame() referenceframe.Model {
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.CurrentJointPositions(ctx)
+	res, err := c.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}

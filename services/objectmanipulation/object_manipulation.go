@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	"go.viam.com/rdk/referenceframe"
@@ -64,12 +65,12 @@ type objectMService struct {
 // to that location and commands it to grab the object.
 func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 	// get gripper component
-	gripper, ok := mgs.r.GripperByName(gripperName)
-	if !ok {
-		return false, fmt.Errorf("failed to find gripper %q", gripperName)
+	gripper, err := gripper.FromRobot(mgs.r, gripperName)
+	if err != nil {
+		return false, err
 	}
 	// do gripper movement
-	err := gripper.Open(ctx)
+	err = gripper.Open(ctx)
 	if err != nil {
 		return false, err
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -35,6 +36,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	var ok bool
+	var err error
 
 	g.motor, ok = r.MotorByName(config.Attributes.String("motor"))
 	if !ok {
@@ -45,9 +47,9 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	if len(g.limitSwitchPins) != 2 {
 		return nil, errors.New("need 2 limitPins")
 	}
-	g.limitBoard, ok = r.BoardByName(config.Attributes.String("limitBoard"))
-	if !ok {
-		return nil, errors.New("cannot find board for gantry")
+	g.limitBoard, err = board.FromRobot(r, config.Attributes.String("limitBoard"))
+	if err != nil {
+		return nil, err
 	}
 	g.limitHigh = config.Attributes.Bool("limitHigh", true)
 
@@ -68,6 +70,7 @@ func NewOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 type oneAxis struct {
 	name  string
 	motor motor.Motor
+	axis  r3.Vector
 
 	limitSwitchPins []string
 	limitBoard      board.Board
@@ -161,7 +164,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 }
 
 // Position returns the position in meters.
-func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	pos, err := g.motor.Position(ctx)
 	if err != nil {
 		return nil, err
@@ -170,52 +173,47 @@ func (g *oneAxis) CurrentPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMeters * ((pos - g.positionLimits[0]) / theRange)
 
-	g.logger.Debugf("oneAxis CurrentPosition %v -> %v", pos, x)
+	g.logger.Debugf("oneAxis GetPosition %v -> %v", pos, x)
 
 	return []float64{x}, nil
 }
 
-func (g *oneAxis) Lengths(ctx context.Context) ([]float64, error) {
+func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 	return []float64{g.lengthMeters}, nil
 }
 
 // position is in meters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
-	if len(positions) != 1 {
-		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positions)
+func (g *oneAxis) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	if len(positionsMm) != 1 {
+		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", positionsMm)
 	}
 
-	if positions[0] < 0 || positions[0] > g.lengthMeters {
-		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positions[0], g.lengthMeters)
+	if positionsMm[0] < 0 || positionsMm[0] > g.lengthMeters {
+		return fmt.Errorf("oneAxis gantry position out of range, got %v max is %v", positionsMm[0], g.lengthMeters)
 	}
 
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 
-	x := positions[0] / g.lengthMeters
+	x := positionsMm[0] / g.lengthMeters
 	x = g.positionLimits[0] + (x * theRange)
 
-	g.logger.Debugf("oneAxis SetPosition %v -> %v", positions[0], x)
+	g.logger.Debugf("oneAxis SetPosition %v -> %v", positionsMm[0], x)
 
 	return g.motor.GoTo(ctx, g.rpm, x)
 }
 
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
-	f, err := referenceframe.NewTranslationalFrame(
-		g.name,
-		[]bool{true},
-		[]referenceframe.Limit{{0, g.lengthMeters}},
-	)
+	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
 	if err != nil {
-		panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+		panic(fmt.Errorf("error creating frame: %w", err))
 	}
 	m.OrdTransforms = append(m.OrdTransforms, f)
-
 	return m
 }
 
 func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := g.CurrentPosition(ctx)
+	res, err := g.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

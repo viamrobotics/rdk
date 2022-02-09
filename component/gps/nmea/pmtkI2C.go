@@ -46,11 +46,15 @@ type pmtkI2CNMEAGPS struct {
 }
 
 func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
-	b, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	if err != nil {
+		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
-	i2cbus, ok := b.I2CByName(config.Attributes.String("bus"))
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", config.Attributes.String("board"))
+	}
+	i2cbus, ok := localB.I2CByName(config.Attributes.String("bus"))
 	if !ok {
 		return nil, fmt.Errorf("gps init: failed to find i2c bus %s", config.Attributes.String("bus"))
 	}
@@ -143,7 +147,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
-func (g *pmtkI2CNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
+func (g *pmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return []interface{}{g.data}, nil
 }
 

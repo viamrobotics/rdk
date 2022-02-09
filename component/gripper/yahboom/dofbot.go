@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -25,9 +26,9 @@ func init() {
 			if armName == "" {
 				return nil, errors.New("yahboom-dofbot gripper needs an arm")
 			}
-			myArm, ok := r.ArmByName(armName)
-			if !ok {
-				return nil, errors.New("yahboom-dofbot gripper can't find arm")
+			myArm, err := arm.FromRobot(r, armName)
+			if err != nil {
+				return nil, err
 			}
 
 			goodArm, ok := utils.UnwrapProxy(myArm).(gripper.Gripper)

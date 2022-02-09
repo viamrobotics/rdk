@@ -189,7 +189,7 @@ func (g *serialNMEAGPS) Start() {
 	})
 }
 
-func (g *serialNMEAGPS) Readings(ctx context.Context) ([]interface{}, error) {
+func (g *serialNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	loc, err := g.ReadLocation(ctx)
 	if err != nil {
 		return nil, err

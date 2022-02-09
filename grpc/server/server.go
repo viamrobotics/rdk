@@ -17,13 +17,12 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
@@ -156,11 +155,11 @@ func (s *Server) SensorReadings(
 	ctx context.Context,
 	req *pb.SensorReadingsRequest,
 ) (*pb.SensorReadingsResponse, error) {
-	sensorDevice, ok := s.r.SensorByName(req.Name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
+	sensorDevice, err := sensor.FromRobot(s.r, req.Name)
+	if err != nil {
+		return nil, err
 	}
-	readings, err := sensorDevice.Readings(ctx)
+	readings, err := sensorDevice.GetReadings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -263,40 +262,6 @@ func (s *Server) ResourceRunCommand(
 	}
 
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
-}
-
-// FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
-// That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
-// and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
-func (s *Server) FrameServiceConfig(
-	ctx context.Context,
-	req *pb.FrameServiceConfigRequest,
-) (*pb.FrameServiceConfigResponse, error) {
-	svc, ok := s.r.ResourceByName(framesystem.Name)
-	if !ok {
-		return nil, errors.New("no framesystem service")
-	}
-	fsSvc, ok := svc.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a framesystem.Service")
-	}
-	sortedParts, err := fsSvc.FrameSystemConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
-	for i, part := range sortedParts {
-		c, err := part.ToProtobuf()
-		if err != nil {
-			if errors.Is(err, referenceframe.ErrNoModelInformation) {
-				configs[i] = nil
-				continue
-			}
-			return nil, err
-		}
-		configs[i] = c
-	}
-	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
 }
 
 // NavigationServiceMode returns the mode of the service.
@@ -488,7 +453,8 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	for _, result := range execResult.Results {
 		val := result.Interface()
 		if (val == functionvm.Undefined{}) {
-			val = "<undefined>" // TODO(erd): holdover for now to make my life easier :)
+			// TODO(https://github.com/viamrobotics/rdk/issues/518): holdover for now to make my life easier :)
+			val = "<undefined>"
 		}
 		pbVal, err := structpb.NewValue(val)
 		if err != nil {
