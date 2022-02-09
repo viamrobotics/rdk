@@ -157,7 +157,7 @@ func (h *alignTestHelper) Process(
 	pCtx.GotDebugImage(fixed.Overlay(), "overlay_"+h.name)
 
 	// get pointcloud
-	pc, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed)
+	pc, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(pc, "aligned-pointcloud_"+h.name)
 

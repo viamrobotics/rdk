@@ -60,7 +60,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 		return err
 	}
 
-	pc, err := cameraMatrices.ImageWithDepthToPointCloud(img)
+	pc, err := cameraMatrices.ImageWithDepthToPointCloud(img, nil)
 	if err != nil {
 		return err
 	}

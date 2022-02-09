@@ -163,7 +163,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 		return nil, err
 	}
 	defer closer()
-	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img), nil)
 }
 
 // NextObjects returns the next ObjectSegmentation from the camera scene,
@@ -184,7 +184,7 @@ func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *v
 		return nil, err
 	}
 	defer closer()
-	pc, err := iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+	pc, err := iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img), nil)
 	if err != nil {
 		return nil, err
 	}

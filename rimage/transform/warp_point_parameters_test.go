@@ -29,7 +29,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	dct, err := NewDepthColorWarpTransforms(config, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := dct.ImageWithDepthToPointCloud(iwd)
+	pc, err := dct.ImageWithDepthToPointCloud(iwd, nil)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc, test.ShouldNotBeNil)
 	// the underlying iwd was not changed
@@ -40,7 +40,7 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	iwdBad := rimage.MakeImageWithDepth(img, nil, false)
-	pcBad, err := dct.ImageWithDepthToPointCloud(iwdBad)
+	pcBad, err := dct.ImageWithDepthToPointCloud(iwdBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, pcBad, test.ShouldBeNil)
 	test.That(t, iwdBad.IsAligned(), test.ShouldEqual, false)
