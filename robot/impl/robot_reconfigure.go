@@ -38,16 +38,16 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update web service
-	webSvc, ok := r.ResourceByName(web.Name)
+	webSvc, err := web.FromRobot(r)
+	if err != nil {
+		return err
+	}
+	updateable, ok := webSvc.(resource.Updateable)
 	if ok {
-		updateable, ok := webSvc.(resource.Updateable)
-		if ok {
-			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
-				return err
-			}
+		if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
+			return err
 		}
 	}
-
 	return nil
 }
 
