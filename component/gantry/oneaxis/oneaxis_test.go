@@ -9,11 +9,11 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -60,7 +60,7 @@ func createFakeRobot() *inject.Robot {
 		return &fake.Motor{PositionSupportedFunc: true, GoForfunc: true}, true
 	}
 
-	fakerobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
 			return true, nil
 		}}, true
@@ -220,11 +220,27 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor")
 
 	fakeRobot = &inject.Robot{
-		MotorByNameFunc: func(name string) (motor.Motor, bool) { return nil, true },
-		BoardByNameFunc: func(name string) (board.Board, bool) { return nil, false },
+		MotorByNameFunc:    func(name string) (motor.Motor, bool) { return nil, true },
+		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false },
+		// BoardByNameFunc:    func(name string) (board.Board, bool) { return nil, false },
 	}
+	/*
+				fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+				return nil, false
+			}
+			_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
+			test.That(t, err, test.ShouldNotBeNil)
+		})
+
+		t.Run("return error when not able to find motor", func(t *testing.T) {
+			fakeRobot := &inject.Robot{}
+			fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+				return &inject.Board{}, true
+			}
+	*/
+
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
 }
 
 func TestHome(t *testing.T) {

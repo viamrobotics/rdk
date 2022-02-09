@@ -7,7 +7,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/motor"
 	fm "go.viam.com/rdk/component/motor/fake"
@@ -46,7 +45,7 @@ func createFakeRobot() *inject.Robot {
 		return &fm.Motor{PositionSupportedFunc: true, GoForfunc: true}, true
 	}
 
-	fakerobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return true, nil }}, true
 	}
 

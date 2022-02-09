@@ -136,9 +136,9 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.Errorf("cannot find motor named %v for gantry", config.Attributes.String("motor"))
 	}
 
-	board, ok := r.BoardByName(conf.Board)
-	if !ok {
-		return nil, errors.New("cannot find board for gantry")
+	board, err := board.FromRobot(r, conf.Board)
+	if err != nil {
+		return nil, err
 	}
 
 	oAx := &oneAxis{
