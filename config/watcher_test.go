@@ -164,7 +164,7 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	var confToReturn Config
 	var confErr bool
-	var confErrMu sync.Mutex
+	var confMu sync.Mutex
 	var certsOnce bool
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
@@ -193,16 +193,16 @@ func TestNewWatcherCloud(t *testing.T) {
 			return
 		}
 
-		confErrMu.Lock()
+		confMu.Lock()
 		if confErr {
-			confErrMu.Unlock()
+			confMu.Unlock()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		confErr = true
-		confErrMu.Unlock()
 
 		md, err := json.Marshal(&confToReturn)
+		confMu.Unlock()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(fmt.Sprintf("error marshaling conf: %s", err)))
@@ -271,13 +271,13 @@ func TestNewWatcherCloud(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
 
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
@@ -308,13 +308,13 @@ func TestNewWatcherCloud(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
 
 	confToExpect = confToReturn
 	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
 	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToExpect)
