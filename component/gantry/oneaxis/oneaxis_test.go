@@ -222,22 +222,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakeRobot = &inject.Robot{
 		MotorByNameFunc:    func(name string) (motor.Motor, bool) { return nil, true },
 		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false },
-		// BoardByNameFunc:    func(name string) (board.Board, bool) { return nil, false },
 	}
-	/*
-				fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-				return nil, false
-			}
-			_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
-			test.That(t, err, test.ShouldNotBeNil)
-		})
-
-		t.Run("return error when not able to find motor", func(t *testing.T) {
-			fakeRobot := &inject.Robot{}
-			fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-				return &inject.Board{}, true
-			}
-	*/
 
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board")

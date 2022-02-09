@@ -46,11 +46,6 @@ func createFakeRobot() *inject.Robot {
 	}
 
 	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return true, nil }}, true
-	}
-
-	// unsure if right way to test if ResourceByName is working correctly
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1, 0, 0}, nil }}, true
 	}
 	return fakerobot
