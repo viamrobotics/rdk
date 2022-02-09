@@ -53,7 +53,7 @@ require (
 	go.uber.org/zap v1.19.1
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.3-0.20220123204813-ee8bd5e1fc8b
+	go.viam.com/utils v0.0.3-0.20220209212221-9085b788e825
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
@@ -309,5 +309,3 @@ replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20
 replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v0.0.0-20220206052756-a309f5e4c63c
 
 replace github.com/pion/ice/v2 => github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801
-
-replace go.viam.com/utils => github.com/edaniels/goutils v0.0.0-20220207024529-cd675846db13
