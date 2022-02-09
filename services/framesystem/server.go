@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from framesystem.proto.
+// subtypeServer implements the contract from frame_system.proto.
 type subtypeServer struct {
 	pb.UnimplementedFrameSystemServiceServer
 	subtypeSvc subtype.Service
