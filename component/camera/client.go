@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
@@ -125,7 +126,7 @@ func (c *client) NextObjects(ctx context.Context, params vision.Parameters3D) (v
 		MimeType:           utils.MimeTypePCD,
 		MinPointsInPlane:   int64(params.MinPtsInPlane),
 		MinPointsInSegment: int64(params.MinPtsInSegment),
-		ClusteringRadiusMm: params.ClusteringRadiusMm,
+		ClusteringRadiusMm: ClusteringRadiusMm,
 	})
 	if err != nil {
 		return nil, err
@@ -138,26 +139,29 @@ func (c *client) NextObjects(ctx context.Context, params vision.Parameters3D) (v
 	return protoToScene(resp.Objects)
 }
 
-func protoToScene(objs []*pb.PointCloudObject) (vision.Scene, error) {
-	objects := make([]*pointcloud.WithMetadata, len(objs))
-	for i, o := range objs {
+func protoToScene(pco []*pb.PointCloudObject) (vision.Scene, error) {
+	objects := make([]*pointcloud.WithMetadata, len(pco))
+	for i, o := range pco {
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.Frame))
 		if err != nil {
 			return nil, err
 		}
-		center := pointcloud.Vec3{
-			o.CenterCoordinatesMm.X,
-			o.CenterCoordinatesMm.Y,
-			o.CenterCoordinatesMm.Z,
+		withMeta := &pointcloud.WithMetadata{
+			PointCloud:  pc,
+			Center:      protoToPoint(pco.CenterCoordinatesMm),
+			BoundingBox: protoToBox(pco.BoundingBoxMm),
 		}
-		bb := pointcloud.BoxGeometry{
-			o.BoundingBoxMm.WidthMm,
-			o.BoundingBoxMm.LengthMm,
-			o.BoundingBoxMm.DepthMm,
-		}
-		objects[i] = &pointcloud.WithMetadata{pc, center, bb}
+		objects[i] = withMeta
 	}
 	return vision.NewScene(objects)
+}
+
+func protoToPoint(p *commonpb.Vector3) pointcloud.Vec3 {
+	return pointcloud.Vec3{p.X, p.Y, p.Z}
+}
+
+func protoToBox(b *commonpb.BoxGeometry) pointcloud.BoxGeometry {
+	return pointcloud.BoxGeometry{b.WidthMm, b.LengthMm, b.DepthMm}
 }
 
 // Close cleanly closes the underlying connections.

@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 // subtypeServer implements the contract from camera.proto.
@@ -200,20 +199,16 @@ func (s *subtypeServer) GetObjectPointClouds(
 		return nil, err
 	}
 
-	pc, err := camera.NextPointCloud(ctx)
-	if err != nil {
-		return nil, err
-	}
 	config := vision.Parameters3D{
 		MinPtsInPlane:      int(req.MinPointsInPlane),
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
-	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
+	scene, err := camera.NextObjects(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(segments)
+	protoSegments, err := segmentsToProto(scene)
 	if err != nil {
 		return nil, err
 	}
