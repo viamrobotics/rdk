@@ -1413,6 +1413,8 @@ go.viam.com/utils v0.0.3-0.20220209212221-9085b788e825 h1:I+hRBKf8U49SW72dSyZa7V
 go.viam.com/utils v0.0.3-0.20220209212221-9085b788e825/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
 go.viam.com/utils v0.0.3-0.20220209223444-2d336fdedf4c h1:hva4USyivmHuFSThgmZoJEuDLAokJNtNgiZQKpeDwBo=
 go.viam.com/utils v0.0.3-0.20220209223444-2d336fdedf4c/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
+go.viam.com/utils v0.0.3 h1:x32DSB7LuH1PXfMpMxxMzAbAdAXlhyAqCSZZQ8mVYHA=
+go.viam.com/utils v0.0.3/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
 gocloud.dev v0.19.0/go.mod h1:SmKwiR8YwIMMJvQBKLsC3fHNyMwXLw3PMDO+VVteJMI=
 goji.io v2.0.2+incompatible h1:uIssv/elbKRLznFUy3Xj4+2Mz/qKhek/9aZQDUMae7c=
