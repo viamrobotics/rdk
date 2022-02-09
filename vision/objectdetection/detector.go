@@ -44,8 +44,7 @@ func ToScene(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Projector
 	objects := make([]*pointcloud.WithMetadata, len(dets))
 	for i, d := range dets {
 		bb := d.BoundingBox()
-		crop := img.SubImage(*bb)
-		pc, err := proj.ImageWithDepthToPointCloud(crop)
+		pc, err := proj.ImageWithDepthToPointCloud(img, bb)
 		if err != nil {
 			return nil, err
 		}

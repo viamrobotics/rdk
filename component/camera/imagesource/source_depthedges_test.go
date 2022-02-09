@@ -58,7 +58,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugImage(edges, "edges-aligned-depth")
 
 	// make point cloud
-	fixedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed)
+	fixedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
@@ -71,7 +71,7 @@ func (h *depthSourceTestHelper) Process(
 	preprocessed := rimage.ConvertToImageWithDepth(output)
 
 	pCtx.GotDebugImage(preprocessed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "preprocessed-aligned-depth")
-	preprocessedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(preprocessed)
+	preprocessedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(preprocessed, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
