@@ -91,12 +91,25 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	g.ntripClient.url = config.Attributes.String(ntripAddrAttrName)
 	if g.ntripClient.url != "" {
 		g.ntripClient.username = config.Attributes.String(ntripUserAttrName)
+		if g.ntripClient.username == "" {
+			g.logger.Info("ntripUsername set to empty")
+		}
 		g.ntripClient.password = config.Attributes.String(ntripPassAttrName)
+		if g.ntripClient.password == "" {
+			g.logger.Info("ntripPassword set to empty")
+		}
 		g.ntripClient.writepath = config.Attributes.String(ntripPathAttrName)
-		g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
-		g.ntripClient.sendNMEA = config.Attributes.Bool(ntripSendNmeaName, false)
 		if g.ntripClient.writepath == "" {
+			g.logger.Info("ntripPath will use same path for writing RCTM messages to gps")
 			g.ntripClient.writepath = serialPath
+		}
+		g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
+		if g.ntripClient.wbaud == 38400 {
+			g.logger.Info("ntripBaud using default baud rate 38400")
+		}
+		g.ntripClient.sendNMEA = config.Attributes.Bool(ntripSendNmeaName, false)
+		if !g.ntripClient.sendNMEA {
+			g.logger.Info("ntripSendNMEA set to false")
 		}
 		g.startNtripClientRequest()
 		g.Start()
@@ -214,7 +227,7 @@ func (g *serialNMEAGPS) Start() {
 			}
 			// Update our struct's gps data in-place
 			g.mu.Lock()
-			err = parseAndUpdate(line, &g.data, g.ntripClient)
+			err = g.data.parseAndUpdate(line, g.ntripClient)
 			g.mu.Unlock()
 			if err != nil {
 				g.logger.Debugf("can't parse nmea %s : %s", line, err)
