@@ -105,7 +105,7 @@ func (s *subtypeServer) GetFrame(
 		resp.MimeType = utils.MimeTypeRawDepth
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if !ok {
-			return nil, errors.Errorf("want %s but don't have %T", utils.MimeTypeBoth, iwd)
+			return nil, utils.NewUnexpectedTypeError(iwd, img)
 		}
 		_, err := iwd.Depth.WriteTo(&buf)
 		if err != nil {
