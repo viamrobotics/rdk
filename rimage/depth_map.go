@@ -15,6 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -626,4 +627,15 @@ func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap 
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)
 	return conn.Out
+}
+
+// ConvertDepthMapToLuminanceFloat converts this depth map into a grayscale image of the
+// same dimensions.
+func (dm *DepthMap) ConvertDepthMapToLuminanceFloat() *mat.Dense {
+	out := mat.NewDense(dm.height, dm.width, nil)
+	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x int, y int) {
+		d := dm.GetDepth(x, y)
+		out.Set(y, x, float64(d))
+	})
+	return out
 }
