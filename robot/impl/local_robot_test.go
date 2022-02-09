@@ -579,7 +579,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 			"func2": true,
 		},
 		Services: map[string]bool{
-			"rdk:service:web": true,
+			"rdk:service:web":          true,
+			"rdk:service:frame_system": true,
 		},
 	}
 
