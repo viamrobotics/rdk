@@ -142,3 +142,14 @@ func Float64AlmostEqual(a, b, epsilon float64) bool {
 func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
 	return math.Abs(a.X-b.X) < epsilon && math.Abs(a.Y-b.Y) < epsilon && math.Abs(a.Z-b.Z) < epsilon
 }
+
+// Clamp returns min if value is lesser than min, max if value is greater them max or value if the input value is
+// between min and max.
+func Clamp(value float64, min float64, max float64) float64 {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	}
+	return value
+}

@@ -38,23 +38,18 @@ func TestPCRoundTrip(t *testing.T) {
 	same(pc3)
 }
 
-func TestDefaultToPointCloud(t *testing.T) {
+func TestCloneImageWithDepth(t *testing.T) {
 	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := iwd.ToPointCloud()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc, test.ShouldNotBeNil)
-	test.That(t, int(pc.MaxX()-pc.MinX()), test.ShouldEqual, iwd.Width()-1)
-	test.That(t, int(pc.MaxY()-pc.MinY()), test.ShouldEqual, iwd.Height()-1)
-
-	iwd2, err := NewImageWithDepthFromImages(
-		artifact.MustPath("rimage/shelf_color.png"), artifact.MustPath("rimage/shelf_grayscale.png"), false)
-	test.That(t, err, test.ShouldBeNil)
-
-	pc2, err := iwd2.ToPointCloud()
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, pc2, test.ShouldBeNil)
+	ii := CloneToImageWithDepth(iwd)
+	for y := 0; y < ii.Height(); y++ {
+		for x := 0; x < ii.Width(); x++ {
+			test.That(t, ii.Depth.GetDepth(x, y), test.ShouldResemble, iwd.Depth.GetDepth(x, y))
+			test.That(t, ii.Color.GetXY(x, y), test.ShouldResemble, iwd.Color.GetXY(x, y))
+		}
+	}
+	test.That(t, ii.IsAligned(), test.ShouldEqual, iwd.IsAligned())
 }
 
 func TestImageWithDepthFromImages(t *testing.T) {

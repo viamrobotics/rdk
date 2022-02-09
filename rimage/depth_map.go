@@ -15,6 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
@@ -31,6 +32,24 @@ type DepthMap struct {
 	height int
 
 	data []Depth
+}
+
+// NewEmptyDepthMap returns an unset depth map with the given dimensions.
+func NewEmptyDepthMap(width, height int) *DepthMap {
+	dm := &DepthMap{
+		width:  width,
+		height: height,
+		data:   make([]Depth, width*height),
+	}
+
+	return dm
+}
+
+// Clone makes a copy of the depth map.
+func (dm *DepthMap) Clone() *DepthMap {
+	ddm := NewEmptyDepthMap(dm.Width(), dm.Height())
+	copy(ddm.data, dm.data)
+	return ddm
 }
 
 func (dm *DepthMap) kxy(x, y int) int {
@@ -576,17 +595,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 	return out
 }
 
-// NewEmptyDepthMap returns an unset depth map with the given dimensions.
-func NewEmptyDepthMap(width, height int) *DepthMap {
-	dm := &DepthMap{
-		width:  width,
-		height: height,
-		data:   make([]Depth, width*height),
-	}
-
-	return dm
-}
-
 type dmWarpConnector struct {
 	In  *DepthMap
 	Out *DepthMap
@@ -619,4 +627,15 @@ func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap 
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)
 	return conn.Out
+}
+
+// ConvertDepthMapToLuminanceFloat converts this depth map into a grayscale image of the
+// same dimensions.
+func (dm *DepthMap) ConvertDepthMapToLuminanceFloat() *mat.Dense {
+	out := mat.NewDense(dm.height, dm.width, nil)
+	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x int, y int) {
+		d := dm.GetDepth(x, y)
+		out.Set(y, x, float64(d))
+	})
+	return out
 }

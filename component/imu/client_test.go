@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/component/imu"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -25,9 +26,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-
-	imu1 := "imu1"
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
@@ -40,22 +40,23 @@ func TestClient(t *testing.T) {
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
-	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
 	}
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
-	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
+	resourceSubtype := registry.ResourceSubtypeLookup(imu.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, imuSvc)
 
-	go gServer.Serve(listener1)
-	defer gServer.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	// failing
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = imu.NewClient(cancelCtx, imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = imu.NewClient(cancelCtx, testIMUName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -63,7 +64,7 @@ func TestClient(t *testing.T) {
 	//nolint:dupl
 	t.Run("IMU client 1", func(t *testing.T) {
 		// working
-		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		av1, err := imu1Client.ReadAngularVelocity(context.Background())
@@ -74,7 +75,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.Readings(context.Background())
+		rs1, err := imu1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -84,7 +85,9 @@ func TestClient(t *testing.T) {
 	t.Run("IMU client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
-		imu1Client2 := imu.NewClientFromConn(context.Background(), conn, imu1, logger)
+		client := resourceSubtype.RPCClient(context.Background(), conn, testIMUName, logger)
+		imu1Client2, ok := client.(imu.IMU)
+		test.That(t, ok, test.ShouldBeTrue)
 
 		av2, err := imu1Client2.ReadAngularVelocity(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -94,7 +97,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
 
-		rs2, err := imu1Client2.Readings(context.Background())
+		rs2, err := imu1Client2.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
 
@@ -108,8 +111,6 @@ func TestClientZeroValues(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	imu1 := "imu1"
-
 	av := spatialmath.AngularVelocity{X: 0, Y: 0, Z: 0}
 	ea := &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
 	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
@@ -121,11 +122,11 @@ func TestClientZeroValues(t *testing.T) {
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
 	}
-	injectIMU.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
 	}
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
 
@@ -134,7 +135,7 @@ func TestClientZeroValues(t *testing.T) {
 
 	//nolint:dupl
 	t.Run("IMU client", func(t *testing.T) {
-		imu1Client, err := imu.NewClient(context.Background(), imu1, listener1.Addr().String(), logger, rpc.WithInsecure())
+		imu1Client, err := imu.NewClient(context.Background(), testIMUName, listener1.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldBeNil)
 
 		av1, err := imu1Client.ReadAngularVelocity(context.Background())
@@ -145,7 +146,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.Readings(context.Background())
+		rs1, err := imu1Client.GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -159,9 +160,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectIMU := &inject.IMU{}
-	imu1 := "imu1"
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(imu1): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
 
@@ -170,9 +170,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := imu.NewClient(ctx, imu1, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := imu.NewClient(ctx, testIMUName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 

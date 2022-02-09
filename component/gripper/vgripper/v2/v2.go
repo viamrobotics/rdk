@@ -85,9 +85,9 @@ type gripperV2 struct {
 // newGripper returns a gripperV2 which operates with a ForceMatrix.
 func newGripper(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
 	boardName := config.Attributes.String("board")
-	board, exists := r.BoardByName(boardName)
-	if !exists {
-		return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
+	board, err := board.FromRobot(r, boardName)
+	if err != nil {
+		return nil, err
 	}
 
 	motorName := config.Attributes.String("motor")
@@ -111,14 +111,9 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	forceMatrixName := config.Attributes.String("forcematrix")
-	forceMatrix, exists := r.ResourceByName(forcematrix.Named(forceMatrixName))
-	if !exists {
-		return nil, errors.Errorf("failed to find a forcematrix sensor named '%v'", forceMatrixName)
-	}
-
-	forceMatrixDevice, ok := forceMatrix.(forcematrix.ForceMatrix)
-	if !ok {
-		return nil, errors.Errorf("(%v) is not a ForceMatrix device", forceMatrixName)
+	forceMatrixDevice, err := forcematrix.FromRobot(r, forceMatrixName)
+	if err != nil {
+		return nil, err
 	}
 
 	hasPressureThreshold := config.Attributes.Float64("has_pressure_threshold", 30)
@@ -130,7 +125,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	antiSlipGripPowerPctStepSize := config.Attributes.Float64("anti_slip_grip_power_pct_step_size", 0.005)
 	targetRPM := config.Attributes.Float64("target_rpm", 200)
 
-	model, err := referenceframe.ParseJSON(vgripperv2json, "")
+	model, err := referenceframe.UnmarshalModelJSON(vgripperv2json, "")
 	if err != nil {
 		return nil, err
 	}

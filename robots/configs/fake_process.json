@@ -91,6 +91,11 @@
             "model": "fake"
         },
         {
+            "name": "gantry1",
+            "type": "gantry",
+            "model": "fake"
+        },
+        {
             "name": "sensor1",
             "type": "sensor",
             "model": "fake"
@@ -155,5 +160,8 @@
                 "base": "base1"
             }
         }
-    ]
+    ],
+    "network": {
+		"bind_address": ":8080"
+	}
 }

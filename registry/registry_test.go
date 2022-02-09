@@ -8,25 +8,29 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 )
 
+var (
+	button = resource.SubtypeName("button")
+	acme   = resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, button, "button1")
+)
+
 func TestComponentRegistry(t *testing.T) {
-	af := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
+	rf := func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 		return 1, nil
 	}
-	armResourceName := "x"
-	test.That(t, func() { RegisterComponent(arm.Subtype, armResourceName, Component{}) }, test.ShouldPanic)
-	RegisterComponent(arm.Subtype, armResourceName, Component{Constructor: af})
+	modelName := "x"
+	test.That(t, func() { RegisterComponent(acme.Subtype, modelName, Component{}) }, test.ShouldPanic)
+	RegisterComponent(acme.Subtype, modelName, Component{Constructor: rf})
 
-	creator := ComponentLookup(arm.Subtype, armResourceName)
+	creator := ComponentLookup(acme.Subtype, modelName)
 	test.That(t, creator, test.ShouldNotBeNil)
-	test.That(t, ComponentLookup(arm.Subtype, "z"), test.ShouldBeNil)
-	test.That(t, creator.Constructor, test.ShouldEqual, af)
+	test.That(t, ComponentLookup(acme.Subtype, "z"), test.ShouldBeNil)
+	test.That(t, creator.Constructor, test.ShouldEqual, rf)
 }
 
 func TestResourceSubtypeRegistry(t *testing.T) {
@@ -39,17 +43,16 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	rcf := func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 		return nil
 	}
-	newSubtype := resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName)
-	test.That(t, func() { RegisterResourceSubtype(newSubtype, ResourceSubtype{}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterResourceSubtype(acme.Subtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterResourceSubtype(newSubtype, ResourceSubtype{Reconfigurable: rf, RegisterRPCService: sf})
-	creator := ResourceSubtypeLookup(newSubtype)
+	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{Reconfigurable: rf, RegisterRPCService: sf})
+	creator := ResourceSubtypeLookup(acme.Subtype)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
 	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
 	test.That(t, creator.RPCClient, test.ShouldBeNil)
 
-	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, arm.SubtypeName)
+	subtype2 := resource.NewSubtype(resource.Namespace("acme2"), resource.ResourceTypeComponent, button)
 	test.That(t, ResourceSubtypeLookup(subtype2), test.ShouldBeNil)
 
 	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterRPCService: sf, RPCClient: rcf})
@@ -58,7 +61,7 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
 	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
 
-	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, arm.SubtypeName)
+	subtype3 := resource.NewSubtype(resource.Namespace("acme3"), resource.ResourceTypeComponent, button)
 	test.That(t, ResourceSubtypeLookup(subtype3), test.ShouldBeNil)
 
 	RegisterResourceSubtype(subtype3, ResourceSubtype{RPCClient: rcf})

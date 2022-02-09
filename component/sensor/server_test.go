@@ -15,13 +15,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	testSensorName    = "sensor1"
-	failSensorName    = "sensor2"
-	fakeSensorName    = "sensor3"
-	missingSensorName = "sensor4"
-)
-
 func newServer() (pb.SensorServiceServer, *inject.Sensor, *inject.Sensor, error) {
 	injectSensor := &inject.Sensor{}
 	injectSensor2 := &inject.Sensor{}
@@ -43,30 +36,30 @@ func TestServer(t *testing.T) {
 
 	rs := []interface{}{1.1, 2.2}
 
-	injectSensor.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
+	injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return rs, nil }
 
-	injectSensor2.ReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
+	injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) { return nil, errors.New("can't get readings") }
 
-	t.Run("Readings", func(t *testing.T) {
+	t.Run("GetReadings", func(t *testing.T) {
 		expected := make([]*structpb.Value, 0, len(rs))
 		for _, r := range rs {
 			v, err := structpb.NewValue(r)
 			test.That(t, err, test.ShouldBeNil)
 			expected = append(expected, v)
 		}
-		resp, err := sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: testSensorName})
+		resp, err := sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: testSensorName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
 
-		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: failSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 
-		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: fakeSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: fakeSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a generic sensor")
 
-		_, err = sensorServer.Readings(context.Background(), &pb.SensorServiceReadingsRequest{Name: missingSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 	})

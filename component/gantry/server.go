@@ -34,39 +34,39 @@ func (s *subtypeServer) getGantry(name string) (Gantry, error) {
 	return gantry, nil
 }
 
-// CurrentPosition returns the position of the gantry specified.
-func (s *subtypeServer) CurrentPosition(
+// GetPosition returns the position of the gantry specified.
+func (s *subtypeServer) GetPosition(
 	ctx context.Context,
-	req *pb.GantryServiceCurrentPositionRequest,
-) (*pb.GantryServiceCurrentPositionResponse, error) {
+	req *pb.GantryServiceGetPositionRequest,
+) (*pb.GantryServiceGetPositionResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := gantry.CurrentPosition(ctx)
+	pos, err := gantry.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceCurrentPositionResponse{Positions: pos}, nil
+	return &pb.GantryServiceGetPositionResponse{PositionsMm: pos}, nil
 }
 
-// Lengths gets the lengths of a gantry of the underlying robot.
-func (s *subtypeServer) Lengths(
+// GetLengths gets the lengths of a gantry of the underlying robot.
+func (s *subtypeServer) GetLengths(
 	ctx context.Context,
-	req *pb.GantryServiceLengthsRequest,
-) (*pb.GantryServiceLengthsResponse, error) {
+	req *pb.GantryServiceGetLengthsRequest,
+) (*pb.GantryServiceGetLengthsResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	lengths, err := gantry.Lengths(ctx)
+	lengthsMm, err := gantry.GetLengths(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceLengthsResponse{Lengths: lengths}, nil
+	return &pb.GantryServiceGetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
 
-// MoveToPosition returns the position of the gantry specified.
+// MoveToPosition moves the gantry to the position specified.
 func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
 	req *pb.GantryServiceMoveToPositionRequest,
@@ -75,5 +75,5 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.Positions)
+	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm)
 }

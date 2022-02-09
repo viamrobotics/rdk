@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 var blankPos map[string][]Input
@@ -61,24 +60,23 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
-	e1 := errors.New("parent frame is nil")
 	e2 := errors.New("parent frame with name \"foo\" not in frame system")
 	e3 := errors.New("frame with name \"frame2\" already in frame system")
 	e4 := errors.New("frame with name \"frame1\" not in frame system")
 	if sfs, ok := fs.(*simpleFrameSystem); ok {
-		err = sfs.checkName("foo", nil)
-		test.That(t, err.Error(), test.ShouldEqual, e1.Error())
+		err = sfs.AddFrame(f2, nil)
+		test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
 
 		fFoo := NewZeroStaticFrame("foo")
 		err = sfs.checkName("bar", fFoo)
-		test.That(t, err.Error(), test.ShouldEqual, e2.Error())
+		test.That(t, err, test.ShouldBeError, e2)
 
 		err = sfs.checkName("frame2", fs.World())
-		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
+		test.That(t, err, test.ShouldBeError, e3)
 	}
 
 	_, err = fs.TracebackFrame(f1)
-	test.That(t, err.Error(), test.ShouldEqual, e4.Error())
+	test.That(t, err, test.ShouldBeError, e4)
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -272,7 +270,10 @@ func TestVolumesOfFrame(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	objectFromFrame1 := r3.Vector{5., 0., 0.}
-	object, err := NewStaticFrameWithVolume("object", spatial.NewPoseFromPoint(objectFromFrame1), spatial.NewBox(r3.Vector{}))
+	vc, err := spatial.NewBox(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	object, err := NewStaticFrameWithVolume("object", spatial.NewPoseFromPoint(objectFromFrame1), vc)
+
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(object, f1)
 	test.That(t, err, test.ShouldBeNil)
@@ -280,7 +281,7 @@ func TestVolumesOfFrame(t *testing.T) {
 	objectFromFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
 	vols, _ := fs.VolumesOfFrame(blankPos, fs.GetFrame("object"), fs.GetFrame("frame2"))
 	test.That(t, vols, test.ShouldNotBeNil)
-	test.That(t, utils.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
+	test.That(t, spatial.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -18,9 +19,9 @@ func newServer() (pb.ArmServiceServer, *inject.Arm, *inject.Arm, error) {
 	injectArm := &inject.Arm{}
 	injectArm2 := &inject.Arm{}
 	arms := map[resource.Name]interface{}{
-		arm.Named("arm1"): injectArm,
-		arm.Named("arm2"): injectArm2,
-		arm.Named("arm3"): "notArm",
+		arm.Named(testArmName): injectArm,
+		arm.Named(failArmName): injectArm2,
+		arm.Named(fakeArmName): "notArm",
 	}
 	armSvc, err := subtype.New(arms)
 	if err != nil {
@@ -34,20 +35,17 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	var (
-		capArmPos           *commonpb.Pose
-		capArmJointPos      *pb.ArmJointPositions
-		capArmJoint         int
-		capArmJointAngleDeg float64
+		capArmPos      *commonpb.Pose
+		capArmJointPos *pb.ArmJointPositions
 	)
 
-	arm1 := "arm1"
-	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	jointPos1 := &pb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
-	injectArm.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		return pos1, nil
+	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
+	positionDegs1 := &pb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return pose1, nil
 	}
-	injectArm.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
-		return jointPos1, nil
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+		return positionDegs1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
 		capArmPos = ap
@@ -59,112 +57,94 @@ func TestServer(t *testing.T) {
 		return nil
 	}
 
-	injectArm.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
-		return nil
+	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
+	positionDegs2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return nil, errors.New("can't get pose")
 	}
-
-	arm2 := "arm2"
-	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	jointPos2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
-	injectArm2.CurrentPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		return pos2, nil
-	}
-	injectArm2.CurrentJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
-		return jointPos2, nil
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+		return nil, errors.New("can't get joint positions")
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
 		capArmPos = ap
-		return nil
+		return errors.New("can't move to pose")
 	}
 
 	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
 		capArmJointPos = jp
-		return nil
-	}
-
-	injectArm2.JointMoveDeltaFunc = func(ctx context.Context, joint int, amountDegs float64) error {
-		capArmJoint = joint
-		capArmJointAngleDeg = amountDegs
-		return nil
+		return errors.New("can't move to joint positions")
 	}
 
 	t.Run("arm position", func(t *testing.T) {
-		_, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "a4"})
+		_, err := armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: "arm3"})
+		_, err = armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: fakeArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an arm")
 
-		resp, err := armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm1})
+		resp, err := armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position.String(), test.ShouldResemble, pos1.String())
+		test.That(t, resp.Pose.String(), test.ShouldResemble, pose1.String())
 
-		resp, err = armServer.CurrentPosition(context.Background(), &pb.ArmServiceCurrentPositionRequest{Name: arm2})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Position.String(), test.ShouldResemble, pos2.String())
+		_, err = armServer.GetEndPosition(context.Background(), &pb.ArmServiceGetEndPositionRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get pose")
 	})
 
 	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
-		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: "a4", To: pos2})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: missingArmName, Pose: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err := armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: arm1, To: pos2})
+		_, err := armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: testArmName, Pose: pose2})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pos2.String())
+		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: arm2, To: pos1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmPos.String(), test.ShouldResemble, pos1.String())
+		_, err = armServer.MoveToPosition(context.Background(), &pb.ArmServiceMoveToPositionRequest{Name: failArmName, Pose: pose1})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
+		test.That(t, capArmPos.String(), test.ShouldResemble, pose1.String())
 	})
 
 	t.Run("arm joint position", func(t *testing.T) {
-		_, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: "a4"})
+		_, err := armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: missingArmName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		resp, err := armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm1})
+		resp, err := armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: testArmName})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos1.String())
+		test.That(t, resp.PositionDegs.String(), test.ShouldResemble, positionDegs1.String())
 
-		resp, err = armServer.CurrentJointPositions(context.Background(), &pb.ArmServiceCurrentJointPositionsRequest{Name: arm2})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp.Positions.String(), test.ShouldResemble, jointPos2.String())
+		_, err = armServer.GetJointPositions(context.Background(), &pb.ArmServiceGetJointPositionsRequest{Name: failArmName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get joint positions")
 	})
 
 	//nolint:dupl
 	t.Run("move to joint position", func(t *testing.T) {
-		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: "a4", To: jointPos2})
+		_, err = armServer.MoveToJointPositions(
+			context.Background(),
+			&pb.ArmServiceMoveToJointPositionsRequest{Name: missingArmName, PositionDegs: positionDegs2},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err := armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm1, To: jointPos2})
+		_, err := armServer.MoveToJointPositions(
+			context.Background(),
+			&pb.ArmServiceMoveToJointPositionsRequest{Name: testArmName, PositionDegs: positionDegs2},
+		)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
+		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs2.String())
 
-		_, err = armServer.MoveToJointPositions(context.Background(), &pb.ArmServiceMoveToJointPositionsRequest{Name: arm2, To: jointPos1})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos1.String())
-	})
-
-	t.Run("joint move delta", func(t *testing.T) {
-		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: "a4", Joint: 10, AmountDegs: 5.5})
+		_, err = armServer.MoveToJointPositions(
+			context.Background(),
+			&pb.ArmServiceMoveToJointPositionsRequest{Name: failArmName, PositionDegs: positionDegs1},
+		)
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
-
-		_, err := armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm1, Joint: 10, AmountDegs: 5.5})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 10)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 5.5)
-
-		_, err = armServer.JointMoveDelta(context.Background(), &pb.ArmServiceJointMoveDeltaRequest{Name: arm2, Joint: 11, AmountDegs: 6.6})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, capArmJoint, test.ShouldEqual, 11)
-		test.That(t, capArmJointAngleDeg, test.ShouldEqual, 6.6)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to joint positions")
+		test.That(t, capArmJointPos.String(), test.ShouldResemble, positionDegs1.String())
 	})
 }

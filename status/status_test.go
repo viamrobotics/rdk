@@ -42,35 +42,25 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return []resource.Name{
 			arm.Named("arm1"),
 			arm.Named("arm2"),
-			resource.NameFromSubtype(framesystem.Subtype, ""),
+			base.Named("base1"),
+			base.Named("base2"),
+			board.Named("board1"),
+			board.Named("board2"),
+			camera.Named("camera1"),
+			camera.Named("camera2"),
+			gripper.Named("gripper1"),
+			gripper.Named("gripper2"),
+			input.Named("inputController1"),
+			input.Named("inputController2"),
+			sensor.Named("sensor1"),
+			sensor.Named("sensor2"),
+			servo.Named("servo1"),
+			servo.Named("servo2"),
+			framesystem.Name,
 		}
-	}
-	injectRobot.ArmNamesFunc = func() []string {
-		return []string{"arm1", "arm2"}
-	}
-	injectRobot.GripperNamesFunc = func() []string {
-		return []string{"gripper1", "gripper2"}
-	}
-	injectRobot.CameraNamesFunc = func() []string {
-		return []string{"camera1", "camera2"}
-	}
-	injectRobot.BaseNamesFunc = func() []string {
-		return []string{"base1", "base2"}
-	}
-	injectRobot.BoardNamesFunc = func() []string {
-		return []string{"board1", "board2"}
-	}
-	injectRobot.SensorNamesFunc = func() []string {
-		return []string{"sensor1", "sensor2"}
-	}
-	injectRobot.ServoNamesFunc = func() []string {
-		return []string{"servo1", "servo2"}
 	}
 	injectRobot.MotorNamesFunc = func() []string {
 		return []string{"motor1", "motor2"}
-	}
-	injectRobot.InputControllerNamesFunc = func() []string {
-		return []string{"inputController1", "inputController2"}
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
@@ -80,34 +70,29 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 	}
 
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fakearm.Arm{Name: name.Name}, true
-	}
-	injectRobot.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return &fakearm.Arm{Name: name}, true
-	}
-	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fakebase.Base{Name: name}, true
-	}
-	injectRobot.GripperByNameFunc = func(name string) (gripper.Gripper, bool) {
-		return &fakegripper.Gripper{Name: name}, true
-	}
-	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &fakeboard.Board{Name: name}, true
-	}
-	injectRobot.SensorByNameFunc = func(name string) (sensor.Sensor, bool) {
-		return nil, false
-	}
-	injectRobot.ServoByNameFunc = func(name string) (servo.Servo, bool) {
-		return &fakeservo.Servo{Name: name}, true
+		switch name.Subtype {
+		case arm.Subtype:
+			return &fakearm.Arm{Name: name.Name}, true
+		case base.Subtype:
+			return &fakebase.Base{Name: name.Name}, true
+		case board.Subtype:
+			return &fakeboard.Board{Name: name.Name}, true
+		case camera.Subtype:
+			return &fakecamera.Camera{Name: name.Name}, true
+		case gripper.Subtype:
+			return &fakegripper.Gripper{Name: name.Name}, true
+		case input.Subtype:
+			return &fakeinput.InputController{Name: name.Name}, true
+		case motor.Subtype:
+			return &fakemotor.Motor{Name: name.Name}, true
+		case servo.Subtype:
+			return &fakeservo.Servo{Name: name.Name}, true
+		default:
+			return nil, false
+		}
 	}
 	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 		return &fakemotor.Motor{Name: name}, true
-	}
-	injectRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return &fakeinput.InputController{Name: name}, true
 	}
 
 	if withRemotes {

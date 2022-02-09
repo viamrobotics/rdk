@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/component/forcematrix"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -27,12 +28,10 @@ func TestClientFailing(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	forceMatrix := "forcematrix"
-
 	t.Run("cancelled", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = forcematrix.NewClient(cancelCtx, forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
+		_, err = forcematrix.NewClient(cancelCtx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -47,7 +46,7 @@ func TestClientFailing(t *testing.T) {
 		}
 
 		forceMatrixSvc, err := subtype.New(
-			(map[resource.Name]interface{}{forcematrix.Named(forceMatrix): injectFsm}))
+			map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm})
 		test.That(t, err, test.ShouldBeNil)
 		pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
 
@@ -55,7 +54,13 @@ func TestClientFailing(t *testing.T) {
 		defer gServer.Stop()
 
 		t.Run("client 1", func(t *testing.T) {
-			forceMatrixClient, err := forcematrix.NewClient(context.Background(), forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
+			forceMatrixClient, err := forcematrix.NewClient(
+				context.Background(),
+				testForceMatrixName,
+				listener.Addr().String(),
+				logger,
+				rpc.WithInsecure(),
+			)
 			test.That(t, err, test.ShouldBeNil)
 
 			m, err := forceMatrixClient.ReadMatrix(context.Background())
@@ -76,7 +81,7 @@ func TestClientFailing(t *testing.T) {
 				listener.Addr().String(), logger, rpc.WithInsecure())
 			test.That(t, err, test.ShouldBeNil)
 			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
-				conn, forceMatrix, logger)
+				conn, testForceMatrixName, logger)
 
 			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldNotBeNil)
@@ -97,9 +102,8 @@ func TestClientWorking(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer := grpc.NewServer()
-
-	forceMatrix := "forcematrix"
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("working", func(t *testing.T) {
 		injectFsm := &inject.ForceMatrix{}
@@ -115,15 +119,22 @@ func TestClientWorking(t *testing.T) {
 		}
 
 		forceMatrixSvc, err := subtype.New(
-			(map[resource.Name]interface{}{forcematrix.Named(forceMatrix): injectFsm}))
+			map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectFsm})
 		test.That(t, err, test.ShouldBeNil)
-		pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
+		resourceSubtype := registry.ResourceSubtypeLookup(forcematrix.Subtype)
+		resourceSubtype.RegisterRPCService(context.Background(), rpcServer, forceMatrixSvc)
 
-		go gServer.Serve(listener)
-		defer gServer.Stop()
+		go rpcServer.Serve(listener)
+		defer rpcServer.Stop()
 
 		t.Run("client 1", func(t *testing.T) {
-			forceMatrixClient, err := forcematrix.NewClient(context.Background(), forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
+			forceMatrixClient, err := forcematrix.NewClient(
+				context.Background(),
+				testForceMatrixName,
+				listener.Addr().String(),
+				logger,
+				rpc.WithInsecure(),
+			)
 			test.That(t, err, test.ShouldBeNil)
 
 			m, err := forceMatrixClient.ReadMatrix(context.Background())
@@ -134,7 +145,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.Readings(context.Background())
+			rs, err := forceMatrixClient.GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
@@ -145,8 +156,9 @@ func TestClientWorking(t *testing.T) {
 			conn, err := viamgrpc.Dial(context.Background(),
 				listener.Addr().String(), logger, rpc.WithInsecure())
 			test.That(t, err, test.ShouldBeNil)
-			forceMatrixClient := forcematrix.NewClientFromConn(context.Background(),
-				conn, forceMatrix, logger)
+			client := resourceSubtype.RPCClient(context.Background(), conn, testForceMatrixName, logger)
+			forceMatrixClient, ok := client.(forcematrix.ForceMatrix)
+			test.That(t, ok, test.ShouldBeTrue)
 
 			m, err := forceMatrixClient.ReadMatrix(context.Background())
 			test.That(t, err, test.ShouldBeNil)
@@ -156,7 +168,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.Readings(context.Background())
+			rs, err := forceMatrixClient.GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
@@ -171,10 +183,9 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectForceMatrix := &inject.ForceMatrix{}
-	forceMatrix := "forceMatrix"
 
 	forceMatrixSvc, err := subtype.New(
-		(map[resource.Name]interface{}{forcematrix.Named(forceMatrix): injectForceMatrix}))
+		map[resource.Name]interface{}{forcematrix.Named(testForceMatrixName): injectForceMatrix})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterForceMatrixServiceServer(gServer, forcematrix.NewServer(forceMatrixSvc))
 
@@ -183,9 +194,9 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := forcematrix.NewClient(ctx, forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := forcematrix.NewClient(ctx, forceMatrix, listener.Addr().String(), logger, rpc.WithInsecure())
+	client2, err := forcematrix.NewClient(ctx, testForceMatrixName, listener.Addr().String(), logger, rpc.WithInsecure())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.DialCalled, test.ShouldEqual, 2)
 

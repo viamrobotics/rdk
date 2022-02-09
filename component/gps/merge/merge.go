@@ -3,11 +3,10 @@ package merge
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/gps"
@@ -41,14 +40,9 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 	m := &mergeGPS{r, nil, logger}
 
 	for _, s := range subs {
-		sensor, ok := r.ResourceByName(gps.Named(s))
-		if !ok {
-			return nil, fmt.Errorf("no gps named [%s]", s)
-		}
-
-		g, ok := sensor.(gps.GPS)
-		if !ok {
-			return nil, fmt.Errorf("sensor named [%s] is not a gps, is a %T", s, sensor)
+		g, err := gps.FromRobot(r, s)
+		if err != nil {
+			return nil, err
 		}
 
 		m.subs = append(m.subs, g)
@@ -152,11 +146,11 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 	return false, allErrors
 }
 
-// Readings return data specific to the type of sensor and can be of any type.
-func (m *mergeGPS) Readings(ctx context.Context) ([]interface{}, error) {
+// GetReadings return data specific to the type of sensor and can be of any type.
+func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	var allErrors error
 	for _, g := range m.subs {
-		r, err := g.Readings(ctx)
+		r, err := g.GetReadings(ctx)
 		if err == nil {
 			return r, nil
 		}

@@ -16,13 +16,6 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	testGPSName    = "gps1"
-	failGPSName    = "gps2"
-	fakeGPSName    = "gps3"
-	missingGPSName = "gps4"
-)
-
 func newServer() (pb.GPSServiceServer, *inject.GPS, *inject.GPS, error) {
 	injectGPS := &inject.GPS{}
 	injectGPS2 := &inject.GPS{}

@@ -35,13 +35,16 @@ func (s *subtypeServer) getSensor(name string) (Sensor, error) {
 	return sensor, nil
 }
 
-// Readings returns the most recent readings from the given Sensor.
-func (s *subtypeServer) Readings(ctx context.Context, req *pb.SensorServiceReadingsRequest) (*pb.SensorServiceReadingsResponse, error) {
+// GetReadings returns the most recent readings from the given Sensor.
+func (s *subtypeServer) GetReadings(
+	ctx context.Context,
+	req *pb.SensorServiceGetReadingsRequest,
+) (*pb.SensorServiceGetReadingsResponse, error) {
 	sensorDevice, err := s.getSensor(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	readings, err := sensorDevice.Readings(ctx)
+	readings, err := sensorDevice.GetReadings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -53,5 +56,5 @@ func (s *subtypeServer) Readings(ctx context.Context, req *pb.SensorServiceReadi
 		}
 		readingsP = append(readingsP, v)
 	}
-	return &pb.SensorServiceReadingsResponse{Readings: readingsP}, nil
+	return &pb.SensorServiceGetReadingsResponse{Readings: readingsP}, nil
 }

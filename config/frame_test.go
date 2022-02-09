@@ -32,7 +32,7 @@ func TestFrame(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	exp := Frame{
 		Parent:      "world",
-		Translation: spatial.Translation{1, 2, 3},
+		Translation: spatial.TranslationConfig{1, 2, 3},
 		Orientation: &spatial.OrientationVectorDegrees{Theta: 85, OZ: 1},
 	}
 	test.That(t, frame, test.ShouldResemble, exp)
@@ -93,7 +93,10 @@ func TestMergeFrameSystems(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// merge to fs1 with an offset and rotation
-	offsetConfig := &Frame{Parent: "frame1", Translation: spatial.Translation{1, 2, 3}, Orientation: &spatial.R4AA{Theta: math.Pi / 2, RZ: 1.}}
+	offsetConfig := &Frame{
+		Parent: "frame1", Translation: spatial.TranslationConfig{1, 2, 3},
+		Orientation: &spatial.R4AA{Theta: math.Pi / 2, RZ: 1.},
+	}
 	err = MergeFrameSystems(fs1, fs2, offsetConfig)
 	test.That(t, err, test.ShouldBeNil)
 	// the frame of test2_world is rotated around z by 90 degrees, then displaced by (1,2,3) in the frame of frame1,

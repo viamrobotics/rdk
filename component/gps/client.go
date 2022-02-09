@@ -101,7 +101,7 @@ func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
 	return resp.SpeedMmPerSec, nil
 }
 
-func (c *client) Readings(ctx context.Context) ([]interface{}, error) {
+func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	loc, err := c.ReadLocation(ctx)
 	if err != nil {
 		return nil, err

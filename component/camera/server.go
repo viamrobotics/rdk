@@ -68,7 +68,7 @@ func (s *subtypeServer) GetFrame(
 	}()
 
 	// choose the best/fastest representation
-	if req.MimeType == utils.MimeTypeViamBest {
+	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
 		iwd, ok := img.(*rimage.ImageWithDepth)
 		if ok && iwd.Depth != nil && iwd.Color != nil {
 			req.MimeType = utils.MimeTypeRawIWD
@@ -123,14 +123,14 @@ func (s *subtypeServer) GetFrame(
 		if err := rimage.EncodeBoth(iwd, &buf); err != nil {
 			return nil, err
 		}
+	case utils.MimeTypePNG:
+		resp.MimeType = utils.MimeTypePNG
+		if err := png.Encode(&buf, img); err != nil {
+			return nil, err
+		}
 	case utils.MimeTypeJPEG:
 		resp.MimeType = utils.MimeTypeJPEG
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
-			return nil, err
-		}
-	case "", utils.MimeTypePNG:
-		resp.MimeType = utils.MimeTypePNG
-		if err := png.Encode(&buf, img); err != nil {
 			return nil, err
 		}
 	default:
@@ -146,6 +146,9 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.CameraServiceRenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	if req.MimeType == "" {
+		req.MimeType = utils.MimeTypeJPEG // default rendering
+	}
 	resp, err := s.GetFrame(ctx, (*pb.CameraServiceGetFrameRequest)(req))
 	if err != nil {
 		return nil, err

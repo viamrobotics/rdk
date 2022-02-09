@@ -6,12 +6,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
+	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.InputControllerService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterInputControllerServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string input.
 const SubtypeName = resource.SubtypeName("input_controller")
@@ -116,7 +140,7 @@ type Triggerable interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Controller but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -128,6 +152,24 @@ var (
 	_ = Controller(&reconfigurableInputController{})
 	_ = resource.Reconfigurable(&reconfigurableInputController{})
 )
+
+// FromRobot is a helper for getting the named input controller from the given Robot.
+func FromRobot(r robot.Robot, name string) (Controller, error) {
+	res, ok := r.ResourceByName(Named(name))
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
+	}
+	part, ok := res.(Controller)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+	}
+	return part, nil
+}
+
+// NamesFromRobot is a helper for getting all input controller names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableInputController struct {
 	mu     sync.RWMutex
@@ -177,7 +219,7 @@ func (c *reconfigurableInputController) RegisterControlCallback(
 func (c *reconfigurableInputController) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return utils.TryClose(ctx, c.actual)
+	return viamutils.TryClose(ctx, c.actual)
 }
 
 // Reconfigure reconfigures the resource.
@@ -186,9 +228,9 @@ func (c *reconfigurableInputController) Reconfigure(ctx context.Context, newCont
 	defer c.mu.Unlock()
 	actual, ok := newController.(*reconfigurableInputController)
 	if !ok {
-		return errors.Errorf("expected new Controller to be %T but got %T", c, newController)
+		return utils.NewUnexpectedTypeError(c, newController)
 	}
-	if err := utils.TryClose(ctx, c.actual); err != nil {
+	if err := viamutils.TryClose(ctx, c.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	c.actual = actual.actual

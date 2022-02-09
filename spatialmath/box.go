@@ -1,12 +1,11 @@
 package spatialmath
 
 import (
+	"encoding/json"
 	"math"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-
-	"go.viam.com/rdk/utils"
 )
 
 // BoxCreator implements the VolumeCreator interface for box structs.
@@ -21,16 +20,13 @@ type box struct {
 	halfSize r3.Vector
 }
 
-// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose.
-// These boxes have dimensions given by the provided halfSize vector.
-func NewBox(halfSize r3.Vector) VolumeCreator {
-	return &boxCreator{halfSize, NewZeroPose()}
-}
-
-// NewBoxFromOffset instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
+// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBoxFromOffset(halfSize r3.Vector, offset Pose) VolumeCreator {
-	return &boxCreator{halfSize, offset}
+func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
+	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
+		return nil, errors.New("box dimensions can not be zero")
+	}
+	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
 
 // NewVolume instantiates a new box from a BoxCreator class.
@@ -40,9 +36,31 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 	return b
 }
 
+func (bc *boxCreator) MarshalJSON() ([]byte, error) {
+	return json.Marshal(VolumeConfig{
+		Type: "box",
+		X:    2 * bc.halfSize.X,
+		Y:    2 * bc.halfSize.Y,
+		Z:    2 * bc.halfSize.Z,
+	})
+}
+
 // Pose returns the pose of the box.
 func (b *box) Pose() Pose {
 	return b.pose
+}
+
+func (b *box) Vertices() []r3.Vector {
+	vertices := make([]r3.Vector, 8)
+	for i, x := range []float64{1, -1} {
+		for j, y := range []float64{1, -1} {
+			for k, z := range []float64{1, -1} {
+				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize.X, Y: y * b.halfSize.Y, Z: z * b.halfSize.Z})
+				vertices[4*i+2*j+k] = Compose(b.pose, offset).Point()
+			}
+		}
+	}
+	return vertices
 }
 
 // AlmostEqual compares the box with another volume and checks if they are equivalent.
@@ -51,7 +69,7 @@ func (b *box) AlmostEqual(v Volume) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(b.pose, other.pose) && utils.R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
+	return PoseAlmostEqual(b.pose, other.pose) && R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.

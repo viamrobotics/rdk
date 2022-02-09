@@ -658,7 +658,8 @@ func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, e
 		ValueType functionvm.ValueType
 		NeedCtx   bool
 	}{
-		// TODO(erd): need to implement all of these and possibly
+		// TODO(https://github.com/viamrobotics/rdk/issues/518):
+		// need to implement all of these and possibly
 		// remove/reorder some. May need to find a faster way to do this
 		// and return a API consistent type descriptor from QuickJS.
 		{"JS_IsInt", functionvm.ValueTypeInt, false}, // needs to come before number
@@ -711,7 +712,7 @@ func (eng *javaScriptEngine) exportValue(value interface{}) (functionvm.Value, e
 		}
 		return functionvm.NewInt(intVal.(int64)), nil
 	case functionvm.ValueTypeFloat:
-		// TODO(erd): get more precise type
+		// TODO(https://github.com/viamrobotics/rdk/issues/518): get more precise type
 		floatVal, err := eng.callExportedFunction("JS_GetFloat64", value)
 		if err != nil {
 			return nil, err

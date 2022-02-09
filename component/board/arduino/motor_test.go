@@ -7,10 +7,10 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -41,7 +41,7 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return nil, false
 		}
 		_motor, err := motorReg.Constructor(
@@ -59,7 +59,7 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return &inject.Board{}, true
 		}
 		_motor, err := motorReg.Constructor(

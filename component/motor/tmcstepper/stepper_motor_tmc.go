@@ -3,6 +3,7 @@ package tmcstepper
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -118,12 +119,15 @@ const (
 
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
-	board, ok := r.BoardByName(c.BoardName)
-	if !ok {
-		return nil, errors.Errorf("can't find Board (%s) requested by Motor", c.BoardName)
+	b, err := board.FromRobot(r, c.BoardName)
+	if err != nil {
+		return nil, err
 	}
-
-	bus, ok := board.SPIByName(c.SPIBus)
+	localB, ok := b.(board.LocalBoard)
+	if !ok {
+		return nil, fmt.Errorf("board %s is not local", c.BoardName)
+	}
+	bus, ok := localB.SPIByName(c.SPIBus)
 	if !ok {
 		return nil, errors.Errorf("can't find SPI bus (%s) requested by Motor", c.SPIBus)
 	}
@@ -133,7 +137,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 	}
 
 	m := &Motor{
-		board:       board,
+		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
 		index:       c.Index,
@@ -159,7 +163,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 
 	coolConfig := c.SGThresh << 16
 
-	err := multierr.Combine(
+	err = multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
 		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)
