@@ -62,11 +62,16 @@ type ThreeDimImageSource interface {
 	NextPointCloud(context.Context) (pointcloud.PointCloud, error)
 }
 
+// An ThreeDimObjectSource is anything that generates 3D objects in a scene
+type ThreeDimObjectSource interface {
+	NextObjects(context.Context, vision.Parameters3D) (vision.Scene, error)
+}
+
 // A Camera represents anything that can capture frames and find objects in a scene.
 type Camera interface {
 	gostream.ImageSource
 	ThreeDimImageSource
-	NextObjects(context.Context, vision.Parameters3D) (vision.Scene, error)
+	ThreeDimObjectSource
 }
 
 // WithProjector is a camera with the capability to project images to 3D.
@@ -110,7 +115,7 @@ func (is *imageSource) Close(ctx context.Context) error {
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(ThreeDimImageSource); ok {
 		return c.NextPointCloud(ctx)
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
@@ -119,7 +124,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 // NextObjects returns the next ObjectSegmentation from the camera scene,
 // or will error if not supported.
 func (is *imageSource) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
-	if c, ok := is.ImageSource.(Camera); ok {
+	if c, ok := is.ImageSource.(ThreeDimObjectSource); ok {
 		return c.NextObjects(ctx, conf)
 	}
 	if c, ok := is.ImageSource.(ThreeDimImageSource); ok {
@@ -164,7 +169,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 // NextObjects returns the next ObjectSegmentation from the camera scene,
 // or will error if not supported.
 func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, conf vision.Parameters3D) (vision.Scene, error) {
-	if c, ok := iswp.ImageSource.(Camera); ok {
+	if c, ok := iswp.ImageSource.(ThreeDimObjectSource); ok {
 		return c.NextObjects(ctx, conf)
 	}
 	if c, ok := iswp.ImageSource.(ThreeDimImageSource); ok {
