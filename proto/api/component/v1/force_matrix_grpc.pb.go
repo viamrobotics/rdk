@@ -137,5 +137,5 @@ var ForceMatrixService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/api/component/v1/forcematrix.proto",
+	Metadata: "proto/api/component/v1/force_matrix.proto",
 }
