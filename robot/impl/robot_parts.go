@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
@@ -104,17 +103,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 		}
 	}
 	return names
-}
-
-// BoardNames returns the names of all boards in the parts.
-func (parts *robotParts) BoardNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == board.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
 }
 
 // MotorNames returns the names of all motors in the parts.
@@ -349,26 +337,6 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 	}
 	for _, remote := range parts.remotes {
 		part, ok := remote.RemoteByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// BoardByName returns the given board by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
-	rName := board.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(board.Board)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.BoardByName(name)
 		if ok {
 			return part, true
 		}

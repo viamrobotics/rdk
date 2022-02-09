@@ -61,34 +61,87 @@ type Camera interface {
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
 }
 
+// WithProjector is a camera with the capability to project images to 3D.
+type WithProjector interface {
+	Camera
+	rimage.Projector
+	GetProjector() rimage.Projector
+}
+
+// New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
+// or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
+func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
+	if imgSrc == nil {
+		return nil, errors.New("cannot have a nil image source")
+	}
+	// if the camera parameters are specified in the config, those get priority.
+	if attrs != nil && attrs.CameraParameters != nil {
+		return &imageSourceWithProjector{imgSrc, attrs.CameraParameters}, nil
+	}
+	// inherit camera parameters from source camera if possible. if not, create a camera without projector.
+	if reconfigCam, ok := parentSource.(*reconfigurableCamera); ok {
+		if c, ok := reconfigCam.ProxyFor().(WithProjector); ok {
+			return &imageSourceWithProjector{imgSrc, c.GetProjector()}, nil
+		}
+	}
+	if camera, ok := parentSource.(WithProjector); ok {
+		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
+	}
+	return &imageSource{imgSrc}, nil
+}
+
 // ImageSource implements a Camera with a gostream.ImageSource.
-type ImageSource struct {
+type imageSource struct {
 	gostream.ImageSource
 }
 
 // Close closes the underlying ImageSource.
-func (is *ImageSource) Close(ctx context.Context) error {
+func (is *imageSource) Close(ctx context.Context) error {
 	return viamutils.TryClose(ctx, is.ImageSource)
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
-func (is *ImageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
-	img, closer, err := is.Next(ctx)
+	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
+}
+
+// ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
+type imageSourceWithProjector struct {
+	gostream.ImageSource
+	rimage.Projector
+}
+
+// Close closes the underlying ImageSource.
+func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
+	return viamutils.TryClose(ctx, iswp.ImageSource)
+}
+
+// Projector returns the camera's Projector.
+func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
+	return iswp.Projector
+}
+
+// NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
+func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	if c, ok := iswp.ImageSource.(Camera); ok {
+		return c.NextPointCloud(ctx)
+	}
+	img, closer, err := iswp.Next(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer closer()
-	return rimage.ConvertToImageWithDepth(img).ToPointCloud()
+	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Camera)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Camera but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Camera", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableCamera); ok {
 		return reconfigurable, nil
@@ -102,15 +155,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
-func FromRobot(r robot.Robot, name string) (Camera, bool) {
+func FromRobot(r robot.Robot, name string) (Camera, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Camera)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Camera)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Camera", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all camera names from the given Robot.

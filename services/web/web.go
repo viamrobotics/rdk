@@ -35,7 +35,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/web"
@@ -166,13 +165,13 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	}
 
 	for _, name := range camera.NamesFromRobot(theRobot) {
-		cam, ok := camera.FromRobot(theRobot, name)
-		if !ok {
+		cam, err := camera.FromRobot(theRobot, name)
+		if err != nil {
 			continue
 		}
 		cmp := conf.FindComponent(name)
 		if cmp != nil {
-			attrs, ok := cmp.ConvertedAttributes.(*rimage.AttrConfig)
+			attrs, ok := cmp.ConvertedAttributes.(*camera.AttrConfig)
 			if ok && attrs.Hide {
 				continue
 			}

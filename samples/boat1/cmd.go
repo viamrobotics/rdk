@@ -327,10 +327,11 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
+	var err error
 	var ok bool
-	b.theBoard, ok = r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("cannot find board")
+	b.theBoard, err = board.FromRobot(r, "local")
+	if err != nil {
+		return nil, err
 	}
 
 	b.starboard, ok = r.MotorByName("starboard")
@@ -408,9 +409,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	defer myRobot.Close(ctx)
 
-	depth1, ok := sensor.FromRobot(myRobot, "depth1")
-	if !ok {
-		return errors.New("failed to find depth1 sensor")
+	depth1, err := sensor.FromRobot(myRobot, "depth1")
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

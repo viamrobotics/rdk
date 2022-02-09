@@ -192,17 +192,19 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 
 func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
+	var ok bool
+
 	b := &boat{myRobot: r}
 
-	bb, ok := r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("no local board")
+	bb, err := board.FromRobot(r, "local")
+	if err != nil {
+		return nil, err
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	b.myImu, ok = imu.FromRobot(r, "imu")
-	if !ok {
-		return nil, errors.New("'imu' not found or not an IMU")
+	b.myImu, err = imu.FromRobot(r, "imu")
+	if err != nil {
+		return nil, err
 	}
 
 	// get all motors
@@ -624,9 +626,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b, ok := base.FromRobot(myRobot, "base1")
-	if !ok {
-		return errors.New("no base")
+	b, err := base.FromRobot(myRobot, "base1")
+	if err != nil {
+		return err
 	}
 	myB, ok := rdkutils.UnwrapProxy(b).(*boat)
 	if !ok {

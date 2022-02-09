@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
 	"math"
 	"sync"
@@ -197,9 +196,9 @@ type ResetBox struct {
 func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*ResetBox, error) {
 	cancelCtx, cancel := context.WithCancel(ctx)
 	b := &ResetBox{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel, logger: logger}
-	// resetboard, ok := r.BoardByName("resetboard")
-	// if !ok {
-	// 	return nil, errors.New("can't find board: resetboard")
+	// resetboard, err := board.FromRobot(r,"resetboard")
+	// if err != nil {
+	// 	return nil, err
 	// }
 	// b.board = resetboard
 	b.gate.mmPerRev = 8.0
@@ -233,15 +232,15 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	}
 	b.vibrator = vibrator
 
-	rArm, ok := arm.FromRobot(r, armName)
-	if !ok {
-		return nil, fmt.Errorf("failed to find arm %s", armName)
+	rArm, err := arm.FromRobot(r, armName)
+	if err != nil {
+		return nil, err
 	}
 	b.arm = rArm
 
-	rGripper, ok := gripper.FromRobot(r, gripperName)
-	if !ok {
-		return nil, fmt.Errorf("failed to find gripper %s", gripperName)
+	rGripper, err := gripper.FromRobot(r, gripperName)
+	if err != nil {
+		return nil, err
 	}
 	b.gripper = rGripper
 

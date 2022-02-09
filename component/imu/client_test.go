@@ -44,7 +44,7 @@ func TestClient(t *testing.T) {
 		return rs, nil
 	}
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(imu.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, imuSvc)
@@ -126,7 +126,7 @@ func TestClientZeroValues(t *testing.T) {
 		return rs, nil
 	}
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
 
@@ -161,7 +161,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectIMU := &inject.IMU{}
 
-	imuSvc, err := subtype.New((map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU}))
+	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterIMUServiceServer(gServer, imu.NewServer(imuSvc))
 

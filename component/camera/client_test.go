@@ -122,7 +122,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectCamera := &inject.Camera{}
 
-	cameraSvc, err := subtype.New((map[resource.Name]interface{}{camera.Named(testCameraName): injectCamera}))
+	cameraSvc, err := subtype.New(map[resource.Name]interface{}{camera.Named(testCameraName): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterCameraServiceServer(gServer, camera.NewServer(cameraSvc))
 

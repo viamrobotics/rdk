@@ -47,7 +47,7 @@ func TestClient(t *testing.T) {
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
 	gripperSvc, err := subtype.New(
-		(map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2}))
+		map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(gripper.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gripperSvc)
@@ -114,7 +114,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGripper := &inject.Gripper{}
 
-	gripperSvc, err := subtype.New((map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper}))
+	gripperSvc, err := subtype.New(map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGripperServiceServer(gServer, gripper.NewServer(gripperSvc))
 

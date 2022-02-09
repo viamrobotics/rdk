@@ -91,7 +91,7 @@ func TestClientDialerOption(t *testing.T) {
 	injectSensor := &inject.Sensor{}
 	sensor1 := "sensor1"
 
-	sensorSvc, err := subtype.New((map[resource.Name]interface{}{sensor.Named(sensor1): injectSensor}))
+	sensorSvc, err := subtype.New(map[resource.Name]interface{}{sensor.Named(sensor1): injectSensor})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterSensorServiceServer(gServer, sensor.NewServer(sensorSvc))
 

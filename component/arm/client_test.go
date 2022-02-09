@@ -72,7 +72,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2}))
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc)
@@ -133,7 +133,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectArm := &inject.Arm{}
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm}))
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
 

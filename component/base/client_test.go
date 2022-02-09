@@ -200,7 +200,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectBase := &inject.Base{}
 
-	baseSvc, err := subtype.New((map[resource.Name]interface{}{base.Named(testBaseName): injectBase}))
+	baseSvc, err := subtype.New(map[resource.Name]interface{}{base.Named(testBaseName): injectBase})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterBaseServiceServer(gServer, base.NewServer(baseSvc))
 

@@ -32,8 +32,8 @@ type Source struct {
 	cancelFunc              func()
 }
 
-// NewSource builds the pipeline from an input ImageSource, Preprocessor, Detector and  Filter.
-func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt Filter) (*Source, error) {
+// NewSource builds the pipeline from an input ImageSource, Preprocessor, Detector and  Postprocessor.
+func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, post Postprocessor) (*Source, error) {
 	// fill optional functions with identity operators
 	if src == nil {
 		return nil, errors.New("object detection source must include an image source to pull from")
@@ -44,8 +44,8 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt F
 	if det == nil {
 		det = func(img image.Image) ([]Detection, error) { return nil, nil }
 	}
-	if filt == nil {
-		filt = func(inp []Detection) []Detection { return inp }
+	if post == nil {
+		post = func(inp []Detection) []Detection { return inp }
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
@@ -55,11 +55,11 @@ func NewSource(src gostream.ImageSource, prep Preprocessor, det Detector, filt F
 		cancelFunc:     cancel,
 	}
 
-	s.backgroundWorker(src, prep, det, filt)
+	s.backgroundWorker(src, prep, det, post)
 	return s, nil
 }
 
-func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, det Detector, filt Filter) {
+func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, det Detector, post Postprocessor) {
 	// define the full pipeline
 	s.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -72,7 +72,7 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, prep Preprocessor, d
 			preprocessed := prep(clone)
 			detections, err := det(preprocessed)
 			if err == nil {
-				detections = filt(detections)
+				detections = post(detections)
 			}
 
 			r := &Result{

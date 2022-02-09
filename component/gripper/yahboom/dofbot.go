@@ -26,9 +26,9 @@ func init() {
 			if armName == "" {
 				return nil, errors.New("yahboom-dofbot gripper needs an arm")
 			}
-			myArm, ok := arm.FromRobot(r, armName)
-			if !ok {
-				return nil, errors.New("yahboom-dofbot gripper can't find arm")
+			myArm, err := arm.FromRobot(r, armName)
+			if err != nil {
+				return nil, err
 			}
 
 			goodArm, ok := utils.UnwrapProxy(myArm).(gripper.Gripper)
