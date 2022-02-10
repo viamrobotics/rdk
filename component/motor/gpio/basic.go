@@ -265,11 +265,6 @@ func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float
 	return errors.New("not supported")
 }
 
-// GoTillStop is not supported.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("not supported")
-}
-
 // ResetZeroPosition is not supported.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return errors.New("not supported")
