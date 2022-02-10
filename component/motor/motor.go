@@ -26,7 +26,8 @@ var Subtype = resource.NewSubtype(
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
 
-	// SetPower sets the percentage of power the motor should employ between 0-1.
+	// SetPower sets the percentage of power the motor should employ between -1 and 1.
+	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -136,6 +137,19 @@ func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.IsPowered(ctx)
+}
+
+func (r *reconfigurableMotor) GoTillStop(
+	ctx context.Context, rpm float64,
+	stopFunc func(ctx context.Context) bool,
+) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	localMotor, ok := r.actual.(LocalMotor)
+	if !ok {
+		return NewGoTillStopUnsupportedError("(name unavailable)")
+	}
+	return localMotor.GoTillStop(ctx, rpm, stopFunc)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {
