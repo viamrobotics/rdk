@@ -97,9 +97,9 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 
 	a := dofBot{}
 
-	b, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, fmt.Errorf("no board for yahboom-dofbot arm %s", config.Name)
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	if err != nil {
+		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {

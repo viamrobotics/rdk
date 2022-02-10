@@ -103,19 +103,19 @@ func sphereVsSphereDistance(a, s *sphere) float64 {
 // sphereVsBoxDistance takes a box and a sphere as arguments and returns a bool describing if they are in collision
 // true == collision / false == no collision.
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L326
-func sphereVsBoxCollision(sphere *sphere, box *box) bool {
-	return sphere.pose.Point().Sub(box.closestPoint(sphere.pose.Point())).Norm() <= sphere.radius
+func sphereVsBoxCollision(s *sphere, b *box) bool {
+	return s.pose.Point().Sub(b.closestPoint(s.pose.Point())).Norm() <= s.radius
 }
 
 // sphereVsBoxDistance takes a box and a sphere as arguments and returns a floating point number.  If this number is nonpositive it
 // represents the penetration depth for the two volumes, which are in collision.  If the returned float is positive it represents the
 // separation distance for the two volumes, which are not in collision.
-func sphereVsBoxDistance(sphere *sphere, box *box) float64 {
-	closestPoint := box.closestPoint(sphere.pose.Point())
-	sphereToBoxDistance := sphere.pose.Point().Sub(closestPoint)
+func sphereVsBoxDistance(s *sphere, b *box) float64 {
+	closestPoint := b.closestPoint(s.pose.Point())
+	sphereToBoxDistance := s.pose.Point().Sub(closestPoint)
 	boxToFaceDistance := 0.
 	if R3VectorAlmostEqual(sphereToBoxDistance, r3.Vector{}, 1e-3) {
-		boxToFaceDistance = boxVsPointDistance(box, closestPoint)
+		boxToFaceDistance = boxVsPointDistance(b, closestPoint)
 	}
-	return sphereToBoxDistance.Norm() - sphere.radius - boxToFaceDistance
+	return sphereToBoxDistance.Norm() - (s.radius + boxToFaceDistance)
 }

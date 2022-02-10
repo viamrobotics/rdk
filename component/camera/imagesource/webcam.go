@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
 )
 
@@ -29,17 +28,17 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWebcamSource(config.ConvertedAttributes.(*rimage.AttrConfig), logger)
+			return NewWebcamSource(config.ConvertedAttributes.(*camera.AttrConfig), logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
-func makeConstraints(attrs *rimage.AttrConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
+func makeConstraints(attrs *camera.AttrConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 	minWidth := 680
 	maxWidth := 4096
 	idealWidth := 1920
@@ -88,7 +87,7 @@ func makeConstraints(attrs *rimage.AttrConfig, debug bool, logger golog.Logger) 
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs *rimage.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Debug
@@ -96,7 +95,7 @@ func NewWebcamSource(attrs *rimage.AttrConfig, logger golog.Logger) (camera.Came
 	constraints := makeConstraints(attrs, debug, logger)
 
 	if attrs.Path != "" {
-		return tryWebcamOpen(attrs.Path, constraints)
+		return tryWebcamOpen(attrs, attrs.Path, constraints)
 	}
 
 	var pattern *regexp.Regexp
@@ -120,7 +119,7 @@ func NewWebcamSource(attrs *rimage.AttrConfig, logger golog.Logger) (camera.Came
 			continue
 		}
 
-		s, err := tryWebcamOpen(label, constraints)
+		s, err := tryWebcamOpen(attrs, label, constraints)
 		if err == nil {
 			if debug {
 				logger.Debug("\t USING")
@@ -136,10 +135,10 @@ func NewWebcamSource(attrs *rimage.AttrConfig, logger golog.Logger) (camera.Came
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(attrs *camera.AttrConfig, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return &camera.ImageSource{ImageSource: reader}, nil
+	return camera.New(reader, attrs, nil)
 }

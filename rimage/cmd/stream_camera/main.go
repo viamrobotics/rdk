@@ -10,9 +10,9 @@ import (
 	"github.com/edaniels/gostream/media"
 	"go.viam.com/utils"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/rimage"
 )
 
 func main() {
@@ -37,7 +37,7 @@ type Arguments struct {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error {
 	// both argesParsed and argsMap are similar, and should at some point be merged or refactored
 	var argsParsed Arguments
-	var argsMap rimage.AttrConfig
+	var argsMap camera.AttrConfig
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 	return viewCamera(ctx, argsMap, int(argsParsed.Port), argsParsed.Debug, logger)
 }
 
-func viewCamera(ctx context.Context, attrs rimage.AttrConfig, port int, debug bool, logger golog.Logger) error {
+func viewCamera(ctx context.Context, attrs camera.AttrConfig, port int, debug bool, logger golog.Logger) error {
 	webcam, err := imagesource.NewWebcamSource(&attrs, logger)
 	if err != nil {
 		return err

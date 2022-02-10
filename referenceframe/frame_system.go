@@ -132,9 +132,6 @@ func (sfs *simpleFrameSystem) FrameNames() []string {
 }
 
 func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
-	if parent == nil {
-		return errors.New("parent frame is nil")
-	}
 	// check to see if parent is in system
 	if !sfs.frameExists(parent.Name()) {
 		return fmt.Errorf("parent frame with name %q not in frame system", parent.Name())
@@ -148,6 +145,9 @@ func (sfs *simpleFrameSystem) checkName(name string, parent Frame) error {
 
 // AddFrame sets an already defined Frame into the system.
 func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
+	if parent == nil {
+		return NewParentFrameMissingError()
+	}
 	err := sfs.checkName(frame.Name(), parent)
 	if err != nil {
 		return err

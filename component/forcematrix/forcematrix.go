@@ -71,15 +71,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
-func FromRobot(r robot.Robot, name string) (ForceMatrix, bool) {
+func FromRobot(r robot.Robot, name string) (ForceMatrix, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(ForceMatrix)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(ForceMatrix)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("ForceMatrix", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all force matrix sensor names from the given Robot.
@@ -142,7 +143,7 @@ func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	fm, ok := r.(ForceMatrix)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be ForceMatrix but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("ForceMatrix", r)
 	}
 	if reconfigurable, ok := fm.(*reconfigurableForceMatrix); ok {
 		return reconfigurable, nil

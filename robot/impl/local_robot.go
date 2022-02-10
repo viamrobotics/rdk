@@ -15,11 +15,9 @@ import (
 
 	// register arm.
 	_ "go.viam.com/rdk/component/arm/register"
-	"go.viam.com/rdk/component/base"
 
 	// register base.
 	_ "go.viam.com/rdk/component/base/register"
-	"go.viam.com/rdk/component/board"
 
 	// register board.
 	_ "go.viam.com/rdk/component/board/register"
@@ -58,11 +56,7 @@ import (
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
-
-	// detect pi.
-	_ "go.viam.com/rdk/platformdetector/pi"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -96,18 +90,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
-// BoardByName returns a board by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BoardByName(name string) (board.Board, bool) {
-	return r.parts.BoardByName(name)
-}
-
-// BaseByName returns a base by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BaseByName(name string) (base.Base, bool) {
-	return r.parts.BaseByName(name)
-}
-
 // MotorByName returns a motor by name. If it does not exist
 // nil is returned.
 func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
@@ -123,16 +105,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// BaseNames returns the name of all known bases.
-func (r *localRobot) BaseNames() []string {
-	return r.parts.BaseNames()
-}
-
-// BoardNames returns the name of all known boards.
-func (r *localRobot) BoardNames() []string {
-	return r.parts.BoardNames()
 }
 
 // MotorNames returns the name of all known motors.
@@ -211,7 +183,11 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	if !ok {
 		return nil, errors.New("service is not a frame_system service")
 	}
-	baseFrameSys, err := fsService.LocalFrameSystem(ctx, name)
+	parts, err := fsService.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -242,9 +218,17 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...client.RobotClientOption) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts:  newRobotParts(logger, opts...),
+		parts: newRobotParts(
+			robotPartsOptions{
+				debug:              cfg.Debug,
+				fromCommand:        cfg.FromCommand,
+				allowInsecureCreds: cfg.AllowInsecureCreds,
+				tlsConfig:          cfg.Network.TLSConfig,
+			},
+			logger,
+		),
 		logger: logger,
 	}
 

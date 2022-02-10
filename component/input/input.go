@@ -140,7 +140,7 @@ type Triggerable interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Controller but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -154,15 +154,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
-func FromRobot(r robot.Robot, name string) (Controller, bool) {
+func FromRobot(r robot.Robot, name string) (Controller, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Controller)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Controller)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.

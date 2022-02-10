@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -239,4 +240,18 @@ func TestDepthMapStats(t *testing.T) {
 
 	img = dm.InterestingPixels(10)
 	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
+}
+
+func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
+	nRows, nCols := fimg.Dims()
+	// test dimensions
+	test.That(t, nCols, test.ShouldEqual, iwd.Depth.Width())
+	test.That(t, nRows, test.ShouldEqual, iwd.Depth.Height())
+	// test values
+	// select random pixel
+	x, y := rand.Intn(nCols), rand.Intn(nRows)
+	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
 }
