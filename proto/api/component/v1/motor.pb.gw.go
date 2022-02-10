@@ -669,7 +669,7 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/off"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -692,7 +692,7 @@ func RegisterMotorServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/is_on"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/powered"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -874,7 +874,7 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/off"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/Stop", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/stop"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -894,7 +894,7 @@ func RegisterMotorServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/is_on"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.v1.MotorService/IsPowered", runtime.WithHTTPPathPattern("/api/v1/component/motor/{name}/powered"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -926,9 +926,9 @@ var (
 
 	pattern_MotorService_GetFeatures_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "motor", "name", "features"}, ""))
 
-	pattern_MotorService_Stop_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "motor", "name", "off"}, ""))
+	pattern_MotorService_Stop_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "motor", "name", "stop"}, ""))
 
-	pattern_MotorService_IsPowered_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "motor", "name", "is_on"}, ""))
+	pattern_MotorService_IsPowered_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "motor", "name", "powered"}, ""))
 )
 
 var (

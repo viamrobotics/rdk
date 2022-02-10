@@ -64,7 +64,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/off"
+      put: "/api/v1/component/motor/{name}/stop"
     };
   }
 
@@ -72,7 +72,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc IsPowered(MotorServiceIsPoweredRequest) returns (MotorServiceIsPoweredResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/motor/{name}/is_on"
+      get: "/api/v1/component/motor/{name}/powered"
     };
   }
 }
