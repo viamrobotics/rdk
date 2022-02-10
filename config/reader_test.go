@@ -13,7 +13,7 @@ func TestFromReaderValidate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	_, err := FromReader(context.Background(), "somepath", strings.NewReader(""), logger)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "EOF")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected end")
 
 	_, err = FromReader(context.Background(), "somepath", strings.NewReader(`{"cloud": 1}`), logger)
 	test.That(t, err, test.ShouldNotBeNil)
