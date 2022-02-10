@@ -412,7 +412,6 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 		}
 		m.OrdTransforms = append(m.OrdTransforms, f)
 		g.model = m
-		return g.model
 	}
 	return g.model
 }

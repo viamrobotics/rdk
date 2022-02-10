@@ -98,18 +98,18 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
 
+	idx := 0
 	for _, subAx := range g.subAxes {
 		subAxNum, err := subAx.GetLengths(ctx)
 		if err != nil {
 			return err
 		}
 
-		for idx := range subAxNum {
-			err := subAx.MoveToPosition(ctx, []float64{positions[idx]})
-			if err != nil {
-				return err
-			}
+		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1])
+		if err != nil {
+			return err
 		}
+		idx += len(subAxNum) - 1
 	}
 	return nil
 }
@@ -120,20 +120,19 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 		return errors.New("no subaxes found for inputs")
 	}
 
+	idx := 0
 	for _, subAx := range g.subAxes {
 		subAxNum, err := subAx.GetLengths(ctx)
 		if err != nil {
 			return err
 		}
 
-		for idx := range subAxNum {
-			subGoal := goal[idx]
-			subGoalInputs := []referenceframe.Input{subGoal}
-			err := subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(subGoalInputs))
-			if err != nil {
-				return err
-			}
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]))
+		if err != nil {
+			return err
 		}
+		idx += len(subAxNum) - 1
+
 	}
 	return nil
 }
@@ -188,7 +187,6 @@ func (g *multiAxis) ModelFrame() referenceframe.Model {
 			model.OrdTransforms = append(model.OrdTransforms, subAx.ModelFrame())
 		}
 		g.model = model
-		return g.model
 	}
 	return g.model
 }
