@@ -209,6 +209,9 @@ func TestNewOneAxis(t *testing.T) {
 
 	fakecfg = config.Component{
 		Name: "gantry",
+		Attributes: config.AttributeMap{
+			"motor": gantryMotorName,
+		},
 		ConvertedAttributes: &AttrConfig{
 			Motor:           gantryMotorName,
 			LimitSwitchPins: []string{"1", "2", "3"},
