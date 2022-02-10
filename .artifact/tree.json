@@ -3416,6 +3416,10 @@
     }
   },
   "rimage": {
+    "binary_image.jpg": {
+      "hash": "45ca9ed407019c8ef93872c24dff9766",
+      "size": 15292
+    },
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
       "size": 165941
@@ -3491,6 +3495,10 @@
     "shelf_grayscale.png": {
       "hash": "8382a0b821c7034033d7ba7aff4daec2",
       "size": 343317
+    },
+    "sobelx.png": {
+      "hash": "78e2fa73efdac49f6dc33de0c7e2ddca",
+      "size": 19308
     },
     "test_canny.png": {
       "hash": "d1989b26b62943152fa05e63d476a623",

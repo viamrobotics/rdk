@@ -10,6 +10,7 @@ import (
 	"net/http/pprof"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/Masterminds/sprig"
 	"github.com/edaniels/golog"
@@ -23,6 +24,7 @@ import (
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"goji.io"
 	"goji.io/pat"
+	"golang.org/x/net/http2/h2c"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/camera"
@@ -37,6 +39,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/web"
 )
 
@@ -121,6 +124,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WebRTCAdditionalICEServers []map[string]interface{}
 		Actions                    []string
 		SupportedAuthTypes         []string
+		BakedAuth                  map[string]interface{}
 	}
 
 	temp := Temp{
@@ -129,22 +133,18 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if app.options.WebRTC {
 		temp.WebRTCEnabled = true
-		var scheme string
-		if app.options.secureSignaling {
-			scheme = "https"
-		} else {
-			scheme = "http"
-		}
-		// we will rely on pages host and port if we are listening everywhere
-		if !(strings.HasPrefix(app.options.SignalingAddress, "0.0.0.0:") ||
-			strings.HasPrefix(app.options.SignalingAddress, "[::]:")) {
-			temp.WebRTCSignalingAddress = fmt.Sprintf("%s://%s", scheme, app.options.SignalingAddress)
-		}
-		temp.WebRTCHost = app.options.FQDNs[0]
+		temp.WebRTCHost = app.options.FQDN
 	}
 
-	for _, handler := range app.options.Auth.Handlers {
-		temp.SupportedAuthTypes = append(temp.SupportedAuthTypes, string(handler.Type))
+	if app.options.Managed && len(app.options.Auth.Handlers) == 1 {
+		temp.BakedAuth = map[string]interface{}{
+			"authEntity": app.options.BakedAuthEntity,
+			"creds":      app.options.BakedAuthCreds,
+		}
+	} else {
+		for _, handler := range app.options.Auth.Handlers {
+			temp.SupportedAuthTypes = append(temp.SupportedAuthTypes, string(handler.Type))
+		}
 	}
 
 	err := app.template.Execute(w, temp)
@@ -341,77 +341,149 @@ func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options O
 	return nil
 }
 
-// DefaultFQDN is the default name that will be used to identify the
-// web server when one is not specified.
-const DefaultFQDN = "local"
-
 // RunWeb takes the given robot and options and runs the web server. This function will block
 // until the context is done.
 func (svc *webService) runWeb(ctx context.Context, options Options) (err error) {
-	listener, secure, err := utils.NewPossiblySecureTCPListenerFromFile(
-		options.Network.BindAddress,
-		options.Network.TLSCertFile,
-		options.Network.TLSKeyFile,
-	)
+	secure := options.Network.TLSConfig != nil || options.Network.TLSCertFile != ""
+	listener, err := net.Listen("tcp", options.Network.BindAddress)
 	if err != nil {
 		return err
 	}
-	listenerAddr := listener.Addr().String()
+
+	listenerTCPAddr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return errors.Errorf("expected *net.TCPAddr but got %T", listener.Addr())
+	}
+	listenerAddr := listenerTCPAddr.String()
+	listenerPort := listenerTCPAddr.Port
 	options.secure = secure
 
-	var signalingOpts []rpc.DialOption
-	var insecureSignaling bool
+	signalingOpts := options.SignalingDialOpts
 	if options.SignalingAddress == "" {
 		if !secure {
 			signalingOpts = append(signalingOpts, rpc.WithInsecure())
-			insecureSignaling = true
 		}
-	} else {
-		_, port, err := net.SplitHostPort(options.SignalingAddress)
+	}
+
+	var instanceNames []string
+	if options.FQDN == "" {
+		options.FQDN, err = rpc.InstanceNameFromAddress(listenerAddr)
 		if err != nil {
 			return err
 		}
-		if port != "443" {
-			signalingOpts = append(signalingOpts, rpc.WithInsecure())
-			insecureSignaling = true
+	}
+	var listenerPortStr string
+	if listenerPort != 443 {
+		listenerPortStr = fmt.Sprintf(":%d", listenerPort)
+	}
+	localhostWithPort := fmt.Sprintf("localhost%s", listenerPortStr)
+
+	instanceNames = append(instanceNames, options.FQDN)
+	externalSignalingHosts := []string{options.FQDN}
+	internalSignalingHosts := []string{options.FQDN}
+	addSignalingHost := func(host string, set []string, seen map[string]bool) []string {
+		if _, ok := seen[host]; ok {
+			return set
+		}
+		seen[host] = true
+		return append(set, host)
+	}
+	seenExternalSignalingHosts := map[string]bool{options.FQDN: true}
+	seenInternalSignalingHosts := map[string]bool{options.FQDN: true}
+	if !options.Managed {
+		// allow signaling for non-unique entities.
+		// This eases WebRTC connections.
+		if options.FQDN != listenerAddr {
+			externalSignalingHosts = addSignalingHost(listenerAddr, externalSignalingHosts, seenExternalSignalingHosts)
+			internalSignalingHosts = addSignalingHost(listenerAddr, internalSignalingHosts, seenInternalSignalingHosts)
+		}
+		if listenerTCPAddr.IP.IsLoopback() {
+			// plus localhost alias
+			externalSignalingHosts = addSignalingHost(localhostWithPort, externalSignalingHosts, seenExternalSignalingHosts)
+			internalSignalingHosts = addSignalingHost(localhostWithPort, internalSignalingHosts, seenInternalSignalingHosts)
 		}
 	}
-	options.secureSignaling = !insecureSignaling
 
-	if len(options.FQDNs) == 0 {
-		options.FQDNs = []string{DefaultFQDN}
+	if options.LocalFQDN != "" {
+		// only add the local FQDN here since we will already have DefaultFQDN
+		// in the case that FQDNs was empty, avoiding a duplicate host. If FQDNs
+		// is non-empty, we don't care about having a default for signaling/naming.
+		instanceNames = append(instanceNames, options.LocalFQDN)
+		internalSignalingHosts = addSignalingHost(options.LocalFQDN, internalSignalingHosts, seenInternalSignalingHosts)
+		localFQDNWithPort := fmt.Sprintf("%s%s", options.LocalFQDN, listenerPortStr)
+		internalSignalingHosts = addSignalingHost(localFQDNWithPort, internalSignalingHosts, seenInternalSignalingHosts)
 	}
 	rpcOpts := []rpc.ServerOption{
+		rpc.WithInstanceNames(instanceNames...),
 		rpc.WithWebRTCServerOptions(rpc.WebRTCServerOptions{
 			Enable:                    true,
+			EnableInternalSignaling:   true,
 			ExternalSignalingDialOpts: signalingOpts,
 			ExternalSignalingAddress:  options.SignalingAddress,
-			SignalingHosts:            options.FQDNs,
+			ExternalSignalingHosts:    externalSignalingHosts,
+			InternalSignalingHosts:    internalSignalingHosts,
 			Config:                    &grpc.DefaultWebRTCConfiguration,
 		}),
 	}
 	if options.Debug {
 		rpcOpts = append(rpcOpts, rpc.WithDebug())
 	}
+	if options.Network.TLSConfig != nil {
+		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
+	}
+
+	if options.Managed && len(options.Auth.Handlers) == 1 {
+		if options.BakedAuthEntity == "" || options.BakedAuthCreds.Type == "" {
+			return errors.New("expected baked in local UI credentials since managed")
+		}
+	}
+
 	if len(options.Auth.Handlers) == 0 {
 		rpcOpts = append(rpcOpts, rpc.WithUnauthenticated())
 	} else {
-		authEntities := options.FQDNs
+		authEntities := make([]string, len(internalSignalingHosts))
+		copy(authEntities, internalSignalingHosts)
 		if !options.Managed {
 			// allow authentication for non-unique entities.
 			// This eases direct connections via address.
-			authEntities = append(authEntities, listenerAddr, options.Network.BindAddress)
+			addIfNotFound := func(toAdd string) []string {
+				for _, ent := range authEntities {
+					if ent == toAdd {
+						return authEntities
+					}
+				}
+				return append(authEntities, toAdd)
+			}
+			if options.FQDN != listenerAddr {
+				authEntities = addIfNotFound(listenerAddr)
+			}
+			if listenerTCPAddr.IP.IsLoopback() {
+				// plus localhost alias
+				authEntities = addIfNotFound(localhostWithPort)
+			}
+		}
+		if secure && len(options.Auth.TLSAuthEntities) != 0 {
+			rpcOpts = append(rpcOpts, rpc.WithTLSAuthHandler(options.Auth.TLSAuthEntities, nil))
 		}
 		for _, handler := range options.Auth.Handlers {
 			switch handler.Type {
 			case rpc.CredentialsTypeAPIKey:
 				apiKey := handler.Config.String("key")
 				if apiKey == "" {
-					return errors.Errorf("%q handler requires non-empty API key", rpc.CredentialsTypeAPIKey)
+					return errors.Errorf("%q handler requires non-empty API key", handler.Type)
 				}
 				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
-					rpc.CredentialsTypeAPIKey,
+					handler.Type,
 					rpc.MakeSimpleAuthHandler(authEntities, apiKey),
+				))
+			case rutils.CredentialsTypeRobotLocationSecret:
+				secret := handler.Config.String("secret")
+				if secret == "" {
+					return errors.Errorf("%q handler requires non-empty secret", handler.Type)
+				}
+				rpcOpts = append(rpcOpts, rpc.WithAuthHandler(
+					handler.Type,
+					rpc.MakeSimpleAuthHandler(authEntities, secret),
 				))
 			default:
 				return errors.Errorf("do not know how to handle auth for %q", handler.Type)
@@ -525,11 +597,25 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
-	httpServer, err := utils.NewPlainTextHTTP2Server(mux)
-	if err != nil {
-		return err
+	httpServer := &http.Server{
+		ReadTimeout:    10 * time.Second,
+		MaxHeaderBytes: rpc.MaxMessageSize,
+		TLSConfig:      options.Network.TLSConfig.Clone(),
 	}
 	httpServer.Addr = listenerAddr
+	httpServer.Handler = mux
+
+	if !secure {
+		secure = false
+		http2Server, err := utils.NewHTTP2Server()
+		if err != nil {
+			return err
+		}
+		httpServer.RegisterOnShutdown(func() {
+			utils.UncheckedErrorFunc(http2Server.Close)
+		})
+		httpServer.Handler = h2c.NewHandler(httpServer.Handler, http2Server.HTTP2)
+	}
 
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
@@ -565,12 +651,30 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	} else {
 		scheme = "http"
 	}
-	svc.logger.Infow("serving", "url", fmt.Sprintf("%s://%s", scheme, listenerAddr))
+	if strings.HasPrefix(listenerAddr, "[::]") {
+		listenerAddr = fmt.Sprintf("0.0.0.0:%d", listenerPort)
+	}
+	listenerURL := fmt.Sprintf("%s://%s", scheme, listenerAddr)
+	var urlFields []interface{}
+	if options.LocalFQDN == "" {
+		urlFields = append(urlFields, "url", listenerURL)
+	} else {
+		localURL := fmt.Sprintf("%s://%s:%d", scheme, options.LocalFQDN, listenerPort)
+		urlFields = append(urlFields, "url", localURL, "alt_url", listenerURL)
+	}
+	svc.logger.Infow("serving", urlFields...)
+
 	svc.activeBackgroundWorkers.Add(1)
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
-		if err := httpServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			svc.logger.Errorw("error serving rpc server", "error", err)
+		var serveErr error
+		if secure {
+			serveErr = httpServer.ServeTLS(listener, options.Network.TLSCertFile, options.Network.TLSKeyFile)
+		} else {
+			serveErr = httpServer.Serve(listener)
+		}
+		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
+			svc.logger.Errorw("error serving http", "error", serveErr)
 		}
 	})
 	return err

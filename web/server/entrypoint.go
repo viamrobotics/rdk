@@ -4,11 +4,15 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,12 +27,12 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
+	rutils "go.viam.com/rdk/utils"
 )
 
 type wrappedLogger struct {
@@ -166,8 +170,11 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 		return err
 	}
 
-	// we specifically don't use a cancellable context here so we can make sure we finish writing
-	r, err := http.NewRequestWithContext(context.Background(), "POST", nl.cfg.LogPath, bytes.NewReader(js))
+	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
+	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
 		return errors.Wrap(err, "error creating log request")
 	}
@@ -250,13 +257,14 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string `flag:"0,required,usage=robot config file"`
-	CPUProfile string `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool   `flag:"webprofile,usage=include profiler in http server"`
-	LogURL     string `flag:"logurl,usage=url to log messages to"`
-	SharedDir  string `flag:"shareddir,usage=web resource directory"`
-	Debug      bool   `flag:"debug"`
-	WebRTC     bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	ConfigFile         string `flag:"0,required,usage=robot config file"`
+	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
+	LogURL             string `flag:"logurl,usage=url to log messages to"`
+	SharedDir          string `flag:"shareddir,usage=web resource directory"`
+	Debug              bool   `flag:"debug"`
+	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -283,10 +291,13 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read(ctx, argsParsed.ConfigFile)
+	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
 	if err != nil {
+		cancel()
 		return err
 	}
+	cancel()
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
 		var closer func()
@@ -318,12 +329,83 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	// TODO(https://github.com/viamrobotics/rdk/issues/237): configurable
-	dialOpts := []rpc.DialOption{rpc.WithInsecure()}
-	if argsParsed.Debug {
-		dialOpts = append(dialOpts, rpc.WithDialDebug())
+
+	var tlsConfig *tls.Config
+	var certMu sync.Mutex
+	var tlsCert *tls.Certificate
+	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				// always return same cert
+				certMu.Lock()
+				defer certMu.Unlock()
+				return tlsCert, nil
+			},
+			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				// always return same cert
+				certMu.Lock()
+				defer certMu.Unlock()
+				return tlsCert, nil
+			},
+		}
 	}
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(dialOpts...))
+
+	processConfig := func(in *config.Config) (*config.Config, error) {
+		out := *in
+		var selfCreds *rpc.Credentials
+		if in.Cloud != nil {
+			if in.Cloud.TLSCertificate != "" {
+				cert, err := tls.X509KeyPair([]byte(in.Cloud.TLSCertificate), []byte(in.Cloud.TLSPrivateKey))
+				if err != nil {
+					return nil, err
+				}
+				certMu.Lock()
+				tlsCert = &cert
+				certMu.Unlock()
+			}
+
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+			out.Network.TLSConfig = tlsConfig // override
+		}
+
+		out.Remotes = make([]config.Remote, len(in.Remotes))
+		copy(out.Remotes, in.Remotes)
+		for idx, remote := range out.Remotes {
+			remoteCopy := remote
+			if in.Cloud == nil {
+				// TODO(https://github.com/viamrobotics/goutils/issues/24):
+				// remove hard coding of signaling server address and
+				// prefer SRV lookup instead.
+				switch {
+				case strings.HasSuffix(remote.Address, ".viam.cloud"):
+					remoteCopy.Auth.SignalingServerAddress = "app.viam.com:443"
+				case strings.HasSuffix(remote.Address, ".robot.viaminternal"):
+					remoteCopy.Auth.SignalingServerAddress = "app.viaminternal:8089"
+				}
+				remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
+			} else {
+				if remote.ManagedBy != in.Cloud.ManagedBy {
+					continue
+				}
+				remoteCopy.Auth.Managed = true
+				remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
+				remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+				remoteCopy.Auth.SignalingCreds = selfCreds
+			}
+			out.Remotes[idx] = remoteCopy
+		}
+		out.Debug = argsParsed.Debug
+		out.FromCommand = true
+		out.AllowInsecureCreds = argsParsed.AllowInsecureCreds
+		return &out, nil
+	}
+
+	processedConfig, err := processConfig(cfg)
+	if err != nil {
+		return err
+	}
+	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
 	if err != nil {
 		return err
 	}
@@ -351,7 +433,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			case <-ctx.Done():
 				return
 			case config := <-watcher.Config():
-				if err := myRobot.Reconfigure(ctx, config); err != nil {
+				processedConfig, err := processConfig(config)
+				if err != nil {
+					logger.Errorw("error processing config", "error", err)
+				}
+				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
 				}
 			}
@@ -369,15 +455,77 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	if cfg.Cloud == nil {
-		// for now auth settings only apply to non cloud instances
-		options.Auth = cfg.Auth
-	} else {
-		options.Managed = true
-		options.FQDNs = cfg.Cloud.FQDNs
-		options.SignalingAddress = cfg.Cloud.SignalingAddress
-	}
+	options.Auth = cfg.Auth
 	options.Network = cfg.Network
+	options.FQDN = cfg.Network.FQDN
+	if cfg.Cloud != nil {
+		options.Managed = true
+		options.LocalFQDN = cfg.Cloud.LocalFQDN
+		options.FQDN = cfg.Cloud.FQDN
+		options.SignalingAddress = cfg.Cloud.SignalingAddress
+
+		if cfg.Cloud.TLSCertificate != "" {
+			// override
+			options.Network.TLSConfig = tlsConfig
+
+			// when we are managed and no explicit bind address is set,
+			// we will listen everywhere on 8080. We assume this to be
+			// secure because TLS will be enabled in addition to
+			// authentication. NOTE: If you do not want the UI to function
+			// without a specific secret being input, then you must set up
+			// a dedicated auth handler in the config. Otherwise, the secret
+			// for this robot will be baked into the UI. There may be a future
+			// feature to disable the baked in credentials from the managed
+			// interface.
+			if cfg.Network.BindAddressDefaultSet {
+				options.Network.BindAddress = ":8080"
+			}
+
+			cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{})
+			if err != nil {
+				return err
+			}
+			leaf, err := x509.ParseCertificate(cert.Certificate[0])
+			if err != nil {
+				return err
+			}
+			options.Auth.TLSAuthEntities = leaf.DNSNames
+		}
+
+		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))
+		copy(options.Auth.Handlers, cfg.Auth.Handlers)
+		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
+			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Config: config.AttributeMap{
+				"secret": cfg.Cloud.LocationSecret,
+			},
+		})
+
+		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
+			cfg.Cloud.ID,
+			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
+		)}
+		if argsParsed.AllowInsecureCreds {
+			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+		}
+		options.BakedAuthEntity = options.FQDN
+		options.BakedAuthCreds = rpc.Credentials{
+			rutils.CredentialsTypeRobotLocationSecret,
+			cfg.Cloud.LocationSecret,
+		}
+		options.SignalingDialOpts = signalingDialOpts
+	}
+
+	if len(options.Auth.Handlers) == 0 {
+		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
+		if err != nil {
+			return err
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			logger.Warn("binding to all interfaces without authentication")
+		}
+	}
+
 	return RunWeb(ctx, myRobot, options, logger)
 }
 

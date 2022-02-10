@@ -1,7 +1,11 @@
 // Package web provides gRPC/REST/GUI APIs to control and monitor a robot.
 package web
 
-import "go.viam.com/rdk/config"
+import (
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+)
 
 // Options are used for configuring the web server.
 type Options struct {
@@ -14,8 +18,17 @@ type Options struct {
 	// SignalingAddress is where to listen to WebRTC call offers at.
 	SignalingAddress string
 
-	// FQDNs are the FQDNs of this host.
-	FQDNs []string
+	// SignalingDialOpts are the dial options to used for signaling.
+	SignalingDialOpts []rpc.DialOption
+
+	// FQDN is the FQDN of this host. It is assumed this FQDN is unique to
+	// one robot.
+	FQDN string
+
+	// LocalFQDN is the local FQDN of this host used for UI links
+	// and SDK connections. It is assumed this FQDN is unique to one
+	// robot.
+	LocalFQDN string
 
 	// Debug turns on various debugging features. For example, the echo gRPC
 	// service is added.
@@ -37,17 +50,21 @@ type Options struct {
 	// secure determines if sever communicates are secured or not.
 	secure bool
 
-	// secureSignaling indicates if an WebRTC signaling will be secured by TLS.
-	secureSignaling bool
+	// baked information when managed to make local UI simpler
+	BakedAuthEntity string
+	BakedAuthCreds  rpc.Credentials
 }
 
 // NewOptions returns a default set of options which will have the
-// web server run on port 8080.
+// web server run on config.DefaultBindAddress.
 func NewOptions() Options {
 	return Options{
 		Pprof: false,
 		Network: config.NetworkConfig{
-			BindAddress: "localhost:8080",
+			NetworkConfigData: config.NetworkConfigData{
+				BindAddress:           config.DefaultBindAddress,
+				BindAddressDefaultSet: true,
+			},
 		},
 	}
 }
