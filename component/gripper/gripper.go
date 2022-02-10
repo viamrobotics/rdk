@@ -68,7 +68,7 @@ type Gripper interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gripper)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Gripper but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGripper); ok {
 		return reconfigurable, nil
@@ -82,15 +82,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gripper, bool) {
+func FromRobot(r robot.Robot, name string) (Gripper, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Gripper)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Gripper)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gripper", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all gripper names from the given Robot.

@@ -3,8 +3,8 @@ window.robotApi = require('./gen/proto/api/v1/robot_pb.js');
 const { RobotServiceClient } = require('./gen/proto/api/v1/robot_pb_service.js');
 window.metadataApi = require('./gen/proto/api/service/v1/metadata_pb.js');
 const { MetadataServiceClient } = require('./gen/proto/api/service/v1/metadata_pb_service.js');
-window.forceMatrixApi = require('./gen/proto/api/component/v1/forcematrix_pb.js');
-const { ForceMatrixServiceClient } = require('./gen/proto/api/component/v1/forcematrix_pb_service.js');
+window.forceMatrixApi = require('./gen/proto/api/component/v1/force_matrix_pb.js');
+const { ForceMatrixServiceClient } = require('./gen/proto/api/component/v1/force_matrix_pb_service.js');
 window.armApi = require('./gen/proto/api/component/v1/arm_pb.js');
 const { ArmServiceClient } = require('./gen/proto/api/component/v1/arm_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/v1/gantry_pb.js');
@@ -43,14 +43,21 @@ if (window.webrtcAdditionalICEServers) {
 	rtcConfig.iceServers = rtcConfig.iceServers.concat(window.webrtcAdditionalICEServers);
 }
 
-let connect = async (creds) => {
+let connect = async (authEntity, creds) => {
 	let transportFactory;
-	const opts = { credentials: creds, webrtcOptions: { rtcConfig: rtcConfig } };
+	const opts = { 
+		authEntity: authEntity,
+		credentials: creds,
+		webrtcOptions: { rtcConfig: rtcConfig },
+	};
 	const impliedURL = `${location.protocol}//${location.hostname}${location.port ? ':' + location.port : ''}`;
 	if (window.webrtcEnabled) {
 		if (!window.webrtcSignalingAddress) {
 			window.webrtcSignalingAddress = impliedURL;
 		}
+		opts.webrtcOptions.signalingAuthEntity = opts.authEntity;
+		opts.webrtcOptions.signalingCredentials = opts.credentials;
+
 		const webRTCConn = await dialWebRTC(window.webrtcSignalingAddress, window.webrtcHost, opts);
 		transportFactory = webRTCConn.transportFactory
 		window.streamService = new StreamServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -69,7 +76,8 @@ let connect = async (creds) => {
 		transportFactory = await dialDirect(impliedURL, opts);
 	}
 
-	window.connect = () => connect(creds); // save creds
+	// save authEntity, creds
+	window.connect = () => connect(authEntity, creds);
 
 	window.robotService = new RobotServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.metadataService = new MetadataServiceClient(window.webrtcHost, { transport: transportFactory });

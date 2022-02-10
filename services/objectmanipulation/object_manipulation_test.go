@@ -80,7 +80,7 @@ func TestDoGrab(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read(ctx, "data/moving_arm.json")
+	cfg, err := config.Read(ctx, "data/moving_arm.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -98,7 +98,7 @@ func TestMultiplePieces(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read(ctx, "data/fake_tomato.json")
+	cfg, err := config.Read(ctx, "data/fake_tomato.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)

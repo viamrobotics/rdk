@@ -29,7 +29,7 @@ func setupInjectRobot() *inject.Robot {
 		case sensor.Named(testSensorName):
 			return sensor1, true
 		case sensor.Named(fakeSensorName):
-			return "not a sensor", false
+			return "not a sensor", true
 		default:
 			return nil, false
 		}
@@ -43,21 +43,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := sensor.FromRobot(r, testSensorName)
+	s, err := sensor.FromRobot(r, testSensorName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
 
-	s, ok = sensor.FromRobot(r, fakeSensorName)
+	s, err = sensor.FromRobot(r, fakeSensorName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Sensor")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = sensor.FromRobot(r, missingSensorName)
+	s, err = sensor.FromRobot(r, missingSensorName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -112,7 +114,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = sensor.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Sensor")
 
 	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)

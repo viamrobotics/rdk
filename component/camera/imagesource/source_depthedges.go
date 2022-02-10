@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -66,9 +67,9 @@ func (os *depthEdgesSource) Next(ctx context.Context) (image.Image, func(), erro
 }
 
 func newDepthEdgesSource(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
-	source, ok := camera.FromRobot(r, attrs.Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+	source, err := camera.FromRobot(r, attrs.Source)
+	if err != nil {
+		return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 	}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	imgSrc := &depthEdgesSource{source, canny, 3.0}

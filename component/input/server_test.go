@@ -132,6 +132,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no input controller")
 
 		startTime := time.Now()
+		time.Sleep(time.Millisecond)
 		resp, err := inputControllerServer.GetEvents(
 			context.Background(),
 			&pb.InputControllerServiceGetEventsRequest{Controller: testInputControllerName},

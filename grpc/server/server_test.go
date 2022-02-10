@@ -285,7 +285,7 @@ func TestServer(t *testing.T) {
 			Name: "compass1",
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no sensor")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 		test.That(t, capName, test.ShouldResemble, sensor.Named("compass1"))
 
 		err1 := errors.New("whoops")

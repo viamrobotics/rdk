@@ -30,7 +30,7 @@ func setupInjectRobot() *inject.Robot {
 		case gps.Named(testGPSName):
 			return gps1, true
 		case gps.Named(fakeGPSName):
-			return "not a gps", false
+			return "not a gps", true
 		default:
 			return nil, false
 		}
@@ -44,21 +44,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := gps.FromRobot(r, testGPSName)
+	s, err := gps.FromRobot(r, testGPSName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.ReadLocation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, loc)
 
-	s, ok = gps.FromRobot(r, fakeGPSName)
+	s, err = gps.FromRobot(r, fakeGPSName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of GPS")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = gps.FromRobot(r, missingGPSName)
+	s, err = gps.FromRobot(r, missingGPSName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -113,7 +115,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = gps.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalGPS")
 
 	reconfGPS2, err := gps.WrapWithReconfigurable(reconfGPS1)
 	test.That(t, err, test.ShouldBeNil)

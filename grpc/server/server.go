@@ -155,9 +155,9 @@ func (s *Server) SensorReadings(
 	ctx context.Context,
 	req *pb.SensorReadingsRequest,
 ) (*pb.SensorReadingsResponse, error) {
-	sensorDevice, ok := sensor.FromRobot(s.r, req.Name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
+	sensorDevice, err := sensor.FromRobot(s.r, req.Name)
+	if err != nil {
+		return nil, err
 	}
 	readings, err := sensorDevice.GetReadings(ctx)
 	if err != nil {
@@ -453,7 +453,8 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	for _, result := range execResult.Results {
 		val := result.Interface()
 		if (val == functionvm.Undefined{}) {
-			val = "<undefined>" // TODO(erd): holdover for now to make my life easier :)
+			// TODO(https://github.com/viamrobotics/rdk/issues/518): holdover for now to make my life easier :)
+			val = "<undefined>"
 		}
 		pbVal, err := structpb.NewValue(val)
 		if err != nil {
