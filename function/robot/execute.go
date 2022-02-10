@@ -203,28 +203,6 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	// TODO: adapt below for GetFeatures - GV
-	// if err := engine.ImportFunction("robot.motorPositionSupported", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-	// 	if len(args) < 1 {
-	// 		return nil, errors.New("expected 1 argument for motor name")
-	// 	}
-	// 	motorName, err := args[0].String()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	motor, ok := r.MotorByName(motorName)
-	// 	if !ok {
-	// 		return nil, errors.Errorf("no motor with that name %s", motorName)
-	// 	}
-
-	// 	isSupported, err := motor.PositionSupported(context.TODO())
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	return []functionvm.Value{functionvm.NewBool(isSupported)}, nil
-	// }); err != nil {
-	// 	return nil, err
-	// }
 	if err := engine.ImportFunction("robot.motorOff", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
 			return nil, errors.New("expected 1 argument for motor name")
