@@ -64,7 +64,7 @@ type ThreeDimImageSource interface {
 
 // An ThreeDimObjectSource is anything that generates 3D objects in a scene
 type ThreeDimObjectSource interface {
-	NextObjects(context.Context, *vision.Parameters3D) (vision.Scene, error)
+	NextObjects(context.Context, *vision.Parameters3D) ([]*vision.Object, error)
 }
 
 // A Camera represents anything that can capture frames and find objects in a scene.
@@ -123,7 +123,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 
 // NextObjects returns the next ObjectSegmentation from the camera scene,
 // or will error if not supported.
-func (is *imageSource) NextObjects(ctx context.Context, conf *vision.Parameters3D) (vision.Scene, error) {
+func (is *imageSource) NextObjects(ctx context.Context, conf *vision.Parameters3D) ([]*vision.Object, error) {
 	if c, ok := is.ImageSource.(ThreeDimObjectSource); ok {
 		return c.NextObjects(ctx, conf)
 	}
@@ -132,7 +132,11 @@ func (is *imageSource) NextObjects(ctx context.Context, conf *vision.Parameters3
 		if err != nil {
 			return nil, err
 		}
-		return segmentation.NewObjectSegmentation(ctx, pc, *conf)
+		seg, err := segmentation.NewObjectSegmentation(ctx, pc, *conf)
+		if err != nil {
+			return nil, err
+		}
+		return seg.Objects(), nil
 	}
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
 }
@@ -168,7 +172,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 
 // NextObjects returns the next ObjectSegmentation from the camera scene,
 // or will error if not supported.
-func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *vision.Parameters3D) (vision.Scene, error) {
+func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
 	if c, ok := iswp.ImageSource.(ThreeDimObjectSource); ok {
 		return c.NextObjects(ctx, params)
 	}
@@ -177,7 +181,11 @@ func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *v
 		if err != nil {
 			return nil, err
 		}
-		return segmentation.NewObjectSegmentation(ctx, pc, *params)
+		seg, err := segmentation.NewObjectSegmentation(ctx, pc, *params)
+		if err != nil {
+			return nil, err
+		}
+		return seg.Objects(), nil
 	}
 	img, closer, err := iswp.Next(ctx)
 	if err != nil {
@@ -188,7 +196,11 @@ func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *v
 	if err != nil {
 		return nil, err
 	}
-	return segmentation.NewObjectSegmentation(ctx, pc, *params)
+	seg, err := segmentation.NewObjectSegmentation(ctx, pc, *params)
+	if err != nil {
+		return nil, err
+	}
+	return seg.Objects(), nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
@@ -249,7 +261,7 @@ func (c *reconfigurableCamera) NextPointCloud(ctx context.Context) (pointcloud.P
 	return c.actual.NextPointCloud(ctx)
 }
 
-func (c *reconfigurableCamera) NextObjects(ctx context.Context, params *vision.Parameters3D) (vision.Scene, error) {
+func (c *reconfigurableCamera) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.actual.NextObjects(ctx, params)

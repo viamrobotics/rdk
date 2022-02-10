@@ -16,14 +16,9 @@ type ObjectSegmentation struct {
 	*Segments
 }
 
-// Scene returns the entire point cloud of the scene
-func (os *ObjectSegmentation) Image() pc.PointCloud {
-	return os.FullCloud
-}
-
-// Objects returns the list of objects in the scene
-func (os *ObjectSegmentation) Objects() []*pc.WithMetadata {
-	return os.Segments.Objects
+// Objects returns the slice of Objects found by object segmentation
+func (objseg *ObjectSegmentation) Objects() []*vision.Object {
+	return objseg.Segments.Objects
 }
 
 // NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud.

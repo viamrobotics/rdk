@@ -120,7 +120,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
 }
 
-func (c *client) NextObjects(ctx context.Context, params *vision.Parameters3D) (vision.Scene, error) {
+func (c *client) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.CameraServiceGetObjectPointCloudsRequest{
 		Name:               c.name,
 		MimeType:           utils.MimeTypePCD,
@@ -136,24 +136,24 @@ func (c *client) NextObjects(ctx context.Context, params *vision.Parameters3D) (
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
 
-	return protoToScene(resp.Objects)
+	return protoToObjects(resp.Objects)
 }
 
-func protoToScene(pco []*pb.PointCloudObject) (vision.Scene, error) {
-	objects := make([]*pointcloud.WithMetadata, len(pco))
+func protoToObjects(pco []*pb.PointCloudObject) ([]*vision.Object, error) {
+	objects := make([]*vision.Object, len(pco))
 	for i, o := range pco {
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.Frame))
 		if err != nil {
 			return nil, err
 		}
-		withMeta := &pointcloud.WithMetadata{
+		object := &vision.Object{
 			PointCloud:  pc,
 			Center:      protoToPoint(o.CenterCoordinatesMm),
 			BoundingBox: protoToBox(o.BoundingBoxMm),
 		}
-		objects[i] = withMeta
+		objects[i] = object
 	}
-	return vision.NewScene(objects)
+	return objects, nil
 }
 
 func protoToPoint(p *commonpb.Vector3) pointcloud.Vec3 {
