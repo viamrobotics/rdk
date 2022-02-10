@@ -113,7 +113,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 	supported := supportedFeatures[motor.PositionReporting]
 	if !supported {
-		return nil, errors.New("gripper motor needs to support position")
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
 	}
 
 	stoppableMotor, ok := _motor.(motor.LocalMotor)

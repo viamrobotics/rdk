@@ -280,6 +280,12 @@ func TestArduinoMotorAB(t *testing.T) {
 func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
 	t.Helper()
 
+	t.Run("arduino motor features include position support", func(t *testing.T) {
+		features, err := m.GetFeatures(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+	})
+
 	t.Run("ardunio motor Go positive powerPct", func(t *testing.T) {
 		startPos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
