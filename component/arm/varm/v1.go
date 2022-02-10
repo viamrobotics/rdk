@@ -101,7 +101,7 @@ func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, err
 	}
 	pok := supportedFeatures[motor.PositionReporting]
 	if !pok {
-		return nil, errors.Errorf("motor %s doesn't support position", name)
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, name)
 	}
 
 	return m, nil

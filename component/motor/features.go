@@ -12,7 +12,13 @@ type Feature string
 
 // PositionReporting represesnts the feature of a motor being
 // able to report its own position.
-const PositionReporting Feature = "position_reporting"
+const PositionReporting Feature = "PositionReporting"
+
+// NewFeatureUnsupportedError returns an error representing the need
+// for a motor to support a particular feature
+func NewFeatureUnsupportedError(feature Feature, motorName string) error {
+	return errors.Errorf("motor named %s must support feature motor.%s", motorName, feature)
+}
 
 // NewUnexpectedFeatureError returns an error particular to when a
 // motor Feature is not properly handled by setFeatureBoolean.

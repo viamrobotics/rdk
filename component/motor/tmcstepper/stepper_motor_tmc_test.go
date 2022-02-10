@@ -102,6 +102,12 @@ func TestTMCStepperMotor(t *testing.T) {
 	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	test.That(t, ok, test.ShouldBeTrue)
 
+	t.Run("motor supports position reporting", func(t *testing.T) {
+		features, err := _motor.GetFeatures(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+	})
+
 	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test Go forward at half speed
 		go checkTx(t, c, [][]byte{

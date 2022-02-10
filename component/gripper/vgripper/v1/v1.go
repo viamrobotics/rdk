@@ -115,7 +115,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 	supported := supportedFeatures[motor.PositionReporting]
 	if !supported {
-		return nil, errors.New("gripper motor needs to support position")
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, "g")
 	}
 
 	if vg.current == nil || vg.pressure == nil {

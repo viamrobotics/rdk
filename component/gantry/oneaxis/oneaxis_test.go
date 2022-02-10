@@ -142,10 +142,12 @@ func TestNewOneAxis(t *testing.T) {
 	_, err := newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected *oneaxis.AttrConfig but got <nil>")
 
+	gantryMotorName := "x"
+
 	fakecfg = config.Component{
 		Name: "gantry",
 		ConvertedAttributes: &AttrConfig{
-			Motor:           "x",
+			Motor:           gantryMotorName,
 			LimitSwitchPins: []string{"1", "2"},
 			LengthMm:        1.0,
 			Board:           "board",
@@ -162,7 +164,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakecfg = config.Component{
 		Name: "gantry",
 		ConvertedAttributes: &AttrConfig{
-			Motor:           "x",
+			Motor:           gantryMotorName,
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
@@ -180,7 +182,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakecfg = config.Component{
 		Name: "gantry",
 		ConvertedAttributes: &AttrConfig{
-			Motor:           "x",
+			Motor:           gantryMotorName,
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
@@ -199,7 +201,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{},
 			LengthMm:        1.0,
 			Board:           "board",
-			Motor:           "x",
+			Motor:           gantryMotorName,
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -208,7 +210,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakecfg = config.Component{
 		Name: "gantry",
 		ConvertedAttributes: &AttrConfig{
-			Motor:           "x",
+			Motor:           gantryMotorName,
 			LimitSwitchPins: []string{"1", "2", "3"},
 			LengthMm:        1.0,
 			Board:           "board",
@@ -235,6 +237,21 @@ func TestNewOneAxis(t *testing.T) {
 
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
+
+	injectMotor = &inject.Motor{
+		GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {
+			return map[motor.Feature]bool{
+				motor.PositionReporting: false,
+			}, nil
+		},
+	}
+	fakeRobot = &inject.Robot{
+		MotorByNameFunc:    func(name string) (motor.Motor, bool) { return injectMotor, true },
+		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false },
+	}
+	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
+	expectedErr := motor.NewFeatureUnsupportedError(motor.PositionReporting, gantryMotorName)
+	test.That(t, err, test.ShouldBeError, expectedErr)
 }
 
 func TestHome(t *testing.T) {

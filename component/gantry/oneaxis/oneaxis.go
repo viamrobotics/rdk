@@ -130,9 +130,10 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
+	motorName := config.Attributes.String("motor")
 	_motor, ok := r.MotorByName(conf.Motor)
 	if !ok {
-		return nil, errors.Errorf("cannot find motor named %v for gantry", config.Attributes.String("motor"))
+		return nil, errors.Errorf("cannot find motor named %v for gantry", motorName)
 	}
 	features, err := _motor.GetFeatures(ctx)
 	if err != nil {
@@ -140,7 +141,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 	ok = features[motor.PositionReporting]
 	if !ok {
-		return nil, errors.New("gantry motor needs to support position")
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
 	}
 
 	board, err := board.FromRobot(r, conf.Board)
