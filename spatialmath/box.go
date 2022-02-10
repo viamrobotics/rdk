@@ -6,6 +6,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	"go.viam.com/rdk/utils"
 )
 
 // BoxCreator implements the VolumeCreator interface for box structs.
@@ -17,7 +19,7 @@ type boxCreator struct {
 // box is a collision geometry that represents a 3D rectangular prism, it has a pose and half size that fully define it.
 type box struct {
 	pose     Pose
-	halfSize r3.Vector
+	halfSize [3]float64
 }
 
 // NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
@@ -31,7 +33,7 @@ func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
 
 // NewVolume instantiates a new box from a BoxCreator class.
 func (bc *boxCreator) NewVolume(pose Pose) Volume {
-	b := &box{bc.offset, bc.halfSize}
+	b := &box{bc.offset, [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}}
 	b.Transform(pose)
 	return b
 }
@@ -50,12 +52,13 @@ func (b *box) Pose() Pose {
 	return b.pose
 }
 
+// Vertices returns the vertices defining the box.
 func (b *box) Vertices() []r3.Vector {
 	vertices := make([]r3.Vector, 8)
 	for i, x := range []float64{1, -1} {
 		for j, y := range []float64{1, -1} {
 			for k, z := range []float64{1, -1} {
-				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize.X, Y: y * b.halfSize.Y, Z: z * b.halfSize.Z})
+				offset := NewPoseFromPoint(r3.Vector{X: x * b.halfSize[0], Y: y * b.halfSize[1], Z: z * b.halfSize[2]})
 				vertices[4*i+2*j+k] = Compose(b.pose, offset).Point()
 			}
 		}
@@ -69,7 +72,12 @@ func (b *box) AlmostEqual(v Volume) bool {
 	if !ok {
 		return false
 	}
-	return PoseAlmostEqual(b.pose, other.pose) && R3VectorAlmostEqual(b.halfSize, other.halfSize, 1e-8)
+	for i := 0; i < 3; i++ {
+		if !utils.Float64AlmostEqual(b.halfSize[i], other.halfSize[i], 1e-8) {
+			return false
+		}
+	}
+	return PoseAlmostEqual(b.pose, other.pose)
 }
 
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
@@ -82,6 +90,9 @@ func (b *box) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(*box); ok {
 		return boxVsBoxCollision(b, other), nil
 	}
+	if other, ok := v.(*sphere); ok {
+		return sphereVsBoxCollision(other, b), nil
+	}
 	return true, errors.Errorf("collisions between box and %T are not supported", v)
 }
 
@@ -90,7 +101,49 @@ func (b *box) DistanceFrom(v Volume) (float64, error) {
 	if other, ok := v.(*box); ok {
 		return boxVsBoxDistance(b, other), nil
 	}
+	if other, ok := v.(*sphere); ok {
+		return sphereVsBoxDistance(other, b), nil
+	}
 	return math.Inf(-1), errors.Errorf("collisions between box and %T are not supported", v)
+}
+
+// closestPoint returns the closest point on the specified box to the specified point
+// Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L165
+func (b *box) closestPoint(pt r3.Vector) r3.Vector {
+	result := b.pose.Point()
+	direction := pt.Sub(result)
+	rm := b.pose.Orientation().RotationMatrix()
+	for i := 0; i < 3; i++ {
+		axis := rm.Row(i)
+		distance := direction.Dot(axis)
+		if distance > b.halfSize[i] {
+			distance = b.halfSize[i]
+		} else if distance < -b.halfSize[i] {
+			distance = -b.halfSize[i]
+		}
+		result = result.Add(axis.Mul(distance))
+	}
+	return result
+}
+
+// boxVsPointDistance takes a box and a point as arguments and returns a floating point number.  If this number is nonpositive it represents
+// the penetration depth of the point within the box.  If the returned float is positive it represents the separation distance between the
+// point and the box, which are not in collision.
+func boxVsPointDistance(b *box, pt r3.Vector) float64 {
+	direction := pt.Sub(b.pose.Point())
+	rm := b.pose.Orientation().RotationMatrix()
+	min := math.Inf(1)
+	for i := 0; i < 3; i++ {
+		axis := rm.Row(i)
+		projection := direction.Dot(axis)
+		if distance := math.Abs(projection - b.halfSize[i]); distance < min {
+			min = distance
+		}
+		if distance := math.Abs(projection + b.halfSize[i]); distance < min {
+			min = distance
+		}
+	}
+	return min
 }
 
 // boxVsBoxCollision takes two boxes as arguments and returns a bool describing if they are in collision,
@@ -168,10 +221,10 @@ func boxVsBoxDistance(a, b *box) float64 {
 func separatingAxisTest(positionDelta, plane r3.Vector, a, b *box) float64 {
 	rmA := a.pose.Orientation().RotationMatrix()
 	rmB := b.pose.Orientation().RotationMatrix()
-	return math.Abs(positionDelta.Dot(plane)) - (math.Abs(rmA.Row(0).Mul(a.halfSize.X).Dot(plane)) +
-		math.Abs(rmA.Row(1).Mul(a.halfSize.Y).Dot(plane)) +
-		math.Abs(rmA.Row(2).Mul(a.halfSize.Z).Dot(plane)) +
-		math.Abs(rmB.Row(0).Mul(b.halfSize.X).Dot(plane)) +
-		math.Abs(rmB.Row(1).Mul(b.halfSize.Y).Dot(plane)) +
-		math.Abs(rmB.Row(2).Mul(b.halfSize.Z).Dot(plane)))
+	sum := math.Abs(positionDelta.Dot(plane))
+	for i := 0; i < 3; i++ {
+		sum -= math.Abs(rmA.Row(i).Mul(a.halfSize[i]).Dot(plane))
+		sum -= math.Abs(rmB.Row(i).Mul(b.halfSize[i]).Dot(plane))
+	}
+	return sum
 }
