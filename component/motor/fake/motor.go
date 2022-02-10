@@ -18,7 +18,7 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return &Motor{Name: config.Name, MaxRPM: config.Attributes.Float64("max_rpm", 0)}, nil
+			return &Motor{Name: config.Name}, nil
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, "fake", _motor)
@@ -29,23 +29,24 @@ func init() {
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name     string
-	MaxRPM   float64
-	mu       sync.Mutex
-	powerPct float64
+	Name              string
+	mu                sync.Mutex
+	powerPct          float64
+	DefaultPosition   float64
+	PositionSupported bool
 }
 
 // GetPosition always returns 0.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return 0.0, nil
+	return m.DefaultPosition, nil
 }
 
 // GetFeatures returns the status of whether the motor supports certain optional features.
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
-		motor.PositionReporting: false,
+		motor.PositionReporting: m.PositionSupported,
 	}, nil
 }
 
@@ -81,15 +82,6 @@ func (m *Motor) Direction() int {
 	return 0
 }
 
-// Go sets the given direction and rpm.
-func (m *Motor) Go(ctx context.Context, rpm float64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.setPowerPct(rpm / m.MaxRPM)
-	return nil
-}
-
 // GoFor sets the given direction and an arbitrary power percentage.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	m.mu.Lock()
@@ -119,7 +111,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition always returns an error.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	return errors.New("unsupported")
+	return motor.NewResetZeroPositionUnsupportedError(m.Name)
 }
 
 // Stop has the motor pretend to be off.
