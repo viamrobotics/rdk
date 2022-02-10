@@ -2,8 +2,10 @@ package pointcloud
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // Vec3 is a three-dimensional vector.
@@ -73,6 +75,52 @@ type Point interface {
 
 	// SetIntensity sets the intensity on the point.
 	SetIntensity(v uint16) Point
+
+	// Distance returns the distance between the the current point and the given point.
+	// Used to fulfill kdtree.Compareable.
+	Distance(p kdtree.Comparable) float64
+
+	// Dims returns the dimensions of the point. Used to fulfill kdtree.Compareable.
+	Dims() int
+
+	// Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
+	// Used to fulfill kdtree.Compareable.
+	Compare(p kdtree.Comparable, d kdtree.Dim) float64
+}
+
+// Points is a type that satisfies kdtree.Interface
+type Points []Point
+
+func (ps Points) Index(i int) kdtree.Comparable { return ps[i] }
+
+func (ps Points) Len() int { return len(ps) }
+
+func (ps Points) Slice(start, end int) kdtree.Interface { return ps[start:end] }
+
+// pointsHelper is required to help Points
+type pointsHelper struct {
+	kdtree.Dim
+	Points
+}
+
+func (ph pointsHelper) Less(i, j int) bool {
+	switch p.Dim {
+	case 0:
+		return p.Points[i].lat < p.places[j].lat
+	case 1:
+		return p.places[i].lon < p.places[j].lon
+	default:
+		panic("illegal dimension")
+	}
+}
+
+func (p plane) Pivot() int { return kdtree.Partition(p, kdtree.MedianOfMedians(p)) }
+func (p plane) Slice(start, end int) kdtree.SortSlicer {
+	p.places = p.places[start:end]
+	return p
+}
+func (p plane) Swap(i, j int) {
+	p.places[i], p.places[j] = p.places[j], p.places[i]
 }
 
 type basicPoint struct {
@@ -108,6 +156,40 @@ func (bp *basicPoint) Position() Vec3 {
 
 func (bp *basicPoint) SetPosition(p Vec3) {
 	bp.position = p
+}
+
+// Distance returns the distance between the the current point and the given point.
+// Used to fulfill kdtree.Comparable.
+func (bp *basicPoint) Distance(p kdtree.Comparable) float64 {
+	pp, ok := p.(Point)
+	if !ok {
+		panic("kdtree.Comparable fed into basicPoint.Distance is not a Point")
+	}
+	v1, v2 := bp.Position(), pp.Position()
+	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
+}
+
+// Dims returns the dimensions of the point. Used to fulfill kdtree.Comparable.
+func (bp *basicPoint) Dims() int { return 3 }
+
+// Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
+// Used to fulfill kdtree.Compareable.
+func (bp *basicPoint) Compare(p kdtree.Comparable, d kdtree.Dim) float64 {
+	pp, ok := p.(Point)
+	if !ok {
+		panic("kdtree.Comparable fed into basicPoint.Distance is not a Point")
+	}
+	v1, v2 := bp.Position(), pp.Position()
+	switch d {
+	case 0:
+		return v2.X - v1.X
+	case 1:
+		return v2.Y - v1.Y
+	case 2:
+		return v2.Z - v1.Z
+	default:
+		panic("illegal dimension fed to basicPoint.Compare")
+	}
 }
 
 func (bp *basicPoint) SetColor(c color.NRGBA) Point {
