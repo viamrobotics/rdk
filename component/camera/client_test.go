@@ -74,13 +74,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = camera.NewClient(cancelCtx, testCameraName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = camera.NewClient(cancelCtx, testCameraName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("camera client 1", func(t *testing.T) {
-		camera1Client, err := camera.NewClient(context.Background(), testCameraName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		camera1Client, err := camera.NewClient(context.Background(), testCameraName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		frame, _, err := camera1Client.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -97,7 +97,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("camera client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failCameraName, logger)
 		camera2Client, ok := client.(camera.Camera)
@@ -131,11 +131,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

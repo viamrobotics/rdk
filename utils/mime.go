@@ -10,6 +10,9 @@ const (
 	// MimeTypeRawRGBA is for go's internal image.RGBA.
 	MimeTypeRawRGBA = "image/raw-rgba"
 
+	// MimeTypeRawDepth is a raw rimage.DepthMap.
+	MimeTypeRawDepth = "image/raw-depth"
+
 	// MimeTypeBoth is for the the .both file format we use, see rimage/both.go.
 	MimeTypeBoth = "image/both"
 
