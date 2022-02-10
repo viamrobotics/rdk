@@ -55,6 +55,7 @@ func TestNewWatcherFile(t *testing.T) {
 		_, err = f.Write(md)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, f.Sync(), test.ShouldBeNil)
+		time.Sleep(2 * time.Second) // wait after sync
 	}
 
 	confToWrite := Config{
