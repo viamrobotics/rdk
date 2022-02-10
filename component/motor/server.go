@@ -100,22 +100,11 @@ func (server *subtypeServer) GetFeatures(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	result := &pb.MotorServiceGetFeaturesResponse{}
 	features, err := motor.GetFeatures(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for feature, isSupported := range features {
-		responseSetter, ok := FeatureToResponseSetter[feature]
-		if !ok {
-			return nil, errors.Errorf(
-				"%s does not have a corresponding updater for the GetFeatures response",
-				feature.String(),
-			)
-		}
-		responseSetter(result, isSupported)
-	}
-	return result, nil
+	return FeatureMapToProtoResponse(features), nil
 }
 
 // Stop turns the motor of the underlying robot off.

@@ -128,16 +128,12 @@ func (c *client) Position(ctx context.Context) (float64, error) {
 }
 
 func (c *client) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
-	result := map[Feature]bool{}
 	req := &pb.MotorServiceGetFeaturesRequest{Name: c.name}
 	resp, err := c.client.GetFeatures(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	for feature, reader := range FeatureToResponseReader {
-		result[feature] = reader(resp)
-	}
-	return result, nil
+	return ProtoFeaturesToMap(resp), nil
 }
 
 func (c *client) Stop(ctx context.Context) error {
