@@ -32,15 +32,15 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			colorName := attrs.Color
-			color, ok := camera.FromRobot(r, colorName)
-			if !ok {
-				return nil, errors.Errorf("cannot find color camera (%s)", colorName)
+			color, err := camera.FromRobot(r, colorName)
+			if err != nil {
+				return nil, fmt.Errorf("no color camera (%s): %w", colorName, err)
 			}
 
 			depthName := attrs.Depth
-			depth, ok := camera.FromRobot(r, depthName)
-			if !ok {
-				return nil, errors.Errorf("cannot find depth camera (%s)", depthName)
+			depth, err := camera.FromRobot(r, depthName)
+			if err != nil {
+				return nil, fmt.Errorf("no depth camera (%s): %w", depthName, err)
 			}
 			return newAlignColorDepth(color, depth, attrs, logger)
 		}})

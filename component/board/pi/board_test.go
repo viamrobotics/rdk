@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
 
@@ -126,7 +127,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	injectRobot := Robot{}
-	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return pp, true
 	}
 
@@ -233,13 +234,13 @@ func TestPiPigpio(t *testing.T) {
 
 type Robot struct {
 	robot.Robot
-	BoardByNameFunc func(name string) (board.Board, bool)
+	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
 }
 
-// BoardByName calls the injected BoardByName or the real version.
-func (r *Robot) BoardByName(name string) (board.Board, bool) {
-	if r.BoardByNameFunc == nil {
-		return r.Robot.BoardByName(name)
+// ResourceByName calls the injected ResourceByName or the real version.
+func (r *Robot) ResourceByName(name resource.Name) (interface{}, bool) {
+	if r.ResourceByNameFunc == nil {
+		return r.Robot.ResourceByName(name)
 	}
-	return r.BoardByNameFunc(name)
+	return r.ResourceByNameFunc(name)
 }

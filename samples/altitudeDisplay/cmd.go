@@ -8,14 +8,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
@@ -34,20 +31,20 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close(ctx)
 
-	gpsBoard, ok := myRobot.BoardByName(boardName)
-	if !ok {
-		return fmt.Errorf("failed to find board %s", boardName)
+	gpsBoard, err := board.FromRobot(myRobot, boardName)
+	if err != nil {
+		return err
 	}
 	localB, ok := gpsBoard.(board.LocalBoard)
 	if !ok {
@@ -55,9 +52,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	i2c, _ := localB.I2CByName("bus1")
 
-	gpsDevice, ok := gps.FromRobot(myRobot, gpsName)
-	if !ok {
-		return errors.Errorf("%q not found or not a gps", gpsName)
+	gpsDevice, err := gps.FromRobot(myRobot, gpsName)
+	if err != nil {
+		return err
 	}
 
 	handle, err := i2c.OpenHandle(dispAddr)

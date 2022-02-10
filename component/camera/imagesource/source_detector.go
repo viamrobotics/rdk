@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -30,9 +31,9 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			src, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera (%s)", sourceName)
+			src, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera (%s): %w", sourceName, err)
 			}
 			return newColorDetector(src, attrs)
 		}})

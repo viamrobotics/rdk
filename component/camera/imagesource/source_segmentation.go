@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -32,9 +33,9 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			source, ok := camera.FromRobot(r, attrs.Source)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
+			source, err := camera.FromRobot(r, attrs.Source)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
 			}
 			return newColorSegmentsSource(source, attrs)
 		}})

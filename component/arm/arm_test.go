@@ -31,7 +31,7 @@ func setupInjectRobot() *inject.Robot {
 		case arm.Named(testArmName):
 			return arm1, true
 		case arm.Named(fakeArmName):
-			return "not an arm", false
+			return "not an arm", true
 		default:
 			return nil, false
 		}
@@ -45,21 +45,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	a, ok := arm.FromRobot(r, testArmName)
+	a, err := arm.FromRobot(r, testArmName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	pose1, err := a.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 
-	a, ok = arm.FromRobot(r, fakeArmName)
+	a, err = arm.FromRobot(r, fakeArmName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Arm")
 	test.That(t, a, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	a, ok = arm.FromRobot(r, missingArmName)
+	a, err = arm.FromRobot(r, missingArmName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, a, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -114,7 +116,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = arm.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Arm")
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)

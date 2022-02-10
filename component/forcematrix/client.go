@@ -11,7 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
-// serviceClient satisfies the forcematrix.proto contract.
+// serviceClient satisfies the force_matrix.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.ForceMatrixServiceClient

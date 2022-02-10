@@ -23,7 +23,7 @@ type gpsData struct {
 
 // parseAndUpdate will attempt to parse a line to an NMEA sentence, and if valid, will try to update the given struct
 // with the values for that line. Nothing will be updated if there is not a valid gps fix.
-func parseAndUpdate(line string, g *gpsData) error {
+func (g *gpsData) parseAndUpdate(line string, n ntripInfo) error {
 	s, err := nmea.Parse(line)
 	if err != nil {
 		return err
@@ -72,6 +72,14 @@ func parseAndUpdate(line string, g *gpsData) error {
 			g.satsInUse = int(gga.NumSatellites)
 			g.hDOP = gga.HDOP
 			g.alt = gga.Altitude
+			// Send gga to ntrip server if using server
+
+			if n.sendNMEA {
+				_, err := n.nmeaW.Write([]byte(line))
+				if err != nil {
+					return err
+				}
+			}
 		}
 	} else if gll, ok := s.(nmea.GLL); ok {
 		// GLL provides just lat/lon

@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
@@ -25,7 +24,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -194,17 +192,19 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 
 func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
+	var ok bool
+
 	b := &boat{myRobot: r}
 
-	bb, ok := r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("no local board")
+	bb, err := board.FromRobot(r, "local")
+	if err != nil {
+		return nil, err
 	}
 	b.rc = &rcRemoteControl{bb}
 
-	b.myImu, ok = imu.FromRobot(r, "imu")
-	if !ok {
-		return nil, errors.New("'imu' not found or not an IMU")
+	b.myImu, err = imu.FromRobot(r, "imu")
+	if err != nil {
+		return nil, err
 	}
 
 	// get all motors
@@ -594,7 +594,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -622,7 +622,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		},
 	})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -631,9 +631,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b, ok := base.FromRobot(myRobot, "base1")
-	if !ok {
-		return errors.New("no base")
+	b, err := base.FromRobot(myRobot, "base1")
+	if err != nil {
+		return err
 	}
 	myB, ok := rdkutils.UnwrapProxy(b).(*boat)
 	if !ok {

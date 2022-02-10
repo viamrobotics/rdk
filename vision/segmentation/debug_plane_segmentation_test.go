@@ -21,11 +21,12 @@ const debugPlaneSeg = "VIAM_DEBUG"
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageWithDepth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
 		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugPlaneSeg))
 	}
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")

@@ -2,13 +2,13 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
-	"github.com/pkg/errors"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
@@ -34,9 +34,9 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera for rotate (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for rotate (%s): %w", sourceName, err)
 			}
 			imgSrc := &rotateImageDepthSource{source}
 			return camera.New(imgSrc, attrs, source)
@@ -63,9 +63,9 @@ func init() {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			sourceName := attrs.Source
-			source, ok := camera.FromRobot(r, sourceName)
-			if !ok {
-				return nil, errors.Errorf("cannot find source camera for resize (%s)", sourceName)
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for resize (%s): %w", sourceName, err)
 			}
 
 			width := attrs.Width

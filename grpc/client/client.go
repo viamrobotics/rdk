@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
@@ -215,20 +214,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// BoardByName returns a board by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
-	resource, ok := rc.ResourceByName(board.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualBoard, ok := resource.(board.Board)
-	if !ok {
-		return nil, false
-	}
-	return actualBoard, true
-}
-
 // MotorByName returns a motor by name. It is assumed to exist on the
 // other end.
 func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
@@ -319,19 +304,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// BoardNames returns the names of all known boards.
-func (rc *RobotClient) BoardNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == board.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // MotorNames returns the names of all known motors.

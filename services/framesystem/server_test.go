@@ -23,7 +23,7 @@ func TestServerConfig(t *testing.T) {
 	resourceMap := map[resource.Name]interface{}{
 		framesystem.Name: injectSvc,
 	}
-	injectSubtypeSvc, err := subtype.New((resourceMap))
+	injectSubtypeSvc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
 	fsServer := framesystem.NewServer(injectSubtypeSvc)
 
@@ -107,7 +107,7 @@ func TestServerConfig(t *testing.T) {
 	resourceMap = map[resource.Name]interface{}{
 		framesystem.Name: "not a frame system",
 	}
-	injectSubtypeSvc, _ = subtype.New((resourceMap))
+	injectSubtypeSvc, _ = subtype.New(resourceMap)
 	fsServer = framesystem.NewServer(injectSubtypeSvc)
 
 	t.Run("test failing on improper service interface", func(t *testing.T) {
@@ -117,7 +117,7 @@ func TestServerConfig(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	injectSubtypeSvc, _ = subtype.New((map[resource.Name]interface{}{}))
+	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
 	fsServer = framesystem.NewServer(injectSubtypeSvc)
 
 	t.Run("test failing on nonexistent server", func(t *testing.T) {

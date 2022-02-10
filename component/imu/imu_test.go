@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 		case imu.Named(testIMUName):
 			return imu1, true
 		case imu.Named(fakeIMUName):
-			return "not an imu", false
+			return "not an imu", true
 		default:
 			return nil, false
 		}
@@ -42,21 +42,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := imu.FromRobot(r, testIMUName)
+	s, err := imu.FromRobot(r, testIMUName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.ReadOrientation(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, ea)
 
-	s, ok = imu.FromRobot(r, fakeIMUName)
+	s, err = imu.FromRobot(r, fakeIMUName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = imu.FromRobot(r, missingIMUName)
+	s, err = imu.FromRobot(r, missingIMUName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -116,7 +118,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = imu.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
 
 	reconfIMU2, err := imu.WrapWithReconfigurable(reconfIMU1)
 	test.That(t, err, test.ShouldBeNil)

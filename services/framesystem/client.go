@@ -12,7 +12,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
-// client is a client satisfies the framesystem.proto contract.
+// client is a client satisfies the frame_system.proto contract.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.FrameSystemServiceClient

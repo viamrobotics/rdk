@@ -15,6 +15,9 @@ func TestVolumeSerialization(t *testing.T) {
 		success bool
 	}{
 		{"box", VolumeConfig{Type: "box", X: 1, Y: 1, Z: 1}, true},
+		{"box bad dims", VolumeConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
+		{"sphere", VolumeConfig{Type: "sphere", R: 1}, true},
+		{"sphere bad dims", VolumeConfig{Type: "sphere", R: -1}, false},
 		{"bad infer", VolumeConfig{}, false},
 		{"bad type", VolumeConfig{Type: "bad"}, false},
 	}

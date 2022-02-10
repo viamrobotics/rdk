@@ -2,17 +2,14 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"time"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -26,12 +23,12 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -40,9 +37,9 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	fc, ok := camera.FromRobot(myRobot, "front-composed")
-	if !ok {
-		return errors.New("no front-composed camera")
+	fc, err := camera.FromRobot(myRobot, "front-composed")
+	if err != nil {
+		return err
 	}
 
 	for {

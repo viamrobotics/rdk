@@ -96,9 +96,9 @@ type gripperV2 struct {
 // newGripper returns a gripperV2 which operates with a ForceMatrix.
 func newGripper(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (*gripperV2, error) {
 	boardName := config.Attributes.String("board")
-	board, exists := r.BoardByName(boardName)
-	if !exists {
-		return nil, errors.Errorf("%v gripper requires a board called %v", modelName, boardName)
+	board, err := board.FromRobot(r, boardName)
+	if err != nil {
+		return nil, err
 	}
 
 	motorName := config.Attributes.String("motor")
@@ -128,9 +128,9 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	forceMatrixName := config.Attributes.String("forcematrix")
-	forceMatrixDevice, ok := forcematrix.FromRobot(r, forceMatrixName)
-	if !ok {
-		return nil, errors.Errorf("%q not found or not a force matrix sensor", forceMatrixName)
+	forceMatrixDevice, err := forcematrix.FromRobot(r, forceMatrixName)
+	if err != nil {
+		return nil, err
 	}
 
 	hasPressureThreshold := config.Attributes.Float64("has_pressure_threshold", 30)
