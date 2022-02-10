@@ -6,7 +6,6 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision"
 )
@@ -36,19 +35,19 @@ func (d *detection2D) Score() float64 {
 	return d.score
 }
 
-// ToScene projects the detections to 3D using the camera's Projector
-func ToScene(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Projector) (vision.Scene, error) {
+// ToObjects projects the detections to 3D using the camera's Projector
+func ToObjects(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Projector) ([]*vision.Object, error) {
 	if proj == nil {
 		return nil, errors.New("objectdetection: cannot have nil Projector when projecting objects to 3D")
 	}
-	objects := make([]*pointcloud.WithMetadata, len(dets))
+	objects := make([]*vision.Object, len(dets))
 	for i, d := range dets {
 		bb := d.BoundingBox()
 		pc, err := proj.ImageWithDepthToPointCloud(img, bb)
 		if err != nil {
 			return nil, err
 		}
-		objects[i] = pointcloud.NewWithMetadata(pc)
+		objects[i] = vision.NewObject(pc)
 	}
-	return vision.NewScene(objects)
+	return objects, nil
 }

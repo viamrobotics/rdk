@@ -204,11 +204,11 @@ func (s *subtypeServer) GetObjectPointClouds(
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
-	scene, err := camera.NextObjects(ctx, config)
+	objects, err := camera.NextObjects(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(scene)
+	protoSegments, err := segmentsToProto(objects)
 	if err != nil {
 		return nil, err
 	}
@@ -219,9 +219,9 @@ func (s *subtypeServer) GetObjectPointClouds(
 	}, nil
 }
 
-func segmentsToProto(segs vision.Scene) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, len(segs.Objects()))
-	for _, seg := range segs.Objects() {
+func segmentsToProto(segs []*vision.Object) ([]*pb.PointCloudObject, error) {
+	protoSegs := make([]*pb.PointCloudObject, 0, len(segs))
+	for _, seg := range segs {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {

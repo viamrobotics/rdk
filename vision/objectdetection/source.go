@@ -119,12 +119,12 @@ func (s *Source) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // NextObjects returns the 3D objects in the scene if there Projector for the camera
-func (s *Source) NextObjects(ctx context.Context, conf *vision.Parameters3D) (vision.Scene, error) {
+func (s *Source) NextObjects(ctx context.Context, conf *vision.Parameters3D) ([]*vision.Object, error) {
 	res, err := s.NextResult(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return ToScene(res.Detections, rimage.ConvertToImageWithDepth(res.OriginalImage), s.proj)
+	return ToObjects(res.Detections, rimage.ConvertToImageWithDepth(res.OriginalImage), s.proj)
 }
 
 // NextResult returns all the components required to build the overlaid image, but is useful if you only want the Detections.
