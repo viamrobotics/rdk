@@ -17,15 +17,16 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugPlaneSeg = "VIAM_DEBUG_PLANESEG"
+const debugPlaneSeg = "VIAM_DEBUG"
 
 // Test finding the planes in an image with depth.
 func TestPlaneSegmentImageWithDepth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	planeSegTest := os.Getenv(debugPlaneSeg)
 	if planeSegTest == "" {
 		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugPlaneSeg))
 	}
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front")
@@ -57,7 +58,7 @@ func (h *segmentTestHelper) Process(
 
 	test.That(t, h.cameraParams, test.ShouldNotBeNil)
 
-	fixed, err := h.cameraParams.AlignImageWithDepth(ii)
+	fixed, err := h.cameraParams.AlignColorAndDepthImage(ii.Color, ii.Depth)
 	test.That(t, err, test.ShouldBeNil)
 	fixed, err = rimage.PreprocessDepthMap(fixed)
 	test.That(t, err, test.ShouldBeNil)
@@ -66,7 +67,7 @@ func (h *segmentTestHelper) Process(
 
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := fixed.ToPointCloud()
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(fixed)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create an image where all the planes in the point cloud are color-coded
@@ -169,7 +170,7 @@ func (h *gripperPlaneTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := ii.ToPointCloud()
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 

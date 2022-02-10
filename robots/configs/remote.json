@@ -5,7 +5,7 @@
   "remotes": [
     {
       "name": "robot1",
-      "address": "localhost:8080"
+      "address": "something-unique"
     },
     {
       "name": "robot2",

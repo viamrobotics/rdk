@@ -127,8 +127,8 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 }
 
 // boxVsPointDistance takes a box and a point as arguments and returns a floating point number.  If this number is nonpositive it represents
-// the penetration depth for the two boxes, which are in collision.  If the returned float is positive it represents
-// a lower bound on the separation distance for the two boxes, which are not in collision.
+// the penetration depth of the point within the box.  If the returned float is positive it represents the separation distance between the
+// point and the box, which are not in collision.
 func boxVsPointDistance(b *box, pt r3.Vector) float64 {
 	direction := pt.Sub(b.pose.Point())
 	rm := b.pose.Orientation().RotationMatrix()

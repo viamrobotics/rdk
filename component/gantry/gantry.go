@@ -67,15 +67,16 @@ type Gantry interface {
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gantry, bool) {
+func FromRobot(r robot.Robot, name string) (Gantry, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Gantry)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
@@ -87,7 +88,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Gantry but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil

@@ -27,6 +27,7 @@ linters:
     - interfacer
     - ireturn
     - maligned
+    - makezero
     - nestif
     - nlreturn
     - paralleltest
@@ -50,6 +51,8 @@ linters-settings:
       - github.com/jblindsay/lidario
       - github.com/starship-technologies/gobag
       - github.com/wasmerio/wasmer-go
+      - github.com/grandcat/zeroconf
+      - github.com/pion/ice/v2
   lll:
     line-length: 140
 issues:

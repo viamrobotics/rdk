@@ -12,8 +12,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -130,18 +128,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) BaseNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.BaseNames())
-}
-
-func (rr *remoteRobot) BoardNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.BoardNames())
-}
-
 func (rr *remoteRobot) MotorNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -168,18 +154,6 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-func (rr *remoteRobot) BaseByName(name string) (base.Base, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.BaseByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.BoardByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
@@ -323,7 +297,7 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // which should be unaware of remotes.
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
-	parts := newRobotParts(robot.Logger().Named("parts"))
+	parts := newRobotParts(robotPartsOptions{}, robot.Logger().Named("parts"))
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
