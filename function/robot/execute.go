@@ -182,7 +182,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.motorPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+	if err := engine.ImportFunction("robot.motorGetPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
 			return nil, errors.New("expected 1 argument for motor name")
 		}
@@ -195,7 +195,7 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 			return nil, errors.Errorf("no motor with that name %s", motorName)
 		}
 
-		pos, err := motor.Position(context.TODO())
+		pos, err := motor.GetPosition(context.TODO())
 		if err != nil {
 			return nil, err
 		}

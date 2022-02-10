@@ -89,23 +89,23 @@ func TestPosition(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServicePositionRequest{Name: "notAMotor"}
+	req := pb.MotorServiceGetPositionRequest{Name: "notAMotor"}
 	resp, err := motorServer.Position(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	failingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
-	req = pb.MotorServicePositionRequest{Name: "failingMotor"}
+	req = pb.MotorServiceGetPositionRequest{Name: "failingMotor"}
 	resp, err = motorServer.Position(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	workingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 42.0, nil
 	}
-	req = pb.MotorServicePositionRequest{Name: "workingMotor"}
+	req = pb.MotorServiceGetPositionRequest{Name: "workingMotor"}
 	resp, err = motorServer.Position(context.Background(), &req)
 	test.That(t, resp.GetPosition(), test.ShouldEqual, 42.0)
 	test.That(t, err, test.ShouldBeNil)

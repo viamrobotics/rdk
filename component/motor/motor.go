@@ -44,10 +44,10 @@ type Motor interface {
 	// Set the current position (+/- offset) to be the new zero (home) position.
 	ResetZeroPosition(ctx context.Context, offset float64) error
 
-	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
+	// GetPosition reports the position of the motor based on its encoder. If it's not supported, the returned
 	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
 	// back into calls of GoFor.
-	Position(ctx context.Context) (float64, error)
+	GetPosition(ctx context.Context) (float64, error)
 
 	// GetFeatures returns whether or not the motor supports certain optional features.
 	GetFeatures(ctx context.Context) (map[Feature]bool, error)
@@ -115,10 +115,10 @@ func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset floa
 	return r.actual.ResetZeroPosition(ctx, offset)
 }
 
-func (r *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
+func (r *reconfigurableMotor) GetPosition(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Position(ctx)
+	return r.actual.GetPosition(ctx)
 }
 
 func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[Feature]bool, error) {

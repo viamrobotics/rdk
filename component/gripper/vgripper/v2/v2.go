@@ -346,7 +346,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	position, err := vg.motor.Position(ctx)
+	position, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	position, err = vg.motor.Position(ctx)
+	position, err = vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -406,7 +406,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	vg.logger.Debugf("init: offset openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 
 	// Zero to closed position
-	curPos, err := vg.motor.Position(ctx)
+	curPos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -474,7 +474,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 			return err
 		}
 		if !isOn {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return err
 			}
@@ -494,7 +494,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 
 		total += msPer
 		if total > openTimeout {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			return vg.stopAfterError(
 				ctx,
 				multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err),
@@ -555,7 +555,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 		}
 
 		if !isOn {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, err
 			}
@@ -572,7 +572,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure >= vg.startHoldingPressure {
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, err
 			}
@@ -587,7 +587,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}

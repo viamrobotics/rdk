@@ -196,7 +196,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if err != nil {
 				return nil, err
 			}
-			position, err := x.Position(ctx)
+			position, err := x.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
