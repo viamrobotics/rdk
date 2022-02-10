@@ -356,8 +356,6 @@ github.com/go-critic/go-critic v0.5.4/go.mod h1:cjB4YGw+n/+X8gREApej7150Uyy1Tg8I
 github.com/go-critic/go-critic v0.5.5/go.mod h1:eMs1Oc/oIP+CYNVN09M+XZYffIPuRHawxzlggAPN9Kk=
 github.com/go-critic/go-critic v0.6.1 h1:lS8B9LH/VVsvQQP7Ao5TJyQqteVKVs3E4dXiHMyubtI=
 github.com/go-critic/go-critic v0.6.1/go.mod h1:SdNCfU0yF3UBjtaZGw6586/WocupMOJuiqgom5DsQxM=
-github.com/go-errors/errors v1.4.1 h1:IvVlgbzSsaUNudsw5dcXSzF3EWyXTi5XrAdngnuhRyg=
-github.com/go-errors/errors v1.4.1/go.mod h1:sIVyrIiJhuEF+Pj9Ebtd6P/rEYROXFi3BopGUQ5a5Og=
 github.com/go-fonts/dejavu v0.1.0 h1:JSajPXURYqpr+Cu8U9bt8K+XcACIHWqWrvWCKyeFmVQ=
 github.com/go-fonts/dejavu v0.1.0/go.mod h1:4Wt4I4OU2Nq9asgDCteaAaWZOV24E+0/Pwo0gppep4g=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
@@ -1411,10 +1409,6 @@ go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4/go.mod h1:bVVm3GcP8koFg
 go.viam.com/test v1.1.0 h1:KXf8crEwt0bHn5iMsjmXg0vPio/yzKGrfd20sWhe/t4=
 go.viam.com/test v1.1.0/go.mod h1:iULewngKZCHSB2QJa1xGSR6+0ICZIHbEfTUGqw0blLs=
 go.viam.com/utils v0.0.3-0.20220103181439-9b170e9703c5/go.mod h1:VJF56I8RIBidY/oRFD3OZCd3AN4PeoeE1ofdVhuk3Cw=
-go.viam.com/utils v0.0.3-0.20220209212221-9085b788e825 h1:I+hRBKf8U49SW72dSyZa7VE1A0dROT072vTgjDwGMi0=
-go.viam.com/utils v0.0.3-0.20220209212221-9085b788e825/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
-go.viam.com/utils v0.0.3-0.20220209223444-2d336fdedf4c h1:hva4USyivmHuFSThgmZoJEuDLAokJNtNgiZQKpeDwBo=
-go.viam.com/utils v0.0.3-0.20220209223444-2d336fdedf4c/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
 go.viam.com/utils v0.0.3 h1:x32DSB7LuH1PXfMpMxxMzAbAdAXlhyAqCSZZQ8mVYHA=
 go.viam.com/utils v0.0.3/go.mod h1:dTUuG5p+1+9rEZkFV3vmljw6RPLhGpO+mDskMN8QYKc=
 go4.org v0.0.0-20180809161055-417644f6feb5/go.mod h1:MkTOUMDaeVYJUOUsaDXIhWPZYa1yOyC1qaOBpL57BhE=
