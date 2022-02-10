@@ -95,7 +95,7 @@ func (m *LocalMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(
 	if m.GoTillStopFunc == nil {
 		stoppableMotor, ok := m.Motor.Motor.(motor.LocalMotor)
 		if !ok {
-			return motor.NewGoTillStopUnsupportedError("unknownName")
+			return motor.NewGoTillStopUnsupportedError("(name unavailable)")
 		}
 		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
 	}
