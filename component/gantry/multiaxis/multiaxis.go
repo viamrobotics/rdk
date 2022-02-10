@@ -132,7 +132,6 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 			return err
 		}
 		idx += len(subAxNum) - 1
-
 	}
 	return nil
 }
