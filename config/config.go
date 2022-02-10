@@ -86,16 +86,17 @@ func SortComponents(components []Component) ([]Component, error) {
 
 // A Config describes the configuration of a robot.
 type Config struct {
-	ConfigFilePath string
-	Cloud          *Cloud                      `json:"cloud,omitempty"`
-	Remotes        []Remote                    `json:"remotes,omitempty"`
-	Components     []Component                 `json:"components,omitempty"`
-	Processes      []pexec.ProcessConfig       `json:"processes,omitempty"`
-	Functions      []functionvm.FunctionConfig `json:"functions,omitempty"`
-	Services       []Service                   `json:"services,omitempty"`
-	Network        NetworkConfig               `json:"network"`
-	Auth           AuthConfig                  `json:"auth"`
-	Debug          bool                        `json:"-"`
+	Cloud      *Cloud                      `json:"cloud,omitempty"`
+	Remotes    []Remote                    `json:"remotes,omitempty"`
+	Components []Component                 `json:"components,omitempty"`
+	Processes  []pexec.ProcessConfig       `json:"processes,omitempty"`
+	Functions  []functionvm.FunctionConfig `json:"functions,omitempty"`
+	Services   []Service                   `json:"services,omitempty"`
+	Network    NetworkConfig               `json:"network"`
+	Auth       AuthConfig                  `json:"auth"`
+	Debug      bool                        `json:"-"`
+
+	ConfigFilePath string `json:"-"`
 
 	// AllowInsecureCreds is used to have all connections allow insecure
 	// downgrades and send credentials over plaintext. This is an option

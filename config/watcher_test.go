@@ -47,7 +47,7 @@ func TestNewWatcherFile(t *testing.T) {
 	writeConf := func(conf *Config) {
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0o755)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
@@ -58,6 +58,7 @@ func TestNewWatcherFile(t *testing.T) {
 	}
 
 	confToWrite := Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "hello",
@@ -80,6 +81,7 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	confToWrite = Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "world",
@@ -121,6 +123,7 @@ func TestNewWatcherFile(t *testing.T) {
 	}
 
 	confToWrite = Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "woo",
