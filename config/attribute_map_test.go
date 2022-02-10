@@ -17,6 +17,10 @@ var sampleAttributeMap = AttributeMap{
 	"good_string_slice":  []interface{}{"1", "2", "3"},
 	"bad_string_slice":   123,
 	"bad_string_slice_2": []interface{}{"1", "2", 3},
+	"good_float64_slice": []interface{}{1.1, 2.2, 3.3},
+	"bad_float64_slice":  []interface{}{int(1), "2", 3.3},
+	"good_boolean_slice": []interface{}{true, true, false},
+	"bad_boolean_slice":  []interface{}{"true", "F", false},
 }
 
 func TestAttributeMap(t *testing.T) {
@@ -80,4 +84,26 @@ func TestAttributeMap(t *testing.T) {
 	}
 	test.That(t, badStringSliceGetter1, test.ShouldPanic)
 	test.That(t, badStringSliceGetter2, test.ShouldPanic)
+
+	// AttributeMap.Float64Slice
+	// AttributeMap.Float64Slice properly returns a float64 slice
+	fSlice := sampleAttributeMap.Float64Slice("good_float64_slice")
+	test.That(t, fSlice, test.ShouldResemble, []float64{1.1, 2.2, 3.3})
+	// AttributeMap.Float64Slice panics when corresponding value is
+	// not a slice of all float64s
+	badFloat64SliceGetter := func() {
+		sampleAttributeMap.Float64Slice("bad_float64_slice")
+	}
+	test.That(t, badFloat64SliceGetter, test.ShouldPanic)
+
+	// AttributeMap.BoolSlice
+	// AttributeMap.BoolSlice properly returns a boolean slice
+	bSlice := sampleAttributeMap.BoolSlice("good_boolean_slice", true)
+	test.That(t, bSlice, test.ShouldResemble, []bool{true, true, false})
+	// AttributeMap.BoolSlice panics when corresponding value is
+	// not a slice of all booleans
+	badBoolSliceGetter := func() {
+		sampleAttributeMap.BoolSlice("bad_boolean_slice", false)
+	}
+	test.That(t, badBoolSliceGetter, test.ShouldPanic)
 }
