@@ -15,7 +15,7 @@ type Feature string
 const PositionReporting Feature = "PositionReporting"
 
 // NewFeatureUnsupportedError returns an error representing the need
-// for a motor to support a particular feature
+// for a motor to support a particular feature.
 func NewFeatureUnsupportedError(feature Feature, motorName string) error {
 	return errors.Errorf("motor named %s must support feature motor.%s", motorName, feature)
 }
