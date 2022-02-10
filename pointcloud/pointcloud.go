@@ -85,7 +85,7 @@ type PointCloud interface {
 
 	// Points returns a slice of all the points in the point cloud, not in any particular order.
 	// Used to build kd-trees in order to define nearest neighbor functions on point clouds.
-	Points() []Point
+	Points() Points
 }
 
 // basicPointCloud is the basic implementation of the PointCloud interface backed by
