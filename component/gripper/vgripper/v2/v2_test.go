@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
@@ -161,9 +162,15 @@ func TestNew(t *testing.T) {
 
 	t.Run("initializing gripper struct successful with proper parameters", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
+		fakeFM := &inject.ForceMatrix{}
 		fakeBoard := &inject.Board{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
+			if name.Subtype == board.Subtype {
+				return fakeBoard, true
+			} else if name.Subtype == forcematrix.Subtype {
+				return fakeFM, true
+			}
+			return nil, false
 		}
 		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
 			fakeMotor := &inject.LocalMotor{}
@@ -178,10 +185,6 @@ func TestNew(t *testing.T) {
 		}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
-		}
-		// for forcematrix
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.ForceMatrix{}, true
 		}
 		vg, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldBeNil)
