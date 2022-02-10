@@ -2,39 +2,53 @@
 package motor
 
 import (
+	"github.com/pkg/errors"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
 // Feature is an enum representing an optional motor feature.
-type Feature int
+type Feature string
 
 // PositionReporting represesnts the feature of a motor being
 // able to report its own position.
-const PositionReporting Feature = iota
+const PositionReporting Feature = "position_reporting"
 
-func (feature Feature) String() string {
+// NewUnexpectedFeatureError returns an error particular to when a
+// motor Feature is not properly handled by setFeatureBoolean
+func NewUnexpectedFeatureError(feature Feature) error {
+	return errors.Errorf("%s is not a handled or expected feature supported by motor", feature)
+}
+
+// setFeatureBoolean converts a feature-boolean pair in a GetFeatures result
+// to the required flag in a protobuf response
+func setFeatureBoolean(
+	feature Feature, isSupported bool,
+	resp *pb.MotorServiceGetFeaturesResponse,
+) error {
 	if feature == PositionReporting {
-		return "position_reporting"
-	}
-	return "unknown_feature"
-}
-
-type setter func(resp *pb.MotorServiceGetFeaturesResponse, isSupported bool)
-
-type reader func(resp *pb.MotorServiceGetFeaturesResponse) bool
-
-// FeatureToResponseSetter is a mapping of motor feature to
-// the name of the corresponding key in the gRPC response to GetFeatures.
-var FeatureToResponseSetter = map[Feature]setter{
-	PositionReporting: func(resp *pb.MotorServiceGetFeaturesResponse, isSupported bool) {
 		resp.PositionReporting = isSupported
-	},
+	} else {
+		return errors.New("unexpected feature")
+	}
+	return nil
 }
 
-// FeatureToResponseReader is a mapping of motor feature to
-// the name of the corresponding key in the gRPC response to GetFeatures.
-var FeatureToResponseReader = map[Feature]reader{
-	PositionReporting: func(resp *pb.MotorServiceGetFeaturesResponse) bool {
-		return resp.PositionReporting
-	},
+// ProtoFeaturesToMap takes a MotorServiceGetFeaturesResponse and returns
+// an equivalent Feature-to-boolean map
+func ProtoFeaturesToMap(resp *pb.MotorServiceGetFeaturesResponse) map[Feature]bool {
+	return map[Feature]bool{
+		PositionReporting: resp.PositionReporting,
+	}
+}
+
+// FeatureMapToProtoResponse takes a map of features to booleans (indicating
+// whether the feature is supported) and converts it to a MotorServiceGetFeaturesResponse
+func FeatureMapToProtoResponse(
+	featureMap map[Feature]bool,
+) *pb.MotorServiceGetFeaturesResponse {
+	result := &pb.MotorServiceGetFeaturesResponse{}
+	for feature, isSupported := range featureMap {
+		setFeatureBoolean(feature, isSupported, result)
+	}
+	return result
 }
