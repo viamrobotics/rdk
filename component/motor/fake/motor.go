@@ -35,7 +35,7 @@ type Motor struct {
 	powerPct float64
 }
 
-// Position always returns 0.
+// GetPosition always returns 0.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
