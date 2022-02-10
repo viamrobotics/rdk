@@ -13,7 +13,7 @@ type Motor struct {
 	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
 	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
-	PositionFunc          func(ctx context.Context) (float64, error)
+	GetPositionFunc       func(ctx context.Context) (float64, error)
 	GetFeaturesFunc       func(ctx context.Context) (map[motor.Feature]bool, error)
 	StopFunc              func(ctx context.Context) error
 	IsPoweredFunc         func(ctx context.Context) (bool, error)
@@ -52,11 +52,11 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 }
 
 // Position calls the injected Position or the real version.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
-	if m.PositionFunc == nil {
-		return m.Motor.Position(ctx)
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
+	if m.GetPositionFunc == nil {
+		return m.Motor.GetPosition(ctx)
 	}
-	return m.PositionFunc(ctx)
+	return m.GetPositionFunc(ctx)
 }
 
 // GetFeatures calls the injected GetFeatures or the real version.
@@ -91,7 +91,10 @@ type LocalMotor struct {
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
-func (m *LocalMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *LocalMotor) GoTillStop(
+	ctx context.Context, rpm float64,
+	stopFunc func(ctx context.Context) bool,
+) error {
 	if m.GoTillStopFunc == nil {
 		stoppableMotor, ok := m.Motor.Motor.(motor.LocalMotor)
 		if !ok {

@@ -290,8 +290,8 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 	return rawRead, nil
 }
 
-// Position gives the current motor position.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+// GetPosition gives the current motor position.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
 		return 0, err
@@ -327,7 +327,7 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64) error {
-	curPos, err := m.Position(ctx)
+	curPos, err := m.GetPosition(ctx)
 	if err != nil {
 		return err
 	}

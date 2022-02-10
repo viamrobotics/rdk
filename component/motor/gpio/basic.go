@@ -81,8 +81,8 @@ type Motor struct {
 	logger        golog.Logger
 }
 
-// Position always returns 0.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+// GetPosition always returns 0.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 

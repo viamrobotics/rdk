@@ -194,7 +194,7 @@ func TestCalibrate(t *testing.T) {
 
 	t.Run("return error when pressure is the same for the open and closed position", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		fakeForceMatrix := &inject.ForceMatrix{}
@@ -218,7 +218,7 @@ func TestCalibrate(t *testing.T) {
 
 	t.Run("expect no error when open and closed directions are correctly defined", func(t *testing.T) {
 		fakeMotor := createWorkingMotor()
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		fakeForceMatrix := &inject.ForceMatrix{}
@@ -260,7 +260,7 @@ func TestOpen(t *testing.T) {
 		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return successfulPosition, nil
 		}
 		injectedGripper := &gripperV2{
@@ -279,7 +279,7 @@ func TestOpen(t *testing.T) {
 		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return false, nil
 		}
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return failedPosition, nil
 		}
 		injectedGripper := &gripperV2{
@@ -299,7 +299,7 @@ func TestOpen(t *testing.T) {
 		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}
@@ -339,7 +339,7 @@ func TestGrab(t *testing.T) {
 			return false, nil
 		}
 		// Gripper didn't reach the closed position
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return failedPosition, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}
@@ -377,7 +377,7 @@ func TestGrab(t *testing.T) {
 			return false, nil
 		}
 		// Gripper didn't reach the closed position
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return successfulPosition, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}
@@ -419,7 +419,7 @@ func TestGrab(t *testing.T) {
 			return true, nil
 		}
 		// Gripper didn't reach the closed position since it now holds an object
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return failedPosition, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}
@@ -460,7 +460,7 @@ func TestGrab(t *testing.T) {
 		fakeMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 			return true, nil
 		}
-		fakeMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+		fakeMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 			return 0, nil
 		}
 		fakeCurrent := &inject.AnalogReader{}

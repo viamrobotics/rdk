@@ -200,8 +200,8 @@ type EncodedMotorState struct {
 }
 
 // Position returns the position of the motor.
-func (m *EncodedMotor) Position(ctx context.Context) (float64, error) {
-	ticks, err := m.encoder.Position(ctx)
+func (m *EncodedMotor) GetPosition(ctx context.Context) (float64, error) {
+	ticks, err := m.encoder.GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -312,7 +312,7 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 	// just a convenient place to start the encoder listener
 	m.encoder.Start(m.cancelCtx, m.activeBackgroundWorkers, onStart)
 
-	lastPos, err := m.encoder.Position(m.cancelCtx)
+	lastPos, err := m.encoder.GetPosition(m.cancelCtx)
 	if err != nil {
 		panic(err)
 	}
@@ -334,7 +334,7 @@ func (m *EncodedMotor) rpmMonitor(onStart func()) {
 		case <-timer.C:
 		}
 
-		pos, err := m.encoder.Position(m.cancelCtx)
+		pos, err := m.encoder.GetPosition(m.cancelCtx)
 		if err != nil {
 			m.logger.Info("error getting encoder position, sleeping then continuing: %w", err)
 			if !utils.SelectContextOrWait(m.cancelCtx, 100*time.Millisecond) {
@@ -484,7 +484,7 @@ func (m *EncodedMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 
 	numTicks := int64(revolutions * float64(m.cfg.TicksPerRotation))
 
-	pos, err := m.encoder.Position(ctx)
+	pos, err := m.encoder.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -548,7 +548,7 @@ func (m *EncodedMotor) Close() {
 // at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *EncodedMotor) GoTo(ctx context.Context, rpm float64, targetPosition float64) error {
-	curPos, err := m.Position(ctx)
+	curPos, err := m.GetPosition(ctx)
 	if err != nil {
 		return err
 	}

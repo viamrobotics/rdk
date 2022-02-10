@@ -251,7 +251,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		bwdLimit, err := b.steering.Position(ctx)
+		bwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -261,7 +261,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		fwdLimit, err := b.steering.Position(ctx)
+		fwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}

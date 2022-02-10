@@ -73,21 +73,21 @@ func (server *subtypeServer) GoFor(
 // based on its encoder. If it's not supported, the returned data is undefined.
 // The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (server *subtypeServer) Position(
+func (server *subtypeServer) GetPosition(
 	ctx context.Context,
-	req *pb.MotorServicePositionRequest,
-) (*pb.MotorServicePositionResponse, error) {
+	req *pb.MotorServiceGetPositionRequest,
+) (*pb.MotorServiceGetPositionResponse, error) {
 	motorName := req.GetName()
 	motor, err := server.getMotor(motorName)
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
 
-	pos, err := motor.Position(ctx)
+	pos, err := motor.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MotorServicePositionResponse{Position: pos}, nil
+	return &pb.MotorServiceGetPositionResponse{Position: pos}, nil
 }
 
 // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports.
@@ -104,7 +104,7 @@ func (server *subtypeServer) GetFeatures(
 	if err != nil {
 		return nil, err
 	}
-	return FeatureMapToProtoResponse(features), nil
+	return FeatureMapToProtoResponse(features)
 }
 
 // Stop turns the motor of the underlying robot off.

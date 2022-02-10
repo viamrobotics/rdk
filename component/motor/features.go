@@ -3,6 +3,7 @@ package motor
 
 import (
 	"github.com/pkg/errors"
+
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
 
@@ -14,13 +15,13 @@ type Feature string
 const PositionReporting Feature = "position_reporting"
 
 // NewUnexpectedFeatureError returns an error particular to when a
-// motor Feature is not properly handled by setFeatureBoolean
+// motor Feature is not properly handled by setFeatureBoolean.
 func NewUnexpectedFeatureError(feature Feature) error {
 	return errors.Errorf("%s is not a handled or expected feature supported by motor", feature)
 }
 
 // setFeatureBoolean converts a feature-boolean pair in a GetFeatures result
-// to the required flag in a protobuf response
+// to the required flag in a protobuf response.
 func setFeatureBoolean(
 	feature Feature, isSupported bool,
 	resp *pb.MotorServiceGetFeaturesResponse,
@@ -34,7 +35,7 @@ func setFeatureBoolean(
 }
 
 // ProtoFeaturesToMap takes a MotorServiceGetFeaturesResponse and returns
-// an equivalent Feature-to-boolean map
+// an equivalent Feature-to-boolean map.
 func ProtoFeaturesToMap(resp *pb.MotorServiceGetFeaturesResponse) map[Feature]bool {
 	return map[Feature]bool{
 		PositionReporting: resp.PositionReporting,
@@ -42,13 +43,16 @@ func ProtoFeaturesToMap(resp *pb.MotorServiceGetFeaturesResponse) map[Feature]bo
 }
 
 // FeatureMapToProtoResponse takes a map of features to booleans (indicating
-// whether the feature is supported) and converts it to a MotorServiceGetFeaturesResponse
+// whether the feature is supported) and converts it to a MotorServiceGetFeaturesResponse.
 func FeatureMapToProtoResponse(
 	featureMap map[Feature]bool,
-) *pb.MotorServiceGetFeaturesResponse {
+) (*pb.MotorServiceGetFeaturesResponse, error) {
 	result := &pb.MotorServiceGetFeaturesResponse{}
 	for feature, isSupported := range featureMap {
-		setFeatureBoolean(feature, isSupported, result)
+		err := setFeatureBoolean(feature, isSupported, result)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return result
+	return result, nil
 }

@@ -118,9 +118,9 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return err
 }
 
-func (c *client) Position(ctx context.Context) (float64, error) {
-	req := &pb.MotorServicePositionRequest{Name: c.name}
-	resp, err := c.client.Position(ctx, req)
+func (c *client) GetPosition(ctx context.Context) (float64, error) {
+	req := &pb.MotorServiceGetPositionRequest{Name: c.name}
+	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err
 	}

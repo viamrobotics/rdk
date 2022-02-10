@@ -138,7 +138,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 3, 32, 0},
 			},
 		)
-		pos, err := _motor.Position(ctx)
+		pos, err := _motor.GetPosition(ctx)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		test.That(t, err, test.ShouldBeNil)
 	})

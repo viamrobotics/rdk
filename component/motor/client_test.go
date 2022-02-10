@@ -41,7 +41,7 @@ func TestClient(t *testing.T) {
 	workingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return nil
 	}
-	workingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	workingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 42.0, nil
 	}
 	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 	failingMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error {
 		return errors.New("set to zero failed")
 	}
-	failingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	failingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
 	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
@@ -117,7 +117,7 @@ func TestClient(t *testing.T) {
 		err = workingMotorClient.ResetZeroPosition(context.Background(), 0.5)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := workingMotorClient.Position(context.Background())
+		pos, err := workingMotorClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 
@@ -143,7 +143,7 @@ func TestClient(t *testing.T) {
 		err = failingMotorClient.ResetZeroPosition(context.Background(), 0.5)
 		test.That(t, err, test.ShouldNotBeNil)
 
-		pos, err := failingMotorClient.Position(context.Background())
+		pos, err := failingMotorClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -170,7 +170,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "workingMotor", logger)
 
-		pos, err := workingMotorDialedClient.Position(context.Background())
+		pos, err := workingMotorDialedClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 42.0)
 

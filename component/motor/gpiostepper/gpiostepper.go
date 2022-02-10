@@ -229,7 +229,7 @@ func (m *gpioStepper) GoFor(ctx context.Context, rpm float64, revolutions float6
 // at a specific RPM. Regardless of the directionality of the RPM this function will move the motor
 // towards the specified target.
 func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
-	curPos, err := m.Position(ctx)
+	curPos, err := m.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -257,7 +257,7 @@ func (m *gpioStepper) ResetZeroPosition(ctx context.Context, offset float64) err
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *gpioStepper) Position(ctx context.Context) (float64, error) {
+func (m *gpioStepper) GetPosition(ctx context.Context) (float64, error) {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 	return float64(m.stepPosition) / float64(m.stepsPerRotation), nil

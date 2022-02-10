@@ -130,7 +130,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
 			return math.NaN(), ctx.Err()
 		}
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		if err != nil {
 			return math.NaN(), motorOffError(ctx, m, err)
 		}
@@ -301,7 +301,7 @@ func (a *armV1) IsOn(ctx context.Context) (bool, error) {
 }
 
 func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error) {
-	pos, err := m.Position(ctx)
+	pos, err := m.GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}

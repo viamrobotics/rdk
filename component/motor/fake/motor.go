@@ -36,7 +36,7 @@ type Motor struct {
 }
 
 // Position always returns 0.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return 0.0, nil

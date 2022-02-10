@@ -46,7 +46,7 @@ service MotorService {
 
   // Position reports the position of the robot's motor relative to its zero position
   // This method will return an error if position reporting is not supported
-  rpc Position(MotorServicePositionRequest) returns (MotorServicePositionResponse) {
+  rpc GetPosition(MotorServiceGetPositionRequest) returns (MotorServiceGetPositionResponse) {
     option (google.api.http) = {
       get: "/api/v1/component/motor/{name}/position"
     };
@@ -117,12 +117,12 @@ message MotorServiceResetZeroPositionRequest {
 
 message MotorServiceResetZeroPositionResponse {}
 
-message MotorServicePositionRequest {
+message MotorServiceGetPositionRequest {
   // Name of a motor
   string name = 1;
 }
 
-message MotorServicePositionResponse {
+message MotorServiceGetPositionResponse {
   // Current position of the motor relative to its home
   double position = 1;
 }

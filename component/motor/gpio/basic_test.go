@@ -106,8 +106,8 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
 	})
 
-	t.Run("motor (A/B/PWM) Position testing", func(t *testing.T) {
-		pos, err := m.Position(ctx)
+	t.Run("motor (A/B/PWM) GetPosition testing", func(t *testing.T) {
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -189,8 +189,8 @@ func TestMotorDirPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeTrue)
 	})
 
-	t.Run("motor (DIR/PWM) Position testing", func(t *testing.T) {
-		pos, err := m.Position(ctx)
+	t.Run("motor (DIR/PWM) GetPosition testing", func(t *testing.T) {
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 
@@ -265,8 +265,8 @@ func TestMotorAB(t *testing.T) {
 		test.That(t, b.PWM["2"], test.ShouldEqual, byte(140))
 	})
 
-	t.Run("motor (A/B) Position testing", func(t *testing.T) {
-		pos, err := m.Position(ctx)
+	t.Run("motor (A/B) GetPosition testing", func(t *testing.T) {
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0.0)
 

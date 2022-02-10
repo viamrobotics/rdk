@@ -149,9 +149,9 @@ func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) erro
 	return errs
 }
 
-// Position returns the position of the first motor in the axis.
-func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
-	pos, err := a.m[0].Position(ctx)
+// GetPosition returns the position of the first motor in the axis.
+func (a *LinearAxis) GetPosition(ctx context.Context) (float64, error) {
+	pos, err := a.m[0].GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -172,7 +172,7 @@ func (a *LinearAxis) IsPowered(ctx context.Context) (bool, error) {
 }
 
 type positional interface {
-	Position(ctx context.Context) (float64, error)
+	GetPosition(ctx context.Context) (float64, error)
 	IsPowered(ctx context.Context) (bool, error)
 }
 
@@ -552,7 +552,7 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target float64) error {
 	var i int
 	for {
-		pos, err := motor.Position(ctx)
+		pos, err := motor.GetPosition(ctx)
 		if err != nil {
 			return err
 		}
