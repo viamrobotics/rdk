@@ -199,7 +199,7 @@ type EncodedMotorState struct {
 	setPoint     int64
 }
 
-// Position returns the position of the motor.
+// GetPosition returns the position of the motor.
 func (m *EncodedMotor) GetPosition(ctx context.Context) (float64, error) {
 	ticks, err := m.encoder.GetPosition(ctx)
 	if err != nil {

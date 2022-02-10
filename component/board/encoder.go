@@ -146,7 +146,7 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 	}, activeBackgroundWorkers.Done)
 }
 
-// Position returns the current position.
+// GetPosition returns the current position.
 func (e *HallEncoder) GetPosition(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
@@ -225,7 +225,7 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 	}, activeBackgroundWorkers.Done)
 }
 
-// Position returns the current position.
+// GetPosition returns the current position.
 func (e *SingleEncoder) GetPosition(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }

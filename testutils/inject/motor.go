@@ -51,7 +51,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return m.ResetZeroPositionFunc(ctx, offset)
 }
 
-// Position calls the injected Position or the real version.
+// GetPosition calls the injected Position or the real version.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	if m.GetPositionFunc == nil {
 		return m.Motor.GetPosition(ctx)
