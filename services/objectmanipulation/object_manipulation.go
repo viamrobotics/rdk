@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
@@ -21,7 +22,6 @@ import (
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 )
 
 const frameSystemName = "move_gripper"
