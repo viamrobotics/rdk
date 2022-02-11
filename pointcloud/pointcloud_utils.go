@@ -5,8 +5,8 @@ import (
 	"math"
 
 	"github.com/lucasb-eyer/go-colorful"
-	"github.com/montanaflynn/stats"
 	"github.com/pkg/errors"
+	"gonum.org/v1/gonum/stat"
 )
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
@@ -101,15 +101,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 			points = append(points, pt)
 			return true
 		})
-		data := stats.Float64Data(avgDistances)
-		mean, err := data.Mean()
-		if err != nil {
-			return nil, err
-		}
-		stddev, err := data.StandardDeviation()
-		if err != nil {
-			return nil, err
-		}
+		mean, stddev := stat.MeanStdDev(avgDistances, nil)
 		threshold := mean + stdDevThresh*stddev
 		// filter using the statistical information
 		filteredCloud := New()
