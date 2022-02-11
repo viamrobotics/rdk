@@ -22,6 +22,7 @@
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.bakedAuth = {{ .BakedAuth }} || {};
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
@@ -1110,12 +1111,12 @@
         }
       }
 
-      async function doConnect(creds, onError) {
+      async function doConnect(authEntity, creds, onError) {
         console.debug("connecting");
         document.getElementById("connecting-error").innerHTML = "";
         document.getElementById("connecting").classList.add("connecting");
         try {
-            await window.connect(creds);
+            await window.connect(authEntity, creds);
         } catch (e) {
           const msg = `failed to connect: ${e}`;
           console.error(msg);
@@ -1133,7 +1134,10 @@
 
       async function waitForClientAndStart() {
         if (window.supportedAuthTypes.length == 0) {
-          doConnect(undefined, waitForClientAndStart);
+          doConnect(
+            window.bakedAuth.authEntity,
+            window.bakedAuth.creds,
+            waitForClientAndStart);
           return;
         }
 
@@ -1156,7 +1160,7 @@
           const doLogin = () => {
             disableAll();
             const creds = { type: authType, payload: input.value };
-            doConnect(creds, () => enableAll());
+            doConnect("", creds, "", "", () => enableAll());
           }
           button.addEventListener("click", () => doLogin());
           input.addEventListener("keyup", (event) => {

@@ -31,9 +31,10 @@ import (
 func TestRobotReconfigure(t *testing.T) {
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
+		logger := golog.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
-		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf))
+		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}

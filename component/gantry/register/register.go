@@ -5,5 +5,6 @@ import (
 
 	// for gantries.
 	_ "go.viam.com/rdk/component/gantry/fake"
-	_ "go.viam.com/rdk/component/gantry/simple"
+	_ "go.viam.com/rdk/component/gantry/multiaxis"
+	_ "go.viam.com/rdk/component/gantry/oneaxis"
 )

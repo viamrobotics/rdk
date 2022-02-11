@@ -463,7 +463,7 @@ func TestPartsClone(t *testing.T) {
 
 func TestPartsAdd(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	parts := newRobotParts(logger)
+	parts := newRobotParts(robotPartsOptions{}, logger)
 
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
@@ -703,14 +703,14 @@ func TestPartsNewComponent(t *testing.T) {
 	}
 	logger := golog.NewTestLogger(t)
 	robotForRemote := &localRobot{
-		parts:  newRobotParts(logger),
+		parts:  newRobotParts(robotPartsOptions{}, logger),
 		logger: logger,
 		config: cfg,
 	}
 	test.That(t, robotForRemote.parts.newComponents(context.Background(),
 		cfg.Components, robotForRemote), test.ShouldBeNil)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
-	robotForRemote.parts = newRobotParts(logger)
+	robotForRemote.parts = newRobotParts(robotPartsOptions{}, logger)
 	err := robotForRemote.parts.newComponents(context.Background(),
 		robotForRemote.config.Components, robotForRemote)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -809,11 +809,11 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet("1", "2"),
 		)
 	}
-	result, err := parts.MergeAdd(newRobotParts(logger))
+	result, err := parts.MergeAdd(newRobotParts(robotPartsOptions{}, logger))
 	test.That(t, err, test.ShouldBeNil)
 	checkSame(parts)
 
-	emptyParts := newRobotParts(logger)
+	emptyParts := newRobotParts(robotPartsOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	checkEmpty(emptyParts)
 
@@ -910,7 +910,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet("1", "2"),
 	)
 
-	emptyParts = newRobotParts(logger)
+	emptyParts = newRobotParts(robotPartsOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	checkEmpty(emptyParts)
 
@@ -982,7 +982,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		utils.NewStringSet("1", "2"),
 	)
 
-	emptyParts = newRobotParts(logger)
+	emptyParts = newRobotParts(robotPartsOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
@@ -1115,11 +1115,11 @@ func TestPartsMergeModify(t *testing.T) {
 			utils.NewStringSet("digital1", "digital2"),
 		)
 	}
-	result, err := parts.MergeModify(context.Background(), newRobotParts(logger), &config.Diff{})
+	result, err := parts.MergeModify(context.Background(), newRobotParts(robotPartsOptions{}, logger), &config.Diff{})
 	test.That(t, err, test.ShouldBeNil)
 	checkSame(parts)
 
-	emptyParts := newRobotParts(logger)
+	emptyParts := newRobotParts(robotPartsOptions{}, logger)
 	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
 	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
 	test.That(t, utils.NewStringSet(emptyParts.MotorNames()...), test.ShouldBeEmpty)
@@ -1129,8 +1129,8 @@ func TestPartsMergeModify(t *testing.T) {
 
 	test.That(t, result.Process(context.Background(), parts), test.ShouldBeNil)
 
-	replacementParts := newRobotParts(logger)
-	robotForRemote := &localRobot{parts: newRobotParts(logger), logger: logger}
+	replacementParts := newRobotParts(robotPartsOptions{}, logger)
+	robotForRemote := &localRobot{parts: newRobotParts(robotPartsOptions{}, logger), logger: logger}
 
 	robotForRemote.parts.addFunction("func2_r1")
 
@@ -1290,7 +1290,7 @@ func TestPartsMergeRemove(t *testing.T) {
 		)
 	}
 
-	parts.MergeRemove(newRobotParts(logger))
+	parts.MergeRemove(newRobotParts(robotPartsOptions{}, logger))
 	checkSame(parts)
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")

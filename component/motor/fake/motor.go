@@ -29,9 +29,13 @@ func init() {
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name     string
-	mu       sync.Mutex
-	powerPct float64
+	Name                  string
+	mu                    sync.Mutex
+	powerPct              float64
+	PositionFunc          float64
+	PositionSupportedFunc bool
+	ResetZeroPositionFunc error
+	GoForfunc             bool
 }
 
 // Position always returns 0.
@@ -41,8 +45,11 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return 0.0, nil
 }
 
-// PositionSupported returns false.
+// PositionSupported returns bool.
 func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
+	if m.PositionSupportedFunc {
+		return m.PositionSupportedFunc, nil
+	}
 	return false, nil
 }
 
