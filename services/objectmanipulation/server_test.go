@@ -29,14 +29,15 @@ func TestServerDoGrab(t *testing.T) {
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.DoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
-	test.That(t, err, test.ShouldBeError, errors.New("resource"))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:object_manipulation\" not found"))
 
 	// set up the robot with something that is not an objectmanipulation service
 	omMap = map[resource.Name]interface{}{objectmanipulation.Name: "not object manipulation"}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.DoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
-	test.That(t, err, test.ShouldBeError, errors.New("does not implement objectmanipulation.Service"))
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectmanipulation.Service")
 
 	// error
 	injectOMS := &inject.ObjectManipulationService{}
