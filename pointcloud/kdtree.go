@@ -3,6 +3,7 @@ package pointcloud
 import "gonum.org/v1/gonum/spatial/kdtree"
 
 type KDTree struct {
+	PointCloud
 	tree *kdtree.Tree
 }
 
@@ -13,33 +14,53 @@ func NewKDTree(pc PointCloud) *KDTree {
 	points := Points(pc.Points())
 	tree := kdtree.New(points, false)
 
-	return &KDTree{tree}
+	return &KDTree{pc, tree}
 }
 
-func (kd *KDTree) KNearestNeighbors(p Point, k int) []Point {
+func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
+	c, dist := kd.tree.Nearest(p)
+	p2, ok := c.(Point)
+	if !ok {
+		panic("kdtree.Comparable is not a Point")
+	}
+	return p2, dist
+}
+
+func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
+	start := 0
+	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
+		k = k + 1
+		start = 1
+	}
 	keep := kdtree.NewNKeeper(k)
 	kd.tree.NearestSet(keep, p)
-	nearestPoints := make([]Point, keep.Heap.Len())
-	for i, c := range keep.Heap {
+	nearestPoints := make([]Point, 0, keep.Heap.Len())
+	for i := start; i < keep.Heap.Len(); i++ {
+		c := keep.Heap[i]
 		p, ok := c.Comparable.(Point)
 		if !ok {
 			panic("kdtree.Comparable is not a Point")
 		}
-		nearestPoints[i] = p
+		nearestPoints = append(nearestPoints, p)
 	}
 	return nearestPoints
 }
 
-func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64) []Point {
+func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) []Point {
+	start := 0
+	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
+		start = 1
+	}
 	keep := kdtree.NewDistKeeper(r)
 	kd.tree.NearestSet(keep, p)
-	nearestPoints := make([]Point, keep.Heap.Len())
-	for i, c := range keep.Heap {
+	nearestPoints := make([]Point, 0, keep.Heap.Len())
+	for i := start; i < keep.Heap.Len(); i++ {
+		c := keep.Heap[i]
 		p, ok := c.Comparable.(Point)
 		if !ok {
 			panic("kdtree.Comparable is not a Point")
 		}
-		nearestPoints[i] = p
+		nearestPoints = append(nearestPoints, p)
 	}
 	return nearestPoints
 }
@@ -54,7 +75,7 @@ func (ps Points) Len() int { return len(ps) }
 func (ps Points) Slice(start, end int) kdtree.Interface { return ps[start:end] }
 
 func (ps Points) Pivot(d kdtree.Dim) int {
-	ph := &pointsHelper{Points: ps, Dim: d}
+	ph := pointsHelper{Points: ps, Dim: d}
 	return ph.Pivot()
 }
 
@@ -64,8 +85,8 @@ type pointsHelper struct {
 	Points
 }
 
-func (ph *pointsHelper) Less(i, j int) bool {
-	switch p.Dim {
+func (ph pointsHelper) Less(i, j int) bool {
+	switch ph.Dim {
 	case 0:
 		return ph.Points[i].Position().X < ph.Points[j].Position().X
 	case 1:
@@ -77,15 +98,15 @@ func (ph *pointsHelper) Less(i, j int) bool {
 	}
 }
 
-func (ph *pointsHelper) Pivot() int {
+func (ph pointsHelper) Pivot() int {
 	return kdtree.Partition(ph, kdtree.MedianOfMedians(ph))
 }
 
-func (ph *pointsHelper) Slice(start, end int) kdtree.SortSlicer {
+func (ph pointsHelper) Slice(start, end int) kdtree.SortSlicer {
 	ph.Points = ph.Points[start:end]
 	return ph
 }
 
-func (ph *pointsHelper) Swap(i, j int) {
+func (ph pointsHelper) Swap(i, j int) {
 	ph.Points[i], ph.Points[j] = ph.Points[j], ph.Points[i]
 }

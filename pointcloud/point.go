@@ -138,20 +138,20 @@ func (bp *basicPoint) Distance(p kdtree.Comparable) float64 {
 func (bp *basicPoint) Dims() int { return 3 }
 
 // Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
-// Used to fulfill kdtree.Compareable.
+// Used to fulfill kdtree.Comparable.
 func (bp *basicPoint) Compare(p kdtree.Comparable, d kdtree.Dim) float64 {
-	pp, ok := p.(Point)
+	p2, ok := p.(Point)
 	if !ok {
 		panic("kdtree.Comparable fed into basicPoint.Distance is not a Point")
 	}
-	v1, v2 := bp.Position(), pp.Position()
+	v1, v2 := bp.Position(), p2.Position()
 	switch d {
 	case 0:
-		return v2.X - v1.X
+		return v1.X - v2.X
 	case 1:
-		return v2.Y - v1.Y
+		return v1.Y - v2.Y
 	case 2:
-		return v2.Z - v1.Z
+		return v1.Z - v2.Z
 	default:
 		panic("illegal dimension fed to basicPoint.Compare")
 	}
