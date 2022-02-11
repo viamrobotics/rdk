@@ -76,7 +76,7 @@ func Named(name string) resource.Name {
 }
 
 var (
-	_ = Motor(&reconfigurableMotor{})
+	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
 
