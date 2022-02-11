@@ -149,7 +149,7 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	_, err = StatisticalOutlierFilter(4, 0.0)
 	test.That(t, err, test.ShouldBeError, errors.New("argument stdDevThresh must be a positive float, got 0.00"))
 
-	filter, err := StatisticalOutlierFilter(2, 1.5)
+	filter, err := StatisticalOutlierFilter(3, 1.5)
 	test.That(t, err, test.ShouldBeNil)
 	cloud := makePointCloud(t)
 	kd := NewKDTree(cloud)
