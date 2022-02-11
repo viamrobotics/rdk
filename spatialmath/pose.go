@@ -103,7 +103,7 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
+	result := &DualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 
 	// Normalization
 	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
@@ -117,7 +117,7 @@ func Compose(a, b Pose) Pose {
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 func PoseBetween(a, b Pose) Pose {
-	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	return &DualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 }
 
 // PoseDelta returns the difference between two dualQuaternion.
@@ -202,4 +202,48 @@ func (d *distancePose) Point() r3.Vector {
 
 func (d *distancePose) Orientation() Orientation {
 	return (*quaternion)(&d.orientation)
+}
+
+// PoseInFrame is a data structure that packages a pose with the name of the
+// frame in which it was observed.
+type PoseInFrame struct {
+	frame string
+	pose  Pose
+}
+
+// Frame returns the name of the frame in which the pose was observed.
+func (pF *PoseInFrame) Frame() string {
+	return pF.frame
+}
+
+// Pose returns the pose that was observed.
+func (pF *PoseInFrame) Pose() Pose {
+	return pF.pose
+}
+
+// NewPoseInFrame generates a new PoseInFrame.
+func NewPoseInFrame(frame string, pose Pose) *PoseInFrame {
+	return &PoseInFrame{
+		frame: frame,
+		pose:  pose,
+	}
+}
+
+// PoseInFrameToProtobuf converts a PoseInFrame struct to a
+// PoseInFrame message as specified in common.proto.
+func PoseInFrameToProtobuf(framedPose *PoseInFrame) *commonpb.PoseInFrame {
+	poseProto := PoseToProtobuf(framedPose.pose)
+	return &commonpb.PoseInFrame{
+		Frame: framedPose.frame,
+		Pose:  poseProto,
+	}
+}
+
+// ProtobufToPoseInFrame converts a PoseInFrame message as specified in
+// common.proto to a PoseInFrame struct.
+func ProtobufToPoseInFrame(proto *commonpb.PoseInFrame) *PoseInFrame {
+	result := &PoseInFrame{}
+	result.pose = NewPoseFromProtobuf(proto.GetPose())
+	result.frame = proto.GetFrame()
+	return result
 }

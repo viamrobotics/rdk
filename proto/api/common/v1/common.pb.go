@@ -356,6 +356,62 @@ func (x *Pose) GetTheta() float64 {
 	return 0
 }
 
+type PoseInFrame struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// reference frame in which the pose was observed
+	Frame string `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
+	Pose  *Pose  `protobuf:"bytes,2,opt,name=pose,proto3" json:"pose,omitempty"`
+}
+
+func (x *PoseInFrame) Reset() {
+	*x = PoseInFrame{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PoseInFrame) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PoseInFrame) ProtoMessage() {}
+
+func (x *PoseInFrame) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PoseInFrame.ProtoReflect.Descriptor instead.
+func (*PoseInFrame) Descriptor() ([]byte, []int) {
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *PoseInFrame) GetFrame() string {
+	if x != nil {
+		return x.Frame
+	}
+	return ""
+}
+
+func (x *PoseInFrame) GetPose() *Pose {
+	if x != nil {
+		return x.Pose
+	}
+	return nil
+}
+
 type Vector3 struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

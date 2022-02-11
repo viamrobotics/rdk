@@ -48,6 +48,12 @@ message Pose {
   double theta = 7;
 }
 
+message PoseInFrame {
+  // reference frame in which the pose was observed
+  string frame = 1;
+  Pose pose = 2;
+}
+
 message Vector3 {
   double x = 1;
   double y = 2;
