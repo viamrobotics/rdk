@@ -114,7 +114,7 @@ func NewValuePoint(x, y, z float64, v int) Point {
 	return &basicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
 }
 
-// Clone copies the point over with a new position
+// Clone copies the point over with a new position.
 func (bp *basicPoint) Clone(v Vec3) Point {
 	return &basicPoint{
 		position:  v,
