@@ -111,7 +111,6 @@ func TestClient(t *testing.T) {
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
 
 		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
-
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
