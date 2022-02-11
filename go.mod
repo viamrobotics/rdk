@@ -44,7 +44,7 @@ require (
 	github.com/starship-technologies/gobag v1.0.6
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/evdev v0.1.3
-	github.com/wasmerio/wasmer-go v0.0.0-00010101000000-000000000000
+	github.com/wasmerio/wasmer-go v1.0.4
 	go-hep.org/x/hep v0.28.5
 	go.einride.tech/vlp16 v0.7.0
 	go.mongodb.org/mongo-driver v1.8.0
