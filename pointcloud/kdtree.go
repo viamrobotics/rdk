@@ -25,12 +25,12 @@ func NewKDTree(pc PointCloud) *KDTree {
 // Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
 func (kd *KDTree) Set(p Point) error {
 	kd.tree.Insert(p, false)
-	return kd.Set(p)
+	return kd.PointCloud.Set(p)
 }
 
 // Unset removes the point from the PointCloud and rebuilds the entire KDTree.
 func (kd *KDTree) Unset(x, y, z float64) {
-	kd.Unset(x, y, z)
+	kd.PointCloud.Unset(x, y, z)
 	points := Points(kd.Points())
 	kd.tree = kdtree.New(points, false)
 }

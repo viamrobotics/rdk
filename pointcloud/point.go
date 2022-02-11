@@ -40,9 +40,8 @@ type Point interface {
 	// Position is the vector describing where the point is in the cloud.
 	Position() Vec3
 
-	// SetPosition moves the point to the given position.
-	// Note(erd): we should try to remove this in favor of immutability.
-	SetPosition(p Vec3)
+	// Clone copies the point to a new position.
+	Clone(v Vec3) Point
 
 	// HasColor returns whether or not this point is colored.
 	HasColor() bool
@@ -115,12 +114,20 @@ func NewValuePoint(x, y, z float64, v int) Point {
 	return &basicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
 }
 
-func (bp *basicPoint) Position() Vec3 {
-	return bp.position
+// Clone copies the point over with a new position
+func (bp *basicPoint) Clone(v Vec3) Point {
+	return &basicPoint{
+		position:  v,
+		hasColor:  bp.hasColor,
+		c:         bp.c,
+		hasValue:  bp.hasValue,
+		value:     bp.value,
+		intensity: bp.intensity,
+	}
 }
 
-func (bp *basicPoint) SetPosition(p Vec3) {
-	bp.position = p
+func (bp *basicPoint) Position() Vec3 {
+	return bp.position
 }
 
 // Distance returns the distance between the the current point and the given point.
