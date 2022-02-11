@@ -32,8 +32,8 @@ func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 	return p2, dist
 }
 
-// KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true, if the point p
-// is in the point cloud it will also be returned in the slice as the first element with distance 0.
+// KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true and if the point p
+// is in the point cloud, point p will also be returned in the slice as the first element with distance 0.
 func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
@@ -55,7 +55,7 @@ func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 }
 
 // RadiusNearestNeighbors returns the nearest points within a radius r (inclusive) ordered by distance.
-// If includeSelf is true, if the point p is in the point cloud it will also be returned in the slice
+// If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) []Point {
 	start := 0
