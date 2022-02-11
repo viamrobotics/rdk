@@ -621,8 +621,7 @@
                       req.setCameraName(cameraName);
                       req.setCameraPoint(cameraPoint);
                       req.setGripperName(gripperName);
-                      console.log("making grab attempt");
-                      console.log(gripperName);
+                      console.log("making grab attempt using " + gripperName);
 
                       objectManipulationService.doGrab(req, {},
                         (err, resp) => {
@@ -630,7 +629,7 @@
                           if (err) {
                             return Promise.reject(err);
                           }
-                          return Promise.resolve(resp).then(console.log);
+                          return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
                       })
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
