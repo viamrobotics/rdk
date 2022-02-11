@@ -59,7 +59,6 @@ service MotorService {
     };
   }
 
-
   // Stop turns the robot's motor off
   // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {

@@ -69,7 +69,7 @@ func (server *subtypeServer) GoFor(
 	return &pb.MotorServiceGoForResponse{}, motor.GoFor(ctx, req.GetRpm(), rVal)
 }
 
-// Position reports the position of the motor of the underlying robot
+// GetPosition reports the position of the motor of the underlying robot
 // based on its encoder. If it's not supported, the returned data is undefined.
 // The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
