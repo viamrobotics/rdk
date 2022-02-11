@@ -10,6 +10,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the contract from object_manipulation.proto.
@@ -24,15 +25,13 @@ func NewServer(s subtype.Service) pb.ObjectManipulationServiceServer {
 }
 
 func (server *subtypeServer) service() (Service, error) {
-	name := Name
-	resource := server.subtypeSvc.Resource(name.String())
+	resource := server.subtypeSvc.Resource(Name.String())
 	if resource == nil {
-		return nil, errors.Errorf("no resource with name (%s)", name)
+		return nil, errors.Errorf("resource %q not found", Name)
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, errors.Errorf(
-			"resource with name (%s) is not an object manipulation service", name)
+		return nil, utils.NewUnimplementedInterfaceError("objectmanipulation.Service", resource)
 	}
 	return svc, nil
 }
