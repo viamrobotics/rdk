@@ -171,6 +171,7 @@ func TestWebWithAuth(t *testing.T) {
 				))
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 
 				c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -181,6 +182,7 @@ func TestWebWithAuth(t *testing.T) {
 				))
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 			} else {
 				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -191,6 +193,7 @@ func TestWebWithAuth(t *testing.T) {
 				))
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 
 				c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
@@ -201,6 +204,7 @@ func TestWebWithAuth(t *testing.T) {
 				))
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
+				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 			}
 
 			err = utils.TryClose(context.Background(), svc)
