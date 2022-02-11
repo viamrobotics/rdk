@@ -2,14 +2,19 @@ package pointcloud
 
 import "gonum.org/v1/gonum/spatial/kdtree"
 
+// KDTree extends PointCloud and orders the points in the pointcloud in 3D space in order to implement nearest neighbor algos.
 type KDTree struct {
 	PointCloud
 	tree *kdtree.Tree
 }
 
+// NewKDTree creates a KDTree from an input PointCloud.
 func NewKDTree(pc PointCloud) *KDTree {
 	if pc.Size() == 0 {
 		return nil
+	}
+	if k, ok := pc.(*KDTree); ok { // rebuild the KDTree from scratch
+		pc = k.PointCloud
 	}
 	points := Points(pc.Points())
 	tree := kdtree.New(points, false)
@@ -17,6 +22,7 @@ func NewKDTree(pc PointCloud) *KDTree {
 	return &KDTree{pc, tree}
 }
 
+// NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 	c, dist := kd.tree.Nearest(p)
 	p2, ok := c.(Point)
@@ -26,11 +32,13 @@ func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 	return p2, dist
 }
 
+// KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true, if the point p
+// is in the point cloud it will also be returned in the slice as the first element with distance 0.
 func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
-		k = k + 1
-		start = 1
+		k++
+		start++
 	}
 	keep := kdtree.NewNKeeper(k)
 	kd.tree.NearestSet(keep, p)
@@ -46,10 +54,13 @@ func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 	return nearestPoints
 }
 
+// RadiusNearestNeighbors returns the nearest points within a radius r (inclusive) ordered by distance.
+// If includeSelf is true, if the point p is in the point cloud it will also be returned in the slice
+// as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) []Point {
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
-		start = 1
+		start++
 	}
 	keep := kdtree.NewDistKeeper(r)
 	kd.tree.NearestSet(keep, p)
@@ -65,21 +76,24 @@ func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) [
 	return nearestPoints
 }
 
-// Points is a type that satisfies kdtree.Interface
+// Points is a slice type that satisfies kdtree.Interface.
 type Points []Point
 
+// Index returns the point at index i.
 func (ps Points) Index(i int) kdtree.Comparable { return ps[i] }
 
+// Len returns the length of the slice.
 func (ps Points) Len() int { return len(ps) }
 
+// Slice returns the subset of the slice.
 func (ps Points) Slice(start, end int) kdtree.Interface { return ps[start:end] }
 
+// Pivot chooses the median point along an axis to be the pivot element.
 func (ps Points) Pivot(d kdtree.Dim) int {
-	ph := pointsHelper{Points: ps, Dim: d}
-	return ph.Pivot()
+	return pointsHelper{Points: ps, Dim: d}.Pivot()
 }
 
-// pointsHelper is required to help Points
+// pointsHelper is required to help Points.
 type pointsHelper struct {
 	kdtree.Dim
 	Points

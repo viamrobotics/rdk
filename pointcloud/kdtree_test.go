@@ -53,9 +53,10 @@ func TestKNearestNeighor(t *testing.T) {
 	test.That(t, nns[1], test.ShouldResemble, cloud.At(1, 1, 1))
 	test.That(t, nns[2], test.ShouldResemble, cloud.At(-1.1, -1.1, -1.1))
 	nns = kd.KNearestNeighbors(testPt, 3, false)
-	test.That(t, nns, test.ShouldHaveLength, 2)
+	test.That(t, nns, test.ShouldHaveLength, 3)
 	test.That(t, nns[0], test.ShouldResemble, cloud.At(1, 1, 1))
 	test.That(t, nns[1], test.ShouldResemble, cloud.At(-1.1, -1.1, -1.1))
+	test.That(t, nns[2], test.ShouldResemble, cloud.At(2, 2, 2))
 
 	nns = kd.KNearestNeighbors(testPt, 100, true)
 	test.That(t, nns, test.ShouldHaveLength, 7)
