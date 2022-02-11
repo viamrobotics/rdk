@@ -77,50 +77,15 @@ type Point interface {
 	SetIntensity(v uint16) Point
 
 	// Distance returns the distance between the the current point and the given point.
-	// Used to fulfill kdtree.Compareable.
+	// Used to fulfill kdtree.Comparable.
 	Distance(p kdtree.Comparable) float64
 
-	// Dims returns the dimensions of the point. Used to fulfill kdtree.Compareable.
+	// Dims returns the dimensions of the point. Used to fulfill kdtree.Comparable.
 	Dims() int
 
 	// Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
-	// Used to fulfill kdtree.Compareable.
+	// Used to fulfill kdtree.Comparable.
 	Compare(p kdtree.Comparable, d kdtree.Dim) float64
-}
-
-// Points is a type that satisfies kdtree.Interface
-type Points []Point
-
-func (ps Points) Index(i int) kdtree.Comparable { return ps[i] }
-
-func (ps Points) Len() int { return len(ps) }
-
-func (ps Points) Slice(start, end int) kdtree.Interface { return ps[start:end] }
-
-// pointsHelper is required to help Points
-type pointsHelper struct {
-	kdtree.Dim
-	Points
-}
-
-func (ph pointsHelper) Less(i, j int) bool {
-	switch p.Dim {
-	case 0:
-		return p.Points[i].lat < p.places[j].lat
-	case 1:
-		return p.places[i].lon < p.places[j].lon
-	default:
-		panic("illegal dimension")
-	}
-}
-
-func (p plane) Pivot() int { return kdtree.Partition(p, kdtree.MedianOfMedians(p)) }
-func (p plane) Slice(start, end int) kdtree.SortSlicer {
-	p.places = p.places[start:end]
-	return p
-}
-func (p plane) Swap(i, j int) {
-	p.places[i], p.places[j] = p.places[j], p.places[i]
 }
 
 type basicPoint struct {
