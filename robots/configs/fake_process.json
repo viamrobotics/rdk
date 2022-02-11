@@ -165,6 +165,9 @@
         },
         {
             "type": "object_manipulation"
+        },
+        {
+            "type": "frame_system"
         }
     ]
 }
