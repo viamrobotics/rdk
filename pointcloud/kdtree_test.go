@@ -164,4 +164,15 @@ func TestStatisticalOutlierFilter(t *testing.T) {
 	test.That(t, filtered.At(3, 3, 3), test.ShouldNotBeNil)
 	test.That(t, filtered.At(-3.2, -3.2, -3.2), test.ShouldNotBeNil)
 	test.That(t, filtered.At(2000, 2000, 2000), test.ShouldBeNil)
+
+	filtered, err = filter(cloud)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, filtered.At(0, 0, 0), test.ShouldNotBeNil)
+	test.That(t, filtered.At(1, 1, 1), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-1.1, -1.1, -1.1), test.ShouldNotBeNil)
+	test.That(t, filtered.At(2, 2, 2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-2.2, -2.2, -2.2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(3, 3, 3), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-3.2, -3.2, -3.2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(2000, 2000, 2000), test.ShouldBeNil)
 }
