@@ -1,6 +1,7 @@
 package pointcloud
 
 import (
+	"errors"
 	"math"
 	"testing"
 
@@ -24,6 +25,9 @@ func makePointCloud(t *testing.T) PointCloud {
 	test.That(t, cloud.Set(n2), test.ShouldBeNil)
 	n3 := NewBasicPoint(-3.2, -3.2, -3.2)
 	test.That(t, cloud.Set(n3), test.ShouldBeNil)
+	// outlier points
+	o2 := NewBasicPoint(2000, 2000, 2000)
+	test.That(t, cloud.Set(o2), test.ShouldBeNil)
 	return cloud
 }
 
@@ -59,7 +63,7 @@ func TestKNearestNeighor(t *testing.T) {
 	test.That(t, nns[2], test.ShouldResemble, cloud.At(2, 2, 2))
 
 	nns = kd.KNearestNeighbors(testPt, 100, true)
-	test.That(t, nns, test.ShouldHaveLength, 7)
+	test.That(t, nns, test.ShouldHaveLength, 8)
 	test.That(t, nns[0], test.ShouldResemble, cloud.At(0, 0, 0))
 	test.That(t, nns[1], test.ShouldResemble, cloud.At(1, 1, 1))
 	test.That(t, nns[2], test.ShouldResemble, cloud.At(-1.1, -1.1, -1.1))
@@ -67,14 +71,16 @@ func TestKNearestNeighor(t *testing.T) {
 	test.That(t, nns[4], test.ShouldResemble, cloud.At(-2.2, -2.2, -2.2))
 	test.That(t, nns[5], test.ShouldResemble, cloud.At(3, 3, 3))
 	test.That(t, nns[6], test.ShouldResemble, cloud.At(-3.2, -3.2, -3.2))
+	test.That(t, nns[7], test.ShouldResemble, cloud.At(2000, 2000, 2000))
 	nns = kd.KNearestNeighbors(testPt, 100, false)
-	test.That(t, nns, test.ShouldHaveLength, 6)
+	test.That(t, nns, test.ShouldHaveLength, 7)
 	test.That(t, nns[0], test.ShouldResemble, cloud.At(1, 1, 1))
 	test.That(t, nns[1], test.ShouldResemble, cloud.At(-1.1, -1.1, -1.1))
 	test.That(t, nns[2], test.ShouldResemble, cloud.At(2, 2, 2))
 	test.That(t, nns[3], test.ShouldResemble, cloud.At(-2.2, -2.2, -2.2))
 	test.That(t, nns[4], test.ShouldResemble, cloud.At(3, 3, 3))
 	test.That(t, nns[5], test.ShouldResemble, cloud.At(-3.2, -3.2, -3.2))
+	test.That(t, nns[6], test.ShouldResemble, cloud.At(2000, 2000, 2000))
 
 	testPt = NewBasicPoint(4, 4, 4)
 	nns = kd.KNearestNeighbors(testPt, 2, true)
@@ -135,4 +141,27 @@ func TestRadiusNearestNeighor(t *testing.T) {
 	test.That(t, nns, test.ShouldHaveLength, 0)
 	nns = kd.RadiusNearestNeighbors(testPt, math.Sqrt(3), false)
 	test.That(t, nns, test.ShouldHaveLength, 0)
+}
+
+func TestStatisticalOutlierFilter(t *testing.T) {
+	_, err := StatisticalOutlierFilter(-1, 2.0)
+	test.That(t, err, test.ShouldBeError, errors.New("argument meanK must be a positive int, got -1"))
+	_, err = StatisticalOutlierFilter(4, 0.0)
+	test.That(t, err, test.ShouldBeError, errors.New("argument stdDevThresh must be a positive float, got 0.00"))
+
+	filter, err := StatisticalOutlierFilter(2, 1.5)
+	test.That(t, err, test.ShouldBeNil)
+	cloud := makePointCloud(t)
+	kd := NewKDTree(cloud)
+
+	filtered, err := filter(kd)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, filtered.At(0, 0, 0), test.ShouldNotBeNil)
+	test.That(t, filtered.At(1, 1, 1), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-1.1, -1.1, -1.1), test.ShouldNotBeNil)
+	test.That(t, filtered.At(2, 2, 2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-2.2, -2.2, -2.2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(3, 3, 3), test.ShouldNotBeNil)
+	test.That(t, filtered.At(-3.2, -3.2, -3.2), test.ShouldNotBeNil)
+	test.That(t, filtered.At(2000, 2000, 2000), test.ShouldBeNil)
 }
