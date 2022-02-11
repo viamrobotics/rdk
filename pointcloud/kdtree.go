@@ -22,6 +22,19 @@ func NewKDTree(pc PointCloud) *KDTree {
 	return &KDTree{pc, tree}
 }
 
+// Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
+func (kd *KDTree) Set(p Point) error {
+	kd.tree.Insert(p, false)
+	return kd.Set(p)
+}
+
+// Unset removes the point from the PointCloud and rebuilds the entire KDTree.
+func (kd *KDTree) Unset(x, y, z float64) {
+	kd.Unset(x, y, z)
+	points := Points(kd.Points())
+	kd.tree = kdtree.New(points, false)
+}
+
 // NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 	c, dist := kd.tree.Nearest(p)
