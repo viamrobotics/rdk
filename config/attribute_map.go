@@ -39,6 +39,32 @@ func (am AttributeMap) IntSlice(name string) []int {
 		return ints
 	}
 
+	panic(errors.Errorf("wanted a []float64 for (%s) but got (%v) %T", name, x, x))
+}
+
+// Float64Slice attempts to return a slice of ints present in the map with
+// the given name; returns an empty slice otherwise.
+func (am AttributeMap) Float64Slice(name string) []float64 {
+	if am == nil {
+		return []float64{}
+	}
+	x := am[name]
+	if x == nil {
+		return []float64{}
+	}
+
+	if slice, ok := x.([]interface{}); ok {
+		float64s := make([]float64, 0, len(slice))
+		for _, v := range slice {
+			if i, ok := v.(float64); ok {
+				float64s = append(float64s, i)
+			} else {
+				panic(errors.Errorf("values in (%s) need to be float64 but got %T", name, v))
+			}
+		}
+		return float64s
+	}
+
 	panic(errors.Errorf("wanted a []int for (%s) but got (%v) %T", name, x, x))
 }
 
@@ -146,4 +172,30 @@ func (am AttributeMap) Bool(name string, def bool) bool {
 	}
 
 	panic(errors.Errorf("wanted a bool for (%s) but got (%v) %T", name, x, x))
+}
+
+// BoolSlice attempts to return a slice of bools present in the map with
+// the given name; returns an empty slice otherwise.
+func (am AttributeMap) BoolSlice(name string, def bool) []bool {
+	if am == nil {
+		return []bool{}
+	}
+	x := am[name]
+	if x == nil {
+		return []bool{}
+	}
+
+	if slice, ok := x.([]interface{}); ok {
+		bools := make([]bool, 0, len(slice))
+		for _, v := range slice {
+			if b, ok := v.(bool); ok {
+				bools = append(bools, b)
+			} else {
+				panic(errors.Errorf("values in (%s) need to be bools but got %T", name, v))
+			}
+		}
+		return bools
+	}
+
+	panic(errors.Errorf("wanted a []bool for (%s) but got (%v) %T", name, x, x))
 }

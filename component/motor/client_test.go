@@ -9,7 +9,6 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/motor"
@@ -106,12 +105,12 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = motor.NewClient(cancelCtx, "workingMotor", listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = motor.NewClient(cancelCtx, "workingMotor", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingMotorClient, err := motor.NewClient(context.Background(), "workingMotor", listener1.Addr().String(), logger, rpc.WithInsecure())
+	workingMotorClient, err := motor.NewClient(context.Background(), "workingMotor", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
@@ -156,7 +155,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 	})
 
-	failingMotorClient, err := motor.NewClient(context.Background(), "failingMotor", listener1.Addr().String(), logger, rpc.WithInsecure())
+	failingMotorClient, err := motor.NewClient(context.Background(), "failingMotor", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
@@ -195,7 +194,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "workingMotor", logger)
 
@@ -241,7 +240,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "failingMotor", logger)
 

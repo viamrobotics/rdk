@@ -119,14 +119,14 @@ func TestClientConfig(t *testing.T) {
 	t.Run("Failing client due to cancellation", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = framesystem.NewClient(cancelCtx, framesystem.Name.String(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = framesystem.NewClient(cancelCtx, framesystem.Name.String(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	workingFSClient, err := framesystem.NewClient(
 		context.Background(), framesystem.Name.String(),
-		listener1.Addr().String(), logger, rpc.WithInsecure(),
+		listener1.Addr().String(), logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -140,7 +140,7 @@ func TestClientConfig(t *testing.T) {
 	})
 
 	t.Run("dialed client test config for working frame service", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
 		frameSystemParts, err := workingDialedClient.Config(context.Background())
@@ -152,7 +152,7 @@ func TestClientConfig(t *testing.T) {
 	})
 
 	t.Run("dialed client test 2 config for working frame service", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
 		fsClient, ok := workingDialedClient.(framesystem.Service)
@@ -170,7 +170,7 @@ func TestClientConfig(t *testing.T) {
 
 	failingFSClient, err := framesystem.NewClient(
 		context.Background(), framesystem.Name.String(),
-		listener2.Addr().String(), logger, rpc.WithInsecure(),
+		listener2.Addr().String(), logger,
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -181,7 +181,7 @@ func TestClientConfig(t *testing.T) {
 	})
 
 	t.Run("dialed client test config for failing frame service with failing config", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		failingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
 		parts, err := failingDialedClient.Config(context.Background())
