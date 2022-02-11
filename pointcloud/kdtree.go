@@ -2,7 +2,7 @@ package pointcloud
 
 import "gonum.org/v1/gonum/spatial/kdtree"
 
-// KDTree extends PointCloud and orders the points in the pointcloud in 3D space in order to implement nearest neighbor algos.
+// KDTree extends PointCloud and orders the points in 3D space to implement nearest neighbor algos.
 type KDTree struct {
 	PointCloud
 	tree *kdtree.Tree
