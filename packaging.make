@@ -33,11 +33,15 @@ appimage: buf-go server
 # AppImage packaging targets run in canon docker
 appimage-multiarch: appimage-amd64 appimage-arm64
 
+appimage-amd64: DOCKER_PLATFORM = --platform linux/amd64
+appimage-amd64: DOCKER_TAG = amd64-cache
 appimage-amd64:
-	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:amd64-cache $(ENTRYCMD) make appimage
+	$(DOCKER_CMD) make appimage
 
+appimage-arm64: DOCKER_PLATFORM = --platform linux/arm64
+appimage-arm64: DOCKER_TAG = arm64-cache
 appimage-arm64:
-	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:arm64-cache $(ENTRYCMD) make appimage
+	$(DOCKER_CMD) make appimage
 
 appimage-deploy:
 	gsutil -m -h "Cache-Control: no-cache" cp etc/packaging/appimages/deploy/* gs://packages.viam.com/apps/viam-server/
