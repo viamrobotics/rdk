@@ -5,8 +5,8 @@ import "gonum.org/v1/gonum/spatial/kdtree"
 // KDTree extends PointCloud and orders the points in 3D space to implement nearest neighbor algos.
 type KDTree struct {
 	PointCloud
-	tree *kdtree.Tree
-    rebuild bool
+	tree    *kdtree.Tree
+	rebuild bool
 }
 
 // NewKDTree creates a KDTree from an input PointCloud.
@@ -32,16 +32,16 @@ func (kd *KDTree) Set(p Point) error {
 // Unset removes the point from the PointCloud and sets a flag to rebuild the tree next time NN is used.
 func (kd *KDTree) Unset(x, y, z float64) {
 	kd.PointCloud.Unset(x, y, z)
-    kd.rebuild = true
+	kd.rebuild = true
 }
 
 // NearestNeighbor returns the nearest point and its distance from the input point.
 func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
-    if kd.rebuild {
-        points := Points(kd.Points())
-        kd.tree = kdtree.New(points, false)
-        kd.rebuild = false
-    }
+	if kd.rebuild {
+		points := Points(kd.Points())
+		kd.tree = kdtree.New(points, false)
+		kd.rebuild = false
+	}
 	c, dist := kd.tree.Nearest(p)
 	p2, ok := c.(Point)
 	if !ok {
@@ -53,11 +53,11 @@ func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 // KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true and if the point p
 // is in the point cloud, point p will also be returned in the slice as the first element with distance 0.
 func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
-    if kd.rebuild {
-        points := Points(kd.Points())
-        kd.tree = kdtree.New(points, false)
-        kd.rebuild = false
-    }
+	if kd.rebuild {
+		points := Points(kd.Points())
+		kd.tree = kdtree.New(points, false)
+		kd.rebuild = false
+	}
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
 		k++
@@ -81,11 +81,11 @@ func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 // If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) []Point {
-    if kd.rebuild {
-        points := Points(kd.Points())
-        kd.tree = kdtree.New(points, false)
-        kd.rebuild = false
-    }
+	if kd.rebuild {
+		points := Points(kd.Points())
+		kd.tree = kdtree.New(points, false)
+		kd.rebuild = false
+	}
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
 		start++
