@@ -20,7 +20,7 @@ func NewKDTree(pc PointCloud) *KDTree {
 	points := Points(pc.Points())
 	tree := kdtree.New(points, false)
 
-	return &KDTree{pc, tree}
+	return &KDTree{pc, tree, false}
 }
 
 // Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
