@@ -83,7 +83,7 @@ func (i *ImageWithDepth) Height() int {
 	return i.Color.Height()
 }
 
-// SubImage returns the crop of the image defined by the given rectangle
+// SubImage returns the crop of the image defined by the given rectangle.
 func (i *ImageWithDepth) SubImage(r image.Rectangle) *ImageWithDepth {
 	if r.Empty() {
 		return &ImageWithDepth{}

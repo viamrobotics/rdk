@@ -57,12 +57,12 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A ThreeDimImageSource is anything that generates 3D point clouds
+// A ThreeDimImageSource is anything that generates 3D point clouds.
 type ThreeDimImageSource interface {
 	NextPointCloud(context.Context) (pointcloud.PointCloud, error)
 }
 
-// An ThreeDimObjectSource is anything that generates 3D objects in a scene
+// An ThreeDimObjectSource is anything that generates 3D objects in a scene.
 type ThreeDimObjectSource interface {
 	NextObjects(context.Context, *vision.Parameters3D) ([]*vision.Object, error)
 }

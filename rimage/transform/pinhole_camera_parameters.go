@@ -175,7 +175,9 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 }
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
-func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth, crop *image.Rectangle) (pointcloud.PointCloud, error) {
+func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(
+	ii *rimage.ImageWithDepth,
+	crop *image.Rectangle) (pointcloud.PointCloud, error) {
 	return intrinsics2DTo3D(ii, crop, params)
 }
 

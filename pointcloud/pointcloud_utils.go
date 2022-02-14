@@ -9,7 +9,7 @@ import (
 	"gonum.org/v1/gonum/stat"
 )
 
-// Merge creates a union of point clouds from the slice of point clouds
+// Merge creates a union of point clouds from the slice of point clouds.
 func Merge(clusters []PointCloud) (PointCloud, error) {
 	var err error
 	Union := New()

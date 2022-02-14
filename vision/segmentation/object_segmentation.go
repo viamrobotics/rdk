@@ -14,7 +14,7 @@ type ObjectSegmentation struct {
 	*Segments
 }
 
-// Objects returns the slice of Objects found by object segmentation
+// Objects returns the slice of Objects found by object segmentation.
 func (objseg *ObjectSegmentation) Objects() []*vision.Object {
 	return objseg.Segments.Objects
 }

@@ -118,7 +118,7 @@ func (s *Source) Next(ctx context.Context) (image.Image, func(), error) {
 	return ovImg, res.Release, nil
 }
 
-// NextObjects returns the 3D objects in the scene if there Projector for the camera
+// NextObjects returns the 3D objects in the scene if there Projector for the camera.
 func (s *Source) NextObjects(ctx context.Context, conf *vision.Parameters3D) ([]*vision.Object, error) {
 	res, err := s.NextResult(ctx)
 	if err != nil {
