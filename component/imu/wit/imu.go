@@ -164,7 +164,7 @@ func (i *wit) parseWIT(line string) error {
 		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
 	}
 
-	if line[0] == 0x51 { // TODO: Check for linear Velocity
+	if line[0] == 0x51 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
 		}
