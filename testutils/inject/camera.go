@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/vision"
 )
 
 // Camera is an injected camera.
@@ -15,6 +16,7 @@ type Camera struct {
 	camera.Camera
 	NextFunc           func(ctx context.Context) (image.Image, func(), error)
 	NextPointCloudFunc func(ctx context.Context) (pointcloud.PointCloud, error)
+	NextObjectsFunc    func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error)
 	CloseFunc          func(ctx context.Context) error
 }
 
@@ -32,6 +34,14 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return c.Camera.NextPointCloud(ctx)
 	}
 	return c.NextPointCloudFunc(ctx)
+}
+
+// NextObjects calls the injected NextObjects or the real version.
+func (c *Camera) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+	if c.NextObjectsFunc == nil {
+		return c.Camera.NextObjects(ctx, params)
+	}
+	return c.NextObjectsFunc(ctx, params)
 }
 
 // Close calls the injected Close or the real version.

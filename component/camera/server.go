@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/segmentation"
+	"go.viam.com/rdk/vision"
 )
 
 // subtypeServer implements the contract from camera.proto.
@@ -199,20 +199,16 @@ func (s *subtypeServer) GetObjectPointClouds(
 		return nil, err
 	}
 
-	pc, err := camera.NextPointCloud(ctx)
-	if err != nil {
-		return nil, err
-	}
-	config := segmentation.ObjectConfig{
+	config := &vision.Parameters3D{
 		MinPtsInPlane:      int(req.MinPointsInPlane),
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
-	segments, err := segmentation.NewObjectSegmentation(ctx, pc, config)
+	objects, err := camera.NextObjects(ctx, config)
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(segments)
+	protoSegments, err := segmentsToProto(objects)
 	if err != nil {
 		return nil, err
 	}
@@ -223,9 +219,9 @@ func (s *subtypeServer) GetObjectPointClouds(
 	}, nil
 }
 
-func segmentsToProto(segs *segmentation.ObjectSegmentation) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, segs.N())
-	for _, seg := range segs.Objects {
+func segmentsToProto(segs []*vision.Object) ([]*pb.PointCloudObject, error) {
+	protoSegs := make([]*pb.PointCloudObject, 0, len(segs))
+	for _, seg := range segs {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
