@@ -89,9 +89,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
-	svc, ok := r.ResourceByName(web.Name)
-	test.That(t, ok, test.ShouldBeTrue)
-	err = svc.(web.Service).Start(ctx, options)
+	svc, err := web.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	addr := fmt.Sprintf("localhost:%d", port)
@@ -290,10 +290,9 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				options.BakedAuthEntity = "blah"
 				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 			}
-
-			svc, ok := r.ResourceByName(web.Name)
-			test.That(t, ok, test.ShouldBeTrue)
-			err = svc.(web.Service).Start(ctx, options)
+			svc, err := web.FromRobot(r)
+			test.That(t, err, test.ShouldBeNil)
+			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
 			entityName := tc.EntityName

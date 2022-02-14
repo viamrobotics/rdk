@@ -2,7 +2,6 @@ package rimage
 
 import (
 	"image"
-	"math/rand"
 	"testing"
 
 	"go.viam.com/test"
@@ -53,21 +52,21 @@ func TestConvolveGrayFloat64(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray float
 	imGray := ConvertColorImageToLuminanceFloat(im)
-	x, y := rand.Intn(w), rand.Intn(h)
+	x, y := 100, 200
 	r, g, b, _ := im.GetXY(x, y).RGBA()
-	test.That(t, imGray.At(y, x), test.ShouldEqual, float64(r))
-	test.That(t, imGray.At(y, x), test.ShouldEqual, float64(g))
-	test.That(t, imGray.At(y, x), test.ShouldEqual, float64(b))
+	test.That(t, imGray.At(y, x), test.ShouldEqual, uint8(r))
+	test.That(t, imGray.At(y, x), test.ShouldEqual, uint8(g))
+	test.That(t, imGray.At(y, x), test.ShouldEqual, uint8(b))
 	// load gt image
 	gt, err := NewImageFromFile(artifact.MustPath("rimage/sobelx.png"))
 	test.That(t, err, test.ShouldBeNil)
 	// convert to gray float
 	gtGray := ConvertColorImageToLuminanceFloat(gt)
-	x1, y1 := rand.Intn(w), rand.Intn(h)
+	x1, y1 := 350, 120
 	r1, g1, b1, _ := gt.GetXY(x1, y1).RGBA()
-	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, float64(r1))
-	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, float64(g1))
-	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, float64(b1))
+	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, uint8(r1))
+	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, uint8(g1))
+	test.That(t, gtGray.At(y1, x1), test.ShouldEqual, uint8(b1))
 
 	kernel := GetSobelX()
 	convolved, err := ConvolveGrayFloat64(imGray, &kernel)

@@ -56,6 +56,19 @@ var Subtype = resource.NewSubtype(
 // Name is the WebService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// FromRobot retrieves the web service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, ok := r.ResourceByName(Name)
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Name)
+	}
+	web, ok := resource.(Service)
+	if !ok {
+		return nil, rutils.NewUnimplementedInterfaceError("web.Service", resource)
+	}
+	return web, nil
+}
+
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
