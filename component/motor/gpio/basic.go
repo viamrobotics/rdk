@@ -18,8 +18,6 @@ import (
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
 func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
-	pins := mc.Pins
-
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -35,13 +33,13 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 
 	m := &Motor{
 		Board:         b,
-		A:             pins["a"],
-		B:             pins["b"],
-		Dir:           pins["dir"],
-		PWM:           pins["pwm"],
-		EnablePinHigh: mc.Pins["enHigh"],
-		EnablePinLow:  mc.Pins["enLow"],
-		En:            pins["en"],
+		A:             mc.Pins.A,
+		B:             mc.Pins.B,
+		Dir:           mc.Pins.Dir,
+		PWM:           mc.Pins.PWM,
+		EnablePinHigh: mc.Pins.EnablePinHigh,
+		EnablePinLow:  mc.Pins.EnablePinLow,
+		En:            mc.Pins.En,
 		on:            false,
 		pwmFreq:       mc.PWMFreq,
 		minPowerPct:   mc.MinPowerPct,
@@ -54,7 +52,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 
 	if m.EnablePinLow == "" {
 		// for backwards compatibility prior ot change on 1/21/22
-		m.EnablePinLow = pins["en"]
+		m.EnablePinLow = mc.Pins.En
 	}
 
 	return m, nil
