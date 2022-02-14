@@ -12,7 +12,7 @@ type KDTree struct {
 // NewKDTree creates a KDTree from an input PointCloud.
 func NewKDTree(pc PointCloud) *KDTree {
 	if pc.Size() == 0 {
-		return nil
+		return &KDTree{pc, kdtree.New(Points([]Point{}), false), false}
 	}
 	if k, ok := pc.(*KDTree); ok { // rebuild the KDTree from scratch
 		pc = k.PointCloud
@@ -43,6 +43,9 @@ func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
 		kd.rebuild = false
 	}
 	c, dist := kd.tree.Nearest(p)
+	if c == nil {
+		return nil, 0.0
+	}
 	p2, ok := c.(Point)
 	if !ok {
 		panic("kdtree.Comparable is not a Point")
@@ -65,6 +68,9 @@ func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 	}
 	keep := kdtree.NewNKeeper(k)
 	kd.tree.NearestSet(keep, p)
+	if keep.Heap.Len() == 1 && keep.Heap[0].Comparable == nil { // empty heap
+		return []Point{}
+	}
 	nearestPoints := make([]Point, 0, keep.Heap.Len())
 	for i := start; i < keep.Heap.Len(); i++ {
 		c := keep.Heap[i]
@@ -92,6 +98,9 @@ func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) [
 	}
 	keep := kdtree.NewDistKeeper(r)
 	kd.tree.NearestSet(keep, p)
+	if keep.Heap.Len() == 1 && keep.Heap[0].Comparable == nil { // empty heap
+		return []Point{}
+	}
 	nearestPoints := make([]Point, 0, keep.Heap.Len())
 	for i := start; i < keep.Heap.Len(); i++ {
 		c := keep.Heap[i]
