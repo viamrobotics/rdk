@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/golang/geo/r3"
-
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/vision"
 )
@@ -61,18 +59,22 @@ func segmentPointCloudObjects(cloud pc.PointCloud, radius float64, nMin int) ([]
 // RadiusBasedNearestNeighbors partitions the pointcloud, grouping points within a given radius of each other.
 // Described in the paper "A Clustering Method for Efficient Segmentation of 3D Laser Data" by Klasing et al. 2008.
 func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.PointCloud, error) {
+	kdt, ok := cloud.(*pc.KDTree)
+	if !ok {
+		kdt = pc.NewKDTree(cloud)
+	}
 	var err error
 	clusters := NewSegments()
 	c := 0
-	cloud.Iterate(func(pt pc.Point) bool {
+	kdt.Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
 		// skip if point already is assigned cluster
 		if _, ok := clusters.Indices[v]; ok {
 			return true
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
-		nn := findNeighborsInRadius(cloud, pt, radius)
-		for neighbor := range nn {
+		nn := kdt.RadiusNearestNeighbors(pt, radius, false)
+		for _, neighbor := range nn {
 			nv := neighbor.Position()
 			ptIndex, ptOk := clusters.Indices[v]
 			neighborIndex, neighborOk := clusters.Indices[nv]
@@ -96,7 +98,7 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 			if err != nil {
 				return false
 			}
-			for neighbor := range nn {
+			for _, neighbor := range nn {
 				err = clusters.AssignCluster(neighbor, c)
 				if err != nil {
 					return false
@@ -112,23 +114,9 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	return clusters.PointClouds(), nil
 }
 
-// this is pretty inefficient since it has to loop through all the points in the pointcloud to find only the nearest points.
-func findNeighborsInRadius(cloud pc.PointCloud, point pc.Point, radius float64) map[pc.Point]bool {
-	neighbors := make(map[pc.Point]bool)
-	origin := r3.Vector(point.Position())
-	cloud.Iterate(func(pt pc.Point) bool {
-		target := r3.Vector(pt.Position())
-		d := origin.Distance(target)
-		if d == 0.0 {
-			return true
-		}
-		if d <= radius {
-			neighbors[pt] = true
-		}
-		return true
-	})
-	return neighbors
-}
+////////////////////////////////
+/// Voxel Based Segmentation ///
+////////////////////////////////
 
 // NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud.
 func NewObjectSegmentationFromVoxelGrid(
