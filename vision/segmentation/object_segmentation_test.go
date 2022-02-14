@@ -25,7 +25,7 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	}
 	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, segments.N(), test.ShouldBeGreaterThan, 0)
+	test.That(t, len(segments.Objects()), test.ShouldBeGreaterThan, 0)
 	// get center points
 	for i := 0; i < segments.N(); i++ {
 		mean := pc.CalculateMeanOfPointCloud(segments.Segments.Objects[i].PointCloud)
