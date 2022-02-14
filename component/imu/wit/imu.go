@@ -13,7 +13,6 @@ import (
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
-	rdkerr "github.com/pkg/errors"
 	"go.viam.com/rdk/component/imu"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -42,14 +41,6 @@ type acceleration struct {
 	X, Y, Z float64
 }
 
-type velocity struct {
-	X, Y, Z float64
-}
-
-type position struct {
-	X, Y, Z float64
-}
-
 type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
@@ -60,12 +51,10 @@ type wit struct {
 
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
-	logger                  golog.Logger
 }
 
 func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
-	rdkerr.Errorf("angVel:", i.angularVelocity, "orient:", i.orientation)
 
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
