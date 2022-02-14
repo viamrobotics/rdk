@@ -189,14 +189,14 @@ type simpleSource struct {
 }
 
 func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageFromFile(s.filePath)
+	img, err := rimage.NewImageWithDepth(artifact.MustPath(s.filePath+".png"), artifact.MustPath(s.filePath+".dat.gz"), true)
 	return img, func() {}, err
 }
 
 func TestNewCamera(t *testing.T) {
 	attrs1 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 1280, Height: 720}}
 	attrs2 := &camera.AttrConfig{CameraParameters: &transform.PinholeCameraIntrinsics{Width: 100, Height: 100}}
-	imgSrc := &simpleSource{artifact.MustPath("rimage/board1.png")}
+	imgSrc := &simpleSource{"rimage/board1"}
 
 	// no camera
 	_, err := camera.New(nil, nil, nil)
@@ -239,7 +239,7 @@ func TestNewCamera(t *testing.T) {
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
-	imgSrc := &simpleSource{artifact.MustPath("rimage/board1.png")}
+	imgSrc := &simpleSource{"rimage/board1"}
 	params := &vision.Parameters3D{}
 	noProj, err := camera.New(imgSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
@@ -259,4 +259,27 @@ func TestCameraWithNoProjector(t *testing.T) {
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.At(1, 1, 1), test.ShouldNotBeNil)
+}
+
+func TestCameraWithProjector(t *testing.T) {
+	imgSrc := &simpleSource{"rimage/board1"}
+	params := &vision.Parameters3D{1000, 5, 2}
+	attrs1 := &camera.AttrConfig{
+		CameraParameters: &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
+			Width:  1280,
+			Height: 720,
+			Fx:     200,
+			Fy:     200,
+			Ppx:    100,
+			Ppy:    100,
+		},
+	}
+	cam, err := camera.New(imgSrc, attrs1, nil)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err := cam.NextPointCloud(context.Background())
+	test.That(t, pc.Size(), test.ShouldEqual, 921600)
+	test.That(t, err, test.ShouldBeNil)
+	objs, err := cam.NextObjects(context.Background(), params)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, objs, test.ShouldHaveLength, 0)
 }
