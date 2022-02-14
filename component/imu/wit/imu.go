@@ -63,7 +63,7 @@ func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return &i.orientation, i.lastError
 }
 
-func (i *wit) readAcceleration(ctx context.Context) (r3.Vector, error) {
+func (i *wit) readAcceleration(ctx context.Context) (*r3.Vector, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.acceleration, i.lastError
@@ -78,7 +78,7 @@ func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
 // NewWit creates a new Wit IMU.
 func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
-		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
+		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
