@@ -12,42 +12,36 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// AlignImageWithDepth takes an unaligned ImageWithDepth and align it, returning a new ImageWithDepth.
-func (dcie *DepthColorIntrinsicsExtrinsics) AlignImageWithDepth(ii *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
-	if ii.IsAligned() {
-		return rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie), nil
-	}
-	if ii.Color == nil {
+// AlignColorAndDepthImage takes in a RGB image and Depth map and aligns them according to the Aligner,
+// returning a new ImageWithDepth.
+func (dcie *DepthColorIntrinsicsExtrinsics) AlignColorAndDepthImage(c *rimage.Image, d *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+	if c == nil {
 		return nil, errors.New("no color image present to align")
 	}
-	if ii.Depth == nil {
+	if d == nil {
 		return nil, errors.New("no depth image present to align")
 	}
-	newImgWithDepth, err := dcie.TransformDepthCoordToColorCoord(ii)
-	if err != nil {
-		return nil, err
-	}
-	return newImgWithDepth, nil
+	return dcie.TransformDepthCoordToColorCoord(c, d)
 }
 
 // TransformDepthCoordToColorCoord changes the coordinate system of the depth map to be in same coordinate system
 // as the color image.
-func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img *rimage.ImageWithDepth) (*rimage.ImageWithDepth, error) {
-	if img.Color.Height() != dcie.ColorCamera.Height || img.Color.Width() != dcie.ColorCamera.Width {
+func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(
+	col *rimage.Image, dep *rimage.DepthMap) (*rimage.ImageWithDepth, error) {
+	if col.Height() != dcie.ColorCamera.Height || col.Width() != dcie.ColorCamera.Width {
 		return nil,
 			errors.Errorf("camera matrices expected color image of (%#v,%#v), got (%#v, %#v)",
-				dcie.ColorCamera.Width, dcie.ColorCamera.Height, img.Color.Width(), img.Color.Height())
+				dcie.ColorCamera.Width, dcie.ColorCamera.Height, col.Width(), col.Height())
 	}
-	if img.Depth.Height() != dcie.DepthCamera.Height || img.Depth.Width() != dcie.DepthCamera.Width {
+	if dep.Height() != dcie.DepthCamera.Height || dep.Width() != dcie.DepthCamera.Width {
 		return nil,
 			errors.Errorf("camera matrices expected depth image of (%#v,%#v), got (%#v, %#v)",
-				dcie.DepthCamera.Width, dcie.DepthCamera.Height, img.Depth.Width(), img.Depth.Height())
+				dcie.DepthCamera.Width, dcie.DepthCamera.Height, dep.Width(), dep.Height())
 	}
-	inmap := img.Depth
 	outmap := rimage.NewEmptyDepthMap(dcie.ColorCamera.Width, dcie.ColorCamera.Height)
 	for dy := 0; dy < dcie.DepthCamera.Height; dy++ {
 		for dx := 0; dx < dcie.DepthCamera.Width; dx++ {
-			dz := inmap.GetDepth(dx, dy)
+			dz := dep.GetDepth(dx, dy)
 			if dz == 0 {
 				continue
 			}
@@ -69,7 +63,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) TransformDepthCoordToColorCoord(img 
 			}
 		}
 	}
-	return rimage.MakeImageWithDepth(img.Color, outmap, true, dcie), nil
+	return rimage.MakeImageWithDepth(col, outmap, true), nil
 }
 
 // ImagePointTo3DPoint takes in a image coordinate and returns the 3D point from the camera matrix.
@@ -84,18 +78,12 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 	var err error
 	// color and depth images need to already be aligned
 	if ii.IsAligned() {
-		iwd = rimage.MakeImageWithDepth(ii.Color, ii.Depth, true, dcie)
+		iwd = ii
 	} else {
-		iwd, err = dcie.AlignImageWithDepth(ii)
+		iwd, err = dcie.AlignColorAndDepthImage(ii.Color, ii.Depth)
 		if err != nil {
 			return nil, err
 		}
-	}
-	// Check dimensions, they should be aligned to the color frame
-	if iwd.Depth.Width() != iwd.Color.Width() ||
-		iwd.Depth.Height() != iwd.Color.Height() {
-		return nil, errors.Errorf("depth map and color dimensions don't match %d,%d -> %d,%d",
-			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
 	return intrinsics2DTo3D(iwd, &dcie.ColorCamera)
 }
@@ -105,12 +93,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 func (dcie *DepthColorIntrinsicsExtrinsics) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {
-	iwd, err := intrinsics3DTo2D(cloud, &dcie.ColorCamera)
-	if err != nil {
-		return nil, err
-	}
-	iwd.SetProjector(dcie)
-	return iwd, nil
+	return intrinsics3DTo2D(cloud, &dcie.ColorCamera)
 }
 
 // DepthPixelToColorPixel takes a pixel+depth (x,y, depth) from the depth camera and output is the coordinates

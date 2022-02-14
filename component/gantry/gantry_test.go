@@ -29,7 +29,7 @@ func setupInjectRobot() *inject.Robot {
 		case gantry.Named(testGantryName):
 			return gantry1, true
 		case gantry.Named(fakeGantryName):
-			return "not res gantry", false
+			return "not a gantry", true
 		default:
 			return nil, false
 		}
@@ -43,21 +43,23 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := gantry.FromRobot(r, testGantryName)
+	res, err := gantry.FromRobot(r, testGantryName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	lengths1, err := res.GetLengths(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
-	res, ok = gantry.FromRobot(r, fakeGantryName)
+	res, err = gantry.FromRobot(r, fakeGantryName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gantry")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = gantry.FromRobot(r, missingGantryName)
+	res, err = gantry.FromRobot(r, missingGantryName)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -112,7 +114,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 
 	_, err = gantry.WrapWithReconfigurable(nil)
 	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gantry")
 
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)

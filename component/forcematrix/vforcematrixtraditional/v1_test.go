@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -46,7 +47,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return fakeAnalogReader, true
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return fakeBoard, true
 		}
 		fsm, err := newForceMatrix(fakeRobot, validConfig)
@@ -61,7 +62,7 @@ func TestNewForceMatrix(t *testing.T) {
 
 	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return nil, false
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
@@ -74,7 +75,7 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return fakeBoard, true
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
@@ -184,7 +185,7 @@ func TestMatrixAndSlip(t *testing.T) {
 		fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return fakeBoard, true
 		}
 

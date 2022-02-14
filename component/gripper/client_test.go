@@ -47,7 +47,7 @@ func TestClient(t *testing.T) {
 	injectGripper2.GrabFunc = func(ctx context.Context) (bool, error) { return false, errors.New("can't grab") }
 
 	gripperSvc, err := subtype.New(
-		(map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2}))
+		map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper, gripper.Named(failGripperName): injectGripper2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(gripper.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gripperSvc)
@@ -59,7 +59,7 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gripper.NewClient(cancelCtx, testGripperName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = gripper.NewClient(cancelCtx, testGripperName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
@@ -71,7 +71,6 @@ func TestClient(t *testing.T) {
 			testGripperName,
 			listener1.Addr().String(),
 			logger,
-			rpc.WithInsecure(),
 		)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -87,7 +86,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("gripper client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failGripperName, logger)
 		gripper2Client, ok := client.(gripper.Gripper)
@@ -114,7 +113,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGripper := &inject.Gripper{}
 
-	gripperSvc, err := subtype.New((map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper}))
+	gripperSvc, err := subtype.New(map[resource.Name]interface{}{gripper.Named(testGripperName): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGripperServiceServer(gServer, gripper.NewServer(gripperSvc))
 
@@ -123,11 +122,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := gripper.NewClient(ctx, testGripperName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

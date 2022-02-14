@@ -66,15 +66,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named servo from the given Robot.
-func FromRobot(r robot.Robot, name string) (Servo, bool) {
+func FromRobot(r robot.Robot, name string) (Servo, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Servo)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(Servo)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Servo", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
@@ -130,7 +131,7 @@ func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	servo, ok := r.(Servo)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Servo but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil

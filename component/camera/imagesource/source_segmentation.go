@@ -2,6 +2,7 @@ package imagesource
 
 import (
 	"context"
+	"fmt"
 	"image"
 
 	"github.com/edaniels/golog"
@@ -14,6 +15,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
@@ -27,20 +29,29 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return newColorSegmentsSource(r, config)
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			source, err := camera.FromRobot(r, attrs.Source)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera (%s): %w", attrs.Source, err)
+			}
+			return newColorSegmentsSource(source, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "color_segments",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf rimage.AttrConfig
+			var conf camera.AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &rimage.AttrConfig{})
+		}, &camera.AttrConfig{})
 }
 
 // colorSegmentsSource applies a segmentation to the point cloud of an ImageWithDepth.
 type colorSegmentsSource struct {
 	source gostream.ImageSource
 	config segmentation.ObjectConfig
+	proj   rimage.Projector
 }
 
 // Next applies segmentation to the next image and gives each distinct object a unique color.
@@ -54,10 +65,10 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if ii.Depth == nil {
 		return nil, nil, errors.New("colorSegmentsSource Next(): no depth")
 	}
-	if ii.Projector() == nil {
-		return nil, nil, errors.New("colorSegmentsSource Next(): no camera system")
+	if cs.proj == nil {
+		return nil, nil, errors.New("colorSegmentsSource Next(): no projector")
 	}
-	cloud, err := ii.ToPointCloud()
+	cloud, err := cs.proj.ImageWithDepthToPointCloud(ii)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -69,22 +80,14 @@ func (cs *colorSegmentsSource) Next(ctx context.Context) (image.Image, func(), e
 	if err != nil {
 		return nil, nil, err
 	}
-	segmentedIwd, err := ii.Projector().PointCloudToImageWithDepth(colorCloud)
+	segmentedIwd, err := cs.proj.PointCloudToImageWithDepth(colorCloud)
 	if err != nil {
 		return nil, nil, err
 	}
 	return segmentedIwd, func() {}, nil
 }
 
-func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Camera, error) {
-	attrs, ok := config.ConvertedAttributes.(*rimage.AttrConfig)
-	if !ok {
-		return nil, errors.New("cannot retrieve converted attributes")
-	}
-	source, ok := camera.FromRobot(r, attrs.Source)
-	if !ok {
-		return nil, errors.Errorf("cannot find source camera (%s)", attrs.Source)
-	}
+func newColorSegmentsSource(source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
 	planeSize := attrs.PlaneSize
 	if attrs.PlaneSize == 0 {
 		attrs.PlaneSize = 10000
@@ -100,5 +103,6 @@ func newColorSegmentsSource(r robot.Robot, config config.Component) (camera.Came
 	cfg := segmentation.ObjectConfig{
 		MinPtsInPlane: planeSize, MinPtsInSegment: segmentSize, ClusteringRadiusMm: clusterRadius,
 	}
-	return &camera.ImageSource{ImageSource: &colorSegmentsSource{source, cfg}}, nil
+	segSrc := &colorSegmentsSource{source, cfg, attrs.CameraParameters}
+	return camera.New(segSrc, attrs, source)
 }

@@ -9,11 +9,11 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func TestSegmentationSource(t *testing.T) {
@@ -23,18 +23,24 @@ func TestSegmentationSource(t *testing.T) {
 		utils.ResolveFile("robots/configs/intel515_parameters.json"),
 	)
 	test.That(t, err, test.ShouldBeNil)
-	img.SetProjector(cameraMatrices)
 	source := &staticSource{img}
-	cfg := segmentation.ObjectConfig{50000, 500, 10.}
+	cam, err := camera.New(source, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
 
-	cs := &colorSegmentsSource{source, cfg}
+	cfg := &camera.AttrConfig{
+		PlaneSize:        50000,
+		SegmentSize:      500,
+		ClusterRadius:    10.,
+		CameraParameters: &cameraMatrices.ColorCamera,
+	}
+	cs, err := newColorSegmentsSource(cam, cfg)
+	test.That(t, err, test.ShouldBeNil)
 	_, _, err = cs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 }
 
 type segmentationSourceTestHelper struct {
-	attrs  rimage.AttrConfig
-	config segmentation.ObjectConfig
+	attrs *camera.AttrConfig
 }
 
 func (h *segmentationSourceTestHelper) Process(
@@ -47,33 +53,36 @@ func (h *segmentationSourceTestHelper) Process(
 	t.Helper()
 	ii := rimage.ConvertToImageWithDepth(img)
 	// align the images
-	is, err := NewDepthComposed(nil, nil, &h.attrs, logger)
+	var fixed *rimage.ImageWithDepth
+	var err error
+	aligner, err := getAligner(h.attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
-	dc, ok := is.(*depthComposed)
-	test.That(t, ok, test.ShouldBeTrue)
-	fixed, err := dc.alignmentCamera.AlignImageWithDepth(ii)
-	test.That(t, err, test.ShouldBeNil)
+	if !ii.IsAligned() {
+		fixed, err = aligner.AlignColorAndDepthImage(ii.Color, ii.Depth)
+		test.That(t, err, test.ShouldBeNil)
+	} else {
+		fixed = ii
+	}
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "aligned-depth")
 
-	// change to use projection camera
-	fixed.SetProjector(dc.projectionCamera)
-
-	//
 	source := &staticSource{fixed}
-	cs := &colorSegmentsSource{source, h.config}
+	cam, err := camera.New(source, nil, nil)
+	test.That(t, err, test.ShouldBeNil)
+	cs, err := newColorSegmentsSource(cam, h.attrs)
+	test.That(t, err, test.ShouldBeNil)
 	segments, _, err := cs.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	pCtx.GotDebugImage(segments, "segmented-image")
 
 	// make point cloud
-	fixedPointCloud, err := fixed.ToPointCloud()
+	fixedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(fixed)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// segments point cloud
 	iwdSegments := rimage.ConvertToImageWithDepth(segments)
-	segmentedPointCloud, err := iwdSegments.ToPointCloud()
+	segmentedPointCloud, err := h.attrs.CameraParameters.ImageWithDepthToPointCloud(iwdSegments)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(segmentedPointCloud, "segmented-pointcloud")
 
@@ -81,15 +90,18 @@ func (h *segmentationSourceTestHelper) Process(
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*rimage.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/aligned_intel", "*.both.gz", true)
-	cfg := segmentation.ObjectConfig{50000, 500, 10.}
-	err = d.Process(t, &segmentationSourceTestHelper{*c, cfg})
+	c.PlaneSize = 50000
+	c.SegmentSize = 500
+	c.ClusterRadius = 10.
+	err = d.Process(t, &segmentationSourceTestHelper{c})
 	test.That(t, err, test.ShouldBeNil)
 }

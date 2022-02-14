@@ -119,9 +119,9 @@ const (
 
 // NewMotor returns a TMC5072 driven motor.
 func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
-	b, ok := r.BoardByName(c.BoardName)
-	if !ok {
-		return nil, errors.Errorf("can't find Board (%s) requested by Motor", c.BoardName)
+	b, err := board.FromRobot(r, c.BoardName)
+	if err != nil {
+		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
@@ -163,7 +163,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 
 	coolConfig := c.SGThresh << 16
 
-	err := multierr.Combine(
+	err = multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
 		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
 		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)

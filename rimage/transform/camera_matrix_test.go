@@ -69,15 +69,14 @@ func TestCameraMatrixTo3D(t *testing.T) {
 	jsonFilePath := "../../robots/configs/intel515_parameters.json"
 	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	test.That(t, err, test.ShouldBeNil)
-	iwd.SetProjector(cameraMatrices)
 
 	// test To3D
 	testPoint := image.Point{0, 0}
-	vec, err := iwd.To3D(testPoint)
+	vec, err := iwd.To3D(testPoint, cameraMatrices)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, vec.Z, test.ShouldEqual, float64(iwd.Depth.Get(testPoint)))
 	// out of bounds - panic
 	testPoint = image.Point{iwd.Width(), iwd.Height()}
-	_, err = iwd.To3D(testPoint)
+	_, err = iwd.To3D(testPoint, cameraMatrices)
 	test.That(t, err, test.ShouldNotBeNil)
 }

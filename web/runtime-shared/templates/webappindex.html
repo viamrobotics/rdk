@@ -22,6 +22,7 @@
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.bakedAuth = {{ .BakedAuth }} || {};
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
@@ -402,16 +403,16 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceGetFrameRequest();
+                      req = new cameraApi.CameraServiceRenderFrameRequest();
                       req.setName(cameraName);
-                      const mimeType = 'image/png';
+                      const mimeType = 'image/jpeg';
                       req.setMimeType(mimeType)
-                      cameraService.getFrame(req,  {}, (err, resp) => {
+                      cameraService.renderFrame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
                         }
-                        let blob = new Blob([resp.getFrame_asU8()], { type: mimeType });
+                        let blob = new Blob([resp.getData_asU8()], { type: mimeType });
                         window.open(URL.createObjectURL(blob), "_blank");
                       });
                   },
@@ -1110,12 +1111,12 @@
         }
       }
 
-      async function doConnect(creds, onError) {
+      async function doConnect(authEntity, creds, onError) {
         console.debug("connecting");
         document.getElementById("connecting-error").innerHTML = "";
         document.getElementById("connecting").classList.add("connecting");
         try {
-            await window.connect(creds);
+            await window.connect(authEntity, creds);
         } catch (e) {
           const msg = `failed to connect: ${e}`;
           console.error(msg);
@@ -1133,7 +1134,10 @@
 
       async function waitForClientAndStart() {
         if (window.supportedAuthTypes.length == 0) {
-          doConnect(undefined, waitForClientAndStart);
+          doConnect(
+            window.bakedAuth.authEntity,
+            window.bakedAuth.creds,
+            waitForClientAndStart);
           return;
         }
 
@@ -1156,7 +1160,7 @@
           const doLogin = () => {
             disableAll();
             const creds = { type: authType, payload: input.value };
-            doConnect(creds, () => enableAll());
+            doConnect("", creds, "", "", () => enableAll());
           }
           button.addEventListener("click", () => doLogin());
           input.addEventListener("keyup", (event) => {
@@ -1512,7 +1516,7 @@
 
       <!-- ******* CAMERAS *******  -->
       <div class="camera" v-for="streamName in streamNames" :key="streamName">
-        <h3>Camera ${streamName}</h3>
+        <h3>Camera Stream ${streamName}</h3>
         <div :id="'stream-' + streamName">
           <button v-on:click="viewCamera(streamName)">View</button>
         </div>
@@ -1542,17 +1546,17 @@
       <table border="1" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
         <tr>
           <th colspan="3">
-            Cameras
+            Camera frames
           </th>
         </tr>
         <tr>
           <th>Name</th>
-          <th>Frame</th>
-          <th>PCD</th>
+          <th>2D img</th>
+          <th>3D img</th>
         </tr>
         <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
           <td>${camera.name}</td>
-          <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">frame</a></td>
+          <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">GO</a></td>
           <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
         </tr>
       </table>

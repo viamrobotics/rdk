@@ -15,19 +15,13 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 )
 
-const (
-	boardName        = "board1"
-	invalidBoardName = "board2"
-	missingBoardName = "board3"
-)
-
 var errFoo = errors.New("whoops")
 
 func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 	injectBoard := &inject.Board{}
 	boards := map[resource.Name]interface{}{
-		board.Named(boardName):        injectBoard,
-		board.Named(invalidBoardName): "notBoard",
+		board.Named(testBoardName): injectBoard,
+		board.Named(fakeBoardName): "notBoard",
 	}
 	boardSvc, err := subtype.New(boards)
 	if err != nil {
@@ -69,15 +63,15 @@ func TestServerStatus(t *testing.T) {
 		{
 			injectResult: status,
 			injectErr:    nil,
-			req:          &request{Name: invalidBoardName},
+			req:          &request{Name: fakeBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectResult: status,
 			injectErr:    errFoo,
-			req:          &request{Name: boardName},
+			req:          &request{Name: testBoardName},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo,
@@ -85,7 +79,7 @@ func TestServerStatus(t *testing.T) {
 		{
 			injectResult: status,
 			injectErr:    nil,
-			req:          &request{Name: boardName},
+			req:          &request{Name: testBoardName},
 			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{Status: status},
 			expRespErr:   nil,
@@ -131,19 +125,19 @@ func TestServerSetGPIO(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: invalidBoardName},
+			req:        &request{Name: fakeBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectErr:  errFoo,
-			req:        &request{Name: boardName, Pin: "one", High: true},
+			req:        &request{Name: testBoardName, Pin: "one", High: true},
 			expCapArgs: []interface{}{ctx, "one", true},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: boardName, Pin: "one", High: true},
+			req:        &request{Name: testBoardName, Pin: "one", High: true},
 			expCapArgs: []interface{}{ctx, "one", true},
 			expRespErr: nil,
 		},
@@ -193,15 +187,15 @@ func TestServerGetGPIO(t *testing.T) {
 		{
 			injectResult: false,
 			injectErr:    nil,
-			req:          &request{Name: invalidBoardName},
+			req:          &request{Name: fakeBoardName},
 			expCapArgs:   []interface{}(nil),
 			expResp:      nil,
-			expRespErr:   errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectResult: false,
 			injectErr:    errFoo,
-			req:          &request{Name: boardName, Pin: "one"},
+			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx, "one"},
 			expResp:      nil,
 			expRespErr:   errFoo,
@@ -209,7 +203,7 @@ func TestServerGetGPIO(t *testing.T) {
 		{
 			injectResult: true,
 			injectErr:    nil,
-			req:          &request{Name: boardName, Pin: "one"},
+			req:          &request{Name: testBoardName, Pin: "one"},
 			expCapArgs:   []interface{}{ctx, "one"},
 			expResp:      &response{High: true},
 			expRespErr:   nil,
@@ -255,19 +249,19 @@ func TestServerSetPWM(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: invalidBoardName},
+			req:        &request{Name: fakeBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectErr:  errFoo,
-			req:        &request{Name: boardName, Pin: "one", DutyCyclePct: 0.03},
+			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
 			expCapArgs: []interface{}{ctx, "one", 0.03},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: boardName, Pin: "one", DutyCyclePct: 0.03},
+			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
 			expCapArgs: []interface{}{ctx, "one", 0.03},
 			expRespErr: nil,
 		},
@@ -311,19 +305,19 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: invalidBoardName},
+			req:        &request{Name: fakeBoardName},
 			expCapArgs: []interface{}(nil),
-			expRespErr: errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr: errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectErr:  errFoo,
-			req:        &request{Name: boardName, Pin: "one", FrequencyHz: 123123},
+			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
 			expCapArgs: []interface{}{ctx, "one", uint(123123)},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
-			req:        &request{Name: boardName, Pin: "one", FrequencyHz: 123123},
+			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
 			expCapArgs: []interface{}{ctx, "one", uint(123123)},
 			expRespErr: nil,
 		},
@@ -382,18 +376,18 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReaderOk:   false,
 			injectResult:           0,
 			injectErr:              nil,
-			req:                    &request{BoardName: invalidBoardName},
+			req:                    &request{BoardName: fakeBoardName},
 			expCapAnalogReaderArgs: []interface{}(nil),
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
-			expRespErr:             errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr:             errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectAnalogReader:     nil,
 			injectAnalogReaderOk:   false,
 			injectResult:           0,
 			injectErr:              nil,
-			req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}(nil),
 			expResp:                nil,
@@ -404,7 +398,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReaderOk:   true,
 			injectResult:           0,
 			injectErr:              errFoo,
-			req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                nil,
@@ -415,7 +409,7 @@ func TestServerReadAnalogReader(t *testing.T) {
 			injectAnalogReaderOk:   true,
 			injectResult:           8,
 			injectErr:              nil,
-			req:                    &request{BoardName: boardName, AnalogReaderName: "analog1"},
+			req:                    &request{BoardName: testBoardName, AnalogReaderName: "analog1"},
 			expCapAnalogReaderArgs: []interface{}{"analog1"},
 			expCapArgs:             []interface{}{ctx},
 			expResp:                &response{Value: 8},
@@ -484,18 +478,18 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectDigitalInterruptOk:   false,
 			injectResult:               0,
 			injectErr:                  nil,
-			req:                        &request{BoardName: invalidBoardName},
+			req:                        &request{BoardName: fakeBoardName},
 			expCapDigitalInterruptArgs: []interface{}(nil),
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
-			expRespErr:                 errors.Errorf("resource with name (%s) is not a board", invalidBoardName),
+			expRespErr:                 errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
 		},
 		{
 			injectDigitalInterrupt:     nil,
 			injectDigitalInterruptOk:   false,
 			injectResult:               0,
 			injectErr:                  nil,
-			req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}(nil),
 			expResp:                    nil,
@@ -506,7 +500,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectDigitalInterruptOk:   true,
 			injectResult:               0,
 			injectErr:                  errFoo,
-			req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    nil,
@@ -517,7 +511,7 @@ func TestServerGetDigitalInterruptValue(t *testing.T) {
 			injectDigitalInterruptOk:   true,
 			injectResult:               42,
 			injectErr:                  nil,
-			req:                        &request{BoardName: boardName, DigitalInterruptName: "digital1"},
+			req:                        &request{BoardName: testBoardName, DigitalInterruptName: "digital1"},
 			expCapDigitalInterruptArgs: []interface{}{"digital1"},
 			expCapArgs:                 []interface{}{ctx},
 			expResp:                    &response{Value: 42},

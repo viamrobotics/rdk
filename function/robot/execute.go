@@ -35,9 +35,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := gripper.FromRobot(r, gripperName)
-		if !ok {
-			return nil, errors.Errorf("no gripper with that name %s", gripperName)
+		gripper, err := gripper.FromRobot(r, gripperName)
+		if err != nil {
+			return nil, err
 		}
 		return nil, gripper.Open(ctx)
 	}); err != nil {
@@ -51,9 +51,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := gripper.FromRobot(r, gripperName)
-		if !ok {
-			return nil, errors.Errorf("no gripper with that name %s", gripperName)
+		gripper, err := gripper.FromRobot(r, gripperName)
+		if err != nil {
+			return nil, err
 		}
 		grabbed, err := gripper.Grab(ctx)
 		if err != nil {

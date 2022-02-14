@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
@@ -30,9 +31,9 @@ func init() {
 			if motorConfig.BoardName == "" {
 				return nil, errors.New("expected board name in config for motor")
 			}
-			b, ok := r.BoardByName(motorConfig.BoardName)
-			if !ok {
-				return nil, fmt.Errorf("expected to find board %q", motorConfig.BoardName)
+			b, err := board.FromRobot(r, motorConfig.BoardName)
+			if err != nil {
+				return nil, err
 			}
 			// Note(erd): this would not be needed if encoders were a component
 			actualBoard, ok := utils.UnwrapProxy(b).(*arduinoBoard)
