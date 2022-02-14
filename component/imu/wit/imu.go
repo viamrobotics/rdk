@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
@@ -37,14 +38,10 @@ func init() {
 	})
 }
 
-type acceleration struct {
-	X, Y, Z float64
-}
-
 type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
-	acceleration    acceleration
+	acceleration    r3.Vector
 	lastError       error
 
 	mu sync.Mutex
