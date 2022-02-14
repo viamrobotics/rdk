@@ -238,6 +238,15 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
 }
 
+type cloudSource struct {
+	*simpleSource
+}
+
+func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	p := pointcloud.New()
+	return p, p.Set(pointcloud.NewBasicPoint(0, 0, 0))
+}
+
 func TestCameraWithNoProjector(t *testing.T) {
 	imgSrc := &simpleSource{"rimage/board1"}
 	params := &vision.Parameters3D{}
@@ -249,16 +258,15 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector/Camera Intrinsics associated with it")
 
 	// make a camera with a NextPointCloudFunction
-	injectNoProj := &inject.Camera{Camera: noProj}
-	injectNoProj.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewBasicPoint(1, 1, 1))
-	}
-	noProj2, err := camera.New(injectNoProj, nil, nil)
+	imgSrc2 := &cloudSource{imgSrc}
+	noProj2, err := camera.New(imgSrc2, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.At(1, 1, 1), test.ShouldNotBeNil)
+	test.That(t, pc.At(0, 0, 0), test.ShouldNotBeNil)
+	objs, err := noProj2.NextObjects(context.Background(), params)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, objs, test.ShouldHaveLength, 1)
 }
 
 func TestCameraWithProjector(t *testing.T) {
@@ -280,6 +288,17 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, pc.Size(), test.ShouldEqual, 921600)
 	test.That(t, err, test.ShouldBeNil)
 	objs, err := cam.NextObjects(context.Background(), params)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, objs, test.ShouldHaveLength, 0)
+
+	// camera with a point cloud function
+	imgSrc2 := &cloudSource{imgSrc}
+	cam2, err := camera.New(imgSrc2, nil, cam)
+	test.That(t, err, test.ShouldBeNil)
+	pc, err = cam2.NextPointCloud(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pc.At(0, 0, 0), test.ShouldNotBeNil)
+	objs, err = cam2.NextObjects(context.Background(), params)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objs, test.ShouldHaveLength, 0)
 }
