@@ -14,7 +14,11 @@
       #pre-app.connected { display: none; }
       #connecting { display: none; }
       #connecting.connecting { display: block; }
-      #connecting-error { color: red };
+     #connecting-error { color: red };
+     h3 {
+       margin: 0.1em;
+       margin-block-end: 0.1em;
+     }
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -123,10 +127,20 @@
           }
           return n;
       }
+     
+     function fixServos(old) {
+       var n = {};
+       for (var i=0; i<old.length; i++) {
+         var name = old[i][0];
+         var angle = old[i][1].angle;
+         n[name] = angle;
+       }
+       return n;
+     }
+     
+     firstResult = false;
 
-      firstResult = false;
-
-      async function updateStatus(rawStatus) {
+     async function updateStatus(rawStatus) {
           theData.rawStatus = rawStatus;
           window.rawStatus = rawStatus;
           // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
@@ -150,9 +164,10 @@
           status.armsMap = fixArms(status.armsMap);
           status.boardsMap = fixBoards(status.boardsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
+          status.servosMap = fixServos(status.servosMap);
 
-          if (!firstResult) {
-            console.log(rawStatusObj);
+        if (!firstResult) {
+          console.log(rawStatusObj);
             console.log(status);
             firstResult = true;
           }
@@ -1472,10 +1487,10 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo.name }</h3>
+      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: .5em;">
         <table border="1">
-          <tr><th>Angle</th><td>${servo.angle}</td></tr>
+          <tr><th>Servo</th><td>${servo.name}</td></tr>
+          <tr><td>Angle</td><td>${status.servosMap[servo.name]}</td></tr>
           <tr>
             <td></td>
             <td>
@@ -1662,6 +1677,7 @@
         <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
         <div id="map" v-map-mounted></div>
       </div>
+      ${status}
     </div> <!-- end vue app -->
 
     <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
