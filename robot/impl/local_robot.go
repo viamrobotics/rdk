@@ -70,7 +70,6 @@ import (
 	// register navigation.
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/objectmanipulation"
-
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
