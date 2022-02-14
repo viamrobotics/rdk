@@ -3,8 +3,9 @@ package vision
 import (
 	"testing"
 
-	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/pointcloud"
 )
 
 func TestObjectCreation(t *testing.T) {
