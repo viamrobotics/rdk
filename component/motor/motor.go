@@ -183,9 +183,21 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	return &reconfigurableMotor{actual: servo}, nil
 }
 
+// PinConfig defines the mapping of where motor are wired.
+type PinConfig struct {
+	A             string `json:"a"`
+	B             string `json:"b"`
+	Dir           string `json:"dir"`
+	PWM           string `json:"pwm"`
+	EnablePinHigh string `json:"enHigh"`
+	EnablePinLow  string `json:"enLow"`
+	En            string `json:"en"` // deprecated
+	Step          string `json:"step"`
+}
+
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             map[string]string     `json:"pins"`
+	Pins             PinConfig             `json:"pins"`
 	BoardName        string                `json:"board"`    // used to get encoders
 	Encoder          string                `json:"encoder"`  // name of the digital interrupt that is the encoder
 	EncoderB         string                `json:"encoderB"` // name of the digital interrupt that is hall encoder b
