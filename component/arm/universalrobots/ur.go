@@ -132,7 +132,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", host, err)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())
