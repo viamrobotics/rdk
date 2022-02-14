@@ -10,14 +10,15 @@ import (
 
 // Dial dials a gRPC server.
 func Dial(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (rpc.ClientConn, error) {
-	optsCopy := make([]rpc.DialOption, len(opts)+1)
+	optsCopy := make([]rpc.DialOption, len(opts)+2)
 	optsCopy[0] = rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
 		Config: &DefaultWebRTCConfiguration,
 	})
-	copy(optsCopy[1:], opts)
+	optsCopy[1] = rpc.WithAllowInsecureDowngrade()
+	copy(optsCopy[2:], opts)
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 20*time.Second)
 	defer timeoutCancel()
 
-	return rpc.Dial(ctx, address, logger, opts...)
+	return rpc.Dial(ctx, address, logger, optsCopy...)
 }

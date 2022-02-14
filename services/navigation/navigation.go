@@ -107,13 +107,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, ok := base.FromRobot(r, svcConfig.BaseName)
-	if !ok {
-		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
+	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	if err != nil {
+		return nil, err
 	}
-	gpsDevice, ok := gps.FromRobot(r, svcConfig.GPSName)
-	if !ok {
-		return nil, errors.Errorf("%q not found or not a gps", svcConfig.GPSName)
+	gpsDevice, err := gps.FromRobot(r, svcConfig.GPSName)
+	if err != nil {
+		return nil, err
 	}
 
 	var store navStore

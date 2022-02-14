@@ -14,7 +14,6 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 // DistortionModel TODO.
@@ -82,15 +81,6 @@ func NewEmptyDepthColorIntrinsicsExtrinsics() *DepthColorIntrinsicsExtrinsics {
 		DepthCamera:  PinholeCameraIntrinsics{0, 0, 0, 0, 0, 0, DistortionModel{0, 0, 0, 0, 0}},
 		ExtrinsicD2C: Extrinsics{[]float64{1, 0, 0, 0, 1, 0, 0, 0, 1}, []float64{0, 0, 0}},
 	}
-}
-
-// NewDepthColorIntrinsicsExtrinsics TODO.
-func NewDepthColorIntrinsicsExtrinsics(attrs rimage.AttrConfig) (*DepthColorIntrinsicsExtrinsics, error) {
-	matrices, ok := attrs.IntrinsicExtrinsic.(*DepthColorIntrinsicsExtrinsics)
-	if !ok {
-		return nil, rdkutils.NewUnexpectedTypeError(matrices, attrs.IntrinsicExtrinsic)
-	}
-	return matrices, nil
 }
 
 // NewDepthColorIntrinsicsExtrinsicsFromBytes TODO.
@@ -186,10 +176,6 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
-	// color and depth images need to already be aligned
-	if !ii.IsAligned() {
-		return nil, errors.New("color and depth channels are not aligned. Cannot project to pointcloud")
-	}
 	return intrinsics2DTo3D(ii, params)
 }
 
@@ -245,13 +231,21 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 		}
 		return true
 	})
-	return rimage.MakeImageWithDepth(color, depth, true, pci), nil
+	return rimage.MakeImageWithDepth(color, depth, true), nil
 }
 
 // intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.
 func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics) (pointcloud.PointCloud, error) {
+	if iwd.Depth == nil {
+		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	}
 	if !iwd.IsAligned() {
-		return nil, errors.New("image with depth is not aligned. Cannot project to Pointcloud")
+		return nil, errors.New("color and depth are not aligned. Cannot project to Pointcloud")
+	}
+	// Check dimensions, they should be equal between the color and depth frame
+	if iwd.Depth.Width() != iwd.Color.Width() || iwd.Depth.Height() != iwd.Color.Height() {
+		return nil, errors.Errorf("depth map and color dimensions don't match Depth(%d,%d) != Color(%d,%d)",
+			iwd.Depth.Width(), iwd.Depth.Height(), iwd.Color.Width(), iwd.Color.Height())
 	}
 	pc := pointcloud.New()
 	for y := 0; y < pci.Height; y++ {

@@ -41,19 +41,26 @@ func init() {
 }
 
 type serialNMEAGPS struct {
-	mu             sync.RWMutex
-	dev            io.ReadWriteCloser
-	logger         golog.Logger
-	ntripURL       string
-	ntripUsername  string
-	ntripPassword  string
-	ntripWritepath string
-	ntripWbaud     int
-	data           gpsData
+	mu     sync.RWMutex
+	dev    io.ReadWriteCloser
+	logger golog.Logger
 
+	data                    gpsData
+	ntripClient             ntripInfo
 	cancelCtx               context.Context
 	cancelFunc              func()
 	activeBackgroundWorkers sync.WaitGroup
+}
+
+type ntripInfo struct {
+	url       string
+	username  string
+	password  string
+	writepath string
+	wbaud     int
+	sendNMEA  bool
+	nmeaR     *io.PipeReader
+	nmeaW     *io.PipeWriter
 }
 
 const (
@@ -63,6 +70,7 @@ const (
 	ntripPassAttrName = "ntripPassword"
 	ntripPathAttrName = "ntripPath"
 	ntripBaudAttrName = "ntripBaud"
+	ntripSendNmeaName = "ntripSendNMEA"
 )
 
 func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
@@ -78,18 +86,34 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 	cancelCtx, cancelFunc := context.WithCancel(ctx)
 
 	g := &serialNMEAGPS{dev: dev, cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
-	g.ntripURL = config.Attributes.String(ntripAddrAttrName)
-	if g.ntripURL != "" {
-		g.ntripUsername = config.Attributes.String(ntripUserAttrName)
-		g.ntripPassword = config.Attributes.String(ntripPassAttrName)
-		g.ntripWritepath = config.Attributes.String(ntripPathAttrName)
-		g.ntripWbaud = config.Attributes.Int(ntripBaudAttrName, g.ntripWbaud)
-		if g.ntripWritepath == "" {
-			g.ntripWritepath = serialPath
+
+	g.ntripClient.url = config.Attributes.String(ntripAddrAttrName)
+	if g.ntripClient.url != "" {
+		g.ntripClient.username = config.Attributes.String(ntripUserAttrName)
+		if g.ntripClient.username == "" {
+			g.logger.Info("ntripUsername set to empty")
 		}
-		g.Start()
+		g.ntripClient.password = config.Attributes.String(ntripPassAttrName)
+		if g.ntripClient.password == "" {
+			g.logger.Info("ntripPassword set to empty")
+		}
+		g.ntripClient.writepath = config.Attributes.String(ntripPathAttrName)
+		if g.ntripClient.writepath == "" {
+			g.logger.Info("ntripPath will use same path for writing RCTM messages to gps")
+			g.ntripClient.writepath = serialPath
+		}
+		g.ntripClient.wbaud = config.Attributes.Int(ntripBaudAttrName, 38400)
+		if g.ntripClient.wbaud == 38400 {
+			g.logger.Info("ntripBaud using default baud rate 38400")
+		}
+		g.ntripClient.sendNMEA = config.Attributes.Bool(ntripSendNmeaName, false)
+		if !g.ntripClient.sendNMEA {
+			g.logger.Info("ntripSendNMEA set to false")
+		}
 		g.startNtripClientRequest()
+		g.Start()
 	} else {
+		g.ntripClient.sendNMEA = false
 		g.Start()
 	}
 
@@ -99,11 +123,12 @@ func newSerialNMEAGPS(ctx context.Context, config config.Component, logger golog
 func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 	// setup the ntrip client and write the RTCM data stream to the gps
 	// talk to the gps network, looking for mount points
-	req, err := ntrip.NewClientRequest(g.ntripURL)
+	g.ntripClient.nmeaR, g.ntripClient.nmeaW = io.Pipe()
+	req, err := ntrip.NewClientRequest(g.ntripClient.url)
 	if err != nil {
 		return err
 	}
-	req.SetBasicAuth(g.ntripUsername, g.ntripPassword)
+	req.SetBasicAuth(g.ntripClient.username, g.ntripClient.password)
 	req = req.WithContext(g.cancelCtx)
 
 	resp, err := http.DefaultClient.Do(req)
@@ -117,26 +142,42 @@ func (g *serialNMEAGPS) fetchNtripAndUpdate() error {
 		return errors.New("received non-200 response code: " + strconv.Itoa(resp.StatusCode))
 	}
 
+	reqPost, err := ntrip.NewServerRequest(g.ntripClient.url, g.ntripClient.nmeaR)
+	if err != nil {
+		return multierr.Combine(err, resp.Body.Close())
+	}
+	reqPost = reqPost.WithContext(g.cancelCtx)
+
+	respPost, err := http.DefaultClient.Do(reqPost)
+	if err != nil {
+		err = utils.FilterOutError(err, context.Canceled)
+		if err == nil {
+			g.logger.Debug("error send ntrip request: context cancelled")
+		}
+		return multierr.Combine(err, resp.Body.Close())
+	} else if respPost.StatusCode != http.StatusOK {
+		return multierr.Combine(err, errors.New("received non-200 response code: "+strconv.Itoa(respPost.StatusCode)), resp.Body.Close())
+	}
+
 	// setup port to write to
 	options := slib.OpenOptions{
-		BaudRate:        uint(g.ntripWbaud),
+		BaudRate:        uint(g.ntripClient.wbaud),
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
 	}
-	options.PortName = g.ntripWritepath
+	options.PortName = g.ntripClient.writepath
 	port, err := slib.Open(options)
 	if err != nil {
-		return multierr.Combine(err, resp.Body.Close())
+		return multierr.Combine(err, resp.Body.Close(), respPost.Body.Close())
 	}
 	w := bufio.NewWriter(port)
 
 	// Read from resp.Body until EOF
 	r := io.TeeReader(resp.Body, w)
 	_, err = io.ReadAll(r)
-
 	if err != nil {
-		return multierr.Combine(err, resp.Body.Close())
+		return multierr.Combine(err, resp.Body.Close(), respPost.Body.Close())
 	}
 
 	return nil
@@ -154,6 +195,7 @@ func (g *serialNMEAGPS) startNtripClientRequest() {
 				return
 			default:
 			}
+
 			err := g.fetchNtripAndUpdate()
 			if err != nil {
 				g.logger.Errorf("Error with ntrip client %s", err)
@@ -170,6 +212,10 @@ func (g *serialNMEAGPS) Start() {
 		for {
 			select {
 			case <-g.cancelCtx.Done():
+				err := g.ntripClient.nmeaW.Close()
+				if err != nil {
+					g.logger.Debugf("can't close ntrip writer %s", err)
+				}
 				return
 			default:
 			}
@@ -180,7 +226,7 @@ func (g *serialNMEAGPS) Start() {
 			}
 			// Update our struct's gps data in-place
 			g.mu.Lock()
-			err = parseAndUpdate(line, &g.data)
+			err = g.data.parseAndUpdate(line, g.ntripClient)
 			g.mu.Unlock()
 			if err != nil {
 				g.logger.Debugf("can't parse nmea %s : %s", line, err)

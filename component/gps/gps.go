@@ -76,15 +76,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named GPS from the given Robot.
-func FromRobot(r robot.Robot, name string) (GPS, bool) {
+func FromRobot(r robot.Robot, name string) (GPS, error) {
 	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(GPS)
-		if ok {
-			return part, true
-		}
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Named(name))
 	}
-	return nil, false
+	part, ok := res.(GPS)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("GPS", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all GPS names from the given Robot.
@@ -170,7 +171,7 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	gps, ok := r.(LocalGPS)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be GPS but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGPS", r)
 	}
 	if reconfigurable, ok := gps.(*reconfigurableGPS); ok {
 		return reconfigurable, nil

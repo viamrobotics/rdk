@@ -87,7 +87,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no input controller named %q", cfg.InputControllerName))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller\" not found"))
 
 	// Base import failure
 	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
@@ -104,7 +104,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no base named %q", cfg.BaseName))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base\" not found"))
 
 	// Start checks
 	err = svc.start(ctx)
