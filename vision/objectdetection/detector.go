@@ -6,6 +6,7 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision"
 )
@@ -40,6 +41,10 @@ func ToObjects(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Project
 	if proj == nil {
 		return nil, errors.New("objectdetection: cannot have nil Projector when projecting objects to 3D")
 	}
+	filter, err := pointcloud.StatisticalOutlierFilter(50, 1.75)
+	if err != nil {
+		return nil, err
+	}
 	objects := make([]*vision.Object, len(dets))
 	for i, d := range dets {
 		bb := d.BoundingBox()
@@ -47,7 +52,11 @@ func ToObjects(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Project
 		if err != nil {
 			return nil, err
 		}
-		objects[i] = vision.NewObject(pc)
+		filtered, err := filter(pc)
+		if err != nil {
+			return nil, err
+		}
+		objects[i] = vision.NewObject(filtered)
 	}
 	return objects, nil
 }
