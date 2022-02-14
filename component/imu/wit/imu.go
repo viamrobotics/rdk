@@ -152,7 +152,7 @@ func (i *wit) parseWIT(line string) error {
 
 	if line[0] == 0x51 {
 		if len(line) < 7 {
-			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
+			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
 		i.acceleration.X = scale(line[1], line[2], 16)
 		i.acceleration.Y = scale(line[3], line[4], 16)
