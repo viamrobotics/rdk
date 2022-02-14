@@ -50,7 +50,7 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
 }
 
-// NextObjects always returns the single pixel as the only object in the scene
+// NextObjects always returns the single pixel as the only object in the scene.
 func (c *Camera) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
 	pc := pointcloud.New()
 	err := pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))

@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// ToObjects projects the detections to 3D using the camera's Projector
+// ToObjects projects the detections to 3D using the camera's Projector.
 func ToObjects(dets []Detection, img *rimage.ImageWithDepth, proj rimage.Projector) ([]*vision.Object, error) {
 	if proj == nil {
 		return nil, errors.New("objectdetection: cannot have nil Projector when projecting objects to 3D")
