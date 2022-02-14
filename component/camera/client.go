@@ -14,9 +14,11 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 // serviceClient is a client satisfies the camera.proto contract.
@@ -116,6 +118,50 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	}
 
 	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
+}
+
+func (c *client) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+	resp, err := c.client.GetObjectPointClouds(ctx, &pb.CameraServiceGetObjectPointCloudsRequest{
+		Name:               c.name,
+		MimeType:           utils.MimeTypePCD,
+		MinPointsInPlane:   int64(params.MinPtsInPlane),
+		MinPointsInSegment: int64(params.MinPtsInSegment),
+		ClusteringRadiusMm: params.ClusteringRadiusMm,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.MimeType != utils.MimeTypePCD {
+		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
+	}
+
+	return protoToObjects(resp.Objects)
+}
+
+func protoToObjects(pco []*pb.PointCloudObject) ([]*vision.Object, error) {
+	objects := make([]*vision.Object, len(pco))
+	for i, o := range pco {
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.Frame))
+		if err != nil {
+			return nil, err
+		}
+		object := &vision.Object{
+			PointCloud:  pc,
+			Center:      protoToPoint(o.CenterCoordinatesMm),
+			BoundingBox: protoToBox(o.BoundingBoxMm),
+		}
+		objects[i] = object
+	}
+	return objects, nil
+}
+
+func protoToPoint(p *commonpb.Vector3) pointcloud.Vec3 {
+	return pointcloud.Vec3{p.X, p.Y, p.Z}
+}
+
+func protoToBox(b *commonpb.BoxGeometry) pointcloud.BoxGeometry {
+	return pointcloud.BoxGeometry{b.WidthMm, b.LengthMm, b.DepthMm}
 }
 
 // Close cleanly closes the underlying connections.

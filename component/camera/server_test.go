@@ -17,6 +17,8 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 func newServer() (pb.CameraServiceServer, *inject.Camera, *inject.Camera, error) {
@@ -55,12 +57,22 @@ func TestServer(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
+	injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, *params)
+		if err != nil {
+			return nil, err
+		}
+		return seg.Objects(), nil
+	}
 
 	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.New("can't generate next frame")
 	}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
+	}
+	injectCamera2.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+		return nil, errors.New("can't generate next objects")
 	}
 	t.Run("GetFrame", func(t *testing.T) {
 		_, err := cameraServer.GetFrame(context.Background(), &pb.CameraServiceGetFrameRequest{Name: missingCameraName})
@@ -185,6 +197,13 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pcA, nil
 		}
+		injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, *params)
+			if err != nil {
+				return nil, err
+			}
+			return seg.Objects(), nil
+		}
 		segs, err := cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{
 			Name:               testCameraName,
 			MinPointsInPlane:   100,
@@ -208,6 +227,13 @@ func TestServer(t *testing.T) {
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 			return pcB, nil
 		}
+		injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
+			seg, err := segmentation.NewObjectSegmentation(ctx, pcB, *params)
+			if err != nil {
+				return nil, err
+			}
+			return seg.Objects(), nil
+		}
 		segs, err = cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{
 			Name:               testCameraName,
 			MinPointsInPlane:   100,
@@ -224,6 +250,6 @@ func TestServer(t *testing.T) {
 			ClusteringRadiusMm: 5.,
 		})
 		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
+		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next objects")
 	})
 }

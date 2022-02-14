@@ -6,11 +6,12 @@ import (
 	"go.viam.com/test"
 
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/vision"
 )
 
 func createPointClouds(t *testing.T) *Segments {
 	t.Helper()
-	clusters := make([]*PointCloudWithMeta, 0)
+	clusters := make([]*vision.Object, 0)
 	cloudMap := make(map[pc.Vec3]int)
 	clouds := make([]pc.PointCloud, 0)
 	means := make([]pc.Vec3, 0)
@@ -35,7 +36,7 @@ func createPointClouds(t *testing.T) *Segments {
 	boxes = append(boxes, pc.RectangularPrism{0, 1, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[0]), test.ShouldResemble, means[0])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[0]), test.ShouldResemble, boxes[0])
-	clusters = append(clusters, NewPointCloudWithMeta(clouds[0]))
+	clusters = append(clusters, vision.NewObject(clouds[0]))
 	// create a 2nd cloud far away
 	p10 := pc.NewBasicPoint(30, 0, 0)
 	cloudMap[p10.Position()] = 1
@@ -53,7 +54,7 @@ func createPointClouds(t *testing.T) *Segments {
 	boxes = append(boxes, pc.RectangularPrism{0, 1, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[1]), test.ShouldResemble, means[1])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[1]), test.ShouldResemble, boxes[1])
-	clusters = append(clusters, NewPointCloudWithMeta(clouds[1]))
+	clusters = append(clusters, vision.NewObject(clouds[1]))
 	// create 3rd cloud
 	p20 := pc.NewBasicPoint(0, 30, 0)
 	cloudMap[p20.Position()] = 2
@@ -74,7 +75,7 @@ func createPointClouds(t *testing.T) *Segments {
 	boxes = append(boxes, pc.RectangularPrism{1, 0, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[2]), test.ShouldResemble, means[2])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[2]), test.ShouldResemble, boxes[2])
-	clusters = append(clusters, NewPointCloudWithMeta(clouds[2]))
+	clusters = append(clusters, vision.NewObject(clouds[2]))
 	return &Segments{clusters, cloudMap}
 }
 
