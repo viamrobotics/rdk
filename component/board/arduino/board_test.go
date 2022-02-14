@@ -31,11 +31,11 @@ func TestArduinoPWM(t *testing.T) {
 						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
-							Pins: map[string]string{
-								"pwm": "5",
-								"a":   "6",
-								"b":   "7",
-								"en":  "8",
+							Pins: motor.PinConfig{
+								PWM: "5",
+								A:   "6",
+								B:   "7",
+								En:  "8",
 							},
 							Encoder:          "3",
 							EncoderB:         "2",
@@ -55,10 +55,10 @@ func TestArduinoPWM(t *testing.T) {
 						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
-							Pins: map[string]string{
-								"a":  "6",
-								"b":  "7",
-								"en": "8",
+							Pins: motor.PinConfig{
+								A:  "6",
+								B:  "7",
+								En: "8",
 							},
 							Encoder:          "3",
 							EncoderB:         "2",
@@ -78,9 +78,9 @@ func TestArduinoPWM(t *testing.T) {
 						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
-							Pins: map[string]string{
-								"pwm": "5",
-								"dir": "10",
+							Pins: motor.PinConfig{
+								PWM: "5",
+								Dir: "10",
 							},
 							Encoder:          "3",
 							EncoderB:         "2",
@@ -100,11 +100,11 @@ func TestArduinoPWM(t *testing.T) {
 						Model: "arduino",
 						Type:  config.ComponentTypeMotor,
 						ConvertedAttributes: &motor.Config{
-							Pins: map[string]string{
-								"pwm": "35",
-								"a":   "6",
-								"b":   "7",
-								"en":  "8",
+							Pins: motor.PinConfig{
+								PWM: "35",
+								A:   "6",
+								B:   "7",
+								En:  "8",
 							},
 							Encoder:          "3",
 							EncoderB:         "2",
@@ -171,11 +171,11 @@ func TestArduinoMotorABPWM(t *testing.T) {
 				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
-					Pins: map[string]string{
-						"pwm": "11",
-						"a":   "37",
-						"b":   "39",
-						"en":  "-1",
+					Pins: motor.PinConfig{
+						PWM: "11",
+						A:   "37",
+						B:   "39",
+						En:  "-1",
 					},
 					Encoder:          "20",
 					EncoderB:         "21",
@@ -211,10 +211,10 @@ func TestArduinoMotorDirPWM(t *testing.T) {
 				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
-					Pins: map[string]string{
-						"pwm": "5",
-						"dir": "6",
-						"en":  "7",
+					Pins: motor.PinConfig{
+						PWM: "5",
+						Dir: "6",
+						En:  "7",
 					},
 					Encoder:          "3",
 					EncoderB:         "2",
@@ -250,10 +250,10 @@ func TestArduinoMotorAB(t *testing.T) {
 				Model: "arduino",
 				Type:  config.ComponentTypeMotor,
 				ConvertedAttributes: &motor.Config{
-					Pins: map[string]string{
-						"a":  "5",
-						"b":  "6",
-						"en": "7",
+					Pins: motor.PinConfig{
+						A:  "5",
+						B:  "6",
+						En: "7",
 					},
 					Encoder:          "3",
 					EncoderB:         "2",
