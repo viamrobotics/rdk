@@ -47,20 +47,33 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
+	offset := NewPoseFromOrientation(config.TranslationOffset.ParseConfig(), orientation)
+
+	pt := offset.Point()
+	_ = pt
+	orientation = offset.Orientation()
+	_ = orientation
 
 	// build VolumeCreator depending on specified type
 	switch config.Type {
 	case "box":
-		return NewBox(r3.Vector{config.X, config.Y, config.Z}, offset)
+		return NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 	case "sphere":
 		return NewSphere(config.R, offset)
 	case "":
 		// no type specified, iterate through supported types and try to infer intent
-		creator, err := NewBox(r3.Vector{config.X, config.Y, config.Z}, offset)
+		creator, err := NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 		if err == nil {
 			return creator, nil
 		}
+		creator, err = NewSphere(config.R, offset)
+		if err == nil {
+			return creator, nil
+		}
+		// creator, err = NewPoint(offset)
+		// if err == nil {
+		// 	return creator, nil
+		// }
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }

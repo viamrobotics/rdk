@@ -39,11 +39,17 @@ func (bc *boxCreator) NewVolume(pose Pose) Volume {
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
+	orientationConfig, err := NewOrientationConfig(bc.offset.Orientation().AxisAngles())
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(VolumeConfig{
-		Type: "box",
-		X:    2 * bc.halfSize.X,
-		Y:    2 * bc.halfSize.Y,
-		Z:    2 * bc.halfSize.Z,
+		Type:              "box",
+		X:                 2 * bc.halfSize.X,
+		Y:                 2 * bc.halfSize.Y,
+		Z:                 2 * bc.halfSize.Z,
+		TranslationOffset: *NewTranslationConfig(bc.offset.Point()),
+		OrientationOffset: *orientationConfig,
 	})
 }
 

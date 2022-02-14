@@ -30,13 +30,13 @@ type Pose interface {
 
 // PoseMap encodes the orientation interface to something serializable and human readable.
 func PoseMap(p Pose) (map[string]interface{}, error) {
-	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	oc, err := NewOrientationConfig(p.Orientation().AxisAngles())
 	if err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{
 		"point":       p.Point(),
-		"orientation": orientation,
+		"orientation": oc,
 	}, nil
 }
 
