@@ -143,6 +143,43 @@ func TestRadiusNearestNeighor(t *testing.T) {
 	test.That(t, nns, test.ShouldHaveLength, 0)
 }
 
+func TestNewEmptyKDtree(t *testing.T) {
+	pt0 := NewBasicPoint(0, 0, 0)
+	pt1 := NewBasicPoint(0, 0, 1)
+	// empty tree
+	pc := New()
+	kdt := NewKDTree(pc)
+	p, d := kdt.NearestNeighbor(pt0)
+	test.That(t, p, test.ShouldEqual, nil)
+	test.That(t, d, test.ShouldEqual, 0.)
+	ps := kdt.KNearestNeighbors(pt0, 5, false)
+	test.That(t, ps, test.ShouldResemble, []Point{})
+	ps = kdt.RadiusNearestNeighbors(pt0, 3.2, false)
+	test.That(t, ps, test.ShouldResemble, []Point{})
+	// add one point
+	err := kdt.Set(pt1)
+	test.That(t, err, test.ShouldBeNil)
+	p, d = kdt.NearestNeighbor(pt0)
+	test.That(t, p, test.ShouldEqual, kdt.At(0, 0, 1))
+	test.That(t, d, test.ShouldEqual, 1.)
+	ps = kdt.KNearestNeighbors(pt0, 5, false)
+	test.That(t, ps, test.ShouldHaveLength, 1)
+	test.That(t, ps[0], test.ShouldResemble, kdt.At(0, 0, 1))
+	ps = kdt.RadiusNearestNeighbors(pt0, 3.2, false)
+	test.That(t, ps, test.ShouldHaveLength, 1)
+	test.That(t, ps[0], test.ShouldResemble, kdt.At(0, 0, 1))
+
+	// remove the point
+	kdt.Unset(0, 0, 1)
+	p, d = kdt.NearestNeighbor(pt0)
+	test.That(t, p, test.ShouldEqual, nil)
+	test.That(t, d, test.ShouldEqual, 0.)
+	ps = kdt.KNearestNeighbors(pt0, 5, false)
+	test.That(t, ps, test.ShouldResemble, []Point{})
+	ps = kdt.RadiusNearestNeighbors(pt0, 3.2, false)
+	test.That(t, ps, test.ShouldResemble, []Point{})
+}
+
 func TestStatisticalOutlierFilter(t *testing.T) {
 	_, err := StatisticalOutlierFilter(-1, 2.0)
 	test.That(t, err, test.ShouldBeError, errors.New("argument meanK must be a positive int, got -1"))
