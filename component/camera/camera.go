@@ -62,7 +62,7 @@ type ThreeDimImageSource interface {
 	NextPointCloud(context.Context) (pointcloud.PointCloud, error)
 }
 
-// An ThreeDimObjectSource is anything that generates 3D objects in a scene.
+// A ThreeDimObjectSource is anything that generates 3D objects in a scene.
 type ThreeDimObjectSource interface {
 	NextObjects(context.Context, *vision.Parameters3D) ([]*vision.Object, error)
 }
