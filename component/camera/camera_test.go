@@ -263,7 +263,7 @@ func TestCameraWithNoProjector(t *testing.T) {
 
 func TestCameraWithProjector(t *testing.T) {
 	imgSrc := &simpleSource{"rimage/board1"}
-	params := &vision.Parameters3D{1000, 5, 2}
+	params := &vision.Parameters3D{1000, 500000, 2}
 	attrs1 := &camera.AttrConfig{
 		CameraParameters: &transform.PinholeCameraIntrinsics{ // not the real camera parameters -- fake for test
 			Width:  1280,
