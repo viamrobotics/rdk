@@ -39,9 +39,15 @@ func (sc *sphereCreator) NewVolume(pose Pose) Volume {
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
+	orientationConfig, err := NewOrientationConfig(sc.offset.Orientation().AxisAngles())
+	if err != nil {
+		return nil, err
+	}
 	return json.Marshal(VolumeConfig{
-		Type: "sphere",
-		R:    sc.radius,
+		Type:              "sphere",
+		R:                 sc.radius,
+		TranslationOffset: *NewTranslationConfig(sc.offset.Point()),
+		OrientationOffset: *orientationConfig,
 	})
 }
 
