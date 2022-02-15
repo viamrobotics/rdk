@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	slib "github.com/jacobsa/go-serial/serial"
 	"go.viam.com/utils"
 
@@ -40,6 +41,7 @@ func init() {
 type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
+	acceleration    r3.Vector
 	lastError       error
 
 	mu sync.Mutex
@@ -60,16 +62,22 @@ func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return &i.orientation, i.lastError
 }
 
+func (i *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.acceleration, i.lastError
+}
+
 func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
+	return []interface{}{i.angularVelocity, i.orientation, i.acceleration}, i.lastError
 }
 
 // NewWit creates a new Wit IMU.
 func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	options := slib.OpenOptions{
-		BaudRate:        9600, // 115200, wanted to set higher but windows software was being weird about it
+		BaudRate:        9600,
 		DataBits:        8,
 		StopBits:        1,
 		MinimumReadSize: 1,
@@ -115,7 +123,6 @@ func NewWit(r robot.Robot, config config.Component, logger golog.Logger) (imu.IM
 			}()
 		}
 	})
-
 	return &i, nil
 }
 
@@ -125,7 +132,6 @@ func scale(a, b byte, r float64) float64 {
 	x += r
 	x = math.Mod(x, r*2)
 	x -= r
-
 	return x
 }
 
@@ -147,6 +153,15 @@ func (i *wit) parseWIT(line string) error {
 		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
 		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
 		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
+	}
+
+	if line[0] == 0x51 {
+		if len(line) < 7 {
+			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
+		}
+		i.acceleration.X = scale(line[1], line[2], 16)
+		i.acceleration.Y = scale(line[3], line[4], 16)
+		i.acceleration.Z = scale(line[5], line[6], 16)
 	}
 
 	return nil

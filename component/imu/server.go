@@ -79,3 +79,24 @@ func (s *subtypeServer) ReadOrientation(
 		},
 	}, nil
 }
+
+func (s *subtypeServer) ReadAcceleration(
+	ctx context.Context,
+	req *pb.IMUServiceReadAccelerationRequest,
+) (*pb.IMUServiceReadAccelerationResponse, error) {
+	imuDevice, err := s.getIMU(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	acc, err := imuDevice.ReadAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.IMUServiceReadAccelerationResponse{
+		Acceleration: &pb.Acceleration{
+			XMmPerSecPerSec: acc.X,
+			YMmPerSecPerSec: acc.Y,
+			ZMmPerSecPerSec: acc.Z,
+		},
+	}, nil
+}

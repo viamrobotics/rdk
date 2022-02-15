@@ -144,7 +144,11 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Actions: action.AllActionNames(),
 	}
 
-	if app.options.WebRTC {
+	if err := r.ParseForm(); err != nil {
+		app.logger.Debugw("failed to parse form", "error", err)
+	}
+
+	if app.options.WebRTC && r.Form.Get("grpc") != "true" {
 		temp.WebRTCEnabled = true
 		temp.WebRTCHost = app.options.FQDN
 	}
