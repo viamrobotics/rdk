@@ -54,15 +54,15 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An IMU represents a sensor that can report ReadAngularVelocity and Orientation measurements.
+// An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
 type IMU interface {
-	sensor.Sensor
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 }
 
 var (
 	_ = IMU(&reconfigurableIMU{})
+	_ = sensor.Sensor(&reconfigurableIMU{})
 	_ = resource.Reconfigurable(&reconfigurableIMU{})
 )
 
@@ -82,6 +82,20 @@ func FromRobot(r robot.Robot, name string) (IMU, error) {
 // NamesFromRobot is a helper for getting all IMU names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// GetReadings is a helper for getting all readings from an IMU.
+func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
+	vel, err := i.ReadAngularVelocity(ctx)
+	if err != nil {
+		return nil, err
+	}
+	orientation, err := i.ReadOrientation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ea := orientation.EulerAngles()
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
 }
 
 type reconfigurableIMU struct {
@@ -113,10 +127,16 @@ func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Or
 	return r.actual.ReadOrientation(ctx)
 }
 
+// GetReadings will use the generic IMU GetReadings if not provided.
 func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+
+	if sensor, ok := r.actual.(sensor.Sensor); ok {
+		return sensor.GetReadings(ctx)
+	}
+
+	return GetReadings(ctx, r.actual)
 }
 
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {

@@ -37,7 +37,7 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 // GetReadings calls the injected GetReadings or the real version.
 func (i *IMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	if i.GetReadingsFunc == nil {
-		return i.IMU.GetReadings(ctx)
+		return imu.GetReadings(ctx, i)
 	}
 	return i.GetReadingsFunc(ctx)
 }

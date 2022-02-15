@@ -100,16 +100,7 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	vel, err := c.ReadAngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := c.ReadOrientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+	return GetReadings(ctx, c)
 }
 
 // Close cleanly closes the underlying connections.

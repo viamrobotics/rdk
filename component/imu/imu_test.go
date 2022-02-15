@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -107,8 +108,9 @@ func TestIMUName(t *testing.T) {
 }
 
 var (
-	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
-	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	av       = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea       = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	readings = []interface{}{5.6, 6.4}
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -180,10 +182,19 @@ func TestGetReadings(t *testing.T) {
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfIMU1.(imu.IMU).GetReadings(context.Background())
+	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{av, ea})
-	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 1)
+	test.That(t, result, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
+	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
+
+	actualIMU2 := &mockWithSensor{}
+	reconfIMU2, _ := imu.WrapWithReconfigurable(actualIMU2)
+
+	test.That(t, actualIMU2.readingsCount, test.ShouldEqual, 0)
+	result, err = reconfIMU2.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings)
+	test.That(t, actualIMU2.readingsCount, test.ShouldEqual, 1)
 }
 
 type mock struct {
@@ -205,9 +216,14 @@ func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, er
 	return ea, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return []interface{}{av, ea}, nil
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockWithSensor struct {
+	mock
+	readingsCount int
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCount++
+	return readings, nil
+}
