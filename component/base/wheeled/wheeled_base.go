@@ -27,15 +27,25 @@ func init() {
 			return CreateFourWheelBase(ctx, r, config, logger)
 		},
 	}
+	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
 			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, r, config, logger)
+			return CreateWheeledBase(ctx, r, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
-	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+
 	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeBase,
+		"wheeled",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
 type wheeledBase struct {
@@ -293,12 +303,21 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 	return base, nil
 }
 
+// Config is how you configure a wheeled base.
+type Config struct {
+	WidthMM              int      `json:"width_mm"`
+	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
+	Left                 []string `json:"left"`
+	Right                []string `json:"right"`
+}
+
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
+func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("widthMm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
+		widthMm:              config.WidthMM,
+		wheelCircumferenceMm: config.WheelCircumferenceMM,
+		spinSlipFactor:       config.SpinSlipFactor,
 	}
 
 	if base.widthMm == 0 {
@@ -309,7 +328,7 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Compone
 		return nil, errors.New("need a wheelCircumferenceMm for a wheeled base")
 	}
 
-	for _, name := range config.Attributes.StringSlice("left") {
+	for _, name := range config.Left {
 		m, ok := r.MotorByName(name)
 		if !ok {
 			return nil, fmt.Errorf("no left motor named (%s)", name)
@@ -317,7 +336,7 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Compone
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range config.Attributes.StringSlice("right") {
+	for _, name := range config.Right {
 		m, ok := r.MotorByName(name)
 		if !ok {
 			return nil, fmt.Errorf("no right motor named (%s)", name)
