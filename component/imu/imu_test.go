@@ -108,8 +108,9 @@ func TestIMUName(t *testing.T) {
 }
 
 var (
-	av       = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
-	ea       = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
+	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+
 	readings = []interface{}{5.6, 6.4}
 )
 
@@ -188,7 +189,6 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
 	test.That(t, result, test.ShouldResemble, readings1)
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 
