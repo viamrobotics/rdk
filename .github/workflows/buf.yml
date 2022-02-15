@@ -16,8 +16,7 @@ jobs:
     if: github.repository_owner == 'viamrobotics'
     runs-on: [self-hosted, x64]
     container:
-      image: ghcr.io/viamrobotics/canon:amd64-cache
-      options: --platform linux/amd64
+      image: ghcr.io/viamrobotics/canon:amd64
     steps:
       - uses: actions/checkout@v2
       - uses: bufbuild/buf-setup-action@v0.7.0
