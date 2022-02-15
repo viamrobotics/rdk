@@ -57,14 +57,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gps.NewClient(cancelCtx, testGPSName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = gps.NewClient(cancelCtx, testGPSName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("GPS client 1", func(t *testing.T) {
 		// working
-		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		loc1, err := gps1Client.ReadLocation(context.Background())
@@ -87,7 +87,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("GPS client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failGPSName, logger)
 		gps2Client, ok := client.(gps.GPS)
@@ -129,11 +129,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

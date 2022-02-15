@@ -11,26 +11,40 @@ import (
 // TrackingDialer tracks dial attempts.
 type TrackingDialer struct {
 	rpc.Dialer
-	DialCalled int
+	NewConnections int
 }
 
 // DialDirect tracks calls of DialDirect.
 func (td *TrackingDialer) DialDirect(
 	ctx context.Context,
 	target string,
+	keyExtra string,
 	onClose func() error,
 	opts ...grpc.DialOption,
 ) (rpc.ClientConn, bool, error) {
-	td.DialCalled++
-	return td.Dialer.DialDirect(ctx, target, onClose, opts...)
+	conn, cached, err := td.Dialer.DialDirect(ctx, target, keyExtra, onClose, opts...)
+	if err != nil {
+		return nil, false, err
+	}
+	if !cached {
+		td.NewConnections++
+	}
+	return conn, cached, err
 }
 
 // DialFunc tracks calls of DialFunc.
 func (td *TrackingDialer) DialFunc(
 	proto string,
 	target string,
+	keyExtra string,
 	f func() (rpc.ClientConn, func() error, error),
 ) (rpc.ClientConn, bool, error) {
-	td.DialCalled++
-	return td.Dialer.DialFunc(proto, target, f)
+	conn, cached, err := td.Dialer.DialFunc(proto, target, keyExtra, f)
+	if err != nil {
+		return nil, false, err
+	}
+	if !cached {
+		td.NewConnections++
+	}
+	return conn, cached, err
 }

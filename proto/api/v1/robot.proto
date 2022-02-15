@@ -107,13 +107,6 @@ service RobotService {
     };
   }
 
-  // Object Manipulation Service
-
-  rpc ObjectManipulationServiceDoGrab(ObjectManipulationServiceDoGrabRequest) returns (ObjectManipulationServiceDoGrabResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/services/objectmanipulation/do_grab"
-    };
-  }
 }
 
 message StatusRequest {}
@@ -200,12 +193,6 @@ message Pose {
 
 message JointPositions {
   repeated double degrees = 1;
-}
-
-message Vector3 {
-  double x = 1;
-  double y = 2;
-  double z = 3;
 }
 
 // Sensor
@@ -326,21 +313,6 @@ message NavigationServiceRemoveWaypointRequest {
 
 message NavigationServiceRemoveWaypointResponse {
 }
-
-// Object Manipulation Service
-
-message ObjectManipulationServiceDoGrabRequest {
-  string camera_name = 1;
-  Vector3 camera_point = 2;
-  string gripper_name = 3;
-  string arm_name = 4;
-}
-
-message ObjectManipulationServiceDoGrabResponse {
-  bool has_grabbed = 1;
-}
-
-// End Object Manipulation Service
 
 message InputControllerEvent {
   google.protobuf.Timestamp time = 1;

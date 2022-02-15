@@ -8,8 +8,6 @@ import (
 	"go.viam.com/test"
 )
 
-var deg45 = math.Pi / 4.
-
 func TestNewBoxFromOffset(t *testing.T) {
 	pt := r3.Vector{X: 1, Y: 0, Z: 0}
 	offset := NewPoseFromOrientation(pt, &EulerAngles{0, 0, math.Pi})
@@ -43,6 +41,7 @@ func TestBoxVertices(t *testing.T) {
 }
 
 func TestBoxVsBoxCollision(t *testing.T) {
+	deg45 := math.Pi / 4.
 	cases := []struct {
 		testname string
 		a        Volume

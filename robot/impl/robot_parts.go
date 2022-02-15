@@ -2,6 +2,7 @@ package robotimpl
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
 
 	"github.com/alessio/shellescape"
@@ -21,21 +22,31 @@ import (
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes         map[string]*remoteRobot
-	functions       map[string]struct{}
-	resources       *resource.Graph
-	processManager  pexec.ProcessManager
-	robotClientOpts []client.RobotClientOption
+	remotes        map[string]*remoteRobot
+	functions      map[string]struct{}
+	resources      *resource.Graph
+	processManager pexec.ProcessManager
+	opts           robotPartsOptions
+}
+
+type robotPartsOptions struct {
+	debug              bool
+	fromCommand        bool
+	allowInsecureCreds bool
+	tlsConfig          *tls.Config
 }
 
 // newRobotParts returns a properly initialized set of parts.
-func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
+func newRobotParts(
+	opts robotPartsOptions,
+	logger golog.Logger,
+) *robotParts {
 	return &robotParts{
-		remotes:         map[string]*remoteRobot{},
-		functions:       map[string]struct{}{},
-		resources:       resource.NewGraph(),
-		processManager:  pexec.NewProcessManager(logger),
-		robotClientOpts: opts,
+		remotes:        map[string]*remoteRobot{},
+		functions:      map[string]struct{}{},
+		resources:      resource.NewGraph(),
+		processManager: pexec.NewProcessManager(logger),
+		opts:           opts,
 	}
 }
 
@@ -263,10 +274,19 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		opts := make([]client.RobotClientOption, len(parts.robotClientOpts))
-		copy(opts, parts.robotClientOpts)
-		dialOpts := client.ExtractDialOptions(opts...)
-
+		var dialOpts []rpc.DialOption
+		if parts.opts.debug {
+			dialOpts = append(dialOpts, rpc.WithDialDebug())
+		}
+		if config.Insecure {
+			dialOpts = append(dialOpts, rpc.WithInsecure())
+		}
+		if parts.opts.allowInsecureCreds {
+			dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+		}
+		if parts.opts.tlsConfig != nil {
+			dialOpts = append(dialOpts, rpc.WithTLSConfig(parts.opts.tlsConfig))
+		}
 		if config.Auth.Credentials != nil {
 			if config.Auth.Entity == "" {
 				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
@@ -277,11 +297,50 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 			// explicitly unset credentials so they are not fed to remotes unintentionally.
 			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
 		}
-		//nolint:makezero
-		opts = append(opts, client.WithDialOptions(dialOpts...))
 
-		robotClient, err := client.New(ctx, config.Address, logger, opts...)
+		if config.Auth.ExternalAuthAddress != "" {
+			dialOpts = append(dialOpts, rpc.WithExternalAuth(
+				config.Auth.ExternalAuthAddress,
+				config.Auth.ExternalAuthToEntity,
+			))
+		}
+
+		if config.Auth.ExternalAuthInsecure {
+			dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
+		}
+
+		if config.Auth.SignalingServerAddress != "" {
+			wrtcOpts := rpc.DialWebRTCOptions{
+				Config:                 &rpc.DefaultWebRTCConfiguration,
+				SignalingServerAddress: config.Auth.SignalingServerAddress,
+				SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
+			}
+			if config.Auth.SignalingCreds != nil {
+				wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
+			}
+			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
+
+			if config.Auth.Managed {
+				// managed robots use TLS authN/Z
+				dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+					RemoveAuthCredentials: true,
+				}))
+			}
+		} else {
+			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+				Config: &rpc.DefaultWebRTCConfiguration,
+			}))
+		}
+
+		robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
 		if err != nil {
+			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+				if parts.opts.fromCommand {
+					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+				} else {
+					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+				}
+			}
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
 
@@ -534,7 +593,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 // FilterFromConfig returns a shallow copy of the parts reflecting
 // a given config.
 func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*robotParts, error) {
-	filtered := newRobotParts(logger, parts.robotClientOpts...)
+	filtered := newRobotParts(parts.opts, logger)
 
 	for _, conf := range conf.Processes {
 		proc, ok := parts.processManager.ProcessByID(conf.ID)

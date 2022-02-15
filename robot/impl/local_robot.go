@@ -13,63 +13,24 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	// register arm.
-	_ "go.viam.com/rdk/component/arm/register"
-
-	// register base.
-	_ "go.viam.com/rdk/component/base/register"
-
-	// register board.
-	_ "go.viam.com/rdk/component/board/register"
-
-	// register camera.
-	_ "go.viam.com/rdk/component/camera/register"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/component/forcematrix/register"
-
-	// register gantry.
-	_ "go.viam.com/rdk/component/gantry/register"
-
-	// register gps.
-	_ "go.viam.com/rdk/component/gps/register"
-
-	// register gripper.
-	_ "go.viam.com/rdk/component/gripper/register"
-
-	// register imu.
-	_ "go.viam.com/rdk/component/imu/register"
-
-	// register input.
-	_ "go.viam.com/rdk/component/input/register"
 	"go.viam.com/rdk/component/motor"
 
-	// register motor.
-	_ "go.viam.com/rdk/component/motor/register"
-
-	// register sensor.
-	_ "go.viam.com/rdk/component/sensor/register"
-
-	// register servo.
-	_ "go.viam.com/rdk/component/servo/register"
+	// registers all components.
+	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-
-	// register base remote control.
-	_ "go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/services/framesystem"
 
-	// register navigation.
-	_ "go.viam.com/rdk/services/navigation"
+	// registers all services.
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
@@ -219,9 +180,17 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...client.RobotClientOption) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts:  newRobotParts(logger, opts...),
+		parts: newRobotParts(
+			robotPartsOptions{
+				debug:              cfg.Debug,
+				fromCommand:        cfg.FromCommand,
+				allowInsecureCreds: cfg.AllowInsecureCreds,
+				tlsConfig:          cfg.Network.TLSConfig,
+			},
+			logger,
+		),
 		logger: logger,
 	}
 

@@ -86,8 +86,9 @@ func (h *depthSourceTestHelper) Process(
 }
 
 func TestDepthSourceGripper(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
@@ -99,8 +100,9 @@ func TestDepthSourceGripper(t *testing.T) {
 }
 
 func TestDepthSourceIntel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)

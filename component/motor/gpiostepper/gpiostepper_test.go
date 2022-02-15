@@ -32,12 +32,12 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	mc.Pins = map[string]string{"dir": "b"}
+	mc.Pins = motor.PinConfig{Dir: "b"}
 
 	_, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	mc.Pins["step"] = "c"
+	mc.Pins.Step = "c"
 
 	m, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
