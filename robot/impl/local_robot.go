@@ -27,13 +27,10 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-
-	// register base remote control.
-	_ "go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/services/framesystem"
 
-	// register navigation.
-	_ "go.viam.com/rdk/services/navigation"
+	// registers all services.
+	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
