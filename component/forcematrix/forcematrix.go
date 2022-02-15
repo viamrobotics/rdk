@@ -88,6 +88,7 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
+// GetReadings is a helper for getting all readings from a force matrix sensor.
 func GetReadings(ctx context.Context, f ForceMatrix) ([]interface{}, error) {
 	matrix, err := f.ReadMatrix(ctx)
 	if err != nil {
@@ -119,6 +120,7 @@ func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error
 	return r.actual.DetectSlip(ctx)
 }
 
+// GetReadings will use the generic ForceMatrix GetReadings if not provided.
 func (r *reconfigurableForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

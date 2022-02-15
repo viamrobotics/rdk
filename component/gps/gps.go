@@ -184,6 +184,7 @@ func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
 	return r.actual.ReadValid(ctx)
 }
 
+// GetReadings will use the generic GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
