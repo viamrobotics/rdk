@@ -4,8 +4,8 @@ import (
 	pc "go.viam.com/rdk/pointcloud"
 )
 
-// Object extends PointCloud with respective meta-data, like center coordinate
-// Can potentially add category or pose information to this struct.
+// Object extends PointCloud with respective metadata, like the center coordinate.
+// NOTE(bh):Can potentially add category or pose information to this struct.
 type Object struct {
 	pc.PointCloud
 	Center      pc.Vec3
