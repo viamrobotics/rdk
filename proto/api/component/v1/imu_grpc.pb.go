@@ -22,6 +22,8 @@ type IMUServiceClient interface {
 	ReadAngularVelocity(ctx context.Context, in *IMUServiceReadAngularVelocityRequest, opts ...grpc.CallOption) (*IMUServiceReadAngularVelocityResponse, error)
 	// ReadOrientation returns the most recent orientation reading from the given IMU.
 	ReadOrientation(ctx context.Context, in *IMUServiceReadOrientationRequest, opts ...grpc.CallOption) (*IMUServiceReadOrientationResponse, error)
+	// ReadAcceleration returns the most recent acceleration reading from the given IMU.
+	ReadAcceleration(ctx context.Context, in *IMUServiceReadAccelerationRequest, opts ...grpc.CallOption) (*IMUServiceReadAccelerationResponse, error)
 }
 
 type iMUServiceClient struct {
@@ -50,6 +52,15 @@ func (c *iMUServiceClient) ReadOrientation(ctx context.Context, in *IMUServiceRe
 	return out, nil
 }
 
+func (c *iMUServiceClient) ReadAcceleration(ctx context.Context, in *IMUServiceReadAccelerationRequest, opts ...grpc.CallOption) (*IMUServiceReadAccelerationResponse, error) {
+	out := new(IMUServiceReadAccelerationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.v1.IMUService/ReadAcceleration", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IMUServiceServer is the server API for IMUService service.
 // All implementations must embed UnimplementedIMUServiceServer
 // for forward compatibility
@@ -58,6 +69,8 @@ type IMUServiceServer interface {
 	ReadAngularVelocity(context.Context, *IMUServiceReadAngularVelocityRequest) (*IMUServiceReadAngularVelocityResponse, error)
 	// ReadOrientation returns the most recent orientation reading from the given IMU.
 	ReadOrientation(context.Context, *IMUServiceReadOrientationRequest) (*IMUServiceReadOrientationResponse, error)
+	// ReadAcceleration returns the most recent acceleration reading from the given IMU.
+	ReadAcceleration(context.Context, *IMUServiceReadAccelerationRequest) (*IMUServiceReadAccelerationResponse, error)
 	mustEmbedUnimplementedIMUServiceServer()
 }
 
@@ -70,6 +83,9 @@ func (UnimplementedIMUServiceServer) ReadAngularVelocity(context.Context, *IMUSe
 }
 func (UnimplementedIMUServiceServer) ReadOrientation(context.Context, *IMUServiceReadOrientationRequest) (*IMUServiceReadOrientationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadOrientation not implemented")
+}
+func (UnimplementedIMUServiceServer) ReadAcceleration(context.Context, *IMUServiceReadAccelerationRequest) (*IMUServiceReadAccelerationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadAcceleration not implemented")
 }
 func (UnimplementedIMUServiceServer) mustEmbedUnimplementedIMUServiceServer() {}
 
@@ -120,6 +136,24 @@ func _IMUService_ReadOrientation_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IMUService_ReadAcceleration_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IMUServiceReadAccelerationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMUServiceServer).ReadAcceleration(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.v1.IMUService/ReadAcceleration",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMUServiceServer).ReadAcceleration(ctx, req.(*IMUServiceReadAccelerationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IMUService_ServiceDesc is the grpc.ServiceDesc for IMUService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +168,10 @@ var IMUService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadOrientation",
 			Handler:    _IMUService_ReadOrientation_Handler,
+		},
+		{
+			MethodName: "ReadAcceleration",
+			Handler:    _IMUService_ReadAcceleration_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

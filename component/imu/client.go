@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
@@ -99,6 +100,20 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 	}, nil
 }
 
+func (c *client) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.ReadAcceleration(ctx, &pb.IMUServiceReadAccelerationRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return r3.Vector{
+		X: resp.Acceleration.XMmPerSecPerSec,
+		Y: resp.Acceleration.YMmPerSecPerSec,
+		Z: resp.Acceleration.ZMmPerSecPerSec,
+	}, nil
+}
+
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	vel, err := c.ReadAngularVelocity(ctx)
 	if err != nil {
@@ -109,7 +124,12 @@ func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+
+	ac, err := c.ReadAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}, nil
 }
 
 // Close cleanly closes the underlying connections.
