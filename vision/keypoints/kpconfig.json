@@ -1,0 +1,5 @@
+{
+  "n_matches": 9,
+  "nms_win_size": 7,
+  "threshold": 0.15
+}
