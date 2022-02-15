@@ -186,11 +186,9 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
 
-	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
-	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 
 	actualIMU2 := &mockWithSensor{}
 	reconfIMU2, _ := imu.WrapWithReconfigurable(actualIMU2)
@@ -207,7 +205,6 @@ type mock struct {
 	Name                 string
 	angularVelocityCount int
 	orientationCount     int
-	readingsCount        int
 	reconfCount          int
 }
 

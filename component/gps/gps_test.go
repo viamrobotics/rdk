@@ -227,11 +227,9 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, readings1, test.ShouldResemble, []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid})
 
-	test.That(t, actualGPS1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfGPS1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, readings1)
-	test.That(t, actualGPS1.readingsCount, test.ShouldEqual, 0)
 
 	actualGPS2 := &mockWithSensor{}
 	reconfGPS2, _ := gps.WrapWithReconfigurable(actualGPS2)
@@ -267,15 +265,14 @@ var (
 
 type mock struct {
 	gps.LocalGPS
-	Name          string
-	locCount      int
-	altCount      int
-	speedCount    int
-	satCount      int
-	accCount      int
-	validCount    int
-	readingsCount int
-	reconfCount   int
+	Name        string
+	locCount    int
+	altCount    int
+	speedCount  int
+	satCount    int
+	accCount    int
+	validCount  int
+	reconfCount int
 }
 
 // ReadLocation always returns the set values.
