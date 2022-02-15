@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
@@ -43,6 +44,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
+
+var _ = sensor.Sensor(&client{})
 
 // client is a ForceMatrix client.
 type client struct {
@@ -92,11 +95,7 @@ func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := c.ReadMatrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
+	return GetReadings(ctx, c)
 }
 
 // Close cleanly closes the underlying connections.
