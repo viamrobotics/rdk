@@ -124,7 +124,12 @@ func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 		return nil, err
 	}
 	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+
+	ac, err := c.ReadAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}, nil
 }
 
 // Close cleanly closes the underlying connections.

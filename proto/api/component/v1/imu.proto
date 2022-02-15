@@ -55,9 +55,9 @@ message EulerAngles {
 message Acceleration {
   // Acceleration in mm/s^2 across the x-axis
   double x_mm_per_sec_per_sec = 1;
-  // Velocity in deg/s across the y-axis
+  // Acceleration in mm/s^2 across the y-axis
   double y_mm_per_sec_per_sec = 2;
-  // Velocity in deg/s across the z-axis
+  // Acceleration in mm/s^2 across the z-axis
   double z_mm_per_sec_per_sec = 3;
 }
 
@@ -88,6 +88,6 @@ message IMUServiceReadAccelerationRequest {
 }
 
 message IMUServiceReadAccelerationResponse {
-  // Acceleration contains acceleration velocity in mm/s^2 across x/y/z axes.
+  // Acceleration contains acceleration in mm/s^2 across x/y/z axes.
   Acceleration acceleration = 1;
 }

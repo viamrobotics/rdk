@@ -164,9 +164,9 @@ type Acceleration struct {
 
 	// Acceleration in mm/s^2 across the x-axis
 	XMmPerSecPerSec float64 `protobuf:"fixed64,1,opt,name=x_mm_per_sec_per_sec,json=xMmPerSecPerSec,proto3" json:"x_mm_per_sec_per_sec,omitempty"`
-	// Velocity in deg/s across the y-axis
+	// Acceleration in mm/s^2 across the y-axis
 	YMmPerSecPerSec float64 `protobuf:"fixed64,2,opt,name=y_mm_per_sec_per_sec,json=yMmPerSecPerSec,proto3" json:"y_mm_per_sec_per_sec,omitempty"`
-	// Velocity in deg/s across the z-axis
+	// Acceleration in mm/s^2 across the z-axis
 	ZMmPerSecPerSec float64 `protobuf:"fixed64,3,opt,name=z_mm_per_sec_per_sec,json=zMmPerSecPerSec,proto3" json:"z_mm_per_sec_per_sec,omitempty"`
 }
 
@@ -469,7 +469,7 @@ type IMUServiceReadAccelerationResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Acceleration contains acceleration velocity in mm/s^2 across x/y/z axes.
+	// Acceleration contains acceleration in mm/s^2 across x/y/z axes.
 	Acceleration *Acceleration `protobuf:"bytes,1,opt,name=acceleration,proto3" json:"acceleration,omitempty"`
 }
 

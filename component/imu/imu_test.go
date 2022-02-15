@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -109,6 +110,7 @@ func TestIMUName(t *testing.T) {
 var (
 	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	ac = r3.Vector{X: 7, Y: 8, Z: 9}
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -175,6 +177,17 @@ func TestOrientiation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCount, test.ShouldEqual, 1)
 }
 
+func TestReadAcceleration(t *testing.T) {
+	actualIMU1 := &mock{Name: testIMUName}
+	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 0)
+	acc, err := reconfIMU1.(imu.IMU).ReadAcceleration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, acc, test.ShouldResemble, r3.Vector{X: 1, Y: 2, Z: 3})
+	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 1)
+}
+
 func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
@@ -191,6 +204,7 @@ type mock struct {
 	Name                 string
 	angularVelocityCount int
 	orientationCount     int
+	accelerationCount    int
 	readingsCount        int
 	reconfCount          int
 }
@@ -205,9 +219,14 @@ func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, er
 	return ea, nil
 }
 
+func (m *mock) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	m.accelerationCount++
+	return ac, nil
+}
+
 func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
 	m.readingsCount++
-	return []interface{}{av, ea}, nil
+	return []interface{}{av, ea, ac}, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }

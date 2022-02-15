@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/imu"
@@ -14,6 +15,7 @@ type IMU struct {
 	imu.IMU
 	ReadAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
+	ReadAccelerationFunc    func(ctx context.Context) (r3.Vector, error)
 	GetReadingsFunc         func(ctx context.Context) ([]interface{}, error)
 	CloseFunc               func(ctx context.Context) error
 }
@@ -32,6 +34,14 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 		return i.IMU.ReadOrientation(ctx)
 	}
 	return i.ReadOrientationFunc(ctx)
+}
+
+// ReadAcceleration calls the injected Acceleration or the real version.
+func (i *IMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	if i.ReadOrientationFunc == nil {
+		return i.IMU.ReadAcceleration(ctx)
+	}
+	return i.ReadAccelerationFunc(ctx)
 }
 
 // GetReadings calls the injected GetReadings or the real version.
