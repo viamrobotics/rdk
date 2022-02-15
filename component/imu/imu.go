@@ -135,7 +135,6 @@ func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, err
 	if sensor, ok := r.actual.(sensor.Sensor); ok {
 		return sensor.GetReadings(ctx)
 	}
-
 	return GetReadings(ctx, r.actual)
 }
 
