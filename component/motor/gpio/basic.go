@@ -91,8 +91,8 @@ func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error)
 	}, nil
 }
 
-// SetPower sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+// setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
+func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -149,9 +149,9 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	)
 }
 
-//  instructs the motor to operate at an rpm, where the sign of the rpm
+//  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
 // indicates direction.
-func setPowerWithDirection(ctx context.Context, m *Motor, powerPct float64) error {
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
@@ -167,19 +167,19 @@ func setPowerWithDirection(ctx context.Context, m *Motor, powerPct float64) erro
 		}
 		return multierr.Combine(
 			m.Board.SetGPIO(ctx, m.Dir, x),
-			m.SetPower(ctx, powerPct),
+			m.setPWM(ctx, powerPct),
 		)
 	}
 	if m.A != "" && m.B != "" {
 		return multierr.Combine(
 			m.Board.SetGPIO(ctx, m.A, !math.Signbit(powerPct)),
 			m.Board.SetGPIO(ctx, m.B, math.Signbit(powerPct)),
-			m.SetPower(ctx, powerPct), // Must be last for A/B only drivers
+			m.setPWM(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}
 
 	if !math.Signbit(powerPct) {
-		return m.SetPower(ctx, powerPct)
+		return m.setPWM(ctx, powerPct)
 	}
 
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
@@ -208,7 +208,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := setPowerWithDirection(ctx, m, powerPct)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context) error {
 	m.on = false
-	return m.SetPower(ctx, 0)
+	return m.setPWM(ctx, 0)
 }
 
 // GoTo is not supported.
