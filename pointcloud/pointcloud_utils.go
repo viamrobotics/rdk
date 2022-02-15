@@ -73,8 +73,8 @@ func PrunePointClouds(clouds []PointCloud, nMin int) []PointCloud {
 
 // StatisticalOutlierFilter implements the function from PCL to remove noisy points from a point cloud.
 // https://pcl.readthedocs.io/projects/tutorials/en/latest/statistical_outlier.html
-// This returns a function that can be used to filter on point clouds. Returns a new point cloud, but could
-// be modified to filter and change the original point cloud.
+// This returns a function that can be used to filter on point clouds.
+// NOTE(bh): Returns a new point cloud, but could be modified to filter and change the original point cloud.
 func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud) (PointCloud, error), error) {
 	if meanK <= 0 {
 		return nil, errors.Errorf("argument meanK must be a positive int, got %d", meanK)
