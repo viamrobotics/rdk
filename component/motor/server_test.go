@@ -59,33 +59,6 @@ func TestSetPower(t *testing.T) {
 }
 
 //nolint:dupl
-func TestGo(t *testing.T) {
-	motorServer, workingMotor, failingMotor, _ := newServer()
-
-	// fails on a bad motor
-	req := pb.MotorServiceGoRequest{Name: "notAMotor"}
-	resp, err := motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	failingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return errors.New("motor go failed")
-	}
-	req = pb.MotorServiceGoRequest{Name: "failingMotor", PowerPct: 0.5}
-	resp, err = motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	workingMotor.GoFunc = func(ctx context.Context, powerPct float64) error {
-		return nil
-	}
-	req = pb.MotorServiceGoRequest{Name: "workingMotor", PowerPct: 0.5}
-	resp, err = motorServer.Go(context.Background(), &req)
-	test.That(t, resp, test.ShouldNotBeNil)
-	test.That(t, err, test.ShouldBeNil)
-}
-
-//nolint:dupl
 func TestGoFor(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -116,52 +89,53 @@ func TestPosition(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServicePositionRequest{Name: "notAMotor"}
-	resp, err := motorServer.Position(context.Background(), &req)
+	req := pb.MotorServiceGetPositionRequest{Name: "notAMotor"}
+	resp, err := motorServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	failingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 0, errors.New("position unavailable")
 	}
-	req = pb.MotorServicePositionRequest{Name: "failingMotor"}
-	resp, err = motorServer.Position(context.Background(), &req)
+	req = pb.MotorServiceGetPositionRequest{Name: "failingMotor"}
+	resp, err = motorServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PositionFunc = func(ctx context.Context) (float64, error) {
+	workingMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return 42.0, nil
 	}
-	req = pb.MotorServicePositionRequest{Name: "workingMotor"}
-	resp, err = motorServer.Position(context.Background(), &req)
+	req = pb.MotorServiceGetPositionRequest{Name: "workingMotor"}
+	resp, err = motorServer.GetPosition(context.Background(), &req)
 	test.That(t, resp.GetPosition(), test.ShouldEqual, 42.0)
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
-func TestPositionSupported(t *testing.T) {
+func TestGetFeatures(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServicePositionSupportedRequest{Name: "notAMotor"}
-	resp, err := motorServer.PositionSupported(context.Background(), &req)
+	req := pb.MotorServiceGetFeaturesRequest{Name: "notAMotor"}
+	resp, err := motorServer.GetFeatures(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return false, errors.New("unable to determined if pos supported")
+	failingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return nil, errors.New("unable to get supported features")
 	}
-	req = pb.MotorServicePositionSupportedRequest{Name: "failingMotor"}
-	resp, err = motorServer.PositionSupported(context.Background(), &req)
+	req = pb.MotorServiceGetFeaturesRequest{Name: "failingMotor"}
+	resp, err = motorServer.GetFeatures(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.PositionSupportedFunc = func(ctx context.Context) (bool, error) {
-		return true, nil
+	workingMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return map[motor.Feature]bool{
+			motor.PositionReporting: true,
+		}, nil
 	}
-	req = pb.MotorServicePositionSupportedRequest{Name: "workingMotor"}
-	resp, err = motorServer.PositionSupported(context.Background(), &req)
-	test.That(t, resp.GetSupported(), test.ShouldBeTrue)
+	req = pb.MotorServiceGetFeaturesRequest{Name: "workingMotor"}
+	resp, err = motorServer.GetFeatures(context.Background(), &req)
+	test.That(t, resp.GetPositionReporting(), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -191,29 +165,28 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestIsOn(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
 	// fails on a bad motor
-	req := pb.MotorServiceIsOnRequest{Name: "notAMotor"}
-	resp, err := motorServer.IsOn(context.Background(), &req)
+	req := pb.MotorServiceIsPoweredRequest{Name: "notAMotor"}
+	resp, err := motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	failingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	failingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return false, errors.New("could not determine if motor is on")
 	}
-	req = pb.MotorServiceIsOnRequest{Name: "failingMotor"}
-	resp, err = motorServer.IsOn(context.Background(), &req)
+	req = pb.MotorServiceIsPoweredRequest{Name: "failingMotor"}
+	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	workingMotor.IsOnFunc = func(ctx context.Context) (bool, error) {
+	workingMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	req = pb.MotorServiceIsOnRequest{Name: "workingMotor"}
-	resp, err = motorServer.IsOn(context.Background(), &req)
+	req = pb.MotorServiceIsPoweredRequest{Name: "workingMotor"}
+	resp, err = motorServer.IsPowered(context.Background(), &req)
 	test.That(t, resp.GetIsOn(), test.ShouldBeTrue)
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -231,7 +204,7 @@ func TestGoTo(t *testing.T) {
 	failingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return errors.New("go to failed")
 	}
-	req = pb.MotorServiceGoToRequest{Name: "failingMotor", Rpm: 20.0, Position: 2.5}
+	req = pb.MotorServiceGoToRequest{Name: "failingMotor", Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -239,7 +212,7 @@ func TestGoTo(t *testing.T) {
 	workingMotor.GoToFunc = func(ctx context.Context, rpm, position float64) error {
 		return nil
 	}
-	req = pb.MotorServiceGoToRequest{Name: "workingMotor", Rpm: 20.0, Position: 2.5}
+	req = pb.MotorServiceGoToRequest{Name: "workingMotor", Rpm: 20.0, PositionRevolutions: 2.5}
 	resp, err = motorServer.GoTo(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)

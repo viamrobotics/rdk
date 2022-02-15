@@ -158,7 +158,7 @@ func TestPiPigpio(t *testing.T) {
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
 		err = motor1.GoFor(ctx, 15, 2)
 		test.That(t, err, test.ShouldBeNil)
-		on, err := motor1.IsOn(ctx)
+		on, err := motor1.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -169,7 +169,7 @@ func TestPiPigpio(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsOn(ctx)
+			on, err := motor1.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -199,7 +199,7 @@ func TestPiPigpio(t *testing.T) {
 		err := motor1.GoFor(ctx, -15, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := motor1.IsOn(ctx)
+		on, err := motor1.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -210,7 +210,7 @@ func TestPiPigpio(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsOn(ctx)
+			on, err := motor1.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break

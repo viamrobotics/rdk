@@ -42,7 +42,7 @@ func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
 	fakerobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fm.Motor{PositionSupportedFunc: true, GoForfunc: true}, true
+		return &fm.Motor{PositionSupported: true}, true
 	}
 
 	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {

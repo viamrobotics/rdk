@@ -79,18 +79,20 @@ type Motor struct {
 	logger        golog.Logger
 }
 
-// Position always returns 0.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+// GetPosition always returns 0.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
-// PositionSupported always returns false.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	return false, nil
+// GetFeatures returns the status of whether the motor supports certain optional features.
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
+		motor.PositionReporting: false,
+	}, nil
 }
 
-// SetPower sets the associated pins (as discovered) and sets PWM to the given power percentage.
-func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+// setPWM sets the associated pins (as discovered) and sets PWM to the given power percentage.
+func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	var errs error
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
@@ -147,14 +149,14 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	)
 }
 
-// Go instructs the motor to operate at a certain power percentage from -1 to 1
-// where the sign of the power dictates direction.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+//  SetPower instructs the motor to operate at an rpm, where the sign of the rpm
+// indicates direction.
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	m.cancelMu.Lock()
 	m.cancelWaitProcesses()
 	m.cancelMu.Unlock()
 
-	if math.Abs(powerPct) <= 0.001 {
+	if math.Abs(powerPct) <= 0.01 {
 		return m.Stop(ctx)
 	}
 
@@ -165,19 +167,19 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 		}
 		return multierr.Combine(
 			m.Board.SetGPIO(ctx, m.Dir, x),
-			m.SetPower(ctx, powerPct),
+			m.setPWM(ctx, powerPct),
 		)
 	}
 	if m.A != "" && m.B != "" {
 		return multierr.Combine(
 			m.Board.SetGPIO(ctx, m.A, !math.Signbit(powerPct)),
 			m.Board.SetGPIO(ctx, m.B, math.Signbit(powerPct)),
-			m.SetPower(ctx, powerPct), // Must be last for A/B only drivers
+			m.setPWM(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}
 
 	if !math.Signbit(powerPct) {
-		return m.SetPower(ctx, powerPct)
+		return m.setPWM(ctx, powerPct)
 	}
 
 	return errors.New("trying to go backwards but don't have dir or a&b pins")
@@ -197,7 +199,7 @@ func goForMath(maxRPM, rpm, revolutions float64) (float64, time.Duration) {
 	return powerPct, waitDur
 }
 
-// GoFor moves an inputted number of revolutations at the given rpm, no encoder is present
+// GoFor moves an inputted number of revolutions at the given rpm, no encoder is present
 // for this so power is deteremiend via a linear relationship with the maxRPM and the distance
 // traveled is a time based estimation based on desired RPM.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
@@ -206,7 +208,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 	}
 
 	powerPct, waitDur := goForMath(m.maxRPM, rpm, revolutions)
-	err := m.Go(ctx, powerPct)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -245,24 +247,19 @@ func (m *Motor) cancelWaitProcesses() {
 	}
 }
 
-// IsOn returns if the motor is currently on or off.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns if the motor is currently on or off.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	return m.on, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down, by setting the appropriate pins to low states.
 func (m *Motor) Stop(ctx context.Context) error {
 	m.on = false
-	return m.SetPower(ctx, 0)
+	return m.setPWM(ctx, 0)
 }
 
 // GoTo is not supported.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	return errors.New("not supported")
-}
-
-// GoTillStop is not supported.
-func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	return errors.New("not supported")
 }
 
