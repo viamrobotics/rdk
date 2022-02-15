@@ -4,7 +4,7 @@
           "type": "arm",
           "model": "ur",
           "attributes": {
-              "host" : "10.237.115.65"
+              "host" : "10.237.115.98"
           }
         },
         { "name" : "table-view",

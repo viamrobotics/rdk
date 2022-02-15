@@ -42,7 +42,6 @@ type RobotServiceClient interface {
 	NavigationServiceWaypoints(ctx context.Context, in *NavigationServiceWaypointsRequest, opts ...grpc.CallOption) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
-	ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error)
 }
 
 type robotServiceClient struct {
@@ -202,15 +201,6 @@ func (c *robotServiceClient) NavigationServiceRemoveWaypoint(ctx context.Context
 	return out, nil
 }
 
-func (c *robotServiceClient) ObjectManipulationServiceDoGrab(ctx context.Context, in *ObjectManipulationServiceDoGrabRequest, opts ...grpc.CallOption) (*ObjectManipulationServiceDoGrabResponse, error) {
-	out := new(ObjectManipulationServiceDoGrabResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -239,7 +229,6 @@ type RobotServiceServer interface {
 	NavigationServiceWaypoints(context.Context, *NavigationServiceWaypointsRequest) (*NavigationServiceWaypointsResponse, error)
 	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
 	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
-	ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -288,9 +277,6 @@ func (UnimplementedRobotServiceServer) NavigationServiceAddWaypoint(context.Cont
 }
 func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceRemoveWaypoint not implemented")
-}
-func (UnimplementedRobotServiceServer) ObjectManipulationServiceDoGrab(context.Context, *ObjectManipulationServiceDoGrabRequest) (*ObjectManipulationServiceDoGrabResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ObjectManipulationServiceDoGrab not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -560,24 +546,6 @@ func _RobotService_NavigationServiceRemoveWaypoint_Handler(srv interface{}, ctx 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_ObjectManipulationServiceDoGrab_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ObjectManipulationServiceDoGrabRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).ObjectManipulationServiceDoGrab(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.v1.RobotService/ObjectManipulationServiceDoGrab",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).ObjectManipulationServiceDoGrab(ctx, req.(*ObjectManipulationServiceDoGrabRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -636,10 +604,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "NavigationServiceRemoveWaypoint",
 			Handler:    _RobotService_NavigationServiceRemoveWaypoint_Handler,
-		},
-		{
-			MethodName: "ObjectManipulationServiceDoGrab",
-			Handler:    _RobotService_ObjectManipulationServiceDoGrab_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
