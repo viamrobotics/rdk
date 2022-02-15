@@ -142,7 +142,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 		csPin:       c.ChipSelect,
 		index:       c.Index,
 		stepsPerRev: c.TicksPerRotation * uSteps,
-		enPin:       c.Pins["en"],
+		enPin:       c.Pins.En,
 		maxRPM:      c.MaxRPM,
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
