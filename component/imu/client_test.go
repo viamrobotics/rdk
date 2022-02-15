@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
@@ -75,7 +76,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.GetReadings(context.Background())
+		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -97,7 +98,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
 
-		rs2, err := imu1Client2.GetReadings(context.Background())
+		rs2, err := imu1Client2.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
 
@@ -146,7 +147,7 @@ func TestClientZeroValues(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
-		rs1, err := imu1Client.GetReadings(context.Background())
+		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 

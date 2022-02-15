@@ -37,8 +37,6 @@ func NewIMU(cfg config.Component) (imu.IMU, error) {
 	name := cfg.Name
 	return &IMU{
 		Name:            name,
-		Latitude:        0,
-		Longitude:       0,
 		angularVelocity: spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3},
 		orientation:     spatialmath.EulerAngles{Roll: utils.DegToRad(1), Pitch: utils.DegToRad(2), Yaw: utils.DegToRad(3)},
 	}, nil
@@ -47,8 +45,6 @@ func NewIMU(cfg config.Component) (imu.IMU, error) {
 // IMU is a fake IMU device that always returns the set angular velocity and orientation.
 type IMU struct {
 	Name            string
-	Latitude        float64
-	Longitude       float64
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
 
@@ -67,11 +63,4 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, nil
-}
-
-// GetReadings always returns the set values.
-func (i *IMU) GetReadings(ctx context.Context) ([]interface{}, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return []interface{}{i.Latitude, i.Longitude}, nil
 }
