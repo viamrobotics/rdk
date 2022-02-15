@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
@@ -143,7 +144,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.GetReadings(context.Background())
+			rs, err := forceMatrixClient.(sensor.Sensor).GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 
@@ -166,7 +167,7 @@ func TestClientWorking(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isSlipping, test.ShouldBeTrue)
 
-			rs, err := forceMatrixClient.GetReadings(context.Background())
+			rs, err := forceMatrixClient.(sensor.Sensor).GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
 

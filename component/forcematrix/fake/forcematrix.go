@@ -55,12 +55,3 @@ func (fsm *ForceMatrix) ReadMatrix(ctx context.Context) ([][]int, error) {
 func (fsm *ForceMatrix) DetectSlip(ctx context.Context) (bool, error) {
 	return false, nil
 }
-
-// GetReadings always returns the same values.
-func (fsm *ForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fsm.ReadMatrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
-}

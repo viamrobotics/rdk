@@ -161,25 +161,6 @@ func (fsm *ForceMatrixTraditional) ReadMatrix(ctx context.Context) ([][]int, err
 	return matrix, nil
 }
 
-// GetReadings returns a flattened matrix of measurements from the force sensor.
-func (fsm *ForceMatrixTraditional) GetReadings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fsm.ReadMatrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	numRows := len(fsm.analogReaders)
-	numCols := len(fsm.columnGpioPins)
-
-	readings := make([]interface{}, 0, numRows*numCols)
-	for row := 0; row < numRows; row++ {
-		for col := 0; col < numCols; col++ {
-			readings = append(readings, matrix[row][col])
-		}
-	}
-	return readings, nil
-}
-
 // GetPreviousMatrices is an accessor for the history of matrix readings stored
 // on the sensor required for slip detection (see slipdetector.ReadingsHistoryProvider).
 func (fsm *ForceMatrixTraditional) GetPreviousMatrices() [][][]int {
