@@ -123,16 +123,16 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 
 // NextObjects returns the next ObjectSegmentation from the camera scene,
 // or will error if not supported.
-func (is *imageSource) NextObjects(ctx context.Context, conf *vision.Parameters3D) ([]*vision.Object, error) {
+func (is *imageSource) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
 	if c, ok := is.ImageSource.(ThreeDimObjectSource); ok {
-		return c.NextObjects(ctx, conf)
+		return c.NextObjects(ctx, params)
 	}
 	if c, ok := is.ImageSource.(ThreeDimImageSource); ok {
 		pc, err := c.NextPointCloud(ctx)
 		if err != nil {
 			return nil, err
 		}
-		seg, err := segmentation.NewObjectSegmentation(ctx, pc, *conf)
+		seg, err := segmentation.NewObjectSegmentation(ctx, pc, params) // default object segmentation
 		if err != nil {
 			return nil, err
 		}
@@ -181,7 +181,7 @@ func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *v
 		if err != nil {
 			return nil, err
 		}
-		seg, err := segmentation.NewObjectSegmentation(ctx, pc, *params)
+		seg, err := segmentation.NewObjectSegmentation(ctx, pc, params) // default object segmentation
 		if err != nil {
 			return nil, err
 		}
@@ -196,7 +196,7 @@ func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *v
 	if err != nil {
 		return nil, err
 	}
-	seg, err := segmentation.NewObjectSegmentation(ctx, pc, *params)
+	seg, err := segmentation.NewObjectSegmentation(ctx, pc, params) // default object segmentation
 	if err != nil {
 		return nil, err
 	}
