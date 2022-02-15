@@ -224,7 +224,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			if err != nil {
 				return err
 			}
