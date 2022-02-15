@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -148,9 +149,18 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 
 // GetReadings return data specific to the type of sensor and can be of any type.
 func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	var allErrors error
+	var (
+		r         []interface{}
+		err       error
+		allErrors error
+	)
 	for _, g := range m.subs {
-		r, err := g.GetReadings(ctx)
+		s, ok := g.(sensor.Sensor)
+		if ok {
+			r, err = s.GetReadings(ctx)
+		} else {
+			r, err = gps.GetReadings(ctx, g)
+		}
 		if err == nil {
 			return r, nil
 		}
