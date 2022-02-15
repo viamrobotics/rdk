@@ -46,9 +46,6 @@ func TestClient(t *testing.T) {
 	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
 		return ac, nil
 	}
-	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return rs, nil
-	}
 
 	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
 	test.That(t, err, test.ShouldBeNil)
@@ -139,9 +136,6 @@ func TestClientZeroValues(t *testing.T) {
 	}
 	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
 		return ac, nil
-	}
-	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-		return rs, nil
 	}
 
 	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
