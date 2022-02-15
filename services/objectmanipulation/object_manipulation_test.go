@@ -19,7 +19,7 @@ import (
 )
 
 func TestDoGrabFailures(t *testing.T) {
-	cfgService := config.Service{Name: "objectmanipulation"}
+	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
 	var r *inject.Robot
@@ -115,4 +115,57 @@ func TestMultiplePieces(t *testing.T) {
 	theArm, _ := arm.FromRobot(myRobot, "a")
 	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
+}
+
+func setupInjectRobot() (*inject.Robot, *mock) {
+	svc1 := &mock{}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return svc1, true
+	}
+	return r, svc1
+}
+
+func TestFromRobot(t *testing.T) {
+	r, svc1 := setupInjectRobot()
+
+	svc, err := objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc, test.ShouldNotBeNil)
+
+	result, err := svc.DoGrab(context.Background(), "", "", "", &r3.Vector{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, success)
+	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return "not object manipulation", true
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectmanipulation.Service")
+	test.That(t, svc, test.ShouldBeNil)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return nil, false
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, svc, test.ShouldBeNil)
+}
+
+const success = false
+
+type mock struct {
+	objectmanipulation.Service
+
+	grabCount int
+}
+
+func (m *mock) DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	m.grabCount++
+	return success, nil
 }
