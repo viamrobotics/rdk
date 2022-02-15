@@ -151,10 +151,6 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 	})
 }
 
-func (g *pmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	return []interface{}{g.data}, nil
-}
-
 func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

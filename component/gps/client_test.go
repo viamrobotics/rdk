@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/registry"
@@ -79,7 +80,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, speed1, test.ShouldAlmostEqual, speed)
 
-		rs1, err := gps1Client.GetReadings(context.Background())
+		rs1, err := gps1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -105,7 +106,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
 
-		_, err = gps2Client.GetReadings(context.Background())
+		_, err = gps2Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 

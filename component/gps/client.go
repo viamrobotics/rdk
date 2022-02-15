@@ -9,6 +9,7 @@ import (
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 )
@@ -45,6 +46,8 @@ func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClie
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
+
+var _ = sensor.Sensor(&client{})
 
 // client is a GPS client.
 type client struct {
@@ -102,19 +105,7 @@ func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	loc, err := c.ReadLocation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	alt, err := c.ReadAltitude(ctx)
-	if err != nil {
-		return nil, err
-	}
-	speed, err := c.ReadSpeed(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{loc.Lat(), loc.Lng(), alt, speed}, nil
+	return GetReadings(ctx, c)
 }
 
 // Close cleanly closes the underlying connections.
