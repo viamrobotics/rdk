@@ -63,10 +63,10 @@ func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	return &i.orientation, i.lastError
 }
 
-func (i *wit) readAcceleration(ctx context.Context) (*r3.Vector, error) {
+func (i *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
-	return &i.acceleration, i.lastError
+	return i.acceleration, i.lastError
 }
 
 func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
