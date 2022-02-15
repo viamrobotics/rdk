@@ -166,7 +166,7 @@ func TestReadAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 1)
 }
 
-func TestOrientiation(t *testing.T) {
+func TestReadOrientation(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
@@ -181,10 +181,15 @@ func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
+	readings1, err := imu.GetReadings(context.Background(), actualIMU1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
+
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
+	test.That(t, result, test.ShouldResemble, readings1)
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 
 	actualIMU2 := &mockWithSensor{}
