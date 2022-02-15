@@ -20,6 +20,7 @@ func R3VectorAlmostEqual(a, b r3.Vector, epsilon float64) bool {
 // TranslationConfig represents the configuration format representing a translation between two objects - it is always in millimeters.
 type TranslationConfig r3VectorConfig
 
+// NewTranslationConfig constructs a config from a r3.Vector.
 func NewTranslationConfig(translation r3.Vector) *TranslationConfig {
 	return &TranslationConfig{X: translation.X, Y: translation.Y, Z: translation.Z}
 }
@@ -32,6 +33,7 @@ func (t *TranslationConfig) ParseConfig() r3.Vector {
 // AxisConfig represents the configuration format representing an axis.
 type AxisConfig r3VectorConfig
 
+// NewAxisConfig constructs a config from an R4AA.
 func NewAxisConfig(axis R4AA) *AxisConfig {
 	return &AxisConfig{axis.RX, axis.RY, axis.RZ}
 }

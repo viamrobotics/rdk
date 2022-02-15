@@ -60,6 +60,8 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 		return NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 	case "sphere":
 		return NewSphere(config.R, offset)
+	case "point":
+		return NewPoint(offset), nil
 	case "":
 		// no type specified, iterate through supported types and try to infer intent
 		creator, err := NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
@@ -70,10 +72,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 		if err == nil {
 			return creator, nil
 		}
-		// creator, err = NewPoint(offset)
-		// if err == nil {
-		// 	return creator, nil
-		// }
+		return NewPoint(offset), nil
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }

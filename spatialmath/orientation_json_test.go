@@ -98,6 +98,7 @@ func TestOrientation(t *testing.T) {
 }
 
 func loadOrientationTests(t *testing.T) map[string]json.RawMessage {
+	t.Helper()
 	file, err := os.Open("data/orientations.json")
 	test.That(t, err, test.ShouldBeNil)
 	defer utils.UncheckedErrorFunc(file.Close)
