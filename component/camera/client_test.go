@@ -53,7 +53,7 @@ func TestClient(t *testing.T) {
 		return pcA, nil
 	}
 	injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, *params)
+		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
 		if err != nil {
 			return nil, err
 		}

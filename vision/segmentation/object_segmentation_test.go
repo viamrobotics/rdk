@@ -18,7 +18,7 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	cloud, err := pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	test.That(t, err, test.ShouldBeNil)
 	// do segmentation
-	objConfig := vision.Parameters3D{
+	objConfig := &vision.Parameters3D{
 		MinPtsInPlane:      50000,
 		MinPtsInSegment:    500,
 		ClusteringRadiusMm: 10.0,
@@ -48,7 +48,7 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		cosineThresh:   0.1,
 		distanceThresh: 0.1,
 	}
-	voxObjConfig := vision.Parameters3D{
+	voxObjConfig := &vision.Parameters3D{
 		MinPtsInPlane:      100,
 		MinPtsInSegment:    25,
 		ClusteringRadiusMm: 7.5,

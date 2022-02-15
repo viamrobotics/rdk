@@ -3,6 +3,8 @@ package segmentation
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/vision"
 )
@@ -19,7 +21,10 @@ func (objseg *ObjectSegmentation) Objects() []*vision.Object {
 }
 
 // NewObjectSegmentation removes the planes (if any) and returns a segmentation of the objects in a point cloud.
-func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg vision.Parameters3D) (*ObjectSegmentation, error) {
+func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg *vision.Parameters3D) (*ObjectSegmentation, error) {
+	if cfg == nil {
+		return nil, errors.New("config for object segmentation cannot be nil")
+	}
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {

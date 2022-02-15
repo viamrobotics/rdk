@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/vision"
 )
@@ -12,9 +14,12 @@ import (
 func NewObjectSegmentationFromVoxelGrid(
 	ctx context.Context,
 	vg *pc.VoxelGrid,
-	objConfig vision.Parameters3D,
+	objConfig *vision.Parameters3D,
 	planeConfig VoxelGridPlaneConfig,
 ) (*ObjectSegmentation, error) {
+	if objConfig == nil {
+		return nil, errors.New("config for object segmentation cannot be nil")
+	}
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
