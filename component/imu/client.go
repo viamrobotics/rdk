@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
@@ -99,6 +100,20 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 		Roll:  utils.DegToRad(resp.Orientation.RollDeg),
 		Pitch: utils.DegToRad(resp.Orientation.PitchDeg),
 		Yaw:   utils.DegToRad(resp.Orientation.YawDeg),
+	}, nil
+}
+
+func (c *client) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.ReadAcceleration(ctx, &pb.IMUServiceReadAccelerationRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return r3.Vector{
+		X: resp.Acceleration.XMmPerSecPerSec,
+		Y: resp.Acceleration.YMmPerSecPerSec,
+		Z: resp.Acceleration.ZMmPerSecPerSec,
 	}, nil
 }
 

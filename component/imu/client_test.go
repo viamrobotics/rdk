@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -32,7 +33,8 @@ func TestClient(t *testing.T) {
 
 	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
-	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
+	ac := r3.Vector{X: 7, Y: 8, Z: 9}
+	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -40,6 +42,9 @@ func TestClient(t *testing.T) {
 	}
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
+	}
+	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
+		return ac, nil
 	}
 	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
@@ -76,6 +81,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
 
+		ac1, err := imu1Client.ReadAcceleration(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ac1, test.ShouldResemble, ac)
+
 		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
@@ -98,6 +107,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea2, test.ShouldResemble, ea)
 
+		ac2, err := imu1Client2.ReadAcceleration(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ac2, test.ShouldResemble, ac)
+
 		rs2, err := imu1Client2.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
@@ -114,7 +127,8 @@ func TestClientZeroValues(t *testing.T) {
 
 	av := spatialmath.AngularVelocity{X: 0, Y: 0, Z: 0}
 	ea := &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
-	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw}
+	ac := r3.Vector{X: 0, Y: 0, Z: 0}
+	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -122,6 +136,9 @@ func TestClientZeroValues(t *testing.T) {
 	}
 	injectIMU.ReadOrientationFunc = func(ctx context.Context) (spatialmath.Orientation, error) {
 		return ea, nil
+	}
+	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
+		return ac, nil
 	}
 	injectIMU.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 		return rs, nil
@@ -146,6 +163,10 @@ func TestClientZeroValues(t *testing.T) {
 		ea1, err := imu1Client.ReadOrientation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ea1, test.ShouldResemble, ea)
+
+		ac1, err := imu1Client.ReadAcceleration(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, ac1, test.ShouldResemble, ac)
 
 		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)

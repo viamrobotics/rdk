@@ -1316,6 +1316,17 @@
                       theData.imuData[name].angularVelocity = resp.toObject().angularVelocity;
                   });
 
+                var req = new imuApi.IMUServiceReadAccelerationRequest();
+                req.setName(name);
+
+                imuService.readAcceleration(req, {}, (err, resp) => {
+                  if (err) {
+                    console.log(err);
+                    return;
+                  }
+                  theData.imuData[name].acceleration = resp.toObject().acceleration;
+                });
+
               });
           }
           setTimeout(imuRefresh, 500);
@@ -1410,10 +1421,15 @@
             <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
             <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
             <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
-            <tr><th colspan="2">Angular Velocity</th></tr>
+            <tr><th colspan="2">Angular Velocity (degrees/second)</th></tr>
             <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
             <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
             <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
+            <tr><th colspan="2">Acceleration (mm/second/second)</th></tr>
+            <tr><th>X</th><td>${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td></tr>
+            <tr><th>Y</th><td>${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td></tr>
+            <tr><th>Z</th><td>${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td></tr>
+            
           </table>
         </div>
         <hr>
