@@ -99,6 +99,9 @@ func (b *box) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(*sphere); ok {
 		return sphereVsBoxCollision(other, b), nil
 	}
+	if other, ok := v.(*point); ok {
+		return pointVsBoxCollision(b, other.pose.Point()), nil
+	}
 	return true, errors.Errorf("collisions between box and %T are not supported", v)
 }
 
@@ -109,6 +112,9 @@ func (b *box) DistanceFrom(v Volume) (float64, error) {
 	}
 	if other, ok := v.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
+	}
+	if other, ok := v.(*point); ok {
+		return pointVsBoxDistance(b, other.pose.Point()), nil
 	}
 	return math.Inf(-1), errors.Errorf("collisions between box and %T are not supported", v)
 }
@@ -132,10 +138,8 @@ func (b *box) closestPoint(pt r3.Vector) r3.Vector {
 	return result
 }
 
-// boxVsPointDistance takes a box and a point as arguments and returns a floating point number.  If this number is nonpositive it represents
-// the penetration depth of the point within the box.  If the returned float is positive it represents the separation distance between the
-// point and the box, which are not in collision.
-func boxVsPointDistance(b *box, pt r3.Vector) float64 {
+// penetrationDepth returns the minimum distance needed to move a pt inside the box to the edge of the box.
+func (b *box) penetrationDepth(pt r3.Vector) float64 {
 	direction := pt.Sub(b.pose.Point())
 	rm := b.pose.Orientation().RotationMatrix()
 	min := math.Inf(1)

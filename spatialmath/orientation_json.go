@@ -25,7 +25,7 @@ type OrientationConfig struct {
 	Value json.RawMessage `json:"value"`
 }
 
-// OrientationMap encodes the orientation interface to something serializable and human readable.
+// NewOrientationConfig encodes the orientation interface to something serializable and human readable.
 func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	bytes, err := json.Marshal(o)
 	if err != nil {
