@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/imu"
@@ -39,6 +40,10 @@ func TestServer(t *testing.T) {
 		return &spatialmath.EulerAngles{Roll: utils.DegToRad(4), Pitch: utils.DegToRad(5), Yaw: utils.DegToRad(6)}, nil
 	}
 
+	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
+		return r3.Vector{X: 7, Y: 8, Z: 9}, nil
+	}
+
 	//nolint:dupl
 	t.Run("IMU angular velocity", func(t *testing.T) {
 		resp, err := imuServer.ReadAngularVelocity(context.Background(), &pb.IMUServiceReadAngularVelocityRequest{Name: testIMUName})
@@ -65,6 +70,21 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
 		_, err = imuServer.ReadOrientation(context.Background(), &pb.IMUServiceReadOrientationRequest{Name: missingIMUName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
+	})
+
+	//nolint:dupl
+	t.Run("IMU acceleration", func(t *testing.T) {
+		resp, err := imuServer.ReadAcceleration(context.Background(), &pb.IMUServiceReadAccelerationRequest{Name: testIMUName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Acceleration, test.ShouldResemble, &pb.Acceleration{XMmPerSecPerSec: 7, YMmPerSecPerSec: 8, ZMmPerSecPerSec: 9})
+
+		_, err = imuServer.ReadAcceleration(context.Background(), &pb.IMUServiceReadAccelerationRequest{Name: fakeIMUName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
+
+		_, err = imuServer.ReadAcceleration(context.Background(), &pb.IMUServiceReadAccelerationRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
