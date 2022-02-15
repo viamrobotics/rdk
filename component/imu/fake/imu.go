@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/imu"
@@ -41,6 +42,7 @@ func NewIMU(cfg config.Component) (imu.IMU, error) {
 		Longitude:       0,
 		angularVelocity: spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3},
 		orientation:     spatialmath.EulerAngles{Roll: utils.DegToRad(1), Pitch: utils.DegToRad(2), Yaw: utils.DegToRad(3)},
+		acceleration:    r3.Vector{X: 1, Y: 2, Z: 3},
 	}, nil
 }
 
@@ -51,6 +53,7 @@ type IMU struct {
 	Longitude       float64
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
+	acceleration    r3.Vector
 
 	mu sync.Mutex
 }
@@ -67,6 +70,13 @@ func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, err
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	return &i.orientation, nil
+}
+
+// ReadAcceleration always returns the set value.
+func (i *IMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	return i.acceleration, nil
 }
 
 // GetReadings always returns the set values.

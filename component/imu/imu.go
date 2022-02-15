@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -59,6 +60,7 @@ type IMU interface {
 	sensor.Sensor
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
+	ReadAcceleration(ctx context.Context) (r3.Vector, error)
 }
 
 var (
@@ -111,6 +113,12 @@ func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Or
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadOrientation(ctx)
+}
+
+func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadAcceleration(ctx)
 }
 
 func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, error) {
