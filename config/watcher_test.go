@@ -48,9 +48,7 @@ func TestNewWatcherFile(t *testing.T) {
 	watcher, err := NewWatcher(context.Background(), &Config{ConfigFilePath: temp.Name()}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	var writeWait sync.WaitGroup
 	writeConf := func(conf *Config) {
-		defer writeWait.Done()
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ioutil.WriteFile(temp.Name(), md, 0o755), test.ShouldBeNil)
@@ -82,7 +80,6 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	writeWait.Add(1)
 	go writeConf(&confToWrite)
 
 	newConf := <-watcher.Config()
@@ -106,7 +103,6 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	writeWait.Add(1)
 	go writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
@@ -149,14 +145,12 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	writeWait.Add(1)
 	go writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
-	writeWait.Wait()
 }
 
 func TestNewWatcherCloud(t *testing.T) {
