@@ -181,11 +181,11 @@ func TestReadAcceleration(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
-	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 0)
+	test.That(t, actualIMU1.accelerationCount, test.ShouldEqual, 0)
 	acc, err := reconfIMU1.(imu.IMU).ReadAcceleration(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, acc, test.ShouldResemble, r3.Vector{X: 1, Y: 2, Z: 3})
-	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 1)
+	test.That(t, acc, test.ShouldResemble, r3.Vector{X: 7, Y: 8, Z: 9})
+	test.That(t, actualIMU1.accelerationCount, test.ShouldEqual, 1)
 }
 
 func TestGetReadings(t *testing.T) {
@@ -195,7 +195,7 @@ func TestGetReadings(t *testing.T) {
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
 	result, err := reconfIMU1.(imu.IMU).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{av, ea})
+	test.That(t, result, test.ShouldResemble, []interface{}{av, ea, ac})
 	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 1)
 }
 
