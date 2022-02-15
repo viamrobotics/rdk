@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -110,6 +111,7 @@ func TestIMUName(t *testing.T) {
 var (
 	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
+	ac = r3.Vector{X: 7, Y: 8, Z: 9}
 
 	readings = []interface{}{5.6, 6.4}
 )
@@ -178,13 +180,24 @@ func TestReadOrientation(t *testing.T) {
 	test.That(t, actualIMU1.orientationCount, test.ShouldEqual, 1)
 }
 
+func TestReadAcceleration(t *testing.T) {
+	actualIMU1 := &mock{Name: testIMUName}
+	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.accelerationCount, test.ShouldEqual, 0)
+	acc, err := reconfIMU1.(imu.IMU).ReadAcceleration(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, acc, test.ShouldResemble, r3.Vector{X: 7, Y: 8, Z: 9})
+	test.That(t, actualIMU1.accelerationCount, test.ShouldEqual, 1)
+}
+
 func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
 	readings1, err := imu.GetReadings(context.Background(), actualIMU1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw})
+	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z})
 
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -205,6 +218,7 @@ type mock struct {
 	Name                 string
 	angularVelocityCount int
 	orientationCount     int
+	accelerationCount    int
 	reconfCount          int
 }
 
@@ -216,6 +230,11 @@ func (m *mock) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelo
 func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	m.orientationCount++
 	return ea, nil
+}
+
+func (m *mock) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	m.accelerationCount++
+	return ac, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }

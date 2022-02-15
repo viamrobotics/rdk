@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -58,6 +59,7 @@ func Named(name string) resource.Name {
 type IMU interface {
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
+	ReadAcceleration(ctx context.Context) (r3.Vector, error)
 }
 
 var (
@@ -95,7 +97,11 @@ func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
 		return nil, err
 	}
 	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+	ac, err := i.ReadAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}, nil
 }
 
 type reconfigurableIMU struct {
@@ -125,6 +131,12 @@ func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Or
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadOrientation(ctx)
+}
+
+func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadAcceleration(ctx)
 }
 
 // GetReadings will use the generic IMU GetReadings if not provided.

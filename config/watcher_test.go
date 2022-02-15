@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -152,8 +153,6 @@ func TestNewWatcherFile(t *testing.T) {
 }
 
 func TestNewWatcherCloud(t *testing.T) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/523): test doesn't work
-	t.Skip("Skipping test for now")
 	logger := golog.NewTestLogger(t)
 
 	randomPort, err := utils.TryReserveRandomPort()
@@ -170,6 +169,8 @@ func TestNewWatcherCloud(t *testing.T) {
 		TLSPrivateKey:  "world",
 	}
 
+	cloudID := primitive.NewObjectID().Hex()
+
 	var confToReturn Config
 	var confErr bool
 	var confMu sync.Mutex
@@ -178,7 +179,7 @@ func TestNewWatcherCloud(t *testing.T) {
 		if err := r.ParseForm(); err != nil {
 			panic(err)
 		}
-		if len(r.Form["id"]) == 0 || r.Form["id"][0] != "my_id" {
+		if len(r.Form["id"]) == 0 || r.Form["id"][0] != cloudID {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("bad id"))
 			return
@@ -226,7 +227,7 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	cloudConf := &Cloud{
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
-		ID:              "my_id",
+		ID:              cloudID,
 		Secret:          "my_secret",
 		FQDN:            "woo",
 		LocalFQDN:       "yee",
