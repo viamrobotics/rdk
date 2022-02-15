@@ -32,15 +32,12 @@ func (pc *pointCreator) NewVolume(pose Pose) Volume {
 }
 
 func (pc *pointCreator) MarshalJSON() ([]byte, error) {
-	orientationConfig, err := NewOrientationConfig(pc.offset.Orientation().AxisAngles())
+	config, err := NewVolumeConfig(pc.offset)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(VolumeConfig{
-		Type:              "point",
-		TranslationOffset: *NewTranslationConfig(pc.offset.Point()),
-		OrientationOffset: *orientationConfig,
-	})
+	config.Type = "point"
+	return json.Marshal(config)
 }
 
 // Pose returns the pose of the point.

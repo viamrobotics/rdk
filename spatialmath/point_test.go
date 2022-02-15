@@ -14,7 +14,7 @@ func makePoint(pt r3.Vector) *point {
 
 func TestNewPointFromOffset(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
-	vol := NewPoint(offset).NewVolume(Invert(offset))
+	vol := NewPoint(offset).NewVolume(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 

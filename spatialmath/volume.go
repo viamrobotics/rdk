@@ -40,6 +40,21 @@ type VolumeConfig struct {
 	OrientationOffset OrientationConfig `json:"orientation"`
 }
 
+// NewVolumeConfig creates a config for a Volume from an offset Pose.
+func NewVolumeConfig(offset Pose) (*VolumeConfig, error) {
+	o := offset.Orientation()
+	translationConfig := NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
+	orientationConfig, err := NewOrientationConfig(o.AxisAngles())
+	if err != nil {
+		return nil, err
+	}
+	return &VolumeConfig{
+		Type:              "point",
+		TranslationOffset: *translationConfig,
+		OrientationOffset: *orientationConfig,
+	}, nil
+}
+
 // ParseConfig converts a VolumeConfig into the correct VolumeCreator type, as specified in its Type field.
 func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	// determine offset to use
@@ -47,12 +62,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	if err != nil {
 		return nil, err
 	}
-	offset := NewPoseFromOrientation(config.TranslationOffset.ParseConfig(), orientation)
-
-	pt := offset.Point()
-	_ = pt
-	orientation = offset.Orientation()
-	_ = orientation
+	offset := Compose(NewPoseFromOrientation(r3.Vector{}, orientation), NewPoseFromPoint(config.TranslationOffset.ParseConfig()))
 
 	// build VolumeCreator depending on specified type
 	switch config.Type {
@@ -72,7 +82,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 		if err == nil {
 			return creator, nil
 		}
-		return NewPoint(offset), nil
+		// never try to infer point volume if nothing is specified
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }
