@@ -120,7 +120,7 @@ func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error
 	return r.actual.DetectSlip(ctx)
 }
 
-// GetReadings will use the generic ForceMatrix GetReadings if not provided.
+// GetReadings will use the default ForceMatrix GetReadings if not provided.
 func (r *reconfigurableForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

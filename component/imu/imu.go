@@ -139,7 +139,7 @@ func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, er
 	return r.actual.ReadAcceleration(ctx)
 }
 
-// GetReadings will use the generic IMU GetReadings if not provided.
+// GetReadings will use the default IMU GetReadings if not provided.
 func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
