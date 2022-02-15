@@ -84,9 +84,9 @@ func TestConfig3(t *testing.T) {
 		},
 	})
 	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
-		Pins: map[string]string{
-			"dir": "io17",
-			"pwm": "io18",
+		Pins: motor.PinConfig{
+			Dir: "io17",
+			PWM: "io18",
 		},
 		Encoder:          "encoder-steering-b",
 		EncoderB:         "encoder-steering-a",

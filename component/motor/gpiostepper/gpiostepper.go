@@ -58,10 +58,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
-		enablePinHigh:    mc.Pins["enHigh"],
-		enablePinLow:     mc.Pins["enLow"],
-		stepPin:          mc.Pins["step"],
-		dirPin:           mc.Pins["dir"],
+		enablePinHigh:    mc.Pins.EnablePinHigh,
+		enablePinLow:     mc.Pins.EnablePinLow,
+		stepPin:          mc.Pins.Step,
+		dirPin:           mc.Pins.Dir,
 		logger:           logger,
 	}
 
