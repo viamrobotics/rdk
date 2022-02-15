@@ -17,7 +17,7 @@ func TestNewSphereFromOffset(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 	vc, err := NewSphere(1, offset)
 	test.That(t, err, test.ShouldBeNil)
-	vol := vc.NewVolume(Invert(offset))
+	vol := vc.NewVolume(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 

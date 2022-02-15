@@ -29,7 +29,7 @@ func TestVolumeSerialization(t *testing.T) {
 		{"sphere bad dims", VolumeConfig{Type: "sphere", R: -1}, false},
 		{"infer sphere", VolumeConfig{R: 1, OrientationOffset: orientation}, true},
 		{"point", VolumeConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation}, true},
-		{"infer point", VolumeConfig{}, true},
+		{"infer point", VolumeConfig{}, false},
 		{"bad type", VolumeConfig{Type: "bad"}, false},
 	}
 
