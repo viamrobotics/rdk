@@ -305,27 +305,23 @@ func TestWheeledBaseConstructor(t *testing.T) {
 		return &fake.Motor{}, true
 	}
 
-	_, err := CreateWheeledBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := config.Component{
-		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"left":                 []string{"fl-m", "bl-m"},
-			"right":                []string{"fr-m"},
-		},
+	cfg := &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m"},
 	}
 	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg = config.Component{
-		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"left":                 []string{"fl-m", "bl-m"},
-			"right":                []string{"fr-m", "br-m"},
-		},
+	cfg = &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
 	}
 	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)
