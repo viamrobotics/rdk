@@ -52,7 +52,6 @@ type wit struct {
 
 func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	i.mu.Lock()
-
 	defer i.mu.Unlock()
 	return i.angularVelocity, i.lastError
 }
