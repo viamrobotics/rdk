@@ -31,9 +31,10 @@ import (
 func TestRobotReconfigure(t *testing.T) {
 	ConfigFromFile := func(t *testing.T, filePath string) *config.Config {
 		t.Helper()
+		logger := golog.NewTestLogger(t)
 		buf, err := envsubst.ReadFile(filePath)
 		test.That(t, err, test.ShouldBeNil)
-		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf))
+		conf, err := config.FromReader(context.Background(), filePath, bytes.NewReader(buf), logger)
 		test.That(t, err, test.ShouldBeNil)
 		return conf
 	}
@@ -89,7 +90,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -197,7 +198,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 
 		ctx := context.Background()
 		svc, err := service.New()
@@ -309,7 +310,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 
 		test.That(t, robot.Reconfigure(context.Background(), conf1), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -424,7 +425,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -521,7 +522,7 @@ func TestRobotReconfigure(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -661,7 +662,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -812,7 +813,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -948,7 +949,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{resource.NameFromSubtype(web.Subtype, "")}
+		serviceNames := []resource.Name{web.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(

@@ -90,8 +90,9 @@ func (h *segmentationSourceTestHelper) Process(
 }
 
 func TestSegmentationSourceIntel(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 	debugImageSourceOrSkip(t)
-	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"))
+	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)

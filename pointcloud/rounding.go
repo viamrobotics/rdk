@@ -67,15 +67,15 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 // Set sets a point on the cloud.
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
-	p.SetPosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
-	cloud.points[key(p.Position())] = p
-	if p.HasColor() {
+	rp := p.Clone(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
+	cloud.points[key(rp.Position())] = rp
+	if rp.HasColor() {
 		cloud.hasColor = true
 	}
-	if p.HasValue() {
+	if rp.HasValue() {
 		cloud.hasValue = true
 	}
-	v := p.Position()
+	v := rp.Position()
 	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
 		return newOutOfRangeErr("x", v.X)
 	}

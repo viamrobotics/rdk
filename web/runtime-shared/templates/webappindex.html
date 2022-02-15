@@ -14,7 +14,11 @@
       #pre-app.connected { display: none; }
       #connecting { display: none; }
       #connecting.connecting { display: block; }
-      #connecting-error { color: red };
+     #connecting-error { color: red };
+     h3 {
+       margin: 0.1em;
+       margin-block-end: 0.1em;
+     }
     </style>
     <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
     <script>
@@ -22,6 +26,7 @@
       window.webrtcHost = {{ .WebRTCHost }}
       window.webrtcSignalingAddress = {{ .WebRTCSignalingAddress }}
       window.webrtcAdditionalICEServers = {{ .WebRTCAdditionalICEServers }}
+      window.bakedAuth = {{ .BakedAuth }} || {};
       window.supportedAuthTypes = {{ .SupportedAuthTypes }} || [];
     </script>
     {{ if .External }}
@@ -122,10 +127,20 @@
           }
           return n;
       }
+     
+     function fixServos(old) {
+       var n = {};
+       for (var i=0; i<old.length; i++) {
+         var name = old[i][0];
+         var angle = old[i][1].angle;
+         n[name] = angle;
+       }
+       return n;
+     }
+     
+     firstResult = false;
 
-      firstResult = false;
-
-      async function updateStatus(rawStatus) {
+     async function updateStatus(rawStatus) {
           theData.rawStatus = rawStatus;
           window.rawStatus = rawStatus;
           // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
@@ -149,9 +164,10 @@
           status.armsMap = fixArms(status.armsMap);
           status.boardsMap = fixBoards(status.boardsMap);
           status.gantriesMap = fixGantries(status.gantriesMap);
+          status.servosMap = fixServos(status.servosMap);
 
-          if (!firstResult) {
-            console.log(rawStatusObj);
+        if (!firstResult) {
+          console.log(rawStatusObj);
             console.log(status);
             firstResult = true;
           }
@@ -610,8 +626,8 @@
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new robotApi.ObjectManipulationServiceDoGrabRequest();
-                      let cameraPoint = new robotApi.Vector3();
+                      let req = new objectManipulationApi.ObjectManipulationServiceDoGrabRequest();
+                      let cameraPoint = new commonApi.Vector3();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
                       cameraPoint.setZ(cameraPointZ);
@@ -620,16 +636,15 @@
                       req.setCameraName(cameraName);
                       req.setCameraPoint(cameraPoint);
                       req.setGripperName(gripperName);
-                      console.log("making grab attempt");
-                      console.log(gripperName);
+                      console.log("making grab attempt using " + gripperName);
 
-                      robotService.objectManipulationServiceDoGrab(req, {},
+                      objectManipulationService.doGrab(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
                             return Promise.reject(err);
                           }
-                          return Promise.resolve(resp).then(console.log);
+                          return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
                       })
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
@@ -1110,12 +1125,12 @@
         }
       }
 
-      async function doConnect(creds, onError) {
+      async function doConnect(authEntity, creds, onError) {
         console.debug("connecting");
         document.getElementById("connecting-error").innerHTML = "";
         document.getElementById("connecting").classList.add("connecting");
         try {
-            await window.connect(creds);
+            await window.connect(authEntity, creds);
         } catch (e) {
           const msg = `failed to connect: ${e}`;
           console.error(msg);
@@ -1133,7 +1148,10 @@
 
       async function waitForClientAndStart() {
         if (window.supportedAuthTypes.length == 0) {
-          doConnect(undefined, waitForClientAndStart);
+          doConnect(
+            window.bakedAuth.authEntity,
+            window.bakedAuth.creds,
+            waitForClientAndStart);
           return;
         }
 
@@ -1156,7 +1174,7 @@
           const doLogin = () => {
             disableAll();
             const creds = { type: authType, payload: input.value };
-            doConnect(creds, () => enableAll());
+            doConnect("", creds, "", "", () => enableAll());
           }
           button.addEventListener("click", () => doLogin());
           input.addEventListener("keyup", (event) => {
@@ -1468,10 +1486,10 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo.name }</h3>
+      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: .5em;">
         <table border="1">
-          <tr><th>Angle</th><td>${servo.angle}</td></tr>
+          <tr><th>Servo</th><td>${servo.name}</td></tr>
+          <tr><td>Angle</td><td>${status.servosMap[servo.name]}</td></tr>
           <tr>
             <td></td>
             <td>

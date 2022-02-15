@@ -58,10 +58,10 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
-		enablePinHigh:    mc.Pins["enHigh"],
-		enablePinLow:     mc.Pins["enLow"],
-		stepPin:          mc.Pins["step"],
-		dirPin:           mc.Pins["dir"],
+		enablePinHigh:    mc.Pins.EnablePinHigh,
+		enablePinLow:     mc.Pins.EnablePinLow,
+		stepPin:          mc.Pins.Step,
+		dirPin:           mc.Pins.Dir,
 		logger:           logger,
 	}
 
@@ -252,7 +252,22 @@ func (m *gpioStepper) GoTo(ctx context.Context, rpm float64, position float64) e
 // Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 // Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 func (m *gpioStepper) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	return errors.New("gpioStepper GoTillStop not done yet")
+	if err := m.GoFor(ctx, rpm, 0); err != nil {
+		return err
+	}
+	defer func() {
+		if err := m.Stop(ctx); err != nil {
+			m.logger.Errorw("failed to turn off motor", "error", err)
+		}
+	}()
+	for {
+		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
+			return errors.Wrap(ctx.Err(), "stopped via context")
+		}
+		if stopFunc != nil && stopFunc(ctx) {
+			return ctx.Err()
+		}
+	}
 }
 
 // Set the current position (+/- offset) to be the new zero (home) position.
