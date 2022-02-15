@@ -154,7 +154,6 @@
     "services":
     [
         {
-            "name": "navigation",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -163,6 +162,12 @@
                 "gps": "gps1",
                 "base": "base1"
             }
+        },
+        {
+            "type": "object_manipulation"
+        },
+        {
+            "type": "frame_system"
         }
     ]
 }

@@ -9,20 +9,37 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 const frameSystemName = "move_gripper"
 
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.ObjectManipulationService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterObjectManipulationServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -47,6 +64,19 @@ var Subtype = resource.NewSubtype(
 
 // Name is the ObjectManipulationService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// FromRobot retrieves the object manipulation service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, ok := r.ResourceByName(Name)
+	if !ok {
+		return nil, errors.Errorf("resource %q not found", Name)
+	}
+	svc, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("objectmanipulation.Service", resource)
+	}
+	return svc, nil
+}
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {

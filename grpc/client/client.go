@@ -43,7 +43,6 @@ type RobotClient struct {
 
 	namesMu       *sync.RWMutex
 	functionNames []string
-	serviceNames  []string
 	resourceNames []resource.Name
 
 	activeBackgroundWorkers *sync.WaitGroup
@@ -281,13 +280,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		rc.functionNames = make([]string, 0, len(status.Functions))
 		for name := range status.Functions {
 			rc.functionNames = append(rc.functionNames, name)
-		}
-	}
-	rc.serviceNames = nil
-	if len(status.Services) != 0 {
-		rc.serviceNames = make([]string, 0, len(status.Services))
-		for name := range status.Services {
-			rc.serviceNames = append(rc.serviceNames, name)
 		}
 	}
 	return nil

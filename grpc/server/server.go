@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/geo/r3"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -24,7 +23,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/v1"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -409,33 +407,6 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 		return nil, err
 	}
 	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
-}
-
-// ObjectManipulationServiceDoGrab commands a gripper to move and grab
-// an object at the passed camera point.
-func (s *Server) ObjectManipulationServiceDoGrab(
-	ctx context.Context,
-	req *pb.ObjectManipulationServiceDoGrabRequest,
-) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
-	svc, ok := s.r.ResourceByName(objectmanipulation.Name)
-	if !ok {
-		return nil, errors.New("no objectmanipulation service")
-	}
-	omSvc, ok := svc.(objectmanipulation.Service)
-	if !ok {
-		return nil, errors.New("service is not a objectmanipulation service")
-	}
-	cameraPointProto := req.GetCameraPoint()
-	cameraPoint := &r3.Vector{
-		X: cameraPointProto.X,
-		Y: cameraPointProto.Y,
-		Z: cameraPointProto.Z,
-	}
-	hasGrabbed, err := omSvc.DoGrab(ctx, req.GetGripperName(), req.GetArmName(), req.GetCameraName(), cameraPoint)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
 }
 
 type executionResultRPC struct {

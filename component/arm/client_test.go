@@ -90,10 +90,10 @@ func TestClient(t *testing.T) {
 	})
 
 	// working
-	arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger)
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("arm client 1", func(t *testing.T) {
+		arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
 		pos, err := arm1Client.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
@@ -109,6 +109,8 @@ func TestClient(t *testing.T) {
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
+
+		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
@@ -123,7 +125,6 @@ func TestClient(t *testing.T) {
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-	test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
