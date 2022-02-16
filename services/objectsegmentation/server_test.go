@@ -101,5 +101,4 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	test.That(t, segs.Objects[1].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
 	test.That(t, segs.Objects[1].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
 	test.That(t, segs.Objects[1].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
-
 }

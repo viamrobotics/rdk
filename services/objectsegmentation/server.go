@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
@@ -38,11 +39,11 @@ func (server *subtypeServer) service() (Service, error) {
 
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) GetObjectPointClouds(
+func (server *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
 	req *pb.ObjectSegmentationServiceGetObjectPointCloudsRequest,
 ) (*pb.ObjectSegmentationServiceGetObjectPointCloudsResponse, error) {
-	svc, err := s.service()
+	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
