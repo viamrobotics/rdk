@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -73,9 +72,6 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 		return nil, err
 	}
 	if len(detectColor) != 0 {
-		if len(detectColor) != 3 {
-			return nil, errors.Errorf("detect_color must be string of form 'RRBBGG', got %v", attrs.DetectColorString)
-		}
 		col = rimage.NewColor(detectColor[0], detectColor[1], detectColor[2])
 	}
 	hue, _, _ := col.HsvNormal()
