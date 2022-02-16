@@ -1,6 +1,6 @@
 //go:build linux && arm64
 
-package pi
+package piimpl
 
 // #include <stdlib.h>
 // #include <pigpio.h>

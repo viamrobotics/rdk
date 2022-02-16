@@ -1,10 +1,8 @@
 //go:build linux && arm64
 
-package pi
+package piimpl
 
-import (
-	"fmt"
-)
+import "fmt"
 
 // piHWPinToBroadcom maps the hardware inscribed pin number to
 // its Broadcom pin. For the sake of programming, a user typically

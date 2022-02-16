@@ -1,7 +1,7 @@
 //go:build linux && arm64
 
-// Package pi implements a Board and its related interfaces for a Raspberry Pi.
-package pi
+// Package piimpl contains the implementation of a supported Raspberry Pi board.
+package piimpl
 
 // #include <stdlib.h>
 // #include <pigpio.h>
@@ -24,6 +24,7 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
@@ -33,13 +34,11 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
-const modelName = "pi"
-
 // init registers a pi board based on pigpio.
 func init() {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		picommon.ModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -52,7 +51,6 @@ func init() {
 			}
 			return NewPigpio(ctx, boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi
