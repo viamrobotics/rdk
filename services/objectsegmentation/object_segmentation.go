@@ -1,4 +1,4 @@
-// Package object segmentation implements an object segmentation service for getting 3D objects.
+// Package objectsegmentation implements an object segmentation service for getting 3D objects.
 package objectsegmentation
 
 import (
@@ -6,6 +6,8 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/v1"
@@ -16,7 +18,6 @@ import (
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {
@@ -89,7 +90,10 @@ type objectSegService struct {
 	logger golog.Logger
 }
 
-func (seg *objectSegService) GetObjectPointClouds(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
+func (seg *objectSegService) GetObjectPointClouds(
+	ctx context.Context,
+	cameraName string,
+	pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
 	// get camera component
 	cam, err := camera.FromRobot(seg.r, cameraName)
 	if err != nil {

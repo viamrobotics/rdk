@@ -25,8 +25,6 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func TestClient(t *testing.T) {
@@ -52,23 +50,12 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-	injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
-		if err != nil {
-			return nil, err
-		}
-		return seg.Objects(), nil
-	}
-
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.New("can't generate next frame")
 	}
 	injectCamera2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return nil, errors.New("can't generate next point cloud")
-	}
-	injectCamera2.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-		return nil, errors.New("can't generate next objects")
 	}
 
 	resources := map[resource.Name]interface{}{
@@ -105,14 +92,6 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
 
-		params := &vision.Parameters3D{}
-		obs, err := camera1Client.NextObjects(context.Background(), params)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, obs, test.ShouldHaveLength, 1)
-		test.That(t, obs[0].At(5, 5, 5), test.ShouldNotBeNil)
-		test.That(t, obs[0].Center, test.ShouldResemble, pointcloud.Vec3{5, 5, 5})
-		test.That(t, obs[0].BoundingBox, test.ShouldResemble, pointcloud.BoxGeometry{0, 0, 0})
-
 		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
 	})
 
@@ -130,11 +109,6 @@ func TestClient(t *testing.T) {
 		_, err = camera2Client.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
-
-		params2 := &vision.Parameters3D{}
-		_, err = camera2Client.NextObjects(context.Background(), params2)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next objects")
 
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})

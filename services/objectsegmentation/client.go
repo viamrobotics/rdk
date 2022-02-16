@@ -6,13 +6,14 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/utils/rpc"
 )
 
 // client is a client satisfies the object_segmentation.proto contract.
