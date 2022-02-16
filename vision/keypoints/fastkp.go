@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 )
 
@@ -26,7 +25,48 @@ type FASTConfig struct {
 	NMatchesCircle int     `json:"n_matches"`
 	NMSWinSize     int     `json:"nms_win_size"`
 	Threshold      float64 `json:"threshold"`
-	// NumScales      int     `json:"num_scales"`
+	Oriented       bool    `json:"oriented"`
+	Radius         int     `json:"radius"`
+}
+
+// PixelType stores 0 if a pixel is darker than center pixel, and 1 if brighter.
+type PixelType int
+
+const (
+	darker   PixelType = iota // 0
+	brighter                  // 1
+)
+
+// FASTPixel stores coordinates of an image point in a neighborhood and its PixelType.
+type FASTPixel struct {
+	X    int
+	Y    int
+	Type PixelType
+}
+
+// FASTKeypoints stores keypoint locations and orientations (nil if not oriented).
+type FASTKeypoints struct {
+	Points       KeyPoints
+	Orientations []float64
+}
+
+// NewFASTKeypointsFromImage returns a pointer to a FASTKeypoints struct containing keypoints locations and
+// orientations if Oriented is set to true in the configuration.
+func NewFASTKeypointsFromImage(img *image.Gray, cfg FASTConfig) *FASTKeypoints {
+	kps := ComputeFAST(img, cfg)
+	var orientations []float64
+	if cfg.Oriented {
+		orientations = ComputeKeypointsOrientations(img, kps, cfg.Radius)
+	}
+	return &FASTKeypoints{
+		kps,
+		orientations,
+	}
+}
+
+// IsOriented returns true if FASTKeypoints contains orientations.
+func (kps *FASTKeypoints) IsOriented() bool {
+	return !(kps.Orientations == nil)
 }
 
 var (
@@ -51,7 +91,6 @@ var (
 		{-2, -2},
 		{-1, -3},
 	}
-	logger = golog.NewLogger("fast_kp")
 )
 
 // LoadFASTConfiguration loads a FASTConfig from a json file.
@@ -81,72 +120,173 @@ func GetPointValuesInNeighborhood(img *image.Gray, coords image.Point, neighborh
 	return vals
 }
 
-// ComputeFAST computes the location of FAST keypoints.
-func ComputeFAST(img *image.Gray, nMatchesCircle int, nmsWin int, threshold float64) (KeyPoints, error) {
-	if nmsWin <= 0 {
-		logger.Warn("NMS window size is negative. Setting it to 3.")
-		nmsWin = 3
+func isValidSliceVals(vals []float64, n int) bool {
+	cnt := 0
+	for _, val := range vals {
+		// if value is positive, increment count of consecutive darker or brighter pixels in neighborhood
+		if val > 0 {
+			cnt++
+		} else {
+			// otherwise, reset count
+			cnt = 0
+		}
+		if cnt > n {
+			return true
+		}
 	}
-	keypoints := make([]image.Point, 0)
-	cornerImg := image.NewGray(img.Bounds())
-	h, w := img.Bounds().Max.Y, img.Bounds().Max.X
+	return false
+}
+
+func sumOfPositiveValuesSlice(s []float64) float64 {
+	sum := 0.
+	for _, it := range s {
+		if it > 0 {
+			sum += it
+		}
+	}
+	return sum
+}
+
+func sumOfNegativeValuesSlice(s []float64) float64 {
+	sum := 0.
+	for _, it := range s {
+		if it < 0 {
+			sum += it
+		}
+	}
+	return sum
+}
+
+func computeNMSScore(img *image.Gray, pix FASTPixel) float64 {
+	val := float64(img.At(pix.X, pix.Y).(color.Gray).Y)
+	circleValues := GetPointValuesInNeighborhood(img, image.Point{pix.X, pix.Y}, CircleIdx)
+	diffValues := make([]float64, len(circleValues))
+	for i, v := range circleValues {
+		diffValues[i] = v - val
+	}
+	if pix.Type == brighter {
+		return sumOfPositiveValuesSlice(diffValues)
+	}
+	return -1. * sumOfNegativeValuesSlice(diffValues)
+}
+
+func canDeleteNMS(pix FASTPixel, pix2Score map[image.Point]float64, winSize int) bool {
+	for dx := -winSize; dx < winSize+1; dx++ {
+		for dy := -winSize; dy < winSize+1; dy++ {
+			neighbor := image.Point{pix.X + dx, pix.Y + dy}
+			neighborScore, ok := pix2Score[neighbor]
+			if ok {
+				if neighborScore > pix2Score[image.Point{pix.X, pix.Y}] {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// nonMaximumSuppression returns maximal keypoints in a window of size 2*winSize+1 around keypoints.
+func nonMaximumSuppression(img *image.Gray, kps []FASTPixel, winSize int) KeyPoints {
+	// compute score map
+	pix2score := make(map[image.Point]float64)
+	for _, kp := range kps {
+		pix2score[image.Point{kp.X, kp.Y}] = computeNMSScore(img, kp)
+	}
+	// initialize keypoints
+	nmsKps := make([]image.Point, 0)
+	for _, kp := range kps {
+		if !canDeleteNMS(kp, pix2score, winSize) {
+			nmsKps = append(nmsKps, image.Point{kp.X, kp.Y})
+		}
+	}
+	return nmsKps
+}
+
+func computeAngle(img *image.Gray, kp image.Point, radius int, halfWidthMax []int) float64 {
+	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
+	m10, m01 := 0, 0
+	for y := -radius + 1; y < radius; y++ {
+		if y+kp.Y < 0 || y+kp.Y >= h {
+			continue
+		}
+		currentWidth := halfWidthMax[int(math.Abs(float64(y)))]
+		for x := 0; x < currentWidth; x++ {
+			if x+kp.X < w {
+				m10 += x * int(img.At(x+kp.X, y+kp.Y).(color.Gray).Y)
+				m01 += y * int(img.At(x+kp.X, y+kp.Y).(color.Gray).Y)
+			}
+		}
+	}
+	return math.Atan2(float64(m01), float64(m10))
+}
+
+// ComputeKeypointsOrientations compute keypoints orientations in image.
+func ComputeKeypointsOrientations(img *image.Gray, kps KeyPoints, radius int) []float64 {
+	halfWidthMax := make([]int, radius)
+	for i := 0; i < radius; i++ {
+		halfWidthMax[i] = int(math.Sqrt(float64(radius*radius - i*i)))
+	}
+	orientations := make([]float64, len(kps))
+	for i, kp := range kps {
+		orientations[i] = computeAngle(img, kp, radius, halfWidthMax)
+	}
+	return orientations
+}
+
+func getBrighterValues(s []float64, t float64) []float64 {
+	brighterValues := make([]float64, len(s))
+	for i, v := range s {
+		if v > t {
+			brighterValues[i] = 1
+		} else {
+			brighterValues[i] = 0
+		}
+	}
+	return brighterValues
+}
+
+func getDarkerValues(s []float64, t float64) []float64 {
+	darkerValues := make([]float64, len(s))
+	for i, v := range s {
+		if v < t {
+			darkerValues[i] = 1
+		} else {
+			darkerValues[i] = 0
+		}
+	}
+	return darkerValues
+}
+
+// ComputeFAST computes the location of FAST keypoints.
+// The configuration should contain the following parameters
+// - nMatchCircle - Minimum number of consecutive pixels out of 16 pixels on the
+//    circle that should all be either brighter or darker w.r.t
+//    test-pixel. A point c on the circle is darker w.r.t test pixel p
+//    if ``Ic < Ip - threshold`` and brighter if
+//    ``Ic > Ip + threshold``.
+// - nmsWin - int, size of window to perform non-maximum suppression
+// - threshold - float64, Threshold used to decide whether the pixels on the
+//    circle are brighter, darker or similar w.r.t. the test pixel.
+//    Decrease the threshold when more corners are desired and
+//    vice-versa.
+func ComputeFAST(img *image.Gray, cfg FASTConfig) KeyPoints {
+	kps := make([]FASTPixel, 0)
+	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
 	for y := 3; y < h-3; y++ {
 		for x := 3; x < w-3; x++ {
-			v := float64(img.At(x, y).(color.Gray).Y)
-			t := threshold
-			if t < 1. {
-				t *= v
-			}
-			imMin := v - t
-			imMax := v + t
-			// count numbers of pixels in good range for fast check
-			p := GetPointValuesInNeighborhood(img, image.Point{x, y}, CircleIdx)
-			// check p1 and p9 first
-			if (p[0] > imMax || p[0] < imMin) && (p[8] > imMax || p[8] < imMin) {
-				// check p5 and 13
-				if (p[4] > imMax || p[4] < imMin) && (p[12] > imMax || p[12] < imMin) {
-					otherPoints := []float64{p[1], p[2], p[3], p[5], p[6], p[7], p[9], p[10], p[11], p[13], p[14], p[15]}
-					count := 0
-					for _, val := range otherPoints {
-						if val > imMax || val < imMin {
-							count++
-						}
-					}
-					if count+4 >= nMatchesCircle {
-						keypoints = append(keypoints, image.Point{x, y})
-						cornerVal := 0.
-						for _, vals := range otherPoints {
-							cornerVal += math.Abs(v - vals)
-						}
-						cornerImg.Set(x, y, color.Gray{uint8(math.Round(cornerVal))})
-					}
-				}
+			pixel := float64(img.At(x, y).(color.Gray).Y)
+			circleValues := GetPointValuesInNeighborhood(img, image.Point{x, y}, CircleIdx)
+			brighterValues := getBrighterValues(circleValues, pixel+cfg.Threshold)
+			darkerValues := getDarkerValues(circleValues, pixel-cfg.Threshold)
+			if isValidSliceVals(brighterValues, cfg.NMatchesCircle) {
+				kps = append(kps, FASTPixel{x, y, brighter})
+			} else if isValidSliceVals(darkerValues, cfg.NMatchesCircle) {
+				kps = append(kps, FASTPixel{x, y, darker})
 			}
 		}
 	}
-	// perform non-maximum suppression to remove redundant keypoints
-	reducedKeypointsSet := make(map[image.Point]bool)
-	reducedKeypoints := make([]image.Point, 0)
-	for _, kp := range keypoints {
-		// get pixel coordinates of maximum in window
-		maxVal := 0
-		maxPoint := image.Point{-nmsWin, -nmsWin}
-		for nmsX := -nmsWin; nmsX < nmsWin+1; nmsX++ {
-			for nmsY := -nmsWin; nmsY < nmsWin+1; nmsY++ {
-				winPixel := image.Point{kp.X + nmsX, kp.Y + nmsY}
-				winPixelVal := int(cornerImg.At(winPixel.X, winPixel.Y).(color.Gray).Y)
-				if winPixelVal > maxVal {
-					maxVal = winPixelVal
-					maxPoint = winPixel
-				}
-			}
-		}
-		// get max keypoint coords in window
-		kpNew := image.Point{maxPoint.X, maxPoint.Y}
-		if _, ok := reducedKeypointsSet[kpNew]; !ok {
-			reducedKeypoints = append(reducedKeypoints, kpNew)
-			reducedKeypointsSet[kpNew] = true
-		}
-	}
-	return reducedKeypoints, nil
+	// nonMaximumSuppression
+	nmsKps := nonMaximumSuppression(img, kps, cfg.NMSWinSize)
+
+	return nmsKps
 }
