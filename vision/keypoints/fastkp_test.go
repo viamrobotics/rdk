@@ -61,18 +61,83 @@ func TestGetPointValuesInNeighborhood(t *testing.T) {
 	}
 }
 
+func TestIsValidSlice(t *testing.T) {
+	tests := []struct {
+		s        []float64
+		n        int
+		expected bool
+	}{
+		{[]float64{0, 0, 0, 0, 0}, 9, false},
+		{[]float64{1, 1, 1, 1, 1, 1, 1}, 3, true},
+		{[]float64{0, 1, 1, 1, 0, 1, 1}, 2, true},
+		{[]float64{0, 1, 1, 0, 0, 1, 0}, 2, false},
+	}
+	for _, tst := range tests {
+		test.That(t, isValidSliceVals(tst.s, tst.n), test.ShouldEqual, tst.expected)
+	}
+}
+
+func TestSumPositiveValues(t *testing.T) {
+	tests := []struct {
+		s        []float64
+		expected float64
+	}{
+		{[]float64{0, 0, 0, 0, 0}, 0},
+		{[]float64{1, -1, -1, 0, 1, 1, 1}, 4},
+		{[]float64{-1, -1, -1, 0, -1, -1, -1}, 0},
+	}
+	for _, tst := range tests {
+		test.That(t, sumOfPositiveValuesSlice(tst.s), test.ShouldEqual, tst.expected)
+	}
+}
+
+func TestSumNegativeValues(t *testing.T) {
+	tests := []struct {
+		s        []float64
+		expected float64
+	}{
+		{[]float64{0, 0, 0, 0, 0}, 0},
+		{[]float64{1, -1, -1, 0, 1, 1, 1}, -2},
+		{[]float64{-1, -1, -1, 0, -1, -1, -1}, -6},
+	}
+	for _, tst := range tests {
+		test.That(t, sumOfNegativeValuesSlice(tst.s), test.ShouldEqual, tst.expected)
+	}
+}
+
+func TestGetBrighterValues(t *testing.T) {
+	tests := []struct {
+		s        []float64
+		t        float64
+		expected []float64
+	}{
+		{[]float64{1, 10, 3, 1, 20, 11}, 10, []float64{0, 0, 0, 0, 1, 1}},
+		{[]float64{1, 1, 1, 1}, 1, []float64{0, 0, 0, 0}},
+	}
+	for _, tst := range tests {
+		test.That(t, getBrighterValues(tst.s, tst.t), test.ShouldResemble, tst.expected)
+	}
+}
+
+func TestGetDarkerValues(t *testing.T) {
+	tests := []struct {
+		s        []float64
+		t        float64
+		expected []float64
+	}{
+		{[]float64{1, 10, 3, 1, 20, 11}, 10, []float64{1, 0, 1, 1, 0, 0}},
+		{[]float64{1, 1, 1, 1}, 1, []float64{0, 0, 0, 0}},
+	}
+	for _, tst := range tests {
+		test.That(t, getDarkerValues(tst.s, tst.t), test.ShouldResemble, tst.expected)
+	}
+}
+
 func TestComputeFAST(t *testing.T) {
-	// first test should return no keypoints
-	// create test image
-	rectImage := createTestImage()
+	// load config
 	cfg, err := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, err, test.ShouldBeNil)
-	kps, err := ComputeFAST(rectImage, cfg.NMatchesCircle, cfg.NMSWinSize, cfg.Threshold)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(kps), test.ShouldEqual, 0)
-
-	// test on a chess image
-	// test that image test files are in artifacts
+	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
 	// Convert to grayscale image
@@ -85,9 +150,47 @@ func TestComputeFAST(t *testing.T) {
 		}
 	}
 	// compute kps
-	kpsChess, err := ComputeFAST(imGray, cfg.NMatchesCircle, cfg.NMSWinSize, cfg.Threshold)
+	kpsChess := ComputeFAST(imGray, cfg)
+	test.That(t, len(kpsChess), test.ShouldEqual, 100)
+	err = PlotKeypoints(imGray, kpsChess, "/tmp/keypoints2.png")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(kpsChess), test.ShouldEqual, 107)
-	err = PlotKeypoints(imGray, kpsChess, "/tmp/keypoints.png")
+	// test with rectangle image
+	rectImage := createTestImage()
+	kps := ComputeFAST(rectImage, cfg)
+	test.That(t, len(kps), test.ShouldEqual, 2)
+	test.That(t, kps[0], test.ShouldResemble, image.Point{50, 149})
+	test.That(t, kps[1], test.ShouldResemble, image.Point{99, 149})
+}
+
+func TestNewFASTKeypointsFromImage(t *testing.T) {
+	// load config
+	cfg, err := LoadFASTConfiguration("kpconfig.json")
 	test.That(t, err, test.ShouldBeNil)
+	// load image from artifacts and convert to gray image
+	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	// Convert to grayscale image
+	bounds := im.Bounds()
+	w, h := bounds.Max.X, bounds.Max.Y
+	imGray := image.NewGray(image.Rect(0, 0, w, h))
+	for x := 0; x < w; x++ {
+		for y := 0; y < h; y++ {
+			imGray.Set(x, y, im.At(x, y))
+		}
+	}
+	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
+	test.That(t, len(fastKps.Points), test.ShouldEqual, 100)
+	test.That(t, len(fastKps.Orientations), test.ShouldEqual, 100)
+	// value from opencv FAST orientation computation
+	test.That(t, fastKps.Orientations[0], test.ShouldAlmostEqual, 0.058798250129)
+	isOriented1 := fastKps.IsOriented()
+	test.That(t, isOriented1, test.ShouldBeTrue)
+
+	// test no orientation
+	cfg.Oriented = false
+	fastKpsNoOrientation := NewFASTKeypointsFromImage(imGray, cfg)
+	test.That(t, len(fastKpsNoOrientation.Points), test.ShouldEqual, 100)
+	test.That(t, fastKpsNoOrientation.Orientations, test.ShouldBeNil)
+	isOriented2 := fastKpsNoOrientation.IsOriented()
+	test.That(t, isOriented2, test.ShouldBeFalse)
 }
