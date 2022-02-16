@@ -37,8 +37,6 @@ func TestNewWatcherNoop(t *testing.T) {
 }
 
 func TestNewWatcherFile(t *testing.T) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/523): test doesn't work
-	t.Skip("Skipping test for now")
 	logger := golog.NewTestLogger(t)
 
 	temp, err := ioutil.TempFile("", "*.json")
@@ -80,7 +78,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -103,7 +101,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -145,7 +143,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
