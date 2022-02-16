@@ -23,9 +23,9 @@ type box struct {
 	halfSize [3]float64
 }
 
-// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
+// NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
+func NewBoxCreator(dims r3.Vector, offset Pose) (VolumeCreator, error) {
 	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
 		return nil, errors.New("box dimensions can not be zero")
 	}
@@ -49,6 +49,14 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 	config.Y = 2 * bc.halfSize.Y
 	config.Z = 2 * bc.halfSize.Z
 	return json.Marshal(config)
+}
+
+// NewBox instantiates a new box Volume.
+func NewBox(pose Pose, dims r3.Vector) (Volume, error) {
+	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
+		return nil, errors.New("box dimensions can not be zero")
+	}
+	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
 }
 
 // Pose returns the pose of the box.
@@ -89,6 +97,7 @@ func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
 }
 
+// ToProto converts the box to a Geometry proto message
 func (b *box) ToProto() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(b.pose),
