@@ -89,7 +89,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }
 
-// NewVolumeFromProtobuf instatiates a new Volume from a protobuf Geometry message
+// NewVolumeFromProtobuf instatiates a new Volume from a protobuf Geometry message.
 func NewVolumeFromProtobuf(proto *commonpb.Geometry) (Volume, error) {
 	pose := NewPoseFromProtobuf(proto.Center)
 	if box := proto.GetBox(); box != nil {
