@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"math"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -62,6 +64,18 @@ func (pt *point) AlmostEqual(v Volume) bool {
 // Transform premultiplies the point pose with a transform, allowing the point to be moved in space.
 func (pt *point) Transform(toPremultiply Pose) {
 	pt.pose = Compose(toPremultiply, pt.pose)
+}
+
+// ToProto converts the point to a Geometry proto message
+func (pt *point) ToProto() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(pt.pose),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: 0,
+			},
+		},
+	}
 }
 
 // CollidesWith checks if the given point collides with the given volume and returns true if it does.
