@@ -130,9 +130,17 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
-	motor, ok := r.MotorByName(conf.Motor)
+	_motor, ok := r.MotorByName(conf.Motor)
 	if !ok {
-		return nil, errors.Errorf("cannot find motor named %v for gantry", config.Attributes.String("motor"))
+		return nil, errors.Errorf("cannot find motor named %v for gantry", conf.Motor)
+	}
+	features, err := _motor.GetFeatures(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ok = features[motor.PositionReporting]
+	if !ok {
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, conf.Motor)
 	}
 
 	board, err := board.FromRobot(r, conf.Board)
@@ -143,7 +151,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	oAx := &oneAxis{
 		name:            config.Name,
 		board:           board,
-		motor:           motor,
+		motor:           _motor,
 		logger:          logger,
 		limitSwitchPins: conf.LimitSwitchPins,
 		limitHigh:       conf.LimitPinEnabled,
@@ -201,14 +209,6 @@ func (g *oneAxis) Home(ctx context.Context) error {
 }
 
 func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
-	ok, err := g.motor.PositionSupported(ctx)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return errors.New("gantry motor needs to support position")
-	}
-
 	positionA, err := g.testLimit(ctx, true)
 	if err != nil {
 		return err
@@ -233,15 +233,6 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 }
 
 func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
-	ok, err := g.motor.PositionSupported(ctx)
-	if err != nil {
-		return err
-	}
-
-	if !ok {
-		return errors.New("gantry motor needs to support position")
-	}
-
 	// One pin always and only should go backwards.
 	positionA, err := g.testLimit(ctx, true)
 	if err != nil {
@@ -302,7 +293,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 
-	return g.motor.Position(ctx)
+	return g.motor.GetPosition(ctx)
 }
 
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
@@ -318,7 +309,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 
 // GetPosition returns the position in millimeters.
 func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
-	pos, err := g.motor.Position(ctx)
+	pos, err := g.motor.GetPosition(ctx)
 	if err != nil {
 		return []float64{}, err
 	}

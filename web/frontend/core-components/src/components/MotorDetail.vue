@@ -117,7 +117,7 @@ import {
   MotorStatus,
 } from "proto/api/v1/robot_pb";
 import {
-  MotorServiceGoRequest,
+  MotorServiceSetPowerRequest,
   MotorServiceGoForRequest,
   MotorServiceGoToRequest,
 } from "proto/api/component/v1/motor_pb";
@@ -204,13 +204,13 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
+    request: MotorServiceSetPowerRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorServiceGoRequest();
-        req.setPowerPct(this.speed * this.direction / 100);
+        req = new MotorServiceSetPowerRequest();
+        req.setPowerPct(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
         req = new MotorServiceGoForRequest();
@@ -220,7 +220,7 @@ class MotorCommand {
       case MotorCommandType.GoTo:
         req = new MotorServiceGoToRequest();
         req.setRpm(this.speed);
-        req.setPosition(this.position);
+        req.setPositionRevolutions(this.position);
         break;
     }
     return {

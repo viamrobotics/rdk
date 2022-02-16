@@ -20,6 +20,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// SetPowerZeroThreshold represents a power below which value attempting
+// to run the motor simply stops it.
+const SetPowerZeroThreshold = .0001
+
 // init registers an arduino motor.
 func init() {
 	_motor := registry.Component{
@@ -138,27 +142,11 @@ type arduinoMotor struct {
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) <= .001 {
+	if math.Abs(powerPct) <= SetPowerZeroThreshold {
 		return m.Stop(ctx)
 	}
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
-	return err
-}
-
-// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
-func (m *arduinoMotor) Go(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) < 0.0001 {
-		return m.Stop(ctx)
-	}
-	var dir string
-	if !math.Signbit(powerPct) {
-		dir = "f"
-	} else {
-		dir = "n"
-	}
-
-	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*math.Abs(powerPct))))
 	return err
 }
 
@@ -175,7 +163,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		// ticksPerSecond *= 1
 	}
 
-	err := m.Go(ctx, powerPct)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -186,7 +174,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
+func (m *arduinoMotor) GetPosition(ctx context.Context) (float64, error) {
 	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
@@ -200,10 +188,11 @@ func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// PositionSupported returns whether or not the motor supports reporting of its position which
-// is reliant on having an encoder.
-func (m *arduinoMotor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
+// GetFeatures returns the status of optional features supported by the motor.
+func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -212,8 +201,8 @@ func (m *arduinoMotor) Stop(ctx context.Context) error {
 	return err
 }
 
-// IsOn returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns whether or not the motor is currently on.
+func (m *arduinoMotor) IsPowered(ctx context.Context) (bool, error) {
 	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err
@@ -254,7 +243,7 @@ type encoder struct {
 }
 
 // Position returns the current position in terms of ticks.
-func (e *encoder) Position(ctx context.Context) (int64, error) {
+func (e *encoder) GetPosition(ctx context.Context) (int64, error) {
 	res, err := e.b.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err

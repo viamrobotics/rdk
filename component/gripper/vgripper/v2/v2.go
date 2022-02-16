@@ -34,7 +34,18 @@ var vgripperv2json []byte
 func init() {
 	registry.RegisterComponent(gripper.Subtype, modelName, registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newGripper(ctx, r, config, logger)
+			grip, err := newGripper(ctx, r, config, logger)
+			if err != nil {
+				return nil, err
+			}
+			if err := grip.Calibrate(ctx); err != nil {
+				return nil, err
+			}
+
+			if err := grip.Open(ctx); err != nil {
+				return nil, err
+			}
+			return grip, nil
 		},
 	})
 }
@@ -53,7 +64,7 @@ const (
 // gripperV2 represents a Viam gripper which operates with a ForceMatrix.
 type gripperV2 struct {
 	// components of the gripper (board implicitly included)
-	motor       motor.Motor
+	motor       motor.LocalMotor
 	current     board.AnalogReader
 	forceMatrix forcematrix.ForceMatrix
 
@@ -91,17 +102,23 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	motorName := config.Attributes.String("motor")
-	motor, exists := r.MotorByName(motorName)
+	_motor, exists := r.MotorByName(motorName)
 	if !exists {
 		return nil, errors.Errorf("failed to find motor named '%v'", motorName)
 	}
 
-	supported, err := motor.PositionSupported(ctx)
+	supportedFeatures, err := _motor.GetFeatures(ctx)
 	if err != nil {
 		return nil, err
 	}
+	supported := supportedFeatures[motor.PositionReporting]
 	if !supported {
-		return nil, errors.New("gripper motor needs to support position")
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, motorName)
+	}
+
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
+	if !ok {
+		return nil, motor.NewGoTillStopUnsupportedError(motorName)
 	}
 
 	currentAnalogReaderName := config.Attributes.String("current")
@@ -132,7 +149,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 
 	vg := &gripperV2{
 		// components of the gripper
-		motor:       motor,
+		motor:       stoppableMotor,
 		current:     current,
 		forceMatrix: forceMatrixDevice,
 		// parameters that are set by the user
@@ -149,14 +166,6 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 		// other
 		logger: logger,
 		model:  model,
-	}
-
-	if err := vg.Calibrate(ctx); err != nil {
-		return nil, err
-	}
-
-	if err := vg.Open(ctx); err != nil {
-		return nil, err
 	}
 
 	return vg, nil
@@ -290,7 +299,7 @@ func (vg *gripperV2) antiSlipForceControl(ctx context.Context) error {
 		}
 		if objectDetectSlip {
 			gripPowerPct += vg.antiSlipGripPowerPctStepSize
-			err = vg.motor.Go(ctx, float64(vg.closedDirection)*gripPowerPct)
+			err = vg.motor.SetPower(ctx, float64(vg.closedDirection)*gripPowerPct)
 			if err != nil {
 				return err
 			}
@@ -337,7 +346,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	position, err := vg.motor.Position(ctx)
+	position, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -363,7 +372,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	position, err = vg.motor.Position(ctx)
+	position, err = vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -397,7 +406,7 @@ func (vg *gripperV2) calibrate(ctx context.Context) error {
 	vg.logger.Debugf("init: offset openPos: %f, closedPos: %f", vg.openPos, vg.closedPos)
 
 	// Zero to closed position
-	curPos, err := vg.motor.Position(ctx)
+	curPos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -460,12 +469,12 @@ func (vg *gripperV2) open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return err
 		}
 		if !isOn {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return err
 			}
@@ -485,7 +494,7 @@ func (vg *gripperV2) open(ctx context.Context) error {
 
 		total += msPer
 		if total > openTimeout {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			return vg.stopAfterError(
 				ctx,
 				multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, measuredPos), err),
@@ -535,7 +544,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -546,7 +555,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 		}
 
 		if !isOn {
-			measuredPos, err := vg.motor.Position(ctx)
+			measuredPos, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, err
 			}
@@ -563,12 +572,12 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure >= vg.startHoldingPressure {
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closedPos: %v", now, vg.closedPos)
-			err = vg.motor.Go(ctx, float64(vg.closedDirection)*vg.startGripPowerPct)
+			err = vg.motor.SetPower(ctx, float64(vg.closedDirection)*vg.startGripPowerPct)
 			return err == nil, err
 		}
 
@@ -578,7 +587,7 @@ func (vg *gripperV2) grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}

@@ -85,11 +85,12 @@ type oneAxis struct {
 }
 
 func (g *oneAxis) init(ctx context.Context) error {
-	ok, err := g.motor.PositionSupported(ctx)
+	supportedFeatures, err := g.motor.GetFeatures(ctx)
 	if err != nil {
 		return err
 	}
-	if !ok {
+	posSupported := supportedFeatures[motor.PositionReporting]
+	if !posSupported {
 		return errors.New("gantry motor needs to support position")
 	}
 
@@ -149,7 +150,7 @@ func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
 		}
 	}
 
-	return g.motor.Position(ctx)
+	return g.motor.GetPosition(ctx)
 }
 
 func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
@@ -165,7 +166,7 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 
 // Position returns the position in meters.
 func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
-	pos, err := g.motor.Position(ctx)
+	pos, err := g.motor.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}

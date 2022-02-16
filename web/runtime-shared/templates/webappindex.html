@@ -359,7 +359,7 @@
 
                     switch (cmd.type) {
                       case "go":
-                        motorService.go(req, {}, (err, resp) => grpcCallback(err, resp));
+                        motorService.setPower(req, {}, (err, resp) => grpcCallback(err, resp));
                         break;
                       case "goFor":
                         motorService.goFor(req, {}, (err, resp) => grpcCallback(err, resp));

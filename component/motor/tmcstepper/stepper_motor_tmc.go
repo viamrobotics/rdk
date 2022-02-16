@@ -290,8 +290,8 @@ func (m *Motor) GetSG(ctx context.Context) (int32, error) {
 	return rawRead, nil
 }
 
-// Position gives the current motor position.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+// GetPosition gives the current motor position.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	rawPos, err := m.readReg(ctx, xActual)
 	if err != nil {
 		return 0, err
@@ -299,25 +299,23 @@ func (m *Motor) Position(ctx context.Context) (float64, error) {
 	return float64(rawPos) / float64(m.stepsPerRev), nil
 }
 
-// PositionSupported returns true.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
+// GetFeatures returns the status of optional features on the motor.
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
-// SetPower exists on the motor interface but is unsupported for
-// stepper motors. TODO (Should it be amps, not throttle?)
+// SetPower sets the motor at a particular rpm based on the percent of
+// maxRPM supplied by powerPct (between -1 and 1).
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
-	return errors.New("power not supported for stepper motors")
-}
-
-// Go sets a velocity as a percentage of maximum.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
+	rpm := powerPct * m.maxRPM
 	mode := modeVelPos
-	if powerPct < 0 {
+	if rpm < 0 {
 		mode = modeVelNeg
 	}
 
-	speed := m.rpmToV(math.Abs(powerPct) * m.maxRPM)
+	speed := m.rpmToV(math.Abs(rpm))
 
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, mode),
@@ -329,7 +327,7 @@ func (m *Motor) Go(ctx context.Context, powerPct float64) error {
 // Both the RPM and the revolutions can be assigned negative values to move in a backwards direction.
 // Note: if both are negative the motor will spin in the forward direction.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, rotations float64) error {
-	curPos, err := m.Position(ctx)
+	curPos, err := m.GetPosition(ctx)
 	if err != nil {
 		return err
 	}
@@ -368,17 +366,17 @@ func (m *Motor) rpmsToA(acc float64) int32 {
 // GoTo moves to the specified position in terms of (provided in revolutions from home/zero),
 // at a specific speed. Regardless of the directionality of the RPM this function will move the
 // motor towards the specified target.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
-	position *= float64(m.stepsPerRev)
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+	positionRevolutions *= float64(m.stepsPerRev)
 	return multierr.Combine(
 		m.writeReg(ctx, rampMode, modePosition),
 		m.writeReg(ctx, vMax, m.rpmToV(math.Abs(rpm))),
-		m.writeReg(ctx, xTarget, int32(position)),
+		m.writeReg(ctx, xTarget, int32(positionRevolutions)),
 	)
 }
 
-// IsOn returns true if the motor is currently moving.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns true if the motor is currently moving.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	vel, err := m.readReg(ctx, vActual)
 	on := vel != 0
 	return on, err
@@ -391,7 +389,7 @@ func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
 
 // Stop stops the motor.
 func (m *Motor) Stop(ctx context.Context) error {
-	return m.Go(ctx, 0)
+	return m.SetPower(ctx, 0)
 }
 
 // GoTillStop enables StallGuard detection, then moves in the direction/speed given until resistance (endstop) is detected.
@@ -473,7 +471,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 // ResetZeroPosition sets the current position of the motor specified by the request
 // (adjusted by a given offset) to be its new zero position.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	on, err := m.IsOn(ctx)
+	on, err := m.IsPowered(ctx)
 	if err != nil {
 		return err
 	} else if on {
