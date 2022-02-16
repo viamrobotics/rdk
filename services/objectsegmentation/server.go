@@ -51,7 +51,7 @@ func (s *subtypeServer) GetObjectPointClouds(
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
-	objects, err := svc.GetObjects(ctx, req.Name, config)
+	objects, err := svc.GetObjectPointClouds(ctx, req.Name, config)
 	if err != nil {
 		return nil, err
 	}
