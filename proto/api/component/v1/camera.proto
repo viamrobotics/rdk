@@ -34,15 +34,6 @@ service CameraService {
     };
   }
 
-  // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-  // as well as the 3-vector center of each of the found objects.
-  // A specific MIME type can be requested but may not necessarily be the same one returned.
-  rpc GetObjectPointClouds(CameraServiceGetObjectPointCloudsRequest) returns (CameraServiceGetObjectPointCloudsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/object_point_clouds"
-    };
-  }
-
 }
 
 message CameraServiceGetFrameRequest {
@@ -84,31 +75,3 @@ message CameraServiceGetPointCloudResponse {
   bytes frame = 2;
 }
 
-message CameraServiceGetObjectPointCloudsRequest {
-  // Name of a camera
-  string name = 1;
-  // Requested MIME type of response
-  string mime_type = 2;
-  // Minimum points in plane
-  int64 min_points_in_plane = 3;
-  // Minimum points in segment
-  int64 min_points_in_segment = 4;
-  // Clustering radius in mm
-  double clustering_radius_mm = 5;
-}
-
-message CameraServiceGetObjectPointCloudsResponse {
-  // Actual MIME type of response
-  string mime_type = 1;
-  // List of objects in the scene
-  repeated PointCloudObject objects = 2;
-}
-
-message PointCloudObject {
-  // Frame of object in bytes
-  bytes frame = 1;
-  // Center of object in mm
-  common.v1.Vector3 center_coordinates_mm = 2;
-  // Bounding box of object in mm
-  common.v1.RectangularPrism bounding_box_mm = 3;
-}
