@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"math"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -83,7 +82,7 @@ func (s *sphere) Transform(toPremultiply Pose) {
 	s.pose = Compose(toPremultiply, s.pose)
 }
 
-// ToProto converts the sphere to a Geometry proto message
+// ToProto converts the sphere to a Geometry proto message.
 func (s *sphere) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(s.pose),

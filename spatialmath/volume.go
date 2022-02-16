@@ -3,10 +3,10 @@ package spatialmath
 import (
 	"encoding/json"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 // VolumeCreator provides a common way to instantiate Volumes.
@@ -89,6 +89,7 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }
 
+// NewVolumeFromProtobuf instatiates a new Volume from a protobuf Geometry message
 func NewVolumeFromProtobuf(proto *commonpb.Geometry) (Volume, error) {
 	pose := NewPoseFromProtobuf(proto.Center)
 	if box := proto.GetBox(); box != nil {
