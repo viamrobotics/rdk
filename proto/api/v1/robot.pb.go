@@ -4,6 +4,7 @@
 // 	protoc        (unknown)
 // source: proto/api/v1/robot.proto
 
+
 package v1
 
 import (
