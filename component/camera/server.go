@@ -249,8 +249,8 @@ func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
 	}
 }
 
-func boxToProto(b pointcloud.BoxGeometry) *commonpb.BoxGeometry {
-	return &commonpb.BoxGeometry{
+func boxToProto(b pointcloud.RectangularPrism) *commonpb.RectangularPrism {
+	return &commonpb.RectangularPrism{
 		WidthMm:  b.WidthMm,
 		LengthMm: b.LengthMm,
 		DepthMm:  b.DepthMm,

@@ -110,5 +110,5 @@ message PointCloudObject {
   // Center of object in mm
   common.v1.Vector3 center_coordinates_mm = 2;
   // Bounding box of object in mm
-  common.v1.BoxGeometry bounding_box_mm = 3;
+  common.v1.RectangularPrism bounding_box_mm = 3;
 }

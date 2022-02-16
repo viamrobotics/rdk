@@ -47,13 +47,34 @@ message Vector3 {
   double z = 3;
 }
 
-message BoxGeometry {
+message Sphere {
+  double radius_mm = 1;
+}
+
+message RectangularPrism {
   double width_mm = 1;
   double length_mm = 2;
   double depth_mm = 3;
 }
 
+message Geometry {
+  common.v1.Pose center = 1;
+  oneof geometry_type {
+    Sphere sphere = 2;
+    RectangularPrism box = 3;
+  }
+}
+
+message GeometriesInFrame {
+  string frame = 1;
+  repeated Geometry geometries = 2;
+}
+
 message GeoPoint {
   double latitude = 1;
   double longitude = 2;
+}
+
+message WorldState {
+  repeated GeometriesInFrame obstacles = 1;
 }

@@ -45,9 +45,9 @@ func TestCalculateMean(t *testing.T) {
 func TestCalculateBoundingBox(t *testing.T) {
 	clouds := makeClouds(t)
 	box0 := CalculateBoundingBoxOfPointCloud(clouds[0])
-	test.That(t, box0, test.ShouldResemble, BoxGeometry{0, 1, 1})
+	test.That(t, box0, test.ShouldResemble, RectangularPrism{0, 1, 1})
 	box1 := CalculateBoundingBoxOfPointCloud(clouds[1])
-	test.That(t, box1, test.ShouldResemble, BoxGeometry{2, 1, 1})
+	test.That(t, box1, test.ShouldResemble, RectangularPrism{2, 1, 1})
 }
 
 func TestMergePointsWithColor(t *testing.T) {
