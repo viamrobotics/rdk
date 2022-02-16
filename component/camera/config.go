@@ -3,6 +3,8 @@ package camera
 import (
 	"encoding/hex"
 
+	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/rimage/transform"
 )
 
@@ -39,5 +41,19 @@ type AttrConfig struct {
 
 // DetectColor transforms the color hexstring into a slice of uint8.
 func (ac *AttrConfig) DetectColor() ([]uint8, error) {
-	return hex.DecodeString(ac.DetectColorString)
+	if ac.DetectColorString == "" {
+		return []uint8{}, nil
+	}
+	pound, color := ac.DetectColorString[0], ac.DetectColorString[1:]
+	if pound != '#' {
+		return nil, errors.Errorf("detect_color is ill-formed, expected #RRGGBB, got %v", ac.DetectColorString)
+	}
+	slice, err := hex.DecodeString(color)
+	if err != nil {
+		return nil, err
+	}
+	if len(slice) != 3 {
+		return nil, errors.Errorf("detect_color is ill-formed, expected #RRGGBB, got %v", ac.DetectColorString)
+	}
+	return slice, nil
 }
