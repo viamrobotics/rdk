@@ -41,12 +41,14 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
-	fakerobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fm.Motor{PositionSupported: true}, true
-	}
-
 	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, true
+		switch name.Subtype {
+		case gantry.Subtype:
+			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, true
+		case motor.Subtype:
+			return &fm.Motor{PositionSupported: true}, true
+		}
+		return nil, false
 	}
 	return fakerobot
 }

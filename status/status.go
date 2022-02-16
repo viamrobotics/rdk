@@ -3,7 +3,6 @@ package status
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -186,12 +185,12 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.MotorNames(); len(names) != 0 {
+	if names := motor.NamesFromRobot(r); len(names) != 0 {
 		status.Motors = make(map[string]*pb.MotorStatus, len(names))
 		for _, name := range names {
-			x, ok := r.MotorByName(name)
-			if !ok {
-				return nil, fmt.Errorf("motor %q not found", name)
+			x, err := motor.FromRobot(r, name)
+			if err != nil {
+				return nil, err
 			}
 			isOn, err := x.IsPowered(ctx)
 			if err != nil {

@@ -130,9 +130,9 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, rdkutils.NewUnexpectedTypeError(conf, config.ConvertedAttributes)
 	}
 
-	_motor, ok := r.MotorByName(conf.Motor)
-	if !ok {
-		return nil, errors.Errorf("cannot find motor named %v for gantry", conf.Motor)
+	_motor, err := motor.FromRobot(r, conf.Motor)
+	if err != nil {
+		return nil, err
 	}
 	features, err := _motor.GetFeatures(ctx)
 	if err != nil {
