@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"io/ioutil"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -117,6 +119,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
+	var lastRd []byte
 	utils.ManagedGo(func() {
 		for {
 			if cancelCtx.Err() != nil {
@@ -127,7 +130,17 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 				return
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					newConfig, err := Read(cancelCtx, configPath, logger)
+					//nolint:gosec
+					rd, err := ioutil.ReadFile(configPath)
+					if err != nil {
+						logger.Errorw("error reading config file after write", "error", err)
+						continue
+					}
+					if bytes.Equal(rd, lastRd) {
+						continue
+					}
+					lastRd = rd
+					newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
 					if err != nil {
 						logger.Errorw("error reading config after write", "error", err)
 						continue
