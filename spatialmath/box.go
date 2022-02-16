@@ -6,8 +6,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -97,7 +97,7 @@ func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
 }
 
-// ToProto converts the box to a Geometry proto message
+// ToProto converts the box to a Geometry proto message.
 func (b *box) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(b.pose),
