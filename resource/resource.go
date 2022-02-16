@@ -121,19 +121,20 @@ func NameFromSubtype(subtype Subtype, name string) Name {
 
 // NewFromString creates a new Name based on a fully qualified resource name string passed in.
 func NewFromString(resourceName string) (Name, error) {
+	hintErr := errors.New("invalid resource name string, use format: namespace:type:subtype/name")
 	var name string
 	nameParts := strings.Split(resourceName, "/")
 	if len(nameParts) == 2 {
 		name = nameParts[1]
 	} else if len(nameParts) > 2 {
-		return Name{}, errors.New("invalid resource name string: there is more than one backslash")
+		return Name{}, hintErr
 	}
 	rSubtypeParts := strings.Split(nameParts[0], ":")
 	if len(rSubtypeParts) > 3 {
-		return Name{}, errors.New("invalid resource name string: there are more than 2 colons")
+		return Name{}, hintErr
 	}
 	if len(rSubtypeParts) < 3 {
-		return Name{}, errors.New("invalid resource name string: there are less than 2 colons")
+		return Name{}, hintErr
 	}
 	return NewName(Namespace(rSubtypeParts[0]), TypeName(rSubtypeParts[1]), SubtypeName(rSubtypeParts[2]), name), nil
 }
