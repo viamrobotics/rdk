@@ -24,9 +24,9 @@ type sphere struct {
 	pose   Pose
 }
 
-// NewSphere instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
+// NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
 // at the specified offset from the pose. These spheres have a radius specified by the radius argument.
-func NewSphere(radius float64, offset Pose) (VolumeCreator, error) {
+func NewSphereCreator(radius float64, offset Pose) (VolumeCreator, error) {
 	if radius <= 0 {
 		return nil, errors.New("sphere dimensions can not be zero")
 	}
@@ -48,6 +48,14 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 	config.Type = "sphere"
 	config.R = sc.radius
 	return json.Marshal(config)
+}
+
+// NewSphere instantiates a new sphere Volume.
+func NewSphere(pose Pose, radius float64) (Volume, error) {
+	if radius <= 0 {
+		return nil, errors.New("sphere dimensions can not be zero")
+	}
+	return &sphere{radius, pose}, nil
 }
 
 // Pose returns the pose of the sphere.

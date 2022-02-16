@@ -20,9 +20,9 @@ type point struct {
 	pose Pose
 }
 
-// NewPoint instantiates a PointCreator class, which allows instantiating pointers given only a pose which is applied
+// NewPointCreator instantiates a PointCreator class, which allows instantiating pointers given only a pose which is applied
 // at the specified offset from the pose. These pointers have dimensions given by the provided halfSize vector.
-func NewPoint(offset Pose) VolumeCreator {
+func NewPointCreator(offset Pose) VolumeCreator {
 	return &pointCreator{offset}
 }
 
@@ -40,6 +40,11 @@ func (pc *pointCreator) MarshalJSON() ([]byte, error) {
 	}
 	config.Type = "point"
 	return json.Marshal(config)
+}
+
+// NewPoint instantiates a new point Volume.
+func NewPoint(pose Pose) Volume {
+	return &point{pose}
 }
 
 // Pose returns the pose of the point.
