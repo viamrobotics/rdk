@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -106,9 +107,9 @@ func (seg *objectSegService) GetObjects(ctx context.Context, cameraName string, 
 	if err != nil {
 		return nil, err
 	}
-	seg, err := segmentation.NewObjectSegmentation(ctx, cloud, pmtrs) // default object segmentation
+	segments, err := segmentation.NewObjectSegmentation(ctx, cloud, pmtrs) // default object segmentation
 	if err != nil {
 		return nil, err
 	}
-	return seg.Objects(), nil
+	return segments.Objects(), nil
 }
