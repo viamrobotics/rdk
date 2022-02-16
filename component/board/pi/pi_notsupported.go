@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -19,7 +20,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		board.Subtype,
-		modelName,
+		picommon.ModelName,
 		registry.Component{Constructor: func(
 			ctx context.Context,
 			r robot.Robot,
@@ -30,7 +31,7 @@ func init() {
 		}})
 	registry.RegisterComponent(
 		servo.Subtype,
-		modelName,
+		picommon.ModelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 				return nil, errors.New("not running on a pi")
