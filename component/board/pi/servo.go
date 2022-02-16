@@ -4,7 +4,7 @@ package pi
 
 // #include <stdlib.h>
 // #include <pigpio.h>
-// #include "pi.h"
+// #include "c/pi.h"
 // #cgo LDFLAGS: -lpigpio
 import "C"
 
