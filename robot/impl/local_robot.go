@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/sensor"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -192,6 +193,13 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}
 
 	// default services
+	// create sensor service here
+	sensorConfig := config.Service{Type: config.ServiceType(sensor.SubtypeName)}
+	sensorSvc, err := r.newService(ctx, sensorConfig)
+	if err != nil {
+		return nil, err
+	}
+	r.parts.addResource(sensor.Name, sensorSvc)
 
 	// create web service here
 	// somewhat hacky, but the web service start up needs to come last
