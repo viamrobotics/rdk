@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/vision"
 )
 
 func init() {
@@ -48,15 +47,4 @@ func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
 	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
-}
-
-// NextObjects always returns the single pixel as the only object in the scene.
-func (c *Camera) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-	pc := pointcloud.New()
-	err := pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
-	if err != nil {
-		return nil, err
-	}
-	objs := []*vision.Object{vision.NewObject(pc)}
-	return objs, nil
 }
