@@ -53,7 +53,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetObjects(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{
 		Name:               cameraName,
 		MimeType:           utils.MimeTypePCD,

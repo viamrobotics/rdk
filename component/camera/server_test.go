@@ -53,6 +53,7 @@ func TestServer(t *testing.T) {
 	var imageReleased bool
 	injectCamera.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return img, func() { imageReleased = true }, nil
+		params
 	}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
@@ -174,82 +175,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next point cloud")
 	})
 
-	t.Run("GetObjectPointClouds", func(t *testing.T) {
-		_, err := cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{Name: missingCameraName})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-		// request the two segments in the point cloud
-		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-		test.That(t, err, test.ShouldBeNil)
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcA, nil
-		}
-		injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
-			if err != nil {
-				return nil, err
-			}
-			return seg.Objects(), nil
-		}
-		segs, err := cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{
-			Name:               testCameraName,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadiusMm: 5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Objects), test.ShouldEqual, 2)
-		test.That(t, segs.Objects[0].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-		test.That(t, segs.Objects[1].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-		test.That(t, segs.Objects[0].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-		test.That(t, segs.Objects[0].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-		test.That(t, segs.Objects[0].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
-		test.That(t, segs.Objects[1].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-		test.That(t, segs.Objects[1].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-		test.That(t, segs.Objects[1].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
-
-		// empty pointcloud
-		pcB := pointcloud.New()
-
-		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
-			return pcB, nil
-		}
-		injectCamera.NextObjectsFunc = func(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-			seg, err := segmentation.NewObjectSegmentation(ctx, pcB, params)
-			if err != nil {
-				return nil, err
-			}
-			return seg.Objects(), nil
-		}
-		segs, err = cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{
-			Name:               testCameraName,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadiusMm: 5.,
-		})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(segs.Objects), test.ShouldEqual, 0)
-
-		_, err = cameraServer.GetObjectPointClouds(context.Background(), &pb.CameraServiceGetObjectPointCloudsRequest{
-			Name:               failCameraName,
-			MinPointsInPlane:   100,
-			MinPointsInSegment: 3,
-			ClusteringRadiusMm: 5.,
-		})
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "can't generate next objects")
-	})
 }

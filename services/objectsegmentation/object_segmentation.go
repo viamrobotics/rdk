@@ -42,7 +42,7 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	GetObjects(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
 }
 
 // An ObjectSource3D is anything that generates 3D objects in a scene.
@@ -89,7 +89,7 @@ type objectSegService struct {
 	logger golog.Logger
 }
 
-func (seg *objectSegService) GetObjects(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
+func (seg *objectSegService) GetObjectPointClouds(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
 	// get camera component
 	cam, err := camera.FromRobot(seg.r, cameraName)
 	if err != nil {
