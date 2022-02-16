@@ -13,7 +13,7 @@ service ObjectSegmentationService {
   // GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
   // as well as the 3-vector center of each of the found objects.
   // A specific MIME type can be requested but may not necessarily be the same one returned.
-  rpc GetObjectPointClouds(CameraServiceGetObjectPointCloudsRequest) returns (CameraServiceGetObjectPointCloudsResponse) {
+  rpc GetObjectPointClouds(ObjectSegmentationServiceGetObjectPointCloudsRequest) returns (ObjectSegmentationServiceGetObjectPointCloudsResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/object_segmentation/object_point_clouds"
     };

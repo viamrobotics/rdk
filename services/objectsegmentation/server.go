@@ -42,7 +42,7 @@ func (s *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
 	req *pb.ObjectSegmentationServiceGetObjectPointCloudsRequest,
 ) (*pb.ObjectSegmentationServiceGetObjectPointCloudsResponse, error) {
-	svc, err := server.service()
+	svc, err := s.service()
 	if err != nil {
 		return nil, err
 	}

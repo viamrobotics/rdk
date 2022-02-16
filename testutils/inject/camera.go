@@ -36,14 +36,6 @@ func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	return c.NextPointCloudFunc(ctx)
 }
 
-// NextObjects calls the injected NextObjects or the real version.
-func (c *Camera) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-	if c.NextObjectsFunc == nil {
-		return c.Camera.NextObjects(ctx, params)
-	}
-	return c.NextObjectsFunc(ctx, params)
-}
-
 // Close calls the injected Close or the real version.
 func (c *Camera) Close(ctx context.Context) error {
 	if c.CloseFunc == nil {

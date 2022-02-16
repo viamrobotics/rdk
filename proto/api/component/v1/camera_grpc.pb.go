@@ -28,10 +28,6 @@ type CameraServiceClient interface {
 	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetPointCloud(ctx context.Context, in *CameraServiceGetPointCloudRequest, opts ...grpc.CallOption) (*CameraServiceGetPointCloudResponse, error)
-	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-	// as well as the 3-vector center of each of the found objects.
-	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	GetObjectPointClouds(ctx context.Context, in *CameraServiceGetObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceGetObjectPointCloudsResponse, error)
 }
 
 type cameraServiceClient struct {
@@ -69,15 +65,6 @@ func (c *cameraServiceClient) GetPointCloud(ctx context.Context, in *CameraServi
 	return out, nil
 }
 
-func (c *cameraServiceClient) GetObjectPointClouds(ctx context.Context, in *CameraServiceGetObjectPointCloudsRequest, opts ...grpc.CallOption) (*CameraServiceGetObjectPointCloudsResponse, error) {
-	out := new(CameraServiceGetObjectPointCloudsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.component.v1.CameraService/GetObjectPointClouds", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // CameraServiceServer is the server API for CameraService service.
 // All implementations must embed UnimplementedCameraServiceServer
 // for forward compatibility
@@ -91,10 +78,6 @@ type CameraServiceServer interface {
 	// GetPointCloud returns a point cloud from a camera of the underlying robot. A specific MIME type
 	// can be requested but may not necessarily be the same one returned.
 	GetPointCloud(context.Context, *CameraServiceGetPointCloudRequest) (*CameraServiceGetPointCloudResponse, error)
-	// GetObjectPointClouds returns all the found objects in a pointcloud from a camera of the underlying robot,
-	// as well as the 3-vector center of each of the found objects.
-	// A specific MIME type can be requested but may not necessarily be the same one returned.
-	GetObjectPointClouds(context.Context, *CameraServiceGetObjectPointCloudsRequest) (*CameraServiceGetObjectPointCloudsResponse, error)
 	mustEmbedUnimplementedCameraServiceServer()
 }
 
@@ -110,9 +93,6 @@ func (UnimplementedCameraServiceServer) RenderFrame(context.Context, *CameraServ
 }
 func (UnimplementedCameraServiceServer) GetPointCloud(context.Context, *CameraServiceGetPointCloudRequest) (*CameraServiceGetPointCloudResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPointCloud not implemented")
-}
-func (UnimplementedCameraServiceServer) GetObjectPointClouds(context.Context, *CameraServiceGetObjectPointCloudsRequest) (*CameraServiceGetObjectPointCloudsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetObjectPointClouds not implemented")
 }
 func (UnimplementedCameraServiceServer) mustEmbedUnimplementedCameraServiceServer() {}
 
@@ -181,24 +161,6 @@ func _CameraService_GetPointCloud_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CameraService_GetObjectPointClouds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CameraServiceGetObjectPointCloudsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CameraServiceServer).GetObjectPointClouds(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.component.v1.CameraService/GetObjectPointClouds",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CameraServiceServer).GetObjectPointClouds(ctx, req.(*CameraServiceGetObjectPointCloudsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // CameraService_ServiceDesc is the grpc.ServiceDesc for CameraService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -217,10 +179,6 @@ var CameraService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPointCloud",
 			Handler:    _CameraService_GetPointCloud_Handler,
-		},
-		{
-			MethodName: "GetObjectPointClouds",
-			Handler:    _CameraService_GetObjectPointClouds_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
