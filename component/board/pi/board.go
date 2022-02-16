@@ -1,11 +1,10 @@
 //go:build linux && arm64
 
-// Package pi implements a Board and its related interfaces for a Raspberry Pi.
 package pi
 
 // #include <stdlib.h>
 // #include <pigpio.h>
-// #include "pi.h"
+// #include "c/pi.h"
 // #cgo LDFLAGS: -lpigpio
 import "C"
 
@@ -33,8 +32,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
-const modelName = "pi"
-
 // init registers a pi board based on pigpio.
 func init() {
 	registry.RegisterComponent(
@@ -52,7 +49,6 @@ func init() {
 			}
 			return NewPigpio(ctx, boardConfig, logger)
 		}})
-	board.RegisterConfigAttributeConverter(modelName)
 }
 
 // piPigpio is an implementation of a board.Board of a Raspberry Pi

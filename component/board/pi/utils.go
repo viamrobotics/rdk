@@ -1,15 +1,23 @@
-//go:build linux && arm64
-
+// Package pi implements a Board and its related interfaces for a Raspberry Pi.
 package pi
 
 import (
 	"fmt"
+
+	"go.viam.com/rdk/component/board"
 )
+
+const modelName = "pi"
+
+func init() {
+	board.RegisterConfigAttributeConverter(modelName)
+}
 
 // piHWPinToBroadcom maps the hardware inscribed pin number to
 // its Broadcom pin. For the sake of programming, a user typically
 // knows the hardware pin since they have the board on hand but does
 // not know the corresponding Broadcom pin.
+//nolint:unused
 var piHWPinToBroadcom = map[string]uint{
 	// 1 -> 3v3
 	// 2 -> 5v
@@ -68,6 +76,7 @@ var piHWPinToBroadcom = map[string]uint{
 
 // broadcomPinFromHardwareLabel returns a Raspberry Pi pin number given
 // a hardware label for the pin passed from a config.
+//nolint:unused,deadcode
 func broadcomPinFromHardwareLabel(hwPin string) (uint, bool) {
 	pin, ok := piHWPinToBroadcom[hwPin]
 	if ok {
