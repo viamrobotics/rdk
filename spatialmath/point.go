@@ -43,8 +43,8 @@ func (pc *pointCreator) MarshalJSON() ([]byte, error) {
 }
 
 // NewPoint instantiates a new point Volume.
-func NewPoint(pose Pose) Volume {
-	return &point{pose}
+func NewPoint(pt r3.Vector) Volume {
+	return &point{NewPoseFromPoint(pt)}
 }
 
 // Pose returns the pose of the point.
@@ -72,7 +72,7 @@ func (pt *point) Transform(toPremultiply Pose) {
 }
 
 // ToProto converts the point to a Geometry proto message
-func (pt *point) ToProto() *commonpb.Geometry {
+func (pt *point) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(pt.pose),
 		GeometryType: &commonpb.Geometry_Sphere{

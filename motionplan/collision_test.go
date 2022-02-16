@@ -13,7 +13,7 @@ import (
 
 func TestCheckCollisions(t *testing.T) {
 	// case 1: small collection of custom volumes
-	bc, err := spatial.NewBox(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	vols := make(map[string]spatial.Volume)
 	vols["cube000"] = bc.NewVolume(spatial.NewZeroPose())
