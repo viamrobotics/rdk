@@ -1,10 +1,10 @@
 //go:build linux && arm64
 
-package pi
+package piimpl
 
 // #include <stdlib.h>
 // #include <pigpio.h>
-// #include "c/pi.h"
+// #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
 import "C"
 
@@ -14,6 +14,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -24,7 +25,7 @@ import (
 func init() {
 	registry.RegisterComponent(
 		servo.Subtype,
-		modelName,
+		picommon.ModelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
 				if !config.Attributes.Has("pin") {
