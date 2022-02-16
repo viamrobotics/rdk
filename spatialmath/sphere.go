@@ -39,10 +39,13 @@ func (sc *sphereCreator) NewVolume(pose Pose) Volume {
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
-	return json.Marshal(VolumeConfig{
-		Type: "sphere",
-		R:    sc.radius,
-	})
+	config, err := NewVolumeConfig(sc.offset)
+	if err != nil {
+		return nil, err
+	}
+	config.Type = "sphere"
+	config.R = sc.radius
+	return json.Marshal(config)
 }
 
 // Pose returns the pose of the sphere.
@@ -78,18 +81,31 @@ func (s *sphere) CollidesWith(v Volume) (bool, error) {
 	if other, ok := v.(*box); ok {
 		return sphereVsBoxCollision(s, other), nil
 	}
+	if other, ok := v.(*point); ok {
+		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
+	}
 	return true, errors.Errorf("collisions between sphere and %T are not supported", v)
 }
 
 // CollidesWith checks if the given sphere collides with the given volume and returns true if it does.
 func (s *sphere) DistanceFrom(v Volume) (float64, error) {
-	if other, ok := v.(*sphere); ok {
-		return sphereVsSphereDistance(s, other), nil
-	}
 	if other, ok := v.(*box); ok {
 		return sphereVsBoxDistance(s, other), nil
 	}
+	if other, ok := v.(*sphere); ok {
+		return sphereVsSphereDistance(s, other), nil
+	}
+	if other, ok := v.(*point); ok {
+		return sphereVsPointDistance(s, other.pose.Point()), nil
+	}
 	return math.Inf(-1), errors.Errorf("collisions between sphere and %T are not supported", v)
+}
+
+// sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it
+// represents the penetration depth of the point within the sphere.  If the returned float is positive it represents the separation
+// distance between the point and the sphere, which are not in collision.
+func sphereVsPointDistance(s *sphere, pt r3.Vector) float64 {
+	return s.pose.Point().Sub(pt).Norm() - s.radius
 }
 
 // sphereVsSphereCollision takes two spheres as arguments and returns a floating point number.  If this number is nonpositive it represents
@@ -111,11 +127,5 @@ func sphereVsBoxCollision(s *sphere, b *box) bool {
 // represents the penetration depth for the two volumes, which are in collision.  If the returned float is positive it represents the
 // separation distance for the two volumes, which are not in collision.
 func sphereVsBoxDistance(s *sphere, b *box) float64 {
-	closestPoint := b.closestPoint(s.pose.Point())
-	sphereToBoxDistance := s.pose.Point().Sub(closestPoint)
-	boxToFaceDistance := 0.
-	if R3VectorAlmostEqual(sphereToBoxDistance, r3.Vector{}, 1e-3) {
-		boxToFaceDistance = boxVsPointDistance(b, closestPoint)
-	}
-	return sphereToBoxDistance.Norm() - (s.radius + boxToFaceDistance)
+	return pointVsBoxDistance(b, s.pose.Point()) - s.radius
 }
