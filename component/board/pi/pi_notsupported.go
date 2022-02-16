@@ -1,7 +1,5 @@
 //go:build !(linux && arm64)
 
-// Package pi ensures code for Raspberry Pi platforms can not be used
-// on other platforms.
 package pi
 
 import (
@@ -16,8 +14,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
-
-const modelName = "pi"
 
 // init registers a failing pi board since this can only be compiled on non-pi systems.
 func init() {
