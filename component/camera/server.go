@@ -13,13 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
 )
 
 // subtypeServer implements the contract from camera.proto.
@@ -186,69 +183,4 @@ func (s *subtypeServer) GetPointCloud(
 		MimeType: utils.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil
-}
-
-// GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
-// can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
-func (s *subtypeServer) GetObjectPointClouds(
-	ctx context.Context,
-	req *pb.CameraServiceGetObjectPointCloudsRequest,
-) (*pb.CameraServiceGetObjectPointCloudsResponse, error) {
-	camera, err := s.getCamera(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &vision.Parameters3D{
-		MinPtsInPlane:      int(req.MinPointsInPlane),
-		MinPtsInSegment:    int(req.MinPointsInSegment),
-		ClusteringRadiusMm: req.ClusteringRadiusMm,
-	}
-	objects, err := camera.NextObjects(ctx, config)
-	if err != nil {
-		return nil, err
-	}
-	protoSegments, err := segmentsToProto(objects)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.CameraServiceGetObjectPointCloudsResponse{
-		MimeType: utils.MimeTypePCD,
-		Objects:  protoSegments,
-	}, nil
-}
-
-func segmentsToProto(segs []*vision.Object) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, len(segs))
-	for _, seg := range segs {
-		var buf bytes.Buffer
-		err := seg.ToPCD(&buf)
-		if err != nil {
-			return nil, err
-		}
-		ps := &pb.PointCloudObject{
-			Frame:               buf.Bytes(),
-			CenterCoordinatesMm: pointToProto(seg.Center),
-			BoundingBoxMm:       boxToProto(seg.BoundingBox),
-		}
-		protoSegs = append(protoSegs, ps)
-	}
-	return protoSegs, nil
-}
-
-func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
-	return &commonpb.Vector3{
-		X: p.X,
-		Y: p.Y,
-		Z: p.Z,
-	}
-}
-
-func boxToProto(b pointcloud.RectangularPrism) *commonpb.RectangularPrism {
-	return &commonpb.RectangularPrism{
-		WidthMm:  b.WidthMm,
-		LengthMm: b.LengthMm,
-		DepthMm:  b.DepthMm,
-	}
 }
