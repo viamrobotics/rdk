@@ -1,6 +1,8 @@
 package camera
 
 import (
+	"encoding/hex"
+
 	"go.viam.com/rdk/rimage/transform"
 )
 
@@ -23,7 +25,7 @@ type AttrConfig struct {
 	ClusterRadius      float64                            `json:"cluster_radius"`
 	Tolerance          float64                            `json:"tolerance"`
 	ExcludeColors      []string                           `json:"exclude_color_chans"`
-	DetectColor        []uint8                            `json:"detect_color"`
+	DetectColorString  string                             `json:"detect_color"`
 	Format             string                             `json:"format"`
 	Path               string                             `json:"path"`
 	PathPattern        string                             `json:"path_pattern"`
@@ -33,4 +35,8 @@ type AttrConfig struct {
 	IntrinsicExtrinsic interface{}                        `json:"intrinsic_extrinsic"`
 	Homography         interface{}                        `json:"homography"`
 	Warp               interface{}                        `json:"warp"`
+}
+
+func (ac *AttrConfig) DetectColor() ([]uint8, error) {
+	return hex.DecodeString(ac.DetectColorString)
 }
