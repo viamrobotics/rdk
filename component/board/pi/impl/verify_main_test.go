@@ -1,4 +1,6 @@
-package pi
+//go:build linux && arm64
+
+package piimpl
 
 import (
 	"testing"
