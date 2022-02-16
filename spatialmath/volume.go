@@ -3,6 +3,8 @@ package spatialmath
 import (
 	"encoding/json"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
@@ -19,6 +21,7 @@ type Volume interface {
 	Vertices() []r3.Vector
 	AlmostEqual(Volume) bool
 	Transform(Pose)
+	ToProto() *commonpb.Geometry
 	CollidesWith(Volume) (bool, error)
 	DistanceFrom(Volume) (float64, error)
 }
@@ -49,7 +52,6 @@ func NewVolumeConfig(offset Pose) (*VolumeConfig, error) {
 		return nil, err
 	}
 	return &VolumeConfig{
-		Type:              "point",
 		TranslationOffset: *translationConfig,
 		OrientationOffset: *orientationConfig,
 	}, nil

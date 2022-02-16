@@ -6,6 +6,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 
 	"go.viam.com/rdk/utils"
 )
@@ -86,6 +87,19 @@ func (b *box) AlmostEqual(v Volume) bool {
 // Transform premultiplies the box pose with a transform, allowing the box to be moved in space.
 func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
+}
+
+func (b *box) ToProto() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(b.pose),
+		GeometryType: &commonpb.Geometry_Box{
+			Box: &commonpb.RectangularPrism{
+				WidthMm:  2 * b.halfSize[0],
+				LengthMm: 2 * b.halfSize[1],
+				DepthMm:  2 * b.halfSize[2],
+			},
+		},
+	}
 }
 
 // CollidesWith checks if the given box collides with the given volume and returns true if it does.
