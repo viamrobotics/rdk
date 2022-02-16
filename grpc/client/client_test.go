@@ -215,9 +215,6 @@ func TestClient(t *testing.T) {
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
-	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return nil, false
-	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
@@ -459,8 +456,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-	motor1, ok := client.MotorByName("motor1")
-	test.That(t, ok, test.ShouldBeTrue)
+	motor1, err := motor.FromRobot(client, "motor1")
+	test.That(t, err, test.ShouldBeNil)
 	err = motor1.SetPower(context.Background(), 0)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
@@ -561,12 +558,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
 
-	motor1, ok = client.MotorByName("motor1")
-	test.That(t, ok, test.ShouldBeTrue)
+	motor1, err = motor.FromRobot(client, "motor1")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor1, test.ShouldNotBeNil)
 
-	motor2, ok := client.MotorByName("motor2")
-	test.That(t, ok, test.ShouldBeTrue)
+	motor2, err := motor.FromRobot(client, "motor2")
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, motor2, test.ShouldNotBeNil)
 
 	servo1, err = servo.FromRobot(client, "servo1")
@@ -679,7 +676,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.MotorNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
@@ -813,7 +810,7 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.MotorNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)

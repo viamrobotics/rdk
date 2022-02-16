@@ -12,7 +12,6 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/v1"
@@ -128,12 +127,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) MotorNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.MotorNames())
-}
-
 func (rr *remoteRobot) FunctionNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -154,12 +147,6 @@ func (rr *remoteRobot) ResourceNames() []resource.Name {
 func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	debug.PrintStack()
 	panic(errUnimplemented)
-}
-
-func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.MotorByName(rr.unprefixName(name))
 }
 
 func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {

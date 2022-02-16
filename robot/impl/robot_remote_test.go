@@ -76,9 +76,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return []string{fmt.Sprintf("remote1%s", suffix), fmt.Sprintf("remote2%s", suffix)}
 	}
 
-	injectRobot.MotorNamesFunc = func() []string {
-		return rdktestutils.ExtractNames(motorNames...)
-	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{fmt.Sprintf("func1%s", suffix), fmt.Sprintf("func2%s", suffix)}
 	}
@@ -105,12 +102,6 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return &remoteRobot{conf: config.Remote{Name: name}}, true
 	}
 
-	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		if _, ok := utils.NewStringSet(injectRobot.MotorNames()...)[name]; !ok {
-			return nil, false
-		}
-		return &fakemotor.Motor{Name: name}, true
-	}
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
@@ -286,14 +277,14 @@ func TestRemoteRobot(t *testing.T) {
 	robot.conf.Prefix = false
 	test.That(
 		t,
-		utils.NewStringSet(robot.MotorNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(motorNames...)...),
 	)
 	robot.conf.Prefix = true
 	test.That(
 		t,
-		utils.NewStringSet(robot.MotorNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(robot)...),
 		test.ShouldResemble,
 		utils.NewStringSet(rdktestutils.ExtractNames(prefixedMotorNames...)...),
 	)

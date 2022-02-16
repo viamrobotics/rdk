@@ -209,14 +209,14 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 
 	// get all motors
 
-	b.squirt, ok = r.MotorByName("squirt")
-	if !ok {
-		return nil, errors.New("no squirt motor")
+	b.squirt, err = motor.FromRobot(r, "squirt")
+	if err != nil {
+		return nil, errors.Wrap(err, "no squirt motor")
 	}
 
-	steeringMotor, ok := r.MotorByName("steering")
-	if !ok {
-		return nil, errors.New("no steering motor")
+	steeringMotor, err := motor.FromRobot(r, "steering")
+	if err != nil {
+		return nil, errors.Wrap(err, "no steering motor")
 	}
 	stoppableMotor, ok := steeringMotor.(motor.LocalMotor)
 	if !ok {
@@ -224,19 +224,19 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 	}
 	b.steering = stoppableMotor
 
-	b.thrust, ok = r.MotorByName("thrust")
-	if !ok {
-		return nil, errors.New("no thrust motor")
+	b.thrust, err = motor.FromRobot(r, "thrust")
+	if err != nil {
+		return nil, errors.Wrap(err, "no thrust motor")
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("no starboard motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "no starboard motor")
 	}
 
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("no port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "no port motor")
 	}
 
 	err = b.Stop(ctx)

@@ -102,9 +102,9 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 	}
 
 	motorName := config.Attributes.String("motor")
-	_motor, exists := r.MotorByName(motorName)
-	if !exists {
-		return nil, errors.Errorf("failed to find motor named '%v'", motorName)
+	_motor, err := motor.FromRobot(r, motorName)
+	if err != nil {
+		return nil, err
 	}
 
 	supportedFeatures, err := _motor.GetFeatures(ctx)

@@ -59,9 +59,9 @@ func TestNew(t *testing.T) {
 	t.Run("return error when not able to find motor", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Board{}, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
+			if name.Subtype == board.Subtype {
+				return &inject.Board{}, true
+			}
 			return nil, false
 		}
 
@@ -72,16 +72,19 @@ func TestNew(t *testing.T) {
 	t.Run("expect the motor to support position measurements", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Board{}, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := &inject.Motor{}
-			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.Feature]bool, error,
-			) {
-				return map[motor.Feature]bool{}, nil
+			switch name.Subtype {
+			case board.Subtype:
+				return &inject.Board{}, true
+			case motor.Subtype:
+				fakeMotor := &inject.Motor{}
+				fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+					map[motor.Feature]bool, error,
+				) {
+					return map[motor.Feature]bool{}, nil
+				}
+				return fakeMotor, true
 			}
-			return fakeMotor, true
+			return nil, false
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -91,18 +94,21 @@ func TestNew(t *testing.T) {
 	t.Run("expect the motor to support GoTillStop", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Board{}, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := &inject.Motor{}
-			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.Feature]bool, error,
-			) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: true,
-				}, nil
+			switch name.Subtype {
+			case board.Subtype:
+				return &inject.Board{}, true
+			case motor.Subtype:
+				fakeMotor := &inject.Motor{}
+				fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+					map[motor.Feature]bool, error,
+				) {
+					return map[motor.Feature]bool{
+						motor.PositionReporting: true,
+					}, nil
+				}
+				return fakeMotor, true
 			}
-			return fakeMotor, true
+			return nil, false
 		}
 		motorName := "badMotor"
 		cfg := config.Component{
@@ -118,18 +124,21 @@ func TestNew(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := &inject.Motor{}
-			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.Feature]bool, error,
-			) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: true,
-				}, nil
+			switch name.Subtype {
+			case board.Subtype:
+				return fakeBoard, true
+			case motor.Subtype:
+				fakeMotor := &inject.Motor{}
+				fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+					map[motor.Feature]bool, error,
+				) {
+					return map[motor.Feature]bool{
+						motor.PositionReporting: true,
+					}, nil
+				}
+				return fakeMotor, true
 			}
-			return fakeMotor, true
+			return nil, false
 		}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false
@@ -143,11 +152,14 @@ func TestNew(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeBoard := &inject.Board{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
-		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := createWorkingMotor()
-			return fakeMotor, true
+			switch name.Subtype {
+			case board.Subtype:
+				return fakeBoard, true
+			case motor.Subtype:
+				fakeMotor := createWorkingMotor()
+				return fakeMotor, true
+			}
+			return nil, false
 		}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
@@ -165,24 +177,25 @@ func TestNew(t *testing.T) {
 		fakeFM := &inject.ForceMatrix{}
 		fakeBoard := &inject.Board{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			if name.Subtype == board.Subtype {
+			switch name.Subtype {
+			case board.Subtype:
 				return fakeBoard, true
-			} else if name.Subtype == forcematrix.Subtype {
+			case forcematrix.Subtype:
 				return fakeFM, true
+			case motor.Subtype:
+				fakeMotor := &inject.LocalMotor{}
+				fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
+					map[motor.Feature]bool, error,
+				) {
+					return map[motor.Feature]bool{
+						motor.PositionReporting: true,
+					}, nil
+				}
+				return fakeMotor, true
 			}
 			return nil, false
 		}
-		fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-			fakeMotor := &inject.LocalMotor{}
-			fakeMotor.GetFeaturesFunc = func(ctx context.Context) (
-				map[motor.Feature]bool, error,
-			) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: true,
-				}, nil
-			}
-			return fakeMotor, true
-		}
+
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return &inject.AnalogReader{}, true
 		}

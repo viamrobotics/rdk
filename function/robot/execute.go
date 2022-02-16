@@ -72,9 +72,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		powerPct, err := args[1].Number()
 		if err != nil {
@@ -93,9 +93,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		rpm, err := args[1].Number()
 		if err != nil {
@@ -118,9 +118,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		rpm, err := args[1].Number()
 		if err != nil {
@@ -143,9 +143,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		_motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		_motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		stoppableMotor, ok := _motor.(motor.LocalMotor)
 		if !ok {
@@ -169,9 +169,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		offset, err := args[1].Number()
 		if err != nil {
@@ -190,9 +190,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
 		pos, err := motor.GetPosition(context.TODO())
@@ -211,9 +211,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
 		return nil, motor.Stop(context.TODO())
@@ -228,9 +228,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
 		isOn, err := motor.IsPowered(context.TODO())

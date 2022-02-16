@@ -90,9 +90,9 @@ func (j joint) validate() error {
 }
 
 func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, error) {
-	m, ok := r.MotorByName(name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name: %s", name)
+	m, err := motor.FromRobot(r, name)
+	if err != nil {
+		return nil, err
 	}
 
 	supportedFeatures, err := m.GetFeatures(ctx)

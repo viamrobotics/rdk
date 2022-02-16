@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
@@ -213,21 +212,6 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// MotorByName returns a motor by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
-	nameObj := motor.Named(name)
-	resource, ok := rc.ResourceByName(nameObj)
-	if !ok {
-		return nil, false
-	}
-	actualMotor, ok := resource.(motor.Motor)
-	if !ok {
-		return nil, false
-	}
-	return actualMotor, true
-}
-
 // ResourceByName returns resource by name.
 func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
@@ -296,19 +280,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// MotorNames returns the names of all known motors.
-func (rc *RobotClient) MotorNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == motor.Subtype {
-			names = append(names, res.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // FunctionNames returns the names of all known functions.

@@ -332,14 +332,14 @@ func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 		return nil, err
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("need a starboard motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a starboard motor")
 	}
 
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("need a port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a port motor")
 	}
 
 	b.throttle, ok = b.theBoard.DigitalInterruptByName("throttle")

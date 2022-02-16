@@ -13,8 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/motor"
-
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
@@ -52,12 +50,6 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
-// MotorByName returns a motor by name. If it does not exist
-// nil is returned.
-func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
-	return r.parts.MotorByName(name)
-}
-
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
@@ -67,11 +59,6 @@ func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// MotorNames returns the name of all known motors.
-func (r *localRobot) MotorNames() []string {
-	return r.parts.MotorNames()
 }
 
 // FunctionNames returns the name of all known functions.

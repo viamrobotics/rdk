@@ -81,15 +81,15 @@ type LinearAxis struct {
 // AddMotors takes a slice of motor names and adds them to the axis.
 func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
-		_motor, ok := robot.MotorByName(n)
-		if ok {
+		_motor, err := motor.FromRobot(robot, n)
+		if err != nil {
 			stoppableMotor, ok := _motor.(motor.LocalMotor)
 			if !ok {
 				return motor.NewGoTillStopUnsupportedError(n)
 			}
 			a.m = append(a.m, stoppableMotor)
 		} else {
-			return errors.Errorf("Cannot find motor named \"%s\"", n)
+			return err
 		}
 	}
 	return nil
@@ -217,9 +217,9 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		return nil, err
 	}
 
-	hammer, ok := r.MotorByName("hammer")
-	if !ok {
-		return nil, errors.New("can't find motor named: hammer")
+	hammer, err := motor.FromRobot(r, "hammer")
+	if err != nil {
+		return nil, err
 	}
 	stoppableHammer, ok := hammer.(motor.LocalMotor)
 	if !ok {
@@ -227,15 +227,15 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 	}
 	b.hammer = stoppableHammer
 
-	tipper, ok := r.MotorByName("tipper")
-	if !ok {
-		return nil, errors.New("can't find motor named: tipper")
+	tipper, err := motor.FromRobot(r, "tipper")
+	if err != nil {
+		return nil, err
 	}
 	b.tipper = tipper
 
-	vibrator, ok := r.MotorByName("vibrator")
-	if !ok {
-		return nil, errors.New("can't find motor named: vibrator")
+	vibrator, err := motor.FromRobot(r, "vibrator")
+	if err != nil {
+		return nil, err
 	}
 	b.vibrator = vibrator
 

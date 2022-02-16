@@ -9,6 +9,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
@@ -58,15 +59,18 @@ func createFakeBoard() *inject.Board {
 func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
-	fakerobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fake.Motor{PositionSupported: true}, true
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name.Subtype {
+		case board.Subtype:
+			return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
+				return true, nil
+			}}, true
+		case motor.Subtype:
+			return &fake.Motor{PositionSupported: true}, true
+		}
+		return nil, false
 	}
 
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
-			return true, nil
-		}}, true
-	}
 	return fakerobot
 }
 
@@ -219,9 +223,9 @@ func TestNewOneAxis(t *testing.T) {
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
-	fakeRobot = &inject.Robot{MotorByNameFunc: func(name string) (motor.Motor, bool) { return nil, false }}
+	fakeRobot = &inject.Robot{ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false }}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
 	injectMotor := &inject.Motor{
 		GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {
@@ -231,8 +235,12 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	fakeRobot = &inject.Robot{
-		MotorByNameFunc:    func(name string) (motor.Motor, bool) { return injectMotor, true },
-		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false },
+		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) {
+			if name.Subtype == motor.Subtype {
+				return injectMotor, true
+			}
+			return nil, false
+		},
 	}
 
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -246,8 +254,12 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	fakeRobot = &inject.Robot{
-		MotorByNameFunc:    func(name string) (motor.Motor, bool) { return injectMotor, true },
-		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false },
+		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) {
+			if name.Subtype == motor.Subtype {
+				return injectMotor, true
+			}
+			return nil, false
+		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	expectedErr := motor.NewFeatureUnsupportedError(motor.PositionReporting, gantryMotorName)
