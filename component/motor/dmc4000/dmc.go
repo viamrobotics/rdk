@@ -566,6 +566,12 @@ func (m *Motor) Home(ctx context.Context) error {
 	}
 
 	// wait for routine to finish
+	defer func() {
+		if err := m.Stop(ctx); err != nil {
+			m.c.logger.Error(err)
+		}
+	}()
+
 	var fails int
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
@@ -588,7 +594,7 @@ func (m *Motor) Home(ctx context.Context) error {
 			return nil
 		}
 
-		if fails >= 6000 {
+		if fails >= 3000 {
 			return errors.New("timed out during Home")
 		}
 		fails++
@@ -658,4 +664,14 @@ func (m *Motor) doPosition() (float64, error) {
 		return 0, err
 	}
 	return position / float64(m.StepsPerRotation), nil
+}
+
+// RunCommand executes additional commands beyond the Motor{} interface.
+func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error) {
+	switch name {
+	case "home":
+		return nil, m.Home(ctx)
+	default:
+		return nil, fmt.Errorf("no such command: %s", name)
+	}
 }

@@ -12,8 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/gps"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -70,13 +70,16 @@ func (s *Server) ResourceRunCommand(
 	ctx context.Context,
 	req *pb.ResourceRunCommandRequest,
 ) (*pb.ResourceRunCommandResponse, error) {
-	// TODO(RDK-38): support all resources
-	// we know only gps has this right now, so just look at sensors!
-	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
+	resName, err := resource.NewFromString(req.ResourceName)
 	if err != nil {
 		return nil, err
 	}
-	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
+
+	res, err := s.r.ResourceByName(resName)
+	if err != nil {
+		return nil, err
+	}
+	commander, ok := rdkutils.UnwrapProxy(res).(runCommander)
 	if !ok {
 		return nil, errors.New("cannot run commands on this resource")
 	}
