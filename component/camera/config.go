@@ -37,6 +37,7 @@ type AttrConfig struct {
 	Warp               interface{}                        `json:"warp"`
 }
 
+// DetectColor transforms the color hexstring into a slice of uint8.
 func (ac *AttrConfig) DetectColor() ([]uint8, error) {
 	return hex.DecodeString(ac.DetectColorString)
 }
