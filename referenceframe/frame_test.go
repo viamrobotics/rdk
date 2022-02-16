@@ -110,7 +110,7 @@ func TestRevoluteFrame(t *testing.T) {
 }
 
 func TestVolumes(t *testing.T) {
-	bc, err := spatial.NewBox(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewVolume(pose)

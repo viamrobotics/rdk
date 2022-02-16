@@ -51,11 +51,11 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 }
 
 // NewSphere instantiates a new sphere Volume.
-func NewSphere(pose Pose, radius float64) (Volume, error) {
+func NewSphere(pt r3.Vector, radius float64) (Volume, error) {
 	if radius <= 0 {
 		return nil, errors.New("sphere dimensions can not be zero")
 	}
-	return &sphere{radius, pose}, nil
+	return &sphere{radius, NewPoseFromPoint(pt)}, nil
 }
 
 // Pose returns the pose of the sphere.
@@ -84,7 +84,7 @@ func (s *sphere) Transform(toPremultiply Pose) {
 }
 
 // ToProto converts the sphere to a Geometry proto message
-func (s *sphere) ToProto() *commonpb.Geometry {
+func (s *sphere) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(s.pose),
 		GeometryType: &commonpb.Geometry_Sphere{

@@ -26,8 +26,8 @@ type box struct {
 // NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBoxCreator(dims r3.Vector, offset Pose) (VolumeCreator, error) {
-	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
-		return nil, errors.New("box dimensions can not be zero")
+	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+		return nil, errors.New("box dimensions can not be less than or equal to zero")
 	}
 	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
@@ -53,8 +53,8 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 
 // NewBox instantiates a new box Volume.
 func NewBox(pose Pose, dims r3.Vector) (Volume, error) {
-	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
-		return nil, errors.New("box dimensions can not be zero")
+	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+		return nil, errors.New("box dimensions can not be less than or equal to zero")
 	}
 	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
 }
@@ -98,7 +98,7 @@ func (b *box) Transform(toPremultiply Pose) {
 }
 
 // ToProto converts the box to a Geometry proto message
-func (b *box) ToProto() *commonpb.Geometry {
+func (b *box) ToProtobuf() *commonpb.Geometry {
 	return &commonpb.Geometry{
 		Center: PoseToProtobuf(b.pose),
 		GeometryType: &commonpb.Geometry_Box{

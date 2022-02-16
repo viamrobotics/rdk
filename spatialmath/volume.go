@@ -21,7 +21,7 @@ type Volume interface {
 	Vertices() []r3.Vector
 	AlmostEqual(Volume) bool
 	Transform(Pose)
-	ToProto() *commonpb.Geometry
+	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Volume) (bool, error)
 	DistanceFrom(Volume) (float64, error)
 }
@@ -69,22 +69,37 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	// build VolumeCreator depending on specified type
 	switch config.Type {
 	case "box":
-		return NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
+		return NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 	case "sphere":
-		return NewSphere(config.R, offset)
+		return NewSphereCreator(config.R, offset)
 	case "point":
-		return NewPoint(offset), nil
+		return NewPointCreator(offset), nil
 	case "":
 		// no type specified, iterate through supported types and try to infer intent
-		creator, err := NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
+		creator, err := NewBoxCreator(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 		if err == nil {
 			return creator, nil
 		}
-		creator, err = NewSphere(config.R, offset)
+		creator, err = NewSphereCreator(config.R, offset)
 		if err == nil {
 			return creator, nil
 		}
 		// never try to infer point volume if nothing is specified
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
+}
+
+func NewVolumeFromProtobuf(proto *commonpb.Geometry) (Volume, error) {
+	pose := NewPoseFromProtobuf(proto.Center)
+	if box := proto.GetBox(); box != nil {
+		return NewBox(pose, r3.Vector{X: box.WidthMm, Y: box.LengthMm, Z: box.DepthMm})
+	}
+	if sphere := proto.GetSphere(); sphere != nil {
+		vol, err := NewSphere(pose.Point(), sphere.RadiusMm)
+		if err == nil {
+			return vol, nil
+		}
+		return NewPoint(pose.Point()), nil
+	}
+	return nil, errors.New("unknown volume type in proto message")
 }

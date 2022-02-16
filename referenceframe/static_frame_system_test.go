@@ -270,7 +270,7 @@ func TestVolumesOfFrame(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	objectFromFrame1 := r3.Vector{5., 0., 0.}
-	vc, err := spatial.NewBox(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	vc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	object, err := NewStaticFrameWithVolume("object", spatial.NewPoseFromPoint(objectFromFrame1), vc)
 
