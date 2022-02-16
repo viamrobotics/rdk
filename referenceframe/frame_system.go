@@ -356,7 +356,7 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 	if err != nil && toTargetTransform == nil {
 		return nil, err
 	}
-	return spatial.Invert(toTargetTransform), err
+	return spatial.PoseInverse(toTargetTransform), err
 }
 
 // Returns the relative pose between two frames.

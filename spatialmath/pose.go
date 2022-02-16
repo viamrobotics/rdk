@@ -30,13 +30,13 @@ type Pose interface {
 
 // PoseMap encodes the orientation interface to something serializable and human readable.
 func PoseMap(p Pose) (map[string]interface{}, error) {
-	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	oc, err := NewOrientationConfig(p.Orientation().AxisAngles())
 	if err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{
 		"point":       p.Point(),
-		"orientation": orientation,
+		"orientation": oc,
 	}, nil
 }
 
@@ -144,9 +144,9 @@ func PoseToProtobuf(p Pose) *commonpb.Pose {
 	return final
 }
 
-// Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
+// PoseInverse will return the inverse of a pose. So if a given pose p is the pose of A relative to B, PoseInverse(p) will give
 // the pose of B relative to A.
-func Invert(p Pose) Pose {
+func PoseInverse(p Pose) Pose {
 	return newDualQuaternionFromPose(p).Invert()
 }
 
