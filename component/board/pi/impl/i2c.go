@@ -1,10 +1,10 @@
 //go:build linux && arm64
 
-package pi
+package piimpl
 
 // #include <stdlib.h>
 // #include <pigpio.h>
-// #include "c/pi.h"
+// #include "pi.h"
 // #cgo LDFLAGS: -lpigpio
 import "C"
 
