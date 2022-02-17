@@ -12,7 +12,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
-func TestVolumeSerialization(t *testing.T) {
+func TestGeometrySerialization(t *testing.T) {
 	translation := TranslationConfig{1, 1, 1}
 	orientation := OrientationConfig{}
 	testMap := loadOrientationTests(t)
@@ -21,46 +21,46 @@ func TestVolumeSerialization(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		config  VolumeConfig
+		config  GeometryConfig
 		success bool
 	}{
-		{"box", VolumeConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
-		{"box bad dims", VolumeConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
-		{"infer box", VolumeConfig{X: 1, Y: 1, Z: 1}, true},
-		{"sphere", VolumeConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
-		{"sphere bad dims", VolumeConfig{Type: "sphere", R: -1}, false},
-		{"infer sphere", VolumeConfig{R: 1, OrientationOffset: orientation}, true},
-		{"point", VolumeConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation}, true},
-		{"infer point", VolumeConfig{}, false},
-		{"bad type", VolumeConfig{Type: "bad"}, false},
+		{"box", GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
+		{"infer box", GeometryConfig{X: 1, Y: 1, Z: 1}, true},
+		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"sphere bad dims", GeometryConfig{Type: "sphere", R: -1}, false},
+		{"infer sphere", GeometryConfig{R: 1, OrientationOffset: orientation}, true},
+		{"point", GeometryConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"infer point", GeometryConfig{}, false},
+		{"bad type", GeometryConfig{Type: "bad"}, false},
 	}
 
 	pose := NewPoseFromPoint(r3.Vector{X: 1, Y: 1, Z: 1})
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			vc, err := testCase.config.ParseConfig()
+			gc, err := testCase.config.ParseConfig()
 			if testCase.success == false {
 				test.That(t, err, test.ShouldNotBeNil)
 				return
 			}
 			test.That(t, err, test.ShouldBeNil)
-			data, err := vc.MarshalJSON()
+			data, err := gc.MarshalJSON()
 			test.That(t, err, test.ShouldBeNil)
-			config := VolumeConfig{}
+			config := GeometryConfig{}
 			err = json.Unmarshal(data, &config)
 			test.That(t, err, test.ShouldBeNil)
 			newVc, err := config.ParseConfig()
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, vc.NewVolume(pose).AlmostEqual(newVc.NewVolume(pose)), test.ShouldBeTrue)
+			test.That(t, gc.NewGeometry(pose).AlmostEqual(newVc.NewGeometry(pose)), test.ShouldBeTrue)
 		})
 	}
 }
 
-func TestVolumeToFromProtobuf(t *testing.T) {
+func TestGeometryToFromProtobuf(t *testing.T) {
 	deg45 := math.Pi / 4
 	testCases := []struct {
-		name string
-		vol  Volume
+		name     string
+		geometry Geometry
 	}{
 		{"box", makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2})},
 		{"sphere", makeTestSphere(r3.Vector{3, 4, 5}, 10)},
@@ -68,38 +68,38 @@ func TestVolumeToFromProtobuf(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			newVol, err := NewVolumeFromProtobuf(testCase.vol.ToProtobuf())
+			newVol, err := NewGeometryFromProtobuf(testCase.geometry.ToProtobuf())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, testCase.vol.AlmostEqual(newVol), test.ShouldBeTrue)
+			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
 		})
 	}
 
 	// test that bad message does not generate error
-	_, err := NewVolumeFromProtobuf(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
+	_, err := NewGeometryFromProtobuf(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
 	test.That(t, err, test.ShouldNotBeNil)
 }
 
-type volumeComparisonTestCase struct {
-	testname string
-	volumes  [2]Volume
-	expected float64
+type geometryComparisonTestCase struct {
+	testname   string
+	geometries [2]Geometry
+	expected   float64
 }
 
-func testVolumeComparisons(t *testing.T, cases []volumeComparisonTestCase) {
+func testGeometryComparisons(t *testing.T, cases []geometryComparisonTestCase) {
 	t.Helper()
 	for _, c := range cases {
 		for i := 0; i < 2; i++ {
-			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.volumes[i], c.volumes[(i+1)%2]), func(t *testing.T) {
+			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
 				fn := test.ShouldBeFalse
 				if c.expected <= 0.0 {
 					fn = test.ShouldBeTrue
 				}
-				collides, err := c.volumes[i].CollidesWith(c.volumes[(i+1)%2])
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, collides, fn)
 			})
-			t.Run(fmt.Sprintf("%s %T %T distance", c.testname, c.volumes[i], c.volumes[(i+1)%2]), func(t *testing.T) {
-				distance, err := c.volumes[i].DistanceFrom(c.volumes[(i+1)%2])
+			t.Run(fmt.Sprintf("%s %T %T distance", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
+				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2])
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, distance, test.ShouldAlmostEqual, c.expected, 1e-3)
 			})
@@ -109,10 +109,10 @@ func testVolumeComparisons(t *testing.T, cases []volumeComparisonTestCase) {
 
 func TestBoxVsBox(t *testing.T) {
 	deg45 := math.Pi / 4.
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"inscribed",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
 			},
@@ -120,7 +120,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"face to face contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 0, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -128,7 +128,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"face to face near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 0, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -136,7 +136,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"coincident edge contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 4, 0}, r3.Vector{2, 6, 2}),
 			},
@@ -144,7 +144,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"coincident edges near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox((NewZeroOrientation()), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 4.01, 0}, r3.Vector{2, 6, 2}),
 			},
@@ -152,7 +152,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"vertex to vertex contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{2, 2, 2}),
 			},
@@ -160,7 +160,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"vertex to vertex near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 2, 2}, r3.Vector{2, 2, 2}),
 			},
@@ -168,7 +168,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"edge along face contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1 + math.Sqrt2, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -176,7 +176,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"edge along face near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1.01 + math.Sqrt2, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -184,7 +184,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"edge to edge contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -192,7 +192,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"edge to edge near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -200,7 +200,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"vertex to face contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0.5, -.5, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}),
 			},
@@ -208,7 +208,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"vertex to face near contact",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}),
 				makeTestBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}),
 			},
@@ -216,7 +216,7 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"separated axis aligned",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}),
 			},
@@ -224,58 +224,58 @@ func TestBoxVsBox(t *testing.T) {
 		},
 		{
 			"axis aligned overlap",
-			[2]Volume{
+			[2]Geometry{
 				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{20, 20, 20}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{20, 20, 20}, r3.Vector{24, 26, 28}),
 			},
 			-2,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }
 
 func TestSphereVsSphere(t *testing.T) {
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"test inscribed spheres",
-			[2]Volume{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{}, 2)},
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{}, 2)},
 			-3,
 		},
 		{
 			"test tangent spheres",
-			[2]Volume{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2}, 1)},
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2}, 1)},
 			0,
 		},
 		{
 			"separated spheres",
-			[2]Volume{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2 + 1e-3}, 1)},
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2 + 1e-3}, 1)},
 			1e-3,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }
 
 func TestPointVsPoint(t *testing.T) {
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"coincident",
-			[2]Volume{NewPoint(r3.Vector{}), NewPoint(r3.Vector{})},
+			[2]Geometry{NewPoint(r3.Vector{}), NewPoint(r3.Vector{})},
 			0,
 		},
 		{
 			"separated",
-			[2]Volume{NewPoint(r3.Vector{}), NewPoint(r3.Vector{1, 0, 0})},
+			[2]Geometry{NewPoint(r3.Vector{}), NewPoint(r3.Vector{1, 0, 0})},
 			1,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }
 
 func TestSphereVsBox(t *testing.T) {
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"separated face closest",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{0, 0, 2 + 1e-3}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -283,7 +283,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"separated edge closest",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{0, 2, 2}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -291,7 +291,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"separated vertex closest",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{2, 2, 2}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -299,7 +299,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"face tangent",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{0, 0, 2}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -307,7 +307,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"edge tangent",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{0, 2, 2}, math.Sqrt2),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -315,7 +315,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"vertex tangent",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{2, 2, 2}, math.Sqrt(3)),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -323,7 +323,7 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"center point inside",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{-.2, 0.1, .75}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -331,21 +331,21 @@ func TestSphereVsBox(t *testing.T) {
 		},
 		{
 			"inscribed",
-			[2]Volume{
+			[2]Geometry{
 				makeTestSphere(r3.Vector{2, 2, 2}, 1),
 				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{2, 2, 2}),
 			},
 			-2,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }
 
 func TestPointVsBox(t *testing.T) {
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"separated face closest",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{2, 0, 0}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -353,7 +353,7 @@ func TestPointVsBox(t *testing.T) {
 		},
 		{
 			"separated edge closest",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{2, 2, 0}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -361,7 +361,7 @@ func TestPointVsBox(t *testing.T) {
 		},
 		{
 			"separated vertex closest",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{2, 2, 2}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
@@ -369,21 +369,21 @@ func TestPointVsBox(t *testing.T) {
 		},
 		{
 			"inside",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{0, 0.3, 0.5}),
 				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
 			},
 			-0.5,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }
 
 func TestPointVsSphere(t *testing.T) {
-	cases := []volumeComparisonTestCase{
+	cases := []geometryComparisonTestCase{
 		{
 			"coincident",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{}),
 				makeTestSphere(r3.Vector{}, 1),
 			},
@@ -391,12 +391,12 @@ func TestPointVsSphere(t *testing.T) {
 		},
 		{
 			"separated",
-			[2]Volume{
+			[2]Geometry{
 				NewPoint(r3.Vector{2, 0, 0}),
 				makeTestSphere(r3.Vector{}, 1),
 			},
 			1,
 		},
 	}
-	testVolumeComparisons(t, cases)
+	testGeometryComparisons(t, cases)
 }

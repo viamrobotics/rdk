@@ -98,9 +98,9 @@ type Frame interface {
 	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
 
-	// Volumes returns a map between names and volumes for the reference frame and any intermediate frames that
-	// may be defined for it, e.g. links in an arm. If a frame does not have a volumeCreator it will not be added into the map
-	Volumes([]Input) (map[string]spatial.Volume, error)
+	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
+	// may be defined for it, e.g. links in an arm. If a frame does not have a geometryCreator it will not be added into the map
+	Geometries([]Input) (map[string]spatial.Geometry, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
@@ -117,9 +117,9 @@ type Frame interface {
 // a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
 // from the current Frame to the parent referenceframe.
 type staticFrame struct {
-	name          string
-	transform     spatial.Pose
-	volumeCreator spatial.VolumeCreator
+	name            string
+	transform       spatial.Pose
+	geometryCreator spatial.GeometryCreator
 }
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
@@ -136,26 +136,26 @@ func NewZeroStaticFrame(name string) Frame {
 	return &staticFrame{name, spatial.NewZeroPose(), nil}
 }
 
-// NewStaticFrameWithVolume creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
-func NewStaticFrameWithVolume(name string, pose spatial.Pose, volumeCreator spatial.VolumeCreator) (Frame, error) {
+// NewStaticFrameWithGeometry creates a frame given a pose relative to its parent.  The pose is fixed for all time.
+// It also has an associated geometryCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{name, pose, volumeCreator}, nil
+	return &staticFrame{name, pose, geometryCreator}, nil
 }
 
 // NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
-// It inherits its name and volumeCreator properties from the specified Frame. Pose is not allowed to be nil.
+// It inherits its name and geometryCreator properties from the specified Frame. Pose is not allowed to be nil.
 func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	if tf, ok := frame.(*translationalFrame); ok {
-		return &staticFrame{tf.Name(), pose, tf.volumeCreator}, nil
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
 	if tf, ok := frame.(*staticFrame); ok {
-		return &staticFrame{tf.Name(), pose, tf.volumeCreator}, nil
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
 	return &staticFrame{frame.Name(), pose, nil}, nil
 }
@@ -178,14 +178,14 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-// Volumes returns an object representing the 3D space associeted with the staticFrame.
-func (sf *staticFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
-	if sf.volumeCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil volumeCreator", sf)
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (sf *staticFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	if sf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
 	}
 	pose, err := sf.Transform(input)
-	m := make(map[string]spatial.Volume)
-	m[sf.Name()] = sf.volumeCreator.NewVolume(pose)
+	m := make(map[string]spatial.Geometry)
+	m[sf.Name()] = sf.geometryCreator.NewGeometry(pose)
 	return m, err
 }
 
@@ -214,24 +214,24 @@ func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 
 // a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
-	name          string
-	transAxis     r3.Vector
-	limit         []Limit
-	volumeCreator spatial.VolumeCreator
+	name            string
+	transAxis       r3.Vector
+	limit           []Limit
+	geometryCreator spatial.GeometryCreator
 }
 
 // NewTranslationalFrame creates a frame given a name and the axis in which to translate.
 func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, error) {
-	return NewTranslationalFrameWithVolume(name, axis, limit, nil)
+	return NewTranslationalFrameWithGeometry(name, axis, limit, nil)
 }
 
-// NewTranslationalFrameWithVolume creates a frame given a given a name and the axis in which to translate.
-// It also has an associated volumeCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
-func NewTranslationalFrameWithVolume(name string, axis r3.Vector, limit Limit, volumeCreator spatial.VolumeCreator) (Frame, error) {
+// NewTranslationalFrameWithGeometry creates a frame given a given a name and the axis in which to translate.
+// It also has an associated geometryCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
 		return nil, errors.New("cannot use zero vector as translation axis")
 	}
-	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: []Limit{limit}, volumeCreator: volumeCreator}, nil
+	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: []Limit{limit}, geometryCreator: geometryCreator}, nil
 }
 
 // Name is the name of the frame.
@@ -253,14 +253,14 @@ func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
 
-// Volumes returns an object representing the 3D space associeted with the translationalFrame.
-func (pf *translationalFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
-	if pf.volumeCreator == nil {
-		return nil, fmt.Errorf("frame of type %T has nil volumeCreator", pf)
+// Geometries returns an object representing the 3D space associeted with the translationalFrame.
+func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	if pf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
 	}
 	pose, err := pf.Transform(input)
-	m := make(map[string]spatial.Volume)
-	m[pf.Name()] = pf.volumeCreator.NewVolume(pose)
+	m := make(map[string]spatial.Geometry)
+	m[pf.Name()] = pf.geometryCreator.NewGeometry(pose)
 	return m, err
 }
 
@@ -318,9 +318,9 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
-// Volumes will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy volumes is a
+// Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
 // design choice made for simplicity. staticFrame and translationalFrame should be used instead.
-func (rf *rotationalFrame) Volumes(input []Input) (map[string]spatial.Volume, error) {
+func (rf *rotationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
 	return nil, fmt.Errorf("s not implemented for type %T", rf)
 }
 
