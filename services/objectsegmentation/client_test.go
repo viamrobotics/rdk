@@ -44,7 +44,6 @@ func TestClient(t *testing.T) {
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
 
-	// failing
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -53,8 +52,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	// working
-	t.Run("object segmentation client 1", func(t *testing.T) {
+	t.Run("working client", func(t *testing.T) {
 		client, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -95,8 +93,7 @@ func TestClient(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
 
-	// broken
-	t.Run("object segmentation client 2", func(t *testing.T) {
+	t.Run("broken client", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
