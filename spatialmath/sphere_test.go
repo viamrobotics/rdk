@@ -21,7 +21,7 @@ func TestNewSphere(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometry, test.ShouldResemble, &sphere{pose: NewPoseFromPoint(offset.Point()), radius: 1})
 	_, err = NewSphere(offset.Point(), 0)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "can not be less than or equal to zero")
 
 	// test sphere created from GeometryCreator with offset
 	gc, err := NewSphereCreator(1, offset)
