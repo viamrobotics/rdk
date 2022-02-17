@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer(omMap map[resource.Name]interface{}) (pb.ObjectManipulationServiceServer, error) {
@@ -36,8 +37,7 @@ func TestServerDoGrab(t *testing.T) {
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = server.DoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectmanipulation.Service")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
 
 	// error
 	injectOMS := &inject.ObjectManipulationService{}

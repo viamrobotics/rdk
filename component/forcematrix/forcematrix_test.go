@@ -9,10 +9,9 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/forcematrix"
-	rutils "go.viam.com/rdk/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -53,8 +52,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, slip)
 
 	s, err = forcematrix.FromRobot(r, fakeForceMatrixName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of ForceMatrix")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("ForceMatrix", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = forcematrix.FromRobot(r, missingForceMatrixName)
@@ -113,8 +111,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = forcematrix.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of ForceMatrix")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("ForceMatrix", nil))
 
 	reconfForceMatrix2, err := forcematrix.WrapWithReconfigurable(reconfForceMatrix1)
 	test.That(t, err, test.ShouldBeNil)

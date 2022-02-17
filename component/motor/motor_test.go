@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -12,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -53,8 +53,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, position)
 
 	res, err = motor.FromRobot(r, fakeMotorName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Motor")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromRobot(r, missingMotorName)
@@ -113,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Motor")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", nil))
 
 	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1)
 	test.That(t, err, test.ShouldBeNil)

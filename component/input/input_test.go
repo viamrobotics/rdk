@@ -53,8 +53,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromRobot(r, fakeInputControllerName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of input.Controller")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromRobot(r, missingInputControllerName)
@@ -113,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = input.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of input.Controller")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", nil))
 
 	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)
