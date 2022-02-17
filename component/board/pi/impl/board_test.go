@@ -1,6 +1,6 @@
 //go:build linux && arm64
 
-package pi
+package piimpl
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
+	picommon "go.viam.com/rdk/component/board/pi/common"
 	"go.viam.com/rdk/component/motor"
 	_ "go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/component/servo"
@@ -104,7 +105,7 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	t.Run("servo in/out", func(t *testing.T) {
-		servoReg := registry.ComponentLookup(servo.Subtype, modelName)
+		servoReg := registry.ComponentLookup(servo.Subtype, picommon.ModelName)
 		test.That(t, servoReg, test.ShouldNotBeNil)
 		servoInt, err := servoReg.Constructor(ctx, nil, config.Component{Name: "servo", Attributes: config.AttributeMap{"pin": "18"}}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -131,15 +132,15 @@ func TestPiPigpio(t *testing.T) {
 		return pp, true
 	}
 
-	motorReg := registry.ComponentLookup(motor.Subtype, modelName)
+	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
 	test.That(t, motorReg, test.ShouldNotBeNil)
 
 	motorInt, err := motorReg.Constructor(ctx, &injectRobot, config.Component{
 		Name: "motor1", ConvertedAttributes: &motor.Config{
-			Pins: map[string]string{
-				"a":   "13", // bcom 27
-				"b":   "40", // bcom 21
-				"pwm": "7",  // bcom 4
+			Pins: motor.PinConfig{
+				A:   "13", // bcom 27
+				B:   "40", // bcom 21
+				PWM: "7",  // bcom 4
 			},
 			Encoder:          "hall-a",
 			EncoderB:         "hall-b",
@@ -151,14 +152,14 @@ func TestPiPigpio(t *testing.T) {
 	motor1 := motorInt.(motor.Motor)
 
 	t.Run("motor forward", func(t *testing.T) {
-		pos, err := motor1.Position(ctx)
+		pos, err := motor1.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldAlmostEqual, .0, 0o1)
 
 		// 15 rpm is about what we can get from 5v. 2 rotations should take 8 seconds
 		err = motor1.GoFor(ctx, 15, 2)
 		test.That(t, err, test.ShouldBeNil)
-		on, err := motor1.IsOn(ctx)
+		on, err := motor1.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -169,7 +170,7 @@ func TestPiPigpio(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsOn(ctx)
+			on, err := motor1.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break
@@ -179,7 +180,7 @@ func TestPiPigpio(t *testing.T) {
 
 			loops++
 			if loops > 100 {
-				pos, err = motor1.Position(ctx)
+				pos, err = motor1.GetPosition(ctx)
 				test.That(t, err, test.ShouldBeNil)
 				aVal, err := hallA.Value(context.Background())
 				test.That(t, err, test.ShouldBeNil)
@@ -199,7 +200,7 @@ func TestPiPigpio(t *testing.T) {
 		err := motor1.GoFor(ctx, -15, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := motor1.IsOn(ctx)
+		on, err := motor1.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
@@ -210,7 +211,7 @@ func TestPiPigpio(t *testing.T) {
 
 		loops := 0
 		for {
-			on, err := motor1.IsOn(ctx)
+			on, err := motor1.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			if !on {
 				break

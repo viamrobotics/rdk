@@ -514,11 +514,11 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 func TestFromRobot(t *testing.T) {
 	r, web1 := setupInjectRobot()
 
-	web, err := FromRobot(r)
+	rWeb, err := FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, web, test.ShouldNotBeNil)
+	test.That(t, rWeb, test.ShouldNotBeNil)
 
-	err = web.Start(context.Background(), NewOptions())
+	err = rWeb.Start(context.Background(), NewOptions())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, web1.startCount, test.ShouldEqual, 1)
 
@@ -526,19 +526,17 @@ func TestFromRobot(t *testing.T) {
 		return "not web", true
 	}
 
-	web, err = FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of web.Service")
-	test.That(t, web, test.ShouldBeNil)
+	rWeb, err = FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("web.Service", "string"))
+	test.That(t, rWeb, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 		return nil, false
 	}
 
-	web, err = FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
-	test.That(t, web, test.ShouldBeNil)
+	rWeb, err = FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(Name))
+	test.That(t, rWeb, test.ShouldBeNil)
 }
 
 type mock struct {

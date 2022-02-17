@@ -40,6 +40,21 @@ type VolumeConfig struct {
 	OrientationOffset OrientationConfig `json:"orientation"`
 }
 
+// NewVolumeConfig creates a config for a Volume from an offset Pose.
+func NewVolumeConfig(offset Pose) (*VolumeConfig, error) {
+	o := offset.Orientation()
+	translationConfig := NewTranslationConfig(Compose(NewPoseFromOrientation(r3.Vector{}, OrientationInverse(o)), offset).Point())
+	orientationConfig, err := NewOrientationConfig(o.AxisAngles())
+	if err != nil {
+		return nil, err
+	}
+	return &VolumeConfig{
+		Type:              "point",
+		TranslationOffset: *translationConfig,
+		OrientationOffset: *orientationConfig,
+	}, nil
+}
+
 // ParseConfig converts a VolumeConfig into the correct VolumeCreator type, as specified in its Type field.
 func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	// determine offset to use
@@ -52,15 +67,22 @@ func (config *VolumeConfig) ParseConfig() (VolumeCreator, error) {
 	// build VolumeCreator depending on specified type
 	switch config.Type {
 	case "box":
-		return NewBox(r3.Vector{config.X, config.Y, config.Z}, offset)
+		return NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 	case "sphere":
 		return NewSphere(config.R, offset)
+	case "point":
+		return NewPoint(offset), nil
 	case "":
 		// no type specified, iterate through supported types and try to infer intent
-		creator, err := NewBox(r3.Vector{config.X, config.Y, config.Z}, offset)
+		creator, err := NewBox(r3.Vector{X: config.X, Y: config.Y, Z: config.Z}, offset)
 		if err == nil {
 			return creator, nil
 		}
+		creator, err = NewSphere(config.R, offset)
+		if err == nil {
+			return creator, nil
+		}
+		// never try to infer point volume if nothing is specified
 	}
 	return nil, errors.Errorf("volume type %s unsupported", config.Type)
 }

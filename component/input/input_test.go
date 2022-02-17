@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -52,13 +53,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, controls)
 
 	res, err = input.FromRobot(r, fakeInputControllerName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of input.Controller")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = input.FromRobot(r, missingInputControllerName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(input.Named(missingInputControllerName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 
@@ -113,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = input.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of input.Controller")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", nil))
 
 	reconfInput2, err := input.WrapWithReconfigurable(reconfInput1)
 	test.That(t, err, test.ShouldBeNil)

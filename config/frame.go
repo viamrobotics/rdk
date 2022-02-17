@@ -3,8 +3,6 @@ package config
 import (
 	"encoding/json"
 
-	"github.com/golang/geo/r3"
-
 	ref "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -94,6 +92,5 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 // makePose creates a new pose from a config.
 func makePose(cfg *Frame) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
-	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}
-	return spatial.NewPoseFromOrientation(translation, cfg.Orientation)
+	return spatial.NewPoseFromOrientation(cfg.Translation.ParseConfig(), cfg.Orientation)
 }

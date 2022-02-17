@@ -54,7 +54,7 @@ const (
 
 // gripperV1 represents a Viam gripper with a single force sensor cell.
 type gripperV1 struct {
-	motor    motor.Motor
+	motor    motor.LocalMotor
 	current  board.AnalogReader
 	pressure board.AnalogReader
 
@@ -74,9 +74,13 @@ type gripperV1 struct {
 // newGripperV1 Returns a gripperV1.
 func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
 	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
-	motor, ok := r.MotorByName("g")
+	_motor, err := motor.FromRobot(r, "g")
+	if err != nil {
+		return nil, err
+	}
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	if !ok {
-		return nil, errors.New("failed to find motor 'g'")
+		return nil, motor.NewGoTillStopUnsupportedError("g")
 	}
 	current, ok := theBoard.AnalogReaderByName("current")
 	if !ok {
@@ -93,7 +97,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	}
 
 	vg := &gripperV1{
-		motor:           motor,
+		motor:           stoppableMotor,
 		current:         current,
 		pressure:        pressure,
 		holdingPressure: .5,
@@ -105,12 +109,13 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 	if vg.motor == nil {
 		return nil, errors.New("gripper needs a motor named 'g'")
 	}
-	supported, err := vg.motor.PositionSupported(ctx)
+	supportedFeatures, err := vg.motor.GetFeatures(ctx)
 	if err != nil {
 		return nil, err
 	}
+	supported := supportedFeatures[motor.PositionReporting]
 	if !supported {
-		return nil, errors.New("gripper motor needs to support position")
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, "g")
 	}
 
 	if vg.current == nil || vg.pressure == nil {
@@ -153,7 +158,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		} else {
 			localTest.nonPressureCount++
 			// Capture the last position BEFORE pressure is detected
-			localTest.pressurePos, err = vg.motor.Position(ctx)
+			localTest.pressurePos, err = vg.motor.GetPosition(ctx)
 			if err != nil {
 				logger.Error(err)
 				return true
@@ -181,7 +186,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		hasPressureA = true
 		posA = localTest.pressurePos
 	} else {
-		posA, err = vg.motor.Position(ctx)
+		posA, err = vg.motor.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -197,7 +202,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 		hasPressureB = true
 		posB = localTest.pressurePos
 	} else {
-		posB, err = vg.motor.Position(ctx)
+		posB, err = vg.motor.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +220,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 			hasPressureA = true
 			posA = localTest.pressurePos
 		} else {
-			posA, err = vg.motor.Position(ctx)
+			posA, err = vg.motor.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -253,7 +258,7 @@ func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg 
 
 	logger.Debugf("init: orig openPos: %f, closePos: %f", vg.openPos, vg.closePos)
 	// Zero to closed position
-	curPos, err := vg.motor.Position(ctx)
+	curPos, err := vg.motor.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +307,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 			return vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to open
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return err
 		}
@@ -320,7 +325,7 @@ func (vg *gripperV1) Open(ctx context.Context) error {
 
 		total += msPer
 		if total > 5000 {
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			return vg.stopAfterError(ctx, multierr.Combine(errors.Errorf("open timed out, wanted: %f at: %f", vg.openPos, now), err))
 		}
 	}
@@ -344,7 +349,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			return false, vg.stopAfterError(ctx, ctx.Err())
 		}
 		// If motor went all the way to closed
-		isOn, err := vg.motor.IsOn(ctx)
+		isOn, err := vg.motor.IsPowered(ctx)
 		if err != nil {
 			return false, vg.stopAfterError(ctx, err)
 		}
@@ -362,12 +367,12 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 		}
 
 		if pressure {
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, err
 			}
 			vg.logger.Debugf("i think i grabbed something, have pressure, pos: %f closePos: %v", now, vg.closePos)
-			err = vg.motor.Go(ctx, float64(vg.closeDirection)*vg.holdingPressure)
+			err = vg.motor.SetPower(ctx, float64(vg.closeDirection)*vg.holdingPressure)
 			return true, err
 		}
 
@@ -377,7 +382,7 @@ func (vg *gripperV1) Grab(ctx context.Context) (bool, error) {
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}
-			now, err := vg.motor.Position(ctx)
+			now, err := vg.motor.GetPosition(ctx)
 			if err != nil {
 				return false, vg.stopAfterError(ctx, err)
 			}

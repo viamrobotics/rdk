@@ -16,6 +16,7 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestDoGrabFailures(t *testing.T) {
@@ -143,8 +144,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectmanipulation.Service")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
@@ -152,8 +152,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(objectmanipulation.Name))
 	test.That(t, svc, test.ShouldBeNil)
 }
 

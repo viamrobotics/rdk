@@ -594,10 +594,6 @@ type dummyBoard struct {
 	closeCount int
 }
 
-func (db *dummyBoard) MotorNames() []string {
-	return nil
-}
-
 func (db *dummyBoard) SPINames() []string {
 	return nil
 }
