@@ -6,7 +6,6 @@ package proto.api.service.v1;
 
 import "google/protobuf/struct.proto";
 import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
 import "proto/api/common/v1/common.proto";
 
 
@@ -20,7 +19,7 @@ service SensorsService {
     };
   }
 
-  // GetReadings returns the list of all sensors.
+  // GetReadings returns the list of readings for all sensors specified.
   rpc GetReadings(SensorsServiceGetReadingsRequest) returns (SensorsServiceGetReadingsResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/sensors/readings"
@@ -38,5 +37,12 @@ message SensorsServiceGetReadingsRequest {
   repeated common.v1.ResourceName sensors = 1;
 }
 
-message SensorsServiceGetReadingsResponse {}
+message Reading {
+  common.v1.ResourceName name = 1;
+  repeated google.protobuf.Value readings = 2;
+}
+
+message SensorsServiceGetReadingsResponse {
+  repeated Reading readings = 1;
+}
 

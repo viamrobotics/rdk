@@ -20,7 +20,7 @@ const _ = grpc.SupportPackageIsVersion7
 type SensorsServiceClient interface {
 	// Sensors returns the list of all sensors.
 	Sensors(ctx context.Context, in *SensorsServiceSensorsRequest, opts ...grpc.CallOption) (*SensorsServiceSensorsResponse, error)
-	// GetReadings returns the list of all sensors.
+	// GetReadings returns the list of readings for all sensors specified.
 	GetReadings(ctx context.Context, in *SensorsServiceGetReadingsRequest, opts ...grpc.CallOption) (*SensorsServiceGetReadingsResponse, error)
 }
 
@@ -56,7 +56,7 @@ func (c *sensorsServiceClient) GetReadings(ctx context.Context, in *SensorsServi
 type SensorsServiceServer interface {
 	// Sensors returns the list of all sensors.
 	Sensors(context.Context, *SensorsServiceSensorsRequest) (*SensorsServiceSensorsResponse, error)
-	// GetReadings returns the list of all sensors.
+	// GetReadings returns the list of readings for all sensors specified.
 	GetReadings(context.Context, *SensorsServiceGetReadingsRequest) (*SensorsServiceGetReadingsResponse, error)
 	mustEmbedUnimplementedSensorsServiceServer()
 }

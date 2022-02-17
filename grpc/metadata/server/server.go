@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/metadata/service"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
 )
 
@@ -21,11 +22,11 @@ func New(s service.Metadata) pb.MetadataServiceServer {
 
 // Resources returns the list of resources.
 func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
-	rNames := make([]*pb.ResourceName, 0, len(s.s.All()))
+	rNames := make([]*commonpb.ResourceName, 0, len(s.s.All()))
 	for _, m := range s.s.All() {
 		rNames = append(
 			rNames,
-			&pb.ResourceName{
+			&commonpb.ResourceName{
 				Uuid:      m.UUID,
 				Namespace: string(m.Namespace),
 				Type:      string(m.ResourceType),

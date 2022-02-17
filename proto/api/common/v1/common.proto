@@ -5,6 +5,13 @@ option java_package = "com.viam.rdk.proto.api.common.v1";
 
 package proto.api.common.v1;
 
+message ResourceName {
+  string uuid = 1;
+  string namespace = 2;
+  string type = 3;
+  string subtype = 4;
+  string name = 5;
+}
 
 message BoardStatus {
   map<string, AnalogStatus> analogs = 1;
