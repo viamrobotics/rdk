@@ -328,6 +328,10 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 		return nil, errors.New("need a wheelCircumferenceMm for a wheeled base")
 	}
 
+	if base.spinSlipFactor == 0 {
+		base.spinSlipFactor = 1
+	}
+
 	for _, name := range config.Left {
 		m, ok := r.MotorByName(name)
 		if !ok {
