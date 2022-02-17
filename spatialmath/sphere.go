@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
@@ -27,7 +26,7 @@ type sphere struct {
 // at the specified offset from the pose. These spheres have a radius specified by the radius argument.
 func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 	if radius <= 0 {
-		return nil, errors.New("sphere dimensions can not be zero")
+		return nil, NewBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphereCreator{radius, offset}, nil
 }
@@ -52,7 +51,7 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 // NewSphere instantiates a new sphere Geometry.
 func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
 	if radius <= 0 {
-		return nil, errors.New("sphere dimensions can not be zero")
+		return nil, NewBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphere{radius, NewPoseFromPoint(pt)}, nil
 }
@@ -105,7 +104,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
 	}
-	return true, errors.Errorf("collisions between sphere and %T are not supported", g)
+	return true, NewCollisionTypeUnsupportedError(s, g)
 }
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
@@ -119,7 +118,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.pose.Point()), nil
 	}
-	return math.Inf(-1), errors.Errorf("collisions between sphere and %T are not supported", g)
+	return math.Inf(-1), NewCollisionTypeUnsupportedError(s, g)
 }
 
 // sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it

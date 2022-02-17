@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
@@ -27,7 +26,7 @@ type box struct {
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, errors.New("box dimensions can not be less than or equal to zero")
+		return nil, NewBadGeometryDimensionsError(&box{})
 	}
 	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
@@ -54,7 +53,7 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector) (Geometry, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, errors.New("box dimensions can not be less than or equal to zero")
+		return nil, NewBadGeometryDimensionsError(&box{})
 	}
 	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
 }
@@ -122,7 +121,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return pointVsBoxCollision(b, other.pose.Point()), nil
 	}
-	return true, errors.Errorf("collisions between box and %T are not supported", g)
+	return true, NewCollisionTypeUnsupportedError(b, g)
 }
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
@@ -136,7 +135,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(b, other.pose.Point()), nil
 	}
-	return math.Inf(-1), errors.Errorf("collisions between box and %T are not supported", g)
+	return math.Inf(-1), NewCollisionTypeUnsupportedError(b, g)
 }
 
 // closestPoint returns the closest point on the specified box to the specified point

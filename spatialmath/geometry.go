@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
@@ -86,7 +85,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, errors.Errorf("geometry type %s unsupported", config.Type)
+	return nil, NewGeometryTypeUnsupportedError(config.Type)
 }
 
 // NewGeometryFromProtobuf instatiates a new Geometry from a protobuf Geometry message.
@@ -101,5 +100,5 @@ func NewGeometryFromProtobuf(geometry *commonpb.Geometry) (Geometry, error) {
 		}
 		return NewSphere(pose.Point(), sphere.RadiusMm)
 	}
-	return nil, errors.New("unknown geometry type in proto message")
+	return nil, NewGeometryTypeUnsupportedError("")
 }
