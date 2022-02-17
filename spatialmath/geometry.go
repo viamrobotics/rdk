@@ -85,7 +85,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 		}
 		// never try to infer point geometry if nothing is specified
 	}
-	return nil, NewGeometryTypeUnsupportedError(config.Type)
+	return nil, newGeometryTypeUnsupportedError(config.Type)
 }
 
 // NewGeometryFromProtobuf instatiates a new Geometry from a protobuf Geometry message.
@@ -100,5 +100,5 @@ func NewGeometryFromProtobuf(geometry *commonpb.Geometry) (Geometry, error) {
 		}
 		return NewSphere(pose.Point(), sphere.RadiusMm)
 	}
-	return nil, NewGeometryTypeUnsupportedError("")
+	return nil, newGeometryTypeUnsupportedError("")
 }

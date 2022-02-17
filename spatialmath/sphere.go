@@ -26,7 +26,7 @@ type sphere struct {
 // at the specified offset from the pose. These spheres have a radius specified by the radius argument.
 func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 	if radius <= 0 {
-		return nil, NewBadGeometryDimensionsError(&sphere{})
+		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphereCreator{radius, offset}, nil
 }
@@ -51,7 +51,7 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 // NewSphere instantiates a new sphere Geometry.
 func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
 	if radius <= 0 {
-		return nil, NewBadGeometryDimensionsError(&sphere{})
+		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphere{radius, NewPoseFromPoint(pt)}, nil
 }
@@ -104,7 +104,7 @@ func (s *sphere) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
 	}
-	return true, NewCollisionTypeUnsupportedError(s, g)
+	return true, newCollisionTypeUnsupportedError(s, g)
 }
 
 // CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
@@ -118,7 +118,7 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.pose.Point()), nil
 	}
-	return math.Inf(-1), NewCollisionTypeUnsupportedError(s, g)
+	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
 
 // sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it

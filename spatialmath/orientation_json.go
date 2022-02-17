@@ -40,7 +40,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	case *EulerAngles:
 		return &OrientationConfig{Type: string(EulerAnglesType), Value: json.RawMessage(bytes)}, nil
 	default:
-		return nil, NewOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
+		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
 	}
 }
 
@@ -80,6 +80,6 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 		}
 		return &o, nil
 	default:
-		return nil, NewOrientationTypeUnsupportedError(config.Type)
+		return nil, newOrientationTypeUnsupportedError(config.Type)
 	}
 }
