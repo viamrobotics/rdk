@@ -76,10 +76,11 @@ type boat struct {
 	rc      remoteControl
 	myImu   imu.IMU
 
-	squirt, steering, thrust motor.Motor
-	starboard, port          motor.Motor
-	middle                   float64
-	steeringRange            float64
+	squirt, thrust  motor.Motor
+	starboard, port motor.Motor
+	steering        motor.LocalMotor
+	middle          float64
+	steeringRange   float64
 
 	navService navigation.Service
 
@@ -120,54 +121,55 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 }
 
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
-	thrustSpeed float64,
-	portSpeed float64,
-	starboardSpeed float64) error {
-	thrustSpeed = math.Max(0, thrustSpeed)
+	thrustPowerPct float64,
+	portPowerPct float64,
+	starboardPowerPct float64,
+) error {
+	thrustPowerPct = math.Max(0, thrustPowerPct)
 
-	thrustSpeed = math.Min(1, thrustSpeed)
-	portSpeed = math.Min(1, portSpeed)
-	starboardSpeed = math.Min(1, starboardSpeed)
+	thrustPowerPct = math.Min(1, thrustPowerPct)
+	portPowerPct = math.Min(1, portPowerPct)
+	starboardPowerPct = math.Min(1, starboardPowerPct)
 
 	if false {
-		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustSpeed, portSpeed, starboardSpeed)
+		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustPowerPct, portPowerPct, starboardPowerPct)
 	}
 	return multierr.Combine(
-		b.thrust.Go(ctx, thrustSpeed),
-		b.port.Go(ctx, portSpeed),
-		b.starboard.Go(ctx, starboardSpeed),
+		b.thrust.SetPower(ctx, thrustPowerPct),
+		b.port.SetPower(ctx, portPowerPct),
+		b.starboard.SetPower(ctx, starboardPowerPct),
 	)
 }
 
 // dir -1 -> 1 : -1 = hard left 1 = hard right
-// speed -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
-func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
+// pctMaxRPM -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
+func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 	if false { // using column
 		return b.steerColumn(ctx, dir)
 	}
 
 	if false {
-		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, speed)
+		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, pctMaxRPM)
 	}
 
-	if speed > 0.4 {
+	if pctMaxRPM > 0.4 {
 		// forwards
 		if dir < 0 {
-			return b.SteerAndMoveHelp(ctx, speed-dir/3, speed, math.Max(0, speed-dir*1.5))
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, pctMaxRPM, math.Max(0, pctMaxRPM-dir*1.5))
 		}
 		dir *= -1
-		return b.SteerAndMoveHelp(ctx, speed-dir/3, math.Max(0, speed-dir*1.5), speed)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, math.Max(0, pctMaxRPM-dir*1.5), pctMaxRPM)
 	}
 
-	if speed < -0.4 {
-		speed *= -1
+	if pctMaxRPM < -0.4 {
+		pctMaxRPM *= -1
 		// backwards
 		if dir < 0 {
 			dir *= -1
-			return b.SteerAndMoveHelp(ctx, speed, speed, math.Max(0, speed-dir))
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM, pctMaxRPM, math.Max(0, pctMaxRPM-dir))
 		}
 
-		return b.SteerAndMoveHelp(ctx, speed, math.Max(0, speed-dir), speed)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM, math.Max(0, pctMaxRPM-dir), pctMaxRPM)
 	}
 
 	// we really want to spin with a little straight movement
@@ -175,16 +177,16 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	if dir > 0 {
 		return multierr.Combine(
 			b.thrust.Stop(ctx),
-			b.port.Go(ctx, dir),
-			b.starboard.Go(ctx, dir),
+			b.port.SetPower(ctx, dir),
+			b.starboard.SetPower(ctx, dir),
 		)
 	}
 
 	dir *= -1
 	return multierr.Combine(
 		b.thrust.Stop(ctx),
-		b.port.Go(ctx, dir),
-		b.starboard.Go(ctx, dir),
+		b.port.SetPower(ctx, dir),
+		b.starboard.SetPower(ctx, dir),
 	)
 }
 
@@ -207,29 +209,34 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 
 	// get all motors
 
-	b.squirt, ok = r.MotorByName("squirt")
-	if !ok {
-		return nil, errors.New("no squirt motor")
+	b.squirt, err = motor.FromRobot(r, "squirt")
+	if err != nil {
+		return nil, errors.Wrap(err, "no squirt motor")
 	}
 
-	b.steering, ok = r.MotorByName("steering")
+	steeringMotor, err := motor.FromRobot(r, "steering")
+	if err != nil {
+		return nil, errors.Wrap(err, "no steering motor")
+	}
+	stoppableMotor, ok := steeringMotor.(motor.LocalMotor)
 	if !ok {
-		return nil, errors.New("no steering motor")
+		return nil, motor.NewGoTillStopUnsupportedError("steering")
+	}
+	b.steering = stoppableMotor
+
+	b.thrust, err = motor.FromRobot(r, "thrust")
+	if err != nil {
+		return nil, errors.Wrap(err, "no thrust motor")
 	}
 
-	b.thrust, ok = r.MotorByName("thrust")
-	if !ok {
-		return nil, errors.New("no thrust motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "no starboard motor")
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("no starboard motor")
-	}
-
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("no port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "no port motor")
 	}
 
 	err = b.Stop(ctx)
@@ -244,7 +251,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		bwdLimit, err := b.steering.Position(ctx)
+		bwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +261,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		fwdLimit, err := b.steering.Position(ctx)
+		fwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}

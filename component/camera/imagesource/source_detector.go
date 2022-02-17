@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -68,11 +67,12 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 		tolerance = attrs.Tolerance
 	}
 	col := rimage.Pink // default value
-	if len(attrs.DetectColor) != 0 {
-		if len(attrs.DetectColor) != 3 {
-			return nil, errors.Errorf("detect_color must be list of ints in format [r, g, b], got %v", attrs.DetectColor)
-		}
-		col = rimage.NewColor(attrs.DetectColor[0], attrs.DetectColor[1], attrs.DetectColor[2])
+	detectColor, err := attrs.DetectColor()
+	if err != nil {
+		return nil, err
+	}
+	if len(detectColor) != 0 {
+		col = rimage.NewColor(detectColor[0], detectColor[1], detectColor[2])
 	}
 	hue, _, _ := col.HsvNormal()
 	d, err := objectdetection.NewColorDetector(tolerance, hue)

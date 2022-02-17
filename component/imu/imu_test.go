@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -53,13 +54,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, ea)
 
 	s, err = imu.FromRobot(r, fakeIMUName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("IMU", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = imu.FromRobot(r, missingIMUName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(imu.Named(missingIMUName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 
@@ -122,8 +121,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = imu.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("IMU", nil))
 
 	reconfIMU2, err := imu.WrapWithReconfigurable(reconfIMU1)
 	test.That(t, err, test.ShouldBeNil)

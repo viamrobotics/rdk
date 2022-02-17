@@ -29,28 +29,25 @@ func init() {
 // A Motor allows setting and reading a set power percentage and
 // direction.
 type Motor struct {
-	Name                  string
-	mu                    sync.Mutex
-	powerPct              float64
-	PositionFunc          float64
-	PositionSupportedFunc bool
-	ResetZeroPositionFunc error
-	GoForfunc             bool
+	Name              string
+	mu                sync.Mutex
+	powerPct          float64
+	DefaultPosition   float64
+	PositionSupported bool
 }
 
-// Position always returns 0.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+// GetPosition always returns 0.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return 0.0, nil
+	return m.DefaultPosition, nil
 }
 
-// PositionSupported returns bool.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	if m.PositionSupportedFunc {
-		return m.PositionSupportedFunc, nil
-	}
-	return false, nil
+// GetFeatures returns the status of whether the motor supports certain optional features.
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
+		motor.PositionReporting: m.PositionSupported,
+	}, nil
 }
 
 // SetPower sets the given power percentage.
@@ -85,15 +82,6 @@ func (m *Motor) Direction() int {
 	return 0
 }
 
-// Go sets the given direction and power.
-func (m *Motor) Go(ctx context.Context, powerPct float64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.setPowerPct(powerPct)
-	return nil
-}
-
 // GoFor sets the given direction and an arbitrary power percentage.
 func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	m.mu.Lock()
@@ -109,7 +97,7 @@ func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) err
 }
 
 // GoTo sets the given direction and an arbitrary power percentage for now.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.setPowerPct(.01)
@@ -123,7 +111,7 @@ func (m *Motor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx c
 
 // ResetZeroPosition always returns an error.
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
-	return errors.New("unsupported")
+	return motor.NewResetZeroPositionUnsupportedError(m.Name)
 }
 
 // Stop has the motor pretend to be off.
@@ -134,8 +122,8 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return nil
 }
 
-// IsOn returns if the motor is pretending to be on or not.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns if the motor is pretending to be on or not.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return math.Abs(m.powerPct) >= 0.005, nil

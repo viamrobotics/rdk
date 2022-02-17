@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -59,13 +60,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, compVal, test.ShouldEqual, 0)
 
 	res, err = camera.FromRobot(r, fakeCameraName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Camera")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = camera.FromRobot(r, missingCameraName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(camera.Named(missingCameraName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 
@@ -120,8 +119,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = camera.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Camera")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Camera", nil))
 
 	reconfCamera2, err := camera.WrapWithReconfigurable(reconfCamera1)
 	test.That(t, err, test.ShouldBeNil)

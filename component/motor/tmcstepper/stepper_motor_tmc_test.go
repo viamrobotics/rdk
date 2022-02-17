@@ -44,6 +44,8 @@ func checkRx(t *testing.T, c chan []byte, expects [][]byte, sends [][]byte) {
 	}
 }
 
+const maxRpm = 500
+
 func TestTMCStepperMotor(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
@@ -64,7 +66,7 @@ func TestTMCStepperMotor(t *testing.T) {
 		CalFactor:  1.0,
 		Config: motor.Config{
 			MaxAcceleration:  500,
-			MaxRPM:           500,
+			MaxRPM:           maxRpm,
 			TicksPerRotation: 200,
 		},
 	}
@@ -97,21 +99,29 @@ func TestTMCStepperMotor(t *testing.T) {
 	}()
 	_motor, ok := m.(motor.Motor)
 	test.That(t, ok, test.ShouldBeTrue)
+	stoppableMotor, ok := _motor.(motor.LocalMotor)
+	test.That(t, ok, test.ShouldBeTrue)
 
-	t.Run("motor Go testing", func(t *testing.T) {
+	t.Run("motor supports position reporting", func(t *testing.T) {
+		features, err := _motor.GetFeatures(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+	})
+
+	t.Run("motor SetPower testing", func(t *testing.T) {
 		// Test Go forward at half speed
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 1},
 			{167, 0, 4, 35, 42},
 		})
-		test.That(t, _motor.Go(ctx, 0.5), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(ctx, 0.5), test.ShouldBeNil)
 
 		// Test Go backward at quarter speed
 		go checkTx(t, c, [][]byte{
 			{160, 0, 0, 0, 2},
 			{167, 0, 2, 17, 149},
 		})
-		test.That(t, _motor.Go(ctx, -0.25), test.ShouldBeNil)
+		test.That(t, _motor.SetPower(ctx, -0.25), test.ShouldBeNil)
 	})
 
 	t.Run("motor Off testing", func(t *testing.T) {
@@ -134,7 +144,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 3, 32, 0},
 			},
 		)
-		pos, err := _motor.Position(ctx)
+		pos, err := _motor.GetPosition(ctx)
 		test.That(t, pos, test.ShouldEqual, 4.0)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -351,7 +361,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 0, 0},  // Zero velocity == "off"
 			},
 		)
-		on, err := _motor.IsOn(ctx)
+		on, err := _motor.IsPowered(ctx)
 		test.That(t, on, test.ShouldEqual, false)
 		test.That(t, err, test.ShouldBeNil)
 
@@ -366,7 +376,7 @@ func TestTMCStepperMotor(t *testing.T) {
 				{0, 0, 0, 50, 0}, // Non-Zero velocity == "on"
 			},
 		)
-		on, err = _motor.IsOn(ctx)
+		on, err = _motor.IsPowered(ctx)
 		test.That(t, on, test.ShouldEqual, true)
 		test.That(t, err, test.ShouldBeNil)
 	})
@@ -455,7 +465,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			})
 		}()
 		// No stop func
-		test.That(t, _motor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
+		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, nil), test.ShouldBeNil)
 
 		//nolint:dupl
 		go func() {
@@ -505,7 +515,7 @@ func TestTMCStepperMotor(t *testing.T) {
 			})
 		}()
 		// Always-false stopFunc
-		test.That(t, _motor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
+		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return false }), test.ShouldBeNil)
 
 		go func() {
 			// GoFor
@@ -525,6 +535,6 @@ func TestTMCStepperMotor(t *testing.T) {
 			})
 		}()
 		// Always true stopFunc
-		test.That(t, _motor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
+		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
 	})
 }

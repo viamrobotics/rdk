@@ -74,18 +74,22 @@ var logger = golog.NewDevelopmentLogger("resetbox")
 
 // LinearAxis is one or more motors whose motion is converted to linear movement via belts, screw drives, etc.
 type LinearAxis struct {
-	m        []motor.Motor
+	m        []motor.LocalMotor
 	mmPerRev float64
 }
 
 // AddMotors takes a slice of motor names and adds them to the axis.
 func (a *LinearAxis) AddMotors(_ context.Context, robot robot.Robot, names []string) error {
 	for _, n := range names {
-		motor, ok := robot.MotorByName(n)
-		if ok {
-			a.m = append(a.m, motor)
+		_motor, err := motor.FromRobot(robot, n)
+		if err != nil {
+			stoppableMotor, ok := _motor.(motor.LocalMotor)
+			if !ok {
+				return motor.NewGoTillStopUnsupportedError(n)
+			}
+			a.m = append(a.m, stoppableMotor)
 		} else {
-			return errors.Errorf("Cannot find motor named \"%s\"", n)
+			return err
 		}
 	}
 	return nil
@@ -115,7 +119,7 @@ func (a *LinearAxis) GoTillStop(ctx context.Context, speed float64, _ func(ctx c
 	var errs error
 	for _, m := range a.m {
 		homeWorkers.Add(1)
-		go func(motor motor.Motor) {
+		go func(motor motor.LocalMotor) {
 			defer homeWorkers.Done()
 			multierr.AppendInto(&errs, motor.GoTillStop(ctx, speed*60/a.mmPerRev, nil))
 		}(m)
@@ -142,20 +146,20 @@ func (a *LinearAxis) ResetZeroPosition(ctx context.Context, offset float64) erro
 	return errs
 }
 
-// Position returns the position of the first motor in the axis.
-func (a *LinearAxis) Position(ctx context.Context) (float64, error) {
-	pos, err := a.m[0].Position(ctx)
+// GetPosition returns the position of the first motor in the axis.
+func (a *LinearAxis) GetPosition(ctx context.Context) (float64, error) {
+	pos, err := a.m[0].GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}
 	return pos * a.mmPerRev, nil
 }
 
-// IsOn returns true if moving.
-func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns true if moving.
+func (a *LinearAxis) IsPowered(ctx context.Context) (bool, error) {
 	var errs error
 	for _, m := range a.m {
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		multierr.AppendInto(&errs, err)
 		if on {
 			return true, errs
@@ -165,8 +169,8 @@ func (a *LinearAxis) IsOn(ctx context.Context) (bool, error) {
 }
 
 type positional interface {
-	Position(ctx context.Context) (float64, error)
-	IsOn(ctx context.Context) (bool, error)
+	GetPosition(ctx context.Context) (float64, error)
+	IsPowered(ctx context.Context) (bool, error)
 }
 
 // ResetBox is the parent structure for this project.
@@ -174,11 +178,12 @@ type ResetBox struct {
 	io.Closer
 	logger golog.Logger
 	// board                    board.Board
-	gate, squeeze            LinearAxis
-	elevator                 LinearAxis
-	hammer, tipper, vibrator motor.Motor
-	arm                      arm.Arm
-	gripper                  gripper.Gripper
+	gate, squeeze    LinearAxis
+	elevator         LinearAxis
+	tipper, vibrator motor.Motor
+	hammer           motor.LocalMotor
+	arm              arm.Arm
+	gripper          gripper.Gripper
 
 	activeBackgroundWorkers *sync.WaitGroup
 
@@ -212,21 +217,25 @@ func NewResetBox(ctx context.Context, r robot.Robot, logger golog.Logger) (*Rese
 		return nil, err
 	}
 
-	hammer, ok := r.MotorByName("hammer")
-	if !ok {
-		return nil, errors.New("can't find motor named: hammer")
+	hammer, err := motor.FromRobot(r, "hammer")
+	if err != nil {
+		return nil, err
 	}
-	b.hammer = hammer
-
-	tipper, ok := r.MotorByName("tipper")
+	stoppableHammer, ok := hammer.(motor.LocalMotor)
 	if !ok {
-		return nil, errors.New("can't find motor named: tipper")
+		return nil, motor.NewGoTillStopUnsupportedError("hammer")
+	}
+	b.hammer = stoppableHammer
+
+	tipper, err := motor.FromRobot(r, "tipper")
+	if err != nil {
+		return nil, err
 	}
 	b.tipper = tipper
 
-	vibrator, ok := r.MotorByName("vibrator")
-	if !ok {
-		return nil, errors.New("can't find motor named: vibrator")
+	vibrator, err := motor.FromRobot(r, "vibrator")
+	if err != nil {
+		return nil, err
 	}
 	b.vibrator = vibrator
 
@@ -524,7 +533,7 @@ func (b *ResetBox) vibrate(ctx context.Context, level float64) {
 		b.vibrator.Stop(ctx)
 		b.vibeState = false
 	} else {
-		b.vibrator.Go(ctx, level)
+		b.vibrator.SetPower(ctx, level)
 		b.vibeState = true
 	}
 }
@@ -540,11 +549,11 @@ func (b *ResetBox) setSqueeze(ctx context.Context, width float64) error {
 func (b *ResetBox) waitPosReached(ctx context.Context, motor positional, target float64) error {
 	var i int
 	for {
-		pos, err := motor.Position(ctx)
+		pos, err := motor.GetPosition(ctx)
 		if err != nil {
 			return err
 		}
-		on, err := motor.IsOn(ctx)
+		on, err := motor.IsPowered(ctx)
 		if err != nil {
 			return err
 		}
@@ -582,7 +591,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 	}
 
 	// Go mostly up
-	b.tipper.Go(ctx, 1.0)
+	b.tipper.SetPower(ctx, 1.0)
 	utils.SelectContextOrWait(ctx, 11000*time.Millisecond)
 
 	// All off
@@ -593,7 +602,7 @@ func (b *ResetBox) tipTableUp(ctx context.Context) error {
 }
 
 func (b *ResetBox) tipTableDown(ctx context.Context) error {
-	if err := b.tipper.Go(ctx, -1.0); err != nil {
+	if err := b.tipper.SetPower(ctx, -1.0); err != nil {
 		return err
 	}
 	if !utils.SelectContextOrWait(ctx, 10000*time.Millisecond) {

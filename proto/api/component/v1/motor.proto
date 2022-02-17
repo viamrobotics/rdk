@@ -10,70 +10,52 @@ import "google/api/annotations.proto";
 // A MotorService maintains all motors associated with a robot
 service MotorService {
   // SetPower sets the percentage of the motor's total power that should be employed
-  // expressed a value between -1 and 1 where negative values indiciate a backwards
+  // expressed a value between -1 and 1 where negative values indicate a backwards
   // direction and positive values a forward direction
   rpc SetPower(MotorServiceSetPowerRequest) returns (MotorServiceSetPowerResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/power"
-    };
-  }
-
-  // Go instructs the motor to turn using a specified percentage of its total power,
-  // expressed as a value between -1 and 1 where negative values indiciate a backwards
-  // direction and positive values a forward direction
-  rpc Go(MotorServiceGoRequest) returns (MotorServiceGoResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go"
+      put: "/api/v1/component/motor/{name}/power"
     };
   }
 
   // GoFor instructs the motor to turn at a specified speed, which is expressed in RPM,
   // for a specified number of rotations relative to its starting position
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc GoFor(MotorServiceGoForRequest) returns (MotorServiceGoForResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_for"
+      put: "/api/v1/component/motor/{name}/go_for"
     };
   }
 
   // GoTo requests the robot's motor to move to a specific position that
   // is relative to its home position at a specified speed which is expressed in RPM
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc GoTo(MotorServiceGoToRequest) returns (MotorServiceGoToResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_to"
-    };
-  }
-
-  // To Do (FA): This will be deprecated in favor of a  MotorStop method
-  // GoTillStop moves a motor until it is stopped
-  // The logic to trigger the "stop" mechanism is up to the underlying motor implementation
-  rpc GoTillStop(MotorServiceGoTillStopRequest) returns (MotorServiceGoTillStopResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/motor/{name}/go_till_stop"
+      put: "/api/v1/component/motor/{name}/go_to"
     };
   }
 
   // ResetZeroPosition sets the current position of the motor as the new zero position
-  // This method will return an error if MotorPositionSupported is false
+  // This method will return an error if position reporting is not supported
   rpc ResetZeroPosition(MotorServiceResetZeroPositionRequest) returns (MotorServiceResetZeroPositionResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/zero"
+      put: "/api/v1/component/motor/{name}/zero"
     };
   }
 
   // Position reports the position of the robot's motor relative to its zero position
-  // This method will return an error if MotorPositionSupported is false
-  rpc Position(MotorServicePositionRequest) returns (MotorServicePositionResponse) {
+  // This method will return an error if position reporting is not supported
+  rpc GetPosition(MotorServiceGetPositionRequest) returns (MotorServiceGetPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position"
+      get: "/api/v1/component/motor/{name}/position"
     };
   }
 
-  // PositionSupported returns whether or not the robot's motor supports reporting of its position
-  rpc PositionSupported(MotorServicePositionSupportedRequest) returns (MotorServicePositionSupportedResponse) {
+  // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
+  rpc GetFeatures(MotorServiceGetFeaturesRequest) returns (MotorServiceGetFeaturesResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/position_supported"
+      get: "/api/v1/component/motor/{name}/features"
     };
   }
 
@@ -81,15 +63,15 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc Stop(MotorServiceStopRequest) returns (MotorServiceStopResponse) {
     option (google.api.http) = {
-      put: "/api/v1/motor/{name}/off"
+      put: "/api/v1/component/motor/{name}/stop"
     };
   }
 
-  // IsOn returns true if the robot's motor off
+  // IsPowered returns true if the robot's motor off
   // To Do (FA): This will be deprecated
-  rpc IsOn(MotorServiceIsOnRequest) returns (MotorServiceIsOnResponse) {
+  rpc IsPowered(MotorServiceIsPoweredRequest) returns (MotorServiceIsPoweredResponse) {
     option (google.api.http) = {
-      get: "/api/v1/motor/{name}/is_on"
+      get: "/api/v1/component/motor/{name}/powered"
     };
   }
 }
@@ -102,15 +84,6 @@ message MotorServiceSetPowerRequest {
 }
 
 message MotorServiceSetPowerResponse {}
-
-message MotorServiceGoRequest {
-  // Name of a motor
-  string name = 1;
-  // Percentage of motor's power, between -1 and 1
-  double power_pct = 2;
-}
-
-message MotorServiceGoResponse {}
 
 message MotorServiceGoForRequest {
   // Name of a motor
@@ -129,19 +102,10 @@ message MotorServiceGoToRequest {
   // Speed of motor travel in rotations per minute
   double rpm = 2;
   // Number of revolutions relative to motor's home home/zero
-  double position = 3;
+  double position_revolutions = 3;
 }
 
 message MotorServiceGoToResponse {}
-
-message MotorServiceGoTillStopRequest {
-  // Name of a motor
-  string name = 1;
-  // Speed of motor travel in rotations per minute
-  double rpm = 2;
-}
-
-message MotorServiceGoTillStopResponse {}
 
 message MotorServiceResetZeroPositionRequest {
   // Name of a motor
@@ -152,24 +116,14 @@ message MotorServiceResetZeroPositionRequest {
 
 message MotorServiceResetZeroPositionResponse {}
 
-message MotorServicePositionRequest {
+message MotorServiceGetPositionRequest {
   // Name of a motor
   string name = 1;
 }
 
-message MotorServicePositionResponse {
+message MotorServiceGetPositionResponse {
   // Current position of the motor relative to its home
   double position = 1;
-}
-
-message MotorServicePositionSupportedRequest {
-  // Name of a motor
-  string name = 1;
-}
-
-message MotorServicePositionSupportedResponse {
-  // Returns true if the motor supports reporting its position
-  bool supported = 1;
 }
 
 message MotorServiceStopRequest {
@@ -179,13 +133,22 @@ message MotorServiceStopRequest {
 
 message MotorServiceStopResponse {}
 
-message MotorServiceIsOnRequest {
+message MotorServiceIsPoweredRequest {
   // Name of a motor
   string name = 1;
 }
 
-message MotorServiceIsOnResponse {
+message MotorServiceIsPoweredResponse {
   // Returns true if the motor is on
-
   bool is_on = 1;
+}
+
+message MotorServiceGetFeaturesRequest {
+  // Name of a motor
+  string name = 1;
+}
+
+message MotorServiceGetFeaturesResponse {
+  // Returns true if the motor supports reporting its position
+  bool position_reporting = 1;
 }

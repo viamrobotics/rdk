@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,8 +37,6 @@ func TestNewWatcherNoop(t *testing.T) {
 }
 
 func TestNewWatcherFile(t *testing.T) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/523): test doesn't work
-	t.Skip("Skipping test for now")
 	logger := golog.NewTestLogger(t)
 
 	temp, err := ioutil.TempFile("", "*.json")
@@ -50,15 +49,15 @@ func TestNewWatcherFile(t *testing.T) {
 	writeConf := func(conf *Config) {
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o755)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, f.Close(), test.ShouldBeNil)
-		}()
-		_, err = f.Write(md)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f.Sync(), test.ShouldBeNil)
-		time.Sleep(2 * time.Second) // wait after sync
+		test.That(t, ioutil.WriteFile(temp.Name(), md, 0o755), test.ShouldBeNil)
+		for {
+			rd, err := ioutil.ReadFile(temp.Name())
+			test.That(t, err, test.ShouldBeNil)
+			if bytes.Equal(rd, md) {
+				break
+			}
+			time.Sleep(time.Second)
+		}
 	}
 
 	confToWrite := Config{
@@ -79,7 +78,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -102,7 +101,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
@@ -144,7 +143,7 @@ func TestNewWatcherFile(t *testing.T) {
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)

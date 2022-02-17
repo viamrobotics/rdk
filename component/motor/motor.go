@@ -4,14 +4,37 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pkg/errors"
+	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.MotorService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterMotorServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "motor".
 const SubtypeName = resource.SubtypeName("motor")
@@ -26,12 +49,9 @@ var Subtype = resource.NewSubtype(
 // A Motor represents a physical motor connected to a board.
 type Motor interface {
 
-	// SetPower sets the percentage of power the motor should employ between 0-1.
+	// SetPower sets the percentage of power the motor should employ between -1 and 1.
+	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
-
-	// Go instructs the motor to go in a specific direction at a percentage
-	// of power between -1 and 1.
-	Go(ctx context.Context, powerPct float64) error
 
 	// GoFor instructs the motor to go in a specific direction for a specific amount of
 	// revolutions at a given speed in revolutions per minute. Both the RPM and the revolutions
@@ -42,31 +62,35 @@ type Motor interface {
 	// GoTo instructs the motor to go to a specific position (provided in revolutions from home/zero),
 	// at a specific speed. Regardless of the directionality of the RPM this function will move the motor
 	// towards the specified target/position
-	GoTo(ctx context.Context, rpm float64, position float64) error
+	GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error
 
+	// Set the current position (+/- offset) to be the new zero (home) position.
+	ResetZeroPosition(ctx context.Context, offset float64) error
+
+	// GetPosition reports the position of the motor based on its encoder. If it's not supported, the returned
+	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
+	// back into calls of GoFor.
+	GetPosition(ctx context.Context) (float64, error)
+
+	// GetFeatures returns whether or not the motor supports certain optional features.
+	GetFeatures(ctx context.Context) (map[Feature]bool, error)
+
+	// Stop turns the power to the motor off immediately, without any gradual step down.
+	Stop(ctx context.Context) error
+
+	// IsPowered returns whether or not the motor is currently on.
+	IsPowered(ctx context.Context) (bool, error)
+}
+
+// A LocalMotor is a motor that supports additional features provided by RDK
+// (e.g. GoTillStop).
+type LocalMotor interface {
+	Motor
 	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
 	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
-
-	// Set the current position (+/- offset) to be the new zero (home) position.
-	ResetZeroPosition(ctx context.Context, offset float64) error
-
-	// Position reports the position of the motor based on its encoder. If it's not supported, the returned
-	// data is undefined. The unit returned is the number of revolutions which is intended to be fed
-	// back into calls of GoFor.
-	Position(ctx context.Context) (float64, error)
-
-	// PositionSupported returns whether or not the motor supports reporting of its position which
-	// is reliant on having an encoder.
-	PositionSupported(ctx context.Context) (bool, error)
-
-	// Stop turns the power to the motor off immediately, without any gradual step down.
-	Stop(ctx context.Context) error
-
-	// IsOn returns whether or not the motor is currently on.
-	IsOn(ctx context.Context) (bool, error)
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -75,9 +99,27 @@ func Named(name string) resource.Name {
 }
 
 var (
-	_ = Motor(&reconfigurableMotor{})
+	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
+
+// FromRobot is a helper for getting the named motor from the given Robot.
+func FromRobot(r robot.Robot, name string) (Motor, error) {
+	res, ok := r.ResourceByName(Named(name))
+	if !ok {
+		return nil, utils.NewResourceNotFoundError(Named(name))
+	}
+	part, ok := res.(Motor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Motor", res)
+	}
+	return part, nil
+}
+
+// NamesFromRobot is a helper for getting all motor names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableMotor struct {
 	mu     sync.RWMutex
@@ -96,28 +138,16 @@ func (r *reconfigurableMotor) SetPower(ctx context.Context, powerPct float64) er
 	return r.actual.SetPower(ctx, powerPct)
 }
 
-func (r *reconfigurableMotor) Go(ctx context.Context, powerPct float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.Go(ctx, powerPct)
-}
-
 func (r *reconfigurableMotor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GoFor(ctx, rpm, revolutions)
 }
 
-func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (r *reconfigurableMotor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GoTo(ctx, rpm, position)
-}
-
-func (r *reconfigurableMotor) GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GoTillStop(ctx, rpm, stopFunc)
+	return r.actual.GoTo(ctx, rpm, positionRevolutions)
 }
 
 func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset float64) error {
@@ -126,16 +156,16 @@ func (r *reconfigurableMotor) ResetZeroPosition(ctx context.Context, offset floa
 	return r.actual.ResetZeroPosition(ctx, offset)
 }
 
-func (r *reconfigurableMotor) Position(ctx context.Context) (float64, error) {
+func (r *reconfigurableMotor) GetPosition(ctx context.Context) (float64, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Position(ctx)
+	return r.actual.GetPosition(ctx)
 }
 
-func (r *reconfigurableMotor) PositionSupported(ctx context.Context) (bool, error) {
+func (r *reconfigurableMotor) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.PositionSupported(ctx)
+	return r.actual.GetFeatures(ctx)
 }
 
 func (r *reconfigurableMotor) Stop(ctx context.Context) error {
@@ -144,10 +174,23 @@ func (r *reconfigurableMotor) Stop(ctx context.Context) error {
 	return r.actual.Stop(ctx)
 }
 
-func (r *reconfigurableMotor) IsOn(ctx context.Context) (bool, error) {
+func (r *reconfigurableMotor) IsPowered(ctx context.Context) (bool, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.IsOn(ctx)
+	return r.actual.IsPowered(ctx)
+}
+
+func (r *reconfigurableMotor) GoTillStop(
+	ctx context.Context, rpm float64,
+	stopFunc func(ctx context.Context) bool,
+) error {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	localMotor, ok := r.actual.(LocalMotor)
+	if !ok {
+		return NewGoTillStopUnsupportedError("(name unavailable)")
+	}
+	return localMotor.GoTillStop(ctx, rpm, stopFunc)
 }
 
 func (r *reconfigurableMotor) Close(ctx context.Context) error {
@@ -161,7 +204,7 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 	defer r.mu.RUnlock()
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newMotor)
+		return utils.NewUnexpectedTypeError(r, newMotor)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
@@ -171,16 +214,16 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 }
 
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
-// If servo is already a reconfigurableMotor, then nothing is done.
+// If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(Motor)
+	motor, ok := r.(Motor)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Motor but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
 	}
-	if reconfigurable, ok := servo.(*reconfigurableMotor); ok {
+	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMotor{actual: servo}, nil
+	return &reconfigurableMotor{actual: motor}, nil
 }
 
 // PinConfig defines the mapping of where motor are wired.
