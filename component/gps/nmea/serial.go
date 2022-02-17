@@ -235,15 +235,6 @@ func (g *serialNMEAGPS) Start() {
 	})
 }
 
-func (g *serialNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	loc, err := g.ReadLocation(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return []interface{}{loc}, nil
-}
-
 func (g *serialNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()

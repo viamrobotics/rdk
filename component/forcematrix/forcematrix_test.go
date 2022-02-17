@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -172,11 +173,22 @@ func TestGetReadings(t *testing.T) {
 	actualForceMatrix1 := &mock{Name: testForceMatrixName}
 	reconfForceMatrix1, _ := forcematrix.WrapWithReconfigurable(actualForceMatrix1)
 
-	test.That(t, actualForceMatrix1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfForceMatrix1.(forcematrix.ForceMatrix).GetReadings(context.Background())
+	readings1, err := forcematrix.GetReadings(context.Background(), actualForceMatrix1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, readings1, test.ShouldResemble, []interface{}{[][]int{{2, 1}}})
+
+	result, err := reconfForceMatrix1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{matrix})
-	test.That(t, actualForceMatrix1.readingsCount, test.ShouldEqual, 1)
+
+	actualForceMatrix2 := &mockWithSensor{}
+	reconfForceMatrix2, _ := forcematrix.WrapWithReconfigurable(actualForceMatrix2)
+
+	test.That(t, actualForceMatrix2.readingsCount, test.ShouldEqual, 0)
+	result, err = reconfForceMatrix2.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings)
+	test.That(t, actualForceMatrix2.readingsCount, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
@@ -191,15 +203,16 @@ func TestClose(t *testing.T) {
 var (
 	matrix = [][]int{{2, 1}}
 	slip   = false
+
+	readings = []interface{}{5.6, 6.4}
 )
 
 type mock struct {
 	forcematrix.ForceMatrix
-	Name          string
-	matrixCount   int
-	slipCount     int
-	readingsCount int
-	reconfCount   int
+	Name        string
+	matrixCount int
+	slipCount   int
+	reconfCount int
 }
 
 // ReadMatrix returns the set value.
@@ -214,9 +227,14 @@ func (m *mock) DetectSlip(ctx context.Context) (bool, error) {
 	return slip, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return []interface{}{matrix}, nil
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockWithSensor struct {
+	mock
+	readingsCount int
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCount++
+	return readings, nil
+}

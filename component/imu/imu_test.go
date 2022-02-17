@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -110,6 +111,8 @@ var (
 	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	ac = r3.Vector{X: 7, Y: 8, Z: 9}
+
+	readings = []interface{}{5.6, 6.4}
 )
 
 func TestWrapWithReconfigurable(t *testing.T) {
@@ -164,7 +167,7 @@ func TestReadAngularVelocity(t *testing.T) {
 	test.That(t, actualIMU1.angularVelocityCount, test.ShouldEqual, 1)
 }
 
-func TestOrientiation(t *testing.T) {
+func TestReadOrientation(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
@@ -190,11 +193,22 @@ func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
-	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfIMU1.(imu.IMU).GetReadings(context.Background())
+	readings1, err := imu.GetReadings(context.Background(), actualIMU1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{av, ea, ac})
-	test.That(t, actualIMU1.readingsCount, test.ShouldEqual, 1)
+	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z})
+
+	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings1)
+
+	actualIMU2 := &mockWithSensor{}
+	reconfIMU2, _ := imu.WrapWithReconfigurable(actualIMU2)
+
+	test.That(t, actualIMU2.readingsCount, test.ShouldEqual, 0)
+	result, err = reconfIMU2.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings)
+	test.That(t, actualIMU2.readingsCount, test.ShouldEqual, 1)
 }
 
 type mock struct {
@@ -203,7 +217,6 @@ type mock struct {
 	angularVelocityCount int
 	orientationCount     int
 	accelerationCount    int
-	readingsCount        int
 	reconfCount          int
 }
 
@@ -222,9 +235,14 @@ func (m *mock) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	return ac, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return []interface{}{av, ea, ac}, nil
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockWithSensor struct {
+	mock
+	readingsCount int
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCount++
+	return readings, nil
+}
