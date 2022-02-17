@@ -49,7 +49,7 @@ func (server *subtypeServer) GetSensors(
 	if err != nil {
 		return nil, err
 	}
-	sensors := make([]*commonpb.ResourceName, len(names))
+	sensors := make([]*commonpb.ResourceName, 0, len(names))
 	for _, name := range names {
 		sensors = append(sensors, protoutils.ResourceNameToProto(name))
 	}
@@ -65,7 +65,7 @@ func (server *subtypeServer) GetReadings(
 	if err != nil {
 		return nil, err
 	}
-	sensors := make([]resource.Name, len(req.Sensors))
+	sensors := make([]resource.Name, 0, len(req.Sensors))
 	for _, name := range req.Sensors {
 		sensors = append(sensors, protoutils.ProtoToResourceName(name))
 	}
