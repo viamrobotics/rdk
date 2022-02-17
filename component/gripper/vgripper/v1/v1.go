@@ -74,9 +74,9 @@ type gripperV1 struct {
 // newGripperV1 Returns a gripperV1.
 func newGripperV1(ctx context.Context, r robot.Robot, theBoard board.Board, cfg config.Component, logger golog.Logger) (*gripperV1, error) {
 	pressureLimit := cfg.Attributes.Int("pressureLimit", 800)
-	_motor, ok := r.MotorByName("g")
-	if !ok {
-		return nil, errors.New("failed to find motor 'g'")
+	_motor, err := motor.FromRobot(r, "g")
+	if err != nil {
+		return nil, err
 	}
 	stoppableMotor, ok := _motor.(motor.LocalMotor)
 	if !ok {

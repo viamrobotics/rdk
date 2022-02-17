@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -51,13 +52,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, grabbed)
 
 	res, err = gripper.FromRobot(r, fakeGripperName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gripper")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(gripper.Named(missingGripperName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 
@@ -112,8 +111,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gripper.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Gripper")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", nil))
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)

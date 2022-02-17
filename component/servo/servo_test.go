@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -52,13 +53,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, pos)
 
 	s, err = servo.FromRobot(r, fakeServoName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Servo")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = servo.FromRobot(r, missingServoName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(servo.Named(missingServoName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 
@@ -113,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = servo.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Servo")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", nil))
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)

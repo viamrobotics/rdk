@@ -157,7 +157,7 @@ var (
 func FromRobot(r robot.Robot, name string) (Controller, error) {
 	res, ok := r.ResourceByName(Named(name))
 	if !ok {
-		return nil, errors.Errorf("resource %q not found", Named(name))
+		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	part, ok := res.(Controller)
 	if !ok {

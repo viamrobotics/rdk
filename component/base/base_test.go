@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -53,13 +54,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, width)
 
 	res, err = base.FromRobot(r, fakeBaseName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Base")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromRobot(r, missingBaseName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named(missingBaseName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 
@@ -83,8 +82,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalBase")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBase", nil))
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)

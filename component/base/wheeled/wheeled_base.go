@@ -264,21 +264,21 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
-	frontLeft, ok := r.MotorByName(config.Attributes.String("frontLeft"))
-	if !ok {
-		return nil, errors.New("frontLeft motor not found")
+	frontLeft, err := motor.FromRobot(r, config.Attributes.String("frontLeft"))
+	if err != nil {
+		return nil, errors.Wrap(err, "frontLeft motor not found")
 	}
-	frontRight, ok := r.MotorByName(config.Attributes.String("frontRight"))
-	if !ok {
-		return nil, errors.New("frontRight motor not found")
+	frontRight, err := motor.FromRobot(r, config.Attributes.String("frontRight"))
+	if err != nil {
+		return nil, errors.Wrap(err, "frontRight motor not found")
 	}
-	backLeft, ok := r.MotorByName(config.Attributes.String("backLeft"))
-	if !ok {
-		return nil, errors.New("backLeft motor not found")
+	backLeft, err := motor.FromRobot(r, config.Attributes.String("backLeft"))
+	if err != nil {
+		return nil, errors.Wrap(err, "backLeft motor not found")
 	}
-	backRight, ok := r.MotorByName(config.Attributes.String("backRight"))
-	if !ok {
-		return nil, errors.New("backRight motor not found")
+	backRight, err := motor.FromRobot(r, config.Attributes.String("backRight"))
+	if err != nil {
+		return nil, errors.Wrap(err, "backRight motor not found")
 	}
 
 	base := &wheeledBase{
@@ -333,17 +333,17 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 	}
 
 	for _, name := range config.Left {
-		m, ok := r.MotorByName(name)
-		if !ok {
-			return nil, fmt.Errorf("no left motor named (%s)", name)
+		m, err := motor.FromRobot(r, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
 		base.left = append(base.left, m)
 	}
 
 	for _, name := range config.Right {
-		m, ok := r.MotorByName(name)
-		if !ok {
-			return nil, fmt.Errorf("no right motor named (%s)", name)
+		m, err := motor.FromRobot(r, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}
 		base.right = append(base.right, m)
 	}
