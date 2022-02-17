@@ -3,6 +3,7 @@ package sensors
 
 import (
 	"context"
+	"sync"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -79,22 +80,38 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new sensor service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	// look for sensors here
-
-	return &sensorService{
+	s := &sensorService{
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
-	}, nil
+	}
+
+	// trigger an update here
+	resources := map[resource.Name]interface{}{}
+	for _, n := range r.ResourceNames() {
+		res, ok := r.ResourceByName(n)
+		if !ok {
+			return nil, utils.NewResourceNotFoundError(n)
+		}
+		resources[n] = res
+	}
+	if err := s.Update(ctx, resources); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 type sensorService struct {
 	// add lock
+	mu      *sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger
 }
 
 // GetReadings returns the readings of the resources specified.
 func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) ([]Reading, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	readings := make([]Reading, 0, len(names))
 	for _, name := range names {
 		sensor, ok := s.sensors[name]
@@ -112,6 +129,9 @@ func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) (
 
 // GetSensors returns all sensors in the robot.
 func (s sensorService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	names := make([]resource.Name, len(s.sensors))
 	for name := range s.sensors {
 		names = append(names, name)
@@ -119,4 +139,15 @@ func (s sensorService) GetSensors(ctx context.Context) ([]resource.Name, error) 
 	return names, nil
 }
 
-// add update function
+// Update updates the sensors service when the robot has changed.
+func (s sensorService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for n, r := range resources {
+		if sensor, ok := r.(sensor.Sensor); ok {
+			s.sensors[n] = sensor
+		}
+	}
+	return nil
+}
