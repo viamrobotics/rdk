@@ -46,11 +46,6 @@ type Service interface {
 	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
 }
 
-// An ObjectSource3D is anything that generates 3D objects in a scene.
-type ObjectSource3D interface {
-	NextObjects(ctx context.Context, parameters *vision.Parameters3D) ([]*vision.Object, error)
-}
-
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("object_segmentation")
 
@@ -100,10 +95,10 @@ func (seg *objectSegService) GetObjectPointClouds(
 		return nil, err
 	}
 	// return next objects if camera has a NextObjects defined
-	if c, ok := cam.(ObjectSource3D); ok {
+	if c, ok := cam.(vision.ObjectSource3D); ok {
 		return c.NextObjects(ctx, pmtrs)
 	}
-	if c, ok := utils.UnwrapProxy(cam).(ObjectSource3D); ok {
+	if c, ok := utils.UnwrapProxy(cam).(vision.ObjectSource3D); ok {
 		return c.NextObjects(ctx, pmtrs)
 	}
 	// do default segmentation otherwise
