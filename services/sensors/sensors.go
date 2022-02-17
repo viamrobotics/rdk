@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
+	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -22,9 +23,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.ObjectManipulationService_ServiceDesc,
+				&servicepb.SensorsService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterObjectManipulationServiceHandlerFromEndpoint,
+				servicepb.RegisterSensorsServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
@@ -41,13 +42,13 @@ func init() {
 // A Reading ties both the sensor name and its reading together.
 type Reading struct {
 	Name    resource.Name
-	Reading interface{}
+	Reading []interface{}
 }
 
 // A Service centralizes all sensors into one place.
 type Service interface {
 	GetReadings(ctx context.Context, resources []resource.Name) ([]Reading, error)
-	All(ctx context.Context) ([]resource.Name, error)
+	GetSensors(ctx context.Context) ([]resource.Name, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -109,9 +110,9 @@ func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) (
 	return readings, nil
 }
 
-// All returns all sensors in the robot.
-func (s sensorService) All(ctx context.Context) ([]resource.Name, error) {
-	names := make([]resource.Name, 0, len(s.sensors))
+// GetSensors returns all sensors in the robot.
+func (s sensorService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+	names := make([]resource.Name, len(s.sensors))
 	for name := range s.sensors {
 		names = append(names, name)
 	}
