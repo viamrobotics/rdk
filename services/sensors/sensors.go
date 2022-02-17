@@ -73,14 +73,14 @@ func FromRobot(r robot.Robot) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("sensor.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("sensors.Service", resource)
 	}
 	return svc, nil
 }
 
 // New returns a new sensor service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	s := &sensorService{
+	s := &sensorsService{
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
 	}
@@ -100,15 +100,14 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return s, nil
 }
 
-type sensorService struct {
-	// add lock
-	mu      *sync.RWMutex
+type sensorsService struct {
+	mu      sync.RWMutex
 	sensors map[resource.Name]sensor.Sensor
 	logger  golog.Logger
 }
 
 // GetReadings returns the readings of the resources specified.
-func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) ([]Reading, error) {
+func (s *sensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]Reading, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -128,11 +127,11 @@ func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) (
 }
 
 // GetSensors returns all sensors in the robot.
-func (s sensorService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	names := make([]resource.Name, len(s.sensors))
+	names := make([]resource.Name, 0, len(s.sensors))
 	for name := range s.sensors {
 		names = append(names, name)
 	}
@@ -140,14 +139,16 @@ func (s sensorService) GetSensors(ctx context.Context) ([]resource.Name, error) 
 }
 
 // Update updates the sensors service when the robot has changed.
-func (s sensorService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+func (s *sensorsService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	sensors := map[resource.Name]sensor.Sensor{}
 	for n, r := range resources {
 		if sensor, ok := r.(sensor.Sensor); ok {
-			s.sensors[n] = sensor
+			sensors[n] = sensor
 		}
 	}
+	s.sensors = sensors
 	return nil
 }
