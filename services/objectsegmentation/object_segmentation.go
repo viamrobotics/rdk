@@ -41,7 +41,7 @@ func init() {
 	})
 }
 
-// A Service controls the flow of manipulating other objects with a robot's gripper.
+// A Service that defines how to segment 2D and/or 3D images from a given camera into objects.
 type Service interface {
 	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
 }
@@ -59,7 +59,7 @@ var Subtype = resource.NewSubtype(
 // Name is the ObjectSegmentationService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// FromRobot retrieves the object manipulation service of a robot.
+// FromRobot retrieves the object segmentation service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, ok := r.ResourceByName(Name)
 	if !ok {
