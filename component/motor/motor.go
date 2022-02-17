@@ -205,7 +205,7 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 	defer r.mu.RUnlock()
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newMotor)
+		return utils.NewUnexpectedTypeError(r, newMotor)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
@@ -215,16 +215,16 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 }
 
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
-// If servo is already a reconfigurableMotor, then nothing is done.
+// If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(Motor)
+	motor, ok := r.(Motor)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Motor but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
 	}
-	if reconfigurable, ok := servo.(*reconfigurableMotor); ok {
+	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMotor{actual: servo}, nil
+	return &reconfigurableMotor{actual: motor}, nil
 }
 
 // PinConfig defines the mapping of where motor are wired.
