@@ -469,10 +469,10 @@ func fromReader(
 		return nil, nil, err
 	}
 	if err := json.Unmarshal(rd, &cfg); err != nil {
-		return nil, nil, errors.Wrap(err, "cannot parse config1")
+		return nil, nil, errors.Wrap(err, "cannot parse config")
 	}
 	if err := json.Unmarshal(rd, &unprocessedCfg); err != nil {
-		return nil, nil, errors.Wrap(err, "cannot parse config2")
+		return nil, nil, errors.Wrap(err, "cannot parse config")
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
 		return nil, nil, err
