@@ -1,4 +1,4 @@
-// Package sensors contains a gRPC based object manipulation service server
+// Package sensors contains a gRPC based sensors service server
 package sensors
 
 import (
@@ -14,13 +14,13 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from object_manipulation.proto.
+// subtypeServer implements the contract from sensors.proto.
 type subtypeServer struct {
 	pb.UnimplementedSensorsServiceServer
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a object manipulation gRPC service server.
+// NewServer constructs a sensors gRPC service server.
 func NewServer(s subtype.Service) pb.SensorsServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
@@ -69,10 +69,12 @@ func (server *subtypeServer) GetReadings(
 	for _, name := range req.Sensors {
 		sensors = append(sensors, protoutils.ProtoToResourceName(name))
 	}
+
 	readings, err := svc.GetReadings(ctx, sensors)
 	if err != nil {
 		return nil, err
 	}
+
 	readingsP := make([]*pb.Reading, len(readings))
 	for _, reading := range readings {
 		rReading := make([]*structpb.Value, 0, len(reading.Reading))

@@ -1,4 +1,4 @@
-// Package sensors contains a gRPC based object manipulation client
+// Package sensors contains a gRPC based sensors service client
 package sensors
 
 import (
@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// client is a client satisfies the sensors.proto contract.
+// client is a client implements the SensorsServiceClient.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.SensorsServiceClient
@@ -69,10 +69,12 @@ func (c *client) GetReadings(ctx context.Context, sensors []resource.Name) ([]Re
 	for _, name := range sensors {
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
+
 	resp, err := c.client.GetReadings(ctx, &pb.SensorsServiceGetReadingsRequest{Sensors: names})
 	if err != nil {
 		return nil, err
 	}
+
 	readings := make([]Reading, len(resp.Readings))
 	for _, reading := range resp.Readings {
 		sReading := make([]interface{}, 0, len(reading.Readings))
