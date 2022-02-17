@@ -20,7 +20,7 @@ type point struct {
 	pose Pose
 }
 
-// NewPointCreator instantiates a PointCreator class, which allows instantiating pointers given only a pose which is applied
+// NewPointCreator instantiates a PointCreator class, which allows instantiating point volumes given only a pose which is applied
 // at the specified offset from the pose. These pointers have dimensions given by the provided halfSize vector.
 func NewPointCreator(offset Pose) VolumeCreator {
 	return &pointCreator{offset}
