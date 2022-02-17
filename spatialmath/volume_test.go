@@ -8,6 +8,8 @@ import (
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestVolumeSerialization(t *testing.T) {
@@ -71,6 +73,10 @@ func TestVolumeToFromProtobuf(t *testing.T) {
 			test.That(t, testCase.vol.AlmostEqual(newVol), test.ShouldBeTrue)
 		})
 	}
+
+	// test that bad message does not generate error
+	_, err := NewVolumeFromProtobuf(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 type volumeComparisonTestCase struct {

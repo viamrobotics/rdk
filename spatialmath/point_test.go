@@ -8,9 +8,15 @@ import (
 	"go.viam.com/test"
 )
 
-func TestNewPointFromOffset(t *testing.T) {
+func TestNewPoint(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
-	vol := NewPointCreator(offset).NewVolume(PoseInverse(offset))
+
+	// test sphere created from NewBox method
+	vol := NewPoint(offset.Point())
+	test.That(t, vol, test.ShouldResemble, &point{NewPoseFromPoint(offset.Point())})
+
+	// test sphere created from VolumeCreator with offset
+	vol = NewPointCreator(offset).NewVolume(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 

@@ -13,11 +13,20 @@ func makeTestBox(o Orientation, point, dims r3.Vector) Volume {
 	return box
 }
 
-func TestNewBoxFromOffset(t *testing.T) {
+func TestNewBox(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
+
+	// test box created from NewBox method
+	vol, err := NewBox(offset, r3.Vector{1, 1, 1})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, vol, test.ShouldResemble, &box{pose: offset, halfSize: [3]float64{0.5, 0.5, 0.5}})
+	_, err = NewBox(offset, r3.Vector{})
+	test.That(t, err, test.ShouldNotBeNil)
+
+	// test box created from VolumeCreator with offset
 	vc, err := NewBoxCreator(r3.Vector{1, 1, 1}, offset)
 	test.That(t, err, test.ShouldBeNil)
-	vol := vc.NewVolume(PoseInverse(offset))
+	vol = vc.NewVolume(PoseInverse(offset))
 	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
