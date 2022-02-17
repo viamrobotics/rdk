@@ -9,13 +9,16 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/motor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
@@ -23,7 +26,8 @@ func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener1, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
-	gServer1 := grpc.NewServer()
+	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
+	test.That(t, err, test.ShouldBeNil)
 
 	workingMotor := &inject.Motor{}
 	failingMotor := &inject.Motor{}
@@ -81,26 +85,26 @@ func TestClient(t *testing.T) {
 	}
 
 	resourceMap := map[resource.Name]interface{}{
-		motor.Named("workingMotor"): workingMotor,
-		motor.Named("failingMotor"): failingMotor,
+		motor.Named(testMotorName): workingMotor,
+		motor.Named(failMotorName): failingMotor,
 	}
 	motorSvc, err := subtype.New(resourceMap)
 	test.That(t, err, test.ShouldBeNil)
+	resourceSubtype := registry.ResourceSubtypeLookup(motor.Subtype)
+	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, motorSvc)
 
-	componentpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
-
-	go gServer1.Serve(listener1)
-	defer gServer1.Stop()
+	go rpcServer.Serve(listener1)
+	defer rpcServer.Stop()
 
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = motor.NewClient(cancelCtx, "workingMotor", listener1.Addr().String(), logger)
+		_, err = motor.NewClient(cancelCtx, testMotorName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
-	workingMotorClient, err := motor.NewClient(context.Background(), "workingMotor", listener1.Addr().String(), logger)
+	workingMotorClient, err := motor.NewClient(context.Background(), testMotorName, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for working motor", func(t *testing.T) {
@@ -130,9 +134,11 @@ func TestClient(t *testing.T) {
 		isOn, err := workingMotorClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
 	})
 
-	failingMotorClient, err := motor.NewClient(context.Background(), "failingMotor", listener1.Addr().String(), logger)
+	failingMotorClient, err := motor.NewClient(context.Background(), failMotorName, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client tests for failing motor", func(t *testing.T) {
@@ -162,12 +168,14 @@ func TestClient(t *testing.T) {
 
 		err = failingMotorClient.Stop(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), failingMotorClient), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for working motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "workingMotor", logger)
+		workingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, testMotorName, logger)
 
 		pos, err := workingMotorDialedClient.GetPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -189,12 +197,14 @@ func TestClient(t *testing.T) {
 		isOn, err := workingMotorDialedClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeTrue)
 		test.That(t, err, test.ShouldBeNil)
+
+		test.That(t, utils.TryClose(context.Background(), workingMotorDialedClient), test.ShouldBeNil)
 	})
 
 	t.Run("dialed client tests for failing motor", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
-		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, "failingMotor", logger)
+		failingMotorDialedClient := motor.NewClientFromConn(context.Background(), conn, failMotorName, logger)
 
 		err = failingMotorDialedClient.SetPower(context.Background(), 39.2)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -206,8 +216,36 @@ func TestClient(t *testing.T) {
 		isOn, err := failingMotorDialedClient.IsPowered(context.Background())
 		test.That(t, isOn, test.ShouldBeFalse)
 		test.That(t, err, test.ShouldNotBeNil)
-	})
 
-	test.That(t, utils.TryClose(context.Background(), workingMotorClient), test.ShouldBeNil)
-	test.That(t, utils.TryClose(context.Background(), failingMotorClient), test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), failingMotorDialedClient), test.ShouldBeNil)
+	})
+}
+
+func TestClientDialerOption(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	listener, err := net.Listen("tcp", "localhost:0")
+	test.That(t, err, test.ShouldBeNil)
+	gServer := grpc.NewServer()
+	injectMotor := &inject.Motor{}
+
+	motorSvc, err := subtype.New(map[resource.Name]interface{}{motor.Named(testMotorName): injectMotor})
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterMotorServiceServer(gServer, motor.NewServer(motorSvc))
+
+	go gServer.Serve(listener)
+	defer gServer.Stop()
+
+	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
+	ctx := rpc.ContextWithDialer(context.Background(), td)
+	client1, err := motor.NewClient(ctx, testMotorName, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := motor.NewClient(ctx, testMotorName, listener.Addr().String(), logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+
+	err = utils.TryClose(context.Background(), client1)
+	test.That(t, err, test.ShouldBeNil)
+	err = utils.TryClose(context.Background(), client2)
+	test.That(t, err, test.ShouldBeNil)
 }
