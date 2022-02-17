@@ -45,7 +45,7 @@ func init() {
 					return nil, errors.Errorf("no hw mapping for %s", attr.Pin)
 				}
 
-				theServo := &piPigpioServo{C.uint(bcom)}
+				theServo := &piPigpioServo{pin: C.uint(bcom)}
 				if attr.Min > 0 {
 					theServo.min = uint8(attr.Min)
 				}
@@ -58,12 +58,12 @@ func init() {
 	)
 	config.RegisterComponentAttributeMapConverter(
 		config.ComponentTypeServo,
-		modelName,
+		picommon.ModelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf servoConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
-		&Config{})
+		&servoConfig{})
 }
 
 // piPigpioServo implements a servo.Servo using pigpio.
