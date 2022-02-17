@@ -57,7 +57,7 @@ func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	if err != nil {
 		return nil, err
 	}
-	sensors := make([]resource.Name, len(resp.Sensors))
+	sensors := make([]resource.Name, 0, len(resp.Sensors))
 	for _, name := range resp.Sensors {
 		sensors = append(sensors, protoutils.ProtoToResourceName(name))
 	}
@@ -65,7 +65,7 @@ func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
 }
 
 func (c *client) GetReadings(ctx context.Context, sensors []resource.Name) ([]Reading, error) {
-	names := make([]*commonpb.ResourceName, len(sensors))
+	names := make([]*commonpb.ResourceName, 0, len(sensors))
 	for _, name := range sensors {
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
@@ -75,7 +75,7 @@ func (c *client) GetReadings(ctx context.Context, sensors []resource.Name) ([]Re
 		return nil, err
 	}
 
-	readings := make([]Reading, len(resp.Readings))
+	readings := make([]Reading, 0, len(resp.Readings))
 	for _, reading := range resp.Readings {
 		sReading := make([]interface{}, 0, len(reading.Readings))
 		for _, r := range reading.Readings {
