@@ -55,8 +55,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, pose1, test.ShouldResemble, pose)
 
 	a, err = arm.FromRobot(r, fakeArmName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Arm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
 	test.That(t, a, test.ShouldBeNil)
 
 	a, err = arm.FromRobot(r, missingArmName)
@@ -115,8 +114,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Arm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)

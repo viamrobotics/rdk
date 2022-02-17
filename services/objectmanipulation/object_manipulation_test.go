@@ -144,8 +144,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectmanipulation.Service")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {

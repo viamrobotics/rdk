@@ -54,8 +54,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, loc)
 
 	s, err = gps.FromRobot(r, fakeGPSName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of GPS")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("GPS", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = gps.FromRobot(r, missingGPSName)
@@ -114,8 +113,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gps.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalGPS")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalGPS", nil))
 
 	reconfGPS2, err := gps.WrapWithReconfigurable(reconfGPS1)
 	test.That(t, err, test.ShouldBeNil)

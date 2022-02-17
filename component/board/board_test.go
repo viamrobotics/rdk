@@ -10,10 +10,9 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	rutils "go.viam.com/rdk/utils"
-
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -54,8 +53,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
 	res, err = board.FromRobot(r, fakeBoardName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Board")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Board", "string"))
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = board.FromRobot(r, missingBoardName)
@@ -120,8 +118,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = board.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of LocalBoard")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBoard", nil))
 
 	reconfBoard2, err := board.WrapWithReconfigurable(reconfBoard1)
 	test.That(t, err, test.ShouldBeNil)

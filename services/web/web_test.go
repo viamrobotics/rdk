@@ -527,8 +527,7 @@ func TestFromRobot(t *testing.T) {
 	}
 
 	rWeb, err = FromRobot(r)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of web.Service")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("web.Service", "string"))
 	test.That(t, rWeb, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {

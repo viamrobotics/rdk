@@ -53,8 +53,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, ea)
 
 	s, err = imu.FromRobot(r, fakeIMUName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("IMU", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = imu.FromRobot(r, missingIMUName)
@@ -119,8 +118,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = imu.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of IMU")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("IMU", nil))
 
 	reconfIMU2, err := imu.WrapWithReconfigurable(reconfIMU1)
 	test.That(t, err, test.ShouldBeNil)
