@@ -1,21 +1,20 @@
-// Package sensor implements a sensor service.
-package sensor
+// Package sensors implements a sensors service.
+package sensors
 
 import (
 	"context"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
 )
 
 func init() {
@@ -39,19 +38,20 @@ func init() {
 	})
 }
 
+// A Reading ties both the sensor name and its reading together.
 type Reading struct {
 	Name    resource.Name
 	Reading interface{}
 }
 
-// A Service centralizes all sensors into one place
+// A Service centralizes all sensors into one place.
 type Service interface {
 	GetReadings(ctx context.Context, resources []resource.Name) ([]Reading, error)
 	All(ctx context.Context) ([]resource.Name, error)
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("sensor")
+const SubtypeName = resource.SubtypeName("sensors")
 
 // Subtype is a constant that identifies the sensor service resource subtype.
 var Subtype = resource.NewSubtype(
@@ -112,7 +112,7 @@ func (s sensorService) GetReadings(ctx context.Context, names []resource.Name) (
 // All returns all sensors in the robot.
 func (s sensorService) All(ctx context.Context) ([]resource.Name, error) {
 	names := make([]resource.Name, 0, len(s.sensors))
-	for name, _ := range s.sensors {
+	for name := range s.sensors {
 		names = append(names, name)
 	}
 	return names, nil

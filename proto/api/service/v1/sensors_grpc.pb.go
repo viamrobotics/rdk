@@ -137,5 +137,5 @@ var SensorsService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/api/service/v1/sensor.proto",
+	Metadata: "proto/api/service/v1/sensors.proto",
 }
