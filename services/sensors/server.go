@@ -75,7 +75,7 @@ func (server *subtypeServer) GetReadings(
 		return nil, err
 	}
 
-	readingsP := make([]*pb.Reading, len(readings))
+	readingsP := make([]*pb.Reading, 0, len(readings))
 	for _, reading := range readings {
 		rReading := make([]*structpb.Value, 0, len(reading.Reading))
 		for _, r := range reading.Reading {
