@@ -26,10 +26,10 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/sensor"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/sensor"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
