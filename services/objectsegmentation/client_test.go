@@ -82,7 +82,6 @@ func TestClient(t *testing.T) {
 
 		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 		test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
 		test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
