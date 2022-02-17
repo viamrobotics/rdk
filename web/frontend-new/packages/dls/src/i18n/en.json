@@ -1,0 +1,18 @@
+{
+  "motor": "Motor",
+  "running": "Running",
+  "idle": "Idle",
+  "position": "Position",
+  "stop": "STOP",
+  "run": "RUN",
+  "type of rotation": "Type of Rotation",
+  "continuous": "Continuous",
+  "discrete": "Discrete",
+  "number of rotations": "Number of Rotations",
+  "direction of rotation": "Direction of Rotation",
+  "forward": "Forward",
+  "backward": "Backward",
+  "mode": "Mode",
+  "power": "Power",
+  "rpm": "RPM"
+}

@@ -3,9 +3,9 @@
     <div class="card">
       <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
-          <h2>{{ motorName }} Motor</h2>
-          <span v-if="motorStatus.on" class="pill green">Running</span>
-          <span v-else class="pill">Idle</span>
+          <h2>{{ motorName }} {{ $t("motor") }}</h2>
+          <span v-if="motorStatus.on" class="pill green">{{ $t("running") }}</span>
+          <span v-else class="pill">{{ $t("idle") }}</span>
         </div>
         <div class="column" v-if="motorStatus.positionSupported">
           <h3 style="line-height: 0.65">{{ motorStatus.position }}</h3>
@@ -120,7 +120,6 @@ import {
   MotorServiceGoToRequest,
 } from "proto/api/component/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
-import { Struct } from "google-protobuf/google/protobuf/struct_pb";
 
 enum MotorCommandType {
   Go = "go",
