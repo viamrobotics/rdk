@@ -21,7 +21,7 @@ func TestNewBox(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometry, test.ShouldResemble, &box{pose: offset, halfSize: [3]float64{0.5, 0.5, 0.5}})
 	_, err = NewBox(offset, r3.Vector{})
-	test.That(t, err.Error(), test.ShouldContainSubstring, NewBadGeometryDimensionsError(&box{}).Error())
+	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&box{}).Error())
 
 	// test box created from GeometryCreator with offset
 	gc, err := NewBoxCreator(r3.Vector{1, 1, 1}, offset)

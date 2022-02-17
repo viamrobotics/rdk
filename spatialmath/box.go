@@ -26,7 +26,7 @@ type box struct {
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
 func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, NewBadGeometryDimensionsError(&box{})
+		return nil, newBadGeometryDimensionsError(&box{})
 	}
 	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
@@ -53,7 +53,7 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector) (Geometry, error) {
 	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
-		return nil, NewBadGeometryDimensionsError(&box{})
+		return nil, newBadGeometryDimensionsError(&box{})
 	}
 	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
 }
@@ -121,7 +121,7 @@ func (b *box) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return pointVsBoxCollision(b, other.pose.Point()), nil
 	}
-	return true, NewCollisionTypeUnsupportedError(b, g)
+	return true, newCollisionTypeUnsupportedError(b, g)
 }
 
 // CollidesWith checks if the given box collides with the given geometry and returns true if it does.
@@ -135,7 +135,7 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(b, other.pose.Point()), nil
 	}
-	return math.Inf(-1), NewCollisionTypeUnsupportedError(b, g)
+	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
 // closestPoint returns the closest point on the specified box to the specified point

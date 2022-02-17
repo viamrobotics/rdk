@@ -93,7 +93,7 @@ func (pt *point) CollidesWith(g Geometry) (bool, error) {
 	if other, ok := g.(*point); ok {
 		return pt.AlmostEqual(other), nil
 	}
-	return true, NewCollisionTypeUnsupportedError(pt, g)
+	return true, newCollisionTypeUnsupportedError(pt, g)
 }
 
 // CollidesWith checks if the given point collides with the given geometry and returns true if it does.
@@ -107,7 +107,7 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 	if other, ok := g.(*point); ok {
 		return pt.pose.Point().Sub(other.pose.Point()).Norm(), nil
 	}
-	return math.Inf(-1), NewCollisionTypeUnsupportedError(pt, g)
+	return math.Inf(-1), newCollisionTypeUnsupportedError(pt, g)
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \
