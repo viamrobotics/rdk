@@ -59,13 +59,13 @@ const MatrixStorageSize = 200
 // A ForceMatrix represents a force sensor that outputs a 2-dimensional array
 // with integers that correlate to the forces applied to the sensor.
 type ForceMatrix interface {
-	sensor.Sensor
 	ReadMatrix(ctx context.Context) ([][]int, error)
 	DetectSlip(ctx context.Context) (bool, error)
 }
 
 var (
 	_ = ForceMatrix(&reconfigurableForceMatrix{})
+	_ = sensor.Sensor(&reconfigurableForceMatrix{})
 	_ = resource.Reconfigurable(&reconfigurableForceMatrix{})
 )
 
@@ -85,6 +85,15 @@ func FromRobot(r robot.Robot, name string) (ForceMatrix, error) {
 // NamesFromRobot is a helper for getting all force matrix sensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// GetReadings is a helper for getting all readings from a force matrix sensor.
+func GetReadings(ctx context.Context, f ForceMatrix) ([]interface{}, error) {
+	matrix, err := f.ReadMatrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return []interface{}{matrix}, nil
 }
 
 type reconfigurableForceMatrix struct {
@@ -110,10 +119,15 @@ func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error
 	return r.actual.DetectSlip(ctx)
 }
 
+// GetReadings will use the default ForceMatrix GetReadings if not provided.
 func (r *reconfigurableForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+
+	if sensor, ok := r.actual.(sensor.Sensor); ok {
+		return sensor.GetReadings(ctx)
+	}
+	return GetReadings(ctx, r.actual)
 }
 
 func (r *reconfigurableForceMatrix) Close(ctx context.Context) error {

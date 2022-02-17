@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -220,11 +221,22 @@ func TestGetReadings(t *testing.T) {
 	actualGPS1 := &mock{Name: testGPSName}
 	reconfGPS1, _ := gps.WrapWithReconfigurable(actualGPS1)
 
-	test.That(t, actualGPS1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfGPS1.(gps.LocalGPS).GetReadings(context.Background())
+	readings1, err := gps.GetReadings(context.Background(), actualGPS1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{loc})
-	test.That(t, actualGPS1.readingsCount, test.ShouldEqual, 1)
+	test.That(t, readings1, test.ShouldResemble, []interface{}{loc.Lat(), loc.Lng(), alt, speed, activeSats, totalSats, hAcc, vAcc, valid})
+
+	result, err := reconfGPS1.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings1)
+
+	actualGPS2 := &mockWithSensor{}
+	reconfGPS2, _ := gps.WrapWithReconfigurable(actualGPS2)
+
+	test.That(t, actualGPS2.readingsCount, test.ShouldEqual, 0)
+	result, err = reconfGPS2.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings)
+	test.That(t, actualGPS2.readingsCount, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
@@ -245,19 +257,20 @@ var (
 	hAcc       = 0.7
 	vAcc       = 0.8
 	valid      = true
+
+	readings = []interface{}{5.6, 6.4}
 )
 
 type mock struct {
 	gps.LocalGPS
-	Name          string
-	locCount      int
-	altCount      int
-	speedCount    int
-	satCount      int
-	accCount      int
-	validCount    int
-	readingsCount int
-	reconfCount   int
+	Name        string
+	locCount    int
+	altCount    int
+	speedCount  int
+	satCount    int
+	accCount    int
+	validCount  int
+	reconfCount int
 }
 
 // ReadLocation always returns the set values.
@@ -296,9 +309,14 @@ func (m *mock) ReadValid(ctx context.Context) (bool, error) {
 	return valid, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return []interface{}{loc}, nil
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockWithSensor struct {
+	mock
+	readingsCount int
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCount++
+	return readings, nil
+}
