@@ -96,11 +96,10 @@ func NewVolumeFromProtobuf(proto *commonpb.Geometry) (Volume, error) {
 		return NewBox(pose, r3.Vector{X: box.WidthMm, Y: box.LengthMm, Z: box.DepthMm})
 	}
 	if sphere := proto.GetSphere(); sphere != nil {
-		vol, err := NewSphere(pose.Point(), sphere.RadiusMm)
-		if err == nil {
-			return vol, nil
+		if sphere.RadiusMm == 0 {
+			return NewPoint(pose.Point()), nil
 		}
-		return NewPoint(pose.Point()), nil
+		return NewSphere(pose.Point(), sphere.RadiusMm)
 	}
 	return nil, errors.New("unknown volume type in proto message")
 }
