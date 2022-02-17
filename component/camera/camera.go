@@ -55,7 +55,7 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Camera represents anything that can capture frames and find objects in a scene.
+// A Camera represents anything that can capture frames.
 type Camera interface {
 	gostream.ImageSource
 	NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error)
