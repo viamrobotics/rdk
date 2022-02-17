@@ -43,7 +43,7 @@ func init() {
 
 // A Service that defines how to segment 2D and/or 3D images from a given camera into objects.
 type Service interface {
-	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
+	GetSegmentation(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -85,28 +85,20 @@ type objectSegService struct {
 	logger golog.Logger
 }
 
-func (seg *objectSegService) GetObjectPointClouds(
+func (seg *objectSegService) GetSegmentation(
 	ctx context.Context,
 	cameraName string,
 	pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
-	// get camera component
 	cam, err := camera.FromRobot(seg.r, cameraName)
 	if err != nil {
 		return nil, err
-	}
-	// return next objects if camera has a NextObjects defined
-	if c, ok := cam.(vision.ObjectSource3D); ok {
-		return c.NextObjects(ctx, pmtrs)
-	}
-	if c, ok := utils.UnwrapProxy(cam).(vision.ObjectSource3D); ok {
-		return c.NextObjects(ctx, pmtrs)
 	}
 	// do default segmentation otherwise
 	cloud, err := cam.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentation.NewObjectSegmentation(ctx, cloud, pmtrs) // default object segmentation
+	segments, err := segmentation.NewObjectSegmentation(ctx, cloud, pmtrs)
 	if err != nil {
 		return nil, err
 	}
