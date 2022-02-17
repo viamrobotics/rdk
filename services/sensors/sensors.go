@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {
