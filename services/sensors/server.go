@@ -4,7 +4,6 @@ package sensors
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -29,7 +28,7 @@ func NewServer(s subtype.Service) pb.SensorsServiceServer {
 func (server *subtypeServer) service() (Service, error) {
 	resource := server.subtypeSvc.Resource(Name.String())
 	if resource == nil {
-		return nil, errors.Errorf("resource %q not found", Name)
+		return nil, utils.NewResourceNotFoundError(Name)
 	}
 	svc, ok := resource.(Service)
 	if !ok {
