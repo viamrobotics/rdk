@@ -11,17 +11,17 @@ import (
 // service.
 type ObjectSegmentationService struct {
 	objectsegmentation.Service
-	GetObjectPointCloudsFunc func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error)
+	GetSegmentationFunc func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error)
 }
 
-// GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
-func (seg *ObjectSegmentationService) GetObjectPointClouds(
+// GetSegmentation calls the injected GetObjectPointClouds or the real variant.
+func (seg *ObjectSegmentationService) GetSegmentation(
 	ctx context.Context,
 	cameraName string,
 	params *vision.Parameters3D,
 ) ([]*vision.Object, error) {
-	if seg.GetObjectPointCloudsFunc == nil {
-		return seg.Service.GetObjectPointClouds(ctx, cameraName, params)
+	if seg.GetSegmentationFunc == nil {
+		return seg.Service.GetSegmentation(ctx, cameraName, params)
 	}
-	return seg.GetObjectPointCloudsFunc(ctx, cameraName, params)
+	return seg.GetSegmentationFunc(ctx, cameraName, params)
 }

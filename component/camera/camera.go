@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
-	"go.viam.com/rdk/vision/segmentation"
 )
 
 func init() {
@@ -110,25 +108,6 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
 }
 
-// NextObjects returns the next Object Segmentation according to the camera, or returns a default segmentation.
-func (is *imageSource) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-	if c, ok := is.ImageSource.(vision.ObjectSource3D); ok {
-		return c.NextObjects(ctx, params)
-	}
-	if c, ok := is.ImageSource.(Camera); ok {
-		pc, err := c.NextPointCloud(ctx)
-		if err != nil {
-			return nil, err
-		}
-		seg, err := segmentation.NewObjectSegmentation(ctx, pc, params)
-		if err != nil {
-			return nil, err
-		}
-		return seg.Objects(), nil
-	}
-	return nil, errors.New("source has no Projector/Camera Intrinsics associated with it to do a projection to a point cloud")
-}
-
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
 type imageSourceWithProjector struct {
 	gostream.ImageSource
@@ -156,38 +135,6 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	}
 	defer closer()
 	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
-}
-
-// NextObjects returns the next Object Segmentation according to the camera, or returns a default segmentation.
-func (iswp *imageSourceWithProjector) NextObjects(ctx context.Context, params *vision.Parameters3D) ([]*vision.Object, error) {
-	if c, ok := iswp.ImageSource.(vision.ObjectSource3D); ok {
-		return c.NextObjects(ctx, params)
-	}
-	if c, ok := iswp.ImageSource.(Camera); ok {
-		pc, err := c.NextPointCloud(ctx)
-		if err != nil {
-			return nil, err
-		}
-		seg, err := segmentation.NewObjectSegmentation(ctx, pc, params) // default segmentation
-		if err != nil {
-			return nil, err
-		}
-		return seg.Objects(), nil
-	}
-	img, closer, err := iswp.Next(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer closer()
-	pc, err := iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
-	if err != nil {
-		return nil, err
-	}
-	seg, err := segmentation.NewObjectSegmentation(ctx, pc, params) // default segmentation
-	if err != nil {
-		return nil, err
-	}
-	return seg.Objects(), nil
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.
