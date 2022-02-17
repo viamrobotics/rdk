@@ -21,11 +21,7 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-type servoConfig struct {
-	Pin string `json:"pin"`
-	Min int    `json:"min,omitempty"`
-	Max int    `json:"max,omitempty"`
-}
+
 
 // init registers a pi servo based on pigpio.
 func init() {
@@ -34,7 +30,7 @@ func init() {
 		picommon.ModelName,
 		registry.Component{
 			Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-				attr := config.ConvertedAttributes.(*servoConfig)
+				attr := config.ConvertedAttributes.(*picommon.ServoConfig)
 
 				if attr.Pin == "" {
 					return nil, errors.New("need pin for pi servo")
@@ -56,14 +52,6 @@ func init() {
 			},
 		},
 	)
-	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeServo,
-		picommon.ModelName,
-		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf servoConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		},
-		&servoConfig{})
 }
 
 // piPigpioServo implements a servo.Servo using pigpio.
