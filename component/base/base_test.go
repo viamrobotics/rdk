@@ -10,6 +10,8 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
+	rutils "go.viam.com/rdk/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -58,8 +60,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = base.FromRobot(r, missingBaseName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named(missingBaseName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 

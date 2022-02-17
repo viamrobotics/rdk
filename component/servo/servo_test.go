@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -57,8 +58,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = servo.FromRobot(r, missingServoName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(servo.Named(missingServoName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 
