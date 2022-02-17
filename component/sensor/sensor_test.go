@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -52,13 +53,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
 
 	s, err = sensor.FromRobot(r, fakeSensorName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Sensor")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", "string"))
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = sensor.FromRobot(r, missingSensorName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensor.Named(missingSensorName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 
@@ -113,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = sensor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of Sensor")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", nil))
 
 	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)

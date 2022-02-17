@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -79,7 +78,7 @@ var (
 func FromRobot(r robot.Robot, name string) (GPS, error) {
 	res, ok := r.ResourceByName(Named(name))
 	if !ok {
-		return nil, errors.Errorf("resource %q not found", Named(name))
+		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	part, ok := res.(GPS)
 	if !ok {

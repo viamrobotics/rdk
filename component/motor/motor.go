@@ -4,14 +4,37 @@ import (
 	"context"
 	"sync"
 
-	"github.com/pkg/errors"
+	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
+	pb "go.viam.com/rdk/proto/api/component/v1"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
+
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.MotorService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterMotorServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
 
 // SubtypeName is a constant that identifies the component resource subtype string "motor".
 const SubtypeName = resource.SubtypeName("motor")
@@ -79,6 +102,24 @@ var (
 	_ = LocalMotor(&reconfigurableMotor{})
 	_ = resource.Reconfigurable(&reconfigurableMotor{})
 )
+
+// FromRobot is a helper for getting the named motor from the given Robot.
+func FromRobot(r robot.Robot, name string) (Motor, error) {
+	res, ok := r.ResourceByName(Named(name))
+	if !ok {
+		return nil, utils.NewResourceNotFoundError(Named(name))
+	}
+	part, ok := res.(Motor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Motor", res)
+	}
+	return part, nil
+}
+
+// NamesFromRobot is a helper for getting all motor names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableMotor struct {
 	mu     sync.RWMutex
@@ -163,7 +204,7 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 	defer r.mu.RUnlock()
 	actual, ok := newMotor.(*reconfigurableMotor)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newMotor)
+		return utils.NewUnexpectedTypeError(r, newMotor)
 	}
 	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
@@ -173,16 +214,16 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 }
 
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
-// If servo is already a reconfigurableMotor, then nothing is done.
+// If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	servo, ok := r.(Motor)
+	motor, ok := r.(Motor)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Motor but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
 	}
-	if reconfigurable, ok := servo.(*reconfigurableMotor); ok {
+	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
 		return reconfigurable, nil
 	}
-	return &reconfigurableMotor{actual: servo}, nil
+	return &reconfigurableMotor{actual: motor}, nil
 }
 
 // PinConfig defines the mapping of where motor are wired.
