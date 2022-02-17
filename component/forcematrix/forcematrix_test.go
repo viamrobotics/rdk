@@ -9,6 +9,8 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/forcematrix"
+	rutils "go.viam.com/rdk/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -56,8 +58,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, s, test.ShouldBeNil)
 
 	s, err = forcematrix.FromRobot(r, missingForceMatrixName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(forcematrix.Named(missingForceMatrixName)))
 	test.That(t, s, test.ShouldBeNil)
 }
 

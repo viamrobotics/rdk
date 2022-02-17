@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -89,7 +88,7 @@ var (
 func FromRobot(r robot.Robot, name string) (Base, error) {
 	res, ok := r.ResourceByName(Named(name))
 	if !ok {
-		return nil, errors.Errorf("resource %q not found", Named(name))
+		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	part, ok := res.(Base)
 	if !ok {

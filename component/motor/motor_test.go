@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -57,8 +58,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = motor.FromRobot(r, missingMotorName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motor.Named(missingMotorName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 

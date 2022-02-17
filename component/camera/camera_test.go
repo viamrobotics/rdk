@@ -12,6 +12,8 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
+	rutils "go.viam.com/rdk/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
@@ -64,8 +66,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = camera.FromRobot(r, missingCameraName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(camera.Named(missingCameraName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 

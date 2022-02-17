@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -56,8 +57,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = gripper.FromRobot(r, missingGripperName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(gripper.Named(missingGripperName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 

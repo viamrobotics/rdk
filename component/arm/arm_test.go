@@ -13,6 +13,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -59,8 +60,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, a, test.ShouldBeNil)
 
 	a, err = arm.FromRobot(r, missingArmName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named(missingArmName)))
 	test.That(t, a, test.ShouldBeNil)
 }
 

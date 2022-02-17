@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	rutils "go.viam.com/rdk/utils"
+
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -57,8 +59,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, res, test.ShouldBeNil)
 
 	res, err = board.FromRobot(r, missingBoardName)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(board.Named(missingBoardName)))
 	test.That(t, res, test.ShouldBeNil)
 }
 
