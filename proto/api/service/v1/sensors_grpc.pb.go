@@ -18,8 +18,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type SensorsServiceClient interface {
-	// Sensors returns the list of all sensors.
-	Sensors(ctx context.Context, in *SensorsServiceSensorsRequest, opts ...grpc.CallOption) (*SensorsServiceSensorsResponse, error)
+	// GetSensors returns the list of all sensors.
+	GetSensors(ctx context.Context, in *SensorsServiceGetSensorsRequest, opts ...grpc.CallOption) (*SensorsServiceGetSensorsResponse, error)
 	// GetReadings returns the list of readings for all sensors specified.
 	GetReadings(ctx context.Context, in *SensorsServiceGetReadingsRequest, opts ...grpc.CallOption) (*SensorsServiceGetReadingsResponse, error)
 }
@@ -32,9 +32,9 @@ func NewSensorsServiceClient(cc grpc.ClientConnInterface) SensorsServiceClient {
 	return &sensorsServiceClient{cc}
 }
 
-func (c *sensorsServiceClient) Sensors(ctx context.Context, in *SensorsServiceSensorsRequest, opts ...grpc.CallOption) (*SensorsServiceSensorsResponse, error) {
-	out := new(SensorsServiceSensorsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.v1.SensorsService/Sensors", in, out, opts...)
+func (c *sensorsServiceClient) GetSensors(ctx context.Context, in *SensorsServiceGetSensorsRequest, opts ...grpc.CallOption) (*SensorsServiceGetSensorsResponse, error) {
+	out := new(SensorsServiceGetSensorsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.v1.SensorsService/GetSensors", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func (c *sensorsServiceClient) GetReadings(ctx context.Context, in *SensorsServi
 // All implementations must embed UnimplementedSensorsServiceServer
 // for forward compatibility
 type SensorsServiceServer interface {
-	// Sensors returns the list of all sensors.
-	Sensors(context.Context, *SensorsServiceSensorsRequest) (*SensorsServiceSensorsResponse, error)
+	// GetSensors returns the list of all sensors.
+	GetSensors(context.Context, *SensorsServiceGetSensorsRequest) (*SensorsServiceGetSensorsResponse, error)
 	// GetReadings returns the list of readings for all sensors specified.
 	GetReadings(context.Context, *SensorsServiceGetReadingsRequest) (*SensorsServiceGetReadingsResponse, error)
 	mustEmbedUnimplementedSensorsServiceServer()
@@ -65,8 +65,8 @@ type SensorsServiceServer interface {
 type UnimplementedSensorsServiceServer struct {
 }
 
-func (UnimplementedSensorsServiceServer) Sensors(context.Context, *SensorsServiceSensorsRequest) (*SensorsServiceSensorsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Sensors not implemented")
+func (UnimplementedSensorsServiceServer) GetSensors(context.Context, *SensorsServiceGetSensorsRequest) (*SensorsServiceGetSensorsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSensors not implemented")
 }
 func (UnimplementedSensorsServiceServer) GetReadings(context.Context, *SensorsServiceGetReadingsRequest) (*SensorsServiceGetReadingsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetReadings not implemented")
@@ -84,20 +84,20 @@ func RegisterSensorsServiceServer(s grpc.ServiceRegistrar, srv SensorsServiceSer
 	s.RegisterService(&SensorsService_ServiceDesc, srv)
 }
 
-func _SensorsService_Sensors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SensorsServiceSensorsRequest)
+func _SensorsService_GetSensors_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SensorsServiceGetSensorsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SensorsServiceServer).Sensors(ctx, in)
+		return srv.(SensorsServiceServer).GetSensors(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.v1.SensorsService/Sensors",
+		FullMethod: "/proto.api.service.v1.SensorsService/GetSensors",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SensorsServiceServer).Sensors(ctx, req.(*SensorsServiceSensorsRequest))
+		return srv.(SensorsServiceServer).GetSensors(ctx, req.(*SensorsServiceGetSensorsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -128,8 +128,8 @@ var SensorsService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*SensorsServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Sensors",
-			Handler:    _SensorsService_Sensors_Handler,
+			MethodName: "GetSensors",
+			Handler:    _SensorsService_GetSensors_Handler,
 		},
 		{
 			MethodName: "GetReadings",
