@@ -88,24 +88,24 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 	return frames[0].transform, err
 }
 
-// Volumes returns an object representing the 3D space associeted with the staticFrame.
-func (m *SimpleModel) Volumes(inputs []Input) (map[string]spatialmath.Volume, error) {
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
 	frames, err := m.jointRadToQuats(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
 	}
 	var errAll error
-	volumeMap := make(map[string]spatialmath.Volume)
+	geometryMap := make(map[string]spatialmath.Geometry)
 	for _, frame := range frames {
-		vol, err := frame.Volumes([]Input{})
-		if vol == nil {
-			// only propagate errors that result in nil volume
+		geometry, err := frame.Geometries([]Input{})
+		if geometry == nil {
+			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		volumeMap[m.name+":"+frame.Name()] = vol[frame.Name()]
+		geometryMap[m.name+":"+frame.Name()] = geometry[frame.Name()]
 	}
-	return volumeMap, errAll
+	return geometryMap, errAll
 }
 
 // CachedTransform will check a sync.Map cache to see if the exact given set of inputs has been computed yet. If so

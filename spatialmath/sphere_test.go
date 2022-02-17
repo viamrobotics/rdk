@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-func makeTestSphere(point r3.Vector, radius float64) Volume {
+func makeTestSphere(point r3.Vector, radius float64) Geometry {
 	sphere, _ := NewSphere(point, radius)
 	return sphere
 }
@@ -17,17 +17,17 @@ func TestNewSphere(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test sphere created from NewBox method
-	vol, err := NewSphere(offset.Point(), 1)
+	geometry, err := NewSphere(offset.Point(), 1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vol, test.ShouldResemble, &sphere{pose: NewPoseFromPoint(offset.Point()), radius: 1})
+	test.That(t, geometry, test.ShouldResemble, &sphere{pose: NewPoseFromPoint(offset.Point()), radius: 1})
 	_, err = NewSphere(offset.Point(), 0)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// test sphere created from VolumeCreator with offset
-	vc, err := NewSphereCreator(1, offset)
+	// test sphere created from GeometryCreator with offset
+	gc, err := NewSphereCreator(1, offset)
 	test.That(t, err, test.ShouldBeNil)
-	vol = vc.NewVolume(PoseInverse(offset))
-	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
+	geometry = gc.NewGeometry(PoseInverse(offset))
+	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
 func TestSphereAlmostEqual(t *testing.T) {

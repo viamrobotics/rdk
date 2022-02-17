@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 )
 
-func makeTestBox(o Orientation, point, dims r3.Vector) Volume {
+func makeTestBox(o Orientation, point, dims r3.Vector) Geometry {
 	box, _ := NewBox(NewPoseFromOrientation(point, o), dims)
 	return box
 }
@@ -17,17 +17,17 @@ func TestNewBox(t *testing.T) {
 	offset := NewPoseFromOrientation(r3.Vector{X: 1, Y: 0, Z: 0}, &EulerAngles{0, 0, math.Pi})
 
 	// test box created from NewBox method
-	vol, err := NewBox(offset, r3.Vector{1, 1, 1})
+	geometry, err := NewBox(offset, r3.Vector{1, 1, 1})
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, vol, test.ShouldResemble, &box{pose: offset, halfSize: [3]float64{0.5, 0.5, 0.5}})
+	test.That(t, geometry, test.ShouldResemble, &box{pose: offset, halfSize: [3]float64{0.5, 0.5, 0.5}})
 	_, err = NewBox(offset, r3.Vector{})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	// test box created from VolumeCreator with offset
-	vc, err := NewBoxCreator(r3.Vector{1, 1, 1}, offset)
+	// test box created from GeometryCreator with offset
+	gc, err := NewBoxCreator(r3.Vector{1, 1, 1}, offset)
 	test.That(t, err, test.ShouldBeNil)
-	vol = vc.NewVolume(PoseInverse(offset))
-	test.That(t, PoseAlmostCoincident(vol.Pose(), NewZeroPose()), test.ShouldBeTrue)
+	geometry = gc.NewGeometry(PoseInverse(offset))
+	test.That(t, PoseAlmostCoincident(geometry.Pose(), NewZeroPose()), test.ShouldBeTrue)
 }
 
 func TestBoxAlmostEqual(t *testing.T) {
