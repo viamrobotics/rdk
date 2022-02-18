@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the contract from object_segmentation.proto.
+// subtypeServer implements the Object Segmentation Service.
 type subtypeServer struct {
 	pb.UnimplementedObjectSegmentationServiceServer
 	subtypeSvc subtype.Service
@@ -52,7 +52,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 		MinPtsInSegment:    int(req.MinPointsInSegment),
 		ClusteringRadiusMm: req.ClusteringRadiusMm,
 	}
-	objects, err := svc.GetSegmentation(ctx, req.Name, config)
+	objects, err := svc.GetObjectPointClouds(ctx, req.Name, config)
 	if err != nil {
 		return nil, err
 	}

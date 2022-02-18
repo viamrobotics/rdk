@@ -42,7 +42,7 @@ func init() {
 
 // A Service that defines how to segment 2D and/or 3D images from a given camera into objects.
 type Service interface {
-	GetSegmentation(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -84,7 +84,7 @@ type objectSegService struct {
 	logger golog.Logger
 }
 
-func (seg *objectSegService) GetSegmentation(
+func (seg *objectSegService) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName string,
 	pmtrs *vision.Parameters3D) ([]*vision.Object, error) {

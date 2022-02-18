@@ -49,7 +49,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	server, err = newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake object point clouds error")
-	injectOSS.GetSegmentationFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 		return nil, passedErr
 	}
 	req := &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{
@@ -78,7 +78,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
 	test.That(t, err, test.ShouldBeNil)
 
-	injectOSS.GetSegmentationFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
 		if err != nil {
 			return nil, err

@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
 		test.That(t, err, test.ShouldBeNil)
 
-		injectOSS.GetSegmentationFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
 			if err != nil {
 				return nil, err
@@ -78,7 +78,7 @@ func TestClient(t *testing.T) {
 			return seg.Objects(), nil
 		}
 
-		segs, err := client.GetSegmentation(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
+		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 		test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
@@ -101,11 +101,11 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake get objects error")
-		injectOSS.GetSegmentationFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.GetSegmentation(context.Background(), "", &vision.Parameters3D{})
+		resp, err := client2.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
