@@ -103,7 +103,7 @@ func (dtp *depthToPretty) Next(ctx context.Context) (image.Image, func(), error)
 	if ii.Depth == nil {
 		return nil, nil, errors.New("no depth")
 	}
-	return ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), func() {}, nil
+	return rimage.MakeImageWithDepth(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), ii.Depth, true), func() {}, nil
 }
 
 func newDepthToPretty(r robot.Robot, attrs *camera.AttrConfig) (camera.Camera, error) {
