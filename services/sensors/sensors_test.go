@@ -2,14 +2,18 @@ package sensors_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -26,40 +30,258 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
-	svc, err := sensors.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc, test.ShouldNotBeNil)
+	t.Run("found sensors service", func(t *testing.T) {
+		svc, err := sensors.FromRobot(r)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, svc, test.ShouldNotBeNil)
 
-	test.That(t, svc1.sensorsCount, test.ShouldEqual, 0)
-	result, err := svc.GetSensors(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, names)
-	test.That(t, svc1.sensorsCount, test.ShouldEqual, 1)
+		test.That(t, svc1.sensorsCount, test.ShouldEqual, 0)
+		result, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, result, test.ShouldResemble, names)
+		test.That(t, svc1.sensorsCount, test.ShouldEqual, 1)
+	})
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "not sensor", true
-	}
+	t.Run("not sensors service", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return "not sensor", true
+		}
 
-	svc, err = sensors.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
-	test.That(t, svc, test.ShouldBeNil)
+		svc, err := sensors.FromRobot(r)
+		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+		test.That(t, svc, test.ShouldBeNil)
+	})
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
-	}
+	t.Run("no sensors service", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return nil, false
+		}
 
-	svc, err = sensors.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensors.Name))
-	test.That(t, svc, test.ShouldBeNil)
+		svc, err := sensors.FromRobot(r)
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensors.Name))
+		test.That(t, svc, test.ShouldBeNil)
+	})
 }
 
-// test new
+func TestNew(t *testing.T) {
+	logger := golog.NewTestLogger(t)
 
-// test get sensors
+	r := &inject.Robot{}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{imu.Named("imu")}
+	}
 
-// test get readings
+	t.Run("resource not found", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return nil, false
+		}
+		_, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(imu.Named("imu")))
+	})
 
-// test update
+	t.Run("no error", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return "something", true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, svc, test.ShouldNotBeNil)
+	})
+}
+
+func TestGetSensors(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	r := &inject.Robot{}
+	sensorNames := []resource.Name{imu.Named("imu"), gps.Named("gps")}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return sensorNames
+	}
+
+	t.Run("no sensors", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return "something", true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		names, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, names, test.ShouldBeEmpty)
+	})
+
+	t.Run("one sensor", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			if name == imu.Named("imu") {
+				return &inject.Sensor{}, true
+			}
+			return "something", true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(imu.Named("imu")))
+	})
+
+	t.Run("many sensors", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return &inject.Sensor{}, true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+	})
+}
+
+func TestGetReadings(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	r := &inject.Robot{}
+	sensorNames := []resource.Name{imu.Named("imu"), gps.Named("gps")}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return sensorNames
+	}
+
+	t.Run("no sensors", func(t *testing.T) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return "something", true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu")})
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a registered sensor")
+	})
+
+	t.Run("failing sensor", func(t *testing.T) {
+		injectSensor := &inject.Sensor{}
+		passedError := errors.New("can't get readings")
+		injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return nil, passedError
+		}
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			return injectSensor, true
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu")})
+		test.That(t, err, test.ShouldBeError, passedError)
+	})
+
+	t.Run("many sensors", func(t *testing.T) {
+		readings1 := []interface{}{1.1, 2.2}
+		injectSensor := &inject.Sensor{}
+		injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return readings1, nil
+		}
+		readings2 := []interface{}{2.2, 3.3}
+		injectSensor2 := &inject.Sensor{}
+		injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return readings2, nil
+		}
+		expected := map[resource.Name]interface{}{
+			imu.Named("imu"): readings1,
+			gps.Named("gps"): readings2,
+		}
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+			switch name {
+			case imu.Named("imu"):
+				return injectSensor, true
+			case gps.Named("gps"):
+				return injectSensor2, true
+			}
+			return nil, false
+		}
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu2")})
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not a registered sensor")
+
+		readings, err := svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu")})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(readings), test.ShouldEqual, 1)
+		reading := readings[0]
+		test.That(t, reading.Name, test.ShouldResemble, imu.Named("imu"))
+		test.That(t, reading.Reading, test.ShouldResemble, readings1)
+
+		readings, err = svc.GetReadings(context.Background(), sensorNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(readings), test.ShouldEqual, 2)
+		test.That(t, readings[0].Reading, test.ShouldResemble, expected[readings[0].Name])
+		test.That(t, readings[1].Reading, test.ShouldResemble, expected[readings[1].Name])
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	r := &inject.Robot{}
+	sensorNames := []resource.Name{imu.Named("imu"), gps.Named("gps")}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return sensorNames
+	}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return &inject.Sensor{}, true
+	}
+
+	t.Run("update with no sensors", func(t *testing.T) {
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+
+		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{imu.Named("imu"): "not sensor"})
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, sNames1, test.ShouldBeEmpty)
+	})
+
+	t.Run("update with one sensor", func(t *testing.T) {
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+
+		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{imu.Named("imu"): &inject.Sensor{}})
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(imu.Named("imu")))
+	})
+
+	t.Run("update with same sensors", func(t *testing.T) {
+		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+
+		err = svc.(resource.Updateable).Update(
+			context.Background(),
+			map[resource.Name]interface{}{imu.Named("imu"): &inject.Sensor{}, gps.Named("gps"): &inject.Sensor{}},
+		)
+		test.That(t, err, test.ShouldBeNil)
+
+		sNames1, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, testutils.NewResourceNameSet(sNames1...), test.ShouldResemble, testutils.NewResourceNameSet(sensorNames...))
+	})
+}
 
 var (
 	names = []resource.Name{gps.Named("gps"), imu.Named("imu")}
@@ -68,8 +290,7 @@ var (
 type mock struct {
 	sensors.Service
 
-	sensorsCount  int
-	readingsCount int
+	sensorsCount int
 }
 
 func (m *mock) GetSensors(ctx context.Context) ([]resource.Name, error) {
