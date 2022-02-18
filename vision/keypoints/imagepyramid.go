@@ -19,8 +19,7 @@ type ImagePyramid struct {
 // downscaleNearestGrayImage downscales an image.Gray by factor.
 func downscaleNearestGrayImage(img *image.Gray, factor float64) (*image.Gray, error) {
 	if img == nil {
-		err := errors.New("input image is nil")
-		return nil, err
+		return nil, errors.New("input image is nil")
 	}
 	imgRect := img.Bounds()
 	newRect := image.Rectangle{

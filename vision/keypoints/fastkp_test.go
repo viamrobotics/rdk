@@ -23,8 +23,8 @@ func createTestImage() *image.Gray {
 }
 
 func TestLoadFASTConfiguration(t *testing.T) {
-	cfg, err := LoadFASTConfiguration("kpconfig.json")
-	test.That(t, err, test.ShouldBeNil)
+	cfg := LoadFASTConfiguration("kpconfig.json")
+	test.That(t, cfg, test.ShouldNotBeNil)
 	test.That(t, cfg.Threshold, test.ShouldEqual, 0.15)
 	test.That(t, cfg.NMatchesCircle, test.ShouldEqual, 9)
 	test.That(t, cfg.NMSWinSize, test.ShouldEqual, 7)
@@ -135,8 +135,8 @@ func TestGetDarkerValues(t *testing.T) {
 
 func TestComputeFAST(t *testing.T) {
 	// load config
-	cfg, err := LoadFASTConfiguration("kpconfig.json")
-	test.That(t, err, test.ShouldBeNil)
+	cfg := LoadFASTConfiguration("kpconfig.json")
+	test.That(t, cfg, test.ShouldNotBeNil)
 	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -164,8 +164,8 @@ func TestComputeFAST(t *testing.T) {
 
 func TestNewFASTKeypointsFromImage(t *testing.T) {
 	// load config
-	cfg, err := LoadFASTConfiguration("kpconfig.json")
-	test.That(t, err, test.ShouldBeNil)
+	cfg := LoadFASTConfiguration("kpconfig.json")
+	test.That(t, cfg, test.ShouldNotBeNil)
 	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
