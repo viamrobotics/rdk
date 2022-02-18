@@ -32,6 +32,7 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
 	rutils "go.viam.com/rdk/utils"
@@ -204,6 +205,7 @@ func TestConfigRemote(t *testing.T) {
 		Services: map[string]bool{
 			"rdk:service:frame_system": true,
 			"rdk:service:web":          true,
+			"rdk:service:sensors":      true,
 		},
 	}
 
@@ -406,6 +408,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Services: map[string]bool{
 					"rdk:service:web":          true,
 					"rdk:service:frame_system": true,
+					"rdk:service:sensors":      true,
 				},
 			}
 
@@ -580,6 +583,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Services: map[string]bool{
 			"rdk:service:web":          true,
 			"rdk:service:frame_system": true,
+			"rdk:service:sensors":      true,
 		},
 	}
 
@@ -686,8 +690,8 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web and metadata service
-	test.That(t, len(svc.All()), test.ShouldEqual, 10)
+	// 8 declared resources + default web, sensors, and metadata service
+	test.That(t, len(svc.All()), test.ShouldEqual, 11)
 
 	resources := map[resource.Name]struct{}{
 		{
@@ -768,6 +772,11 @@ func TestMetadataUpdate(t *testing.T) {
 		{
 			UUID:    "6b2d25f5-81ee-5386-8db8-42a0c5a29df3",
 			Subtype: web.Subtype,
+			Name:    "",
+		}: {},
+		{
+			UUID:    "69f2c4af-f71e-5c49-90b8-9e4a4bf2e900",
+			Subtype: sensors.Subtype,
 			Name:    "",
 		}: {},
 	}
