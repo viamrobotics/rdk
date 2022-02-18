@@ -16,7 +16,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// client is a client satisfies the object_segmentation.proto contract.
+// client is a client that implements the Object Segmentation Service.
 type client struct {
 	conn   rpc.ClientConn
 	client pb.ObjectSegmentationServiceClient
