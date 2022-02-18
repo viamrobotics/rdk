@@ -8,12 +8,13 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/test"
+
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/test"
 )
 
 // Test finding objects in images from the gripper camera in voxel.
