@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the Object Segmentation Service
+// subtypeServer implements the Object Segmentation Service.
 type subtypeServer struct {
 	pb.UnimplementedObjectSegmentationServiceServer
 	subtypeSvc subtype.Service
