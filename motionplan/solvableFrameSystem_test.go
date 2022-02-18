@@ -140,14 +140,12 @@ func TestSolverFrame(t *testing.T) {
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
 
-	// get the Volume at the zero position and test that the output is correct
+	// get the Geometry at the zero position and test that the output is correct
 	inputs := frame.StartPositions(solver)
-	vols, _ := sf.Volumes(sf.mapToSlice(inputs))
-	test.That(t, vols, test.ShouldNotBeNil)
+	geometries, _ := sf.Geometries(sf.mapToSlice(inputs))
+	test.That(t, geometries, test.ShouldNotBeNil)
 	jointExpected := spatial.NewPoseFromPoint(r3.Vector{-425, 0, 162.5})
 	linkOffset := spatial.NewPoseFromPoint(r3.Vector{-190, 0, 0})
 	poseExpect := spatial.Compose(jointExpected, linkOffset)
-	volPose := vols["UR5e:forearm_link"].Pose()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(geometries["UR5e:forearm_link"].Pose(), poseExpect), test.ShouldBeTrue)
 }

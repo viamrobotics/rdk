@@ -20,7 +20,7 @@ type ModelConfig struct {
 		Parent      string                    `json:"parent"`
 		Translation spatial.TranslationConfig `json:"translation"`
 		Orientation spatial.OrientationConfig `json:"orientation"`
-		Volume      spatial.VolumeConfig      `json:"volume"`
+		Geometry    spatial.GeometryConfig    `json:"geometry"`
 	} `json:"links"`
 	Joints []struct {
 		ID     string             `json:"id"`
@@ -31,14 +31,14 @@ type ModelConfig struct {
 		Min    float64            `json:"min"`
 	} `json:"joints"`
 	DHParams []struct {
-		ID     string               `json:"id"`
-		Parent string               `json:"parent"`
-		A      float64              `json:"a"`
-		D      float64              `json:"d"`
-		Alpha  float64              `json:"alpha"`
-		Max    float64              `json:"max"`
-		Min    float64              `json:"min"`
-		Volume spatial.VolumeConfig `json:"volume"`
+		ID       string                 `json:"id"`
+		Parent   string                 `json:"parent"`
+		A        float64                `json:"a"`
+		D        float64                `json:"d"`
+		Alpha    float64                `json:"alpha"`
+		Max      float64                `json:"max"`
+		Min      float64                `json:"min"`
+		Geometry spatial.GeometryConfig `json:"geometry"`
 	} `json:"dhParams"`
 	RawFrames []FrameMapConfig `json:"frames"`
 }
@@ -79,9 +79,9 @@ func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 				return nil, err
 			}
 			pose := spatial.NewPoseFromOrientation(link.Translation.ParseConfig(), orientation)
-			volumeCreator, err := link.Volume.ParseConfig()
+			geometryCreator, err := link.Geometry.ParseConfig()
 			if err == nil {
-				transforms[link.ID], err = NewStaticFrameWithVolume(link.ID, pose, volumeCreator)
+				transforms[link.ID], err = NewStaticFrameWithGeometry(link.ID, pose, geometryCreator)
 			} else {
 				transforms[link.ID], err = NewStaticFrame(link.ID, pose)
 			}

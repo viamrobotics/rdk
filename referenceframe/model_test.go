@@ -68,32 +68,35 @@ func TestTransform(t *testing.T) {
 	test.That(t, firstJov.OZ, test.ShouldAlmostEqual, firstJovExpect.OZ)
 }
 
-func TestModelVolumes(t *testing.T) {
+func TestModelGeometries(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	sm, ok := m.(*SimpleModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(sm.DoF()))
-	vols, _ := sm.Volumes(inputs)
+	geometries, _ := sm.Geometries(inputs)
 
-	test.That(t, vols, test.ShouldNotBeNil)
+	test.That(t, geometries, test.ShouldNotBeNil)
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	numGeometries := 0
 	for _, joint := range expected {
-		if joint.volumeCreator != nil {
+		if joint.geometryCreator != nil {
+			numGeometries++
 			var offset r3.Vector
 			for _, tf := range m.(*SimpleModel).OrdTransforms {
 				if tf.Name() == joint.Name() {
-					vol, err := tf.Volumes([]Input{})
+					geometry, err := tf.Geometries([]Input{})
 					test.That(t, err, test.ShouldBeNil)
-					offset = vol[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
+					offset = geometry[tf.Name()].Pose().Point().Sub(tf.(*staticFrame).transform.Point())
 				}
 			}
 			expected := joint.transform.Point().Add(offset)
-			volCenter := vols[sm.Name()+":"+joint.Name()].Pose().Point()
-			test.That(t, spatial.R3VectorAlmostEqual(expected, volCenter, 1e-3), test.ShouldBeTrue)
+			geometryCenter := geometries[sm.Name()+":"+joint.Name()].Pose().Point()
+			test.That(t, spatial.R3VectorAlmostEqual(expected, geometryCenter, 1e-3), test.ShouldBeTrue)
 		}
 	}
+	test.That(t, numGeometries, test.ShouldEqual, 5)
 }

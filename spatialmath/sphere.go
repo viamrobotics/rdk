@@ -5,12 +5,12 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
-// SphereCreator implements the VolumeCreator interface for sphere structs.
+// SphereCreator implements the GeometryCreator interface for sphere structs.
 type sphereCreator struct {
 	radius float64
 	offset Pose
@@ -22,30 +22,38 @@ type sphere struct {
 	pose   Pose
 }
 
-// NewSphere instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
+// NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
 // at the specified offset from the pose. These spheres have a radius specified by the radius argument.
-func NewSphere(radius float64, offset Pose) (VolumeCreator, error) {
+func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 	if radius <= 0 {
-		return nil, errors.New("sphere dimensions can not be zero")
+		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphereCreator{radius, offset}, nil
 }
 
-// NewVolume instantiates a new sphere from a SphereCreator class.
-func (sc *sphereCreator) NewVolume(pose Pose) Volume {
+// NewGeometry instantiates a new sphere from a SphereCreator class.
+func (sc *sphereCreator) NewGeometry(pose Pose) Geometry {
 	s := &sphere{sc.radius, sc.offset}
 	s.Transform(pose)
 	return s
 }
 
 func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewVolumeConfig(sc.offset)
+	config, err := NewGeometryConfig(sc.offset)
 	if err != nil {
 		return nil, err
 	}
 	config.Type = "sphere"
 	config.R = sc.radius
 	return json.Marshal(config)
+}
+
+// NewSphere instantiates a new sphere Geometry.
+func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
+	if radius <= 0 {
+		return nil, newBadGeometryDimensionsError(&sphere{})
+	}
+	return &sphere{radius, NewPoseFromPoint(pt)}, nil
 }
 
 // Pose returns the pose of the sphere.
@@ -59,9 +67,9 @@ func (s *sphere) Vertices() []r3.Vector {
 	return []r3.Vector{s.pose.Point()}
 }
 
-// AlmostEqual compares the sphere with another volume and checks if they are equivalent.
-func (s *sphere) AlmostEqual(v Volume) bool {
-	other, ok := v.(*sphere)
+// AlmostEqual compares the sphere with another geometry and checks if they are equivalent.
+func (s *sphere) AlmostEqual(g Geometry) bool {
+	other, ok := g.(*sphere)
 	if !ok {
 		return false
 	}
@@ -73,32 +81,44 @@ func (s *sphere) Transform(toPremultiply Pose) {
 	s.pose = Compose(toPremultiply, s.pose)
 }
 
-// CollidesWith checks if the given sphere collides with the given volume and returns true if it does.
-func (s *sphere) CollidesWith(v Volume) (bool, error) {
-	if other, ok := v.(*sphere); ok {
-		return sphereVsSphereDistance(s, other) <= 0, nil
+// ToProto converts the sphere to a Geometry proto message.
+func (s *sphere) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(s.pose),
+		GeometryType: &commonpb.Geometry_Sphere{
+			Sphere: &commonpb.Sphere{
+				RadiusMm: s.radius,
+			},
+		},
 	}
-	if other, ok := v.(*box); ok {
-		return sphereVsBoxCollision(s, other), nil
-	}
-	if other, ok := v.(*point); ok {
-		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
-	}
-	return true, errors.Errorf("collisions between sphere and %T are not supported", v)
 }
 
-// CollidesWith checks if the given sphere collides with the given volume and returns true if it does.
-func (s *sphere) DistanceFrom(v Volume) (float64, error) {
-	if other, ok := v.(*box); ok {
+// CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
+func (s *sphere) CollidesWith(g Geometry) (bool, error) {
+	if other, ok := g.(*sphere); ok {
+		return sphereVsSphereDistance(s, other) <= 0, nil
+	}
+	if other, ok := g.(*box); ok {
+		return sphereVsBoxCollision(s, other), nil
+	}
+	if other, ok := g.(*point); ok {
+		return sphereVsPointDistance(s, other.pose.Point()) <= 0, nil
+	}
+	return true, newCollisionTypeUnsupportedError(s, g)
+}
+
+// CollidesWith checks if the given sphere collides with the given geometry and returns true if it does.
+func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
+	if other, ok := g.(*box); ok {
 		return sphereVsBoxDistance(s, other), nil
 	}
-	if other, ok := v.(*sphere); ok {
+	if other, ok := g.(*sphere); ok {
 		return sphereVsSphereDistance(s, other), nil
 	}
-	if other, ok := v.(*point); ok {
+	if other, ok := g.(*point); ok {
 		return sphereVsPointDistance(s, other.pose.Point()), nil
 	}
-	return math.Inf(-1), errors.Errorf("collisions between sphere and %T are not supported", v)
+	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
 
 // sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it
@@ -124,8 +144,8 @@ func sphereVsBoxCollision(s *sphere, b *box) bool {
 }
 
 // sphereVsBoxDistance takes a box and a sphere as arguments and returns a floating point number.  If this number is nonpositive it
-// represents the penetration depth for the two volumes, which are in collision.  If the returned float is positive it represents the
-// separation distance for the two volumes, which are not in collision.
+// represents the penetration depth for the two geometries, which are in collision.  If the returned float is positive it represents the
+// separation distance for the two geometries, which are not in collision.
 func sphereVsBoxDistance(s *sphere, b *box) float64 {
 	return pointVsBoxDistance(b, s.pose.Point()) - s.radius
 }

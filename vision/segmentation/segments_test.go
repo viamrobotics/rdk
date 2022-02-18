@@ -14,7 +14,7 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap := make(map[pc.Vec3]int)
 	clouds := make([]pc.PointCloud, 0)
 	means := make([]pc.Vec3, 0)
-	boxes := make([]pc.BoxGeometry, 0)
+	boxes := make([]pc.RectangularPrism, 0)
 	for i := 0; i < 3; i++ {
 		clouds = append(clouds, pc.New())
 	}
@@ -32,7 +32,7 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p03.Position()] = 0
 	test.That(t, clouds[0].Set(p03), test.ShouldBeNil)
 	means = append(means, pc.Vec3{0, 0.5, 0.5})
-	boxes = append(boxes, pc.BoxGeometry{0, 1, 1})
+	boxes = append(boxes, pc.RectangularPrism{0, 1, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[0]), test.ShouldResemble, means[0])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[0]), test.ShouldResemble, boxes[0])
 	clusters = append(clusters, NewPointCloudWithMeta(clouds[0]))
@@ -50,7 +50,7 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p13.Position()] = 1
 	test.That(t, clouds[1].Set(p13), test.ShouldBeNil)
 	means = append(means, pc.Vec3{30, 0.5, 0.5})
-	boxes = append(boxes, pc.BoxGeometry{0, 1, 1})
+	boxes = append(boxes, pc.RectangularPrism{0, 1, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[1]), test.ShouldResemble, means[1])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[1]), test.ShouldResemble, boxes[1])
 	clusters = append(clusters, NewPointCloudWithMeta(clouds[1]))
@@ -71,7 +71,7 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p24.Position()] = 2
 	test.That(t, clouds[2].Set(p24), test.ShouldBeNil)
 	means = append(means, pc.Vec3{0.5, 30, 0.5})
-	boxes = append(boxes, pc.BoxGeometry{1, 0, 1})
+	boxes = append(boxes, pc.RectangularPrism{1, 0, 1})
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[2]), test.ShouldResemble, means[2])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[2]), test.ShouldResemble, boxes[2])
 	clusters = append(clusters, NewPointCloudWithMeta(clouds[2]))
@@ -87,14 +87,14 @@ func TestAssignCluter(t *testing.T) {
 	test.That(t, clusters.N(), test.ShouldEqual, 4)
 	test.That(t, clusters.Indices[p30.Position()], test.ShouldEqual, 3)
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.Vec3{30, 30, 1})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.BoxGeometry{0, 0, 0})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.RectangularPrism{0, 0, 0})
 	// assign a new cluster with a large index
 	pNew := pc.NewBasicPoint(30, 30, 30)
 	test.That(t, clusters.AssignCluster(pNew, 100), test.ShouldBeNil)
 	test.That(t, clusters.N(), test.ShouldEqual, 101)
 	test.That(t, clusters.Indices[pNew.Position()], test.ShouldEqual, 100)
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[100]), test.ShouldResemble, pc.Vec3{30, 30, 30})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[100]), test.ShouldResemble, pc.BoxGeometry{0, 0, 0})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[100]), test.ShouldResemble, pc.RectangularPrism{0, 0, 0})
 }
 
 func TestMergeCluster(t *testing.T) {
@@ -122,9 +122,9 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.Vec3{})
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.BoxGeometry{})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.BoxGeometry{30, 1, 1})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.BoxGeometry{1, 0, 1})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.RectangularPrism{})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.RectangularPrism{30, 1, 1})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.RectangularPrism{1, 0, 1})
 
 	// merge to new cluster
 	test.That(t, clusters.MergeClusters(2, 3), test.ShouldBeNil)
@@ -137,8 +137,8 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.Vec3{15, 0.5, 0.5})
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.Vec3{})
 	test.That(t, pc.CalculateMeanOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.Vec3{0.5, 30, 0.5})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.BoxGeometry{})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.BoxGeometry{30, 1, 1})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.BoxGeometry{})
-	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.BoxGeometry{1, 0, 1})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[0]), test.ShouldResemble, pc.RectangularPrism{})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[1]), test.ShouldResemble, pc.RectangularPrism{30, 1, 1})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[2]), test.ShouldResemble, pc.RectangularPrism{})
+	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clusters.Objects[3]), test.ShouldResemble, pc.RectangularPrism{1, 0, 1})
 }

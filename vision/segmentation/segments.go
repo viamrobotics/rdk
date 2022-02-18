@@ -12,7 +12,7 @@ import (
 type PointCloudWithMeta struct {
 	pc.PointCloud
 	Center      pc.Vec3
-	BoundingBox pc.BoxGeometry
+	BoundingBox pc.RectangularPrism
 }
 
 // NewPointCloudWithMeta calculates the metadata for an input pointcloud.
