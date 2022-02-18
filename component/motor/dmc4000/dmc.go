@@ -105,7 +105,7 @@ func init() {
 }
 
 // NewMotor returns a DMC4000 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger) (*Motor, error) {
+func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger) (motor.Motor, error) {
 	if c.SerialDevice == "" {
 		// TODO Search routine
 		return nil, errors.New("couldn't find DMC4000 serial connection")
@@ -495,15 +495,10 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 }
 
 // Position reports the position in revolutions.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	return m.doPosition()
-}
-
-// PositionSupported returns whether or not the motor supports reporting of its position.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -515,7 +510,7 @@ func (m *Motor) Stop(ctx context.Context) error {
 }
 
 // IsOn returns whether or not the motor is currently moving.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
 	stopped, err := m.isStopped()
@@ -674,4 +669,9 @@ func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]int
 	default:
 		return nil, fmt.Errorf("no such command: %s", name)
 	}
+}
+
+
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 }
