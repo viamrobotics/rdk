@@ -5,12 +5,12 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
-// BoxCreator implements the VolumeCreator interface for box structs.
+// BoxCreator implements the GeometryCreator interface for box structs.
 type boxCreator struct {
 	halfSize r3.Vector
 	offset   Pose
@@ -22,24 +22,24 @@ type box struct {
 	halfSize [3]float64
 }
 
-// NewBox instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
+// NewBoxCreator instantiates a BoxCreator class, which allows instantiating boxes given only a pose which is applied
 // at the specified offset from the pose. These boxes have dimensions given by the provided halfSize vector.
-func NewBox(dims r3.Vector, offset Pose) (VolumeCreator, error) {
-	if dims.X == 0 || dims.Y == 0 || dims.Z == 0 {
-		return nil, errors.New("box dimensions can not be zero")
+func NewBoxCreator(dims r3.Vector, offset Pose) (GeometryCreator, error) {
+	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+		return nil, newBadGeometryDimensionsError(&box{})
 	}
 	return &boxCreator{dims.Mul(0.5), offset}, nil
 }
 
-// NewVolume instantiates a new box from a BoxCreator class.
-func (bc *boxCreator) NewVolume(pose Pose) Volume {
+// NewGeometry instantiates a new box from a BoxCreator class.
+func (bc *boxCreator) NewGeometry(pose Pose) Geometry {
 	b := &box{bc.offset, [3]float64{bc.halfSize.X, bc.halfSize.Y, bc.halfSize.Z}}
 	b.Transform(pose)
 	return b
 }
 
 func (bc *boxCreator) MarshalJSON() ([]byte, error) {
-	config, err := NewVolumeConfig(bc.offset)
+	config, err := NewGeometryConfig(bc.offset)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +48,14 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 	config.Y = 2 * bc.halfSize.Y
 	config.Z = 2 * bc.halfSize.Z
 	return json.Marshal(config)
+}
+
+// NewBox instantiates a new box Geometry.
+func NewBox(pose Pose, dims r3.Vector) (Geometry, error) {
+	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+		return nil, newBadGeometryDimensionsError(&box{})
+	}
+	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil
 }
 
 // Pose returns the pose of the box.
@@ -69,9 +77,9 @@ func (b *box) Vertices() []r3.Vector {
 	return vertices
 }
 
-// AlmostEqual compares the box with another volume and checks if they are equivalent.
-func (b *box) AlmostEqual(v Volume) bool {
-	other, ok := v.(*box)
+// AlmostEqual compares the box with another geometry and checks if they are equivalent.
+func (b *box) AlmostEqual(g Geometry) bool {
+	other, ok := g.(*box)
 	if !ok {
 		return false
 	}
@@ -88,32 +96,46 @@ func (b *box) Transform(toPremultiply Pose) {
 	b.pose = Compose(toPremultiply, b.pose)
 }
 
-// CollidesWith checks if the given box collides with the given volume and returns true if it does.
-func (b *box) CollidesWith(v Volume) (bool, error) {
-	if other, ok := v.(*box); ok {
-		return boxVsBoxCollision(b, other), nil
+// ToProto converts the box to a Geometry proto message.
+func (b *box) ToProtobuf() *commonpb.Geometry {
+	return &commonpb.Geometry{
+		Center: PoseToProtobuf(b.pose),
+		GeometryType: &commonpb.Geometry_Box{
+			Box: &commonpb.RectangularPrism{
+				WidthMm:  2 * b.halfSize[0],
+				LengthMm: 2 * b.halfSize[1],
+				DepthMm:  2 * b.halfSize[2],
+			},
+		},
 	}
-	if other, ok := v.(*sphere); ok {
-		return sphereVsBoxCollision(other, b), nil
-	}
-	if other, ok := v.(*point); ok {
-		return pointVsBoxCollision(b, other.pose.Point()), nil
-	}
-	return true, errors.Errorf("collisions between box and %T are not supported", v)
 }
 
-// CollidesWith checks if the given box collides with the given volume and returns true if it does.
-func (b *box) DistanceFrom(v Volume) (float64, error) {
-	if other, ok := v.(*box); ok {
+// CollidesWith checks if the given box collides with the given geometry and returns true if it does.
+func (b *box) CollidesWith(g Geometry) (bool, error) {
+	if other, ok := g.(*box); ok {
+		return boxVsBoxCollision(b, other), nil
+	}
+	if other, ok := g.(*sphere); ok {
+		return sphereVsBoxCollision(other, b), nil
+	}
+	if other, ok := g.(*point); ok {
+		return pointVsBoxCollision(b, other.pose.Point()), nil
+	}
+	return true, newCollisionTypeUnsupportedError(b, g)
+}
+
+// CollidesWith checks if the given box collides with the given geometry and returns true if it does.
+func (b *box) DistanceFrom(g Geometry) (float64, error) {
+	if other, ok := g.(*box); ok {
 		return boxVsBoxDistance(b, other), nil
 	}
-	if other, ok := v.(*sphere); ok {
+	if other, ok := g.(*sphere); ok {
 		return sphereVsBoxDistance(other, b), nil
 	}
-	if other, ok := v.(*point); ok {
+	if other, ok := g.(*point); ok {
 		return pointVsBoxDistance(b, other.pose.Point()), nil
 	}
-	return math.Inf(-1), errors.Errorf("collisions between box and %T are not supported", v)
+	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
 // closestPoint returns the closest point on the specified box to the specified point

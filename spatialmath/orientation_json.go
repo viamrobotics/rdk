@@ -3,8 +3,6 @@ package spatialmath
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/pkg/errors"
 )
 
 // OrientationType defines what orientation representations are known.
@@ -42,7 +40,7 @@ func NewOrientationConfig(o Orientation) (*OrientationConfig, error) {
 	case *EulerAngles:
 		return &OrientationConfig{Type: string(EulerAnglesType), Value: json.RawMessage(bytes)}, nil
 	default:
-		return nil, errors.Errorf("do not know how to map Orientation type %T to json fields", oType)
+		return nil, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", oType))
 	}
 }
 
@@ -82,6 +80,6 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 		}
 		return &o, nil
 	default:
-		return nil, fmt.Errorf("orientation type %s not recognized", config.Type)
+		return nil, newOrientationTypeUnsupportedError(config.Type)
 	}
 }

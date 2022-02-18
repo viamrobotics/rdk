@@ -176,7 +176,7 @@ func TestCollisionConstraint(t *testing.T) {
 	// setup zero position as reference CollisionGraph and use it in handler
 	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	zeroVols, _ := model.Volumes(zeroInput)
+	zeroVols, _ := model.Geometries(zeroInput)
 	test.That(t, zeroVols, test.ShouldNotBeNil)
 	zeroCG, err := CheckCollisions(zeroVols)
 	test.That(t, err, test.ShouldBeNil)

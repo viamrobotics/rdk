@@ -1,7 +1,6 @@
 package spatialmath
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -17,7 +16,7 @@ type RotationMatrix struct {
 // NewRotationMatrix creates the rotation matrix from a slice of floats.
 func NewRotationMatrix(m []float64) (*RotationMatrix, error) {
 	if len(m) != 9 {
-		return nil, fmt.Errorf("input slice has %d elements, need exactly 9", len(m))
+		return nil, newRotationMatrixInputError(m)
 	}
 	mat := [9]float64{m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]}
 	return &RotationMatrix{mat}, nil
