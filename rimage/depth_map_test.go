@@ -144,6 +144,9 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 			i++
 		}
 	}
+	if crop.Empty() {
+		return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{}
+	}
 	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
@@ -164,6 +167,9 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthM
 			i++
 		}
 	}
+	if crop.Empty() {
+		return &DepthMap{data: oriData, width: oriWidth, height: oriHeight}, &DepthMap{}
+	}
 	return &DepthMap{width: oriWidth, height: oriHeight, data: oriData}, &DepthMap{width: cropWidth, height: cropHeight, data: cropData}
 }
 
@@ -180,6 +186,7 @@ func TestSubImage(t *testing.T) {
 		{image.Rect(0, 0, 100, 75), image.Rect(0, 0, 2, 75)},        // crop left
 		{image.Rect(0, 0, 100, 75), image.Rect(95, 70, 105, 80)},    // crop is not a full subset
 		{image.Rect(0, 0, 100, 75), image.Rect(200, 200, 300, 300)}, // out of bounds
+		{image.Rect(0, 0, 100, 75), image.Rectangle{}},              // empty
 	}
 	for _, rec := range tests {
 		originalImg, expectedCrop := makeImagesForSubImageTest(rec.Original, rec.Crop)
