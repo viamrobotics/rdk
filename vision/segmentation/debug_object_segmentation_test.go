@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/rdk/vision"
 )
 
 const debugObjSeg = "VIAM_DEBUG"
@@ -45,7 +46,7 @@ func (h *segmentObjectTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
-	objConfig := ObjectConfig{
+	objConfig := &vision.Parameters3D{
 		MinPtsInPlane:      50000,
 		MinPtsInSegment:    500,
 		ClusteringRadiusMm: 10.0,
@@ -111,7 +112,7 @@ func (h *gripperSegmentTestHelper) Process(
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
 	// Do object segmentation with point clouds
-	objConfig := ObjectConfig{
+	objConfig := &vision.Parameters3D{
 		MinPtsInPlane:      15000,
 		MinPtsInSegment:    100,
 		ClusteringRadiusMm: 10.0,
@@ -128,34 +129,6 @@ func (h *gripperSegmentTestHelper) Process(
 	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, objectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "gripper-segmented-pointcloud-image-with-depth")
-
-	// turn pointclouds into voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
-
-	// Do voxel segmentation
-	voxPlaneConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    30,
-		cosineThresh:   0.1,
-		distanceThresh: 0.1,
-	}
-	voxObjConfig := ObjectConfig{
-		MinPtsInPlane:      15000,
-		MinPtsInSegment:    100,
-		ClusteringRadiusMm: 7.5,
-	}
-
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	voxObjectClouds := voxSegments.PointClouds()
-	voxColoredSegments, err := pc.MergePointCloudsWithColor(voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(voxColoredSegments, "gripper-segments-voxels")
-
-	voxSegImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(voxSegImage, "gripper-segmented-voxels-image-with-depth")
 
 	return nil
 }

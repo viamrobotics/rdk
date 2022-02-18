@@ -649,7 +649,7 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      req = new cameraApi.CameraServiceGetObjectPointCloudsRequest();
+                      let req = new objectSegmentationApi.ObjectSegmentationServiceGetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
@@ -658,10 +658,11 @@
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      cameraService.getObjectPointClouds(req,  {}, (err, resp) => {
+                      objectSegmentationService.getObjectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
+                          console.log(err);
                           theData.pcdClick.calculatingSegments = false;
                           return;
                         }
