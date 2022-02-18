@@ -243,7 +243,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geom
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
-	geometries := make(map[string]spatial.Geometry)
+	sfGeometries := make(map[string]spatial.Geometry)
 	for _, frame := range sf.frames {
 		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame, sf.goalFrame)
 		if geometries == nil {
@@ -252,10 +252,10 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geom
 			continue
 		}
 		for name, geometry := range geometries {
-			geometries[name] = geometry
+			sfGeometries[name] = geometry
 		}
 	}
-	return geometries, errAll
+	return sfGeometries, errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.

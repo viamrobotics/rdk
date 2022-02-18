@@ -81,8 +81,10 @@ func TestModelGeometries(t *testing.T) {
 	expected, err := sm.jointRadToQuats(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
+	numGeometries := 0
 	for _, joint := range expected {
 		if joint.geometryCreator != nil {
+			numGeometries++
 			var offset r3.Vector
 			for _, tf := range m.(*SimpleModel).OrdTransforms {
 				if tf.Name() == joint.Name() {
@@ -92,8 +94,9 @@ func TestModelGeometries(t *testing.T) {
 				}
 			}
 			expected := joint.transform.Point().Add(offset)
-			volCenter := geometries[sm.Name()+":"+joint.Name()].Pose().Point()
-			test.That(t, spatial.R3VectorAlmostEqual(expected, volCenter, 1e-3), test.ShouldBeTrue)
+			geometryCenter := geometries[sm.Name()+":"+joint.Name()].Pose().Point()
+			test.That(t, spatial.R3VectorAlmostEqual(expected, geometryCenter, 1e-3), test.ShouldBeTrue)
 		}
 	}
+	test.That(t, numGeometries, test.ShouldEqual, 5)
 }
