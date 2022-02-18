@@ -108,11 +108,14 @@ func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
 }
 
 // SubImage TODO.
-func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
+func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
+	if r.Empty() {
+		return &DepthMap{}
+	}
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
 	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
 	if xmin == xmax || ymin == ymax { // return empty DepthMap
-		return DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
+		return &DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
 	}
 	width := xmax - xmin
 	height := ymax - ymin
@@ -121,7 +124,7 @@ func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
 		newData = append(newData, dm.data[begin:end]...)
 	}
-	return DepthMap{width: width, height: height, data: newData}
+	return &DepthMap{width: width, height: height, data: newData}
 }
 
 func _readNext(r io.Reader) (int64, error) {
@@ -415,7 +418,7 @@ func (dm *DepthMap) ToGray16Picture() image.Image {
 }
 
 // ToPrettyPicture TODO.
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 	min, max := dm.MinMax()
 
 	if hardMin > 0 && min < hardMin {
@@ -425,7 +428,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 		max = hardMax
 	}
 
-	img := NewImage(dm.Width(), dm.Height())
+	img := image.NewRGBA(image.Rect(0, 0, dm.Width(), dm.Height()))
 
 	span := float64(max) - float64(min)
 
@@ -447,7 +450,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			img.SetXY(x, y, NewColorFromHSV(hue, 1.0, 1.0))
+			img.Set(x, y, NewColorFromHSV(hue, 1.0, 1.0))
 		}
 	}
 

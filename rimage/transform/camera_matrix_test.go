@@ -34,7 +34,7 @@ func TestPC1(t *testing.T) {
 	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
-	pc, err := cameraMatrices.ImageWithDepthToPointCloud(iwd)
+	pc, err := cameraMatrices.ImageWithDepthToPointCloud(iwd, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	file, err := os.OpenFile(outDir+"/x.pcd", os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0o755)

@@ -127,11 +127,14 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 }
 
 // SubImage returns a subset of the image defined by the given rectangle.
-func (i *Image) SubImage(r image.Rectangle) Image {
+func (i *Image) SubImage(r image.Rectangle) *Image {
+	if r.Empty() {
+		return &Image{}
+	}
 	xmin, xmax := utils.MinInt(i.width, r.Min.X), utils.MinInt(i.width, r.Max.X)
 	ymin, ymax := utils.MinInt(i.height, r.Min.Y), utils.MinInt(i.height, r.Max.Y)
 	if xmin == xmax || ymin == ymax { // return empty Image
-		return Image{data: []Color{}, width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin)}
+		return &Image{data: []Color{}, width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin)}
 	}
 	width := xmax - xmin
 	height := ymax - ymin
@@ -140,7 +143,7 @@ func (i *Image) SubImage(r image.Rectangle) Image {
 		begin, end := (y*i.width)+xmin, (y*i.width)+xmax
 		newData = append(newData, i.data[begin:end]...)
 	}
-	return Image{data: newData, width: width, height: height}
+	return &Image{data: newData, width: width, height: height}
 }
 
 // ConvertColorImageToLuminanceFloat convert an Image to a gray level image as a float dense matrix.
