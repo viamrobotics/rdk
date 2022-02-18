@@ -130,34 +130,6 @@ func (h *gripperSegmentTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "gripper-segmented-pointcloud-image-with-depth")
 
-	// turn pointclouds into voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
-
-	// Do voxel segmentation
-	voxPlaneConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    30,
-		cosineThresh:   0.1,
-		distanceThresh: 0.1,
-	}
-	voxObjConfig := &vision.Parameters3D{
-		MinPtsInPlane:      15000,
-		MinPtsInSegment:    100,
-		ClusteringRadiusMm: 7.5,
-	}
-
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
-	test.That(t, err, test.ShouldBeNil)
-
-	voxObjectClouds := voxSegments.PointClouds()
-	voxColoredSegments, err := pc.MergePointCloudsWithColor(voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugPointCloud(voxColoredSegments, "gripper-segments-voxels")
-
-	voxSegImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxObjectClouds)
-	test.That(t, err, test.ShouldBeNil)
-	pCtx.GotDebugImage(voxSegImage, "gripper-segmented-voxels-image-with-depth")
-
 	return nil
 }
 
