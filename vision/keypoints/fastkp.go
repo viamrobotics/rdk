@@ -39,9 +39,8 @@ const (
 
 // FASTPixel stores coordinates of an image point in a neighborhood and its PixelType.
 type FASTPixel struct {
-	X    int
-	Y    int
-	Type PixelType
+	Point image.Point
+	Type  PixelType
 }
 
 // FASTKeypoints stores keypoint locations and orientations (nil if not oriented).
@@ -52,7 +51,7 @@ type FASTKeypoints struct {
 
 // NewFASTKeypointsFromImage returns a pointer to a FASTKeypoints struct containing keypoints locations and
 // orientations if Oriented is set to true in the configuration.
-func NewFASTKeypointsFromImage(img *image.Gray, cfg FASTConfig) *FASTKeypoints {
+func NewFASTKeypointsFromImage(img *image.Gray, cfg *FASTConfig) *FASTKeypoints {
 	kps := ComputeFAST(img, cfg)
 	var orientations []float64
 	if cfg.Oriented {
@@ -94,20 +93,20 @@ var (
 )
 
 // LoadFASTConfiguration loads a FASTConfig from a json file.
-func LoadFASTConfiguration(file string) (FASTConfig, error) {
+func LoadFASTConfiguration(file string) *FASTConfig {
 	var config FASTConfig
 	filePath := filepath.Clean(file)
 	configFile, err := os.Open(filePath)
 	defer utils.UncheckedErrorFunc(configFile.Close)
 	if err != nil {
-		return FASTConfig{}, err
+		return nil
 	}
 	jsonParser := json.NewDecoder(configFile)
 	err = jsonParser.Decode(&config)
 	if err != nil {
-		return FASTConfig{}, err
+		return nil
 	}
-	return config, nil
+	return &config
 }
 
 // GetPointValuesInNeighborhood returns a slice of floats containing the values of neighborhood pixels in image img.
@@ -158,8 +157,8 @@ func sumOfNegativeValuesSlice(s []float64) float64 {
 }
 
 func computeNMSScore(img *image.Gray, pix FASTPixel) float64 {
-	val := float64(img.At(pix.X, pix.Y).(color.Gray).Y)
-	circleValues := GetPointValuesInNeighborhood(img, image.Point{pix.X, pix.Y}, CircleIdx)
+	val := float64(img.At(pix.Point.X, pix.Point.Y).(color.Gray).Y)
+	circleValues := GetPointValuesInNeighborhood(img, pix.Point, CircleIdx)
 	diffValues := make([]float64, len(circleValues))
 	for i, v := range circleValues {
 		diffValues[i] = v - val
@@ -173,15 +172,13 @@ func computeNMSScore(img *image.Gray, pix FASTPixel) float64 {
 func canDeleteNMS(pix FASTPixel, pix2Score map[image.Point]float64, winSize int) bool {
 	for dx := -winSize; dx < winSize+1; dx++ {
 		for dy := -winSize; dy < winSize+1; dy++ {
-			neighbor := image.Point{pix.X + dx, pix.Y + dy}
-			neighborScore, ok := pix2Score[neighbor]
-			if ok {
-				if neighborScore > pix2Score[image.Point{pix.X, pix.Y}] {
-					return true
-				}
+			neighbor := image.Point{pix.Point.X + dx, pix.Point.Y + dy}
+			if neighborScore, ok := pix2Score[neighbor]; ok && neighborScore > pix2Score[pix.Point] {
+				return true
 			}
 		}
 	}
+
 	return false
 }
 
@@ -190,13 +187,13 @@ func nonMaximumSuppression(img *image.Gray, kps []FASTPixel, winSize int) KeyPoi
 	// compute score map
 	pix2score := make(map[image.Point]float64)
 	for _, kp := range kps {
-		pix2score[image.Point{kp.X, kp.Y}] = computeNMSScore(img, kp)
+		pix2score[kp.Point] = computeNMSScore(img, kp)
 	}
 	// initialize keypoints
 	nmsKps := make([]image.Point, 0)
 	for _, kp := range kps {
 		if !canDeleteNMS(kp, pix2score, winSize) {
-			nmsKps = append(nmsKps, image.Point{kp.X, kp.Y})
+			nmsKps = append(nmsKps, kp.Point)
 		}
 	}
 	return nmsKps
@@ -269,7 +266,7 @@ func getDarkerValues(s []float64, t float64) []float64 {
 //    circle are brighter, darker or similar w.r.t. the test pixel.
 //    Decrease the threshold when more corners are desired and
 //    vice-versa.
-func ComputeFAST(img *image.Gray, cfg FASTConfig) KeyPoints {
+func ComputeFAST(img *image.Gray, cfg *FASTConfig) KeyPoints {
 	kps := make([]FASTPixel, 0)
 	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
 	for y := 3; y < h-3; y++ {
@@ -279,9 +276,9 @@ func ComputeFAST(img *image.Gray, cfg FASTConfig) KeyPoints {
 			brighterValues := getBrighterValues(circleValues, pixel+cfg.Threshold)
 			darkerValues := getDarkerValues(circleValues, pixel-cfg.Threshold)
 			if isValidSliceVals(brighterValues, cfg.NMatchesCircle) {
-				kps = append(kps, FASTPixel{x, y, brighter})
+				kps = append(kps, FASTPixel{image.Point{x, y}, brighter})
 			} else if isValidSliceVals(darkerValues, cfg.NMatchesCircle) {
-				kps = append(kps, FASTPixel{x, y, darker})
+				kps = append(kps, FASTPixel{image.Point{x, y}, darker})
 			}
 		}
 	}
