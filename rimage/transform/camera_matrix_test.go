@@ -34,6 +34,10 @@ func TestPC1(t *testing.T) {
 	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
+	pcCrop, err := cameraMatrices.ImageWithDepthToPointCloud(iwd, &image.Rectangle{image.Point{30, 30}, image.Point{50, 50}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pcCrop.Size(), test.ShouldEqual, 1)
+
 	pc, err := cameraMatrices.ImageWithDepthToPointCloud(iwd, nil)
 	test.That(t, err, test.ShouldBeNil)
 
