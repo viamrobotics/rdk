@@ -1,0 +1,135 @@
+package sensors_test
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/imu"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/service/v1"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
+	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
+)
+
+func newServer(sMap map[resource.Name]interface{}) (pb.SensorsServiceServer, error) {
+	sSvc, err := subtype.New(sMap)
+	if err != nil {
+		return nil, err
+	}
+	return sensors.NewServer(sSvc), nil
+}
+
+func TestServerGetSensors(t *testing.T) {
+	sMap := map[resource.Name]interface{}{}
+	server, err := newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
+
+	// set up the robot with something that is not a sensors service
+	sMap = map[resource.Name]interface{}{sensors.Name: "not sensors"}
+	server, err = newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+
+	// error
+	injectSensors := &inject.SensorsService{}
+	sMap = map[resource.Name]interface{}{
+		sensors.Name: injectSensors,
+	}
+	server, err = newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	passedErr := errors.New("can't get sensors")
+	injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
+		return nil, passedErr
+	}
+	_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+	test.That(t, err, test.ShouldBeError, passedErr)
+
+	// returns response
+	names := []resource.Name{gps.Named("gps"), imu.Named("imu")}
+	injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
+		return names, nil
+	}
+	resp, err := server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+	test.That(t, err, test.ShouldBeNil)
+
+	convertedNames := make([]resource.Name, 0, len(resp.SensorNames))
+	for _, rn := range resp.SensorNames {
+		convertedNames = append(convertedNames, protoutils.ProtoToResourceName(rn))
+	}
+	test.That(t, testutils.NewResourceNameSet(convertedNames...), test.ShouldResemble, testutils.NewResourceNameSet(names...))
+}
+
+func TestServerGetReadings(t *testing.T) {
+	sMap := map[resource.Name]interface{}{}
+	server, err := newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = server.GetReadings(context.Background(), &pb.SensorsServiceGetReadingsRequest{})
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
+
+	// set up the robot with something that is not a sensors service
+	sMap = map[resource.Name]interface{}{sensors.Name: "not sensors"}
+	server, err = newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = server.GetReadings(context.Background(), &pb.SensorsServiceGetReadingsRequest{})
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
+
+	// error
+	injectSensors := &inject.SensorsService{}
+	sMap = map[resource.Name]interface{}{
+		sensors.Name: injectSensors,
+	}
+	server, err = newServer(sMap)
+	test.That(t, err, test.ShouldBeNil)
+	passedErr := errors.New("can't get readings")
+	injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		return nil, passedErr
+	}
+	req := &pb.SensorsServiceGetReadingsRequest{
+		SensorNames: []*commonpb.ResourceName{},
+	}
+	_, err = server.GetReadings(context.Background(), req)
+	test.That(t, err, test.ShouldBeError, passedErr)
+
+	// returns response
+	iReading := sensors.Reading{Name: imu.Named("imu"), Reading: []interface{}{1.2, 2.3, 3.4}}
+	gReading := sensors.Reading{Name: gps.Named("gps"), Reading: []interface{}{4.5, 5.6, 6.7}}
+	readings := []sensors.Reading{iReading, gReading}
+	expected := map[resource.Name]interface{}{
+		iReading.Name: iReading.Reading,
+		gReading.Name: gReading.Reading,
+	}
+
+	injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		return readings, nil
+	}
+	resp, err := server.GetReadings(context.Background(), req)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(resp.Readings), test.ShouldEqual, 2)
+
+	conv := func(rs []*structpb.Value) []interface{} {
+		r := make([]interface{}, 0, len(resp.Readings))
+		for _, value := range rs {
+			r = append(r, value.AsInterface())
+		}
+		return r
+	}
+
+	observed := map[resource.Name]interface{}{
+		protoutils.ProtoToResourceName(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
+		protoutils.ProtoToResourceName(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
+	}
+	test.That(t, observed, test.ShouldResemble, expected)
+}
