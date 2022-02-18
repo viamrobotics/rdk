@@ -2,6 +2,7 @@ package spatialmath
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -20,7 +21,7 @@ func TestOrientation(t *testing.T) {
 	err := json.Unmarshal(testMap["wrong"], &ro)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = ro.ParseConfig()
-	test.That(t, err, test.ShouldBeError, errors.New("orientation type oiler_angles not recognized"))
+	test.That(t, err, test.ShouldBeError, newOrientationTypeUnsupportedError("oiler_angles"))
 
 	// Config with good type, but bad value
 	ro = OrientationConfig{}
@@ -38,7 +39,7 @@ func TestOrientation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, o.Quaternion(), test.ShouldResemble, quat.Number{1, 0, 0, 0})
 	_, err = NewOrientationConfig(o)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("do not know how to map Orientation type %T to json fields", o))
+	test.That(t, err, test.ShouldBeError, newOrientationTypeUnsupportedError(fmt.Sprintf("%T", o)))
 
 	// OrientationVectorDegrees Config
 	ro = OrientationConfig{}
