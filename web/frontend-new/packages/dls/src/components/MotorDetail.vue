@@ -3,9 +3,9 @@
     <div class="card">
       <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
-          <h2>{{ motorName }} {{ $t("motor") }}</h2>
-          <span v-if="motorStatus.on" class="pill green">{{ $t("running") }}</span>
-          <span v-else class="pill">{{ $t("idle") }}</span>
+          <h2>{{ motorName }} Motor</h2>
+          <span v-if="motorStatus.on" class="pill green">Running</span>
+          <span v-else class="pill">Idle</span>
         </div>
         <div class="column" v-if="motorStatus.positionSupported">
           <h3 style="line-height: 0.65">{{ motorStatus.position }}</h3>

@@ -1,5 +1,5 @@
 <template>
-  <div id="app">
+  <div id="control">
     <div id="nav">
       <router-link to="/">Home</router-link> |
       <router-link to="/about">About</router-link>
@@ -10,7 +10,7 @@
 
 <script>
 export default {
-  name: 'app',
+  name: 'control',
   components: {
   }
 }
@@ -18,7 +18,7 @@ export default {
 
 <style>
 @import "./assets/css/styles.css";
-#app {
+#control {
   width: 1080px;
 }
 </style>

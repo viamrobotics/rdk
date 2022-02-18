@@ -1,6 +1,6 @@
 import {storiesOf} from "@storybook/vue";
 import {withDesign} from 'storybook-addon-designs';
-import VueI18n from 'vue-i18n';
+// import VueI18n from 'vue-i18n';
 
 function loadLocaleMessages() {
     const locales = require.context("../i18n", true, /[A-Za-z0-9-_,\s]+\.json$/i);
@@ -16,11 +16,11 @@ function loadLocaleMessages() {
 }
 
 storiesOf("MotorDetail", module).add("Default MotorDetail", () => ({
-    i18n: new VueI18n({
-        locale: 'en',
-        fallbackLocale: 'en',
-        messages: loadLocaleMessages(),
-    }),
+    // i18n: new VueI18n({
+    //     locale: 'en',
+    //     fallbackLocale: 'en',
+    //     messages: loadLocaleMessages(),
+    // }),
     data() {
         return {
             status: {

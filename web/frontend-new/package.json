@@ -6,14 +6,10 @@
   ],
   "scripts": {
     "postinstall": "lerna bootstrap",
-    "control": "cd ./packages/control&& npm run serve",
-    "control:build": "cd ./packages/control&& npm run build",
-    "control:test": "cd ./packages/control&& npm run test",
-    "dls": "cd ./packages/control&& npm run serve",
-    "dls:build": "cd ./packages/dls&& npm run build",
-    "dls:test": "cd ./packages/dls&& npm run test",
-    "test": "lerna exec -- npm run test",
-    "lint": "lerna exec -- npm run lint"
+    "build": "lerna run build --stream",
+    "build:dls": "lerna run build --stream --scope=dls",
+    "build:control": "lerna run build --stream --scope=control",
+    "build:api": "lerna run build --stream --scope=rdk-api"
   },
   "devDependencies": {
     "lerna": "^4.0.0"
