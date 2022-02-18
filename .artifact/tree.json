@@ -3420,6 +3420,10 @@
       "hash": "45ca9ed407019c8ef93872c24dff9766",
       "size": 15292
     },
+    "binary_image_nearest_downscaled2.png": {
+      "hash": "f94fef53bb2a6f7e25441f679b71adc6",
+      "size": 1540
+    },
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
       "size": 165941
@@ -50146,6 +50150,12 @@
       "board5.png": {
         "hash": "68cbd22d5bd37ad6de562f5604c0fe9b",
         "size": 1209633
+      }
+    },
+    "keypoints": {
+      "chess3.jpg": {
+        "hash": "0fefadf89ef5ef419d9c98297cd3299e",
+        "size": 30714
       }
     },
     "objectdetection": {
