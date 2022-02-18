@@ -30,11 +30,11 @@ service SensorsService {
 message SensorsServiceGetSensorsRequest {}
 
 message SensorsServiceGetSensorsResponse {
-  repeated common.v1.ResourceName sensors = 1;
+  repeated common.v1.ResourceName sensor_names = 1;
 }
 
 message SensorsServiceGetReadingsRequest {
-  repeated common.v1.ResourceName sensors = 1;
+  repeated common.v1.ResourceName sensor_names = 1;
 }
 
 message Reading {
