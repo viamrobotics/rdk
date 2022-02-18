@@ -27,5 +27,5 @@ func TestObjectCreation(t *testing.T) {
 	obj = NewObject(pc)
 	test.That(t, obj.PointCloud, test.ShouldResemble, pc)
 	test.That(t, obj.Center, test.ShouldResemble, pointcloud.Vec3{0.5, 0.5, 0})
-	test.That(t, obj.BoundingBox, test.ShouldResemble, pointcloud.BoxGeometry{1, 1, 0})
+	test.That(t, obj.BoundingBox, test.ShouldResemble, pointcloud.RectangularPrism{1, 1, 0})
 }
