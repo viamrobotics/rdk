@@ -388,14 +388,14 @@ func (sfs *simpleFrameSystem) geometriesFromParent(
 	}
 
 	// transform from source to world, world to target
-	vols, err := geometriesFromPositions(src, inputMap)
-	if err != nil && vols == nil {
+	geometries, err := geometriesFromPositions(src, inputMap)
+	if err != nil && geometries == nil {
 		return nil, err
 	}
-	for _, vol := range vols {
-		vol.Transform(spatial.Compose(toTarget, fromParent))
+	for _, geometry := range geometries {
+		geometry.Transform(spatial.Compose(toTarget, fromParent))
 	}
-	return vols, err
+	return geometries, err
 }
 
 // compose the quaternions from the input frame to the world referenceframe.

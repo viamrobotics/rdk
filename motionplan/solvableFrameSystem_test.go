@@ -147,7 +147,5 @@ func TestSolverFrame(t *testing.T) {
 	jointExpected := spatial.NewPoseFromPoint(r3.Vector{-425, 0, 162.5})
 	linkOffset := spatial.NewPoseFromPoint(r3.Vector{-190, 0, 0})
 	poseExpect := spatial.Compose(jointExpected, linkOffset)
-	volPose := geometries["UR5e:forearm_link"].Pose()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(geometries["UR5e:forearm_link"].Pose(), poseExpect), test.ShouldBeTrue)
 }
