@@ -32,7 +32,7 @@ export default class RadioButtons extends Vue {
   }
 
   isDisabled(option: string): boolean {
-    // return !!this.disabledOptions?.includes(option);
+    return false;
   }
 
   @Watch("defaultOption")

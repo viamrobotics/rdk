@@ -36,11 +36,11 @@ export default class Camera extends Vue {
   selected: string | undefined = "";
 
   mounted(): void {
-    this.selected = this.defaultOption;
+    // this.selected = this.defaultOption;
   }
 
   isDisabled(option: string): boolean {
-    // return !!this.disabledOptions?.includes(option);
+    return false;
   }
 
   viewCamera(option: string): void {

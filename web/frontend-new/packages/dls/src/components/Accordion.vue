@@ -23,7 +23,7 @@ import "vue-class-component/hooks";
 @Component
 export default class Accordion extends Vue {
   @Prop() title!: string;
-  active: string | undefined = true;
+  active: boolean | undefined = true;
 }
 </script>
 

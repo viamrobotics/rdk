@@ -5,28 +5,37 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
+    "build:dev": "vue-cli-service build --name controlApp --formats umd-min --dest ../../../runtime-shared/static ./src/main.ts",
+    "build:prod": "vue-cli-service build --name controlApp --formats umd-min --dest ../../../runtime-shared/static ./src/main.ts && rm ../../../runtime-shared/static/controlApp.umd.min.js.map",
     "test:unit": "vue-cli-service test:unit",
     "lint": "vue-cli-service lint",
+    "i18n:report": "vue-cli-service i18n:report --src \"./src/**/*.?(js|vue)\" --locales \"./src/i18n/**/*.json\"",
     "storybook": "start-storybook -p 9001 -c .storybook"
   },
   "dependencies": {
+    "@vue/composition-api": "^1.4.6",
     "autoprefixer": "^9.8.8",
     "chart.js": "^2.9.4",
     "chartjs-plugin-streaming": "^1.9.0",
     "core-js": "^3.6.5",
+    "date-fns": "^2.28.0",
     "google-protobuf": "^3.18.0",
+    "lodash": "^4.17.21",
     "postcss": "^7.0.39",
-    "proto": "file:../../../dist/js/proto",
+    "proto": "file:../../../../dist/js/proto",
     "robot": "^0.3.0",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.17",
     "vue": "^2.6.11",
     "vue-chartjs": "^3.5.1",
     "vue-class-component": "^7.2.3",
+    "vue-i18n": "^8.26.3",
+    "vue-i18n-bridge": "^9.2.0-beta.10",
     "vue-property-decorator": "^9.1.2",
     "vue-router": "^3.2.0",
     "vuex": "^3.4.0"
   },
   "devDependencies": {
+    "@intlify/vue-i18n-loader": "^3.2.0",
     "@storybook/addon-essentials": "^6.0.26",
     "@storybook/addon-links": "^6.0.26",
     "@storybook/vue": "^6.4.18",
@@ -44,12 +53,18 @@
     "@vue/eslint-config-prettier": "^6.0.0",
     "@vue/eslint-config-typescript": "^7.0.0",
     "@vue/test-utils": "^1.0.3",
+    "axe-core": "^4.4.1",
     "eslint": "^6.7.2",
     "eslint-plugin-prettier": "^3.3.1",
     "eslint-plugin-vue": "^6.2.2",
     "prettier": "^2.2.1",
+    "storybook-addon-designs": "^6.2.1",
+    "storybook-addon-i18n": "^5.1.13",
     "typescript": "~4.1.5",
+    "vue-axe": "^2.4.4",
+    "vue-cli-plugin-i18n": "~2.3.1",
     "vue-cli-plugin-storybook": "~2.1.0",
-    "vue-template-compiler": "^2.6.11"
+    "vue-template-compiler": "^2.6.11",
+    "vuex-pathify": "^1.5.1"
   }
 }

@@ -6,13 +6,26 @@ const controlSrc = path.resolve(__dirname, 'src')
 const dlsSrc = path.resolve(__dirname, '../dls/src')
 
 module.exports = {
-    configureWebpack: {
-        resolve: {
-            modules: [controlNodeModules, dlsNodeModules],
-            alias: {
-                '@dls': dlsSrc,
-                '@control': controlSrc
-            }
+  pluginOptions: {
+    i18n: {
+      locale: "en",
+      fallbackLocale: "en",
+      localeDir: "i18n",
+      enableInSFC: true,
+      includeLocales: false,
+      enableBridge: true,
+    },
+  },
+  configureWebpack: {
+    output: {
+      filename: 'bundle.js',
+    },
+    resolve: {
+        modules: [controlNodeModules, dlsNodeModules],
+        alias: {
+            '@dls': dlsSrc,
+            '@control': controlSrc
         }
     }
-}
+  }
+};
