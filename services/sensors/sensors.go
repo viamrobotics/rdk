@@ -49,7 +49,7 @@ type Reading struct {
 // A Service centralizes all sensors into one place.
 type Service interface {
 	GetSensors(ctx context.Context) ([]resource.Name, error)
-	GetReadings(ctx context.Context, resources []resource.Name) ([]Reading, error)
+	GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Reading, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -119,12 +119,12 @@ func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error
 }
 
 // GetReadings returns the readings of the resources specified.
-func (s *sensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]Reading, error) {
+func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Reading, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	readings := make([]Reading, 0, len(names))
-	for _, name := range names {
+	readings := make([]Reading, 0, len(sensorNames))
+	for _, name := range sensorNames {
 		sensor, ok := s.sensors[name]
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
