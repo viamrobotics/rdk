@@ -5,10 +5,11 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/vision"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/vision"
 )
 
 func TestVoxelSegmentMeans(t *testing.T) {
