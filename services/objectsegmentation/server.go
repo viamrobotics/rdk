@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/pkg/errors"
-
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
@@ -14,7 +12,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-// subtypeServer implements the Object Segmentation Service.
+// subtypeServer implements the Object Segmentation Service
 type subtypeServer struct {
 	pb.UnimplementedObjectSegmentationServiceServer
 	subtypeSvc subtype.Service
@@ -28,7 +26,7 @@ func NewServer(s subtype.Service) pb.ObjectSegmentationServiceServer {
 func (server *subtypeServer) service() (Service, error) {
 	resource := server.subtypeSvc.Resource(Name.String())
 	if resource == nil {
-		return nil, errors.Errorf("resource %q not found", Name)
+		return nil, utils.NewResourceNotFoundError(Name)
 	}
 	svc, ok := resource.(Service)
 	if !ok {
