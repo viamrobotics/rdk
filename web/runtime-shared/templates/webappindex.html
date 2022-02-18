@@ -27,19 +27,19 @@
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
     <script src="/static/rdk/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/rdk/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/rdk/dls/dls.css">
     <script type="module">
-      import "/static/rdk/components/coreComponents.umd.min.js";
+      import "/static/rdk/dls/dls.umd.min.js";
     </script>
     {{ else }}
-    <script src="/static/control.js"></script>
+    <script src="/static/rdk-api/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/control/controlApp.css">
+    <link rel="stylesheet" href="/static/dls/dls.css">
     <script type="module">
-      import "/static/components/coreComponents.umd.min.js";
+      import "/static/dls/dls.umd.min.js";
     </script>
     {{ end }}
-
     <script>
       function roundTo2Decimals(num) {
           num = Math.round(num * 100);
@@ -402,16 +402,16 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceGetFrameRequest();
+                      req = new cameraApi.CameraServiceRenderFrameRequest();
                       req.setName(cameraName);
-                      const mimeType = 'image/png';
+                      const mimeType = 'image/jpeg';
                       req.setMimeType(mimeType)
-                      cameraService.getFrame(req,  {}, (err, resp) => {
+                      cameraService.renderFrame(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           return;
                         }
-                        let blob = new Blob([resp.getFrame_asU8()], { type: mimeType });
+                        let blob = new Blob([resp.getData_asU8()], { type: mimeType });
                         window.open(URL.createObjectURL(blob), "_blank");
                       });
                   },
@@ -1317,6 +1317,7 @@
           </div>
       {{ end }}
     </div>
+    <div id="control"></div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
@@ -1659,7 +1660,7 @@
         <div id="map" v-map-mounted></div>
       </div>
     </div> <!-- end vue app -->
-
+    <script src="/static/control/controlApp.js"></script>
     <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
