@@ -415,7 +415,7 @@ func (dm *DepthMap) ToGray16Picture() image.Image {
 }
 
 // ToPrettyPicture TODO.
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 	min, max := dm.MinMax()
 
 	if hardMin > 0 && min < hardMin {
@@ -425,7 +425,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 		max = hardMax
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, dm.Width(), dm.Height()))
+	img := NewImage(dm.Width(), dm.Height())
 
 	span := float64(max) - float64(min)
 
@@ -447,7 +447,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			img.Set(x, y, NewColorFromHSV(hue, 1.0, 1.0))
+			img.SetXY(x, y, NewColorFromHSV(hue, 1.0, 1.0))
 		}
 	}
 

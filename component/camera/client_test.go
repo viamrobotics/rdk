@@ -50,7 +50,6 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.New("can't generate next frame")
