@@ -8,5 +8,6 @@ import (
 	_ "go.viam.com/rdk/services/framesystem"
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/objectmanipulation"
+	_ "go.viam.com/rdk/services/objectsegmentation"
 	_ "go.viam.com/rdk/services/web"
 )
