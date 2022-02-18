@@ -73,7 +73,9 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Poin
 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 // Aligns it if it isn't already aligned.
-func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
+func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
+	ii *rimage.ImageWithDepth,
+	crop *image.Rectangle) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
 	// color and depth images need to already be aligned
@@ -85,7 +87,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(ii *rimag
 			return nil, err
 		}
 	}
-	return intrinsics2DTo3D(iwd, &dcie.ColorCamera)
+	return intrinsics2DTo3D(iwd, crop, &dcie.ColorCamera)
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
