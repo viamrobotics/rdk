@@ -658,10 +658,11 @@
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
-                      cameraService.getObjectPointClouds(req,  {}, (err, resp) => {
+                      objectSegmentationService.getObjectPointClouds(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
                           console.log("error getting segments");
+                          console.log(err);
                           theData.pcdClick.calculatingSegments = false;
                           return;
                         }
