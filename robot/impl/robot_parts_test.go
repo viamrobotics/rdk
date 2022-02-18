@@ -24,8 +24,10 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/objectsegmentation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision"
 )
 
 func TestPartsForRemoteRobot(t *testing.T) {
@@ -499,6 +501,19 @@ func TestPartsAdd(t *testing.T) {
 	objectManipulationService, ok := parts.ResourceByName(objectMResName)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
+
+	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
+	injectObjectSegmentationService.GetObjectPointCloudsFunc = func(
+		ctx context.Context,
+		cameraName string,
+		parameters *vision.Parameters3D) ([]*vision.Object, error) {
+		return []*vision.Object{vision.NewEmptyObject()}, nil
+	}
+	objectSegResName := objectsegmentation.Name
+	parts.addResource(objectSegResName, injectObjectSegmentationService)
+	objectSegmentationService, ok := parts.ResourceByName(objectSegResName)
+	test.That(t, ok, test.ShouldBeTrue)
+	test.That(t, objectSegmentationService, test.ShouldEqual, injectObjectSegmentationService)
 }
 
 func TestPartsNewComponent(t *testing.T) {
