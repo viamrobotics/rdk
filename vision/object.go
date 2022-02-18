@@ -16,7 +16,7 @@ type ObjectSource3D interface {
 type Object struct {
 	pc.PointCloud
 	Center      pc.Vec3
-	BoundingBox pc.BoxGeometry
+	BoundingBox pc.RectangularPrism
 }
 
 // NewObject calculates the metadata for an input pointcloud.
