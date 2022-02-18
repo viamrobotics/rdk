@@ -43,7 +43,7 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 

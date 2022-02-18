@@ -67,7 +67,7 @@ func (h *segmentTestHelper) Process(
 
 	pCtx.GotDebugImage(fixed.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(fixed)
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(fixed, nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	// create an image where all the planes in the point cloud are color-coded
@@ -170,7 +170,7 @@ func (h *gripperPlaneTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii, nil)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 
