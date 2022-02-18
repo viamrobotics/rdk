@@ -48,8 +48,8 @@ type Reading struct {
 
 // A Service centralizes all sensors into one place.
 type Service interface {
-	GetReadings(ctx context.Context, resources []resource.Name) ([]Reading, error)
 	GetSensors(ctx context.Context) ([]resource.Name, error)
+	GetReadings(ctx context.Context, resources []resource.Name) ([]Reading, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -106,6 +106,18 @@ type sensorsService struct {
 	logger  golog.Logger
 }
 
+// GetSensors returns all sensors in the robot.
+func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	names := make([]resource.Name, 0, len(s.sensors))
+	for name := range s.sensors {
+		names = append(names, name)
+	}
+	return names, nil
+}
+
 // GetReadings returns the readings of the resources specified.
 func (s *sensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]Reading, error) {
 	s.mu.RLock()
@@ -124,18 +136,6 @@ func (s *sensorsService) GetReadings(ctx context.Context, names []resource.Name)
 		readings = append(readings, Reading{Name: name, Reading: reading})
 	}
 	return readings, nil
-}
-
-// GetSensors returns all sensors in the robot.
-func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	names := make([]resource.Name, 0, len(s.sensors))
-	for name := range s.sensors {
-		names = append(names, name)
-	}
-	return names, nil
 }
 
 // Update updates the sensors service when the robot has changed.
