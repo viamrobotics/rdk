@@ -283,9 +283,7 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-var (
-	names = []resource.Name{gps.Named("gps"), imu.Named("imu")}
-)
+var names = []resource.Name{gps.Named("gps"), imu.Named("imu")}
 
 type mock struct {
 	sensors.Service
