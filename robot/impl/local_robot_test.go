@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -695,15 +696,9 @@ func TestMetadataUpdate(t *testing.T) {
 
 	resources := map[resource.Name]struct{}{
 		{
-			UUID: "00db7188-edaa-5ea9-b573-80ce7d2cee61",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
-				},
-				ResourceSubtype: service.SubtypeName,
-			},
-			Name: "",
+			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
+			Subtype: service.Subtype,
+			Name:    "",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -721,26 +716,14 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "pieceGripper",
 		}: {},
 		{
-			UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps1",
+			UUID:    "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
+			Subtype: gps.Subtype,
+			Name:    "gps1",
 		}: {},
 		{
-			UUID: "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps2",
+			UUID:    "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
+			Subtype: gps.Subtype,
+			Name:    "gps2",
 		}: {},
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
@@ -786,4 +769,23 @@ func TestMetadataUpdate(t *testing.T) {
 		svcResourcesSet[r] = struct{}{}
 	}
 	test.That(t, svcResourcesSet, test.ShouldResemble, resources)
+}
+
+func TestSensorsService(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	svc, err := sensors.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+
+	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	foundSensors, err := svc.GetSensors(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
