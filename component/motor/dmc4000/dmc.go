@@ -213,6 +213,9 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	}
 	ctrl.port = port
 
+	// Set echo off to not scramble our returns
+	_, _ = ctrl.sendCmd("EO 0")
+
 	ret, err := ctrl.sendCmd("ID")
 	if err != nil {
 		return nil, err
@@ -405,6 +408,10 @@ func (m *Motor) posToSteps(pos float64) int32 {
 
 // SetPower sets the percentage of power the motor should employ between 0-1.
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+	// Need this because the UI currently sends SetPower(0) instead of Stop()
+	if powerPct == 0 {
+		return m.Stop(ctx)
+	}
 	return errors.New("power not supported for stepper motors")
 }
 
