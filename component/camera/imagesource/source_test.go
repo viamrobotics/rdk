@@ -46,7 +46,7 @@ func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
 }
 
 func TestDualServerSourceNoDepth(t *testing.T) {
-	s := dualServerSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
+	s := dualServerSource{ColorURL: "https://via.placeholder.com/350x150", DepthURL: ""}
 	_, _, err := s.Next(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
 }
