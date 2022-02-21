@@ -37,7 +37,8 @@ func TestVoxelSegmentMeans(t *testing.T) {
 	test.That(t, voxSegments.N(), test.ShouldBeGreaterThan, 0)
 	// get center points
 	for i := 0; i < voxSegments.N(); i++ {
-		mean := pc.CalculateMeanOfPointCloud(voxSegments.Segments.Objects[i].PointCloud)
+		box, err := pc.BoundingBoxFromPointCloud(segments.Segments.Objects[i].PointCloud)
+		test.That(t, err, test.ShouldBeNil)
 		expMean := voxSegments.Segments.Objects[i].Center
 		test.That(t, mean, test.ShouldResemble, expMean)
 	}

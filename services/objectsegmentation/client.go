@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/v1"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -76,24 +75,19 @@ func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, pa
 func protoToObjects(pco []*pb.PointCloudObject) ([]*vision.Object, error) {
 	objects := make([]*vision.Object, len(pco))
 	for i, o := range pco {
-		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.Frame))
+		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud))
+		if err != nil {
+			return nil, err
+		}
+		box, err := pointcloud.BoundingBoxFromPointCloud(pc)
 		if err != nil {
 			return nil, err
 		}
 		object := &vision.Object{
 			PointCloud:  pc,
-			Center:      protoToPoint(o.CenterCoordinatesMm),
-			BoundingBox: protoToBox(o.BoundingBoxMm),
+			BoundingBox: box,
 		}
 		objects[i] = object
 	}
 	return objects, nil
-}
-
-func protoToPoint(p *commonpb.Vector3) pointcloud.Vec3 {
-	return pointcloud.Vec3{p.X, p.Y, p.Z}
-}
-
-func protoToBox(b *commonpb.RectangularPrism) pointcloud.RectangularPrism {
-	return pointcloud.RectangularPrism{b.WidthMm, b.LengthMm, b.DepthMm}
 }

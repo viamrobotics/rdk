@@ -3,9 +3,11 @@ package vision
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestObjectCreation(t *testing.T) {
@@ -26,6 +28,7 @@ func TestObjectCreation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	obj = NewObject(pc)
 	test.That(t, obj.PointCloud, test.ShouldResemble, pc)
-	test.That(t, obj.Center, test.ShouldResemble, pointcloud.Vec3{0.5, 0.5, 0})
-	test.That(t, obj.BoundingBox, test.ShouldResemble, pointcloud.RectangularPrism{1, 1, 0})
+	expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0.5, 0.5, 0}), r3.Vector{1, 1, 0})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj.BoundingBox.AlmostEqual(expectedBox), test.ShouldBeTrue)
 }

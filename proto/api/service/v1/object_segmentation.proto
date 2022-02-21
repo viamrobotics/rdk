@@ -39,12 +39,3 @@ message ObjectSegmentationServiceGetObjectPointCloudsResponse {
   // List of objects in the scene
   repeated PointCloudObject objects = 2;
 }
-
-message PointCloudObject {
-  // Frame of object in bytes
-  bytes frame = 1;
-  // Center of object in mm
-  common.v1.Vector3 center_coordinates_mm = 2;
-  // Bounding box of object in mm
-  common.v1.RectangularPrism bounding_box_mm = 3;
-}
