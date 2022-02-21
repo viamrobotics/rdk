@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 )
 
 // client is a client satisfies the object_manipulation.proto contract.
@@ -52,7 +52,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
-	resp, err := c.client.DoGrab(ctx, &pb.ObjectManipulationServiceDoGrabRequest{
+	resp, err := c.client.DoGrab(ctx, &pb.DoGrabRequest{
 		GripperName: gripperName,
 		CameraName:  cameraName,
 		CameraPoint: vectorToProto(cameraPoint),

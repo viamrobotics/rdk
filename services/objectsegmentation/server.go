@@ -6,7 +6,7 @@ import (
 
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -39,8 +39,8 @@ func (server *subtypeServer) service() (Service, error) {
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
 func (server *subtypeServer) GetObjectPointClouds(
 	ctx context.Context,
-	req *pb.ObjectSegmentationServiceGetObjectPointCloudsRequest,
-) (*pb.ObjectSegmentationServiceGetObjectPointCloudsResponse, error) {
+	req *pb.GetObjectPointCloudsRequest,
+) (*pb.GetObjectPointCloudsResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -59,7 +59,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 		return nil, err
 	}
 
-	return &pb.ObjectSegmentationServiceGetObjectPointCloudsResponse{
+	return &pb.GetObjectPointCloudsResponse{
 		MimeType: utils.MimeTypePCD,
 		Objects:  protoSegments,
 	}, nil

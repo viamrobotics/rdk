@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -31,8 +31,8 @@ func newServer() (pb.BoardServiceServer, *inject.Board, error) {
 }
 
 func TestServerStatus(t *testing.T) {
-	type request = pb.BoardServiceStatusRequest
-	type response = pb.BoardServiceStatusResponse
+	type request = pb.StatusRequest
+	type response = pb.StatusResponse
 	ctx := context.Background()
 
 	status := &commonpb.BoardStatus{
@@ -108,7 +108,7 @@ func TestServerStatus(t *testing.T) {
 }
 
 func TestServerSetGPIO(t *testing.T) {
-	type request = pb.BoardServiceSetGPIORequest
+	type request = pb.SetGPIORequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -164,8 +164,8 @@ func TestServerSetGPIO(t *testing.T) {
 }
 
 func TestServerGetGPIO(t *testing.T) {
-	type request = pb.BoardServiceGetGPIORequest
-	type response = pb.BoardServiceGetGPIOResponse
+	type request = pb.GetGPIORequest
+	type response = pb.GetGPIOResponse
 	ctx := context.Background()
 
 	tests := []struct {
@@ -232,7 +232,7 @@ func TestServerGetGPIO(t *testing.T) {
 }
 
 func TestServerSetPWM(t *testing.T) {
-	type request = pb.BoardServiceSetPWMRequest
+	type request = pb.SetPWMRequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -288,7 +288,7 @@ func TestServerSetPWM(t *testing.T) {
 }
 
 func TestServerSetPWMFrequency(t *testing.T) {
-	type request = pb.BoardServiceSetPWMFrequencyRequest
+	type request = pb.SetPWMFrequencyRequest
 	ctx := context.Background()
 
 	tests := []struct {
@@ -345,8 +345,8 @@ func TestServerSetPWMFrequency(t *testing.T) {
 
 //nolint:dupl
 func TestServerReadAnalogReader(t *testing.T) {
-	type request = pb.BoardServiceReadAnalogReaderRequest
-	type response = pb.BoardServiceReadAnalogReaderResponse
+	type request = pb.ReadAnalogReaderRequest
+	type response = pb.ReadAnalogReaderResponse
 	ctx := context.Background()
 
 	tests := []struct {
@@ -447,8 +447,8 @@ func TestServerReadAnalogReader(t *testing.T) {
 
 //nolint:dupl
 func TestServerGetDigitalInterruptValue(t *testing.T) {
-	type request = pb.BoardServiceGetDigitalInterruptValueRequest
-	type response = pb.BoardServiceGetDigitalInterruptValueResponse
+	type request = pb.GetDigitalInterruptValueRequest
+	type response = pb.GetDigitalInterruptValueResponse
 	ctx := context.Background()
 
 	tests := []struct {

@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -71,14 +71,14 @@ func clientFromSvcClient(sc *serviceClient, name string) Gripper {
 }
 
 func (c *client) Open(ctx context.Context) error {
-	_, err := c.client.Open(ctx, &pb.GripperServiceOpenRequest{
+	_, err := c.client.Open(ctx, &pb.OpenRequest{
 		Name: c.name,
 	})
 	return err
 }
 
 func (c *client) Grab(ctx context.Context) (bool, error) {
-	resp, err := c.client.Grab(ctx, &pb.GripperServiceGrabRequest{
+	resp, err := c.client.Grab(ctx, &pb.GrabRequest{
 		Name: c.name,
 	})
 	if err != nil {
