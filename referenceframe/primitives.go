@@ -3,7 +3,7 @@ package referenceframe
 import (
 	"context"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/utils"
 )
 

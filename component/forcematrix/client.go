@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 )
 
 // serviceClient satisfies the force_matrix.proto contract.
@@ -74,7 +74,7 @@ func clientFromSvcClient(sc *serviceClient, name string) ForceMatrix {
 
 func (c *client) ReadMatrix(ctx context.Context) ([][]int, error) {
 	resp, err := c.client.ReadMatrix(ctx,
-		&pb.ForceMatrixServiceReadMatrixRequest{
+		&pb.ReadMatrixRequest{
 			Name: c.name,
 		})
 	if err != nil {
@@ -85,7 +85,7 @@ func (c *client) ReadMatrix(ctx context.Context) ([][]int, error) {
 
 func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 	resp, err := c.client.DetectSlip(ctx,
-		&pb.ForceMatrixServiceDetectSlipRequest{
+		&pb.DetectSlipRequest{
 			Name: c.name,
 		})
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *client) Close() error {
 }
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixServiceReadMatrixResponse) [][]int {
+func protoToMatrix(matrixResponse *pb.ReadMatrixResponse) [][]int {
 	numRows := matrixResponse.Matrix.Rows
 	numCols := matrixResponse.Matrix.Cols
 

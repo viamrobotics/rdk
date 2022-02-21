@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -38,8 +38,8 @@ func (s *subtypeServer) getArm(name string) (Arm, error) {
 // GetEndPosition returns the position of the arm specified.
 func (s *subtypeServer) GetEndPosition(
 	ctx context.Context,
-	req *pb.ArmServiceGetEndPositionRequest,
-) (*pb.ArmServiceGetEndPositionResponse, error) {
+	req *pb.GetEndPositionRequest,
+) (*pb.GetEndPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -51,14 +51,14 @@ func (s *subtypeServer) GetEndPosition(
 	convertedPos := &commonpb.Pose{
 		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 	}
-	return &pb.ArmServiceGetEndPositionResponse{Pose: convertedPos}, nil
+	return &pb.GetEndPositionResponse{Pose: convertedPos}, nil
 }
 
 // GetJointPositions gets the current joint position of an arm of the underlying robot.
 func (s *subtypeServer) GetJointPositions(
 	ctx context.Context,
-	req *pb.ArmServiceGetJointPositionsRequest,
-) (*pb.ArmServiceGetJointPositionsResponse, error) {
+	req *pb.GetJointPositionsRequest,
+) (*pb.GetJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -68,29 +68,29 @@ func (s *subtypeServer) GetJointPositions(
 		return nil, err
 	}
 	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
-	return &pb.ArmServiceGetJointPositionsResponse{PositionDegs: convertedPos}, nil
+	return &pb.GetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
 func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
-	req *pb.ArmServiceMoveToPositionRequest,
-) (*pb.ArmServiceMoveToPositionResponse, error) {
+	req *pb.MoveToPositionRequest,
+) (*pb.MoveToPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
 func (s *subtypeServer) MoveToJointPositions(
 	ctx context.Context,
-	req *pb.ArmServiceMoveToJointPositionsRequest,
-) (*pb.ArmServiceMoveToJointPositionsResponse, error) {
+	req *pb.MoveToJointPositionsRequest,
+) (*pb.MoveToJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
 }

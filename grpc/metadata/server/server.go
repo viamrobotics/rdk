@@ -5,7 +5,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/metadata/service"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 )
 
 // MetadataServer implements the contract from metadata.proto.

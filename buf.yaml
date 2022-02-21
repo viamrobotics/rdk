@@ -13,10 +13,7 @@ lint:
     - DEFAULT
   ignore_only:
     RPC_RESPONSE_STANDARD_NAME:
-      - proto/api/v1/robot.proto
-      - proto/api/component/v1/camera.proto
-    RPC_REQUEST_RESPONSE_UNIQUE:
-      - proto/api/v1/robot.proto
+      - proto/api/component/camera/v1/camera.proto
 breaking:
   use:
     - FILE

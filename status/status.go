@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
