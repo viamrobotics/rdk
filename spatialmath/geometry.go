@@ -89,7 +89,7 @@ func (config *GeometryConfig) ParseConfig() (GeometryCreator, error) {
 }
 
 // NewGeometryFromProtobuf instatiates a new Geometry from a protobuf Geometry message.
-func NewGeometryFromProtobuf(geometry *commonpb.Geometry) (Geometry, error) {
+func NewGeometryFromProto(geometry *commonpb.Geometry) (Geometry, error) {
 	pose := NewPoseFromProtobuf(geometry.Center)
 	if box := geometry.GetBox(); box != nil {
 		return NewBox(pose, r3.Vector{X: box.WidthMm, Y: box.LengthMm, Z: box.DepthMm})

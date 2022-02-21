@@ -34,6 +34,8 @@ func createPointClouds(t *testing.T) *Segments {
 	test.That(t, clouds[0].Set(p03), test.ShouldBeNil)
 	means = append(means, pc.Vec3{0, 0.5, 0.5})
 	boxes = append(boxes, pc.RectangularPrism{0, 1, 1})
+	box, err := pc.BoundingBoxFromPointCloud(clouds[0])
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.CalculateMeanOfPointCloud(clouds[0]), test.ShouldResemble, means[0])
 	test.That(t, pc.CalculateBoundingBoxOfPointCloud(clouds[0]), test.ShouldResemble, boxes[0])
 	clusters = append(clusters, vision.NewObject(clouds[0]))
