@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"

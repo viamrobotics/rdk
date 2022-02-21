@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 )
 
 // client is a client satisfies the frame_system.proto contract.
@@ -51,7 +51,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
-	resp, err := c.client.Config(ctx, &pb.FrameSystemServiceConfigRequest{})
+	resp, err := c.client.Config(ctx, &pb.ConfigRequest{})
 	if err != nil {
 		return nil, err
 	}

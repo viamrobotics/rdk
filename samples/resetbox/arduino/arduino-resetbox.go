@@ -17,7 +17,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gripper"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
 	webserver "go.viam.com/rdk/web/server"
 )

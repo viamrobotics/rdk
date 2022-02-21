@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -38,8 +38,8 @@ func (s *subtypeServer) getInputController(name string) (Controller, error) {
 // GetControls lists the inputs of an Controller.
 func (s *subtypeServer) GetControls(
 	ctx context.Context,
-	req *pb.InputControllerServiceGetControlsRequest,
-) (*pb.InputControllerServiceGetControlsResponse, error) {
+	req *pb.GetControlsRequest,
+) (*pb.GetControlsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func (s *subtypeServer) GetControls(
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceGetControlsResponse{}
+	resp := &pb.GetControlsResponse{}
 
 	for _, control := range controlList {
 		resp.Controls = append(resp.Controls, string(control))
@@ -61,8 +61,8 @@ func (s *subtypeServer) GetControls(
 // GetEvents returns the last Event (current state) of each control.
 func (s *subtypeServer) GetEvents(
 	ctx context.Context,
-	req *pb.InputControllerServiceGetEventsRequest,
-) (*pb.InputControllerServiceGetEventsResponse, error) {
+	req *pb.GetEventsRequest,
+) (*pb.GetEventsResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
@@ -73,10 +73,10 @@ func (s *subtypeServer) GetEvents(
 		return nil, err
 	}
 
-	resp := &pb.InputControllerServiceGetEventsResponse{}
+	resp := &pb.GetEventsResponse{}
 
 	for _, eventIn := range eventsIn {
-		resp.Events = append(resp.Events, &pb.InputControllerServiceEvent{
+		resp.Events = append(resp.Events, &pb.Event{
 			Time:    timestamppb.New(eventIn.Time),
 			Event:   string(eventIn.Event),
 			Control: string(eventIn.Control),
@@ -90,8 +90,8 @@ func (s *subtypeServer) GetEvents(
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (s *subtypeServer) TriggerEvent(
 	ctx context.Context,
-	req *pb.InputControllerServiceTriggerEventRequest,
-) (*pb.InputControllerServiceTriggerEventResponse, error) {
+	req *pb.TriggerEventRequest,
+) (*pb.TriggerEventResponse, error) {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return nil, err
@@ -111,22 +111,22 @@ func (s *subtypeServer) TriggerEvent(
 		return nil, err
 	}
 
-	return &pb.InputControllerServiceTriggerEventResponse{}, nil
+	return &pb.TriggerEventResponse{}, nil
 }
 
 // StreamEvents returns a stream of Event.
 func (s *subtypeServer) StreamEvents(
-	req *pb.InputControllerServiceStreamEventsRequest,
+	req *pb.StreamEventsRequest,
 	server pb.InputControllerService_StreamEventsServer,
 ) error {
 	controller, err := s.getInputController(req.Controller)
 	if err != nil {
 		return err
 	}
-	eventsChan := make(chan *pb.InputControllerServiceEvent, 1024)
+	eventsChan := make(chan *pb.Event, 1024)
 
 	ctrlFunc := func(ctx context.Context, eventIn Event) {
-		resp := &pb.InputControllerServiceEvent{
+		resp := &pb.Event{
 			Time:    timestamppb.New(eventIn.Time),
 			Event:   string(eventIn.Event),
 			Control: string(eventIn.Control),
@@ -167,7 +167,7 @@ func (s *subtypeServer) StreamEvents(
 		case <-server.Context().Done():
 			return server.Context().Err()
 		case msg := <-eventsChan:
-			err := server.Send(&pb.InputControllerServiceStreamEventsResponse{Event: msg})
+			err := server.Send(&pb.StreamEventsResponse{Event: msg})
 			if err != nil {
 				return err
 			}

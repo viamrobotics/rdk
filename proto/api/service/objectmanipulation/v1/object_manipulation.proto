@@ -1,0 +1,28 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/v1";
+option java_package = "com.viam.rdk.proto.api.service.v1";
+
+package proto.api.service.objectmanipulation.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A ObjectManipulationService declares the gRPC contract for an object manipulation service
+service ObjectManipulationService {
+  rpc DoGrab(DoGrabRequest) returns (DoGrabResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/service/object_manipulation/do_grab"
+    };
+  }
+}
+
+message DoGrabRequest {
+  string camera_name = 1;
+  common.v1.Vector3 camera_point = 2;
+  string gripper_name = 3;
+  string arm_name = 4;
+}
+
+message DoGrabResponse {
+  bool success = 1;
+}

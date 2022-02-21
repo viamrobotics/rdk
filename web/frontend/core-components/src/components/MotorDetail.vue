@@ -115,12 +115,12 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
-} from "proto/api/v1/robot_pb";
+} from "proto/api/robot/v1/robot_pb";
 import {
-  MotorServiceSetPowerRequest,
-  MotorServiceGoForRequest,
-  MotorServiceGoToRequest,
-} from "proto/api/component/v1/motor_pb";
+  SetPowerRequest,
+  GoForRequest,
+  GoToRequest,
+} from "proto/api/component/motor/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
 import { Struct } from "google-protobuf/google/protobuf/struct_pb";
 
@@ -204,21 +204,21 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorServiceSetPowerRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
+    request: SetPowerRequest | GoForRequest | GoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorServiceSetPowerRequest();
+        req = new SetPowerRequest();
         req.setPowerPct(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
-        req = new MotorServiceGoForRequest();
+        req = new GoForRequest();
         req.setRpm(this.speed * this.direction);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new MotorServiceGoToRequest();
+        req = new GoToRequest();
         req.setRpm(this.speed);
         req.setPositionRevolutions(this.position);
         break;

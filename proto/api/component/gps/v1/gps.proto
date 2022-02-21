@@ -1,0 +1,56 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.gps.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// GPSService services all GPSs associated with a robot
+service GPSService {
+  // ReadLocation returns the most recent location from the given GPS.
+  rpc ReadLocation(ReadLocationRequest) returns (ReadLocationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/gps/{name}/location"
+    };
+  }
+
+  // ReadAltitude returns the most recent altitude from the given GPS.
+  rpc ReadAltitude(ReadAltitudeRequest) returns (ReadAltitudeResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/gps/{name}/altitude"
+    };
+  }
+
+  // ReadSpeed returns the most recent speed from the given GPS.
+  rpc ReadSpeed(ReadSpeedRequest) returns (ReadSpeedResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/gps/{name}/speed"
+    };
+  }
+}
+
+message ReadLocationRequest {
+  string name = 1;
+}
+
+message ReadLocationResponse {
+  common.v1.GeoPoint coordinate = 1;
+}
+
+message ReadAltitudeRequest {
+  string name = 1;
+}
+
+message ReadAltitudeResponse {
+  double altitude_meters = 1;
+}
+
+message ReadSpeedRequest {
+  string name = 1;
+}
+
+message ReadSpeedResponse {
+  double speed_mm_per_sec = 1;
+}

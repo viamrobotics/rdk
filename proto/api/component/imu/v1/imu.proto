@@ -1,0 +1,93 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.imu.v1;
+
+import "google/api/annotations.proto";
+
+// IMUService services all IMUs associated with a robot
+service IMUService {
+  // ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
+  rpc ReadAngularVelocity(ReadAngularVelocityRequest) returns (ReadAngularVelocityResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/imu/{name}/angular_velocity"
+    };
+  }
+
+  // ReadOrientation returns the most recent orientation reading from the given IMU.
+  rpc ReadOrientation(ReadOrientationRequest) returns (ReadOrientationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/imu/{name}/orientation"
+    };
+  }
+
+  // ReadAcceleration returns the most recent acceleration reading from the given IMU.
+  rpc ReadAcceleration(ReadAccelerationRequest) returns (ReadAccelerationResponse) {
+      option (google.api.http) = {
+      get: "/api/v1/component/imu/{name}/acceleration"
+    };
+  }
+}
+
+// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+message AngularVelocity {
+  // Velocity in deg/s across the x-axis
+  double x_degs_per_sec = 1;
+  // Velocity in deg/s across the y-axis
+  double y_degs_per_sec = 2;
+  // Velocity in deg/s across the z-axis
+  double z_degs_per_sec = 3;
+}
+
+// EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+// The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
+message EulerAngles {
+  // Rotation in deg around the x-axis
+  double roll_deg = 1;
+  // Rotation in deg around the y-axis
+  double pitch_deg = 2;
+  // Rotation in deg around the z-axis
+  double yaw_deg = 3;
+}
+
+// Acceleration contains linear acceleration in mm/s^2 across x/y/z axes.
+message Acceleration {
+  // Acceleration in mm/s^2 across the x-axis
+  double x_mm_per_sec_per_sec = 1;
+  // Acceleration in mm/s^2 across the y-axis
+  double y_mm_per_sec_per_sec = 2;
+  // Acceleration in mm/s^2 across the z-axis
+  double z_mm_per_sec_per_sec = 3;
+}
+
+message ReadAngularVelocityRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message ReadAngularVelocityResponse {
+  // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+  AngularVelocity angular_velocity = 1;
+}
+
+message ReadOrientationRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message ReadOrientationResponse {
+  // EulerAngles are three angles used to represent the rotation of an object in 3D Euclidean space
+  // The Tait–Bryan angle formalism is used, with rotations around three distinct axes in the z-y′-x″ sequence.
+  EulerAngles orientation = 1;
+}
+
+message ReadAccelerationRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message ReadAccelerationResponse {
+  // Acceleration contains acceleration in mm/s^2 across x/y/z axes.
+  Acceleration acceleration = 1;
+}

@@ -1,0 +1,39 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.gripper.v1;
+
+import "google/api/annotations.proto";
+
+// An GripperService services all grippers associated with a robot
+service GripperService {
+  // Open opens a gripper of the underlying robot.
+  rpc Open(OpenRequest) returns (OpenResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/gripper/{name}/open"
+    };  
+  }
+
+  // Grab requests a gripper of the underlying robot to grab.
+  rpc Grab(GrabRequest) returns (GrabResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/gripper/{name}/grab"
+    };  
+  }
+
+}
+
+message OpenRequest {
+  string name = 1;
+}
+
+message OpenResponse {}
+
+message GrabRequest {
+  string name = 1;
+}
+
+message GrabResponse {
+  bool success = 1;
+}

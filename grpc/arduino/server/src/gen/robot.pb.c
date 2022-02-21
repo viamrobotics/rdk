@@ -240,10 +240,10 @@ PB_BIND(proto_api_v1_BoardMotorGoForRequest, proto_api_v1_BoardMotorGoForRequest
 PB_BIND(proto_api_v1_BoardMotorGoForResponse, proto_api_v1_BoardMotorGoForResponse, AUTO)
 
 
-PB_BIND(proto_api_v1_BoardServoServiceMoveRequest, proto_api_v1_BoardServoServiceMoveRequest, AUTO)
+PB_BIND(proto_api_v1_BoardMoveRequest, proto_api_v1_BoardMoveRequest, AUTO)
 
 
-PB_BIND(proto_api_v1_BoardServoServiceMoveResponse, proto_api_v1_BoardServoServiceMoveResponse, AUTO)
+PB_BIND(proto_api_v1_BoardMoveResponse, proto_api_v1_BoardMoveResponse, AUTO)
 
 
 PB_BIND(proto_api_v1_CompassHeadingRequest, proto_api_v1_CompassHeadingRequest, AUTO)
