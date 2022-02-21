@@ -19,7 +19,7 @@ type Aligner interface {
 // Projector can transform a scene between a 2D ImageWithDepth and a 3D pointcloud.
 type Projector interface {
 	// Project a 2D RGBD image to 3D pointcloud. Can add an optional crop to the image before projection.
-	ImageWithDepthToPointCloud(*ImageWithDepth, *image.Rectangle) (pointcloud.PointCloud, error)
+	ImageWithDepthToPointCloud(*ImageWithDepth, ...image.Rectangle) (pointcloud.PointCloud, error)
 	// Project a 3D pointcloud to a 2D RGBD image.
 	PointCloudToImageWithDepth(pointcloud.PointCloud) (*ImageWithDepth, error)
 	// Project a single pixel point to a given depth.
@@ -38,17 +38,24 @@ type CameraSystem interface {
 type ParallelProjection struct{}
 
 // ImageWithDepthToPointCloud take a 2D image with depth and project to a 3D point cloud.
-func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, crop *image.Rectangle) (pointcloud.PointCloud, error) {
+func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, crop ...image.Rectangle) (pointcloud.PointCloud, error) {
 	if !ii.IsAligned() {
 		return nil, errors.New("input ImageWithDepth is not aligned")
 	}
 	if ii.Depth == nil {
 		return nil, errors.New("input ImageWithDepth has no depth channel to project")
 	}
+	var rect *image.Rectangle
+	if len(crop) > 1 {
+		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+	}
+	if len(crop) == 1 {
+		rect = &crop[0]
+	}
 	startX, startY := 0, 0
 	endX, endY := ii.Width(), ii.Height()
-	if crop != nil {
-		newBounds := crop.Intersect(ii.Bounds())
+	if rect != nil {
+		newBounds := rect.Intersect(ii.Bounds())
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}

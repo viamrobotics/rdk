@@ -134,7 +134,7 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 		return nil, err
 	}
 	defer closer()
-	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img), nil)
+	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.

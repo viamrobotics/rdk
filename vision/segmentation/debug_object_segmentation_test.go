@@ -42,7 +42,7 @@ func (h *segmentObjectTestHelper) Process(
 
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "depth-fixed")
 
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii, nil)
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
 
@@ -107,7 +107,7 @@ func (h *gripperSegmentTestHelper) Process(
 	pCtx.GotDebugImage(ii.Depth.ToPrettyPicture(0, rimage.MaxDepth), "gripper-depth-filled")
 
 	// Get the point cloud
-	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii, nil)
+	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
 

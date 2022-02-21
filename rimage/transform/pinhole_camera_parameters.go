@@ -177,8 +177,15 @@ func (params *PinholeCameraIntrinsics) ImagePointTo3DPoint(point image.Point, d 
 // ImageWithDepthToPointCloud takes an ImageWithDepth and uses the camera parameters to project it to a pointcloud.
 func (params *PinholeCameraIntrinsics) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop *image.Rectangle) (pointcloud.PointCloud, error) {
-	return intrinsics2DTo3D(ii, crop, params)
+	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
+	var rect *image.Rectangle
+	if len(crop) > 1 {
+		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+	}
+	if len(crop) == 1 {
+		rect = &crop[0]
+	}
+	return intrinsics2DTo3D(ii, params, rect)
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth from the
@@ -237,7 +244,7 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 }
 
 // intrinsics2DTo3D uses the camera's intrinsic matrix to project the 2D image with depth to a 3D point cloud.
-func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, crop *image.Rectangle, pci *PinholeCameraIntrinsics) (pointcloud.PointCloud, error) {
+func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, crop *image.Rectangle) (pointcloud.PointCloud, error) {
 	if iwd.Depth == nil {
 		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
 	}
