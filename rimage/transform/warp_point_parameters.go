@@ -28,9 +28,16 @@ func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, d ri
 // ImageWithDepthToPointCloud TODO.
 func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop *image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
 	if ii.Depth == nil {
 		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	}
+	var rect *image.Rectangle
+	if len(crop) > 1 {
+		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+	}
+	if len(crop) == 1 {
+		rect = &crop[0]
 	}
 	var iwd *rimage.ImageWithDepth
 	var err error
@@ -53,8 +60,8 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 	startX, startY := 0, 0
 	endX, endY := iwd.Width(), iwd.Height()
 	// if optional crop rectangle is provided, use intersections of rectangle and image window and iterate through it
-	if crop != nil {
-		newBounds := crop.Intersect(iwd.Bounds())
+	if rect != nil {
+		newBounds := rect.Intersect(iwd.Bounds())
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}

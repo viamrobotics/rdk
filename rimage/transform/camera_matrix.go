@@ -75,7 +75,7 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImagePointTo3DPoint(point image.Poin
 // Aligns it if it isn't already aligned.
 func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
 	ii *rimage.ImageWithDepth,
-	crop *image.Rectangle) (pointcloud.PointCloud, error) {
+	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
 	var iwd *rimage.ImageWithDepth
 	var err error
 	// color and depth images need to already be aligned
@@ -87,7 +87,14 @@ func (dcie *DepthColorIntrinsicsExtrinsics) ImageWithDepthToPointCloud(
 			return nil, err
 		}
 	}
-	return intrinsics2DTo3D(iwd, crop, &dcie.ColorCamera)
+	var rect *image.Rectangle
+	if len(crop) > 1 {
+		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+	}
+	if len(crop) == 1 {
+		rect = &crop[0]
+	}
+	return intrinsics2DTo3D(iwd, &dcie.ColorCamera, rect)
 }
 
 // PointCloudToImageWithDepth takes a PointCloud with color info and returns an ImageWithDepth
