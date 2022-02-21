@@ -30,9 +30,18 @@ import (
 	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	basepb "go.viam.com/rdk/proto/api/component/base/v1"
+	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
+	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
+	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
+	inputcontrollerpb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
+	motorpb "go.viam.com/rdk/proto/api/component/motor/v1"
+	sensorpb "go.viam.com/rdk/proto/api/component/sensor/v1"
+	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
+	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
@@ -273,81 +282,81 @@ func TestClient(t *testing.T) {
 	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
 	armSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
 
 	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
 
 	baseSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+	basepb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
 
 	baseSvc2, err := subtype.New(map[resource.Name]interface{}{base.Named("base1"): &inject.Base{}})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
+	basepb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
 
 	boardSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
+	boardpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
 
 	boardSvc2, err := subtype.New(map[resource.Name]interface{}{board.Named("board1"): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
+	boardpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
 
 	cameraSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+	camerapb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
 
 	cameraSvc2, err := subtype.New(map[resource.Name]interface{}{camera.Named("camera1"): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
+	camerapb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
 
 	gripperSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+	gripperpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
 
 	gripperSvc2, err := subtype.New(map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
+	gripperpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
 
 	inputControllerSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
+	inputcontrollerpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
 
 	inputControllerSvc2, err := subtype.New(map[resource.Name]interface{}{input.Named("inputController1"): injectInputDev})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
+	inputcontrollerpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
 
 	motorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
+	motorpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
 
 	motorSvc2, err := subtype.New(
 		map[resource.Name]interface{}{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}},
 	)
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+	motorpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
 
 	servoSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+	servopb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
 
 	servoSvc2, err := subtype.New(map[resource.Name]interface{}{servo.Named("servo1"): injectServo})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+	servopb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
 
 	sensorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
 
 	frameSysSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	servicepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
+	framepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
 
 	frameSysSvc2, err := subtype.New(map[resource.Name]interface{}{framesystem.Name: "not a frame system"})
 	test.That(t, err, test.ShouldBeNil)
-	servicepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
+	framepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -425,7 +434,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
+	err = arm1.MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -494,7 +503,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -594,7 +603,7 @@ func TestClientRefresh(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
-	servicepb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -846,7 +855,7 @@ func TestClientDialerOption(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
-	servicepb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

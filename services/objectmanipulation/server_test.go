@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/subtype"
@@ -29,14 +29,14 @@ func TestServerDoGrab(t *testing.T) {
 	omMap := map[resource.Name]interface{}{}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.DoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+	_, err = server.DoGrab(context.Background(), &pb.DoGrabRequest{})
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:object_manipulation\" not found"))
 
 	// set up the robot with something that is not an objectmanipulation service
 	omMap = map[resource.Name]interface{}{objectmanipulation.Name: "not object manipulation"}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.DoGrab(context.Background(), &pb.ObjectManipulationServiceDoGrabRequest{})
+	_, err = server.DoGrab(context.Background(), &pb.DoGrabRequest{})
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
 
 	// error
@@ -50,7 +50,7 @@ func TestServerDoGrab(t *testing.T) {
 	injectOMS.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
 		return false, passedErr
 	}
-	req := &pb.ObjectManipulationServiceDoGrabRequest{
+	req := &pb.DoGrabRequest{
 		CameraName:  "fakeC",
 		GripperName: "fakeG",
 		ArmName:     "fakeA",
