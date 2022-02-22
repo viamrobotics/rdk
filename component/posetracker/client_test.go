@@ -137,5 +137,4 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, bodyToPoseInFrame, test.ShouldBeNil)
 	})
-
 }

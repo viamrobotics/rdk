@@ -4,13 +4,14 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+	viamutils "go.viam.com/utils"
+
 	"go.viam.com/rdk/component/posetracker"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/test"
-	viamutils "go.viam.com/utils"
 )
 
 const missingPTName = "dne"
