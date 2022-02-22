@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -37,8 +37,8 @@ func (s *subtypeServer) getForceMatrix(name string) (ForceMatrix, error) {
 // ReadMatrix returns a matrix of measured forces on a matrix force sensor.
 func (s *subtypeServer) ReadMatrix(
 	ctx context.Context,
-	req *pb.ForceMatrixServiceReadMatrixRequest,
-) (*pb.ForceMatrixServiceReadMatrixResponse, error) {
+	req *pb.ReadMatrixRequest,
+) (*pb.ReadMatrixResponse, error) {
 	forceMatrixDevice, err := s.getForceMatrix(req.Name)
 	if err != nil {
 		return nil, err
@@ -52,8 +52,8 @@ func (s *subtypeServer) ReadMatrix(
 
 // DetectSlip returns a boolean representing whether a slip has been detected.
 func (s *subtypeServer) DetectSlip(ctx context.Context,
-	req *pb.ForceMatrixServiceDetectSlipRequest,
-) (*pb.ForceMatrixServiceDetectSlipResponse, error) {
+	req *pb.DetectSlipRequest,
+) (*pb.DetectSlipResponse, error) {
 	forceMatrixDevice, err := s.getForceMatrix(req.Name)
 	if err != nil {
 		return nil, err
@@ -62,12 +62,12 @@ func (s *subtypeServer) DetectSlip(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ForceMatrixServiceDetectSlipResponse{SlipDetected: isSlipping}, nil
+	return &pb.DetectSlipResponse{SlipDetected: isSlipping}, nil
 }
 
 // matrixToProto is a helper function to convert force matrix values from a 2-dimensional
 // slice into protobuf format.
-func matrixToProto(matrix [][]int) *pb.ForceMatrixServiceReadMatrixResponse {
+func matrixToProto(matrix [][]int) *pb.ReadMatrixResponse {
 	rows := len(matrix)
 	var cols int
 	if rows != 0 {
@@ -81,7 +81,7 @@ func matrixToProto(matrix [][]int) *pb.ForceMatrixServiceReadMatrixResponse {
 		}
 	}
 
-	return &pb.ForceMatrixServiceReadMatrixResponse{Matrix: &pb.Matrix{
+	return &pb.ReadMatrixResponse{Matrix: &pb.Matrix{
 		Rows: uint32(rows),
 		Cols: uint32(cols),
 		Data: data,

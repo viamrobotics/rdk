@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"

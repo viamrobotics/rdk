@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

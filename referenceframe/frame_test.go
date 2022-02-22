@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )

@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
@@ -38,8 +38,8 @@ func (server *subtypeServer) service() (Service, error) {
 
 func (server *subtypeServer) Config(
 	ctx context.Context,
-	req *pb.FrameSystemServiceConfigRequest,
-) (*pb.FrameSystemServiceConfigResponse, error) {
+	req *pb.ConfigRequest,
+) (*pb.ConfigResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (server *subtypeServer) Config(
 	if err != nil {
 		return nil, err
 	}
-	configs := make([]*pb.FrameSystemServiceConfig, len(sortedParts))
+	configs := make([]*pb.Config, len(sortedParts))
 	for i, part := range sortedParts {
 		c, err := part.ToProtobuf()
 		if err != nil {
@@ -60,5 +60,5 @@ func (server *subtypeServer) Config(
 		}
 		configs[i] = c
 	}
-	return &pb.FrameSystemServiceConfigResponse{FrameSystemConfigs: configs}, nil
+	return &pb.ConfigResponse{FrameSystemConfigs: configs}, nil
 }

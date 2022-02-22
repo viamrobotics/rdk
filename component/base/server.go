@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -38,8 +38,8 @@ func (s *subtypeServer) getBase(name string) (Base, error) {
 // and a given speed, expressed in millimeters per second.
 func (s *subtypeServer) MoveStraight(
 	ctx context.Context,
-	req *pb.BaseServiceMoveStraightRequest,
-) (*pb.BaseServiceMoveStraightResponse, error) {
+	req *pb.MoveStraightRequest,
+) (*pb.MoveStraightResponse, error) {
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -53,15 +53,15 @@ func (s *subtypeServer) MoveStraight(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BaseServiceMoveStraightResponse{}, nil
+	return &pb.MoveStraightResponse{}, nil
 }
 
 // MoveArc moves the robot's base in an arc by a given distance, expressed in millimeters,
 // a given speed, expressed in millimeters per second of movement, and a given angle exoressed in degrees.
 func (s *subtypeServer) MoveArc(
 	ctx context.Context,
-	req *pb.BaseServiceMoveArcRequest,
-) (*pb.BaseServiceMoveArcResponse, error) {
+	req *pb.MoveArcRequest,
+) (*pb.MoveArcResponse, error) {
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -75,15 +75,15 @@ func (s *subtypeServer) MoveArc(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BaseServiceMoveArcResponse{}, nil
+	return &pb.MoveArcResponse{}, nil
 }
 
 // Spin spins a robot's base by an given angle, expressed in degrees, and a given
 // angular speed, expressed in degrees per second.
 func (s *subtypeServer) Spin(
 	ctx context.Context,
-	req *pb.BaseServiceSpinRequest,
-) (*pb.BaseServiceSpinResponse, error) {
+	req *pb.SpinRequest,
+) (*pb.SpinResponse, error) {
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -97,14 +97,14 @@ func (s *subtypeServer) Spin(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BaseServiceSpinResponse{}, nil
+	return &pb.SpinResponse{}, nil
 }
 
 // Stop stops a robot's base.
 func (s *subtypeServer) Stop(
 	ctx context.Context,
-	req *pb.BaseServiceStopRequest,
-) (*pb.BaseServiceStopResponse, error) {
+	req *pb.StopRequest,
+) (*pb.StopResponse, error) {
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -112,5 +112,5 @@ func (s *subtypeServer) Stop(
 	if err = base.Stop(ctx); err != nil {
 		return nil, err
 	}
-	return &pb.BaseServiceStopResponse{}, nil
+	return &pb.StopResponse{}, nil
 }

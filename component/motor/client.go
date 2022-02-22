@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 )
 
 // serviceClient is a client that satisfies the motor.proto contract.
@@ -81,7 +81,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Motor {
 }
 
 func (c *client) SetPower(ctx context.Context, powerPct float64) error {
-	req := &pb.MotorServiceSetPowerRequest{
+	req := &pb.SetPowerRequest{
 		Name:     c.name,
 		PowerPct: powerPct,
 	}
@@ -90,7 +90,7 @@ func (c *client) SetPower(ctx context.Context, powerPct float64) error {
 }
 
 func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	req := &pb.MotorServiceGoForRequest{
+	req := &pb.GoForRequest{
 		Name:        c.name,
 		Rpm:         rpm,
 		Revolutions: revolutions,
@@ -100,7 +100,7 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) er
 }
 
 func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
-	req := &pb.MotorServiceGoToRequest{
+	req := &pb.GoToRequest{
 		Name:                c.name,
 		Rpm:                 rpm,
 		PositionRevolutions: positionRevolutions,
@@ -110,7 +110,7 @@ func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions floa
 }
 
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
-	req := &pb.MotorServiceResetZeroPositionRequest{
+	req := &pb.ResetZeroPositionRequest{
 		Name:   c.name,
 		Offset: offset,
 	}
@@ -119,7 +119,7 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
 }
 
 func (c *client) GetPosition(ctx context.Context) (float64, error) {
-	req := &pb.MotorServiceGetPositionRequest{Name: c.name}
+	req := &pb.GetPositionRequest{Name: c.name}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err
@@ -128,7 +128,7 @@ func (c *client) GetPosition(ctx context.Context) (float64, error) {
 }
 
 func (c *client) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
-	req := &pb.MotorServiceGetFeaturesRequest{Name: c.name}
+	req := &pb.GetFeaturesRequest{Name: c.name}
 	resp, err := c.client.GetFeatures(ctx, req)
 	if err != nil {
 		return nil, err
@@ -137,13 +137,13 @@ func (c *client) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
 }
 
 func (c *client) Stop(ctx context.Context) error {
-	req := &pb.MotorServiceStopRequest{Name: c.name}
+	req := &pb.StopRequest{Name: c.name}
 	_, err := c.client.Stop(ctx, req)
 	return err
 }
 
 func (c *client) IsPowered(ctx context.Context) (bool, error) {
-	req := &pb.MotorServiceIsPoweredRequest{Name: c.name}
+	req := &pb.IsPoweredRequest{Name: c.name}
 	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
 		return false, err

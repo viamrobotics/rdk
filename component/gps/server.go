@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -38,8 +38,8 @@ func (s *subtypeServer) getGPS(name string) (GPS, error) {
 // ReadLocation returns the most recent location from the given GPS.
 func (s *subtypeServer) ReadLocation(
 	ctx context.Context,
-	req *pb.GPSServiceReadLocationRequest,
-) (*pb.GPSServiceReadLocationResponse, error) {
+	req *pb.ReadLocationRequest,
+) (*pb.ReadLocationResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (s *subtypeServer) ReadLocation(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceReadLocationResponse{
+	return &pb.ReadLocationResponse{
 		Coordinate: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
@@ -56,8 +56,8 @@ func (s *subtypeServer) ReadLocation(
 // ReadAltitude returns the most recent location from the given GPS.
 func (s *subtypeServer) ReadAltitude(
 	ctx context.Context,
-	req *pb.GPSServiceReadAltitudeRequest,
-) (*pb.GPSServiceReadAltitudeResponse, error) {
+	req *pb.ReadAltitudeRequest,
+) (*pb.ReadAltitudeResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
@@ -66,13 +66,13 @@ func (s *subtypeServer) ReadAltitude(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceReadAltitudeResponse{
+	return &pb.ReadAltitudeResponse{
 		AltitudeMeters: alt,
 	}, nil
 }
 
 // ReadSpeed returns the most recent location from the given GPS.
-func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.GPSServiceReadSpeedRequest) (*pb.GPSServiceReadSpeedResponse, error) {
+func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.ReadSpeedRequest) (*pb.ReadSpeedResponse, error) {
 	gpsDevice, err := s.getGPS(req.Name)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (s *subtypeServer) ReadSpeed(ctx context.Context, req *pb.GPSServiceReadSpe
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GPSServiceReadSpeedResponse{
+	return &pb.ReadSpeedResponse{
 		SpeedMmPerSec: speed,
 	}, nil
 }

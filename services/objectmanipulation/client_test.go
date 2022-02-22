@@ -14,7 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"

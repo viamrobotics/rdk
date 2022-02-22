@@ -14,7 +14,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
 )
@@ -78,7 +78,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Camera {
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
-	resp, err := c.client.GetFrame(ctx, &pb.CameraServiceGetFrameRequest{
+	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypeViamBest,
 	})
@@ -103,7 +103,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	resp, err := c.client.GetPointCloud(ctx, &pb.CameraServiceGetPointCloudRequest{
+	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
 	})
