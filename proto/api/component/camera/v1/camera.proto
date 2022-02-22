@@ -1,6 +1,6 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/component/v1";
-option java_package = "com.viam.rdk.proto.api.component.v1";
+option go_package = "go.viam.com/rdk/proto/api/component/camera/v1";
+option java_package = "com.viam.rdk.proto.api.component.camera.v1";
 
 package proto.api.component.camera.v1;
 

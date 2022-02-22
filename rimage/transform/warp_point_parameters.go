@@ -26,9 +26,18 @@ func (dct *DepthColorWarpTransforms) ImagePointTo3DPoint(point image.Point, d ri
 }
 
 // ImageWithDepthToPointCloud TODO.
-func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.ImageWithDepth) (pointcloud.PointCloud, error) {
+func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
+	ii *rimage.ImageWithDepth,
+	crop ...image.Rectangle) (pointcloud.PointCloud, error) {
 	if ii.Depth == nil {
 		return nil, errors.New("image with depth has no depth channel. Cannot project to Pointcloud")
+	}
+	var rect *image.Rectangle
+	if len(crop) > 1 {
+		return nil, errors.Errorf("cannot have more than one cropping rectangle, got %v", crop)
+	}
+	if len(crop) == 1 {
+		rect = &crop[0]
 	}
 	var iwd *rimage.ImageWithDepth
 	var err error
@@ -48,12 +57,18 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(ii *rimage.Image
 	// All points now in Common frame
 	pc := pointcloud.New()
 
-	height := iwd.Height()
-	width := iwd.Width()
+	startX, startY := 0, 0
+	endX, endY := iwd.Width(), iwd.Height()
+	// if optional crop rectangle is provided, use intersections of rectangle and image window and iterate through it
+	if rect != nil {
+		newBounds := rect.Intersect(iwd.Bounds())
+		startX, startY = newBounds.Min.X, newBounds.Min.Y
+		endX, endY = newBounds.Max.X, newBounds.Max.Y
+	}
 	// TODO (bijan): this is a naive projection to 3D space, implement a better algo for warp points
 	// Will need more than 2 points for warp points to create better projection
-	for y := 0; y < height; y++ {
-		for x := 0; x < width; x++ {
+	for y := startY; y < endY; y++ {
+		for x := startX; x < endX; x++ {
 			z := iwd.Depth.GetDepth(x, y)
 			if z == 0 {
 				continue

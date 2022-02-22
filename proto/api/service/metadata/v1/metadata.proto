@@ -1,6 +1,6 @@
 syntax = "proto3";
-option go_package = "go.viam.com/rdk/proto/api/service/v1";
-option java_package = "com.viam.rdk.proto.api.service.v1";
+option go_package = "go.viam.com/rdk/proto/api/service/metadata/v1";
+option java_package = "com.viam.rdk.proto.api.service.metadata.v1";
 
 package proto.api.service.metadata.v1;
 

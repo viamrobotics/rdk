@@ -34,6 +34,13 @@ func TestImageWithDepthToPointCloud(t *testing.T) {
 	test.That(t, pc, test.ShouldNotBeNil)
 	// the underlying iwd was not changed
 	test.That(t, iwd.IsAligned(), test.ShouldEqual, false)
+	// crop
+	pcCrop, err := dct.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pcCrop.Size(), test.ShouldEqual, 400)
+	// crop error
+	_, err = dct.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{20, 20}, image.Point{40, 40}}, image.Rectangle{})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")
 
 	// image with depth with depth missing should return error
 	img, err := rimage.NewImageFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"))
