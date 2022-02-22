@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
 	viamgrpc "go.viam.com/rdk/grpc"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
@@ -127,7 +127,7 @@ func TestClientDialerOption(t *testing.T) {
 	}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	servicepb.RegisterSensorsServiceServer(gServer, server)
+	pb.RegisterSensorsServiceServer(gServer, server)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()

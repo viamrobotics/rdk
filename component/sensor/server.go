@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -38,8 +38,8 @@ func (s *subtypeServer) getSensor(name string) (Sensor, error) {
 // GetReadings returns the most recent readings from the given Sensor.
 func (s *subtypeServer) GetReadings(
 	ctx context.Context,
-	req *pb.SensorServiceGetReadingsRequest,
-) (*pb.SensorServiceGetReadingsResponse, error) {
+	req *pb.GetReadingsRequest,
+) (*pb.GetReadingsResponse, error) {
 	sensorDevice, err := s.getSensor(req.Name)
 	if err != nil {
 		return nil, err
@@ -56,5 +56,5 @@ func (s *subtypeServer) GetReadings(
 		}
 		readingsP = append(readingsP, v)
 	}
-	return &pb.SensorServiceGetReadingsResponse{Readings: readingsP}, nil
+	return &pb.GetReadingsResponse{Readings: readingsP}, nil
 }

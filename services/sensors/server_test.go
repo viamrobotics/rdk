@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/imu"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"

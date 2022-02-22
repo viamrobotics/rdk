@@ -223,7 +223,7 @@
                       }
                       pos[axis] += amount;
 
-                      const req = new gantryApi.GantryServiceMoveToPositionRequest();
+                      const req = new gantryApi.MoveToPositionRequest();
                       req.setName(name);
                       req.setPositionsMmList(pos);
                       gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -238,7 +238,7 @@
                       const getter = `get${getterSetter}`;
                       const setter = `set${getterSetter}`;
                       newPose[setter](newPose[getter]() + amount);
-                      const req = new armApi.ArmServiceMoveToPositionRequest();
+                      const req = new armApi.MoveToPositionRequest();
                       req.setName(name);
                       req.setPose(newPose);
                       armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -250,7 +250,7 @@
                       var newList = newPositioDegs.getDegreesList();
                       newList[field] += amount;
                       newPositioDegs.setDegreesList(newList);
-                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
+                      const req = new armApi.MoveToJointPositionsRequest();
                       req.setName(name);
                       req.setPositionDegs(newPositioDegs);
                       armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -264,7 +264,7 @@
                         newList[i] = 0;
                       }
                       newPositionDegs.setDegreesList(newList);
-                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
+                      const req = new armApi.MoveToJointPositionsRequest();
                       req.setName(name);
                       req.setPositionDegs(newPositionDegs);
                       armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -302,7 +302,7 @@
                           newPose[setter](newPieces[i].gridValue);
                       }
 
-                      const req = new armApi.ArmServiceMoveToPositionRequest();
+                      const req = new armApi.MoveToPositionRequest();
                       req.setName(name);
                       req.setPose(newPose);
                       armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -322,7 +322,7 @@
 
                       newPositionDegs.setDegreesList(newList);
 
-                      const req = new armApi.ArmServiceMoveToJointPositionsRequest();
+                      const req = new armApi.MoveToJointPositionsRequest();
                       req.setName(name);
                       req.setPositionDegs(newPositionDegs);
                       armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -333,12 +333,12 @@
                       let req;
                       switch (action) {
                         case 'open':
-                          req = new gripperApi.GripperServiceOpenRequest();
+                          req = new gripperApi.OpenRequest();
                           req.setName(name);
                           gripperService.open(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'grab':
-                          req = new gripperApi.GripperServiceGrabRequest();
+                          req = new gripperApi.GrabRequest();
                           req.setName(name);
                           gripperService.grab(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
@@ -348,7 +348,7 @@
                       const servo = theData.rawStatus.getServosMap().get(name);
                       var oldAngle = servo.getAngle();
                       let angle = oldAngle + amount;
-                      const req = new servoApi.ServoServiceMoveRequest();
+                      const req = new servoApi.MoveRequest();
                       req.setName(name);
                       req.setAngleDeg(angle);
                       servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
@@ -394,14 +394,14 @@
                       let req;
                       switch (action) {
                         case 'straight':
-                          req = new baseApi.BaseServiceMoveStraightRequest();
+                          req = new baseApi.MoveStraightRequest();
                           req.setName(name);
                           req.setMmPerSec(document.getElementById("speed").value)
                           req.setDistanceMm(document.getElementById("distance").value * amount);
                           baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'arc':
-                          req = new baseApi.BaseServiceMoveArcRequest();
+                          req = new baseApi.MoveArcRequest();
                           req.setName(name);
                           req.setMmPerSec(document.getElementById("speed").value)
                           req.setDistanceMm(document.getElementById("distance").value * amount);
@@ -409,7 +409,7 @@
                           baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
                           break;
                         case 'angle':
-                          req = new baseApi.BaseServiceSpinRequest();
+                          req = new baseApi.SpinRequest();
                           req.setName(name);
                           req.setDegsPerSec(document.getElementById("speed").value)
                           req.setAngleDeg(document.getElementById("angle").value * amount);
@@ -418,7 +418,7 @@
                       }
                   },
                   renderFrame : function(cameraName) {
-                      req = new cameraApi.CameraServiceRenderFrameRequest();
+                      req = new cameraApi.RenderFrameRequest();
                       req.setName(cameraName);
                       const mimeType = 'image/jpeg';
                       req.setMimeType(mimeType)
@@ -437,7 +437,7 @@
                       initPCDIfNeeded();
                       pcdGlobal.cameraName = cameraName;
 
-                      req = new cameraApi.CameraServiceGetPointCloudRequest();
+                      req = new cameraApi.GetPointCloudRequest();
                       req.setName(cameraName);
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType)
@@ -528,10 +528,10 @@
 
                     let startedForceAnimation = false;
                     const timeInterval = 10; // in milliseconds
-                    let req = new forceMatrixApi.ForceMatrixServiceReadMatrixRequest();
+                    let req = new forceMatrixApi.ReadMatrixRequest();
                     req.setName(name);
 
-                    let slipReq = new forceMatrixApi.ForceMatrixServiceDetectSlipRequest();
+                    let slipReq = new forceMatrixApi.DetectSlipRequest();
                     slipReq.setName(name);
 
                     isFirstRender = true;
@@ -626,7 +626,7 @@
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new objectManipulationApi.ObjectManipulationServiceDoGrabRequest();
+                      let req = new objectManipulationApi.DoGrabRequest();
                       let cameraPoint = new commonApi.Vector3();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
@@ -649,7 +649,7 @@
                   },
                   findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
                       theData.pcdClick.calculatingSegments = true;
-                      let req = new objectSegmentationApi.ObjectSegmentationServiceGetObjectPointCloudsRequest();
+                      let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
                       req.setName(pcdGlobal.cameraName);
                       req.setMinPointsInPlane(minPointsPlane);
@@ -1295,7 +1295,7 @@
                       theData.imuData[name] = {};
                   }
 
-                  var req = new imuApi.IMUServiceReadOrientationRequest();
+                  var req = new imuApi.ReadOrientationRequest();
                   req.setName(name);
 
                   imuService.readOrientation(req, {}, (err, resp) => {
@@ -1306,7 +1306,7 @@
                       theData.imuData[name].orientation = resp.toObject().orientation;
                   });
 
-                  var req = new imuApi.IMUServiceReadAngularVelocityRequest();
+                  var req = new imuApi.ReadAngularVelocityRequest();
                   req.setName(name);
 
                   imuService.readAngularVelocity(req, {}, (err, resp) => {
@@ -1317,7 +1317,7 @@
                       theData.imuData[name].angularVelocity = resp.toObject().angularVelocity;
                   });
 
-                var req = new imuApi.IMUServiceReadAccelerationRequest();
+                var req = new imuApi.ReadAccelerationRequest();
                 req.setName(name);
 
                 imuService.readAcceleration(req, {}, (err, resp) => {

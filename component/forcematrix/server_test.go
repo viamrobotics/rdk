@@ -7,7 +7,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/forcematrix"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -46,13 +46,13 @@ func TestServer(t *testing.T) {
 	t.Run("not registered", func(t *testing.T) {
 		_, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceReadMatrixRequest{Name: missingForceMatrixName})
+			&pb.ReadMatrixRequest{Name: missingForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"no ForceMatrix with name ("+missingForceMatrixName+")")
 
 		_, err = forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceDetectSlipRequest{Name: missingForceMatrixName})
+			&pb.DetectSlipRequest{Name: missingForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"no ForceMatrix with name ("+missingForceMatrixName+")")
 	})
@@ -60,13 +60,13 @@ func TestServer(t *testing.T) {
 	t.Run("not a ForceMatrix", func(t *testing.T) {
 		_, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceReadMatrixRequest{Name: fakeForceMatrixName})
+			&pb.ReadMatrixRequest{Name: fakeForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"resource with name ("+fakeForceMatrixName+") is not a ForceMatrix")
 
 		_, err = forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceDetectSlipRequest{Name: fakeForceMatrixName})
+			&pb.DetectSlipRequest{Name: fakeForceMatrixName})
 		test.That(t, err.Error(), test.ShouldContainSubstring,
 			"resource with name ("+fakeForceMatrixName+") is not a ForceMatrix")
 	})
@@ -74,7 +74,7 @@ func TestServer(t *testing.T) {
 	t.Run("working", func(t *testing.T) {
 		matrixResponse, err := forceMatrixServer.ReadMatrix(
 			context.Background(),
-			&pb.ForceMatrixServiceReadMatrixRequest{Name: testForceMatrixName})
+			&pb.ReadMatrixRequest{Name: testForceMatrixName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capMatrix, test.ShouldResemble, expectedMatrix)
 		test.That(t, matrixResponse.Matrix, test.ShouldResemble,
@@ -86,7 +86,7 @@ func TestServer(t *testing.T) {
 
 		slipResponse, err := forceMatrixServer.DetectSlip(
 			context.Background(),
-			&pb.ForceMatrixServiceDetectSlipRequest{Name: testForceMatrixName})
+			&pb.DetectSlipRequest{Name: testForceMatrixName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, slipResponse.SlipDetected, test.ShouldBeTrue)
 	})

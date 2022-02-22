@@ -7,7 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -37,8 +37,8 @@ func (server *subtypeServer) service() (Service, error) {
 
 func (server *subtypeServer) DoGrab(
 	ctx context.Context,
-	req *pb.ObjectManipulationServiceDoGrabRequest,
-) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
+	req *pb.DoGrabRequest,
+) (*pb.DoGrabResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -49,7 +49,7 @@ func (server *subtypeServer) DoGrab(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ObjectManipulationServiceDoGrabResponse{Success: success}, nil
+	return &pb.DoGrabResponse{Success: success}, nil
 }
 
 func protoToVector(p *commonpb.Vector3) *r3.Vector {

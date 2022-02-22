@@ -9,7 +9,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/grpc/metadata/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 )

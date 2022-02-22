@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 )
 
 // MetadataServiceClient is a client satisfies the metadata.proto contract.
