@@ -38,7 +38,7 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "forcematrix".
+// SubtypeName is a constant that identifies the component resource subtype string "force_matrix".
 const SubtypeName = resource.SubtypeName("force_matrix")
 
 // Subtype is a constant that identifies the component resource subtype.
