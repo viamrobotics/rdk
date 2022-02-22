@@ -83,6 +83,14 @@ func (i *ImageWithDepth) Height() int {
 	return i.Color.Height()
 }
 
+// SubImage returns the crop of the image defined by the given rectangle.
+func (i *ImageWithDepth) SubImage(r image.Rectangle) *ImageWithDepth {
+	if r.Empty() {
+		return &ImageWithDepth{}
+	}
+	return &ImageWithDepth{i.Color.SubImage(r), i.Depth.SubImage(r), i.aligned}
+}
+
 // Rotate rotates the color and depth about the origin by the given angle clockwise.
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
 	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}

@@ -34,6 +34,14 @@ func TestPC1(t *testing.T) {
 	cameraMatrices, err := NewDepthColorIntrinsicsExtrinsicsFromJSONFile(jsonFilePath)
 	test.That(t, err, test.ShouldBeNil)
 
+	pcCrop, err := cameraMatrices.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{30, 30}, image.Point{50, 50}})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pcCrop.Size(), test.ShouldEqual, 1)
+
+	// error -- too many rectangles
+	_, err = cameraMatrices.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{30, 30}, image.Point{50, 50}}, image.Rectangle{})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")
+
 	pc, err := cameraMatrices.ImageWithDepthToPointCloud(iwd)
 	test.That(t, err, test.ShouldBeNil)
 
