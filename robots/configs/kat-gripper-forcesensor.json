@@ -29,7 +29,7 @@
     {
       "model": "forcematrixwithmux_v1",
       "name": "forcematrixWithMuxOnGripper",
-      "type": "forcematrix",
+      "type": "force_matrix",
       "attributes": {
         "board": "brittany2",
         "column_gpio_pins_left_to_right": [
