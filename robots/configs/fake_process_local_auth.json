@@ -107,7 +107,7 @@
         },
         {
             "name": "forcematrix1",
-            "type": "forcematrix",
+            "type": "force_matrix",
             "model": "fake"
         }
     ],
