@@ -128,7 +128,7 @@ func TestToGray16Picture(t *testing.T) {
 }
 
 //nolint:dupl
-func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
+func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -144,11 +144,14 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 			i++
 		}
 	}
-	return Image{data: oriData, width: oriWidth, height: oriHeight}, Image{data: cropData, width: cropWidth, height: cropHeight}
+	if crop.Empty() {
+		return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{}
+	}
+	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
 //nolint:dupl
-func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap) {
+func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -164,7 +167,10 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap
 			i++
 		}
 	}
-	return DepthMap{width: oriWidth, height: oriHeight, data: oriData}, DepthMap{width: cropWidth, height: cropHeight, data: cropData}
+	if crop.Empty() {
+		return &DepthMap{data: oriData, width: oriWidth, height: oriHeight}, &DepthMap{}
+	}
+	return &DepthMap{width: oriWidth, height: oriHeight, data: oriData}, &DepthMap{width: cropWidth, height: cropHeight, data: cropData}
 }
 
 func TestSubImage(t *testing.T) {
@@ -180,6 +186,7 @@ func TestSubImage(t *testing.T) {
 		{image.Rect(0, 0, 100, 75), image.Rect(0, 0, 2, 75)},        // crop left
 		{image.Rect(0, 0, 100, 75), image.Rect(95, 70, 105, 80)},    // crop is not a full subset
 		{image.Rect(0, 0, 100, 75), image.Rect(200, 200, 300, 300)}, // out of bounds
+		{image.Rect(0, 0, 100, 75), image.Rectangle{}},              // empty
 	}
 	for _, rec := range tests {
 		originalImg, expectedCrop := makeImagesForSubImageTest(rec.Original, rec.Crop)
