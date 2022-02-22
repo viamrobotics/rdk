@@ -116,3 +116,22 @@ func TestGetGaussian3(t *testing.T) {
 	test.That(t, normalized.At(0, 2), test.ShouldEqual, 1./16.)
 	test.That(t, normalized.At(1, 0), test.ShouldEqual, 2./16.)
 }
+
+func TestGetGaussian5(t *testing.T) {
+	k := GetGaussian5()
+	test.That(t, k.Height, test.ShouldEqual, 5)
+	test.That(t, k.Width, test.ShouldEqual, 5)
+
+	normalized := (&k).Normalize()
+	test.That(t, normalized.Height, test.ShouldEqual, 5)
+	test.That(t, normalized.Width, test.ShouldEqual, 5)
+	test.That(t, normalized.At(0, 0), test.ShouldEqual, 1./273.)
+	test.That(t, normalized.At(0, 1), test.ShouldEqual, 4./273.)
+	test.That(t, normalized.At(0, 2), test.ShouldEqual, 7./273.)
+	test.That(t, normalized.At(1, 0), test.ShouldEqual, 4./273.)
+
+	test.That(t, k.At(0, 0), test.ShouldEqual, 1)
+	test.That(t, k.At(0, 1), test.ShouldEqual, 4)
+	test.That(t, k.At(0, 2), test.ShouldEqual, 7)
+	test.That(t, k.At(1, 0), test.ShouldEqual, 4)
+}

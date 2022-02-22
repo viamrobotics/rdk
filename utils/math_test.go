@@ -219,3 +219,55 @@ func TestClamp(t *testing.T) {
 		})
 	}
 }
+
+func TestSampleNIntegersNormal(t *testing.T) {
+	samples1 := SampleNIntegersNormal(256, -7, 8)
+	test.That(t, len(samples1), test.ShouldEqual, 256)
+	for _, sample := range samples1 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -7)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 8)
+	}
+
+	samples2 := SampleNIntegersNormal(16, -16, 32)
+	test.That(t, len(samples2), test.ShouldEqual, 16)
+	for _, sample := range samples2 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -16)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 32)
+	}
+}
+
+func TestSampleNIntegersUniform(t *testing.T) {
+	samples1 := SampleNIntegersUniform(256, -7, 8)
+	test.That(t, len(samples1), test.ShouldEqual, 256)
+	for _, sample := range samples1 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -7)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 8)
+	}
+
+	samples2 := SampleNIntegersUniform(16, -16, 32)
+	test.That(t, len(samples2), test.ShouldEqual, 16)
+	for _, sample := range samples2 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -16)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 32)
+	}
+
+	samples3 := SampleNIntegersUniform(1000, -8, 8)
+	// test number of samples
+	test.That(t, len(samples3), test.ShouldEqual, 1000)
+	// test that distribution is uniform
+	counter := make(map[int]int)
+	for _, sample := range samples3 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -8)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 8)
+		if _, ok := counter[sample]; !ok {
+			counter[sample] = 1
+		} else {
+			counter[sample]++
+		}
+	}
+	for _, value := range counter {
+		// 1000 samples in a range of 16 values - counter should be on average 62
+		test.That(t, value, test.ShouldBeGreaterThanOrEqualTo, 40)
+		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 80)
+	}
+}
