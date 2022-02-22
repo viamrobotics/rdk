@@ -34,7 +34,6 @@
     {{ else }}
     <script src="/static/rdk-api/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/control/controlApp.css">
     <link rel="stylesheet" href="/static/dls/dls.css">
     <script type="module">
       import "/static/dls/dls.umd.min.js";
@@ -1317,7 +1316,6 @@
           </div>
       {{ end }}
     </div>
-    <div id="control"></div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
@@ -1540,6 +1538,9 @@
       <!-- end boards -->
 
       <!-- cameras -->
+      <div>
+        <Accordion v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))"></Accordion>
+      </div>
       <table border="1" v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))">
         <tr>
           <th colspan="3">
@@ -1660,7 +1661,6 @@
         <div id="map" v-map-mounted></div>
       </div>
     </div> <!-- end vue app -->
-    <script src="/static/control/controlApp.js"></script>
     <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
