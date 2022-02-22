@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/component/board"
 	viamgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

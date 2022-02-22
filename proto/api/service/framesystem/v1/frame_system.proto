@@ -1,0 +1,34 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/v1";
+option java_package = "com.viam.rdk.proto.api.service.v1";
+
+package proto.api.service.framesystem.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A FrameSystemService declares the gRPC contract for a framesystem service
+service FrameSystemService {
+  rpc Config(ConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/service/frame_system/config"
+    };
+  }
+}
+
+message FrameConfig{
+  string parent = 1;
+  common.v1.Pose pose = 2;
+}
+
+message Config {
+  string name = 1;
+  FrameConfig frame_config = 2;
+  bytes model_json = 3; 
+}
+
+message ConfigRequest {}
+
+message ConfigResponse {
+  repeated Config frame_system_configs = 1;
+}

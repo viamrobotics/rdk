@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -35,7 +35,7 @@ func (s *subtypeServer) getBoard(name string) (Board, error) {
 }
 
 // Status returns the status of a board of the underlying robot.
-func (s *subtypeServer) Status(ctx context.Context, req *pb.BoardServiceStatusRequest) (*pb.BoardServiceStatusResponse, error) {
+func (s *subtypeServer) Status(ctx context.Context, req *pb.StatusRequest) (*pb.StatusResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
@@ -46,21 +46,21 @@ func (s *subtypeServer) Status(ctx context.Context, req *pb.BoardServiceStatusRe
 		return nil, err
 	}
 
-	return &pb.BoardServiceStatusResponse{Status: status}, nil
+	return &pb.StatusResponse{Status: status}, nil
 }
 
 // SetGPIO sets a given pin of a board of the underlying robot to either low or high.
-func (s *subtypeServer) SetGPIO(ctx context.Context, req *pb.BoardServiceSetGPIORequest) (*pb.BoardServiceSetGPIOResponse, error) {
+func (s *subtypeServer) SetGPIO(ctx context.Context, req *pb.SetGPIORequest) (*pb.SetGPIOResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServiceSetGPIOResponse{}, b.SetGPIO(ctx, req.Pin, req.High)
+	return &pb.SetGPIOResponse{}, b.SetGPIO(ctx, req.Pin, req.High)
 }
 
 // GetGPIO gets the high/low state of a given pin of a board of the underlying robot.
-func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.BoardServiceGetGPIORequest) (*pb.BoardServiceGetGPIOResponse, error) {
+func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*pb.GetGPIOResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
@@ -70,38 +70,38 @@ func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.BoardServiceGetGPIO
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceGetGPIOResponse{High: high}, nil
+	return &pb.GetGPIOResponse{High: high}, nil
 }
 
 // SetPWM sets a given pin of the underlying robot to the given duty cycle.
-func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.BoardServiceSetPWMRequest) (*pb.BoardServiceSetPWMResponse, error) {
+func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.SetPWMResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServiceSetPWMResponse{}, b.SetPWM(ctx, req.Pin, req.DutyCyclePct)
+	return &pb.SetPWMResponse{}, b.SetPWM(ctx, req.Pin, req.DutyCyclePct)
 }
 
 // SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM
 // frequency.
 func (s *subtypeServer) SetPWMFrequency(
 	ctx context.Context,
-	req *pb.BoardServiceSetPWMFrequencyRequest,
-) (*pb.BoardServiceSetPWMFrequencyResponse, error) {
+	req *pb.SetPWMFrequencyRequest,
+) (*pb.SetPWMFrequencyResponse, error) {
 	b, err := s.getBoard(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BoardServiceSetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.FrequencyHz))
+	return &pb.SetPWMFrequencyResponse{}, b.SetPWMFreq(ctx, req.Pin, uint(req.FrequencyHz))
 }
 
 // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
 func (s *subtypeServer) ReadAnalogReader(
 	ctx context.Context,
-	req *pb.BoardServiceReadAnalogReaderRequest,
-) (*pb.BoardServiceReadAnalogReaderResponse, error) {
+	req *pb.ReadAnalogReaderRequest,
+) (*pb.ReadAnalogReaderResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -116,14 +116,14 @@ func (s *subtypeServer) ReadAnalogReader(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceReadAnalogReaderResponse{Value: int32(val)}, nil
+	return &pb.ReadAnalogReaderResponse{Value: int32(val)}, nil
 }
 
 // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
 func (s *subtypeServer) GetDigitalInterruptValue(
 	ctx context.Context,
-	req *pb.BoardServiceGetDigitalInterruptValueRequest,
-) (*pb.BoardServiceGetDigitalInterruptValueResponse, error) {
+	req *pb.GetDigitalInterruptValueRequest,
+) (*pb.GetDigitalInterruptValueResponse, error) {
 	b, err := s.getBoard(req.BoardName)
 	if err != nil {
 		return nil, err
@@ -138,5 +138,5 @@ func (s *subtypeServer) GetDigitalInterruptValue(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.BoardServiceGetDigitalInterruptValueResponse{Value: val}, nil
+	return &pb.GetDigitalInterruptValueResponse{Value: val}, nil
 }

@@ -20,7 +20,7 @@ import (
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/metadata/service"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"

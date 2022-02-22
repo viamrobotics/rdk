@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -37,8 +37,8 @@ func (s *subtypeServer) getGantry(name string) (Gantry, error) {
 // GetPosition returns the position of the gantry specified.
 func (s *subtypeServer) GetPosition(
 	ctx context.Context,
-	req *pb.GantryServiceGetPositionRequest,
-) (*pb.GantryServiceGetPositionResponse, error) {
+	req *pb.GetPositionRequest,
+) (*pb.GetPositionResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
@@ -47,14 +47,14 @@ func (s *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceGetPositionResponse{PositionsMm: pos}, nil
+	return &pb.GetPositionResponse{PositionsMm: pos}, nil
 }
 
 // GetLengths gets the lengths of a gantry of the underlying robot.
 func (s *subtypeServer) GetLengths(
 	ctx context.Context,
-	req *pb.GantryServiceGetLengthsRequest,
-) (*pb.GantryServiceGetLengthsResponse, error) {
+	req *pb.GetLengthsRequest,
+) (*pb.GetLengthsResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
@@ -63,17 +63,17 @@ func (s *subtypeServer) GetLengths(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceGetLengthsResponse{LengthsMm: lengthsMm}, nil
+	return &pb.GetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
 
 // MoveToPosition moves the gantry to the position specified.
 func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
-	req *pb.GantryServiceMoveToPositionRequest,
-) (*pb.GantryServiceMoveToPositionResponse, error) {
+	req *pb.MoveToPositionRequest,
+) (*pb.MoveToPositionResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm)
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm)
 }

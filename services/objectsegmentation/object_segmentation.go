@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"

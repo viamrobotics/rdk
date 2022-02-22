@@ -1,0 +1,44 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.servo.v1;
+
+import "google/api/annotations.proto";
+
+// A ServoService maintains all servos associated with a robot
+service ServoService {
+  // Move requests the servo of the underlying robot to move.
+  rpc Move(MoveRequest) returns (MoveResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/servo/{name}/move"
+    };
+  }
+
+  // GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
+  rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/servo/{name}/position"
+    };
+  }
+}
+
+message MoveRequest {
+  // the name of the servo, as registered
+  string name = 1;
+  // the degrees by which to rotate the servo. Accepted values are between 0 and 180
+  uint32 angle_deg = 2; 
+}
+
+message MoveResponse {}
+
+
+message GetPositionRequest {
+  // the name of the servo, as registered
+  string name = 1;
+}
+
+message GetPositionResponse {
+  // the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180
+  uint32 position_deg = 1;
+}

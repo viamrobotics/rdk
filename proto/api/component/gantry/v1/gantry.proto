@@ -1,0 +1,54 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/component/v1";
+option java_package = "com.viam.rdk.proto.api.component.v1";
+
+package proto.api.component.gantry.v1;
+
+import "google/api/annotations.proto";
+
+// An GantryService services all gantries associated with a robot
+service GantryService {
+  // GetPosition gets the current position of a gantry of the underlying robot.
+  rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/gantry/{name}/current_position"
+    };
+  }
+
+  // MoveToPosition moves a gantry of the underlying robot to the requested position.
+  rpc MoveToPosition(MoveToPositionRequest) returns (MoveToPositionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/component/gantry/{name}/move_to_position"
+    };
+  }
+
+  // GetLengths gets the lengths of a gantry of the underlying robot.
+  rpc GetLengths(GetLengthsRequest) returns (GetLengthsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/component/gantry/{name}/lengths"
+    };
+  }
+}
+
+message GetPositionRequest {
+  string name = 1;
+}
+
+message GetPositionResponse {
+  repeated double positions_mm = 1;
+}
+
+message MoveToPositionRequest {
+  string name = 1;
+  repeated double positions_mm = 2;
+}
+
+message MoveToPositionResponse {}
+
+message GetLengthsRequest {
+  string name = 1;
+}
+
+message GetLengthsResponse {
+  repeated double lengths_mm = 1;
+}

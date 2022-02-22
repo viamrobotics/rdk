@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 )
 
 // serviceClient is a client that satisfies the servo.proto contract.
@@ -70,7 +70,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Servo {
 }
 
 func (c *client) Move(ctx context.Context, angleDeg uint8) error {
-	req := &pb.ServoServiceMoveRequest{AngleDeg: uint32(angleDeg), Name: c.name}
+	req := &pb.MoveRequest{AngleDeg: uint32(angleDeg), Name: c.name}
 	if _, err := c.client.Move(ctx, req); err != nil {
 		return err
 	}
@@ -78,7 +78,7 @@ func (c *client) Move(ctx context.Context, angleDeg uint8) error {
 }
 
 func (c *client) GetPosition(ctx context.Context) (uint8, error) {
-	req := &pb.ServoServiceGetPositionRequest{Name: c.name}
+	req := &pb.GetPositionRequest{Name: c.name}
 	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err

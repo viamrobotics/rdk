@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -47,8 +47,8 @@ func (s *subtypeServer) getCamera(name string) (Camera, error) {
 // can be requested but may not necessarily be the same one returned.
 func (s *subtypeServer) GetFrame(
 	ctx context.Context,
-	req *pb.CameraServiceGetFrameRequest,
-) (*pb.CameraServiceGetFrameResponse, error) {
+	req *pb.GetFrameRequest,
+) (*pb.GetFrameResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ func (s *subtypeServer) GetFrame(
 	}
 
 	bounds := img.Bounds()
-	resp := pb.CameraServiceGetFrameResponse{
+	resp := pb.GetFrameResponse{
 		MimeType: req.MimeType,
 		WidthPx:  int64(bounds.Dx()),
 		HeightPx: int64(bounds.Dy()),
@@ -141,12 +141,12 @@ func (s *subtypeServer) GetFrame(
 // can be requested but may not necessarily be the same one returned.
 func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
-	req *pb.CameraServiceRenderFrameRequest,
+	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
 	if req.MimeType == "" {
 		req.MimeType = utils.MimeTypeJPEG // default rendering
 	}
-	resp, err := s.GetFrame(ctx, (*pb.CameraServiceGetFrameRequest)(req))
+	resp, err := s.GetFrame(ctx, (*pb.GetFrameRequest)(req))
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +161,8 @@ func (s *subtypeServer) RenderFrame(
 // can be requested but may not necessarily be the same one returned.
 func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
-	req *pb.CameraServiceGetPointCloudRequest,
-) (*pb.CameraServiceGetPointCloudResponse, error) {
+	req *pb.GetPointCloudRequest,
+) (*pb.GetPointCloudResponse, error) {
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -179,7 +179,7 @@ func (s *subtypeServer) GetPointCloud(
 		return nil, err
 	}
 
-	return &pb.CameraServiceGetPointCloudResponse{
+	return &pb.GetPointCloudResponse{
 		MimeType: utils.MimeTypePCD,
 		Frame:    buf.Bytes(),
 	}, nil

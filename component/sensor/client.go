@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 )
 
 // serviceClient is a client satisfies the sensor.proto contract.
@@ -70,7 +70,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Sensor {
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	resp, err := c.client.GetReadings(ctx, &pb.SensorServiceGetReadingsRequest{
+	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{
 		Name: c.name,
 	})
 	if err != nil {

@@ -10,7 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -76,7 +76,7 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 }
 
 func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := c.client.ReadAngularVelocity(ctx, &pb.IMUServiceReadAngularVelocityRequest{
+	resp, err := c.client.ReadAngularVelocity(ctx, &pb.ReadAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -90,7 +90,7 @@ func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVe
 }
 
 func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := c.client.ReadOrientation(ctx, &pb.IMUServiceReadOrientationRequest{
+	resp, err := c.client.ReadOrientation(ctx, &pb.ReadOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -104,7 +104,7 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 }
 
 func (c *client) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
-	resp, err := c.client.ReadAcceleration(ctx, &pb.IMUServiceReadAccelerationRequest{
+	resp, err := c.client.ReadAcceleration(ctx, &pb.ReadAccelerationRequest{
 		Name: c.name,
 	})
 	if err != nil {

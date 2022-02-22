@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/servo"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -40,17 +40,17 @@ func TestServoMove(t *testing.T) {
 		return errors.New("move failed")
 	}
 
-	req := pb.ServoServiceMoveRequest{Name: testServoName}
+	req := pb.MoveRequest{Name: testServoName}
 	resp, err := servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	req = pb.ServoServiceMoveRequest{Name: failServoName}
+	req = pb.MoveRequest{Name: failServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	req = pb.ServoServiceMoveRequest{Name: fakeServoName}
+	req = pb.MoveRequest{Name: fakeServoName}
 	resp, err = servoServer.Move(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
@@ -66,17 +66,17 @@ func TestServoGetPosition(t *testing.T) {
 		return 0, errors.New("current angle not readable")
 	}
 
-	req := pb.ServoServiceGetPositionRequest{Name: testServoName}
+	req := pb.GetPositionRequest{Name: testServoName}
 	resp, err := servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
 
-	req = pb.ServoServiceGetPositionRequest{Name: failServoName}
+	req = pb.GetPositionRequest{Name: failServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	req = pb.ServoServiceGetPositionRequest{Name: fakeServoName}
+	req = pb.GetPositionRequest{Name: fakeServoName}
 	resp, err = servoServer.GetPosition(context.Background(), &req)
 	test.That(t, resp, test.ShouldBeNil)
 	test.That(t, err, test.ShouldNotBeNil)

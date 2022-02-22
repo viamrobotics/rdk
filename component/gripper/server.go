@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -35,16 +35,16 @@ func (s *subtypeServer) getGripper(name string) (Gripper, error) {
 }
 
 // Open opens a gripper of the underlying robot.
-func (s *subtypeServer) Open(ctx context.Context, req *pb.GripperServiceOpenRequest) (*pb.GripperServiceOpenResponse, error) {
+func (s *subtypeServer) Open(ctx context.Context, req *pb.OpenRequest) (*pb.OpenResponse, error) {
 	gripper, err := s.getGripper(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GripperServiceOpenResponse{}, gripper.Open(ctx)
+	return &pb.OpenResponse{}, gripper.Open(ctx)
 }
 
 // Grab requests a gripper of the underlying robot to grab.
-func (s *subtypeServer) Grab(ctx context.Context, req *pb.GripperServiceGrabRequest) (*pb.GripperServiceGrabResponse, error) {
+func (s *subtypeServer) Grab(ctx context.Context, req *pb.GrabRequest) (*pb.GrabResponse, error) {
 	gripper, err := s.getGripper(req.Name)
 	if err != nil {
 		return nil, err
@@ -53,5 +53,5 @@ func (s *subtypeServer) Grab(ctx context.Context, req *pb.GripperServiceGrabRequ
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GripperServiceGrabResponse{Success: success}, nil
+	return &pb.GrabResponse{Success: success}, nil
 }

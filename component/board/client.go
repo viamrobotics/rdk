@@ -12,7 +12,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/board/v1"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -114,7 +114,7 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 }
 
 func (c *client) SetGPIO(ctx context.Context, pin string, high bool) error {
-	_, err := c.client.SetGPIO(ctx, &pb.BoardServiceSetGPIORequest{
+	_, err := c.client.SetGPIO(ctx, &pb.SetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 		High: high,
@@ -123,7 +123,7 @@ func (c *client) SetGPIO(ctx context.Context, pin string, high bool) error {
 }
 
 func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
-	resp, err := c.client.GetGPIO(ctx, &pb.BoardServiceGetGPIORequest{
+	resp, err := c.client.GetGPIO(ctx, &pb.GetGPIORequest{
 		Name: c.info.name,
 		Pin:  pin,
 	})
@@ -134,7 +134,7 @@ func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
 }
 
 func (c *client) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	_, err := c.client.SetPWM(ctx, &pb.BoardServiceSetPWMRequest{
+	_, err := c.client.SetPWM(ctx, &pb.SetPWMRequest{
 		Name:         c.info.name,
 		Pin:          pin,
 		DutyCyclePct: dutyCyclePct,
@@ -143,7 +143,7 @@ func (c *client) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) e
 }
 
 func (c *client) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	_, err := c.client.SetPWMFrequency(ctx, &pb.BoardServiceSetPWMFrequencyRequest{
+	_, err := c.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
 		Name:        c.info.name,
 		Pin:         pin,
 		FrequencyHz: uint64(freqHz),
@@ -185,7 +185,7 @@ func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
 	if status := c.getCachedStatus(); status != nil {
 		return status, nil
 	}
-	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.info.name})
+	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name})
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func (c *client) getCachedStatus() *commonpb.BoardStatus {
 
 // status gets the latest status from the server.
 func (c *client) status(ctx context.Context) (*commonpb.BoardStatus, error) {
-	resp, err := c.client.Status(ctx, &pb.BoardServiceStatusRequest{Name: c.info.name})
+	resp, err := c.client.Status(ctx, &pb.StatusRequest{Name: c.info.name})
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +247,7 @@ type analogReaderClient struct {
 }
 
 func (arc *analogReaderClient) Read(ctx context.Context) (int, error) {
-	resp, err := arc.client.ReadAnalogReader(ctx, &pb.BoardServiceReadAnalogReaderRequest{
+	resp, err := arc.client.ReadAnalogReader(ctx, &pb.ReadAnalogReaderRequest{
 		BoardName:        arc.boardName,
 		AnalogReaderName: arc.analogReaderName,
 	})
@@ -266,7 +266,7 @@ type digitalInterruptClient struct {
 }
 
 func (dic *digitalInterruptClient) Value(ctx context.Context) (int64, error) {
-	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.BoardServiceGetDigitalInterruptValueRequest{
+	resp, err := dic.client.GetDigitalInterruptValue(ctx, &pb.GetDigitalInterruptValueRequest{
 		BoardName:            dic.boardName,
 		DigitalInterruptName: dic.digitalInterruptName,
 	})

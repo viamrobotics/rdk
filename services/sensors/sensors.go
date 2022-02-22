@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/sensors/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -24,9 +24,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.SensorsService_ServiceDesc,
+				&pb.SensorsService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterSensorsServiceHandlerFromEndpoint,
+				pb.RegisterSensorsServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {

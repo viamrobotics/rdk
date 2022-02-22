@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -55,7 +55,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
-	resp, err := c.client.GetObjectPointClouds(ctx, &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{
+	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
 		Name:               cameraName,
 		MimeType:           utils.MimeTypePCD,
 		MinPointsInPlane:   int64(params.MinPtsInPlane),

@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/base"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -41,7 +41,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return nil
 		}
-		req := &pb.BaseServiceMoveStraightRequest{
+		req := &pb.MoveStraightRequest{
 			Name:       testBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -49,7 +49,7 @@ func TestServer(t *testing.T) {
 		}
 		resp, err := server.MoveStraight(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.BaseServiceMoveStraightResponse{})
+		test.That(t, resp, test.ShouldResemble, &pb.MoveStraightResponse{})
 
 		// on failing move straight
 		errMsg := "move straight failed"
@@ -59,7 +59,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return errors.New(errMsg)
 		}
-		req = &pb.BaseServiceMoveStraightRequest{
+		req = &pb.MoveStraightRequest{
 			Name:       failBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -69,7 +69,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
 		// failure on bad base handled
-		req = &pb.BaseServiceMoveStraightRequest{
+		req = &pb.MoveStraightRequest{
 			Name:       fakeBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -79,7 +79,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// failure on unfound base
-		req = &pb.BaseServiceMoveStraightRequest{
+		req = &pb.MoveStraightRequest{
 			Name:       "dne",
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -97,7 +97,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return nil
 		}
-		req := &pb.BaseServiceMoveArcRequest{
+		req := &pb.MoveArcRequest{
 			Name:       testBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -106,7 +106,7 @@ func TestServer(t *testing.T) {
 		}
 		resp, err := server.MoveArc(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.BaseServiceMoveArcResponse{})
+		test.That(t, resp, test.ShouldResemble, &pb.MoveArcResponse{})
 
 		// on failing move arc
 		errMsg := "move arc failed"
@@ -116,7 +116,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return errors.New(errMsg)
 		}
-		req = &pb.BaseServiceMoveArcRequest{
+		req = &pb.MoveArcRequest{
 			Name:       failBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -128,7 +128,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
 		// failure on bad base handled
-		req = &pb.BaseServiceMoveArcRequest{
+		req = &pb.MoveArcRequest{
 			Name:       fakeBaseName,
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -140,7 +140,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// failure on unfound base
-		req = &pb.BaseServiceMoveArcRequest{
+		req = &pb.MoveArcRequest{
 			Name:       "dne",
 			MmPerSec:   2.3,
 			DistanceMm: 1,
@@ -160,7 +160,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return nil
 		}
-		req := &pb.BaseServiceSpinRequest{
+		req := &pb.SpinRequest{
 			Name:       testBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
@@ -168,7 +168,7 @@ func TestServer(t *testing.T) {
 		}
 		resp, err := server.Spin(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.BaseServiceSpinResponse{})
+		test.That(t, resp, test.ShouldResemble, &pb.SpinResponse{})
 
 		// on failing spin
 		errMsg := "spin failed"
@@ -178,7 +178,7 @@ func TestServer(t *testing.T) {
 		) error {
 			return errors.New(errMsg)
 		}
-		req = &pb.BaseServiceSpinRequest{
+		req = &pb.SpinRequest{
 			Name:       failBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
@@ -189,7 +189,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
 		// failure on bad base handled
-		req = &pb.BaseServiceSpinRequest{
+		req = &pb.SpinRequest{
 			Name:       fakeBaseName,
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
@@ -200,7 +200,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// failure on unfound base
-		req = &pb.BaseServiceSpinRequest{
+		req = &pb.SpinRequest{
 			Name:       "dne",
 			DegsPerSec: 42.0,
 			AngleDeg:   42.0,
@@ -216,29 +216,29 @@ func TestServer(t *testing.T) {
 		workingBase.StopFunc = func(ctx context.Context) error {
 			return nil
 		}
-		req := &pb.BaseServiceStopRequest{Name: testBaseName}
+		req := &pb.StopRequest{Name: testBaseName}
 		resp, err := server.Stop(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, resp, test.ShouldResemble, &pb.BaseServiceStopResponse{})
+		test.That(t, resp, test.ShouldResemble, &pb.StopResponse{})
 
 		// on failing stop
 		errMsg := "stop failed"
 		brokenBase.StopFunc = func(ctx context.Context) error {
 			return errors.New(errMsg)
 		}
-		req = &pb.BaseServiceStopRequest{Name: failBaseName}
+		req = &pb.StopRequest{Name: failBaseName}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New(errMsg))
 
 		// failure on bad base handled
-		req = &pb.BaseServiceStopRequest{Name: fakeBaseName}
+		req = &pb.StopRequest{Name: fakeBaseName}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// failure on unfound base
-		req = &pb.BaseServiceStopRequest{Name: "dne"}
+		req = &pb.StopRequest{Name: "dne"}
 		resp, err = server.Stop(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)

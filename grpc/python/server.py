@@ -120,7 +120,7 @@ class RobotService(RobotServiceBase):
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def NavigationServiceWaypoints(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
-    async def ObjectManipulationServiceDoGrab(self, stream) -> None:
+    async def DoGrab(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)
     async def ResourceRunCommand(self, stream) -> None:
         raise GRPCError(GRPCStatus.UNIMPLEMENTED)

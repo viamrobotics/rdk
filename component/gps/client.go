@@ -11,7 +11,7 @@ import (
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 )
 
 // serviceClient is a client satisfies the gps.proto contract.
@@ -75,7 +75,7 @@ func clientFromSvcClient(sc *serviceClient, name string) GPS {
 }
 
 func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.ReadLocation(ctx, &pb.GPSServiceReadLocationRequest{
+	resp, err := c.client.ReadLocation(ctx, &pb.ReadLocationRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -85,7 +85,7 @@ func (c *client) ReadLocation(ctx context.Context) (*geo.Point, error) {
 }
 
 func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
-	resp, err := c.client.ReadAltitude(ctx, &pb.GPSServiceReadAltitudeRequest{
+	resp, err := c.client.ReadAltitude(ctx, &pb.ReadAltitudeRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -95,7 +95,7 @@ func (c *client) ReadAltitude(ctx context.Context) (float64, error) {
 }
 
 func (c *client) ReadSpeed(ctx context.Context) (float64, error) {
-	resp, err := c.client.ReadSpeed(ctx, &pb.GPSServiceReadSpeedRequest{
+	resp, err := c.client.ReadSpeed(ctx, &pb.ReadSpeedRequest{
 		Name: c.name,
 	})
 	if err != nil {

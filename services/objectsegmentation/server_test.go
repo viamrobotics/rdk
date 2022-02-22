@@ -8,7 +8,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectsegmentation"
 	"go.viam.com/rdk/subtype"
@@ -30,14 +30,14 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	osMap := map[resource.Name]interface{}{}
 	server, err := newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.GetObjectPointClouds(context.Background(), &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{})
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{})
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:object_segmentation\" not found"))
 
 	// set up the robot with something that is not an objectsegmentation service
 	osMap = map[resource.Name]interface{}{objectsegmentation.Name: "not object segmentation"}
 	server, err = newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = server.GetObjectPointClouds(context.Background(), &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{})
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectsegmentation.Service")
 
@@ -52,7 +52,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 		return nil, passedErr
 	}
-	req := &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{
+	req := &pb.GetObjectPointCloudsRequest{
 		Name:               "fakeCamera",
 		MimeType:           utils.MimeTypePCD,
 		MinPointsInPlane:   5,
@@ -85,7 +85,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		}
 		return seg.Objects(), nil
 	}
-	segs, err := server.GetObjectPointClouds(context.Background(), &pb.ObjectSegmentationServiceGetObjectPointCloudsRequest{
+	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
 		Name:               "fakeCamera",
 		MinPointsInPlane:   100,
 		MinPointsInSegment: 3,
