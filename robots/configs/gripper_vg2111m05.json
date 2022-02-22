@@ -99,8 +99,7 @@
       },
       "model": "forcematrixwithmux_v1",
       "name": "forcematrixWithMux",
-      "subtype": "force_matrix",
-      "type": "sensor"
+      "type": "force_matrix"
     },
     {
       "attributes": {
