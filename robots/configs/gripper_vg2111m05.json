@@ -99,7 +99,7 @@
       },
       "model": "forcematrixwithmux_v1",
       "name": "forcematrixWithMux",
-      "subtype": "forcematrix",
+      "subtype": "force_matrix",
       "type": "sensor"
     },
     {
@@ -129,7 +129,7 @@
         "board": "gripper-board",
         "calibration_min_pressure_difference": 7,
         "current": "current",
-        "forcematrix": "forcematrixWithMux",
+        "force_matrix": "forcematrixWithMux",
         "has_pressure_threshold": 10,
         "motor": "gripper-motor",
         "start_grip_power_pct": 0.0001,

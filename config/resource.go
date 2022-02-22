@@ -39,7 +39,7 @@ const (
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")
 	ComponentTypeMotor           = ComponentType("motor")
-	ComponentTypeForceMatrix     = ComponentType("forcematrix")
+	ComponentTypeForceMatrix     = ComponentType("force_matrix")
 	ComponentTypeInputController = ComponentType("input_controller")
 )
 
