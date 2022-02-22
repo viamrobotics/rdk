@@ -3,55 +3,50 @@ package inject
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/sensor/imu"
-	"go.viam.com/core/spatialmath"
+	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/spatialmath"
 )
 
-// IMU is an injected imu.
+// IMU is an injected IMU.
 type IMU struct {
 	imu.IMU
-	ReadingsFunc        func(ctx context.Context) ([]interface{}, error)
-	AngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
-	OrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
-	CloseFunc           func() error
+	ReadAngularVelocityFunc func(ctx context.Context) (spatialmath.AngularVelocity, error)
+	ReadOrientationFunc     func(ctx context.Context) (spatialmath.Orientation, error)
+	ReadAccelerationFunc    func(ctx context.Context) (r3.Vector, error)
+	CloseFunc               func(ctx context.Context) error
 }
 
-// Readings calls the injected Readings or the real version.
-func (i *IMU) Readings(ctx context.Context) ([]interface{}, error) {
-	if i.ReadingsFunc == nil {
-		return i.IMU.Readings(ctx)
+// ReadAngularVelocity calls the injected ReadAngularVelocity or the real version.
+func (i *IMU) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	if i.ReadAngularVelocityFunc == nil {
+		return i.IMU.ReadAngularVelocity(ctx)
 	}
-	return i.ReadingsFunc(ctx)
+	return i.ReadAngularVelocityFunc(ctx)
 }
 
-// AngularVelocity calls the injected AngularVelocity or the real version.
-func (i *IMU) AngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	if i.AngularVelocityFunc == nil {
-		return i.IMU.AngularVelocity(ctx)
+// ReadOrientation calls the injected Orientation or the real version.
+func (i *IMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	if i.ReadOrientationFunc == nil {
+		return i.IMU.ReadOrientation(ctx)
 	}
-	return i.AngularVelocityFunc(ctx)
+	return i.ReadOrientationFunc(ctx)
 }
 
-// Orientation calls the injected Orientation or the real version.
-func (i *IMU) Orientation(ctx context.Context) (spatialmath.Orientation, error) {
-	if i.OrientationFunc == nil {
-		return i.IMU.Orientation(ctx)
+// ReadAcceleration calls the injected Acceleration or the real version.
+func (i *IMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	if i.ReadOrientationFunc == nil {
+		return i.IMU.ReadAcceleration(ctx)
 	}
-	return i.OrientationFunc(ctx)
-}
-
-// Desc returns that this is an IMU.
-func (i *IMU) Desc() sensor.Description {
-	return sensor.Description{imu.Type, ""}
+	return i.ReadAccelerationFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.
-func (i *IMU) Close() error {
+func (i *IMU) Close(ctx context.Context) error {
 	if i.CloseFunc == nil {
-		return utils.TryClose(i.IMU)
+		return utils.TryClose(ctx, i.IMU)
 	}
-	return i.CloseFunc()
+	return i.CloseFunc(ctx)
 }

@@ -8,29 +8,28 @@ import (
 	"math"
 	"time"
 
-	"github.com/go-errors/errors"
-	"go.uber.org/multierr"
-
-	"go.viam.com/utils"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/sensor/imu"
-	_ "go.viam.com/core/sensor/imu/wit"
-	"go.viam.com/core/services/navigation"
-	"go.viam.com/core/services/web"
-	coreutils "go.viam.com/core/utils"
-	webserver "go.viam.com/core/web/server"
 
 	"github.com/edaniels/golog"
+	slib "github.com/jacobsa/go-serial/serial"
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
+	"go.viam.com/utils"
+	"go.viam.com/utils/serial"
+
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/navigation"
+	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("boat2")
@@ -51,10 +50,11 @@ type boat struct {
 	myRobot robot.Robot
 	myImu   imu.IMU
 
-	squirt, steering, thrust motor.Motor
-	starboard, port          motor.Motor
-	middle                   float64
-	steeringRange            float64
+	squirt, thrust  motor.Motor
+	starboard, port motor.Motor
+	steering        motor.LocalMotor
+	middle          float64
+	steeringRange   float64
 
 	navService navigation.Service
 
@@ -65,10 +65,10 @@ type boat struct {
 
 func (b *boat) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		b.starboard.Off(ctx),
-		b.port.Off(ctx),
-		b.thrust.Off(ctx),
-		b.squirt.Off(ctx),
+		b.starboard.Stop(ctx),
+		b.port.Stop(ctx),
+		b.thrust.Stop(ctx),
+		b.squirt.Stop(ctx),
 	)
 }
 
@@ -94,164 +94,117 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 	return b.steering.GoTo(ctx, rpm, dir)
 }
 
-func max32(a, b float32) float32 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min32(a, b float32) float32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
-	thrustDir pb.DirectionRelative,
-	thrustSpeed float32,
-	portDir pb.DirectionRelative,
-	portSpeed float32,
-	starboardDir pb.DirectionRelative,
-	starboardSpeed float32) error {
+	thrustPowerPct float64,
+	portPowerPct float64,
+	starboardPowerPct float64,
+) error {
+	thrustPowerPct = math.Max(0, thrustPowerPct)
 
-	thrustSpeed = max32(0, thrustSpeed)
-
-	if portSpeed < 0 {
-		portSpeed *= -1
-		portDir = board.FlipDirection(portDir)
-	}
-	if starboardSpeed < 0 {
-		starboardSpeed *= -1
-		starboardDir = board.FlipDirection(starboardDir)
-	}
-
-	thrustSpeed = min32(1, thrustSpeed)
-	portSpeed = min32(1, portSpeed)
-	starboardSpeed = min32(1, starboardSpeed)
+	thrustPowerPct = math.Min(1, thrustPowerPct)
+	portPowerPct = math.Min(1, portPowerPct)
+	starboardPowerPct = math.Min(1, starboardPowerPct)
 
 	if false {
-		fmt.Printf("SteerAndMoveHelp %v %0.2f %v %0.2f %v %0.2f\n",
-			thrustDir,
-			thrustSpeed,
-			portDir,
-			portSpeed,
-			starboardDir,
-			starboardSpeed)
+		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustPowerPct, portPowerPct, starboardPowerPct)
 	}
 	return multierr.Combine(
-		b.thrust.Go(ctx, thrustDir, thrustSpeed),
-		b.port.Go(ctx, portDir, portSpeed),
-		b.starboard.Go(ctx, starboardDir, starboardSpeed),
+		b.thrust.SetPower(ctx, thrustPowerPct),
+		b.port.SetPower(ctx, portPowerPct),
+		b.starboard.SetPower(ctx, starboardPowerPct),
 	)
-
 }
 
 // dir -1 -> 1 : -1 = hard left 1 = hard right
-// speed -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards
-func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
+// pctMaxRPM -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
+func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 	if false { // using column
 		return b.steerColumn(ctx, dir)
 	}
 
 	if false {
-		fmt.Printf("SteerAndMove %0.2f %0.2f \n", dir, speed)
+		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, pctMaxRPM)
 	}
 
-	if speed > .4 {
+	if pctMaxRPM > 0.4 {
 		// forwards
-
-		if dir > 0 {
-			return b.SteerAndMoveHelp(ctx,
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)))
+		if dir < 0 {
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, pctMaxRPM, math.Max(0, pctMaxRPM-dir*1.5))
 		}
 		dir *= -1
-		return b.SteerAndMoveHelp(ctx,
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed-dir/3),
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(math.Max(0, speed-dir*1.5)),
-			pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(speed),
-		)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, math.Max(0, pctMaxRPM-dir*1.5), pctMaxRPM)
 	}
 
-	if speed < -.4 {
-		speed *= -1
+	if pctMaxRPM < -0.4 {
+		pctMaxRPM *= -1
 		// backwards
 		if dir < 0 {
 			dir *= -1
-			return b.SteerAndMoveHelp(ctx,
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-				pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(math.Max(0, speed-dir)),
-			)
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM, pctMaxRPM, math.Max(0, pctMaxRPM-dir))
 		}
 
-		return b.SteerAndMoveHelp(ctx,
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(math.Max(0, speed-dir)),
-			pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(speed),
-		)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM, math.Max(0, pctMaxRPM-dir), pctMaxRPM)
 	}
 
 	// we really want to spin with a little straight movement
 
-	//fmt.Printf("spinning\n")
 	if dir > 0 {
 		return multierr.Combine(
-			b.thrust.Off(ctx),
-			b.port.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(dir)),
-			b.starboard.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(dir)),
+			b.thrust.Stop(ctx),
+			b.port.SetPower(ctx, dir),
+			b.starboard.SetPower(ctx, dir),
 		)
 	}
 
 	dir *= -1
 	return multierr.Combine(
-		b.thrust.Off(ctx),
-		b.port.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, float32(dir)),
-		b.starboard.Go(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, float32(dir)),
+		b.thrust.Stop(ctx),
+		b.port.SetPower(ctx, dir),
+		b.starboard.SetPower(ctx, dir),
 	)
 }
 
-func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
+func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
+	var ok bool
+
 	b := &boat{myRobot: r}
 
-	tempIMU, ok := r.SensorByName("imu")
-	if !ok {
-		return nil, errors.New("need imu")
-	}
-	b.myImu, ok = tempIMU.(imu.IMU)
-	if !ok {
-		return nil, fmt.Errorf("wanted an imu but got an %T %#v", tempIMU, tempIMU)
-	}
 
+	b.myImu, err = imu.FromRobot(r, "imu")
+	if err != nil {
+		return nil, err
+	}
 	// get all motors
 
-	b.squirt, ok = r.MotorByName("squirt")
-	if !ok {
-		return nil, errors.New("no squirt motor")
+	b.squirt, err = motor.FromRobot(r, "squirt")
+	if err != nil {
+		return nil, errors.Wrap(err, "no squirt motor")
 	}
 
-	b.steering, ok = r.MotorByName("steering")
+	steeringMotor, err := motor.FromRobot(r, "steering")
+	if err != nil {
+		return nil, errors.Wrap(err, "no steering motor")
+	}
+	stoppableMotor, ok := steeringMotor.(motor.LocalMotor)
 	if !ok {
-		return nil, errors.New("no steering motor")
+		return nil, motor.NewGoTillStopUnsupportedError("steering")
+	}
+	b.steering = stoppableMotor
+
+	b.thrust, err = motor.FromRobot(r, "thrust")
+	if err != nil {
+		return nil, errors.Wrap(err, "no thrust motor")
 	}
 
-	b.thrust, ok = r.MotorByName("thrust")
-	if !ok {
-		return nil, errors.New("no thrust motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "no starboard motor")
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("no starboard motor")
-	}
-
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("no port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "no port motor")
 	}
 
 	err = b.Stop(ctx)
@@ -261,22 +214,22 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 
 	if false {
 		// calibrate steering
-		err = b.steering.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD, 50, nil)
+		err = b.steering.GoTillStop(ctx, -50, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		bwdLimit, err := b.steering.Position(ctx)
+		bwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		err = b.steering.GoTillStop(ctx, pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD, 50, nil)
+		err = b.steering.GoTillStop(ctx, 50, nil)
 		if err != nil {
 			return nil, err
 		}
 
-		fwdLimit, err := b.steering.Position(ctx)
+		fwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -290,7 +243,7 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 			return nil, fmt.Errorf("steeringRange only %v", b.steeringRange)
 		}
 
-		err = multierr.Combine(b.thrust.Off(ctx), b.steering.GoTo(ctx, 50, b.middle))
+		err = multierr.Combine(b.thrust.Stop(ctx), b.steering.GoTo(ctx, 50, b.middle))
 		if err != nil {
 			return nil, err
 		}
@@ -299,16 +252,16 @@ func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golo
 	return b, nil
 }
 
-func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
+func (b *boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	speed := 0.7
-	if distanceMillis >= 9*1000 {
+	if distanceMm >= 9*1000 {
 		speed = 1.0
 	}
 
 	if true {
 		err := b.SteerAndMove(ctx, 0, speed)
 		utils.SelectContextOrWait(ctx, 10000*time.Millisecond)
-		return 0, err
+		return err
 	}
 
 	if math.Abs(b.lastSpin) > 90 {
@@ -329,28 +282,27 @@ func (b *boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSe
 		}
 	}
 
-	//fmt.Printf("MoveStraight steeringDir: %0.2f speed: %v distanceMillis: %v lastSpin: %v\n", steeringDir, speed, distanceMillis, b.lastSpin)
-	return 0, b.SteerAndMove(ctx, dir, speed)
+	return b.SteerAndMove(ctx, dir, speed)
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
-func (b *boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, errors.New("boat can't move in arc yet")
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
+func (b *boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+	return errors.New("boat can't move in arc yet")
 }
 
-func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
+func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
 	b.lastSpin = angleDeg
 	b.previousSpins = append(b.previousSpins, b.lastSpin)
 
 	if angleDeg < 3 && angleDeg > -3 {
-		return 0, nil
+		return nil
 	}
 
 	if true { // try to spin now
-		fmt.Printf("want to turn %v\n", angleDeg)
-		start, err := b.myImu.Orientation(ctx)
+		logger.Infof("want to turn %v\n", angleDeg)
+		start, err := b.myImu.ReadOrientation(ctx)
 		if err != nil {
-			return 0, err
+			return err
 		}
 		startAngle := start.EulerAngles().Yaw
 
@@ -360,37 +312,37 @@ func (b *boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, b
 		}
 		err = b.SteerAndMove(ctx, dir, 0)
 		if err != nil {
-			return 0, err
+			return err
 		}
 
 		// chek how much we've spinned till we've spin the righ amount
 		for i := 0; i < 1000; i++ {
 			if !utils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-				return 0, nil
+				return nil
 			}
 
-			now, err := b.myImu.Orientation(ctx)
+			now, err := b.myImu.ReadOrientation(ctx)
 			if err != nil {
-				return 0, err
+				return err
 			}
 
-			left := math.Abs(angleDeg) - coreutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
-			fmt.Printf("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
+			left := math.Abs(angleDeg) - rdkutils.AngleDiffDeg(startAngle, now.EulerAngles().Yaw)
+			logger.Infof("\t left %v (%#v %#v)\n", left, startAngle, now.EulerAngles().Yaw)
 			if left < 5 || left > 180 {
-				return 0, b.Stop(ctx)
+				return b.Stop(ctx)
 			}
 		}
 	}
 
-	return 0, nil
+	return nil
 }
 
-func (b *boat) WidthMillis(ctx context.Context) (int, error) {
+func (b *boat) GetWidth(ctx context.Context) (int, error) {
 	return 600, nil
 }
 
-func (b *boat) Close() error {
-	return b.Stop(context.Background())
+func (b *boat) Close(ctx context.Context) error {
+	return b.Stop(ctx)
 }
 
 func runRC2(ctx context.Context, myBoat *boat) {
@@ -475,7 +427,6 @@ func runRC2(ctx context.Context, myBoat *boat) {
 				} else {
 					navModeNum = MANUALMODE
 				}
-
 			}
 
 		}
@@ -519,7 +470,8 @@ func runRC2(ctx context.Context, myBoat *boat) {
 		case ROBOTMODE:
 			//navservice(waypoint) handles everything
 		case PUSHMODE:
-			now, err := myBoat.myImu.Orientation(ctx)
+			now, err := myBoat.myImu.ReadOrientation(ctx)
+
 			if err != nil {
 				logger.Errorw("error getting orientation: %w", err)
 				continue
@@ -533,7 +485,7 @@ func runRC2(ctx context.Context, myBoat *boat) {
 			delta := pushDirection - now.EulerAngles().Yaw
 
 			steer := .5 * (delta / 180)
-			fmt.Printf("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
+			logger.Infof("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
 				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
 			err = myBoat.SteerAndMove(ctx, steer, 1.0)
@@ -557,19 +509,19 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 				return
 			}
 
-			r, err := myBoat.myImu.AngularVelocity(ctx)
+			r, err := myBoat.myImu.ReadAngularVelocity(ctx)
 			if err != nil {
-				fmt.Printf("error from imu %v\n", err)
+				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
-			r2, err := myBoat.myImu.Orientation(ctx)
+			r2, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
-				fmt.Printf("error from imu %v\n", err)
+				logger.Infof("error from imu %v\n", err)
 				continue
 			}
 
-			fmt.Printf("imu readings %#v\n\t%#v\n", r, r2)
+			logger.Infof("imu readings %#v\n\t%#v\n", r, r2)
 		}
 	}()
 }
@@ -577,7 +529,7 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -587,24 +539,38 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
 	// register boat as base properly
-	registry.RegisterBase("viam-boat2", registry.Base{Constructor: newBoat})
+
+	registry.RegisterComponent(base.Subtype, "viam-boat2", registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newBoat(ctx, r, logger)
+		},
+	})
+
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b, ok := myRobot.BaseByName("base1")
-	if !ok {
-		return errors.New("no base")
+	b, err := base.FromRobot(myRobot, "base1")
+	if err != nil {
+		return err
 	}
-	myB := coreutils.UnwrapProxy(b).(*boat)
+	myB, ok := rdkutils.UnwrapProxy(b).(*boat)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
+	}
 
-	navServiceTemp, ok := myRobot.ServiceByName("navigation")
+	navServiceTemp, ok := myRobot.ResourceByName(navigation.Name)
 	if !ok {
 		return errors.New("no navigation service")
 	}

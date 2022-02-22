@@ -9,8 +9,11 @@ package rimage
 import (
 	"image"
 	"image/color"
+	"math"
 
-	"go.viam.com/core/utils"
+	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/utils"
 )
 
 // Image is like image.Image but it uses our Color type with a few more
@@ -34,6 +37,13 @@ func NewImageFromBounds(bounds image.Rectangle) *Image {
 // ColorModel returns our Color types color model.
 func (i *Image) ColorModel() color.Model {
 	return &TheColorModel{}
+}
+
+// Clone makes a copy of the image.
+func (i *Image) Clone() *Image {
+	ii := NewImage(i.Width(), i.Height())
+	copy(ii.data, i.data)
+	return ii
 }
 
 // In returns whether or not a point is within bounds of this image.
@@ -111,19 +121,20 @@ func (i *Image) Circle(center image.Point, radius int, c Color) {
 		i.Set(p, c)
 		return nil
 	})
-
 	if err != nil {
 		panic(err) // impossible
 	}
-
 }
 
 // SubImage returns a subset of the image defined by the given rectangle.
-func (i *Image) SubImage(r image.Rectangle) Image {
+func (i *Image) SubImage(r image.Rectangle) *Image {
+	if r.Empty() {
+		return &Image{}
+	}
 	xmin, xmax := utils.MinInt(i.width, r.Min.X), utils.MinInt(i.width, r.Max.X)
 	ymin, ymax := utils.MinInt(i.height, r.Min.Y), utils.MinInt(i.height, r.Max.Y)
 	if xmin == xmax || ymin == ymax { // return empty Image
-		return Image{data: []Color{}, width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin)}
+		return &Image{data: []Color{}, width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin)}
 	}
 	width := xmax - xmin
 	height := ymax - ymin
@@ -132,5 +143,16 @@ func (i *Image) SubImage(r image.Rectangle) Image {
 		begin, end := (y*i.width)+xmin, (y*i.width)+xmax
 		newData = append(newData, i.data[begin:end]...)
 	}
-	return Image{data: newData, width: width, height: height}
+	return &Image{data: newData, width: width, height: height}
+}
+
+// ConvertColorImageToLuminanceFloat convert an Image to a gray level image as a float dense matrix.
+func ConvertColorImageToLuminanceFloat(img *Image) *mat.Dense {
+	out := mat.NewDense(img.height, img.width, nil)
+	utils.ParallelForEachPixel(image.Point{img.width, img.height}, func(x int, y int) {
+		c := img.GetXY(x, y)
+		l := math.Floor(Luminance(c))
+		out.Set(y, x, l)
+	})
+	return out
 }

@@ -6,20 +6,18 @@
 package spatialmath
 
 import (
-	"math"
-
 	"github.com/golang/geo/r3"
+	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/utils"
 )
 
-// Translation is the translation between two objects in the grid system. It is always in millimeters.
-type Translation struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
+// Epsilon represents the acceptable discrepancy between two floats
+// representing spatial coordinates wherin the coordinates should be
+// considered equivalent.
+const Epsilon = 1e-8
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
@@ -30,15 +28,15 @@ type Pose interface {
 	Orientation() Orientation
 }
 
-// PoseMap encodes the orientation interface to something serializable and human readable
+// PoseMap encodes the orientation interface to something serializable and human readable.
 func PoseMap(p Pose) (map[string]interface{}, error) {
-	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	oc, err := NewOrientationConfig(p.Orientation().AxisAngles())
 	if err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{
 		"point":       p.Point(),
-		"orientation": orientation,
+		"orientation": oc,
 	}, nil
 }
 
@@ -52,17 +50,20 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 	if o == nil {
 		return NewPoseFromPoint(point)
 	}
-	return NewPoseFromOrientationVector(point, o.OrientationVectorRadians())
+	q := newDualQuaternion()
+	q.Real = o.Quaternion()
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
 func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
-	quat := newDualQuaternion()
+	q := newDualQuaternion()
 	if ov != nil {
-		quat = newDualQuaternionFromRotation(ov)
+		q = newDualQuaternionFromRotation(ov)
 	}
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromAxisAngle takes in a position, rotationAxis, and angle and returns a Pose.
@@ -74,21 +75,21 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 	}
 	aa := R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
 
-	quat := newDualQuaternion()
-	quat.Real = aa.ToQuat()
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q := newDualQuaternion()
+	q.Real = aa.ToQuat()
+	q.SetTranslation(point)
+	return q
 }
 
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
 // It will have the same orientation as the frame it is in.
 func NewPoseFromPoint(point r3.Vector) Pose {
-	quat := newDualQuaternion()
-	quat.SetTranslation(point.X, point.Y, point.Z)
-	return quat
+	q := newDualQuaternion()
+	q.SetTranslation(point)
+	return q
 }
 
-// NewPoseFromProtobuf creates a new pose from a protobuf pose
+// NewPoseFromProtobuf creates a new pose from a protobuf pose.
 func NewPoseFromProtobuf(pos *commonpb.Pose) Pose {
 	return newDualQuaternionFromProtobuf(pos)
 }
@@ -99,32 +100,36 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 }
 
 // Compose treats Poses as functions A(x) and B(x), and produces a new function C(x) = A(B(x)).
-// It converts the poses to dual quaternions and multiplies them together, normalizes the transformm and returns a new Pose.
-// Composition does not commute in general, i.e. you cannot guarantee ABx == BAx
+// It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
+// Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	aq := dualQuaternionFromPose(a)
-	bq := dualQuaternionFromPose(b)
-	result := newDualQuaternion()
-	result.Number = aq.Transformation(bq.Number)
+	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 
 	// Normalization
-	if vecLen := quat.Abs(result.Real); vecLen != 1 {
-		result.Real = quat.Scale(1/vecLen, result.Real)
+	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
+		result.Real.Real *= vecLen
+		result.Real.Imag *= vecLen
+		result.Real.Jmag *= vecLen
+		result.Real.Kmag *= vecLen
 	}
 	return result
+}
+
+// PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
+func PoseBetween(a, b Pose) Pose {
+	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 }
 
 // PoseDelta returns the difference between two dualQuaternion.
 // We use quaternion/angle axis for this because distances are well-defined.
 func PoseDelta(a, b Pose) Pose {
-	aQ := a.Orientation().Quaternion()
-	bQ := b.Orientation().Quaternion()
-	orientationDiff := quat.Mul(bQ, quat.Conj(aQ))
-	translationDiff := b.Point().Sub(a.Point())
-	return NewPoseFromOrientation(translationDiff, (*quaternion)(&orientationDiff))
+	return &distancePose{
+		orientation: quat.Mul(b.Orientation().Quaternion(), quat.Conj(a.Orientation().Quaternion())),
+		point:       b.Point().Sub(a.Point()),
+	}
 }
 
-// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees)
+// PoseToProtobuf converts a pose to the pose format protobuf expects (which is as OrientationVectorDegrees).
 func PoseToProtobuf(p Pose) *commonpb.Pose {
 	final := &commonpb.Pose{}
 	pt := p.Point()
@@ -139,9 +144,9 @@ func PoseToProtobuf(p Pose) *commonpb.Pose {
 	return final
 }
 
-// Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
-// the pose of B relative to A
-func Invert(p Pose) Pose {
+// PoseInverse will return the inverse of a pose. So if a given pose p is the pose of A relative to B, PoseInverse(p) will give
+// the pose of B relative to A.
+func PoseInverse(p Pose) Pose {
 	return newDualQuaternionFromPose(p).Invert()
 }
 
@@ -154,16 +159,47 @@ func Interpolate(p1, p2 Pose, by float64) Pose {
 	intQ := newDualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
 
-	intQ.SetTranslation((p1.Point().X + (p2.Point().X-p1.Point().X)*by),
+	intQ.SetTranslation(r3.Vector{
+		(p1.Point().X + (p2.Point().X-p1.Point().X)*by),
 		(p1.Point().Y + (p2.Point().Y-p1.Point().Y)*by),
-		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by))
+		(p1.Point().Z + (p2.Point().Z-p1.Point().Z)*by),
+	})
 	return intQ
 }
 
-// AlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location
-func AlmostCoincident(a, b Pose) bool {
-	const epsilon = 1e-8
+// PoseAlmostEqual will return a bool describing whether 2 poses are approximately the same.
+func PoseAlmostEqual(a, b Pose) bool {
+	return PoseAlmostCoincident(a, b) && OrientationAlmostEqual(a.Orientation(), b.Orientation())
+}
+
+// PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses the same epsilon as the default value for the Viam IK solver.
+func PoseAlmostCoincident(a, b Pose) bool {
+	return PoseAlmostCoincidentEps(a, b, Epsilon)
+}
+
+// PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses a passed in epsilon value.
+func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
 	ap := a.Point()
 	bp := b.Point()
-	return math.Abs(ap.X-bp.X) < epsilon && math.Abs(ap.Y-bp.Y) < epsilon && math.Abs(ap.Z-bp.Z) < epsilon
+	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&
+		utils.Float64AlmostEqual(ap.Y, bp.Y, epsilon) &&
+		utils.Float64AlmostEqual(ap.Z, bp.Z, epsilon)
+}
+
+// distancePose holds an already computed pose and orientation. It is not efficient to do spatial math on a
+// distancePose, use a dualQuaternion instead.
+// A distancePose is useful when you need to return e.g. a computed point within a pose without converting back to a DQ.
+type distancePose struct {
+	point       r3.Vector
+	orientation quat.Number
+}
+
+func (d *distancePose) Point() r3.Vector {
+	return d.point
+}
+
+func (d *distancePose) Orientation() Orientation {
+	return (*quaternion)(&d.orientation)
 }

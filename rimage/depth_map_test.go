@@ -5,12 +5,12 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"math/rand"
 	"os"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestDepthMap1(t *testing.T) {
@@ -31,7 +31,6 @@ func TestDepthMap1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
-
 }
 
 func TestDepthMap2(t *testing.T) {
@@ -53,7 +52,20 @@ func TestDepthMap2(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.width, test.ShouldEqual, 1280)
 	test.That(t, m.height, test.ShouldEqual, 720)
+}
 
+func TestCloneDepthMap(t *testing.T) {
+	m, err := ParseDepthMap(artifact.MustPath("rimage/board2.dat.gz"))
+	test.That(t, err, test.ShouldBeNil)
+
+	mm := m.Clone()
+	for y := 0; y < m.Height(); y++ {
+		for x := 0; x < m.Width(); x++ {
+			test.That(t, mm.GetDepth(x, y), test.ShouldResemble, m.GetDepth(x, y))
+		}
+	}
+	mm.Set(0, 0, Depth(5000))
+	test.That(t, mm.GetDepth(0, 0), test.ShouldNotResemble, m.GetDepth(0, 0))
 }
 
 func TestDepthMapNewFormat(t *testing.T) {
@@ -68,7 +80,7 @@ func TestDepthMapNewFormat(t *testing.T) {
 	for x := 0; x < m.width; x++ {
 		d := m.GetDepth(x, m.height-1)
 		if d == 0 {
-			numZero = numZero + 1
+			numZero++
 		} else {
 			test.That(t, d, test.ShouldBeBetween, 100, 5000)
 		}
@@ -77,16 +89,28 @@ func TestDepthMapNewFormat(t *testing.T) {
 	test.That(t, numZero, test.ShouldBeBetween, 0, m.width)
 }
 
+//  1 2              5 3 1 //  1 2               2 4 6
+//  3 4  -- 90 cw -> 6 4 2 //  3 4  -- 90 ccw -> 1 3 5
+//  5 6                    //  5 6
 func TestDepthRotate90(t *testing.T) {
-	dm := NewEmptyDepthMap(2, 2)
+	dm := NewEmptyDepthMap(2, 3)
 	dm.Set(0, 0, 1)
 	dm.Set(1, 0, 2)
 	dm.Set(0, 1, 3)
 	dm.Set(1, 1, 4)
+	dm.Set(0, 2, 5)
+	dm.Set(1, 2, 6)
 
 	dm2 := dm.Rotate90(true)
-
-	test.That(t, dm2.GetDepth(0, 0), test.ShouldEqual, Depth(1))
+	test.That(t, dm2.Height(), test.ShouldEqual, 2)
+	test.That(t, dm2.Width(), test.ShouldEqual, 3)
+	test.That(t, dm2.GetDepth(0, 0), test.ShouldEqual, Depth(5))
+	test.That(t, dm2.GetDepth(2, 1), test.ShouldEqual, Depth(2))
+	dm3 := dm.Rotate90(false)
+	test.That(t, dm3.Height(), test.ShouldEqual, 2)
+	test.That(t, dm3.Width(), test.ShouldEqual, 3)
+	test.That(t, dm3.GetDepth(0, 0), test.ShouldEqual, Depth(2))
+	test.That(t, dm3.GetDepth(2, 1), test.ShouldEqual, Depth(5))
 }
 
 func TestToGray16Picture(t *testing.T) {
@@ -103,7 +127,8 @@ func TestToGray16Picture(t *testing.T) {
 	png.Encode(file, gimg)
 }
 
-func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
+//nolint:dupl
+func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -116,14 +141,17 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 			if x >= overlap.Min.X && x < overlap.Max.X && y >= overlap.Min.Y && y < overlap.Max.Y {
 				cropData = append(cropData, i)
 			}
-			i = i + 1
+			i++
 		}
 	}
-	return Image{data: oriData, width: oriWidth, height: oriHeight}, Image{data: cropData, width: cropWidth, height: cropHeight}
-
+	if crop.Empty() {
+		return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{}
+	}
+	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
-func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap) {
+//nolint:dupl
+func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -136,11 +164,13 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap
 			if x >= overlap.Min.X && x < overlap.Max.X && y >= overlap.Min.Y && y < overlap.Max.Y {
 				cropData = append(cropData, i)
 			}
-			i = i + 1
+			i++
 		}
 	}
-	return DepthMap{width: oriWidth, height: oriHeight, data: oriData}, DepthMap{width: cropWidth, height: cropHeight, data: cropData}
-
+	if crop.Empty() {
+		return &DepthMap{data: oriData, width: oriWidth, height: oriHeight}, &DepthMap{}
+	}
+	return &DepthMap{width: oriWidth, height: oriHeight, data: oriData}, &DepthMap{width: cropWidth, height: cropHeight, data: cropData}
 }
 
 func TestSubImage(t *testing.T) {
@@ -156,6 +186,7 @@ func TestSubImage(t *testing.T) {
 		{image.Rect(0, 0, 100, 75), image.Rect(0, 0, 2, 75)},        // crop left
 		{image.Rect(0, 0, 100, 75), image.Rect(95, 70, 105, 80)},    // crop is not a full subset
 		{image.Rect(0, 0, 100, 75), image.Rect(200, 200, 300, 300)}, // out of bounds
+		{image.Rect(0, 0, 100, 75), image.Rectangle{}},              // empty
 	}
 	for _, rec := range tests {
 		originalImg, expectedCrop := makeImagesForSubImageTest(rec.Original, rec.Crop)
@@ -178,7 +209,6 @@ func BenchmarkDepthMapRotate90(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		dm.Rotate90(true)
 	}
-
 }
 
 func BenchmarkDepthMapRotate180(b *testing.B) {
@@ -190,7 +220,6 @@ func BenchmarkDepthMapRotate180(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		dm.Rotate180()
 	}
-
 }
 
 func TestDepthMapStats(t *testing.T) {
@@ -218,5 +247,18 @@ func TestDepthMapStats(t *testing.T) {
 
 	img = dm.InterestingPixels(10)
 	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
+}
 
+func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
+	nRows, nCols := fimg.Dims()
+	// test dimensions
+	test.That(t, nCols, test.ShouldEqual, iwd.Depth.Width())
+	test.That(t, nRows, test.ShouldEqual, iwd.Depth.Height())
+	// test values
+	// select random pixel
+	x, y := rand.Intn(nCols), rand.Intn(nRows)
+	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
 }

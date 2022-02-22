@@ -13,19 +13,20 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
-// Depth TODO
+// Depth TODO.
 type Depth uint16
 
-// MaxDepth TODO
+// MaxDepth TODO.
 const MaxDepth = Depth(math.MaxUint16)
 
-// DepthMap TODO
+// DepthMap TODO.
 type DepthMap struct {
 	width  int
 	height int
@@ -33,67 +34,88 @@ type DepthMap struct {
 	data []Depth
 }
 
+// NewEmptyDepthMap returns an unset depth map with the given dimensions.
+func NewEmptyDepthMap(width, height int) *DepthMap {
+	dm := &DepthMap{
+		width:  width,
+		height: height,
+		data:   make([]Depth, width*height),
+	}
+
+	return dm
+}
+
+// Clone makes a copy of the depth map.
+func (dm *DepthMap) Clone() *DepthMap {
+	ddm := NewEmptyDepthMap(dm.Width(), dm.Height())
+	copy(ddm.data, dm.data)
+	return ddm
+}
+
 func (dm *DepthMap) kxy(x, y int) int {
 	return (y * dm.width) + x
 }
 
-// Width TODO
+// Width TODO.
 func (dm *DepthMap) Width() int {
 	return dm.width
 }
 
-// Height TODO
+// Height TODO.
 func (dm *DepthMap) Height() int {
 	return dm.height
 }
 
-// Bounds TODO
+// Bounds TODO.
 func (dm *DepthMap) Bounds() image.Rectangle {
 	return image.Rect(0, 0, dm.width, dm.height)
 }
 
-// Get TODO
+// Get TODO.
 func (dm *DepthMap) Get(p image.Point) Depth {
 	return dm.data[dm.kxy(p.X, p.Y)]
 }
 
-// GetDepth TODO
+// GetDepth TODO.
 func (dm *DepthMap) GetDepth(x, y int) Depth {
 	return dm.data[dm.kxy(x, y)]
 }
 
-// Set TODO
+// Set TODO.
 func (dm *DepthMap) Set(x, y int, val Depth) {
 	dm.data[dm.kxy(x, y)] = val
 }
 
-// Contains returns whether or not a point is within bounds of the depth map
+// Contains returns whether or not a point is within bounds of the depth map.
 func (dm *DepthMap) Contains(x, y int) bool {
 	return x >= 0 && y >= 0 && x < dm.width && y < dm.height
 }
 
-// At returns the depth value as a color.Color so DepthMap can implement image.Image
+// At returns the depth value as a color.Color so DepthMap can implement image.Image.
 func (dm *DepthMap) At(x, y int) color.Color {
 	return color.Gray16{uint16(dm.GetDepth(x, y))}
 }
 
-// ColorModel for DepthMap so that it implements image.Image
+// ColorModel for DepthMap so that it implements image.Image.
 func (dm *DepthMap) ColorModel() color.Model { return &TheDepthModel{} }
 
-// TheDepthModel is the color model used to convert other colors to its own color
+// TheDepthModel is the color model used to convert other colors to its own color.
 type TheDepthModel struct{}
 
-// Convert will use the Gray16 model as a stand-in for the depth model
+// Convert will use the Gray16 model as a stand-in for the depth model.
 func (tdm *TheDepthModel) Convert(c color.Color) color.Color {
 	return color.Gray16Model.Convert(c)
 }
 
-// SubImage TODO
-func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
+// SubImage TODO.
+func (dm *DepthMap) SubImage(r image.Rectangle) *DepthMap {
+	if r.Empty() {
+		return &DepthMap{}
+	}
 	xmin, xmax := utils.MinInt(dm.width, r.Min.X), utils.MinInt(dm.width, r.Max.X)
 	ymin, ymax := utils.MinInt(dm.height, r.Min.Y), utils.MinInt(dm.height, r.Max.Y)
 	if xmin == xmax || ymin == ymax { // return empty DepthMap
-		return DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
+		return &DepthMap{width: utils.MaxInt(0, xmax-xmin), height: utils.MaxInt(0, ymax-ymin), data: []Depth{}}
 	}
 	width := xmax - xmin
 	height := ymax - ymin
@@ -102,7 +124,7 @@ func (dm *DepthMap) SubImage(r image.Rectangle) DepthMap {
 		begin, end := (y*dm.width)+xmin, (y*dm.width)+xmax
 		newData = append(newData, dm.data[begin:end]...)
 	}
-	return DepthMap{width: width, height: height, data: newData}
+	return &DepthMap{width: width, height: height, data: newData}
 }
 
 func _readNext(r io.Reader) (int64, error) {
@@ -112,7 +134,7 @@ func _readNext(r io.Reader) (int64, error) {
 		return int64(binary.LittleEndian.Uint64(data)), nil
 	}
 
-	return 0, errors.Errorf("got %d bytes, and %w", x, err)
+	return 0, errors.Wrapf(err, "got %d bytes", x)
 }
 
 // ParseDepthMap parses a depth map from the given file. It knows
@@ -120,6 +142,7 @@ func _readNext(r io.Reader) (int64, error) {
 func ParseDepthMap(fn string) (*DepthMap, error) {
 	var f io.Reader
 
+	//nolint:gosec
 	f, err := os.Open(fn)
 	if err != nil {
 		return nil, err
@@ -203,7 +226,7 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 	if err != nil {
 		return nil, err
 	}
-	units = units * 1000 // meters to millis
+	units *= 1000 // meters to millis
 
 	widthString, err := r.ReadString('\n')
 	if err != nil {
@@ -248,11 +271,10 @@ func readDepthMapFormat2(r *bufio.Reader) (*DepthMap, error) {
 			}
 
 			if n != 2 || err != nil {
-				return nil, errors.Errorf("didn't read 2 bytes, got: %d err: %w x,y: %d,%x", n, err, x, y)
+				return nil, errors.Wrapf(err, "didn't read 2 bytes, got: %d x,y: %d,%x", n, x, y)
 			}
 
 			dm.Set(x, y, Depth(units*float64(binary.LittleEndian.Uint16(temp))))
-
 		}
 	}
 
@@ -356,7 +378,7 @@ func (dm *DepthMap) WriteTo(out io.Writer) (int64, error) {
 	return totalN, nil
 }
 
-// MinMax TODO
+// MinMax TODO.
 func (dm *DepthMap) MinMax() (Depth, Depth) {
 	min := MaxDepth
 	max := Depth(0)
@@ -382,7 +404,6 @@ func (dm *DepthMap) MinMax() (Depth, Depth) {
 // ToGray16Picture converts this depth map into a grayscale image of the
 // same dimensions.
 func (dm *DepthMap) ToGray16Picture() image.Image {
-
 	grayScale := image.NewGray16(image.Rect(0, 0, dm.Width(), dm.Height()))
 
 	for x := 0; x < dm.Width(); x++ {
@@ -397,7 +418,7 @@ func (dm *DepthMap) ToGray16Picture() image.Image {
 }
 
 // ToPrettyPicture TODO.
-func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
+func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) *Image {
 	min, max := dm.MinMax()
 
 	if hardMin > 0 && min < hardMin {
@@ -407,7 +428,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 		max = hardMax
 	}
 
-	img := image.NewRGBA(image.Rect(0, 0, dm.Width(), dm.Height()))
+	img := NewImage(dm.Width(), dm.Height())
 
 	span := float64(max) - float64(min)
 
@@ -429,7 +450,7 @@ func (dm *DepthMap) ToPrettyPicture(hardMin, hardMax Depth) image.Image {
 			ratio := float64(z-min) / span
 
 			hue := 30 + (200.0 * ratio)
-			img.Set(x, y, NewColorFromHSV(hue, 1.0, 1.0))
+			img.SetXY(x, y, NewColorFromHSV(hue, 1.0, 1.0))
 		}
 	}
 
@@ -456,7 +477,6 @@ func (dm *DepthMap) Rotate(amount int) *DepthMap {
 
 // Rotate90 rotates a copy of this depth map either by 90 degrees clockwise or counterclockwise.
 func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
-
 	newWidth := dm.height
 	newHeight := dm.width
 
@@ -466,16 +486,26 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 		data:   make([]Depth, newWidth*newHeight),
 	}
 
-	// these are new coordinates
-	for x := 0; x < newWidth; x++ {
-		for y := 0; y < newHeight; y++ {
-			var val Depth
-			if clockwise {
-				val = dm.GetDepth(y, x)
-			} else {
-				val = dm.GetDepth(dm.width-y-1, dm.height-x-1)
+	newCol, newRow := 0, 0
+	if clockwise {
+		for oldRow := dm.height - 1; oldRow >= 0; oldRow-- {
+			newRow = 0
+			for oldCol := 0; oldCol < dm.width; oldCol++ {
+				val := dm.GetDepth(oldCol, oldRow)
+				dm2.Set(newCol, newRow, val)
+				newRow++
 			}
-			dm2.Set(x, y, val)
+			newCol++
+		}
+	} else { // counter-clockwise
+		for oldCol := dm.width - 1; oldCol >= 0; oldCol-- {
+			newCol = 0
+			for oldRow := 0; oldRow < dm.height; oldRow++ {
+				val := dm.GetDepth(oldCol, oldRow)
+				dm2.Set(newCol, newRow, val)
+				newCol++
+			}
+			newRow++
 		}
 	}
 	return dm2
@@ -483,7 +513,6 @@ func (dm *DepthMap) Rotate90(clockwise bool) *DepthMap {
 
 // Rotate180 rotates a copy of this depth map by 180 degrees.
 func (dm *DepthMap) Rotate180() *DepthMap {
-
 	dm2 := &DepthMap{
 		width:  dm.width,
 		height: dm.height,
@@ -495,7 +524,7 @@ func (dm *DepthMap) Rotate180() *DepthMap {
 		for x := 0; x < dm.width; x++ {
 			val := dm.GetDepth(dm.width-1-x, dm.height-1-y)
 			dm2.data[k] = val
-			//if k != dm2.kxy(x,y) { panic("oops") }
+			// if k != dm2.kxy(x,y) { panic("oops") }
 			k++
 		}
 	}
@@ -549,7 +578,6 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 
 	for x := 0; x < dm.width; x += 3 {
 		for y := 0; y < dm.height; y += 3 {
-
 			_, avgDistance := dm.AverageDepthAndStats(image.Point{x + 1, y + 1}, 1)
 
 			clr := color.Gray{0}
@@ -564,22 +592,10 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 					out.SetGray(xx, yy, clr)
 				}
 			}
-
 		}
 	}
 
 	return out
-}
-
-// NewEmptyDepthMap returns an unset depth map with the given dimensions.
-func NewEmptyDepthMap(width, height int) *DepthMap {
-	dm := &DepthMap{
-		width:  width,
-		height: height,
-		data:   make([]Depth, width*height),
-	}
-
-	return dm
 }
 
 type dmWarpConnector struct {
@@ -614,4 +630,15 @@ func (dm *DepthMap) Warp(m TransformationMatrix, newSize image.Point) *DepthMap 
 	conn := &dmWarpConnector{dm, NewEmptyDepthMap(newSize.X, newSize.Y)}
 	Warp(conn, m)
 	return conn.Out
+}
+
+// ConvertDepthMapToLuminanceFloat converts this depth map into a grayscale image of the
+// same dimensions.
+func (dm *DepthMap) ConvertDepthMapToLuminanceFloat() *mat.Dense {
+	out := mat.NewDense(dm.height, dm.width, nil)
+	utils.ParallelForEachPixel(image.Point{dm.width, dm.height}, func(x int, y int) {
+		d := dm.GetDepth(x, y)
+		out.Set(y, x, float64(d))
+	})
+	return out
 }

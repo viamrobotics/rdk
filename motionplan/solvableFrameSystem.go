@@ -4,24 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
 	"runtime"
 
 	"github.com/edaniels/golog"
+	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
 )
 
 // SolvableFrameSystem wraps a FrameSystem to allow solving between frames of the frame system.
-// Note that this needs to live in motionplan, not referenceframe, to avoid circular dependencies
+// Note that this needs to live in motionplan, not referenceframe, to avoid circular dependencies.
 type SolvableFrameSystem struct {
 	frame.FrameSystem
 	logger golog.Logger
 	mpFunc func(frame.Frame, int, golog.Logger) (MotionPlanner, error)
 }
 
-// NewSolvableFrameSystem will create a new solver for a frame system
+// NewSolvableFrameSystem will create a new solver for a frame system.
 func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *SolvableFrameSystem {
 	return &SolvableFrameSystem{FrameSystem: fs, logger: logger}
 }
@@ -30,8 +31,46 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 // then try to path plan the full frame system such that the solveFrame has the goal pose from the perspective of the goalFrame.
 // For example, if a world system has a gripper attached to an arm attached to a gantry, and the system was being solved
 // to place the gripper at a particular pose in the world, the solveFrame would be the gripper and the goalFrame would be
-// the world frame.
-func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[string][]frame.Input, goal spatial.Pose, solveFrame, goalFrame frame.Frame) ([]map[string][]frame.Input, error) {
+// the world frame. It will use the default planner options.
+func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+) ([]map[string][]frame.Input, error) {
+	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, nil)
+}
+
+// SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal pose with respect to the goal frame using the provided
+// planning options.
+func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goal spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+	opt *PlannerOptions,
+) ([]map[string][]frame.Input, error) {
+	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrame, goalFrame, []*PlannerOptions{opt})
+}
+
+// SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
+// set of PlannerOptions. It will solve the solveFrame to the goal poses with respect to the goal frame using the provided
+// planning options.
+func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
+	seedMap map[string][]frame.Input,
+	goals []spatial.Pose,
+	solveFrame, goalFrame frame.Frame,
+	opts []*PlannerOptions,
+) ([]map[string][]frame.Input, error) {
+	if len(opts) == 0 {
+		for i := 0; i < len(goals); i++ {
+			opts = append(opts, NewDefaultPlannerOptions())
+		}
+	}
+	if len(opts) != len(goals) {
+		return nil, errors.New("goals and options had different lengths")
+	}
+
+	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
 	sFrames, err := fss.TracebackFrame(solveFrame)
@@ -61,17 +100,108 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context, seedMap map[strin
 
 	seed := sf.mapToSlice(seedMap)
 
-	// Solve for the goal position
-	resultSlices, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed)
+	resultSlices, err := plannerRunner(ctx, planner, goals, seed, opts, 0)
 	if err != nil {
 		return nil, err
 	}
-	steps := make([]map[string][]frame.Input, 0, len(resultSlices))
 	for _, resultSlice := range resultSlices {
-		steps = append(steps, sf.sliceToMap(resultSlice))
+		steps = append(steps, sf.sliceToMapConf(resultSlice))
 	}
 
 	return steps, nil
+}
+
+func plannerRunner(ctx context.Context,
+	planner MotionPlanner,
+	goals []spatial.Pose,
+	seed []frame.Input,
+	opts []*PlannerOptions,
+	iter int,
+) ([]*configuration, error) {
+	var err error
+	goal := goals[iter]
+	opt := opts[iter]
+	if opt == nil {
+		opt = NewDefaultPlannerOptions()
+	}
+	remainingSteps := []*configuration{}
+	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
+		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		endpointPreview := make(chan *configuration, 1)
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, endpointPreview, solutionChan)
+		})
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			select {
+			case nextSeed := <-endpointPreview:
+				// Got a solution preview, start solving the next motion in a new thread.
+				if iter < len(goals)-1 {
+					// In this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it.
+					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for {
+					// Get the step from this runner invocation, and return everything in order.
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					default:
+					}
+
+					select {
+					case finalSteps := <-solutionChan:
+						if finalSteps.err != nil {
+							return nil, finalSteps.err
+						}
+						return append(finalSteps.steps, remainingSteps...), nil
+					default:
+					}
+				}
+			case finalSteps := <-solutionChan:
+				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
+				if finalSteps.err != nil {
+					return nil, finalSteps.err
+				}
+				if iter < len(goals)-1 {
+					// in this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it
+					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				return append(finalSteps.steps, remainingSteps...), nil
+			default:
+			}
+		}
+	} else {
+		resultSlices := []*configuration{}
+		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		if err != nil {
+			return nil, err
+		}
+		for _, step := range resultSlicesRaw {
+			resultSlices = append(resultSlices, &configuration{step})
+		}
+		if iter < len(goals)-2 {
+			// in this case, we create the next step (and thus the remaining steps) and the
+			// step from our iteration hangs out in the channel buffer until we're done with it
+			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return append(resultSlices, remainingSteps...), nil
+	}
 }
 
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.
@@ -91,7 +221,7 @@ type solverFrame struct {
 	goalFrame  frame.Frame
 }
 
-// Name returns the name of the solver frame
+// Name returns the name of the solver referenceframe.
 func (sf *solverFrame) Name() string {
 	return sf.name
 }
@@ -104,27 +234,28 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }
 
-// VerboseTransform takes a solverFrame and a list of joint angles in radians and computes the dual quaterions
-// representing poses of each of the intermediate frames (if any exist) up to and including the end effector, and
-// returns a map of frame names to poses. The key for each frame in the map will be the string
-// "<model_name>:<frame_name>"
-func (sf *solverFrame) VerboseTransform(inputs []frame.Input) (map[string]spatial.Pose, error) {
+// Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
+// intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to geometries.
+// The key for each frame in the map will be the string: "<model_name>:<frame_name>".
+func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geometry, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
-	var err error
+	var errAll error
 	inputMap := sf.sliceToMap(inputs)
-	poseMap := make(map[string]spatial.Pose)
+	sfGeometries := make(map[string]spatial.Geometry)
 	for _, frame := range sf.frames {
-		pm, err := sf.fss.VerboseTransformFrame(inputMap, frame, sf.goalFrame)
-		if err != nil {
-			return nil, err
+		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame, sf.goalFrame)
+		if geometries == nil {
+			// only propagate errors that result in nil geometry
+			multierr.AppendInto(&errAll, err)
+			continue
 		}
-		for name, pose := range pm {
-			poseMap[name] = pose
+		for name, geometry := range geometries {
+			sfGeometries[name] = geometry
 		}
 	}
-	return poseMap, err
+	return sfGeometries, errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.
@@ -137,7 +268,7 @@ func (sf *solverFrame) DoF() []frame.Limit {
 }
 
 // mapToSlice will flatten a map of inputs into a slice suitable for input to inverse kinematics, by concatenating
-// the inputs together in the order of the frames in sf.frames
+// the inputs together in the order of the frames in sf.frames.
 func (sf *solverFrame) mapToSlice(inputMap map[string][]frame.Input) []frame.Input {
 	var inputs []frame.Input
 	for _, frame := range sf.frames {
@@ -150,8 +281,20 @@ func (sf *solverFrame) sliceToMap(inputSlice []frame.Input) map[string][]frame.I
 	inputs := frame.StartPositions(sf.fss)
 	i := 0
 	for _, frame := range sf.frames {
-		inputs[frame.Name()] = inputSlice[i : i+len(frame.DoF())]
-		i += len(frame.DoF())
+		fLen := i + len(frame.DoF())
+		inputs[frame.Name()] = inputSlice[i:fLen]
+		i = fLen
+	}
+	return inputs
+}
+
+func (sf *solverFrame) sliceToMapConf(inputSlice *configuration) map[string][]frame.Input {
+	inputs := frame.StartPositions(sf.fss)
+	i := 0
+	for _, frame := range sf.frames {
+		fLen := i + len(frame.DoF())
+		inputs[frame.Name()] = inputSlice.inputs[i:fLen]
+		i = fLen
 	}
 	return inputs
 }

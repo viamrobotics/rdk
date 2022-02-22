@@ -3,21 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/services/web"
-
-	robotimpl "go.viam.com/core/robot/impl"
-	webserver "go.viam.com/core/web/server"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("gamepad")
@@ -29,7 +26,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -44,22 +41,22 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 	go debugOut(ctx, myRobot)
-	webOpts := web.NewOptions()
-	webOpts.Insecure = true
 
-	return webserver.RunWeb(ctx, myRobot, webOpts, logger)
+	options := web.NewOptions()
+	options.Network = cfg.Network
+	return webserver.RunWeb(ctx, myRobot, options, logger)
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
-	g, ok := r.InputControllerByName("Mux")
-	if !ok {
+	g, err := input.FromRobot(r, "Mux")
+	if err != nil {
 		return
 	}
 
 	repFunc := func(ctx context.Context, event input.Event) {
-		fmt.Printf("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
+		logger.Infof("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
 	}
 
 	// Expects auto_reconnect to be set in the config
@@ -67,19 +64,19 @@ func debugOut(ctx context.Context, r robot.Robot) {
 		if !utils.SelectContextOrWait(ctx, time.Second) {
 			return
 		}
-		controls, err := g.Controls(ctx)
+		controls, err := g.GetControls(ctx)
 		if err != nil {
 			logger.Error(err)
 			continue
 		}
 
-		lastEvents, err := g.LastEvents(ctx)
+		lastEvents, err := g.GetEvents(ctx)
 		if err != nil {
 			return
 		}
 		for _, control := range controls {
 			event := lastEvents[control]
-			fmt.Printf("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
+			logger.Infof("%s:%s: %.4f\n", event.Control, event.Event, event.Value)
 			err = g.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
 			if err != nil {
 				return

@@ -5,16 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-errors/errors"
-
 	"github.com/edaniels/gostream"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/robot"
 )
 
 // init registers the RandomWalk action.
@@ -31,7 +30,6 @@ func RandomWalk(ctx context.Context, theRobot robot.Robot) {
 	defer cancelFunc()
 	for {
 		err := randomWalkIncrement(ctx, theRobot)
-
 		if err != nil {
 			theRobot.Logger().Debugf("error doing random walk, trying again: %s", err)
 			if !utils.SelectContextOrWait(ctx, 2*time.Second) {
@@ -43,7 +41,6 @@ func RandomWalk(ctx context.Context, theRobot robot.Robot) {
 }
 
 func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
-
 	base, camera, err := setup(theRobot)
 	if err != nil {
 		return err
@@ -63,15 +60,13 @@ func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
 
 	if err != nil || pc.Depth.Width() < 10 || pc.Depth.Height() < 10 {
 		theRobot.Logger().Debugf("error getting depth info: %s, backing up", err)
-		_, err := base.MoveStraight(ctx, -200, 60, true)
-		return err
+		return base.MoveStraight(ctx, -200, 60, true)
 	}
 
 	_, points := roverWalk(pc, false, theRobot.Logger())
 	if points < 200 {
 		theRobot.Logger().Debug("safe to move forward")
-		_, err := base.MoveStraight(ctx, 200, 50, true)
-		return err
+		return base.MoveStraight(ctx, 200, 50, true)
 	}
 
 	fn := artifact.MustNewPath(fmt.Sprintf("robot/actions/rover-cannot-walk-%d.both.gz", time.Now().Unix()))
@@ -81,28 +76,27 @@ func randomWalkIncrement(ctx context.Context, theRobot robot.Robot) error {
 	}
 
 	theRobot.Logger().Debugf("not safe, let's spin, wrote debug img to: %s", fn)
-	_, err = base.Spin(ctx, -15, 60, true)
-	return err
+	return base.Spin(ctx, -15, 60, true)
 }
 
 func setup(theRobot robot.Robot) (base.Base, gostream.ImageSource, error) {
-	baseNames := theRobot.BaseNames()
+	baseNames := base.NamesFromRobot(theRobot)
 	if len(baseNames) == 0 {
 		return nil, nil, errors.New("no bases, can't drive")
 	}
 
-	cameraNames := theRobot.CameraNames()
+	cameraNames := camera.NamesFromRobot(theRobot)
 	if len(cameraNames) == 0 {
 		return nil, nil, errors.New("no cameras, can't drive")
 	}
 
-	base, ok := theRobot.BaseByName(baseNames[0])
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot find %q", baseNames[0])
+	base, err := base.FromRobot(theRobot, baseNames[0])
+	if err != nil {
+		return nil, nil, err
 	}
-	cam, ok := theRobot.CameraByName(cameraNames[0])
-	if !ok {
-		return nil, nil, fmt.Errorf("cannot find %q", cameraNames[0])
+	cam, err := camera.FromRobot(theRobot, cameraNames[0])
+	if err != nil {
+		return nil, nil, err
 	}
 	return base, cam, nil
 }

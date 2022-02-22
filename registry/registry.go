@@ -7,99 +7,17 @@ import (
 	"runtime"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	"github.com/mitchellh/copystructure"
-	"go.viam.com/utils/rpc/dialer"
-	rpcserver "go.viam.com/utils/rpc/server"
+	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
-	componentpb "go.viam.com/core/proto/api/component/v1"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/subtype"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 )
 
-// TODO: currently here because of import cycles. get rid of this block at conclusion of Core v2 migration.
-//these registrations should happen in the subtype's go package instead.
-func init() {
-	RegisterResourceSubtype(arm.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return arm.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.ArmService_ServiceDesc,
-				arm.NewServer(subtypeSvc),
-				componentpb.RegisterArmServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return arm.NewClientFromConn(conn, name, logger)
-		},
-	})
-
-	RegisterResourceSubtype(gantry.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gantry.WrapWithReconfigurable(r)
-		},
-		RegisterRPCService: func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error {
-			return rpcServer.RegisterServiceServer(
-				ctx,
-				&componentpb.GantryService_ServiceDesc,
-				gantry.NewServer(subtypeSvc),
-				componentpb.RegisterGantryServiceHandlerFromEndpoint,
-			)
-		},
-		RPCClient: func(conn dialer.ClientConn, name string, logger golog.Logger) interface{} {
-			return gantry.NewClientFromConn(conn, name, logger)
-		},
-	})
-
-	RegisterResourceSubtype(gripper.Subtype, ResourceSubtype{
-		Reconfigurable: func(r interface{}) (resource.Reconfigurable, error) {
-			return gripper.WrapWithReconfigurable(r)
-		},
-	})
-
-}
-
 type (
-	// A CreateCamera creates a camera from a given config.
-	CreateCamera func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (camera.Camera, error)
-
-	// A CreateGripper creates a gripper from a given config.
-	CreateGripper func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gripper.Gripper, error)
-
-	// A CreateBase creates a base from a given config.
-	CreateBase func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.Base, error)
-
-	// A CreateLidar creates a lidar from a given config.
-	CreateLidar func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (lidar.Lidar, error)
-
-	// A CreateSensor creates a sensor from a given config.
-	CreateSensor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (sensor.Sensor, error)
-
-	// A CreateBoard creates a board from a given config.
-	CreateBoard func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (board.Board, error)
-
-	// A CreateMotor creates a motor from a given config.
-	CreateMotor func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (motor.Motor, error)
-
-	// A CreateInputController creates an input.Controller from a given config.
-	CreateInputController func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (input.Controller, error)
-
 	// A CreateService creates a service from a given config.
 	CreateService func(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (interface{}, error)
 )
@@ -110,66 +28,12 @@ type RegDebugInfo struct {
 	RegistrarLoc string
 }
 
-// Camera stores a Camera constructor function (mandatory)
-type Camera struct {
-	RegDebugInfo
-	Constructor CreateCamera
-}
-
-// Base stores a Base constructor function (mandatory)
-type Base struct {
-	RegDebugInfo
-	Constructor CreateBase
-}
-
-// Lidar stores a Lidar constructor function (mandatory)
-type Lidar struct {
-	RegDebugInfo
-	Constructor CreateLidar
-}
-
-// Sensor stores a Sensor constructor function (mandatory)
-type Sensor struct {
-	RegDebugInfo
-	Constructor CreateSensor
-}
-
-// Board stores a Board constructor function (mandatory)
-type Board struct {
-	RegDebugInfo
-	Constructor CreateBoard
-}
-
-// Motor stores a Motor constructor function (mandatory)
-type Motor struct {
-	RegDebugInfo
-	Constructor CreateMotor
-}
-
-// InputController stores an input.Controller constructor (mandatory)
-type InputController struct {
-	RegDebugInfo
-	Constructor CreateInputController
-}
-
-// Service stores a Service constructor (mandatory) and an attribute converter
+// Service stores a Service constructor (mandatory) and an attribute converter.
 type Service struct {
 	RegDebugInfo
 	Constructor           CreateService
 	AttributeMapConverter config.AttributeMapConverter
 }
-
-// all registries
-var (
-	cameraRegistry          = map[string]Camera{}
-	baseRegistry            = map[string]Base{}
-	lidarRegistry           = map[string]Lidar{}
-	sensorRegistry          = map[sensor.Type]map[string]Sensor{}
-	boardRegistry           = map[string]Board{}
-	motorRegistry           = map[string]Motor{}
-	inputControllerRegistry = map[string]InputController{}
-	serviceRegistry         = map[config.ServiceType]Service{}
-)
 
 func getCallerName() string {
 	pc, _, _, ok := runtime.Caller(2)
@@ -180,190 +44,28 @@ func getCallerName() string {
 	return "unknown"
 }
 
-// RegisterCamera registers a camera model to a creator.
-func RegisterCamera(model string, creator Camera) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := cameraRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two cameras with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	cameraRegistry[model] = creator
-}
-
-// RegisterBase registers a base model to a creator.
-func RegisterBase(model string, creator Base) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := baseRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two bases with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	baseRegistry[model] = creator
-}
-
-// RegisterLidar registers a lidar model to a creator.
-func RegisterLidar(model string, creator Lidar) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := lidarRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two lidars with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	lidarRegistry[model] = creator
-}
-
-// RegisterSensor registers a sensor type and model to a creator.
-func RegisterSensor(sensorType sensor.Type, model string, creator Sensor) {
-	creator.RegistrarLoc = getCallerName()
-	if _, ok := sensorRegistry[sensorType]; !ok {
-		sensorRegistry[sensorType] = make(map[string]Sensor)
-	}
-	_, old := sensorRegistry[sensorType][model]
-	if old {
-		panic(errors.Errorf("trying to register two sensors with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	sensorRegistry[sensorType][model] = creator
-}
-
-// RegisterBoard registers a board model to a creator.
-func RegisterBoard(model string, creator Board) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := boardRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two boards with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	boardRegistry[model] = creator
-}
-
-// RegisterMotor registers a motor model to a creator.
-func RegisterMotor(model string, creator Motor) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := motorRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two motors with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	motorRegistry[model] = creator
-}
-
-// RegisterInputController registers an input controller model to a creator.
-func RegisterInputController(model string, creator InputController) {
-	creator.RegistrarLoc = getCallerName()
-	_, old := inputControllerRegistry[model]
-	if old {
-		panic(errors.Errorf("trying to register two input controllers with same model %s", model))
-	}
-	if creator.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for model %s", model))
-	}
-	inputControllerRegistry[model] = creator
-}
-
 // RegisterService registers a service type to a registration.
-func RegisterService(typeName config.ServiceType, registration Service) {
-	registration.RegistrarLoc = getCallerName()
-	_, old := serviceRegistry[typeName]
+func RegisterService(subtype resource.Subtype, creator Service) {
+	creator.RegistrarLoc = getCallerName()
+	_, old := serviceRegistry[subtype.String()]
 	if old {
-		panic(errors.Errorf("trying to register two sevices with same type %s", typeName))
+		panic(errors.Errorf("trying to register two services with same subtype: %s", subtype))
 	}
-	if registration.Constructor == nil {
-		panic(errors.Errorf("cannot register a nil constructor for service %s", typeName))
+	if creator.Constructor == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
-	serviceRegistry[typeName] = registration
-}
-
-// CameraLookup looks up a camera creator by the given model. nil is returned if
-// there is no creator registered.
-func CameraLookup(model string) *Camera {
-	if registration, ok := cameraRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// BaseLookup looks up a base creator by the given model. nil is returned if
-// there is no creator registered.
-func BaseLookup(model string) *Base {
-	if registration, ok := baseRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// LidarLookup looks up a lidar creator by the given model. nil is returned if
-// there is no creator registered.
-func LidarLookup(model string) *Lidar {
-	if registration, ok := lidarRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// SensorLookup looks up a sensor creator by the given model. nil is returned if
-// there is no creator registered.
-func SensorLookup(sensorType sensor.Type, model string) *Sensor {
-	subTyped, ok := sensorRegistry[sensorType]
-	if !ok {
-		return nil
-	}
-	if registration, ok := subTyped[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// BoardLookup looks up a board creator by the given model. nil is returned if
-// there is no creator registered.
-func BoardLookup(model string) *Board {
-	if registration, ok := boardRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// MotorLookup looks up a motor creator by the given model. nil is returned if
-// there is no creator registered.
-func MotorLookup(model string) *Motor {
-	if registration, ok := motorRegistry[model]; ok {
-		return &registration
-	}
-	return nil
-}
-
-// InputControllerLookup looks up an input.Controller creator by the given model. nil is returned if
-// there is no creator registered.
-func InputControllerLookup(model string) *InputController {
-	if registration, ok := inputControllerRegistry[model]; ok {
-		return &registration
-	}
-	return nil
+	serviceRegistry[subtype.String()] = creator
 }
 
 // ServiceLookup looks up a service registration by the given type. nil is returned if
 // there is no registration.
-func ServiceLookup(typeName config.ServiceType) *Service {
-	if registration, ok := serviceRegistry[typeName]; ok {
+func ServiceLookup(subtype resource.Subtype) *Service {
+	registration, ok := RegisteredServices()[subtype.String()]
+	if ok {
 		return &registration
 	}
 	return nil
 }
-
-// core api v2 implementation starts here
 
 type (
 	// A CreateComponent creates a resource from a given config.
@@ -372,35 +74,35 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
-	// A RegisterSubtypeRPCService will register the subtype service to the grpc server
-	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpcserver.Server, subtypeSvc subtype.Service) error
+	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
+	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
 	// A CreateRPCClient will create the client for the resource.
-	// TODO: Remove as part of #227
-	CreateRPCClient func(conn dialer.ClientConn, name string, logger golog.Logger) interface{}
+	// TODO: Remove as part of #227.
+	CreateRPCClient func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{}
 )
 
-// Component stores a resource constructor (mandatory) and a Frame building function (optional)
+// Component stores a resource constructor (mandatory) and a Frame building function (optional).
 type Component struct {
 	RegDebugInfo
 	Constructor CreateComponent
 }
 
-// ResourceSubtype stores subtype-specific functions and clients
+// ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
 	Reconfigurable     CreateReconfigurable
 	RegisterRPCService RegisterSubtypeRPCService
 	RPCClient          CreateRPCClient
 }
 
-// SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc
-type SubtypeGrpc struct {
-}
+// SubtypeGrpc stores functions necessary for a resource subtype to be accessible through grpc.
+type SubtypeGrpc struct{}
 
-// all registries
+// all registries.
 var (
 	componentRegistry = map[string]Component{}
 	subtypeRegistry   = map[resource.Subtype]ResourceSubtype{}
+	serviceRegistry   = map[string]Service{}
 )
 
 // RegisterComponent register a creator to its corresponding component and model.
@@ -421,7 +123,7 @@ func RegisterComponent(subtype resource.Subtype, model string, creator Component
 // there is no creator registered.
 func ComponentLookup(subtype resource.Subtype, model string) *Component {
 	qName := fmt.Sprintf("%s/%s", subtype, model)
-	if registration, ok := componentRegistry[qName]; ok {
+	if registration, ok := RegisteredComponents()[qName]; ok {
 		return &registration
 	}
 	return nil
@@ -442,82 +144,19 @@ func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) 
 // ResourceSubtypeLookup looks up a ResourceSubtype by the given subtype. nil is returned if
 // there is None.
 func ResourceSubtypeLookup(subtype resource.Subtype) *ResourceSubtype {
-	if registration, ok := subtypeRegistry[subtype]; ok {
+	if registration, ok := RegisteredResourceSubtypes()[subtype]; ok {
 		return &registration
 	}
 	return nil
 }
 
-// RegisteredCameras returns a copy of the registered cameras.
-func RegisteredCameras() map[string]Camera {
-	copied, err := copystructure.Copy(cameraRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Camera)
-}
-
-// RegisteredBases returns a copy of the registered bases.
-func RegisteredBases() map[string]Base {
-	copied, err := copystructure.Copy(baseRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Base)
-}
-
-// RegisteredLidars returns a copy of the registered lidars.
-func RegisteredLidars() map[string]Lidar {
-	copied, err := copystructure.Copy(lidarRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Lidar)
-}
-
-// RegisteredSensors returns a copy of the registered sensors.
-func RegisteredSensors() map[sensor.Type]map[string]Sensor {
-	copied, err := copystructure.Copy(sensorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[sensor.Type]map[string]Sensor)
-}
-
-// RegisteredBoards returns a copy of the registered boards.
-func RegisteredBoards() map[string]Board {
-	copied, err := copystructure.Copy(boardRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Board)
-}
-
-// RegisteredMotors returns a copy of the registered motors.
-func RegisteredMotors() map[string]Motor {
-	copied, err := copystructure.Copy(motorRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]Motor)
-}
-
-// RegisteredInputControllers returns a copy of the registered input controllers.
-func RegisteredInputControllers() map[string]InputController {
-	copied, err := copystructure.Copy(inputControllerRegistry)
-	if err != nil {
-		panic(err)
-	}
-	return copied.(map[string]InputController)
-}
-
 // RegisteredServices returns a copy of the registered services.
-func RegisteredServices() map[config.ServiceType]Service {
+func RegisteredServices() map[string]Service {
 	copied, err := copystructure.Copy(serviceRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[config.ServiceType]Service)
+	return copied.(map[string]Service)
 }
 
 // RegisteredComponents returns a copy of the registered components.

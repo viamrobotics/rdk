@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,15 +14,15 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
-
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 )
 
 func TestNewWatcherNoop(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	watcher, err := NewWatcher(&Config{}, logger)
+	watcher, err := NewWatcher(context.Background(), &Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	timer := time.NewTimer(time.Second)
@@ -32,7 +33,7 @@ func TestNewWatcherNoop(t *testing.T) {
 	case <-timer.C:
 	}
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 }
 
 func TestNewWatcherFile(t *testing.T) {
@@ -42,23 +43,25 @@ func TestNewWatcherFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	watcher, err := NewWatcher(&Config{ConfigFilePath: temp.Name()}, logger)
+	watcher, err := NewWatcher(context.Background(), &Config{ConfigFilePath: temp.Name()}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	writeConf := func(conf *Config) {
 		md, err := json.Marshal(&conf)
 		test.That(t, err, test.ShouldBeNil)
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
-		test.That(t, err, test.ShouldBeNil)
-		defer func() {
-			test.That(t, f.Close(), test.ShouldBeNil)
-		}()
-		_, err = f.Write(md)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, f.Sync(), test.ShouldBeNil)
+		test.That(t, ioutil.WriteFile(temp.Name(), md, 0o755), test.ShouldBeNil)
+		for {
+			rd, err := ioutil.ReadFile(temp.Name())
+			test.That(t, err, test.ShouldBeNil)
+			if bytes.Equal(rd, md) {
+				break
+			}
+			time.Sleep(time.Second)
+		}
 	}
 
 	confToWrite := Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "hello",
@@ -73,13 +76,15 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf := <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	confToWrite = Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "world",
@@ -94,14 +99,15 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
 	go func() {
-		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0755)
+		f, err := os.OpenFile(temp.Name(), os.O_RDWR|os.O_CREATE, 0o755)
 		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, f.Close(), test.ShouldBeNil)
@@ -120,6 +126,7 @@ func TestNewWatcherFile(t *testing.T) {
 	}
 
 	confToWrite = Config{
+		ConfigFilePath: temp.Name(),
 		Components: []Component{
 			{
 				Name: "woo",
@@ -134,13 +141,14 @@ func TestNewWatcherFile(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	go writeConf(&confToWrite)
+	writeConf(&confToWrite)
 
 	newConf = <-watcher.Config()
 	test.That(t, newConf, test.ShouldResemble, &confToWrite)
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 }
 
 func TestNewWatcherCloud(t *testing.T) {
@@ -152,18 +160,25 @@ func TestNewWatcherCloud(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	httpServer := &http.Server{
 		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
+	certsToReturn := Cloud{
+		TLSCertificate: "hello",
+		TLSPrivateKey:  "world",
+	}
+
+	cloudID := primitive.NewObjectID().Hex()
+
 	var confToReturn Config
 	var confErr bool
-	var confErrMu sync.Mutex
+	var confMu sync.Mutex
+	var certsOnce bool
 	httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			panic(err)
 		}
-		if len(r.Form["id"]) == 0 || r.Form["id"][0] != "my_id" {
+		if len(r.Form["id"]) == 0 || r.Form["id"][0] != cloudID {
 			w.WriteHeader(http.StatusBadRequest)
 			w.Write([]byte("bad id"))
 			return
@@ -173,18 +188,32 @@ func TestNewWatcherCloud(t *testing.T) {
 			w.Write([]byte("bad secret"))
 			return
 		}
-		confErrMu.Lock()
+
+		if len(r.Form["cert"]) != 0 && !certsOnce {
+			certsOnce = true
+			md, err := json.Marshal(&certsToReturn)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte(fmt.Sprintf("error marshaling certs: %s", err)))
+				return
+			}
+			w.Write(md)
+			return
+		}
+
+		confMu.Lock()
 		if confErr {
-			confErrMu.Unlock()
+			confMu.Unlock()
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		confErr = true
-		confErrMu.Unlock()
+
 		md, err := json.Marshal(&confToReturn)
+		confMu.Unlock()
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(fmt.Sprintf("error marshaling status: %s", err)))
+			w.Write([]byte(fmt.Sprintf("error marshaling conf: %s", err)))
 			return
 		}
 		w.Write(md)
@@ -197,9 +226,10 @@ func TestNewWatcherCloud(t *testing.T) {
 
 	cloudConf := &Cloud{
 		Path:            fmt.Sprintf("http://%s", listener.Addr().String()),
-		ID:              "my_id",
+		ID:              cloudID,
 		Secret:          "my_secret",
-		Self:            "woo",
+		FQDN:            "woo",
+		LocalFQDN:       "yee",
 		RefreshInterval: time.Second,
 	}
 	confToReturn = Config{
@@ -218,13 +248,18 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "echo",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
 
-	watcher, err := NewWatcher(&Config{Cloud: cloudConf}, logger)
+	confToExpect := confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+
+	watcher, err := NewWatcher(context.Background(), &Config{Cloud: cloudConf}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	newConf := <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	confToReturn = Config{
 		Cloud: cloudConf,
@@ -242,13 +277,18 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "bar",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
+
+	confToExpect = confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
@@ -274,15 +314,20 @@ func TestNewWatcherCloud(t *testing.T) {
 				Name: "mah",
 			},
 		},
+		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080"}},
 	}
-	confErrMu.Lock()
+	confMu.Lock()
 	confErr = false
-	confErrMu.Unlock()
+
+	confToExpect = confToReturn
+	confToExpect.Cloud.TLSCertificate = certsToReturn.TLSCertificate
+	confToExpect.Cloud.TLSPrivateKey = certsToReturn.TLSPrivateKey
+	confMu.Unlock()
 
 	newConf = <-watcher.Config()
-	test.That(t, newConf, test.ShouldResemble, &confToReturn)
+	test.That(t, newConf, test.ShouldResemble, &confToExpect)
 
-	test.That(t, watcher.Close(), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), watcher), test.ShouldBeNil)
 	test.That(t, httpServer.Shutdown(context.Background()), test.ShouldBeNil)
 	<-serveDone
 }

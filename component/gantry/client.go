@@ -4,26 +4,24 @@ package gantry
 import (
 	"context"
 
-	rpcclient "go.viam.com/utils/rpc/client"
-
 	"github.com/edaniels/golog"
-	"go.viam.com/utils/rpc/dialer"
+	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/grpc"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/referenceframe"
+	"go.viam.com/rdk/grpc"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // serviceClient is a client satisfies the gantry.proto contract.
 type serviceClient struct {
-	conn   dialer.ClientConn
+	conn   rpc.ClientConn
 	client pb.GantryServiceClient
 	logger golog.Logger
 }
 
 // newServiceClient constructs a new serviceClient that is served at the given address.
-func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOptions, logger golog.Logger) (*serviceClient, error) {
-	conn, err := grpc.Dial(ctx, address, opts, logger)
+func newServiceClient(ctx context.Context, address string, logger golog.Logger, opts ...rpc.DialOption) (*serviceClient, error) {
+	conn, err := grpc.Dial(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +30,7 @@ func newServiceClient(ctx context.Context, address string, opts rpcclient.DialOp
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
-func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceClient {
+func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *serviceClient {
 	client := pb.NewGantryServiceClient(conn)
 	sc := &serviceClient{
 		conn:   conn,
@@ -42,20 +40,20 @@ func newSvcClientFromConn(conn dialer.ClientConn, logger golog.Logger) *serviceC
 	return sc
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
-// client is an gantry client
+// client is an gantry client.
 type client struct {
 	*serviceClient
 	name string
 }
 
 // NewClient constructs a new client that is served at the given address.
-func NewClient(ctx context.Context, name string, address string, opts rpcclient.DialOptions, logger golog.Logger) (Gantry, error) {
-	sc, err := newServiceClient(ctx, address, opts, logger)
+func NewClient(ctx context.Context, name string, address string, logger golog.Logger, opts ...rpc.DialOption) (Gantry, error) {
+	sc, err := newServiceClient(ctx, address, logger, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +61,7 @@ func NewClient(ctx context.Context, name string, address string, opts rpcclient.
 }
 
 // NewClientFromConn constructs a new Client from connection passed in.
-func NewClientFromConn(conn dialer.ClientConn, name string, logger golog.Logger) Gantry {
+func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) Gantry {
 	sc := newSvcClientFromConn(conn, logger)
 	return clientFromSvcClient(sc, name)
 }
@@ -72,41 +70,41 @@ func clientFromSvcClient(sc *serviceClient, name string) Gantry {
 	return &client{sc, name}
 }
 
-func (c *client) CurrentPosition(ctx context.Context) ([]float64, error) {
-	resp, err := c.client.CurrentPosition(ctx, &pb.GantryServiceCurrentPositionRequest{
+func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
+	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Positions, nil
+	return resp.PositionsMm, nil
 }
 
-func (c *client) Lengths(ctx context.Context) ([]float64, error) {
-	lengths, err := c.client.Lengths(ctx, &pb.GantryServiceLengthsRequest{
+func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
+	lengths, err := c.client.GetLengths(ctx, &pb.GetLengthsRequest{
 		Name: c.name,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return lengths.Lengths, nil
+	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positions []float64) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.GantryServiceMoveToPositionRequest{
-		Name:      c.name,
-		Positions: positions,
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
+		Name:        c.name,
+		PositionsMm: positionsMm,
 	})
 	return err
 }
 
-func (c *client) ModelFrame() *referenceframe.Model {
+func (c *client) ModelFrame() referenceframe.Model {
 	// TODO(erh): this feels wrong
 	return nil
 }
 
 func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
-	res, err := c.CurrentPosition(ctx)
+	res, err := c.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +115,7 @@ func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) er
 	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
 }
 
-// Close cleanly closes the underlying connections
+// Close cleanly closes the underlying connections.
 func (c *client) Close() error {
-	return c.conn.Close()
+	return c.serviceClient.Close()
 }

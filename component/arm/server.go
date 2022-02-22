@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from arm_subtype.proto
+// subtypeServer implements the contract from arm_subtype.proto.
 type subtypeServer struct {
 	pb.UnimplementedArmServiceServer
 	s subtype.Service
@@ -35,60 +35,62 @@ func (s *subtypeServer) getArm(name string) (Arm, error) {
 	return arm, nil
 }
 
-// CurrentPosition returns the position of the arm specified.
-func (s *subtypeServer) CurrentPosition(ctx context.Context, req *pb.ArmServiceCurrentPositionRequest) (*pb.ArmServiceCurrentPositionResponse, error) {
+// GetEndPosition returns the position of the arm specified.
+func (s *subtypeServer) GetEndPosition(
+	ctx context.Context,
+	req *pb.GetEndPositionRequest,
+) (*pb.GetEndPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentPosition(ctx)
+	pos, err := arm.GetEndPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &commonpb.Pose{
 		X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 	}
-	return &pb.ArmServiceCurrentPositionResponse{Position: convertedPos}, nil
+	return &pb.GetEndPositionResponse{Pose: convertedPos}, nil
 }
 
-// CurrentJointPositions gets the current joint position of an arm of the underlying robot.
-func (s *subtypeServer) CurrentJointPositions(ctx context.Context, req *pb.ArmServiceCurrentJointPositionsRequest) (*pb.ArmServiceCurrentJointPositionsResponse, error) {
+// GetJointPositions gets the current joint position of an arm of the underlying robot.
+func (s *subtypeServer) GetJointPositions(
+	ctx context.Context,
+	req *pb.GetJointPositionsRequest,
+) (*pb.GetJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := arm.CurrentJointPositions(ctx)
+	pos, err := arm.GetJointPositions(ctx)
 	if err != nil {
 		return nil, err
 	}
 	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
-	return &pb.ArmServiceCurrentJointPositionsResponse{Positions: convertedPos}, nil
+	return &pb.GetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
-func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.ArmServiceMoveToPositionRequest) (*pb.ArmServiceMoveToPositionResponse, error) {
+func (s *subtypeServer) MoveToPosition(
+	ctx context.Context,
+	req *pb.MoveToPositionRequest,
+) (*pb.MoveToPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToPositionResponse{}, arm.MoveToPosition(ctx, req.To)
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.
-func (s *subtypeServer) MoveToJointPositions(ctx context.Context, req *pb.ArmServiceMoveToJointPositionsRequest) (*pb.ArmServiceMoveToJointPositionsResponse, error) {
+func (s *subtypeServer) MoveToJointPositions(
+	ctx context.Context,
+	req *pb.MoveToJointPositionsRequest,
+) (*pb.MoveToJointPositionsResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ArmServiceMoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.To)
-}
-
-// JointMoveDelta moves a specific joint of an arm of the underlying robot by the given amount.
-func (s *subtypeServer) JointMoveDelta(ctx context.Context, req *pb.ArmServiceJointMoveDeltaRequest) (*pb.ArmServiceJointMoveDeltaResponse, error) {
-	arm, err := s.getArm(req.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ArmServiceJointMoveDeltaResponse{}, arm.JointMoveDelta(ctx, int(req.Joint), req.AmountDegs)
+	return &pb.MoveToJointPositionsResponse{}, arm.MoveToJointPositions(ctx, req.PositionDegs)
 }

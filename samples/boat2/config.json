@@ -117,8 +117,7 @@
 
         {
             "name": "gps",
-            "type": "sensor",
-            "subtype": "gps",
+            "type": "gps",
             "model": "nmea-serial",
             "attributes" : {
                 "path" : "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
@@ -132,8 +131,7 @@
         },
         {
             "name" : "imu",
-            "type" : "sensor",
-            "subtype" : "imu",
+            "type" : "imu",
             "model" : "wit",
             "attributes" : {
                 "port" : "/dev/ttyUSB0"

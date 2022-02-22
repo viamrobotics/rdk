@@ -1,16 +1,5 @@
 <template>
   <div class="component">
-    <div
-      v-if="typeof motorStatus.pidConfig !== 'undefined'"
-      class="chart-area"
-      style="height: 400px; width: 400px"
-    >
-      <PIDChart
-        ref="PIDChart"
-        :labels="['Set Point', 'Reference Value']"
-        :colors="['red', 'blue']"
-      />
-    </div>
     <div class="card">
       <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
@@ -40,7 +29,6 @@
           </button>
         </div>
       </div>
-
       <div class="row" style="justify-content: space-between">
         <div class="row">
           <div class="column">
@@ -119,50 +107,6 @@
           </div>
         </div>
       </div>
-      <div class="row" style="justify-content: space-between">
-        <div class="row">
-          <div class="column">
-            <tr v-if="typeof motorStatus.pidConfig !== 'undefined'">
-              <td align="right">PID</td>
-              <td>
-                <span
-                  v-for="value in motorStatus.pidConfig.fieldsMap"
-                  :key="value.id"
-                >
-                  <b> {{ value[0] }} : </b>
-                  <input
-                    type="number"
-                    contenteditable="true"
-                    v-once
-                    step="0.01"
-                    precision="4"
-                    size="80px"
-                    v-model.number="value[1].numberValue"
-                    v-on:keyup.enter="
-                      onPidGainUpdate(value[0], $event.target.valueAsNumber)
-                    "
-                  />
-                </span>
-                <b>Speed value : </b>
-                <input
-                  type="number"
-                  v-bind:id="'set_point_' + motorName"
-                  contenteditable="true"
-                  step="0.5"
-                  precision="4"
-                  size="80px"
-                  value="0"
-                  v-model="setpoint"
-                  v-on:keyup.enter="onPIDStepButtonClicked()"
-                />
-                <button v-on:click="onPIDStepButtonClicked()">
-                  Step response
-                </button>
-              </td>
-            </tr>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -171,56 +115,14 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
   MotorStatus,
-  DirectionRelative,
-  MotorGoRequest,
-  MotorGoForRequest,
-  MotorGoToRequest,
-  MotorPIDStepRequest,
-  MotorSetPIDConfigRequest,
-} from "proto/robot_pb";
+} from "proto/api/robot/v1/robot_pb";
+import {
+  SetPowerRequest,
+  GoForRequest,
+  GoToRequest,
+} from "proto/api/component/motor/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
-import PIDChart from "./PidChart.vue";
 import { Struct } from "google-protobuf/google/protobuf/struct_pb";
-
-enum PIDCommandType {
-  Gain = "gain",
-  Step = "step",
-}
-
-class PIDCommand {
-  type = PIDCommandType.Gain;
-  setPoint = 0;
-  gain = 0;
-  key = "";
-  chart: PIDChart | undefined;
-
-  asObject(): {
-    type: string;
-    request: MotorPIDStepRequest | MotorSetPIDConfigRequest;
-    chart: PIDChart | undefined;
-    setPoint: number;
-  } {
-    let req;
-    let obj;
-    switch (this.type) {
-      case PIDCommandType.Gain:
-        req = new MotorSetPIDConfigRequest();
-        obj = { [this.key]: this.gain };
-        req.setPidConfig(Struct.fromJavaScript(obj));
-        break;
-      case PIDCommandType.Step:
-        req = new MotorPIDStepRequest();
-        req.setSetPoint(this.setPoint);
-        break;
-    }
-    return {
-      type: this.type.toString(),
-      request: req,
-      setPoint: this.setPoint,
-      chart: this.chart,
-    };
-  }
-}
 
 enum MotorCommandType {
   Go = "go",
@@ -232,12 +134,11 @@ class MotorCommand {
   type = MotorCommandType.Go;
   position = 0;
   speed = 0;
-  direction: 0 | 1 | 2 = DirectionRelative.DIRECTION_RELATIVE_FORWARD;
+  direction: -1 | 1 = 1;
   revolutions = 0;
 
   static get STOP(): MotorCommand {
     const cmd = new MotorCommand();
-    cmd.direction = DirectionRelative.DIRECTION_RELATIVE_UNSPECIFIED;
     return cmd;
   }
 
@@ -245,8 +146,6 @@ class MotorCommand {
     revolutions = Number.parseFloat(revolutions.toString());
     if (Number.isNaN(revolutions)) {
       return "Input is not a number";
-    } else if (revolutions < 0) {
-      return "Number of revolutions cannot be less than zero";
     }
     return "";
   }
@@ -255,8 +154,6 @@ class MotorCommand {
     rpm = Number.parseFloat(rpm.toString());
     if (Number.isNaN(rpm)) {
       return "Input is not a number";
-    } else if (rpm < 0) {
-      return "RPM cannot be less than zero";
     }
     return "";
   }
@@ -265,10 +162,10 @@ class MotorCommand {
     power = Number.parseFloat(power.toString());
     if (Number.isNaN(power)) {
       return "Input is not a number";
-    } else if (power < 0) {
-      return "Power cannot be less than zero";
     } else if (power > 100) {
       return "Power cannot be greater than 100%";
+    } else if (power < -100) {
+      return "Power cannot be less than -100%";
     }
     return "";
   }
@@ -307,25 +204,23 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorGoRequest | MotorGoForRequest | MotorGoToRequest;
+    request: SetPowerRequest | GoForRequest | GoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorGoRequest();
-        req.setDirection(this.direction);
-        req.setPowerPct(this.speed / 100);
+        req = new SetPowerRequest();
+        req.setPowerPct(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
-        req = new MotorGoForRequest();
-        req.setDirection(this.direction);
-        req.setRpm(this.speed);
+        req = new GoForRequest();
+        req.setRpm(this.speed * this.direction);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new MotorGoToRequest();
+        req = new GoToRequest();
         req.setRpm(this.speed);
-        req.setPosition(this.position);
+        req.setPositionRevolutions(this.position);
         break;
     }
     return {
@@ -338,7 +233,6 @@ class MotorCommand {
 @Component({
   components: {
     RadioButtons,
-    PIDChart,
   },
 })
 export default class MotorDetail extends Vue {
@@ -346,7 +240,6 @@ export default class MotorDetail extends Vue {
   @Prop() motorStatus!: MotorStatus.AsObject;
 
   motorCommand = new MotorCommand();
-  pidCommand = new PIDCommand();
 
   mounted(): void {
     if (this.motorStatus.positionSupported) {
@@ -354,19 +247,6 @@ export default class MotorDetail extends Vue {
       this.motorCommand.speed = 10;
       this.motorCommand.revolutions = 1;
     }
-  }
-  onPidGainUpdate(val: string, gain: number): void {
-    this.pidCommand.type = PIDCommandType.Gain;
-    this.pidCommand.key = val;
-    this.pidCommand.gain = gain;
-    const command = this.pidCommand.asObject();
-    this.$emit("pid", command);
-  }
-  onPIDStepButtonClicked(): void {
-    this.pidCommand.chart = this.$refs.PIDChart as PIDChart;
-    this.pidCommand.type = PIDCommandType.Step;
-    const command = this.pidCommand.asObject();
-    this.$emit("pid", command);
   }
   get isContinuous(): boolean {
     return this.motorCommand.type === MotorCommandType.Go;
@@ -383,14 +263,14 @@ export default class MotorDetail extends Vue {
 
   get isGoingForward(): boolean {
     return (
-      this.motorCommand.direction ===
-      DirectionRelative.DIRECTION_RELATIVE_FORWARD
+      this.motorCommand.direction === 1
     );
   }
+
   set isGoingForward(forward: boolean) {
     this.motorCommand.direction = forward
-      ? DirectionRelative.DIRECTION_RELATIVE_FORWARD
-      : DirectionRelative.DIRECTION_RELATIVE_BACKWARD;
+      ? 1
+      : -1;
   }
 
   get position(): number {
@@ -406,12 +286,6 @@ export default class MotorDetail extends Vue {
   }
   set speed(v: number) {
     this.motorCommand.speed = v;
-  }
-  get setpoint(): number {
-    return this.pidCommand.setPoint;
-  }
-  set setpoint(v: number) {
-    this.pidCommand.setPoint = v;
   }
 
   get numberOfRotations(): number {

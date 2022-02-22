@@ -5,10 +5,9 @@ import (
 	"testing"
 
 	"go.viam.com/test"
-
 	"gonum.org/v1/gonum/num/quat"
 
-	commonpb "go.viam.com/core/proto/api/common/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 )
 
 func TestAngleAxisConversion1(t *testing.T) {
@@ -25,8 +24,8 @@ func TestAngleAxisConversion1(t *testing.T) {
 func TestAngleAxisConversion2(t *testing.T) {
 	// Test that we can convert back and forth losslessly between r4 and r3 angle axis
 	startAA := R4AA{2.5980762, 0.577350, 0.577350, 0.577350}
-	r3 := startAA.ToR3()
-	end1 := r3.ToR4()
+	r3aa := startAA.ToR3()
+	end1 := R3ToR4(r3aa)
 	test.That(t, math.Abs(end1.Theta-startAA.Theta), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RX-startAA.RX), test.ShouldBeLessThan, 0.001)
 	test.That(t, math.Abs(end1.RY-startAA.RZ), test.ShouldBeLessThan, 0.001)
@@ -131,7 +130,6 @@ func TestOVConversionPoles(t *testing.T) {
 	ovConvert(t, &OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -2.47208, OX: 0, OY: 0, OZ: -1})
 	ovConvert(t, &OrientationVector{Theta: -0.78, OX: 0, OY: 0, OZ: -1})
-
 }
 
 func TestQuatNormalize(t *testing.T) {
@@ -179,6 +177,7 @@ func TestOVNormalize(t *testing.T) {
 }
 
 func ovConvert(t *testing.T, ov1 *OrientationVector) {
+	t.Helper()
 	q1 := ov1.ToQuat()
 	ov2 := QuatToOV(q1)
 	q2 := ov2.ToQuat()
@@ -188,6 +187,7 @@ func ovConvert(t *testing.T, ov1 *OrientationVector) {
 }
 
 func quatConvert(t *testing.T, q1 quat.Number) {
+	t.Helper()
 	ov1 := QuatToOV(q1)
 	q2 := ov1.ToQuat()
 	ov2 := QuatToOV(q2)
@@ -196,6 +196,7 @@ func quatConvert(t *testing.T, q1 quat.Number) {
 }
 
 func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
+	t.Helper()
 	test.That(t, ov1.Theta, test.ShouldAlmostEqual, ov2.Theta)
 	test.That(t, ov1.OX, test.ShouldAlmostEqual, ov2.OX)
 	test.That(t, ov1.OY, test.ShouldAlmostEqual, ov2.OY)
@@ -203,6 +204,7 @@ func ovCompare(t *testing.T, ov1, ov2 *OrientationVector) {
 }
 
 func quatCompare(t *testing.T, q1, q2 quat.Number) {
+	t.Helper()
 	test.That(t, q1.Real, test.ShouldAlmostEqual, q2.Real, 1e-8)
 	test.That(t, q1.Imag, test.ShouldAlmostEqual, q2.Imag, 1e-8)
 	test.That(t, q1.Jmag, test.ShouldAlmostEqual, q2.Jmag, 1e-8)

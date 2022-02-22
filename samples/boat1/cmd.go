@@ -13,27 +13,25 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-errors/errors"
-
-	"go.viam.com/utils"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/sensor"
-	"go.viam.com/core/serial"
-	"go.viam.com/core/services/web"
-	webserver "go.viam.com/core/web/server"
-
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
+	"go.viam.com/utils/serial"
+
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
+	rdkutils "go.viam.com/rdk/utils"
+	webserver "go.viam.com/rdk/web/server"
 )
 
 const (
@@ -43,7 +41,7 @@ const (
 
 var logger = golog.NewDevelopmentLogger("boat1")
 
-// Boat TODO
+// Boat TODO.
 type Boat struct {
 	theBoard        board.Board
 	starboard, port motor.Motor
@@ -56,57 +54,44 @@ type Boat struct {
 	cancelCtx context.Context
 }
 
-// MoveStraight TODO
-func (b *Boat) MoveStraight(ctx context.Context, distanceMillis int, millisPerSec float64, block bool) (int, error) {
-	dir := pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-	if distanceMillis < 0 {
-		dir = pb.DirectionRelative_DIRECTION_RELATIVE_BACKWARD
-		distanceMillis *= -1
-	}
-
+// MoveStraight TODO.
+func (b *Boat) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
 	if block {
-		return 0, errors.New("boat can't block for move straight yet")
+		return errors.New("boat can't block for move straight yet")
 	}
 
-	speed := (millisPerSec * 60.0) / float64(millisPerRotation)
-	rotations := float64(distanceMillis) / millisPerRotation
+	speed := (mmPerSec * 60.0) / float64(millisPerRotation)
+	rotations := float64(distanceMm) / millisPerRotation
 
-	// TODO(erh): return how much it actually moved
-	return distanceMillis, multierr.Combine(
-		b.starboard.GoFor(ctx, dir, speed, rotations),
-		b.port.GoFor(ctx, dir, speed, rotations),
+	return multierr.Combine(
+		b.starboard.GoFor(ctx, speed, rotations),
+		b.port.GoFor(ctx, speed, rotations),
 	)
-
 }
 
-// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD)
-func (b *Boat) MoveArc(ctx context.Context, distanceMillis int, millisPerSec float64, angleDeg float64, block bool) (int, error) {
-	return 1, errors.New("boat can't move in arc yet")
+// MoveArc allows the motion along an arc defined by speed, distance and angular velocity (TBD).
+func (b *Boat) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
+	return errors.New("boat can't move in arc yet")
 }
 
-// Spin TODO
-func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) (float64, error) {
-	return math.NaN(), errors.New("boat can't spin yet")
+// Spin TODO.
+func (b *Boat) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
+	return errors.New("boat can't spin yet")
 }
 
-// WidthMillis TODO
-func (b *Boat) WidthMillis(ctx context.Context) (int, error) {
-	return 1, nil
-}
-
-// Stop TODO
+// Stop TODO.
 func (b *Boat) Stop(ctx context.Context) error {
-	return multierr.Combine(b.starboard.Off(ctx), b.port.Off(ctx))
+	return multierr.Combine(b.starboard.Stop(ctx), b.port.Stop(ctx))
 }
 
-// Close TODO
-func (b *Boat) Close() error {
+// Close TODO.
+func (b *Boat) Close(ctx context.Context) error {
 	defer b.activeBackgroundWorkers.Wait()
 	b.cancel()
-	return b.Stop(context.Background())
+	return b.Stop(ctx)
 }
 
-// StartRC TODO
+// StartRC TODO.
 func (b *Boat) StartRC(ctx context.Context) {
 	b.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
@@ -130,9 +115,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 			}
 
 			var port, starboard float64
-
-			var portDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
-			var starboardDirection = pb.DirectionRelative_DIRECTION_RELATIVE_FORWARD
 
 			direction := 0.0
 
@@ -165,20 +147,10 @@ func (b *Boat) StartRC(ctx context.Context) {
 					// moving mostly forward or back, but turning a bit
 					direction = float64(rightHorizontalVal)
 				}
-
-				if port < 0 {
-					portDirection = board.FlipDirection(portDirection)
-					port = -1 * port
-				}
-				if starboard < 0 {
-					starboardDirection = board.FlipDirection(starboardDirection)
-					starboard = -1 * starboard
-				}
-
 			} else {
 				if mode == 2 {
-					portDirection = board.FlipDirection(portDirection)
-					starboardDirection = board.FlipDirection(starboardDirection)
+					port *= -1
+					starboard *= -1
 				}
 
 				throttleVal, err := b.throttle.Value(ctx)
@@ -196,7 +168,6 @@ func (b *Boat) StartRC(ctx context.Context) {
 				starboard = port
 
 				direction = float64(directionVal)
-
 			}
 
 			if direction > 0 {
@@ -211,20 +182,19 @@ func (b *Boat) StartRC(ctx context.Context) {
 				err = b.Stop(ctx)
 			} else {
 				err = multierr.Combine(
-					b.starboard.GoFor(ctx, starboardDirection, starboard, 0),
-					b.port.GoFor(ctx, portDirection, port, 0),
+					b.starboard.GoFor(ctx, starboard, 0),
+					b.port.GoFor(ctx, port, 0),
 				)
 			}
 
 			if err != nil {
 				log.Print(err)
 			}
-
 		}
 	}, b.activeBackgroundWorkers.Done)
 }
 
-// SavedDepth TODO
+// SavedDepth TODO.
 type SavedDepth struct {
 	Longitude float64
 	Latitude  float64
@@ -239,12 +209,15 @@ func storeAll(docs []SavedDepth) error {
 			return err
 		}
 
-		_, err = http.Post(
+		resp, err := http.Post(
 			"https://us-east-1.aws.webhooks.mongodb-realm.com/api/client/v2.0/app/boat1-lwcji/service/http1/incoming_webhook/depthRecord",
 			"application/json",
 			bytes.NewReader(data))
 		if err != nil {
 			return err
+		}
+		if err := resp.Body.Close(); err != nil {
+			rlog.Logger.Error(err)
 		}
 	}
 
@@ -293,7 +266,7 @@ func doRecordDepth(ctx context.Context, depthSensor sensor.Sensor) error {
 		return errors.New("currentLocation is 0")
 	}
 
-	readings, err := depthSensor.Readings(ctx)
+	readings, err := depthSensor.GetReadings(ctx)
 	if err != nil {
 		return err
 	}
@@ -301,10 +274,19 @@ func doRecordDepth(ctx context.Context, depthSensor sensor.Sensor) error {
 		return errors.Errorf("readings is unexpected %v", readings)
 	}
 
-	m := readings[0].(map[string]interface{})
+	m, ok := readings[0].(map[string]interface{})
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(m, readings[0])
+	}
 
-	confidence := m["confidence"].(float64)
-	depth := m["distance"].(float64)
+	confidence, ok := m["confidence"].(float64)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(confidence, m["confidence"])
+	}
+	depth, ok := m["distance"].(float64)
+	if !ok {
+		return rdkutils.NewUnexpectedTypeError(depth, m["distance"])
+	}
 
 	if confidence < 90 {
 		rlog.Logger.Debugf("confidence too low, skipping confidence: %v depth: %v", confidence, depth)
@@ -339,24 +321,25 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 	}
 }
 
-// newBoat TODO
-func newBoat(ctx context.Context, r robot.Robot, c config.Component, logger golog.Logger) (base.Base, error) {
+// newBoat TODO.
+func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
+	var err error
 	var ok bool
-	b.theBoard, ok = r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("cannot find board")
+	b.theBoard, err = board.FromRobot(r, "local")
+	if err != nil {
+		return nil, err
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("need a starboard motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a starboard motor")
 	}
 
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("need a port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a port motor")
 	}
 
 	b.throttle, ok = b.theBoard.DigitalInterruptByName("throttle")
@@ -401,23 +384,32 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
 
 	// register boat as base properly
-	registry.RegisterBase("viam-boat1", registry.Base{Constructor: newBoat})
+	registry.RegisterComponent(base.Subtype, "viam-boat1", registry.Component{
+		Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			return newBoat(ctx, r)
+		},
+	})
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
-	depth1, ok := myRobot.SensorByName("depth1")
-	if !ok {
-		return errors.New("failed to find depth1 sensor")
+	depth1, err := sensor.FromRobot(myRobot, "depth1")
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

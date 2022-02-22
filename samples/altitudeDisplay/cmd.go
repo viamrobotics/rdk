@@ -7,14 +7,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	"go.viam.com/core/sensor/gps"
-
-	robotimpl "go.viam.com/core/robot/impl"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/config"
+	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
 const (
@@ -32,7 +31,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -41,22 +40,21 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
-	gpsBoard, ok := myRobot.BoardByName(boardName)
-	if !ok {
-		return fmt.Errorf("failed to find board %s", boardName)
+	gpsBoard, err := board.FromRobot(myRobot, boardName)
+	if err != nil {
+		return err
 	}
-	i2c, _ := gpsBoard.I2CByName("bus1")
-
-	s, ok := myRobot.SensorByName(gpsName)
+	localB, ok := gpsBoard.(board.LocalBoard)
 	if !ok {
-		return fmt.Errorf("no gps named %q", gpsName)
+		return fmt.Errorf("board %s is not local", boardName)
 	}
+	i2c, _ := localB.I2CByName("bus1")
 
-	gpsDevice, ok := s.(gps.GPS)
-	if !ok {
-		return fmt.Errorf("%q is not a GPS device", gpsName)
+	gpsDevice, err := gps.FromRobot(myRobot, gpsName)
+	if err != nil {
+		return err
 	}
 
 	handle, err := i2c.OpenHandle(dispAddr)
@@ -73,9 +71,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	for {
 		meters := -9999.
-		valid, _ := gpsDevice.Valid(ctx)
-		if valid {
-			meters, _ = gpsDevice.Altitude(ctx)
+		localGps, ok := gpsDevice.(gps.LocalGPS)
+		if ok {
+			valid, _ := localGps.ReadValid(ctx)
+			if valid {
+				meters, _ = gpsDevice.ReadAltitude(ctx)
+			}
 		}
 		feet := int(meters * 3.28084)
 		meterStr := strconv.Itoa(int(meters))

@@ -9,10 +9,10 @@ import (
 	"io"
 	"math"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"gonum.org/v1/gonum/mat"
 
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/utils"
 )
 
 // key is the map key used within the point cloud implementation. That is
@@ -36,7 +36,7 @@ type PointCloud interface {
 	// MinX returns the minimum x coordinate of all points in the cloud.
 	MinX() float64
 
-	// MaxY returns the maximum y coordinate of all points in the cloud.
+	// MaxX returns the maximum x coordinate of all points in the cloud.
 	MaxX() float64
 
 	// MinY returns the minimum y coordinate of all points in the cloud.
@@ -82,6 +82,10 @@ type PointCloud interface {
 	// it is based off the X,Y plane at the 0 Z coordinate making this useful for only 2D
 	// point clouds.
 	ToVec2Matrix() (*utils.Vec2Matrix, error)
+
+	// Points returns a slice of all the points in the point cloud, not in any particular order.
+	// Used to build kd-trees in order to define nearest neighbor functions on point clouds.
+	Points() []Point
 }
 
 // basicPointCloud is the basic implementation of the PointCloud interface backed by
@@ -111,6 +115,14 @@ func NewWithPrealloc(size int) PointCloud {
 		maxY:   -math.MaxFloat64,
 		maxZ:   -math.MaxFloat64,
 	}
+}
+
+func (cloud *basicPointCloud) Points() []Point {
+	pts := make([]Point, 0, cloud.Size())
+	for _, v := range cloud.points {
+		pts = append(pts, v)
+	}
+	return pts
 }
 
 func (cloud *basicPointCloud) Size() int {

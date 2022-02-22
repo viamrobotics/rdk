@@ -1,0 +1,77 @@
+name: Build AppImage
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      GCP_CREDENTIALS:
+        required: true
+
+env:
+  GOPRIVATE: "github.com/viamrobotics/*,go.viam.com/*"
+
+jobs:
+  appimages_amd64:
+    name: (x64) Viam Server AppImage
+    runs-on: [x64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:amd64-cache
+      options: --platform linux/amd64
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with: 
+        fetch-depth: 2
+
+    - name: Build and Package
+      run: make clean-all appimage
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Upload Files
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: '*'
+        parent: false
+        gzip: false
+
+  appimages_arm64:
+    name: (arm64) Viam Server AppImage
+    runs-on: [arm64, qemu-host]
+    container:
+      image: ghcr.io/viamrobotics/canon:arm64-cache
+      options: --platform linux/arm64
+    timeout-minutes: 15
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+      with: 
+        fetch-depth: 2
+
+    - name: Build and Package
+      run: |
+        make clean-all appimage
+
+    - name: Authorize GCP Upload
+      uses: google-github-actions/auth@v0.4.3
+      with:
+        credentials_json: '${{ secrets.GCP_CREDENTIALS }}'
+
+    - name: Upload Files
+      uses: google-github-actions/upload-cloud-storage@v0.5.0
+      with:
+        headers: "Cache-Control: no-cache"
+        path: 'etc/packaging/appimages/deploy/'
+        destination: 'packages.viam.com/apps/viam-server/'
+        glob: '*'
+        parent: false
+        gzip: false

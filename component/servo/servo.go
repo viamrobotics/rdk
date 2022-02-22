@@ -4,19 +4,42 @@ import (
 	"context"
 	"sync"
 
-	"github.com/go-errors/errors"
+	"github.com/edaniels/golog"
 	viamutils "go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
-	"go.viam.com/core/resource"
-	"go.viam.com/core/rlog"
+	pb "go.viam.com/rdk/proto/api/component/servo/v1"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
-// SubtypeName is a constant that identifies the component resource subtype string "servo"
+func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		Reconfigurable: WrapWithReconfigurable,
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.ServoService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterServoServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
+}
+
+// SubtypeName is a constant that identifies the component resource subtype string "servo".
 const SubtypeName = resource.SubtypeName("servo")
 
-// Subtype is a constant that identifies the component resource subtype
+// Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceCore,
+	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	SubtypeName,
 )
@@ -25,21 +48,39 @@ var Subtype = resource.NewSubtype(
 type Servo interface {
 
 	// Move moves the servo to the given angle (0-180 degrees)
-	Move(ctx context.Context, angleDegs uint8) error
+	Move(ctx context.Context, angleDeg uint8) error
 
-	// Current returns the current set angle (degrees) of the servo.
-	Current(ctx context.Context) (uint8, error)
+	// GetPosition returns the current set angle (degrees) of the servo.
+	GetPosition(ctx context.Context) (uint8, error)
 }
 
-// Named is a helper for getting the named Arm's typed resource name
+// Named is a helper for getting the named Servo's typed resource name.
 func Named(name string) resource.Name {
-	return resource.NewFromSubtype(Subtype, name)
+	return resource.NameFromSubtype(Subtype, name)
 }
 
 var (
 	_ = Servo(&reconfigurableServo{})
 	_ = resource.Reconfigurable(&reconfigurableServo{})
 )
+
+// FromRobot is a helper for getting the named servo from the given Robot.
+func FromRobot(r robot.Robot, name string) (Servo, error) {
+	res, ok := r.ResourceByName(Named(name))
+	if !ok {
+		return nil, utils.NewResourceNotFoundError(Named(name))
+	}
+	part, ok := res.(Servo)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Servo", res)
+	}
+	return part, nil
+}
+
+// NamesFromRobot is a helper for getting all servo names from the given Robot.
+func NamesFromRobot(r robot.Robot) []string {
+	return robot.NamesBySubtype(r, Subtype)
+}
 
 type reconfigurableServo struct {
 	mu     sync.RWMutex
@@ -52,32 +93,32 @@ func (r *reconfigurableServo) ProxyFor() interface{} {
 	return r.actual
 }
 
-func (r *reconfigurableServo) Move(ctx context.Context, angleDegs uint8) error {
+func (r *reconfigurableServo) Move(ctx context.Context, angleDeg uint8) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Move(ctx, angleDegs)
+	return r.actual.Move(ctx, angleDeg)
 }
 
-func (r *reconfigurableServo) Current(ctx context.Context) (uint8, error) {
+func (r *reconfigurableServo) GetPosition(ctx context.Context) (uint8, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.Current(ctx)
+	return r.actual.GetPosition(ctx)
 }
 
-func (r *reconfigurableServo) Close() error {
+func (r *reconfigurableServo) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return viamutils.TryClose(r.actual)
+	return viamutils.TryClose(ctx, r.actual)
 }
 
-func (r *reconfigurableServo) Reconfigure(newServo resource.Reconfigurable) error {
+func (r *reconfigurableServo) Reconfigure(ctx context.Context, newServo resource.Reconfigurable) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	actual, ok := newServo.(*reconfigurableServo)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", r, newServo)
+		return utils.NewUnexpectedTypeError(r, newServo)
 	}
-	if err := viamutils.TryClose(r.actual); err != nil {
+	if err := viamutils.TryClose(ctx, r.actual); err != nil {
 		rlog.Logger.Errorw("error closing old", "error", err)
 	}
 	r.actual = actual.actual
@@ -89,7 +130,7 @@ func (r *reconfigurableServo) Reconfigure(newServo resource.Reconfigurable) erro
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	servo, ok := r.(Servo)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Servo but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Servo", r)
 	}
 	if reconfigurable, ok := servo.(*reconfigurableServo); ok {
 		return reconfigurable, nil

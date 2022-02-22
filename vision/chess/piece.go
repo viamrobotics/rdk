@@ -1,10 +1,10 @@
 package chess
 
 import (
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/ml"
-	"go.viam.com/core/rimage"
+	"go.viam.com/rdk/ml"
+	"go.viam.com/rdk/rimage"
 )
 
 // The set of square colors.
@@ -17,7 +17,6 @@ const (
 func makeArray(edges int, c rimage.Color) []float64 {
 	x, y, z := c.RGB255()
 	return []float64{float64(edges), float64(x), float64(y), float64(z)}
-
 }
 
 func pieceFromColor(theClassifier ml.Classifier, edges int, data rimage.Color) string {

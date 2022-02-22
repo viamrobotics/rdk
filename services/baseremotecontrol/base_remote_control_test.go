@@ -4,33 +4,41 @@ import (
 	"context"
 	"testing"
 
-	"github.com/go-errors/errors"
-
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robots/fake"
-	"go.viam.com/core/testutils/inject"
-
+	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
+
+	"go.viam.com/rdk/component/base"
+	fakebase "go.viam.com/rdk/component/base/fake"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
 	ctx := context.Background()
 
 	fakeRobot := &inject.Robot{}
-	fakeRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fake.Base{}, true
-	}
-
 	fakeController := &inject.InputController{}
 
-	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return fakeController, true
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		switch name.Subtype {
+		case input.Subtype:
+			return fakeController, true
+		case base.Subtype:
+			return &fakebase.Base{}, true
+		}
+		return nil, false
 	}
 
-	fakeController.RegisterControlCallbackFunc = func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+	fakeController.RegisterControlCallbackFunc = func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error {
 		return nil
 	}
 
@@ -65,8 +73,11 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
-	fakeRobot.InputControllerByNameFunc = func(name string) (input.Controller, bool) {
-		return fakeController, false
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		if name.Subtype == base.Subtype {
+			return &fakebase.Base{}, true
+		}
+		return nil, false
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -76,11 +87,14 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no input controller named %q", cfg.InputControllerName))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller\" not found"))
 
 	// Base import failure
-	fakeRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fake.Base{}, false
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		if name.Subtype == input.Subtype {
+			return fakeController, true
+		}
+		return nil, false
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -90,7 +104,7 @@ func TestBaseRemoteControl(t *testing.T) {
 			ConvertedAttributes: cfg,
 		},
 		rlog.Logger)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("no base named %q", cfg.BaseName))
+	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:base\" not found"))
 
 	// Start checks
 	err = svc.start(ctx)
@@ -98,51 +112,51 @@ func TestBaseRemoteControl(t *testing.T) {
 
 	// Math tests: Starting point - high speed, straight
 	t.Run("full speed to half speed", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0, 0.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("full speed to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0, 0.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("full speed to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0, 0.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("full speed to gentle turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0, 0.0)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 1.0)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
 	// Math tests: Starting point - low speed, arcing
 	t.Run("slow arc to straight", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.4, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.4, 0.0, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.4, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.0, .001)
 	})
 
 	t.Run("slow arc to full speed slight angle", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(1.0, 0.1, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.1, .001)
 	})
 
 	t.Run("slow arc to sharp turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.2, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 1.0, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("slow arc to slow turn", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2, 0.2)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.1, .001)
+		mmPerSec, degsPerSec := svc.speedAndAngleMathMag(0.1, 0.4, 0.2)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.2, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.4, .001)
 	})
 
@@ -182,49 +196,48 @@ func TestBaseRemoteControl(t *testing.T) {
 	}
 
 	t.Run("trigger speed control mode for input X", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventX, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventX, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("trigger speed control mode for input Z", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.8, 0.8)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.75, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.8, 0.8)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.75, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("trigger speed control mode for input RZ", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventRZ, 0.8, 0.8)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.85, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventRZ, 0.8, 0.8)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.85, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.8, .001)
 	})
 
 	t.Run("one joy stick control mode for input X", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventX, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 1.0, .001)
 	})
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 1.0, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventY, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 1.0, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 
 	t.Run("one joy stick control mode for input Z", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.oneJoyStickEvent(eventZ, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.oneJoyStickEvent(eventZ, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.5, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
 
 	// Close out check
-	err = svc.Close()
+	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("one joy stick control mode for input Y", func(t *testing.T) {
-		millisPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
-		test.That(t, millisPerSec, test.ShouldAlmostEqual, 0.5, .001)
+		mmPerSec, degsPerSec := svc.triggerSpeedEvent(eventZ, 0.5, 0.6)
+		test.That(t, mmPerSec, test.ShouldAlmostEqual, 0.45, .001)
 		test.That(t, degsPerSec, test.ShouldAlmostEqual, 0.6, .001)
 	})
-
 }

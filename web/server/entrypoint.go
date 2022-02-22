@@ -1,42 +1,43 @@
+// Package server implements the entry point for running a robot web server.
 package server
 
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"strings"
 	"sync"
 	"time"
 
-	"go.uber.org/multierr"
-
-	"go.viam.com/utils"
-	"go.viam.com/utils/rpc/dialer"
-
-	"go.viam.com/core/config"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/rlog"
-	"go.viam.com/core/robot"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/web"
-
 	"github.com/edaniels/golog"
-	"github.com/erh/egoutil"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/rlog"
+	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/web"
+	rutils "go.viam.com/rdk/utils"
 )
 
 type wrappedLogger struct {
 	base  zapcore.Core
 	extra []zapcore.Field
-}
-
-func (l *wrappedLogger) Close() error {
-	return nil
 }
 
 func (l *wrappedLogger) Enabled(level zapcore.Level) bool {
@@ -52,10 +53,10 @@ func (l *wrappedLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcor
 }
 
 func (l *wrappedLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
-	new := []zapcore.Field{}
-	new = append(new, l.extra...)
-	new = append(new, f...)
-	return l.base.Write(e, new)
+	field := []zapcore.Field{}
+	field = append(field, l.extra...)
+	field = append(field, f...)
+	return l.base.Write(e, field)
 }
 
 func (l *wrappedLogger) Sync() error {
@@ -76,15 +77,14 @@ func newNetLogger(config *config.Cloud) (*netLogger, error) {
 		cancel:    cancel,
 	}
 	nl.activeBackgroundWorkers.Add(1)
-	utils.ManagedGo(func() {
-		nl.backgroundWorker()
-	}, nl.activeBackgroundWorkers.Done)
+	utils.ManagedGo(nl.backgroundWorker, nl.activeBackgroundWorkers.Done)
 	return nl, nil
 }
 
 type netLogger struct {
-	hostname string
-	cfg      *config.Cloud
+	hostname   string
+	cfg        *config.Cloud
+	httpClient http.Client
 
 	toLogMutex sync.Mutex
 	toLog      []interface{}
@@ -100,7 +100,7 @@ func (nl *netLogger) queueSize() int {
 	return len(nl.toLog)
 }
 
-func (nl *netLogger) Close() error {
+func (nl *netLogger) Close() {
 	// try for up to 10 seconds for log queue to clear before cancelling it
 	for i := 0; i < 1000; i++ {
 		if nl.queueSize() == 0 {
@@ -111,7 +111,7 @@ func (nl *netLogger) Close() error {
 	}
 	nl.cancel()
 	nl.activeBackgroundWorkers.Wait()
-	return nil
+	nl.httpClient.CloseIdleConnections()
 }
 
 func (nl *netLogger) Enabled(zapcore.Level) bool {
@@ -128,6 +128,14 @@ func (nl *netLogger) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.C
 
 func (nl *netLogger) Write(e zapcore.Entry, f []zapcore.Field) error {
 	// TODO(erh): should we put a _id uuid on here so we don't log twice?
+
+	for idx, ff := range f {
+		if ff.String == "" && ff.Interface != nil {
+			ff.String = fmt.Sprintf("%v", ff.Interface)
+			f[idx] = ff
+		}
+	}
+
 	x := map[string]interface{}{
 		"id":     nl.cfg.ID,
 		"host":   nl.hostname,
@@ -162,20 +170,23 @@ func (nl *netLogger) writeToServer(x interface{}) error {
 		return err
 	}
 
-	r, err := http.NewRequest("POST", nl.cfg.LogPath, bytes.NewReader(js))
+	// we specifically don't use a parented cancellable context here so we can make sure we finish writing but
+	// we will only give it up to 5 seconds to do so in case we are trying to shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+	r, err := http.NewRequestWithContext(ctx, http.MethodPost, nl.cfg.LogPath, bytes.NewReader(js))
 	if err != nil {
-		return errors.Errorf("error creating log request %w", err)
+		return errors.Wrap(err, "error creating log request")
 	}
 	r.Header.Set("Secret", nl.cfg.Secret)
-	r = r.WithContext(nl.cancelCtx)
 
-	var client http.Client
-	defer client.CloseIdleConnections()
-	resp, err := client.Do(r)
+	resp, err := nl.httpClient.Do(r)
 	if err != nil {
 		return err
 	}
-	defer utils.UncheckedErrorFunc(resp.Body.Close)
+	defer func() {
+		utils.UncheckedError(resp.Body.Close())
+	}()
 	return nil
 }
 
@@ -184,16 +195,20 @@ func (nl *netLogger) backgroundWorker() {
 	abnormalInterval := 5 * time.Second
 	interval := normalInterval
 	for {
+		cancelled := false
 		if !utils.SelectContextOrWait(nl.cancelCtx, interval) {
-			return
+			cancelled = true
 		}
 		err := nl.Sync()
-		if err != nil {
+		if err != nil && !errors.Is(err, context.Canceled) {
 			interval = abnormalInterval
 			// fall back to regular logging
 			rlog.Logger.Infof("error logging to network: %s", err)
 		} else {
 			interval = normalInterval
+		}
+		if cancelled {
+			return
 		}
 	}
 }
@@ -225,12 +240,10 @@ func (nl *netLogger) Sync() error {
 			nl.addToQueue(x) // we'll try again later
 			return err
 		}
-
 	}
-
 }
 
-func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func() error, error) {
+func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(), error) {
 	nl, err := newNetLogger(cfg)
 	if err != nil {
 		return nil, nil, err
@@ -244,26 +257,22 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 
 // Arguments for the command.
 type Arguments struct {
-	ConfigFile string            `flag:"0,required,usage=robot config file"`
-	NoAutoTile bool              `flag:"noAutoTile,usage=disable auto tiling"`
-	CPUProfile string            `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile bool              `flag:"webprofile,usage=include profiler in http server"`
-	LogURL     string            `flag:"logurl,usage=url to log messages to"`
-	SharedDir  string            `flag:"shareddir,usage=web resource directory"`
-	Port       utils.NetPortFlag `flag:"port,usage=port to listen on"`
-	Debug      bool              `flag:"debug"`
-	LocalCloud bool              `flag:"local-cloud"`
-	WebRTC     bool              `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	ConfigFile         string `flag:"0,required,usage=robot config file"`
+	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
+	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
+	LogURL             string `flag:"logurl,usage=url to log messages to"`
+	SharedDir          string `flag:"shareddir,usage=web resource directory"`
+	Debug              bool   `flag:"debug"`
+	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
+	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 }
 
-// RunServer is an entry point to starting the web server that can be called by main in a code sample or otherwise be used to initialize the server.
+// RunServer is an entry point to starting the web server that can be called by main in a code
+// sample or otherwise be used to initialize the server.
 func RunServer(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
-	}
-	if argsParsed.Port == 0 {
-		argsParsed.Port = 8080
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -278,24 +287,25 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		defer pprof.StopCPUProfile()
 	}
 
-	exp := egoutil.NewNiceLoggingSpanExporter()
+	exp := perf.NewNiceLoggingSpanExporter()
 	trace.RegisterExporter(exp)
 	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
-	cfg, err := config.Read(argsParsed.ConfigFile)
+	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
 	if err != nil {
+		cancel()
 		return err
 	}
+	cancel()
 
 	if cfg.Cloud != nil && cfg.Cloud.LogPath != "" {
-		var cleanup func() error
-		logger, cleanup, err = addCloudLogger(logger, cfg.Cloud)
+		var closer func()
+		logger, closer, err = addCloudLogger(logger, cfg.Cloud)
 		if err != nil {
 			return err
 		}
-		defer func() {
-			err = multierr.Combine(err, cleanup())
-		}()
+		defer closer()
 	}
 
 	err = serveWeb(ctx, cfg, argsParsed, logger)
@@ -308,32 +318,108 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, logger golog.Logger) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	rpcDialer := dialer.NewCachedDialer()
+	rpcDialer := rpc.NewCachedDialer()
 	defer func() {
 		err = multierr.Combine(err, rpcDialer.Close())
 	}()
-	ctx = dialer.ContextWithDialer(ctx, rpcDialer)
+	ctx = rpc.ContextWithDialer(ctx, rpcDialer)
 
 	metadataSvc, err := service.New()
 	if err != nil {
 		return err
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+
+	var tlsConfig *tls.Config
+	var certMu sync.Mutex
+	var tlsCert *tls.Certificate
+	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				// always return same cert
+				certMu.Lock()
+				defer certMu.Unlock()
+				return tlsCert, nil
+			},
+			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				// always return same cert
+				certMu.Lock()
+				defer certMu.Unlock()
+				return tlsCert, nil
+			},
+		}
+	}
+
+	processConfig := func(in *config.Config) (*config.Config, error) {
+		out := *in
+		var selfCreds *rpc.Credentials
+		if in.Cloud != nil {
+			if in.Cloud.TLSCertificate != "" {
+				cert, err := tls.X509KeyPair([]byte(in.Cloud.TLSCertificate), []byte(in.Cloud.TLSPrivateKey))
+				if err != nil {
+					return nil, err
+				}
+				certMu.Lock()
+				tlsCert = &cert
+				certMu.Unlock()
+			}
+
+			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+			out.Network.TLSConfig = tlsConfig // override
+		}
+
+		out.Remotes = make([]config.Remote, len(in.Remotes))
+		copy(out.Remotes, in.Remotes)
+		for idx, remote := range out.Remotes {
+			remoteCopy := remote
+			if in.Cloud == nil {
+				// TODO(https://github.com/viamrobotics/goutils/issues/24):
+				// remove hard coding of signaling server address and
+				// prefer SRV lookup instead.
+				switch {
+				case strings.HasSuffix(remote.Address, ".viam.cloud"):
+					remoteCopy.Auth.SignalingServerAddress = "app.viam.com:443"
+				case strings.HasSuffix(remote.Address, ".robot.viaminternal"):
+					remoteCopy.Auth.SignalingServerAddress = "app.viaminternal:8089"
+				}
+				remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
+			} else {
+				if remote.ManagedBy != in.Cloud.ManagedBy {
+					continue
+				}
+				remoteCopy.Auth.Managed = true
+				remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
+				remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+				remoteCopy.Auth.SignalingCreds = selfCreds
+			}
+			out.Remotes[idx] = remoteCopy
+		}
+		out.Debug = argsParsed.Debug
+		out.FromCommand = true
+		out.AllowInsecureCreds = argsParsed.AllowInsecureCreds
+		return &out, nil
+	}
+
+	processedConfig, err := processConfig(cfg)
+	if err != nil {
+		return err
+	}
+	myRobot, err := robotimpl.New(ctx, processedConfig, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, myRobot.Close())
+		err = multierr.Combine(err, myRobot.Close(context.Background()))
 	}()
 
 	// watch for and deliver changes to the robot
-	watcher, err := config.NewWatcher(cfg, logger)
+	watcher, err := config.NewWatcher(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = multierr.Combine(err, watcher.Close())
+		err = multierr.Combine(err, utils.TryClose(ctx, watcher))
 	}()
 	onWatchDone := make(chan struct{})
 	utils.ManagedGo(func() {
@@ -347,7 +433,11 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			case <-ctx.Done():
 				return
 			case config := <-watcher.Config():
-				if err := myRobot.Reconfigure(ctx, config); err != nil {
+				processedConfig, err := processConfig(config)
+				if err != nil {
+					logger.Errorw("error processing config", "error", err)
+				}
+				if err := myRobot.Reconfigure(ctx, processedConfig); err != nil {
 					logger.Errorw("error reconfiguring robot", "error", err)
 				}
 			}
@@ -358,27 +448,88 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	defer func() {
 		<-onWatchDone
 	}()
+	defer cancel()
 
 	options := web.NewOptions()
-	options.AutoTile = !argsParsed.NoAutoTile
 	options.Pprof = argsParsed.WebProfile
-	options.Port = int(argsParsed.Port)
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
+	options.Auth = cfg.Auth
+	options.Network = cfg.Network
+	options.FQDN = cfg.Network.FQDN
 	if cfg.Cloud != nil {
-		options.Name = cfg.Cloud.Self
+		options.Managed = true
+		options.LocalFQDN = cfg.Cloud.LocalFQDN
+		options.FQDN = cfg.Cloud.FQDN
 		options.SignalingAddress = cfg.Cloud.SignalingAddress
-		if argsParsed.LocalCloud {
-			options.Insecure = true
+
+		if cfg.Cloud.TLSCertificate != "" {
+			// override
+			options.Network.TLSConfig = tlsConfig
+
+			// when we are managed and no explicit bind address is set,
+			// we will listen everywhere on 8080. We assume this to be
+			// secure because TLS will be enabled in addition to
+			// authentication. NOTE: If you do not want the UI to function
+			// without a specific secret being input, then you must set up
+			// a dedicated auth handler in the config. Otherwise, the secret
+			// for this robot will be baked into the UI. There may be a future
+			// feature to disable the baked in credentials from the managed
+			// interface.
+			if cfg.Network.BindAddressDefaultSet {
+				options.Network.BindAddress = ":8080"
+			}
+
+			cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{})
+			if err != nil {
+				return err
+			}
+			leaf, err := x509.ParseCertificate(cert.Certificate[0])
+			if err != nil {
+				return err
+			}
+			options.Auth.TLSAuthEntities = leaf.DNSNames
 		}
-	} else {
-		options.Insecure = true
+
+		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))
+		copy(options.Auth.Handlers, cfg.Auth.Handlers)
+		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
+			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Config: config.AttributeMap{
+				"secret": cfg.Cloud.LocationSecret,
+			},
+		})
+
+		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
+			cfg.Cloud.ID,
+			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
+		)}
+		if argsParsed.AllowInsecureCreds {
+			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+		}
+		options.BakedAuthEntity = options.FQDN
+		options.BakedAuthCreds = rpc.Credentials{
+			rutils.CredentialsTypeRobotLocationSecret,
+			cfg.Cloud.LocationSecret,
+		}
+		options.SignalingDialOpts = signalingDialOpts
 	}
+
+	if len(options.Auth.Handlers) == 0 {
+		host, _, err := net.SplitHostPort(cfg.Network.BindAddress)
+		if err != nil {
+			return err
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			logger.Warn("binding to all interfaces without authentication")
+		}
+	}
+
 	return RunWeb(ctx, myRobot, options, logger)
 }
 
-// RunWeb starts the web server on the web service and blocks until we close it
+// RunWeb starts the web server on the web service and blocks until we close it.
 func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
 	defer func() {
 		if err != nil {
@@ -387,13 +538,13 @@ func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logg
 				logger.Errorw("error running web", "error", err)
 			}
 		}
-		err = multierr.Combine(err, utils.TryClose(r))
+		err = multierr.Combine(err, utils.TryClose(ctx, r))
 	}()
-	svc, ok := r.ServiceByName(robotimpl.WebSvcName)
-	if !ok {
-		return errors.New("robot has no web service")
+	svc, err := web.FromRobot(r)
+	if err != nil {
+		return err
 	}
-	if err := svc.(web.Service).Start(ctx, o); err != nil {
+	if err := svc.Start(ctx, o); err != nil {
 		return err
 	}
 	<-ctx.Done()

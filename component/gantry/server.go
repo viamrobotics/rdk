@@ -6,11 +6,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	"go.viam.com/core/subtype"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from gantry.proto
+// subtypeServer implements the contract from gantry.proto.
 type subtypeServer struct {
 	pb.UnimplementedGantryServiceServer
 	s subtype.Service
@@ -34,37 +34,46 @@ func (s *subtypeServer) getGantry(name string) (Gantry, error) {
 	return gantry, nil
 }
 
-// CurrentPosition returns the position of the gantry specified.
-func (s *subtypeServer) CurrentPosition(ctx context.Context, req *pb.GantryServiceCurrentPositionRequest) (*pb.GantryServiceCurrentPositionResponse, error) {
+// GetPosition returns the position of the gantry specified.
+func (s *subtypeServer) GetPosition(
+	ctx context.Context,
+	req *pb.GetPositionRequest,
+) (*pb.GetPositionResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	pos, err := gantry.CurrentPosition(ctx)
+	pos, err := gantry.GetPosition(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceCurrentPositionResponse{Positions: pos}, nil
+	return &pb.GetPositionResponse{PositionsMm: pos}, nil
 }
 
-// Lengths gets the lengths of a gantry of the underlying robot.
-func (s *subtypeServer) Lengths(ctx context.Context, req *pb.GantryServiceLengthsRequest) (*pb.GantryServiceLengthsResponse, error) {
+// GetLengths gets the lengths of a gantry of the underlying robot.
+func (s *subtypeServer) GetLengths(
+	ctx context.Context,
+	req *pb.GetLengthsRequest,
+) (*pb.GetLengthsResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	lengths, err := gantry.Lengths(ctx)
+	lengthsMm, err := gantry.GetLengths(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceLengthsResponse{Lengths: lengths}, nil
+	return &pb.GetLengthsResponse{LengthsMm: lengthsMm}, nil
 }
 
-// MoveToPosition returns the position of the gantry specified.
-func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.GantryServiceMoveToPositionRequest) (*pb.GantryServiceMoveToPositionResponse, error) {
+// MoveToPosition moves the gantry to the position specified.
+func (s *subtypeServer) MoveToPosition(
+	ctx context.Context,
+	req *pb.MoveToPositionRequest,
+) (*pb.MoveToPositionResponse, error) {
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GantryServiceMoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.Positions)
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm)
 }

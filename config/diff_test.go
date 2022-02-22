@@ -1,18 +1,17 @@
 package config_test
 
 import (
+	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
-
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/config"
-	functionvm "go.viam.com/core/function/vm"
-	"go.viam.com/core/testutils/inject"
-
-	_ "go.viam.com/core/robots/fake" // attr converters
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/config"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/testutils/inject"
 )
 
 func init() {
@@ -375,9 +374,10 @@ func TestDiffConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := config.Read(tc.LeftFile)
+			logger := golog.NewTestLogger(t)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(tc.RightFile)
+			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			diff, err := config.DiffConfigs(left, right)
@@ -425,9 +425,10 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := config.Read(tc.LeftFile)
+			logger := golog.NewTestLogger(t)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(tc.RightFile)
+			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = config.DiffConfigs(left, right)

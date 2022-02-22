@@ -2,11 +2,12 @@
     "components" : [
         { "name" : "front-raw",
           "type" : "camera",
-          "model" : "intel",
-          "host" : "localhost",
-          "port" : 8181,
+          "model" : "single_stream",
           "attributes" : {
-	          "num" : "1",
+              "host" : "localhost",
+              "port" : 8181,
+              "args": "both?num=1",
+              "stream": "both",
               "hide" : true
           }
         },
@@ -27,20 +28,13 @@
         },
         { "name" : "back",
           "type" : "camera",
-          "model" : "intel",
-          "host" : "localhost",
-          "port" : 8181,
+          "model" : "single_stream",
           "attributes" : {
-              "num" : "0"
+              "host" : "localhost",
+              "port" : 8181,
+              "args": "both?num=0",
+              "stream": "both"
           }
-        },
-        {
-            "name": "lidarOnBase",
-            "type": "lidar",
-            "model": "grpc",
-            "host": "127.0.0.1",
-            "port": 4444
-
         }
     ],
     "remotes": [
@@ -56,7 +50,7 @@
             "log": true
         },
         {
-            "name": "/home/erh/core/etc/camera_servers/intelrealserver",
+            "name": "/home/erh/rdk/etc/camera_servers/intelrealserver",
             "log": true
         }
 

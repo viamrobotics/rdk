@@ -4,37 +4,40 @@ import (
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
+	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
+
+	"go.viam.com/rdk/utils"
 )
 
 type quaternion quat.Number
 
-// Quaternion returns orientation in quaternion representation
+// Quaternion returns orientation in quaternion representation.
 func (q *quaternion) Quaternion() quat.Number {
 	return quat.Number(*q)
 }
 
-// AxisAngles returns the orientation in axis angle representation
+// AxisAngles returns the orientation in axis angle representation.
 func (q *quaternion) AxisAngles() *R4AA {
 	return QuatToR4AA(q.Quaternion())
 }
 
-// OrientationVectorRadians returns orientation as an orientation vector (in radians)
+// OrientationVectorRadians returns orientation as an orientation vector (in radians).
 func (q *quaternion) OrientationVectorRadians() *OrientationVector {
 	return QuatToOV(q.Quaternion())
 }
 
-// OrientationVectorDegrees returns orientation as an orientation vector (in degrees)
+// OrientationVectorDegrees returns orientation as an orientation vector (in degrees).
 func (q *quaternion) OrientationVectorDegrees() *OrientationVectorDegrees {
 	return QuatToOVD(q.Quaternion())
 }
 
-// EulerAngles returns orientation in Euler angle representation
+// EulerAngles returns orientation in Euler angle representation.
 func (q *quaternion) EulerAngles() *EulerAngles {
 	return QuatToEulerAngles(q.Quaternion())
 }
 
-// RotationMatrix returns the orientation in rotation matrix representation
+// RotationMatrix returns the orientation in rotation matrix representation.
 func (q *quaternion) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(q.Quaternion())
 }
@@ -65,13 +68,13 @@ func QuatToEulerAngles(q quat.Number) *EulerAngles {
 	return &angles
 }
 
-// QuatToOVD converts a quaternion to an orientation vector in degrees
+// QuatToOVD converts a quaternion to an orientation vector in degrees.
 func QuatToOVD(q quat.Number) *OrientationVectorDegrees {
 	ov := QuatToOV(q)
 	return ov.Degrees()
 }
 
-// QuatToOV converts a quaternion to an orientation vector
+// QuatToOV converts a quaternion to an orientation vector.
 func QuatToOV(q quat.Number) *OrientationVector {
 	xAxis := quat.Number{0, -1, 0, 0}
 	zAxis := quat.Number{0, 0, 0, 1}
@@ -160,7 +163,7 @@ func QuatToR4AA(q quat.Number) *R4AA {
 
 // QuatToR3AA converts a quat to an R3 axis angle in the same way the C++ Eigen library does.
 // https://eigen.tuxfamily.org/dox/AngleAxis_8h_source.html
-func QuatToR3AA(q quat.Number) R3AA {
+func QuatToR3AA(q quat.Number) r3.Vector {
 	denom := Norm(q)
 
 	angle := 2 * math.Atan2(denom, math.Abs(q.Real))
@@ -169,9 +172,9 @@ func QuatToR3AA(q quat.Number) R3AA {
 	}
 
 	if denom < 1e-6 {
-		return R3AA{1, 0, 0}
+		return r3.Vector{0, 0, 0}
 	}
-	return R3AA{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
+	return r3.Vector{angle * q.Imag / denom, angle * q.Jmag / denom, angle * q.Kmag / denom}
 }
 
 // QuatToRotationMatrix converts a quat to a Rotation Matrix
@@ -186,7 +189,7 @@ func QuatToRotationMatrix(q quat.Number) *RotationMatrix {
 	return &RotationMatrix{mat}
 }
 
-// Normalize a quaternion, returning its, versor (unit quaternion)
+// Normalize a quaternion, returning its, versor (unit quaternion).
 func Normalize(q quat.Number) quat.Number {
 	length := math.Sqrt(q.Real*q.Real + q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
 	if math.Abs(length-1.0) < 1e-10 {
@@ -201,10 +204,28 @@ func Normalize(q quat.Number) quat.Number {
 	return quat.Number{q.Real / length, q.Imag / length, q.Jmag / length, q.Kmag / length}
 }
 
+// Norm returns the norm of the quaternion, i.e. the sqrt of the sum of the squares of the imaginary parts.
+func Norm(q quat.Number) float64 {
+	return math.Sqrt(q.Imag*q.Imag + q.Jmag*q.Jmag + q.Kmag*q.Kmag)
+}
+
+// Flip will multiply a quaternion by -1, returning a quaternion representing the same orientation but in the opposing octant.
+func Flip(q quat.Number) quat.Number {
+	return quat.Number{-q.Real, -q.Imag, -q.Jmag, -q.Kmag}
+}
+
+// QuaternionAlmostEqual is an equality test for all the float components of a quaternion. Quaternions have double coverage, q == -q, and
+// this function will *not* account for this. Use OrientationAlmostEqual unless you're certain this is what you want.
+func QuaternionAlmostEqual(a, b quat.Number, tol float64) bool {
+	return utils.Float64AlmostEqual(a.Imag, b.Imag, tol) &&
+		utils.Float64AlmostEqual(a.Jmag, b.Jmag, tol) &&
+		utils.Float64AlmostEqual(a.Kmag, b.Kmag, tol) &&
+		utils.Float64AlmostEqual(a.Real, b.Real, tol)
+}
+
 // Used for interpolating orientations.
 // Intro to lerp vs slerp: https://threadreaderapp.com/thread/1176137498323501058.html
 func slerp(qN1, qN2 quat.Number, by float64) quat.Number {
-
 	q1 := mgl64.Quat{qN1.Real, mgl64.Vec3{qN1.Imag, qN1.Jmag, qN1.Kmag}}
 	q2 := mgl64.Quat{qN2.Real, mgl64.Vec3{qN2.Imag, qN2.Jmag, qN2.Kmag}}
 

@@ -4,20 +4,20 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	pb "go.viam.com/core/proto/api/component/v1"
-	spatial "go.viam.com/core/spatialmath"
-	"go.viam.com/core/utils"
-
-	"github.com/go-errors/errors"
-	"github.com/golang/geo/r3"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 func TestStaticFrame(t *testing.T) {
 	// define a static transform
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{0, 0, 1}, math.Pi/2)
-	frame := &staticFrame{"test", expPose}
+	frame, err := NewStaticFrame("test", expPose)
+	test.That(t, err, test.ShouldBeNil)
 	// get expected transform back
 	emptyInput := FloatsToInputs([]float64{})
 	pose, err := frame.Transform(emptyInput)
@@ -39,20 +39,17 @@ func TestStaticFrame(t *testing.T) {
 
 func TestPrismaticFrame(t *testing.T) {
 	// define a prismatic transform
-	limits := []Limit{{Min: -30, Max: 30}}
-	frame, err := NewTranslationalFrame("test", []bool{false, true, false}, limits) // can only move on y axis
+	limit := Limit{Min: -30, Max: 30}
+	frame, err := NewTranslationalFrame("test", r3.Vector{3, 4, 0}, limit)
 	test.That(t, err, test.ShouldBeNil)
-	// this should return an error
-	badLimits := []Limit{{Min: 0, Max: 0}, {Min: -30, Max: 30}, {Min: 0, Max: 0}}
-	_, err = NewTranslationalFrame("test", []bool{false, true, false}, badLimits) // can only move on y axis
-	test.That(t, err, test.ShouldBeError, errors.New("given number of limits 3 does not match number of axes 1"))
-	// expected output
-	expPose := spatial.NewPoseFromPoint(r3.Vector{0, 20, 0})
+
 	// get expected transform back
-	input := FloatsToInputs([]float64{20})
+	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 4, 0})
+	input := FloatsToInputs([]float64{5})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pose, test.ShouldResemble, expPose)
+	test.That(t, spatial.PoseAlmostEqual(pose, expPose), test.ShouldBeTrue)
+
 	// if you feed in too many inputs, should get an error back
 	input = FloatsToInputs([]float64{0, 20, 0})
 	_, err = frame.Transform(input)
@@ -62,14 +59,16 @@ func TestPrismaticFrame(t *testing.T) {
 	input = FloatsToInputs([]float64{})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
+
 	// if you try to move beyond set limits, should get an error
 	overLimit := 50.0
 	input = FloatsToInputs([]float64{overLimit})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %v", overLimit, frame.DoF()[0]))
+
 	// gets the correct limits back
 	frameLimits := frame.DoF()
-	test.That(t, frameLimits, test.ShouldResemble, limits)
+	test.That(t, frameLimits[0], test.ShouldResemble, limit)
 
 	randomInputs := RandomFrameInputs(frame, nil)
 	test.That(t, len(randomInputs), test.ShouldEqual, len(frame.DoF()))
@@ -81,7 +80,7 @@ func TestPrismaticFrame(t *testing.T) {
 
 func TestRevoluteFrame(t *testing.T) {
 	// define a prismatic transform
-	axis := spatial.R4AA{RX: 1, RY: 0, RZ: 0}                                     // axis of rotation is x axis
+	axis := r3.Vector{1, 0, 0}                                                    // axis of rotation is x axis
 	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
@@ -110,6 +109,41 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
+func TestGeometries(t *testing.T) {
+	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
+	expectedBox := bc.NewGeometry(pose)
+
+	// test creating a new static frame with a geometry"
+	sf, err := NewStaticFrameWithGeometry("", pose, bc)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err := sf.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+
+	// test creating a new translational frame with a geometry"
+	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = tf.Geometries(FloatsToInputs([]float64{10}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+
+	// test erroring correctly from trying to create a geometry for a rotational frame
+	rf, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = rf.Geometries([]Input{})
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, geometries, test.ShouldBeNil)
+
+	// test inheriting a geometry creator
+	sf, err = NewStaticFrameFromFrame(tf, pose)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = sf.Geometries([]Input{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
+}
+
 func TestSerializationStatic(t *testing.T) {
 	f, err := NewStaticFrame("foo", spatial.NewPoseFromAxisAngle(r3.Vector{1, 2, 3}, r3.Vector{4, 5, 6}, math.Pi/2))
 	test.That(t, err, test.ShouldBeNil)
@@ -124,7 +158,7 @@ func TestSerializationStatic(t *testing.T) {
 }
 
 func TestSerializationTranslation(t *testing.T) {
-	f, err := NewTranslationalFrame("foo", []bool{true, false, true}, []Limit{{1, 2}, {3, 4}})
+	f, err := NewTranslationalFrame("foo", r3.Vector{1, 0, 0}, Limit{1, 2})
 	test.That(t, err, test.ShouldBeNil)
 
 	data, err := f.MarshalJSON()

@@ -6,9 +6,10 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/metadata/service"
-	"go.viam.com/core/resource"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/resource"
 )
 
 func TestAdd(t *testing.T) {
@@ -16,18 +17,7 @@ func TestAdd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	service := r.All()[0]
 	arm := arm.Named("arm1")
-	test.That(t, err, test.ShouldBeNil)
-	sensor := resource.NewName(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeSensor,
-		"sensor1",
-	)
-	test.That(t, err, test.ShouldBeNil)
-
-	newMetadata := resource.NewFromSubtype(service.Subtype, "metadata1")
-
-	test.That(t, err, test.ShouldBeNil)
+	sensor := sensor.Named("sensor1")
 
 	for _, tc := range []struct {
 		Name        string
@@ -42,15 +32,9 @@ func TestAdd(t *testing.T) {
 			"uuid field for resource missing or invalid",
 		},
 		{
-			"add metadata",
-			newMetadata,
-			[]resource.Name{service, newMetadata},
-			"",
-		},
-		{
 			"one addition",
 			arm,
-			[]resource.Name{service, newMetadata, arm},
+			[]resource.Name{service, arm},
 			"",
 		},
 		{
@@ -62,7 +46,7 @@ func TestAdd(t *testing.T) {
 		{
 			"another addition",
 			sensor,
-			[]resource.Name{service, newMetadata, arm, sensor},
+			[]resource.Name{service, arm, sensor},
 			"",
 		},
 	} {
@@ -84,16 +68,9 @@ func TestReplace(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(r.All()), test.ShouldEqual, 1)
 	arm := arm.Named("arm1")
-	test.That(t, err, test.ShouldBeNil)
-	sensor := resource.NewName(
-		resource.ResourceNamespaceCore,
-		resource.ResourceTypeComponent,
-		resource.ResourceSubtypeSensor,
-		"sensor1",
-	)
-	test.That(t, err, test.ShouldBeNil)
+	sensor := sensor.Named("sensor1")
 
-	metadataSvc := resource.NewFromSubtype(service.Subtype, "")
+	metadataSvc := resource.NameFromSubtype(service.Subtype, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {

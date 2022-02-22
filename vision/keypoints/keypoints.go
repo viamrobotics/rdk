@@ -1,0 +1,32 @@
+// Package keypoints contains the implementation of keypoints in an image. For now:
+// - FAST keypoints
+package keypoints
+
+import (
+	"image"
+
+	"github.com/fogleman/gg"
+)
+
+type (
+	// KeyPoint is an image.Point that contains coordinates of a kp.
+	KeyPoint image.Point // keypoint type
+	// KeyPoints is a slice of image.Point that contains several kps.
+	KeyPoints []image.Point // set of keypoints type
+)
+
+// PlotKeypoints plots keypoints on image.
+func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
+	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
+
+	dc := gg.NewContext(w, h)
+	dc.DrawImage(img, 0, 0)
+
+	// draw keypoints on image
+	dc.SetRGBA(0, 0, 1, 0.5)
+	for _, p := range kps {
+		dc.DrawCircle(float64(p.X), float64(p.Y), float64(3.0))
+		dc.Fill()
+	}
+	return dc.SavePNG(outName)
+}

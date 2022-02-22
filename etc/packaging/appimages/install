@@ -1,0 +1,21 @@
+#!/bin/bash
+
+if [ `whoami` != "root" ]
+then
+   echo "Need root to install viam-server as a system service. Try running with sudo."
+   exit 1
+fi
+
+mv "$APPIMAGE" "/usr/local/bin/viam-server"
+chown root:root "/usr/local/bin/viam-server"
+chmod 755 "/usr/local/bin/viam-server"
+echo "Renamed $APPIMAGE to /usr/local/bin/viam-server"
+
+cp "$APPDIR/viam-server.service" /etc/systemd/system/
+systemctl daemon-reload
+
+echo "Systemd service installed at /etc/systemd/system/viam-server.service"
+echo "Using configuration from /etc/viam-server.json"
+echo "Start/stop/restart with 'sudo systemctl [start|stop|restart] viam-server'"
+echo "Enabling automatic startup on boot"
+systemctl enable --now viam-server

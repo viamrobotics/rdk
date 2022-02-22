@@ -5,35 +5,34 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-errors/errors"
-
+	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/board"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-
-	"github.com/edaniels/golog"
-	"go.uber.org/multierr"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/robot"
 )
 
 func init() {
 	registry.RegisterComponent(gripper.Subtype, "softrobotics", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			b, ok := r.BoardByName("local")
-			if !ok {
-				return nil, errors.New("softrobotics gripper requires a board called local")
+			b, err := board.FromRobot(r, "local")
+			if err != nil {
+				return nil, err
 			}
-			return newGripper(ctx, b, config, logger)
-		}})
+			return newGripper(b, config, logger)
+		},
+	})
 }
 
 // softGripper TODO
 //
 // open is 5
-// close is 6
+// close is 6.
 type softGripper struct {
 	theBoard board.Board
 
@@ -44,8 +43,8 @@ type softGripper struct {
 	logger golog.Logger
 }
 
-// newGripper TODO
-func newGripper(ctx context.Context, b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
+// newGripper TODO.
+func newGripper(b board.Board, config config.Component, logger golog.Logger) (*softGripper, error) {
 	psi, ok := b.AnalogReaderByName("psi")
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
@@ -70,20 +69,20 @@ func newGripper(ctx context.Context, b board.Board, config config.Component, log
 	return theGripper, nil
 }
 
-// Stop TODO
+// Stop TODO.
 func (g *softGripper) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinOpen, false),
-		g.theBoard.GPIOSet(ctx, g.pinClose, false),
-		g.theBoard.GPIOSet(ctx, g.pinPower, false),
+		g.theBoard.SetGPIO(ctx, g.pinOpen, false),
+		g.theBoard.SetGPIO(ctx, g.pinClose, false),
+		g.theBoard.SetGPIO(ctx, g.pinPower, false),
 	)
 }
 
-// Open TODO
+// Open TODO.
 func (g *softGripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinOpen, true),
-		g.theBoard.GPIOSet(ctx, g.pinPower, true),
+		g.theBoard.SetGPIO(ctx, g.pinOpen, true),
+		g.theBoard.SetGPIO(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return err
@@ -111,18 +110,17 @@ func (g *softGripper) Open(ctx context.Context) error {
 	return g.Stop(ctx)
 }
 
-// Grab TODO
+// Grab TODO.
 func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
-		g.theBoard.GPIOSet(ctx, g.pinClose, true),
-		g.theBoard.GPIOSet(ctx, g.pinPower, true),
+		g.theBoard.SetGPIO(ctx, g.pinClose, true),
+		g.theBoard.SetGPIO(ctx, g.pinPower, true),
 	)
 	if err != nil {
 		return false, err
 	}
 
 	for {
-
 		if !utils.SelectContextOrWait(ctx, 100*time.Millisecond) {
 			return false, ctx.Err()
 		} // REMOVE
@@ -142,5 +140,4 @@ func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	}
 
 	return false, g.Stop(ctx)
-
 }

@@ -1,13 +1,16 @@
+// Package functionrobot exposes a robot to a function VM.
 package functionrobot
 
 import (
 	"context"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+	"go.viam.com/utils"
 
-	functionvm "go.viam.com/core/function/vm"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/motor"
+	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/robot"
 )
 
 // ExecutionResult is the result of executing a particular piece of code.
@@ -23,7 +26,8 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 	if err != nil {
 		return nil, err
 	}
-	// TODO(erd): maybe this should be an argument and not a global set of functions
+	defer utils.UncheckedErrorFunc(engine.Close)
+	// NOTE(erd): maybe this should be an argument and not a global set of functions
 	if err := engine.ImportFunction("robot.gripperOpen", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
 			return nil, errors.New("expected 1 argument for gripper name")
@@ -32,9 +36,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := r.GripperByName(gripperName)
-		if !ok {
-			return nil, errors.Errorf("no gripper with that name %s", gripperName)
+		gripper, err := gripper.FromRobot(r, gripperName)
+		if err != nil {
+			return nil, err
 		}
 		return nil, gripper.Open(ctx)
 	}); err != nil {
@@ -48,9 +52,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		gripper, ok := r.GripperByName(gripperName)
-		if !ok {
-			return nil, errors.Errorf("no gripper with that name %s", gripperName)
+		gripper, err := gripper.FromRobot(r, gripperName)
+		if err != nil {
+			return nil, err
 		}
 		grabbed, err := gripper.Grab(ctx)
 		if err != nil {
@@ -68,70 +72,41 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		powerPct, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, motor.Power(context.TODO(), float32(powerPct))
-	}); err != nil {
-		return nil, err
-	}
-	if err := engine.ImportFunction("robot.motorGo", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 3 {
-			return nil, errors.New("expected 3 arguments for motor name, direction (1-forward,2-backward), and power percentage")
-		}
-		motorName, err := args[0].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
-		}
-		dirRel, err := args[1].Number()
-		if err != nil {
-			return nil, err
-		}
-		powerPct, err := args[2].Number()
-		if err != nil {
-			return nil, err
-		}
-
-		return nil, motor.Go(context.TODO(), pb.DirectionRelative(dirRel), float32(powerPct))
+		return nil, motor.SetPower(context.TODO(), powerPct)
 	}); err != nil {
 		return nil, err
 	}
 	if err := engine.ImportFunction("robot.motorGoFor", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 4 {
-			return nil, errors.New("expected 4 arguments for motor name, direction (1-forward,2-backward), rpm, and revolutions")
+		if len(args) < 3 {
+			return nil, errors.New("expected 3 arguments for motor name, rpm, and revolutions")
 		}
 		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
-		}
-		dirRel, err := args[1].Number()
+		motor, err := motor.FromRobot(r, motorName)
 		if err != nil {
 			return nil, err
 		}
-		rpm, err := args[2].Number()
+		rpm, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
-		revolutions, err := args[3].Number()
+		revolutions, err := args[2].Number()
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, motor.GoFor(context.TODO(), pb.DirectionRelative(dirRel), rpm, revolutions)
+		return nil, motor.GoFor(context.TODO(), rpm, revolutions)
 	}); err != nil {
 		return nil, err
 	}
@@ -143,9 +118,9 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		rpm, err := args[1].Number()
 		if err != nil {
@@ -161,27 +136,28 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		return nil, err
 	}
 	if err := engine.ImportFunction("robot.motorGoTillStop", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 3 {
-			return nil, errors.New("expected 4 arguments for motor name, direction (1-forward,2-backward), and rpm")
+		if len(args) < 2 {
+			return nil, errors.New("expected 3 arguments for motor name, and rpm (Note: stopFunc input current not available")
 		}
 		motorName, err := args[0].String()
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
-		}
-		dirRel, err := args[1].Number()
+		_motor, err := motor.FromRobot(r, motorName)
 		if err != nil {
 			return nil, err
 		}
-		rpm, err := args[2].Number()
+		stoppableMotor, ok := _motor.(motor.LocalMotor)
+		if !ok {
+			return nil, motor.NewGoTillStopUnsupportedError(motorName)
+		}
+
+		rpm, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, motor.GoTillStop(context.TODO(), pb.DirectionRelative(dirRel), rpm, nil)
+		return nil, stoppableMotor.GoTillStop(context.TODO(), rpm, nil)
 	}); err != nil {
 		return nil, err
 	}
@@ -193,20 +169,20 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 		offset, err := args[1].Number()
 		if err != nil {
 			return nil, err
 		}
 
-		return nil, motor.Zero(context.TODO(), offset)
+		return nil, motor.ResetZeroPosition(context.TODO(), offset)
 	}); err != nil {
 		return nil, err
 	}
-	if err := engine.ImportFunction("robot.motorPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
+	if err := engine.ImportFunction("robot.motorGetPosition", func(args ...functionvm.Value) ([]functionvm.Value, error) {
 		if len(args) < 1 {
 			return nil, errors.New("expected 1 argument for motor name")
 		}
@@ -214,37 +190,16 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
-		pos, err := motor.Position(context.TODO())
+		pos, err := motor.GetPosition(context.TODO())
 		if err != nil {
 			return nil, err
 		}
 		return []functionvm.Value{functionvm.NewFloat(pos)}, nil
-	}); err != nil {
-		return nil, err
-	}
-	if err := engine.ImportFunction("robot.motorPositionSupported", func(args ...functionvm.Value) ([]functionvm.Value, error) {
-		if len(args) < 1 {
-			return nil, errors.New("expected 1 argument for motor name")
-		}
-		motorName, err := args[0].String()
-		if err != nil {
-			return nil, err
-		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
-		}
-
-		isSupported, err := motor.PositionSupported(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-		return []functionvm.Value{functionvm.NewBool(isSupported)}, nil
 	}); err != nil {
 		return nil, err
 	}
@@ -256,12 +211,12 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
-		return nil, motor.Off(context.TODO())
+		return nil, motor.Stop(context.TODO())
 	}); err != nil {
 		return nil, err
 	}
@@ -273,12 +228,12 @@ func Execute(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*
 		if err != nil {
 			return nil, err
 		}
-		motor, ok := r.MotorByName(motorName)
-		if !ok {
-			return nil, errors.Errorf("no motor with that name %s", motorName)
+		motor, err := motor.FromRobot(r, motorName)
+		if err != nil {
+			return nil, err
 		}
 
-		isOn, err := motor.IsOn(context.TODO())
+		isOn, err := motor.IsPowered(context.TODO())
 		if err != nil {
 			return nil, err
 		}

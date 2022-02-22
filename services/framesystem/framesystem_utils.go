@@ -1,3 +1,4 @@
+// Package framesystem defines and implements the concept of a frame system.
 package framesystem
 
 import (
@@ -6,45 +7,46 @@ import (
 	"sort"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
-	"go.viam.com/core/config"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
-// BuildFrameSystem uses a map of frames that describes the tree structure of the frame system to build a completed frame system
-func BuildFrameSystem(ctx context.Context, name string, children map[string][]referenceframe.Frame, logger golog.Logger) (referenceframe.FrameSystem, error) {
-	// If there are no frames, build an empty frame system with only a world node and return.
-	if len(children) == 0 {
-		return referenceframe.NewEmptySimpleFrameSystem(name), nil
-	}
-	// use a stack to populate the frame system
-	stack := make([]string, 0)
-	visited := make(map[string]bool)
-	// check to see if world exists, and start with the frames attached to world
-	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
-	}
-	stack = append(stack, referenceframe.World)
-	// begin adding frames to the frame system
+// NewFrameSystemFromParts assembles a frame system from a collection of parts,
+// usually acquired by calling Config on a frame system service. WARNING: for now,
+// this function requires that the parts are already topologically sorted (see
+// topologicallySortFrameNames below for a loose example of that process).
+func NewFrameSystemFromParts(
+	name, prefix string, parts []*config.FrameSystemPart,
+	logger golog.Logger,
+) (referenceframe.FrameSystem, error) {
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	for len(stack) != 0 {
-		parent := stack[0] // pop the top element from the stack
-		stack = stack[1:]
-		if _, ok := visited[parent]; ok {
-			return nil, errors.Errorf("the system contains a cycle, have already visited frame %s", parent)
+	for _, part := range parts {
+		// rename everything with prefixes
+		part.Name = prefix + part.Name
+		// prefixing for the world frame is only necessary in the case
+		// of merging multiple frame systems together, so we leave that
+		// reponsibility to the corresponding merge function
+		if part.FrameConfig.Parent != referenceframe.World {
+			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
 		}
-		visited[parent] = true
-		for _, frame := range children[parent] { // add all the children to the frame system, and to the stack as new parents
-			stack = append(stack, frame.Name())
-			err := fs.AddFrame(frame, fs.GetFrame(parent))
-			if err != nil {
-				return nil, err
-			}
+		// make the frames from the configs
+		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, logger)
+		if err != nil {
+			return nil, err
+		}
+		// attach static offset frame to parent, attach model frame to static offset frame
+		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
+		if err != nil {
+			return nil, err
+		}
+		err = fs.AddFrame(modelFrame, staticOffsetFrame)
+		if err != nil {
+			return nil, err
 		}
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
@@ -68,8 +70,8 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
 		}
 		seen[c.Name] = true
-		model, err := extractModelFrameJSON(ctx, r, c.Name, c.Type)
-		if err != nil {
+		model, err := extractModelFrameJSON(r, c.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
 			return nil, err
 		}
 		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
@@ -77,8 +79,13 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 	return parts, nil
 }
 
-// processPart will gather the frame information and build the frames from the given robot part
-func processPart(part *config.FrameSystemPart, children map[string][]referenceframe.Frame, names map[string]bool, logger golog.Logger) error {
+// processPart will gather the frame information and build the frames from the given robot part.
+func processPart(
+	part *config.FrameSystemPart,
+	children map[string][]referenceframe.Frame,
+	names map[string]bool,
+	logger golog.Logger,
+) error {
 	// if a part is empty or has no frame config, skip over it
 	if part == nil || part.FrameConfig == nil {
 		return nil
@@ -107,7 +114,7 @@ func processPart(part *config.FrameSystemPart, children map[string][]referencefr
 	return nil
 }
 
-func topologicallySortFrameNames(ctx context.Context, children map[string][]referenceframe.Frame) ([]string, error) {
+func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]string, error) {
 	topoSortedNames := []string{referenceframe.World} // keep track of tree structure
 	// If there are no frames, return only the world node in the list
 	if len(children) == 0 {
@@ -140,102 +147,15 @@ func topologicallySortFrameNames(ctx context.Context, children map[string][]refe
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
-func extractModelFrameJSON(ctx context.Context, r robot.Robot, name string, compType config.ComponentType) (*referenceframe.Model, error) {
-	switch compType {
-	case config.ComponentTypeBase:
-		part, ok := r.BaseByName(name)
-		if !ok {
-			return nil, errors.Errorf("no base found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeGripper:
-		part, ok := r.GripperByName(name)
-		if !ok {
-			return nil, errors.Errorf("no gripper found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeCamera:
-		part, ok := r.CameraByName(name)
-		if !ok {
-			return nil, errors.Errorf("no camera found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeLidar:
-		part, ok := r.LidarByName(name)
-		if !ok {
-			return nil, errors.Errorf("no lidar found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeSensor:
-		part, ok := r.SensorByName(name)
-		if !ok {
-			return nil, errors.Errorf("no sensor found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeBoard:
-		part, ok := r.BoardByName(name)
-		if !ok {
-			return nil, errors.Errorf("no board found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeServo:
-		part, ok := r.ServoByName(name)
-		if !ok {
-			return nil, errors.Errorf("no servo found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeMotor:
-		part, ok := r.MotorByName(name)
-		if !ok {
-			return nil, errors.Errorf("no motor found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, nil
-	case config.ComponentTypeArm:
-		part, ok := r.ResourceByName(arm.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, errors.Errorf("got an arm of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-	case config.ComponentTypeGantry:
-		part, ok := r.ResourceByName(gantry.Named(name))
-		if !ok {
-			return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
-		}
-		if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
-			return framer.ModelFrame(), nil
-		}
-		return nil, errors.Errorf("got a gantry of type %T that is not a ModelFrame", utils.UnwrapProxy(part))
-
-	default:
-		return nil, errors.Errorf("do not recognize component type %v for model frame extraction", compType)
+func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Model, error) {
+	part, ok := r.ResourceByName(name)
+	if !ok {
+		return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
 	}
+	if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
+		return framer.ModelFrame(), nil
+	}
+	return nil, referenceframe.ErrNoModelInformation
 }
 
 func frameNamesWithDof(sys referenceframe.FrameSystem) []string {

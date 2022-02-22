@@ -2,16 +2,17 @@ package motionplan
 
 import (
 	"context"
+	"fmt"
 	"testing"
-
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	frame "go.viam.com/core/referenceframe"
-	spatial "go.viam.com/core/spatialmath"
-	vutils "go.viam.com/core/utils"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	frame "go.viam.com/rdk/referenceframe"
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
 var logger = golog.NewDevelopmentLogger("armplay")
@@ -19,7 +20,7 @@ var logger = golog.NewDevelopmentLogger("armplay")
 func TestIKTolerances(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
-	m, err := frame.ParseJSONFile(vutils.ResolveFile("robots/varm/v1.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/varm/v1.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -33,24 +34,23 @@ func TestIKTolerances(t *testing.T) {
 		OY: -3.3,
 		OZ: -1.11,
 	}
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	opt := NewDefaultPlannerOptions()
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Now verify that setting tolerances to zero allows the same arm to reach that position
-	opt := NewDefaultPlannerOptions()
 	opt.SetMetric(NewPositionOnlyMetric())
 	opt.SetMaxSolutions(50)
-	mp.SetOptions(opt)
-	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}))
+	_, err = mp.Plan(context.Background(), pos, frame.FloatsToInputs([]float64{0, 0}), opt)
 	test.That(t, err, test.ShouldBeNil)
 }
 
 func TestConstraintPath(t *testing.T) {
-
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
 
@@ -89,8 +89,24 @@ func TestLineFollow(t *testing.T) {
 		Z:  550,
 		OY: -1,
 	})
-	mp1 := frame.JointPositionsFromRadians([]float64{3.75646398939225, -1.0162453766159272, 1.2142890600914453, 1.0521227724322786, -0.21337105357552288, -0.006502311329196852, -4.3822913510408945})
-	mp2 := frame.JointPositionsFromRadians([]float64{3.896845654143853, -0.8353398707254642, 1.1306783805718412, 0.8347159514038981, 0.49562136809544177, -0.2260694386799326, -4.383397470889424})
+	mp1 := frame.JointPositionsFromRadians([]float64{
+		3.75646398939225,
+		-1.0162453766159272,
+		1.2142890600914453,
+		1.0521227724322786,
+		-0.21337105357552288,
+		-0.006502311329196852,
+		-4.3822913510408945,
+	})
+	mp2 := frame.JointPositionsFromRadians([]float64{
+		3.896845654143853,
+		-0.8353398707254642,
+		1.1306783805718412,
+		0.8347159514038981,
+		0.49562136809544177,
+		-0.2260694386799326,
+		-4.383397470889424,
+	})
 
 	query := spatial.NewPoseFromProtobuf(&commonpb.Pose{
 		X:  289.94907586421124,
@@ -100,14 +116,14 @@ func TestLineFollow(t *testing.T) {
 	})
 
 	validOV := &spatial.OrientationVector{OY: -1}
-	validFunc, gradFunc := NewLineConstraintAndGradient(p1.Point(), p2.Point(), validOV, 0., 0.001)
+	validFunc, gradFunc := NewLineConstraint(p1.Point(), p2.Point(), validOV, 0., 0.001)
 
 	pointGrad := gradFunc(query, query)
 	test.That(t, pointGrad, test.ShouldBeLessThan, 0.001*0.001)
 
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	m, err := frame.ParseJSONFile(vutils.ResolveFile("robots/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -134,7 +150,44 @@ func TestLineFollow(t *testing.T) {
 	opt := NewDefaultPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
-	ok, _ := opt.CheckConstraintPath(&ConstraintInput{StartInput: frame.JointPosToInputs(mp1), EndInput: frame.JointPosToInputs(mp2), Frame: sf}, 1)
+	ok, _ := opt.CheckConstraintPath(
+		&ConstraintInput{
+			StartInput: frame.JointPosToInputs(mp1),
+			EndInput:   frame.JointPosToInputs(mp2),
+			Frame:      sf,
+		},
+		1,
+	)
 
 	test.That(t, ok, test.ShouldBeFalse)
+}
+
+func TestCollisionConstraint(t *testing.T) {
+	zeroInput := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
+	cases := []struct {
+		input    []frame.Input
+		expected bool
+	}{
+		{zeroInput, true},
+		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 2, 0}), false},
+	}
+
+	// setup zero position as reference CollisionGraph and use it in handler
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	test.That(t, err, test.ShouldBeNil)
+	zeroVols, _ := model.Geometries(zeroInput)
+	test.That(t, zeroVols, test.ShouldNotBeNil)
+	zeroCG, err := CheckCollisions(zeroVols)
+	test.That(t, err, test.ShouldBeNil)
+	handler := &constraintHandler{}
+	handler.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
+
+	// loop through cases and check constraint handler processes them correctly
+	for i, c := range cases {
+		t.Run(fmt.Sprintf("Test %d", i), func(t *testing.T) {
+			response, _ := handler.CheckConstraints(&ConstraintInput{StartInput: c.input, Frame: model})
+			test.That(t, response, test.ShouldEqual, c.expected)
+		})
+	}
 }

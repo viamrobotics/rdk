@@ -4,24 +4,13 @@ package robot
 import (
 	"context"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/board"
-	"go.viam.com/core/camera"
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/component/servo"
-	"go.viam.com/core/config"
-	"go.viam.com/core/input"
-	"go.viam.com/core/lidar"
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/resource"
-	"go.viam.com/core/sensor"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // A Robot encompasses all functionality of some robot comprised
@@ -30,81 +19,14 @@ type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
-	// ArmByName returns an arm by name.
-	ArmByName(name string) (arm.Arm, bool)
-
-	// BaseByName returns a base by name.
-	BaseByName(name string) (base.Base, bool)
-
-	// GripperByName returns a gripper by name.
-	GripperByName(name string) (gripper.Gripper, bool)
-
-	// CameraByName returns a camera by name.
-	CameraByName(name string) (camera.Camera, bool)
-
-	// LidarByName returns a lidar by name.
-	LidarByName(name string) (lidar.Lidar, bool)
-
-	// BoardByName returns a board by name.
-	BoardByName(name string) (board.Board, bool)
-
-	// SensorByName returns a sensor by name.
-	SensorByName(name string) (sensor.Sensor, bool)
-
-	// ServoByName returns a servo by name.
-	ServoByName(name string) (servo.Servo, bool)
-
-	// MotorByName returns a motor by name.
-	MotorByName(name string) (motor.Motor, bool)
-
-	// InputControllerByName returns a input.Controller by name.
-	InputControllerByName(name string) (input.Controller, bool)
-
-	// ServiceByName returns a service by name.
-	// TODO(erd): refactor to service resource
-	ServiceByName(name string) (interface{}, bool)
-
 	// ResourceByName returns a resource by name
 	ResourceByName(name resource.Name) (interface{}, bool)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
 
-	// ArmNames returns the name of all known arms.
-	ArmNames() []string
-
-	// GripperNames returns the name of all known grippers.
-	GripperNames() []string
-
-	// CameraNames returns the name of all known cameras.
-	CameraNames() []string
-
-	// LidarNames returns the name of all known lidars.
-	LidarNames() []string
-
-	// BaseNames returns the name of all known bases.
-	BaseNames() []string
-
-	// BoardNames returns the name of all known boards.
-	BoardNames() []string
-
-	// SensorNames returns the name of all known sensors.
-	SensorNames() []string
-
-	// ServoNames returns the name of all known servos.
-	ServoNames() []string
-
-	// MotorNames returns the name of all known motors.
-	MotorNames() []string
-
-	// InputControllerNames returns the name of all known input controllers.
-	InputControllerNames() []string
-
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
-
-	// ServiceNames returns the name of all known services.
-	ServiceNames() []string
 
 	// ResourceNames returns a list of all known resource names
 	ResourceNames() []resource.Name
@@ -130,7 +52,7 @@ type Robot interface {
 	Logger() golog.Logger
 
 	// Close attempts to cleanly close down all constituent parts of the robot.
-	Close() error
+	Close(ctx context.Context) error
 }
 
 // A Refresher can refresh the contents of a robot.
@@ -148,7 +70,7 @@ type LocalRobot interface {
 	Reconfigure(ctx context.Context, newConfig *config.Config) error
 }
 
-//AllResourcesByName returns an array of all resources that have this simple name
+// AllResourcesByName returns an array of all resources that have this simple name.
 func AllResourcesByName(r Robot, name string) []interface{} {
 	all := []interface{}{}
 
@@ -163,4 +85,15 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 	}
 
 	return all
+}
+
+// NamesBySubtype is a helper for getting all names from the given Robot given the subtype.
+func NamesBySubtype(r Robot, subtype resource.Subtype) []string {
+	names := []string{}
+	for _, n := range r.ResourceNames() {
+		if n.Subtype == subtype {
+			names = append(names, n.Name)
+		}
+	}
+	return names
 }

@@ -2,22 +2,25 @@ package segmentation
 
 import (
 	"context"
+	"fmt"
 	"image"
+	"os"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
-	"go.viam.com/core/rimage"
-	"go.viam.com/core/utils"
+	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 )
+
+const debugChunks = "VIAM_DEBUG"
 
 func init() {
 	utils.ParallelFactor = 1
 }
 
-type chunkImageDebug struct {
-}
+type chunkImageDebug struct{}
 
 func (cid *chunkImageDebug) Process(
 	t *testing.T,
@@ -26,7 +29,7 @@ func (cid *chunkImageDebug) Process(
 	imgraw image.Image,
 	logger golog.Logger,
 ) error {
-
+	t.Helper()
 	iwd := rimage.ConvertToImageWithDepth(imgraw)
 	img := iwd.Color
 
@@ -98,9 +101,7 @@ func (cid *chunkImageDebug) Process(
 					return err
 				}
 			}
-
 		}
-
 	}
 
 	if true {
@@ -118,7 +119,8 @@ func (cid *chunkImageDebug) Process(
 		x2 := iwd.Depth.InterestingPixels(2)
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
-		pc, err := iwd.ToPointCloud()
+		pp := rimage.ParallelProjection{}
+		pc, err := pp.ImageWithDepthToPointCloud(iwd)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -140,6 +142,10 @@ func (cid *chunkImageDebug) Process(
 }
 
 func TestChunk1(t *testing.T) {
+	chunkTest := os.Getenv(debugChunks)
+	if chunkTest == "" {
+		t.Skip(fmt.Sprintf("set environmental variable %q to run this test", debugChunks))
+	}
 	d := rimage.NewMultipleImageTestDebugger(t, "segmentation/test1", "*", true)
 	err := d.Process(t, &chunkImageDebug{})
 	test.That(t, err, test.ShouldBeNil)

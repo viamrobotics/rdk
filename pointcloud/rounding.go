@@ -4,7 +4,7 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 )
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
@@ -26,14 +26,14 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 	roundingPc := NewRoundingPointCloud()
 	pc, err := NewFromFile(fn, logger)
 	if err != nil {
-		return nil, errors.Errorf("error creating NewRoundingPointCloudFromFile - %w", err)
+		return nil, errors.Wrap(err, "error creating NewRoundingPointCloudFromFile")
 	}
 	// Round all the points in the pointcloud
 	pc.Iterate(func(pt Point) bool {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
-			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
 		}
 		return true
@@ -53,7 +53,7 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
-			err = errors.Errorf("error setting point (%v, %v, %v) in point cloud - %w", x, y, z, err)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
 		}
 		return true
@@ -67,15 +67,15 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 // Set sets a point on the cloud.
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
-	p.SetPosition(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
-	cloud.points[key(p.Position())] = p
-	if p.HasColor() {
+	rp := p.Clone(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
+	cloud.points[key(rp.Position())] = rp
+	if rp.HasColor() {
 		cloud.hasColor = true
 	}
-	if p.HasValue() {
+	if rp.HasValue() {
 		cloud.hasValue = true
 	}
-	v := p.Position()
+	v := rp.Position()
 	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
 		return newOutOfRangeErr("x", v.X)
 	}

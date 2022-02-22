@@ -11,26 +11,27 @@ import (
 	"math"
 	"math/rand"
 
-	spatial "go.viam.com/core/spatialmath"
-
 	"github.com/golang/geo/r3"
-	"github.com/mitchellh/mapstructure"
+
+	spatial "go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/utils"
 )
 
-// Limit represents the limits of motion for a frame
+// Limit represents the limits of motion for a referenceframe.
 type Limit struct {
 	Min float64
 	Max float64
 }
 
-func limitsALmostTheSame(a, b []Limit) bool {
+func limitsAlmostEqual(a, b []Limit) bool {
 	if len(a) != len(b) {
 		return false
 	}
 
+	const epsilon = 1e-5
 	for idx, x := range a {
-		if !float64AlmostEqual(x.Min, b[idx].Min) ||
-			!float64AlmostEqual(x.Max, b[idx].Max) {
+		if !utils.Float64AlmostEqual(x.Min, b[idx].Min, epsilon) ||
+			!utils.Float64AlmostEqual(x.Max, b[idx].Max, epsilon) {
 			return false
 		}
 	}
@@ -39,9 +40,10 @@ func limitsALmostTheSame(a, b []Limit) bool {
 }
 
 // RestrictedRandomFrameInputs will produce a list of valid, in-bounds inputs for the frame, restricting the range to
-// `lim` percent of the limits
+// `lim` percent of the limits.
 func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input {
 	if rSeed == nil {
+		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
@@ -63,9 +65,10 @@ func RestrictedRandomFrameInputs(m Frame, rSeed *rand.Rand, lim float64) []Input
 	return pos
 }
 
-// RandomFrameInputs will produce a list of valid, in-bounds inputs for the frame
+// RandomFrameInputs will produce a list of valid, in-bounds inputs for the referenceframe.
 func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 	if rSeed == nil {
+		//nolint:gosec
 		rSeed = rand.New(rand.NewSource(1))
 	}
 	dof := m.DoF()
@@ -89,32 +92,34 @@ func RandomFrameInputs(m Frame, rSeed *rand.Rand) []Input {
 
 // Frame represents a reference frame, e.g. an arm, a joint, a gripper, a board, etc.
 type Frame interface {
-	// Name returns the name of the frame.
+	// Name returns the name of the referenceframe.
 	Name() string
 
-	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's frame.
+	// Transform is the pose (rotation and translation) that goes FROM current frame TO parent's referenceframe.
 	Transform([]Input) (spatial.Pose, error)
 
-	// VerboseTransform returns a map between names and poses for the reference frame and any intermediate frames that
-	// may be defined for it, e.g. links in an arm
-	VerboseTransform([]Input) (map[string]spatial.Pose, error)
+	// Geometries returns a map between names and geometries for the reference frame and any intermediate frames that
+	// may be defined for it, e.g. links in an arm. If a frame does not have a geometryCreator it will not be added into the map
+	Geometries([]Input) (map[string]spatial.Geometry, error)
 
 	// DoF will return a slice with length equal to the number of joints/degrees of freedom.
 	// Each element describes the min and max movement limit of that joint/degree of freedom.
 	// For robot parts that don't move, it returns an empty slice.
 	DoF() []Limit
 
-	// AlmostEquals returns if the otherFrame is close to the frame.
+	// AlmostEquals returns if the otherFrame is close to the referenceframe.
 	// differences should just be things like floating point inprecision
 	AlmostEquals(otherFrame Frame) bool
 
 	json.Marshaler
 }
 
-// a static Frame is a simple corrdinate system that encodes a fixed translation and rotation from the current Frame to the parent Frame
+// a static Frame is a simple corrdinate system that encodes a fixed translation and rotation
+// from the current Frame to the parent referenceframe.
 type staticFrame struct {
-	name      string
-	transform spatial.Pose
+	name            string
+	transform       spatial.Pose
+	geometryCreator spatial.GeometryCreator
 }
 
 // NewStaticFrame creates a frame given a pose relative to its parent. The pose is fixed for all time.
@@ -123,26 +128,49 @@ func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 	if pose == nil {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
-	return &staticFrame{name, pose}, nil
+	return &staticFrame{name, pose, nil}, nil
 }
 
-// NewZeroStaticFrame creates a frame with no translation or orientation changes
+// NewZeroStaticFrame creates a frame with no translation or orientation changes.
 func NewZeroStaticFrame(name string) Frame {
-	return &staticFrame{name, spatial.NewZeroPose()}
+	return &staticFrame{name, spatial.NewZeroPose(), nil}
+}
+
+// NewStaticFrameWithGeometry creates a frame given a pose relative to its parent.  The pose is fixed for all time.
+// It also has an associated geometryCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewStaticFrameWithGeometry(name string, pose spatial.Pose, geometryCreator spatial.GeometryCreator) (Frame, error) {
+	if pose == nil {
+		return nil, errors.New("pose is not allowed to be nil")
+	}
+	return &staticFrame{name, pose, geometryCreator}, nil
+}
+
+// NewStaticFrameFromFrame creates a frame given a pose relative to its parent.  The pose is fixed for all time.
+// It inherits its name and geometryCreator properties from the specified Frame. Pose is not allowed to be nil.
+func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
+	if pose == nil {
+		return nil, errors.New("pose is not allowed to be nil")
+	}
+	if tf, ok := frame.(*translationalFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
+	}
+	if tf, ok := frame.(*staticFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
+	}
+	return &staticFrame{frame.Name(), pose, nil}, nil
 }
 
 // FrameFromPoint creates a new Frame from a 3D point.
 func FrameFromPoint(name string, point r3.Vector) (Frame, error) {
-	pose := spatial.NewPoseFromPoint(point)
-	return NewStaticFrame(name, pose)
+	return NewStaticFrame(name, spatial.NewPoseFromPoint(point))
 }
 
-// Name is the name of the frame.
+// Name is the name of the referenceframe.
 func (sf *staticFrame) Name() string {
 	return sf.name
 }
 
-// Transform returns the pose associated with this static frame.
+// Transform returns the pose associated with this static referenceframe.
 func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	if len(inp) != 0 {
 		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
@@ -150,10 +178,14 @@ func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
 	return sf.transform, nil
 }
 
-func (sf *staticFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (sf *staticFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	if sf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
+	}
 	pose, err := sf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[sf.Name()] = pose
+	m := make(map[string]spatial.Geometry)
+	m[sf.Name()] = sf.geometryCreator.NewGeometry(pose)
 	return m, err
 }
 
@@ -167,7 +199,7 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	m := map[string]interface{}{
+	m := FrameMapConfig{
 		"type":      "static",
 		"name":      sf.name,
 		"transform": transform,
@@ -175,40 +207,31 @@ func (sf *staticFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-func float64AlmostEqual(a, b float64) bool {
-	return math.Abs(a-b) < .00001
-}
 func (sf *staticFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*staticFrame)
-	if !ok {
-		return false
-	}
-
-	return sf.name == other.name &&
-		float64AlmostEqual(sf.transform.Point().X, other.transform.Point().X) &&
-		float64AlmostEqual(sf.transform.Point().Y, other.transform.Point().Y) &&
-		float64AlmostEqual(sf.transform.Point().Z, other.transform.Point().Z) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RX, other.transform.Orientation().AxisAngles().RX) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RY, other.transform.Orientation().AxisAngles().RY) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().RZ, other.transform.Orientation().AxisAngles().RZ) &&
-		float64AlmostEqual(sf.transform.Orientation().AxisAngles().Theta, other.transform.Orientation().AxisAngles().Theta)
+	return ok && sf.name == other.name && spatial.PoseAlmostEqual(sf.transform, other.transform)
 }
 
-// a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions
+// a prismatic Frame is a frame that can translate without rotation in any/all of the X, Y, and Z directions.
 type translationalFrame struct {
-	name   string
-	axes   []bool // if it moves along each axes, x, y, z
-	limits []Limit
+	name            string
+	transAxis       r3.Vector
+	limit           []Limit
+	geometryCreator spatial.GeometryCreator
 }
 
-// NewTranslationalFrame creates a frame given a name and the axes in which to translate
-func NewTranslationalFrame(name string, axes []bool, limits []Limit) (Frame, error) {
-	pf := &translationalFrame{name: name, axes: axes}
-	if len(limits) != pf.DoFInt() {
-		return nil, fmt.Errorf("given number of limits %d does not match number of axes %d", len(limits), pf.DoFInt())
+// NewTranslationalFrame creates a frame given a name and the axis in which to translate.
+func NewTranslationalFrame(name string, axis r3.Vector, limit Limit) (Frame, error) {
+	return NewTranslationalFrameWithGeometry(name, axis, limit, nil)
+}
+
+// NewTranslationalFrameWithGeometry creates a frame given a given a name and the axis in which to translate.
+// It also has an associated geometryCreator representing the space that it occupies in 3D space.  Pose is not allowed to be nil.
+func NewTranslationalFrameWithGeometry(name string, axis r3.Vector, limit Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
+	if spatial.R3VectorAlmostEqual(r3.Vector{}, axis, 1e-8) {
+		return nil, errors.New("cannot use zero vector as translation axis")
 	}
-	pf.limits = limits
-	return pf, nil
+	return &translationalFrame{name: name, transAxis: axis.Normalize(), limit: []Limit{limit}, geometryCreator: geometryCreator}, nil
 }
 
 // Name is the name of the frame.
@@ -219,103 +242,69 @@ func (pf *translationalFrame) Name() string {
 // Transform returns a pose translated by the amount specified in the inputs.
 func (pf *translationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
-	if len(input) != pf.DoFInt() {
-		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), pf.DoFInt())
+	if len(input) != 1 {
+		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), 1)
 	}
-	translation := make([]float64, 3)
-	tIdx := 0
-	for i, v := range pf.axes {
-		if v {
-			// We allow out-of-bounds calculations, but will return a non-nil error
-			if input[tIdx].Value < pf.limits[tIdx].Min || input[tIdx].Value > pf.limits[tIdx].Max {
-				err = fmt.Errorf("%.5f input out of bounds %v", input[tIdx].Value, pf.limits[tIdx])
-			}
-			translation[i] = input[tIdx].Value
-			tIdx++
-		}
+
+	// We allow out-of-bounds calculations, but will return a non-nil error
+	if input[0].Value < pf.limit[0].Min || input[0].Value > pf.limit[0].Max {
+		err = fmt.Errorf("%.5f input out of bounds %v", input[0].Value, pf.limit[0])
 	}
-	q := spatial.NewPoseFromPoint(r3.Vector{translation[0], translation[1], translation[2]})
-	return q, err
+	return spatial.NewPoseFromPoint(pf.transAxis.Mul(input[0].Value)), err
 }
 
-func (pf *translationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
+// Geometries returns an object representing the 3D space associeted with the translationalFrame.
+func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	if pf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
+	}
 	pose, err := pf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[pf.Name()] = pose
+	m := make(map[string]spatial.Geometry)
+	m[pf.Name()] = pf.geometryCreator.NewGeometry(pose)
 	return m, err
 }
 
 // DoF are the degrees of freedom of the transform.
 func (pf *translationalFrame) DoF() []Limit {
-	return pf.limits
-}
-
-// DoFInt returns the quantity of axes in which this frame can translate
-func (pf *translationalFrame) DoFInt() int {
-	DoF := 0
-	for _, v := range pf.axes {
-		if v {
-			DoF++
-		}
-	}
-	return DoF
+	return pf.limit
 }
 
 func (pf *translationalFrame) MarshalJSON() ([]byte, error) {
-	m := map[string]interface{}{
-		"type":   "translational",
-		"name":   pf.name,
-		"axes":   pf.axes,
-		"limits": pf.limits,
+	m := FrameMapConfig{
+		"type":      "translational",
+		"name":      pf.name,
+		"transAxis": pf.transAxis,
+		"limit":     pf.limit,
 	}
 	return json.Marshal(m)
 }
 
 func (pf *translationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*translationalFrame)
-	if !ok {
-		return false
-	}
-
-	if pf.name != other.name {
-		return false
-	}
-
-	// axes
-	if len(pf.axes) != len(other.axes) {
-		return false
-	}
-
-	for idx, a := range pf.axes {
-		if a != other.axes[idx] {
-			return false
-		}
-	}
-
-	return limitsALmostTheSame(pf.limits, other.limits)
+	return ok && pf.name == other.name &&
+		spatial.R3VectorAlmostEqual(pf.transAxis, other.transAxis, 1e-8) &&
+		limitsAlmostEqual(pf.DoF(), other.DoF())
 }
 
 type rotationalFrame struct {
 	name    string
-	rotAxis spatial.R4AA
+	rotAxis r3.Vector
 	limit   []Limit
 }
 
 // NewRotationalFrame creates a new rotationalFrame struct.
-// A standard revolute joint will have 1 DoF
+// A standard revolute joint will have 1 DoF.
 func NewRotationalFrame(name string, axis spatial.R4AA, limit Limit) (Frame, error) {
-	rf := rotationalFrame{
+	axis.Normalize()
+	return &rotationalFrame{
 		name:    name,
-		rotAxis: axis,
+		rotAxis: r3.Vector{axis.RX, axis.RY, axis.RZ},
 		limit:   []Limit{limit},
-	}
-	rf.rotAxis.Normalize()
-
-	return &rf, nil
+	}, nil
 }
 
 // Transform returns the Pose representing the frame's 6DoF motion in space. Requires a slice
-// of inputs that has length equal to the degrees of freedom of the frame.
+// of inputs that has length equal to the degrees of freedom of the referenceframe.
 func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 	var err error
 	if len(input) != 1 {
@@ -326,17 +315,13 @@ func (rf *rotationalFrame) Transform(input []Input) (spatial.Pose, error) {
 		err = fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[0].Value, rf.limit[0])
 	}
 	// Create a copy of the r4aa for thread safety
-
-	pose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{rf.rotAxis.RX, rf.rotAxis.RY, rf.rotAxis.RZ}, input[0].Value)
-
-	return pose, err
+	return spatial.NewPoseFromOrientation(r3.Vector{0, 0, 0}, &spatial.R4AA{input[0].Value, rf.rotAxis.X, rf.rotAxis.Y, rf.rotAxis.Z}), err
 }
 
-func (rf *rotationalFrame) VerboseTransform(input []Input) (map[string]spatial.Pose, error) {
-	pose, err := rf.Transform(input)
-	m := make(map[string]spatial.Pose)
-	m[rf.Name()] = pose
-	return m, err
+// Geometries will always return (nil, nil) for rotationalFrames, as not allowing rotationalFrames to occupy geometries is a
+// design choice made for simplicity. staticFrame and translationalFrame should be used instead.
+func (rf *rotationalFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	return nil, fmt.Errorf("s not implemented for type %T", rf)
 }
 
 // DoF returns the number of degrees of freedom that a joint has. This would be 1 for a standard revolute joint.
@@ -344,13 +329,13 @@ func (rf *rotationalFrame) DoF() []Limit {
 	return rf.limit
 }
 
-// Name returns the name of the frame
+// Name returns the name of the referenceframe.
 func (rf *rotationalFrame) Name() string {
 	return rf.name
 }
 
 func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
-	m := map[string]interface{}{
+	m := FrameMapConfig{
 		"type":    "rotational",
 		"name":    rf.name,
 		"rotAxis": rf.rotAxis,
@@ -361,98 +346,7 @@ func (rf *rotationalFrame) MarshalJSON() ([]byte, error) {
 
 func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
-	if !ok {
-		return false
-	}
-
-	return rf.name == other.name &&
-		limitsALmostTheSame(rf.limit, other.limit) &&
-		float64AlmostEqual(rf.rotAxis.RX, other.rotAxis.RX) &&
-		float64AlmostEqual(rf.rotAxis.RY, other.rotAxis.RY) &&
-		float64AlmostEqual(rf.rotAxis.RZ, other.rotAxis.RZ) &&
-		float64AlmostEqual(rf.rotAxis.Theta, other.rotAxis.Theta)
-}
-
-func decodePose(m map[string]interface{}) (spatial.Pose, error) {
-	var point r3.Vector
-
-	err := mapstructure.Decode(m["point"], &point)
-	if err != nil {
-		return nil, err
-	}
-
-	orientationMap := m["orientation"].(map[string]interface{})
-	oType := orientationMap["type"].(string)
-	oValue := orientationMap["value"].(map[string]interface{})
-	jsonValue, err := json.Marshal(oValue)
-	if err != nil {
-		return nil, err
-	}
-
-	ro := spatial.RawOrientation{oType, jsonValue}
-	orientation, err := spatial.ParseOrientation(ro)
-	if err != nil {
-		return nil, err
-	}
-	return spatial.NewPoseFromOrientation(point, orientation), nil
-}
-
-// UnmarshalFrameJSON deserialized json into a reference frame
-func UnmarshalFrameJSON(data []byte) (Frame, error) {
-
-	m := map[string]interface{}{}
-	err := json.Unmarshal(data, &m)
-	if err != nil {
-		return nil, err
-	}
-
-	return UnmarshalFrameMap(m)
-}
-
-// UnmarshalFrameMap deserializes a Frame from a map
-func UnmarshalFrameMap(m map[string]interface{}) (Frame, error) {
-	var err error
-
-	switch m["type"] {
-	case "static":
-		f := staticFrame{}
-		f.name = m["name"].(string)
-
-		pose := m["transform"].(map[string]interface{})
-		f.transform, err = decodePose(pose)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding transform (%v) %w", m["transform"], err)
-		}
-		return &f, nil
-	case "translational":
-		f := translationalFrame{}
-		f.name = m["name"].(string)
-		err := mapstructure.Decode(m["axes"], &f.axes)
-		if err != nil {
-			return nil, err
-		}
-		err = mapstructure.Decode(m["limits"], &f.limits)
-		if err != nil {
-			return nil, err
-		}
-		return &f, nil
-	case "rotational":
-		f := rotationalFrame{}
-		f.name = m["name"].(string)
-
-		f.rotAxis.RX = m["rotAxis"].(map[string]interface{})["x"].(float64)
-		f.rotAxis.RY = m["rotAxis"].(map[string]interface{})["y"].(float64)
-		f.rotAxis.RZ = m["rotAxis"].(map[string]interface{})["z"].(float64)
-		f.rotAxis.Theta = m["rotAxis"].(map[string]interface{})["th"].(float64)
-
-		err = mapstructure.Decode(m["limit"], &f.limit)
-		if err != nil {
-			return nil, err
-		}
-		return &f, nil
-
-	default:
-		return nil, fmt.Errorf("no frame type: [%v]", m["type"])
-	}
-
+	return ok && rf.name == other.name &&
+		spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8) &&
+		limitsAlmostEqual(rf.DoF(), other.DoF())
 }

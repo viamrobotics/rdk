@@ -3,37 +3,63 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/input"
+	"go.viam.com/rdk/component/input"
 )
 
 // InputController is an injected InputController.
 type InputController struct {
 	input.Controller
-	ControlsFunc                func(ctx context.Context) ([]input.Control, error)
-	LastEventsFunc              func(ctx context.Context) (map[input.Control]input.Event, error)
-	RegisterControlCallbackFunc func(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error
+	GetControlsFunc             func(ctx context.Context) ([]input.Control, error)
+	GetEventsFunc               func(ctx context.Context) (map[input.Control]input.Event, error)
+	RegisterControlCallbackFunc func(
+		ctx context.Context,
+		control input.Control,
+		triggers []input.EventType,
+		ctrlFunc input.ControlFunction,
+	) error
 }
 
-// Controls calls the injected function or the real version.
-func (s *InputController) Controls(ctx context.Context) ([]input.Control, error) {
-	if s.ControlsFunc == nil {
-		return s.Controller.Controls(ctx)
+// GetControls calls the injected function or the real version.
+func (s *InputController) GetControls(ctx context.Context) ([]input.Control, error) {
+	if s.GetControlsFunc == nil {
+		return s.Controller.GetControls(ctx)
 	}
-	return s.ControlsFunc(ctx)
+	return s.GetControlsFunc(ctx)
 }
 
-// LastEvents calls the injected function or the real version.
-func (s *InputController) LastEvents(ctx context.Context) (map[input.Control]input.Event, error) {
-	if s.LastEventsFunc == nil {
-		return s.Controller.LastEvents(ctx)
+// GetEvents calls the injected function or the real version.
+func (s *InputController) GetEvents(ctx context.Context) (map[input.Control]input.Event, error) {
+	if s.GetEventsFunc == nil {
+		return s.Controller.GetEvents(ctx)
 	}
-	return s.LastEventsFunc(ctx)
+	return s.GetEventsFunc(ctx)
 }
 
-//RegisterControlCallback calls the injected function or the real version.
-func (s *InputController) RegisterControlCallback(ctx context.Context, control input.Control, triggers []input.EventType, ctrlFunc input.ControlFunction) error {
+// RegisterControlCallback calls the injected function or the real version.
+func (s *InputController) RegisterControlCallback(
+	ctx context.Context,
+	control input.Control,
+	triggers []input.EventType,
+	ctrlFunc input.ControlFunction,
+) error {
 	if s.RegisterControlCallbackFunc == nil {
 		return s.RegisterControlCallback(ctx, control, triggers, ctrlFunc)
 	}
 	return s.RegisterControlCallbackFunc(ctx, control, triggers, ctrlFunc)
+}
+
+// TriggerableInputController is an injected injectable InputController.
+type TriggerableInputController struct {
+	InputController
+	input.Triggerable
+
+	TriggerEventFunc func(ctx context.Context, event input.Event) error
+}
+
+// TriggerEvent calls the injected function or the real version.
+func (s *TriggerableInputController) TriggerEvent(ctx context.Context, event input.Event) error {
+	if s.TriggerEventFunc == nil {
+		return s.TriggerEvent(ctx, event)
+	}
+	return s.TriggerEventFunc(ctx, event)
 }

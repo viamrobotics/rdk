@@ -28,12 +28,11 @@ main
 # Dependency directories (remove the comment below to include it)
 vendor/
 
-# gRPC
-dist/js/google/*
-!dist/js/google/api
-dist/js/gapic/
-dist/js/grafeas/
-dist/js/storage/
+# gRPC/Protocol Buffers
+bin
+dist/*
+node_modules/
+docs/
 
 # Test data
 coverage.txt
@@ -59,3 +58,9 @@ bin/
 
 # pycache
 *.pyc
+
+# code editor settings
+.vscode/*
+
+# exclude files from `ag` search
+.ignore

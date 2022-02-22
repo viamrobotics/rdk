@@ -8,28 +8,30 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
 	geo "github.com/kellydunn/golang-geo"
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/base"
-	"go.viam.com/core/config"
-	"go.viam.com/core/registry"
-	"go.viam.com/core/robot"
-	"go.viam.com/core/sensor/gps"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/registry"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
-	registry.RegisterService(Type, registry.Service{
+	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
 		},
 	},
 	)
-
-	config.RegisterServiceAttributeMapConverter(Type, func(attributes config.AttributeMap) (interface{}, error) {
+	cType := config.ServiceType(SubtypeName)
+	config.RegisterServiceAttributeMapConverter(cType, func(attributes config.AttributeMap) (interface{}, error) {
 		var conf Config
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &conf})
 		if err != nil {
@@ -55,7 +57,7 @@ const (
 type Service interface {
 	Mode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
-	Close() error
+	Close(ctx context.Context) error
 
 	Location(ctx context.Context) (*geo.Point, error)
 
@@ -65,8 +67,18 @@ type Service interface {
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
 
-// Type is the type of service.
-const Type = config.ServiceType("navigation")
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("navigation")
+
+// Subtype is a constant that identifies the navigation service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
+
+// Name is the NavigationService's typed resource name.
+var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
 type Config struct {
@@ -91,18 +103,17 @@ func (config *Config) Validate(path string) error {
 
 // New returns a new navigation service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	svcConfig := config.ConvertedAttributes.(*Config)
-	base1, ok := r.BaseByName(svcConfig.BaseName)
+	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
-		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
+		return nil, rdkutils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	s, ok := r.SensorByName(svcConfig.GPSName)
-	if !ok {
-		return nil, errors.Errorf("no gps named %q", svcConfig.GPSName)
+	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	if err != nil {
+		return nil, err
 	}
-	gpsDevice, ok := s.(gps.GPS)
-	if !ok {
-		return nil, errors.Errorf("%q is not a GPS device", svcConfig.GPSName)
+	gpsDevice, err := gps.FromRobot(r, svcConfig.GPSName)
+	if err != nil {
+		return nil, err
 	}
 
 	var store navStore
@@ -168,8 +179,7 @@ func (svc *navService) SetMode(ctx context.Context, mode Mode) error {
 	svc.cancelFunc = cancelFunc
 
 	svc.mode = ModeManual
-	switch mode {
-	case ModeWaypoint:
+	if mode == ModeWaypoint {
 		if err := svc.startWaypoint(); err != nil {
 			return err
 		}
@@ -183,13 +193,13 @@ func (svc *navService) startWaypoint() error {
 	utils.PanicCapturingGo(func() {
 		defer svc.activeBackgroundWorkers.Done()
 
-		var path = []*geo.Point{}
+		path := []*geo.Point{}
 		for {
 			if !utils.SelectContextOrWait(svc.cancelCtx, 500*time.Millisecond) {
 				return
 			}
 
-			currentLoc, err := svc.gpsDevice.Location(svc.cancelCtx)
+			currentLoc, err := svc.gpsDevice.ReadLocation(svc.cancelCtx)
 			if err != nil {
 				svc.logger.Errorw("failed to get gps location", "error", err)
 				continue
@@ -230,14 +240,14 @@ func (svc *navService) startWaypoint() error {
 				// TODO(erh->erd): maybe need an arc/stroke abstraction?
 				// - Remember that we added -1*bearingDelta instead of steeringDir
 				// - Test both naval/land to prove it works
-				if _, err := svc.base.Spin(ctx, -1*bearingDelta, 45, true); err != nil {
+				if err := svc.base.Spin(ctx, -1*bearingDelta, 45, true); err != nil {
 					return fmt.Errorf("error turning: %w", err)
 				}
 
-				distanceMillis := distanceToGoal * 1000 * 1000
-				distanceMillis = math.Min(distanceMillis, 10*1000)
+				distanceMm := distanceToGoal * 1000 * 1000
+				distanceMm = math.Min(distanceMm, 10*1000)
 
-				if _, err := svc.base.MoveStraight(ctx, int(distanceMillis), 500, true); err != nil {
+				if err := svc.base.MoveStraight(ctx, int(distanceMm), 500, true); err != nil {
 					return fmt.Errorf("error moving %w", err)
 				}
 
@@ -267,7 +277,7 @@ func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
 	if svc.gpsDevice == nil {
 		return nil, errors.New("no way to get location")
 	}
-	return svc.gpsDevice.Location(svc.cancelCtx)
+	return svc.gpsDevice.ReadLocation(ctx)
 }
 
 func (svc *navService) Waypoints(ctx context.Context) ([]Waypoint, error) {
@@ -299,13 +309,12 @@ func (svc *navService) waypointReached(ctx context.Context) error {
 		return fmt.Errorf("can't mark waypoint reached: %w", err)
 	}
 	return svc.store.WaypointVisited(ctx, wp.ID)
-
 }
 
-func (svc *navService) Close() error {
+func (svc *navService) Close(ctx context.Context) error {
 	svc.cancelFunc()
 	svc.activeBackgroundWorkers.Wait()
-	return utils.TryClose(svc.store)
+	return utils.TryClose(ctx, svc.store)
 }
 
 func fixAngle(a float64) float64 {

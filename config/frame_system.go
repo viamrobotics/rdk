@@ -1,13 +1,13 @@
 package config
 
 import (
-	commonpb "go.viam.com/core/proto/api/common/v1"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/referenceframe"
-	"go.viam.com/core/spatialmath"
-
 	"github.com/edaniels/golog"
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // FrameSystemPart is used to collect all the info need from a named robot part to build the frame node in a frame system.
@@ -16,16 +16,16 @@ import (
 type FrameSystemPart struct {
 	Name        string
 	FrameConfig *Frame
-	ModelFrame  *referenceframe.Model
+	ModelFrame  referenceframe.Model
 }
 
-// ToProtobuf turns all the interfaces into serializable types
-func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
+// ToProtobuf turns all the interfaces into serializable types.
+func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
 	if part.FrameConfig == nil {
-		return nil, nil
+		return nil, referenceframe.ErrNoModelInformation
 	}
 	pose := spatialmath.PoseToProtobuf(part.FrameConfig.Pose())
-	convertedPose := &pb.Pose{
+	convertedPose := &commonpb.Pose{
 		X:     pose.X,
 		Y:     pose.Y,
 		Z:     pose.Z,
@@ -43,18 +43,15 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.FrameSystemConfig, error) {
 			return nil, err
 		}
 	}
-	return &pb.FrameSystemConfig{
+	return &pb.Config{
 		Name:        part.Name,
 		FrameConfig: frameConfig,
 		ModelJson:   modelJSON,
 	}, nil
 }
 
-// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart
-func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, error) {
-	if fsc == nil {
-		return nil, nil
-	}
+// ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
+func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
 	convertedPose := &commonpb.Pose{
 		X:     fsc.FrameConfig.Pose.X,
 		Y:     fsc.FrameConfig.Pose.Y,
@@ -66,24 +63,28 @@ func ProtobufToFrameSystemPart(fsc *pb.FrameSystemConfig) (*FrameSystemPart, err
 	}
 	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
 	point := pose.Point()
-	translation := spatialmath.Translation{X: point.X, Y: point.Y, Z: point.Z}
+	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
 	frameConfig := &Frame{
 		Parent:      fsc.FrameConfig.Parent,
 		Translation: translation,
 		Orientation: pose.Orientation(),
 	}
-	modelFrame, err := referenceframe.ParseJSON(fsc.ModelJson, fsc.Name)
-	if err != nil {
-		return nil, err
-	}
-	return &FrameSystemPart{
+	part := &FrameSystemPart{
 		Name:        fsc.Name,
 		FrameConfig: frameConfig,
-		ModelFrame:  modelFrame,
-	}, nil
+	}
+	modelFrame, err := referenceframe.UnmarshalModelJSON(fsc.ModelJson, fsc.Name)
+	if err != nil {
+		if errors.Is(err, referenceframe.ErrNoModelInformation) {
+			return part, nil
+		}
+		return nil, err
+	}
+	part.ModelFrame = modelFrame
+	return part, nil
 }
 
-// CreateFramesFromPart will gather the frame information and build the frames from the given robot part
+// CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
 func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
 	if part == nil || part.FrameConfig == nil {
 		return nil, nil, errors.New("config for FrameSystemPart is nil")

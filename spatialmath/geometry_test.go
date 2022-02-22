@@ -1,0 +1,402 @@
+package spatialmath
+
+import (
+	"encoding/json"
+	"fmt"
+	"math"
+	"testing"
+
+	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+)
+
+func TestGeometrySerialization(t *testing.T) {
+	translation := TranslationConfig{1, 1, 1}
+	orientation := OrientationConfig{}
+	testMap := loadOrientationTests(t)
+	err := json.Unmarshal(testMap["euler"], &orientation)
+	test.That(t, err, test.ShouldBeNil)
+
+	testCases := []struct {
+		name    string
+		config  GeometryConfig
+		success bool
+	}{
+		{"box", GeometryConfig{Type: "box", X: 1, Y: 1, Z: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"box bad dims", GeometryConfig{Type: "box", X: 1, Y: 0, Z: 1}, false},
+		{"infer box", GeometryConfig{X: 1, Y: 1, Z: 1}, true},
+		{"sphere", GeometryConfig{Type: "sphere", R: 1, TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"sphere bad dims", GeometryConfig{Type: "sphere", R: -1}, false},
+		{"infer sphere", GeometryConfig{R: 1, OrientationOffset: orientation}, true},
+		{"point", GeometryConfig{Type: "point", TranslationOffset: translation, OrientationOffset: orientation}, true},
+		{"infer point", GeometryConfig{}, false},
+		{"bad type", GeometryConfig{Type: "bad"}, false},
+	}
+
+	pose := NewPoseFromPoint(r3.Vector{X: 1, Y: 1, Z: 1})
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			gc, err := testCase.config.ParseConfig()
+			if testCase.success == false {
+				test.That(t, err, test.ShouldNotBeNil)
+				return
+			}
+			test.That(t, err, test.ShouldBeNil)
+			data, err := gc.MarshalJSON()
+			test.That(t, err, test.ShouldBeNil)
+			config := GeometryConfig{}
+			err = json.Unmarshal(data, &config)
+			test.That(t, err, test.ShouldBeNil)
+			newVc, err := config.ParseConfig()
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, gc.NewGeometry(pose).AlmostEqual(newVc.NewGeometry(pose)), test.ShouldBeTrue)
+		})
+	}
+}
+
+func TestGeometryToFromProtobuf(t *testing.T) {
+	deg45 := math.Pi / 4
+	testCases := []struct {
+		name     string
+		geometry Geometry
+	}{
+		{"box", makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2})},
+		{"sphere", makeTestSphere(r3.Vector{3, 4, 5}, 10)},
+		{"point", NewPoint(r3.Vector{3, 4, 5})},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			newVol, err := NewGeometryFromProtobuf(testCase.geometry.ToProtobuf())
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
+		})
+	}
+
+	// test that bad message does not generate error
+	_, err := NewGeometryFromProtobuf(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
+	test.That(t, err.Error(), test.ShouldContainSubstring, newGeometryTypeUnsupportedError("").Error())
+}
+
+type geometryComparisonTestCase struct {
+	testname   string
+	geometries [2]Geometry
+	expected   float64
+}
+
+func testGeometryComparisons(t *testing.T, cases []geometryComparisonTestCase) {
+	t.Helper()
+	for _, c := range cases {
+		for i := 0; i < 2; i++ {
+			t.Run(fmt.Sprintf("%s %T %T collision", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
+				fn := test.ShouldBeFalse
+				if c.expected <= 0.0 {
+					fn = test.ShouldBeTrue
+				}
+				collides, err := c.geometries[i].CollidesWith(c.geometries[(i+1)%2])
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, collides, fn)
+			})
+			t.Run(fmt.Sprintf("%s %T %T distance", c.testname, c.geometries[i], c.geometries[(i+1)%2]), func(t *testing.T) {
+				distance, err := c.geometries[i].DistanceFrom(c.geometries[(i+1)%2])
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, distance, test.ShouldAlmostEqual, c.expected, 1e-3)
+			})
+		}
+	}
+}
+
+func TestBoxVsBox(t *testing.T) {
+	deg45 := math.Pi / 4.
+	cases := []geometryComparisonTestCase{
+		{
+			"inscribed",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{1, 1, 1}),
+			},
+			-1.5,
+		},
+		{
+			"face to face contact",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 0, 0}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"face to face near contact",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 0, 0}, r3.Vector{2, 2, 2}),
+			},
+			0.01,
+		},
+		{
+			"coincident edge contact",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 4, 0}, r3.Vector{2, 6, 2}),
+			},
+			0,
+		},
+		{
+			"coincident edges near contact",
+			[2]Geometry{
+				makeTestBox((NewZeroOrientation()), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 4.01, 0}, r3.Vector{2, 6, 2}),
+			},
+			0.01,
+		},
+		{
+			"vertex to vertex contact",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"vertex to vertex near contact",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2.01, 2, 2}, r3.Vector{2, 2, 2}),
+			},
+			0.01,
+		},
+		{
+			"edge along face contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1 + math.Sqrt2, 0}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"edge along face near contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{deg45, 0, 0}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1.01 + math.Sqrt2, 0}, r3.Vector{2, 2, 2}),
+			},
+			0.01,
+		},
+		{
+			"edge to edge contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"edge to edge near contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{0, 0, deg45}, r3.Vector{-.01, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(&EulerAngles{0, deg45, 0}, r3.Vector{2 * math.Sqrt2, 0, 0}, r3.Vector{2, 2, 2}),
+			},
+			0.01,
+		},
+		{
+			"vertex to face contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0.5, -.5, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}),
+			},
+			-.005,
+		},
+		{
+			"vertex to face near contact",
+			[2]Geometry{
+				makeTestBox(&EulerAngles{deg45, deg45, 0}, r3.Vector{0, 0, -0.01}, r3.Vector{2, 2, 2}),
+				makeTestBox(&EulerAngles{0, 0, 0}, r3.Vector{0, 0, 0.97 + math.Sqrt(3)}, r3.Vector{2, 2, 2}),
+			},
+			0.005,
+		},
+		{
+			"separated axis aligned",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{5, 6, 0}, r3.Vector{2, 2, 2}),
+			},
+			4, // upper bound on separation distance
+		},
+		{
+			"axis aligned overlap",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 0, 0}, r3.Vector{20, 20, 20}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{20, 20, 20}, r3.Vector{24, 26, 28}),
+			},
+			-2,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}
+
+func TestSphereVsSphere(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"test inscribed spheres",
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{}, 2)},
+			-3,
+		},
+		{
+			"test tangent spheres",
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2}, 1)},
+			0,
+		},
+		{
+			"separated spheres",
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), makeTestSphere(r3.Vector{0, 0, 2 + 1e-3}, 1)},
+			1e-3,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}
+
+func TestPointVsPoint(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"coincident",
+			[2]Geometry{NewPoint(r3.Vector{}), NewPoint(r3.Vector{})},
+			0,
+		},
+		{
+			"separated",
+			[2]Geometry{NewPoint(r3.Vector{}), NewPoint(r3.Vector{1, 0, 0})},
+			1,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}
+
+func TestSphereVsBox(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"separated face closest",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{0, 0, 2 + 1e-3}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			1e-3,
+		},
+		{
+			"separated edge closest",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{0, 2, 2}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			math.Sqrt2 - 1,
+		},
+		{
+			"separated vertex closest",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{2, 2, 2}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			math.Sqrt(3) - 1,
+		},
+		{
+			"face tangent",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{0, 0, 2}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"edge tangent",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{0, 2, 2}, math.Sqrt2),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"vertex tangent",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{2, 2, 2}, math.Sqrt(3)),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"center point inside",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{-.2, 0.1, .75}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			-1.25,
+		},
+		{
+			"inscribed",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{2, 2, 2}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{2, 2, 2}, r3.Vector{2, 2, 2}),
+			},
+			-2,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}
+
+func TestPointVsBox(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"separated face closest",
+			[2]Geometry{
+				NewPoint(r3.Vector{2, 0, 0}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			1,
+		},
+		{
+			"separated edge closest",
+			[2]Geometry{
+				NewPoint(r3.Vector{2, 2, 0}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			math.Sqrt2,
+		},
+		{
+			"separated vertex closest",
+			[2]Geometry{
+				NewPoint(r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			math.Sqrt(3),
+		},
+		{
+			"inside",
+			[2]Geometry{
+				NewPoint(r3.Vector{0, 0.3, 0.5}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			-0.5,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}
+
+func TestPointVsSphere(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"coincident",
+			[2]Geometry{
+				NewPoint(r3.Vector{}),
+				makeTestSphere(r3.Vector{}, 1),
+			},
+			-1,
+		},
+		{
+			"separated",
+			[2]Geometry{
+				NewPoint(r3.Vector{2, 0, 0}),
+				makeTestSphere(r3.Vector{}, 1),
+			},
+			1,
+		},
+	}
+	testGeometryComparisons(t, cases)
+}

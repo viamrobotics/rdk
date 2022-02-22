@@ -2,12 +2,10 @@ package spatialmath
 
 import (
 	"math"
-
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 	"gonum.org/v1/gonum/num/dualquat"
 	"gonum.org/v1/gonum/num/quat"
 )
@@ -49,6 +47,7 @@ func TestBasicPoseConstruction(t *testing.T) {
 }
 
 func ptCompare(t *testing.T, p1, p2 r3.Vector) {
+	t.Helper()
 	test.That(t, p1.X, test.ShouldAlmostEqual, p2.X)
 	test.That(t, p1.Y, test.ShouldAlmostEqual, p2.Y)
 	test.That(t, p1.Z, test.ShouldAlmostEqual, p2.Z)
@@ -58,7 +57,7 @@ func TestDualQuatTransform(t *testing.T) {
 	// Start with point [3, 4, 5] - Rotate by 180 degrees around x-axis and then displace by [4,2,6]
 	pt := NewPoseFromPoint(r3.Vector{3., 4., 5.}) // starting point
 	tr := &dualQuaternion{dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}}
-	tr.SetTranslation(4., 2., 6.)
+	tr.SetTranslation(r3.Vector{4., 2., 6.})
 
 	trAA := NewPoseFromAxisAngle(r3.Vector{4., 2., 6.}, r3.Vector{1, 0, 0}, math.Pi) // same transformation from axis angle
 	// ensure transformation is the same between both definitions
@@ -120,10 +119,28 @@ func TestLidarPose(t *testing.T) {
 	test.That(t, expectPoint.Z, test.ShouldAlmostEqual, seenPoint.Z)
 }
 
-func TestAlmostCoincident(t *testing.T) {
+func TestPoseAlmostEqual(t *testing.T) {
 	p1 := NewPoseFromPoint(r3.Vector{1.0, 2.0, 3.0})
 	p2 := NewPoseFromPoint(r3.Vector{1.0000000001, 1.999999999, 3.0000000001})
 	p3 := NewPoseFromPoint(r3.Vector{1.0000001, 2.999999, 3.0000001})
-	test.That(t, AlmostCoincident(p1, p2), test.ShouldBeTrue)
-	test.That(t, AlmostCoincident(p1, p3), test.ShouldBeFalse)
+	test.That(t, PoseAlmostCoincident(p1, p2), test.ShouldBeTrue)
+	test.That(t, PoseAlmostCoincident(p1, p3), test.ShouldBeFalse)
+}
+
+var (
+	ov  = &OrientationVector{math.Pi / 2, 0, 0, -1}
+	p1b = NewPoseFromOrientationVector(r3.Vector{1, 2, 3}, ov)
+	p2b = NewPoseFromOrientationVector(r3.Vector{2, 3, 4}, ov)
+)
+
+func BenchmarkDeltaPose(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseDelta(p1b, p2b)
+	}
+}
+
+func BenchmarkPoseBetween(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		PoseBetween(p1b, p2b)
+	}
 }

@@ -7,10 +7,9 @@ import (
 	"math"
 	"testing"
 
-	"go.viam.com/utils/artifact"
-
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
 )
 
 func TestCanny1(t *testing.T) {
@@ -22,15 +21,15 @@ func TestCanny2(t *testing.T) {
 }
 
 func doCannyTest(t *testing.T, root string) {
+	t.Helper()
 	img, err := NewImageFromFile(artifact.MustPath(fmt.Sprintf("rimage/%s.png", root)))
 	test.That(t, err, test.ShouldBeNil)
 
 	goodOnes := 0
 
 	for a := 0.01; a <= .05; a += .005 {
-
 		outfn := fmt.Sprintf(outDir+"/%s-%v.png", root, int(1000*a))
-		fmt.Println(outfn)
+		t.Log(outfn)
 
 		out, err := SimpleEdgeDetection(img, a, 3.0)
 		test.That(t, err, test.ShouldBeNil)
@@ -42,18 +41,17 @@ func doCannyTest(t *testing.T, root string) {
 
 		for x := 50; x <= 750; x += 100 {
 			for y := 50; y <= 750; y += 100 {
-
 				spots := CountBrightSpots(out, image.Point{x, y}, 25, 255)
 
 				if y < 200 || y > 600 {
 					if spots < 100 {
 						bad = true
-						fmt.Printf("\t%v,%v %v\n", x, y, spots)
+						t.Logf("\t%v,%v %v\n", x, y, spots)
 					}
 				} else {
 					if spots > 90 {
 						bad = true
-						fmt.Printf("\t%v,%v %v\n", x, y, spots)
+						t.Logf("\t%v,%v %v\n", x, y, spots)
 					}
 				}
 
@@ -77,6 +75,33 @@ func doCannyTest(t *testing.T, root string) {
 	}
 
 	test.That(t, goodOnes, test.ShouldNotEqual, 0)
+}
+
+func TestCloneImage(t *testing.T) {
+	img, err := readImageFromFile(artifact.MustPath("rimage/canny1.png"), false)
+	test.That(t, err, test.ShouldBeNil)
+
+	// Image path
+	i := ConvertImage(img)
+	ii := CloneImage(i)
+	for y := 0; y < ii.Height(); y++ {
+		for x := 0; x < ii.Width(); x++ {
+			test.That(t, ii.GetXY(x, y), test.ShouldResemble, i.GetXY(x, y))
+		}
+	}
+	ii.SetXY(0, 0, Red)
+	test.That(t, ii.GetXY(0, 0), test.ShouldNotResemble, i.GetXY(0, 0))
+
+	// ImageWithDepth path
+	j := ConvertToImageWithDepth(img)
+	ii = CloneImage(j)
+	for y := 0; y < ii.Height(); y++ {
+		for x := 0; x < ii.Width(); x++ {
+			test.That(t, ii.GetXY(x, y), test.ShouldResemble, i.GetXY(x, y))
+		}
+	}
+	ii.SetXY(0, 0, Red)
+	test.That(t, ii.GetXY(0, 0), test.ShouldNotResemble, i.GetXY(0, 0))
 }
 
 func BenchmarkConvertImage(b *testing.B) {
@@ -183,7 +208,6 @@ func TestCanny(t *testing.T) {
 	edges := ConvertImage(edgesMat)
 	test.That(t, len(gt.data), test.ShouldEqual, len(edges.data))
 	test.That(t, gt.data, test.ShouldResemble, edges.data)
-
 }
 
 func TestCannyBlocks(t *testing.T) {
@@ -225,7 +249,7 @@ func TestCannyBlocks(t *testing.T) {
 	}
 
 	// run tests
-	var tests = []struct {
+	tests := []struct {
 		testName        string
 		dataOut, dataGT []Color
 	}{

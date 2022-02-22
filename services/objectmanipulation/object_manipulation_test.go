@@ -5,22 +5,22 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/test"
-
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gripper"
-	"go.viam.com/core/config"
-	"go.viam.com/core/resource"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/services/objectmanipulation"
-	"go.viam.com/core/testutils/inject"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
+
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestDoGrabFailures(t *testing.T) {
-	cfgService := config.Service{Name: "objectmanipulation", Type: objectmanipulation.Type}
+	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
 	var r *inject.Robot
@@ -30,7 +30,7 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r = &inject.Robot{}
-	r.GripperByNameFunc = func(string) (gripper.Gripper, bool) {
+	r.ResourceByNameFunc = func(resource.Name) (interface{}, bool) {
 		return nil, false
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
@@ -42,15 +42,9 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails when gripper fails to open
 	r = &inject.Robot{}
 	_arm = &inject.Arm{}
-	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return _arm, true
-	}
 	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return errors.New("failure to open")
-	}
-	r.GripperByNameFunc = func(string) (gripper.Gripper, bool) {
-		return _gripper, true
 	}
 	r.LoggerFunc = func() golog.Logger {
 		return logger
@@ -74,20 +68,12 @@ func TestDoGrabFailures(t *testing.T) {
 	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeCamera", &r3.Vector{10.0, 10.0, 10.0})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	r = &inject.Robot{}
-	_arm = &inject.Arm{}
-	r.ArmByNameFunc = func(name string) (arm.Arm, bool) {
-		return _arm, true
-	}
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-	_gripper = &inject.Gripper{}
 	_gripper.OpenFunc = func(ctx context.Context) error {
 		return nil
 	}
+
 	// can't move gripper with respect to gripper
-	_, err = mgs.DoGrab(context.Background(), "fakeGripperName", "fakeArm", "fakeGripperName", &r3.Vector{0, 0, 200})
+	_, err = mgs.DoGrab(context.Background(), "fakeGripper", "fakeArm", "fakeGripper", &r3.Vector{0, 0, 200})
 	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 }
 
@@ -95,31 +81,30 @@ func TestDoGrab(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read("data/moving_arm.json")
+	cfg, err := config.Read(ctx, "data/moving_arm.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close()
+	defer myRobot.Close(context.Background())
 
 	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = svc.DoGrab(ctx, "pieceGripper", "pieceArm", "c", &r3.Vector{-20, -30, -40})
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestMultiplePieces(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read("data/fake_tomato.json")
+	cfg, err := config.Read(ctx, "data/fake_tomato.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
-	defer myRobot.Close()
+	defer myRobot.Close(context.Background())
 
 	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -128,7 +113,58 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// remove after this
-	theArm, _ := myRobot.ArmByName("a")
-	temp, _ := theArm.CurrentJointPositions(ctx)
+	theArm, _ := arm.FromRobot(myRobot, "a")
+	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
+}
+
+func setupInjectRobot() (*inject.Robot, *mock) {
+	svc1 := &mock{}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return svc1, true
+	}
+	return r, svc1
+}
+
+func TestFromRobot(t *testing.T) {
+	r, svc1 := setupInjectRobot()
+
+	svc, err := objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc, test.ShouldNotBeNil)
+
+	result, err := svc.DoGrab(context.Background(), "", "", "", &r3.Vector{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, success)
+	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return "not object manipulation", true
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
+	test.That(t, svc, test.ShouldBeNil)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		return nil, false
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(objectmanipulation.Name))
+	test.That(t, svc, test.ShouldBeNil)
+}
+
+const success = false
+
+type mock struct {
+	objectmanipulation.Service
+
+	grabCount int
+}
+
+func (m *mock) DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	m.grabCount++
+	return success, nil
 }

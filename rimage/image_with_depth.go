@@ -5,10 +5,11 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/go-errors/errors"
 	"github.com/golang/geo/r3"
-
+	"github.com/pkg/errors"
 	"go.viam.com/utils"
+
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // ImageWithDepth is an image of color that has depth associated
@@ -17,13 +18,12 @@ type ImageWithDepth struct {
 	Color   *Image
 	Depth   *DepthMap
 	aligned bool
-	camera  CameraSystem
 }
 
-// MakeImageWithDepth returns a new image with depth from the given color and depth arguments. It
-// is also associated with a camera that captured the color and depth.
-func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool, camera CameraSystem) *ImageWithDepth {
-	return &ImageWithDepth{img, dm, aligned, camera}
+// MakeImageWithDepth returns a new image with depth from the given color and depth arguments.
+// aligned is true if the two channels are aligned, false if not.
+func MakeImageWithDepth(img *Image, dm *DepthMap, aligned bool) *ImageWithDepth {
+	return &ImageWithDepth{img, dm, aligned}
 }
 
 // Bounds returns the bounds.
@@ -36,18 +36,41 @@ func (i *ImageWithDepth) ColorModel() color.Model {
 	return i.Color.ColorModel()
 }
 
+// Clone makes a copy of the image with depth.
+func (i *ImageWithDepth) Clone() *ImageWithDepth {
+	if i.Color == nil {
+		return &ImageWithDepth{nil, nil, i.aligned}
+	}
+	if i.Depth == nil {
+		return &ImageWithDepth{i.Color.Clone(), nil, i.aligned}
+	}
+	return &ImageWithDepth{i.Color.Clone(), i.Depth.Clone(), i.aligned}
+}
+
 // At returns the color at the given point.
-// TODO(erh): alpha encode with depth
+// TODO(erh): alpha encode with depth.
 func (i *ImageWithDepth) At(x, y int) color.Color {
 	return i.Color.At(x, y)
 }
 
-// To3D takes an image pixel coordinate and returns the 3D coordinate in the world
-func (i *ImageWithDepth) To3D(p image.Point) (r3.Vector, error) {
-	if i.camera == nil {
-		return r3.Vector{}, errors.New("no camera on ImageWithDepth when called To3D")
+// IsAligned returns if the image and depth are aligned.
+func (i *ImageWithDepth) IsAligned() bool {
+	return i.aligned
+}
+
+// To3D takes an image pixel coordinate and returns the 3D coordinate in the world.
+func (i *ImageWithDepth) To3D(p image.Point, proj Projector) (r3.Vector, error) {
+	if proj == nil {
+		return r3.Vector{}, errors.New("the Projector cannot be nil")
 	}
-	return i.camera.ImagePointTo3DPoint(p, i)
+	if i.Depth == nil {
+		return r3.Vector{}, errors.New("no depth channel in ImageWithDepth")
+	}
+	if !p.In(i.Bounds()) {
+		return r3.Vector{}, errors.Errorf("point (%d,%d) not within image bounds", p.X, p.Y)
+	}
+	d := i.Depth.Get(p)
+	return proj.ImagePointTo3DPoint(p, d)
 }
 
 // Width returns the horizontal width of the image.
@@ -60,9 +83,17 @@ func (i *ImageWithDepth) Height() int {
 	return i.Color.Height()
 }
 
+// SubImage returns the crop of the image defined by the given rectangle.
+func (i *ImageWithDepth) SubImage(r image.Rectangle) *ImageWithDepth {
+	if r.Empty() {
+		return &ImageWithDepth{}
+	}
+	return &ImageWithDepth{i.Color.SubImage(r), i.Depth.SubImage(r), i.aligned}
+}
+
 // Rotate rotates the color and depth about the origin by the given angle clockwise.
 func (i *ImageWithDepth) Rotate(amount int) *ImageWithDepth {
-	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned, i.camera}
+	return &ImageWithDepth{i.Color.Rotate(amount), i.Depth.Rotate(amount), i.aligned}
 }
 
 // Warp adapts the image to a new size.
@@ -76,10 +107,10 @@ func (i *ImageWithDepth) Warp(src, dst []image.Point, newSize image.Point) *Imag
 		warpedDepth = i.Depth.Warp(m2, newSize)
 	}
 
-	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned, i.camera}
+	return &ImageWithDepth{ConvertImage(img), warpedDepth, i.aligned}
 }
 
-// CropToDepthData TODO
+// CropToDepthData TODO.
 func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	var minY, minX, maxY, maxX int
 
@@ -149,7 +180,7 @@ func (i *ImageWithDepth) CropToDepthData() (*ImageWithDepth, error) {
 	), nil
 }
 
-// Overlay TODO
+// Overlay TODO.
 func (i *ImageWithDepth) Overlay() *image.NRGBA {
 	const minAlpha = 32.0
 
@@ -171,7 +202,6 @@ func (i *ImageWithDepth) Overlay() *image.NRGBA {
 
 			r, g, b := c.RGB255()
 			img.SetNRGBA(x, y, color.NRGBA{r, g, b, a})
-
 		}
 	}
 	return img
@@ -186,27 +216,27 @@ func (i *ImageWithDepth) WriteTo(fn string) error {
 func NewImageWithDepthFromImages(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
 	dm, err := NewDepthMapFromImageFile(depthFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 // NewImageWithDepth returns a new image from the given color image and depth data files.
 func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth, error) {
 	img, err := NewImageFromFile(colorFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read color file (%s): %w", colorFN, err)
+		return nil, errors.Wrapf(err, "cannot read color file (%s)", colorFN)
 	}
 
 	dm, err := ParseDepthMap(depthFN)
 	if err != nil {
-		return nil, errors.Errorf("cannot read depth file (%s): %w", depthFN, err)
+		return nil, errors.Wrapf(err, "cannot read depth file (%s)", depthFN)
 	}
 
 	if isAligned {
@@ -216,7 +246,7 @@ func NewImageWithDepth(colorFN, depthFN string, isAligned bool) (*ImageWithDepth
 		}
 	}
 
-	return &ImageWithDepth{img, dm, isAligned, nil}, nil
+	return &ImageWithDepth{img, dm, isAligned}, nil
 }
 
 func imageToDepthMap(img image.Image) *DepthMap {
@@ -225,7 +255,10 @@ func imageToDepthMap(img image.Image) *DepthMap {
 	width, height := bounds.Dx(), bounds.Dy()
 	dm := NewEmptyDepthMap(width, height)
 
-	grayImg := img.(*image.Gray16)
+	grayImg, ok := img.(*image.Gray16)
+	if !ok {
+		panic(rdkutils.NewUnexpectedTypeError(grayImg, img))
+	}
 	for x := 0; x < width; x++ {
 		for y := 0; y < height; y++ {
 			i := grayImg.PixOffset(x, y)
@@ -244,9 +277,22 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	case *ImageWithDepth:
 		return x
 	case *Image:
-		return &ImageWithDepth{x, nil, false, nil}
+		return &ImageWithDepth{x, nil, false}
 	default:
-		return &ImageWithDepth{ConvertImage(img), nil, false, nil}
+		return &ImageWithDepth{ConvertImage(img), nil, false}
+	}
+}
+
+// CloneToImageWithDepth attempts to clone a go image into an image
+// with depth, if it contains any.
+func CloneToImageWithDepth(img image.Image) *ImageWithDepth {
+	switch x := img.(type) {
+	case *ImageWithDepth:
+		return x.Clone()
+	case *Image:
+		return &ImageWithDepth{x.Clone(), nil, false}
+	default:
+		return &ImageWithDepth{CloneImage(img), nil, false}
 	}
 }
 
@@ -301,5 +347,4 @@ func ImageWithDepthFromRawBytes(width, height int, b []byte) (*ImageWithDepth, e
 	iwd.aligned = b[0] == 0x1
 
 	return iwd, nil
-
 }

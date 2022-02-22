@@ -3,101 +3,104 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/core/motor"
-	pb "go.viam.com/core/proto/api/v1"
+	"go.viam.com/rdk/component/motor"
 )
 
 // Motor is an injected motor.
 type Motor struct {
 	motor.Motor
-	PowerFunc             func(ctx context.Context, powerPct float32) error
-	GoFunc                func(ctx context.Context, d pb.DirectionRelative, powerPct float32) error
-	GoForFunc             func(ctx context.Context, d pb.DirectionRelative, rpm float64, rotations float64) error
+	SetPowerFunc          func(ctx context.Context, powerPct float64) error
+	GoForFunc             func(ctx context.Context, rpm float64, rotations float64) error
 	GoToFunc              func(ctx context.Context, rpm float64, position float64) error
-	GoTillStopFunc        func(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error
-	ZeroFunc              func(ctx context.Context, offset float64) error
-	PositionFunc          func(ctx context.Context) (float64, error)
-	PositionSupportedFunc func(ctx context.Context) (bool, error)
-	OffFunc               func(ctx context.Context) error
-	IsOnFunc              func(ctx context.Context) (bool, error)
+	ResetZeroPositionFunc func(ctx context.Context, offset float64) error
+	GetPositionFunc       func(ctx context.Context) (float64, error)
+	GetFeaturesFunc       func(ctx context.Context) (map[motor.Feature]bool, error)
+	StopFunc              func(ctx context.Context) error
+	IsPoweredFunc         func(ctx context.Context) (bool, error)
 }
 
-// Power calls the injected Power or the real version.
-func (m *Motor) Power(ctx context.Context, powerPct float32) error {
-	if m.PowerFunc == nil {
-		return m.Motor.Power(ctx, powerPct)
+// SetPower calls the injected Power or the real version.
+func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+	if m.SetPowerFunc == nil {
+		return m.Motor.SetPower(ctx, powerPct)
 	}
-	return m.PowerFunc(ctx, powerPct)
-}
-
-// Go calls the injected Go or the real version.
-func (m *Motor) Go(ctx context.Context, d pb.DirectionRelative, powerPct float32) error {
-	if m.GoFunc == nil {
-		return m.Motor.Go(ctx, d, powerPct)
-	}
-	return m.GoFunc(ctx, d, powerPct)
+	return m.SetPowerFunc(ctx, powerPct)
 }
 
 // GoFor calls the injected GoFor or the real version.
-func (m *Motor) GoFor(ctx context.Context, d pb.DirectionRelative, rpm float64, revolutions float64) error {
+func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
 	if m.GoForFunc == nil {
-		return m.Motor.GoFor(ctx, d, rpm, revolutions)
+		return m.Motor.GoFor(ctx, rpm, revolutions)
 	}
-	return m.GoForFunc(ctx, d, rpm, revolutions)
+	return m.GoForFunc(ctx, rpm, revolutions)
 }
 
 // GoTo calls the injected GoTo or the real version.
-func (m *Motor) GoTo(ctx context.Context, rpm float64, position float64) error {
+func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
 	if m.GoToFunc == nil {
-		return m.Motor.GoTo(ctx, rpm, position)
+		return m.Motor.GoTo(ctx, rpm, positionRevolutions)
 	}
-	return m.GoToFunc(ctx, rpm, position)
+	return m.GoToFunc(ctx, rpm, positionRevolutions)
+}
+
+// ResetZeroPosition calls the injected Zero or the real version.
+func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	if m.ResetZeroPositionFunc == nil {
+		return m.Motor.ResetZeroPosition(ctx, offset)
+	}
+	return m.ResetZeroPositionFunc(ctx, offset)
+}
+
+// GetPosition calls the injected Position or the real version.
+func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
+	if m.GetPositionFunc == nil {
+		return m.Motor.GetPosition(ctx)
+	}
+	return m.GetPositionFunc(ctx)
+}
+
+// GetFeatures calls the injected GetFeatures or the real version.
+func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	if m.GetFeaturesFunc == nil {
+		return m.Motor.GetFeatures(ctx)
+	}
+	return m.GetFeaturesFunc(ctx)
+}
+
+// Stop calls the injected Off or the real version.
+func (m *Motor) Stop(ctx context.Context) error {
+	if m.StopFunc == nil {
+		return m.Motor.Stop(ctx)
+	}
+	return m.StopFunc(ctx)
+}
+
+// IsPowered calls the injected IsPowered or the real version.
+func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	if m.IsPoweredFunc == nil {
+		return m.Motor.IsPowered(ctx)
+	}
+	return m.IsPoweredFunc(ctx)
+}
+
+// LocalMotor is an injected motor that supports additional features provided by RDK
+// (e.g. GoTillStop).
+type LocalMotor struct {
+	Motor
+	GoTillStopFunc func(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
 }
 
 // GoTillStop calls the injected GoTillStop or the real version.
-func (m *Motor) GoTillStop(ctx context.Context, d pb.DirectionRelative, rpm float64, stopFunc func(ctx context.Context) bool) error {
+func (m *LocalMotor) GoTillStop(
+	ctx context.Context, rpm float64,
+	stopFunc func(ctx context.Context) bool,
+) error {
 	if m.GoTillStopFunc == nil {
-		return m.Motor.GoTillStop(ctx, d, rpm, stopFunc)
+		stoppableMotor, ok := m.Motor.Motor.(motor.LocalMotor)
+		if !ok {
+			return motor.NewGoTillStopUnsupportedError("(name unavailable)")
+		}
+		return stoppableMotor.GoTillStop(ctx, rpm, stopFunc)
 	}
-	return m.GoTillStopFunc(ctx, d, rpm, stopFunc)
-}
-
-// Zero calls the injected Zero or the real version.
-func (m *Motor) Zero(ctx context.Context, offset float64) error {
-	if m.ZeroFunc == nil {
-		return m.Motor.Zero(ctx, offset)
-	}
-	return m.ZeroFunc(ctx, offset)
-}
-
-// Position calls the injected Position or the real version.
-func (m *Motor) Position(ctx context.Context) (float64, error) {
-	if m.PositionFunc == nil {
-		return m.Motor.Position(ctx)
-	}
-	return m.PositionFunc(ctx)
-}
-
-// PositionSupported calls the injected PositionSupported or the real version.
-func (m *Motor) PositionSupported(ctx context.Context) (bool, error) {
-	if m.PositionSupportedFunc == nil {
-		return m.Motor.PositionSupported(ctx)
-	}
-	return m.PositionSupportedFunc(ctx)
-}
-
-// Off calls the injected Off or the real version.
-func (m *Motor) Off(ctx context.Context) error {
-	if m.OffFunc == nil {
-		return m.Motor.Off(ctx)
-	}
-	return m.OffFunc(ctx)
-}
-
-// IsOn calls the injected IsOn or the real version.
-func (m *Motor) IsOn(ctx context.Context) (bool, error) {
-	if m.IsOnFunc == nil {
-		return m.Motor.IsOn(ctx)
-	}
-	return m.IsOnFunc(ctx)
+	return m.GoTillStopFunc(ctx, rpm, stopFunc)
 }

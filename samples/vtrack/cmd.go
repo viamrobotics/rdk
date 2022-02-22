@@ -2,17 +2,17 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"time"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
-	"go.viam.com/core/config"
-	robotimpl "go.viam.com/core/robot/impl"
-	"go.viam.com/core/vision/segmentation"
-
-	"github.com/edaniels/golog"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var logger = golog.NewDevelopmentLogger("vtrack")
@@ -24,7 +24,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -33,14 +33,14 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	defer myRobot.Close()
+	defer myRobot.Close(ctx)
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	fc, ok := myRobot.CameraByName("front-composed")
-	if !ok {
-		return errors.New("no front-composed camera")
+	fc, err := camera.FromRobot(myRobot, "front-composed")
+	if err != nil {
+		return err
 	}
 
 	for {
@@ -57,7 +57,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 		logger.Debugw("NextPointCloud", "took", time.Since(start).String())
 		startInner := time.Now()
-		config := segmentation.ObjectConfig{50000, 500, 10}
+		config := &vision.Parameters3D{50000, 500, 10}
 		_, err = segmentation.NewObjectSegmentation(ctx, pc, config)
 		if err != nil {
 			return err

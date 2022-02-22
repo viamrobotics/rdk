@@ -3,16 +3,25 @@ package status
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/go-errors/errors"
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"go.viam.com/core/component/arm"
-	"go.viam.com/core/component/gantry"
-	pb "go.viam.com/core/proto/api/v1"
-	"go.viam.com/core/robot"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
+	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gantry"
+	"go.viam.com/rdk/component/gripper"
+	"go.viam.com/rdk/component/input"
+	"go.viam.com/rdk/component/motor"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/component/servo"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/robot"
 )
 
 // Create constructs a new up to date status from the given robot.
@@ -22,6 +31,8 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 	var err error
 	var status pb.Status
 
+	status.Services = make(map[string]bool)
+
 	// manually refresh all remotes to get an up to date status
 	for _, name := range r.RemoteNames() {
 		remote, ok := r.RemoteByName(name)
@@ -30,13 +41,14 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 		if refresher, ok := remote.(robot.Refresher); ok {
 			if err := refresher.Refresh(ctx); err != nil {
-				return nil, errors.Errorf("error refreshing remote %q: %w", name, err)
+				return nil, errors.Wrapf(err, "error refreshing remote %q", name)
 			}
 		}
 	}
 
 	for _, name := range r.ResourceNames() {
-		if name.Subtype == arm.Subtype {
+		switch {
+		case name.Subtype == arm.Subtype:
 			if status.Arms == nil {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
@@ -52,7 +64,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			armStatus := &pb.ArmStatus{}
 
-			gridPosition, err := arm.CurrentPosition(ctx)
+			gridPosition, err := arm.GetEndPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -68,7 +80,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				}
 			}
 
-			jointPositions, err := arm.CurrentJointPositions(ctx)
+			jointPositions, err := arm.GetJointPositions(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -79,7 +91,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 
 			status.Arms[name.Name] = armStatus
-		} else if name.Subtype == gantry.Subtype {
+		case name.Subtype == gantry.Subtype:
 			if status.Gantries == nil {
 				status.Gantries = make(map[string]*pb.GantryStatus)
 			}
@@ -95,39 +107,41 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 
 			gantryStatus := &pb.GantryStatus{}
 
-			gantryStatus.Positions, err = g.CurrentPosition(ctx)
+			gantryStatus.Positions, err = g.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
 
-			gantryStatus.Lengths, err = g.Lengths(ctx)
+			gantryStatus.Lengths, err = g.GetLengths(ctx)
 			if err != nil {
 				return nil, err
 			}
 
 			status.Gantries[name.Name] = gantryStatus
+		case name.ResourceType == resource.ResourceTypeService:
+			status.Services[name.Subtype.String()] = true
 		}
 	}
 
-	if names := r.GripperNames(); len(names) != 0 {
+	if names := gripper.NamesFromRobot(r); len(names) != 0 {
 		status.Grippers = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Grippers[name] = true
 		}
 	}
 
-	if names := r.BaseNames(); len(names) != 0 {
+	if names := base.NamesFromRobot(r); len(names) != 0 {
 		status.Bases = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Bases[name] = true
 		}
 	}
 
-	if names := r.BoardNames(); len(names) != 0 {
-		status.Boards = make(map[string]*pb.BoardStatus, len(names))
+	if names := board.NamesFromRobot(r); len(names) != 0 {
+		status.Boards = make(map[string]*commonpb.BoardStatus, len(names))
 		for _, name := range names {
-			board, ok := r.BoardByName(name)
-			if !ok {
+			board, err := board.FromRobot(r, name)
+			if err != nil {
 				continue
 			}
 			boardStatus, err := board.Status(ctx)
@@ -138,41 +152,30 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.CameraNames(); len(names) != 0 {
+	if names := camera.NamesFromRobot(r); len(names) != 0 {
 		status.Cameras = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Cameras[name] = true
 		}
 	}
 
-	if names := r.LidarNames(); len(names) != 0 {
-		status.Lidars = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Lidars[name] = true
-		}
-	}
-
-	if names := r.SensorNames(); len(names) != 0 {
+	if names := sensor.NamesFromRobot(r); len(names) != 0 {
 		status.Sensors = make(map[string]*pb.SensorStatus, len(names))
 		for _, name := range names {
-			sensorDevice, ok := r.SensorByName(name)
-			if !ok {
-				continue
-			}
 			status.Sensors[name] = &pb.SensorStatus{
-				Type: string(sensorDevice.Desc().Type),
+				Type: "sensor",
 			}
 		}
 	}
 
-	if names := r.ServoNames(); len(names) != 0 {
+	if names := servo.NamesFromRobot(r); len(names) != 0 {
 		status.Servos = make(map[string]*pb.ServoStatus, len(names))
 		for _, name := range names {
-			x, ok := r.ServoByName(name)
-			if !ok {
-				return nil, fmt.Errorf("servo %q not found", name)
+			x, err := servo.FromRobot(r, name)
+			if err != nil {
+				return nil, err
 			}
-			current, err := x.Current(ctx)
+			current, err := x.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -182,37 +185,27 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.MotorNames(); len(names) != 0 {
+	if names := motor.NamesFromRobot(r); len(names) != 0 {
 		status.Motors = make(map[string]*pb.MotorStatus, len(names))
 		for _, name := range names {
-			x, ok := r.MotorByName(name)
-			if !ok {
-				return nil, fmt.Errorf("motor %q not found", name)
-			}
-			isOn, err := x.IsOn(ctx)
+			x, err := motor.FromRobot(r, name)
 			if err != nil {
 				return nil, err
 			}
-			position, err := x.Position(ctx)
+			isOn, err := x.IsPowered(ctx)
 			if err != nil {
 				return nil, err
 			}
-			positionSupported, err := x.PositionSupported(ctx)
+			position, err := x.GetPosition(ctx)
 			if err != nil {
 				return nil, err
 			}
-			pid := x.PID()
+			features, err := x.GetFeatures(ctx)
+			if err != nil {
+				return nil, err
+			}
+			positionSupported := features[motor.PositionReporting]
 			var str *structpb.Struct
-			if pid != nil {
-				pcfg, err := pid.Config(ctx)
-				if err != nil {
-					return nil, err
-				}
-				str, err = structpb.NewStruct(pcfg.Attributes)
-				if err != nil {
-					return nil, err
-				}
-			}
 			status.Motors[name] = &pb.MotorStatus{
 				On:                isOn,
 				Position:          position,
@@ -222,14 +215,14 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		}
 	}
 
-	if names := r.InputControllerNames(); len(names) != 0 {
+	if names := input.NamesFromRobot(r); len(names) != 0 {
 		status.InputControllers = make(map[string]*pb.InputControllerStatus, len(names))
 		for _, name := range names {
-			controller, ok := r.InputControllerByName(name)
-			if !ok {
-				return nil, fmt.Errorf("input controller %q not found", name)
+			controller, err := input.FromRobot(r, name)
+			if err != nil {
+				return nil, err
 			}
-			eventsIn, err := controller.LastEvents(ctx)
+			eventsIn, err := controller.GetEvents(ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -250,12 +243,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 		status.Functions = make(map[string]bool, len(names))
 		for _, name := range names {
 			status.Functions[name] = true
-		}
-	}
-	if names := r.ServiceNames(); len(names) != 0 {
-		status.Services = make(map[string]bool, len(names))
-		for _, name := range names {
-			status.Services[name] = true
 		}
 	}
 
