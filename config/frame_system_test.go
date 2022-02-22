@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	servicepb "go.viam.com/rdk/proto/api/service/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
@@ -39,9 +39,9 @@ func TestFrameModelPart(t *testing.T) {
 	result, err := part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
-	exp := &servicepb.FrameSystemServiceConfig{
+	exp := &servicepb.Config{
 		Name: "test",
-		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{
+		FrameConfig: &servicepb.FrameConfig{
 			Parent: "world",
 			Pose:   pose,
 		},
@@ -68,9 +68,9 @@ func TestFrameModelPart(t *testing.T) {
 	result, err = part.ToProtobuf()
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
-	exp = &servicepb.FrameSystemServiceConfig{
+	exp = &servicepb.Config{
 		Name:        "test",
-		FrameConfig: &servicepb.FrameSystemServiceFrameConfig{Parent: "world", Pose: pose},
+		FrameConfig: &servicepb.FrameConfig{Parent: "world", Pose: pose},
 		ModelJson:   jsonData,
 	}
 	test.That(t, result.Name, test.ShouldEqual, exp.Name)

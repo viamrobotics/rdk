@@ -13,7 +13,7 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"

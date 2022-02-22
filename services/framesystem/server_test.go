@@ -9,7 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/framesystem"
@@ -50,7 +50,7 @@ func TestServerConfig(t *testing.T) {
 		injectSvc.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 			return fsConfigs, nil
 		}
-		req := &pb.FrameSystemServiceConfigRequest{}
+		req := &pb.ConfigRequest{}
 		resp, err := fsServer.Config(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
@@ -98,7 +98,7 @@ func TestServerConfig(t *testing.T) {
 		injectSvc.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
 			return nil, expectedErr
 		}
-		req := &pb.FrameSystemServiceConfigRequest{}
+		req := &pb.ConfigRequest{}
 		resp, err := fsServer.Config(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, expectedErr)
@@ -111,7 +111,7 @@ func TestServerConfig(t *testing.T) {
 	fsServer = framesystem.NewServer(injectSubtypeSvc)
 
 	t.Run("test failing on improper service interface", func(t *testing.T) {
-		req := &pb.FrameSystemServiceConfigRequest{}
+		req := &pb.ConfigRequest{}
 		resp, err := fsServer.Config(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -121,7 +121,7 @@ func TestServerConfig(t *testing.T) {
 	fsServer = framesystem.NewServer(injectSubtypeSvc)
 
 	t.Run("test failing on nonexistent server", func(t *testing.T) {
-		req := &pb.FrameSystemServiceConfigRequest{}
+		req := &pb.ConfigRequest{}
 		resp, err := fsServer.Config(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)

@@ -12,7 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -38,8 +38,8 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "forcematrix".
-const SubtypeName = resource.SubtypeName("forcematrix")
+// SubtypeName is a constant that identifies the component resource subtype string "force_matrix".
+const SubtypeName = resource.SubtypeName("force_matrix")
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(

@@ -20,7 +20,7 @@ import (
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/spatialmath"

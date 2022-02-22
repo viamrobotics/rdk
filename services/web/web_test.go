@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"

@@ -59,7 +59,7 @@
     {
       "name": "forcematrixTraditional",
       "model": "forcematrixtraditional_v1",
-      "type": "forcematrix",
+      "type": "force_matrix",
       "attributes": {
         "board": "leo-cam",
         "column_gpio_pins_left_to_right": [
@@ -79,7 +79,7 @@
     {
       "name": "forcematrixWithMux",
       "model": "forcematrixwithmux_v1",
-      "type": "forcematrix",
+      "type": "force_matrix",
       "attributes": {
         "board": "leo-cam",
         "column_gpio_pins_left_to_right": [

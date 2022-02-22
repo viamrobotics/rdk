@@ -7,7 +7,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 )
 
 // Arm is an injected arm.
