@@ -66,7 +66,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeForceMatrix,
+	config.RegisterComponentAttributeMapConverter(config.ComponentType(forcematrix.SubtypeName),
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ForceMatrixConfig
