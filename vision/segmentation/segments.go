@@ -3,9 +3,7 @@ package segmentation
 import (
 	"fmt"
 
-	"github.com/golang/geo/r3"
 	pc "go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -71,7 +69,7 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 	if err != nil {
 		return err
 	}
-	updateClusterCenter(c.Objects[index], point)
+	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index].PointCloud)
 	return nil
 }
 
@@ -86,20 +84,16 @@ func (c *Segments) MergeClusters(from, to int) error {
 		v := pt.Position()
 		c.Indices[v] = to
 		err = c.Objects[to].Set(pt)
-		// update center point
-		updateClusterCenter(c.Objects[to], pt)
 		c.Objects[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
 	if err != nil {
 		return err
 	}
-	c.Objects[from] = nil
+	c.Objects[from] = vision.NewEmptyObject()
+	c.Objects[to].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[to].PointCloud)
+	if err != nil {
+		return err
+	}
 	return nil
-}
-
-func updateClusterCenter(cluster *vision.Object, newPt pc.Point) {
-	center := cluster.BoundingBox.Pose().Point()
-	translation := r3.Vector(newPt.Position()).Sub(center).Mul(1 / (float64(cluster.Size()) + 1))
-	cluster.BoundingBox.Transform(spatialmath.NewPoseFromPoint(translation))
 }

@@ -5,12 +5,14 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -93,12 +95,12 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
-	test.That(t, segs.Objects[0].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-	test.That(t, segs.Objects[1].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-	test.That(t, segs.Objects[0].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[0].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[0].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs.Objects[1].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[1].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[1].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
+	boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 5}), r3.Vector{0, 0, 2})
+	test.That(t, err, test.ShouldBeNil)
+	box, err := spatialmath.NewGeometryFromProto(segs.Objects[0].Geometries.Geometries[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
+	box, err = spatialmath.NewGeometryFromProto(segs.Objects[1].Geometries.Geometries[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
 }

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
@@ -143,14 +145,15 @@ func TestGetObjectPointClouds(t *testing.T) {
 	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
-	test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[0].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs[1].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.DepthMm, test.ShouldEqual, 2)
+
+	boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 5}), r3.Vector{0, 0, 2})
+	test.That(t, err, test.ShouldBeNil)
+	box, err := pointcloud.BoundingBoxFromPointCloud(segs[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
+	box, err = pointcloud.BoundingBoxFromPointCloud(segs[1])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
@@ -248,14 +251,15 @@ func TestFullClientServerLoop(t *testing.T) {
 	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
-	test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[0].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs[1].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.DepthMm, test.ShouldEqual, 2)
+
+	boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 5}), r3.Vector{0, 0, 2})
+	test.That(t, err, test.ShouldBeNil)
+	box, err := pointcloud.BoundingBoxFromPointCloud(segs[0])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
+	box, err = pointcloud.BoundingBoxFromPointCloud(segs[1])
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
 
 	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 }
