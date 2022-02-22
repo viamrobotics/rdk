@@ -64,15 +64,15 @@ func (server *subtypeServer) GetObjectPointClouds(
 	}, nil
 }
 
-func segmentsToProto(frame string, segs []*vision.Object) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, len(segs))
+func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointCloudObject, error) {
+	protoSegs := make([]*commonpb.PointCloudObject, 0, len(segs))
 	for _, seg := range segs {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}
-		ps := &pb.PointCloudObject{
+		ps := &commonpb.PointCloudObject{
 			PointCloud: buf.Bytes(),
 			Geometries: &commonpb.GeometriesInFrame{
 				Geometries:     []*commonpb.Geometry{seg.BoundingBox.ToProtobuf()},

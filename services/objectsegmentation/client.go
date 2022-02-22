@@ -10,7 +10,9 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
+
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
@@ -72,7 +74,7 @@ func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, pa
 	return protoToObjects(resp.Objects)
 }
 
-func protoToObjects(pco []*pb.PointCloudObject) ([]*vision.Object, error) {
+func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) {
 	objects := make([]*vision.Object, len(pco))
 	for i, o := range pco {
 		pc, err := pointcloud.ReadPCD(bytes.NewReader(o.PointCloud))
