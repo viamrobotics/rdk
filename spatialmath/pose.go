@@ -103,7 +103,7 @@ func NewPoseFromDH(a, d, alpha float64) Pose {
 // It converts the poses to dual quaternions and multiplies them together, normalizes the transform and returns a new Pose.
 // Composition does not commute in general, i.e. you cannot guarantee ABx == BAx.
 func Compose(a, b Pose) Pose {
-	result := &DualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
+	result := &dualQuaternion{dualQuaternionFromPose(a).Transformation(dualQuaternionFromPose(b).Number)}
 
 	// Normalization
 	if vecLen := 1 / quat.Abs(result.Real); vecLen != 1 {
@@ -117,7 +117,7 @@ func Compose(a, b Pose) Pose {
 
 // PoseBetween returns the difference between two dualQuaternions, that is, the dq which if multiplied by one will give the other.
 func PoseBetween(a, b Pose) Pose {
-	return &DualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
+	return &dualQuaternion{dualquat.Mul(dualQuaternionFromPose(b).Number, dualquat.ConjQuat(dualQuaternionFromPose(a).Number))}
 }
 
 // PoseDelta returns the difference between two dualQuaternion.
@@ -222,10 +222,10 @@ func (pF *PoseInFrame) Pose() Pose {
 }
 
 // NewPoseInFrame generates a new PoseInFrame.
-func NewPoseInFrame(frame string, pose Pose) *PoseInFrame {
+func NewPoseInFrame(frame string, pose *Pose) *PoseInFrame {
 	return &PoseInFrame{
 		frame: frame,
-		pose:  pose,
+		pose:  *pose,
 	}
 }
 

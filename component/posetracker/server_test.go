@@ -47,8 +47,9 @@ func TestGetPoses(t *testing.T) {
 	workingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
+		zeroPose := spatialmath.NewZeroPose()
 		return posetracker.BodyToPoseInFrame{
-			bodyName: spatialmath.NewPoseInFrame(bodyFrame, spatialmath.NewZeroPose()),
+			bodyName: spatialmath.NewPoseInFrame(bodyFrame, &zeroPose),
 		}, nil
 	}
 	poseFailureErr := errors.New("failure to get poses")

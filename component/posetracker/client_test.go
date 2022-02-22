@@ -3,14 +3,14 @@ package posetracker_test
 import (
 	"context"
 	"errors"
+	"math"
 	"net"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
-	"gonum.org/v1/gonum/num/dualquat"
-	"gonum.org/v1/gonum/num/quat"
 
 	"go.viam.com/rdk/component/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
@@ -38,20 +38,21 @@ func TestClient(t *testing.T) {
 	workingPT := &inject.PoseTracker{}
 	failingPT := &inject.PoseTracker{}
 
-	// displacement by (2,4,6)
-	bodyDisp := dualquat.Number{
-		Real: quat.Number{Real: 1},
-		Dual: quat.Number{Imag: 1, Jmag: 2, Kmag: 3},
-	}
-	// rotation by 180 degrees
-	bodyRot := dualquat.Number{Real: quat.Number{Real: 0, Imag: 1}}
-	poseAsDualQuat := dualquat.Mul(bodyRot, bodyDisp)
-	pose := spatialmath.DualQuaternion{poseAsDualQuat}
-
+	pose := spatialmath.NewPoseFromAxisAngle(
+		r3.Vector{X: 2, Y: 4, Z: 6},
+		r3.Vector{X: 0, Y: 0, Z: 1},
+		math.Pi,
+	)
+	pose2 := spatialmath.NewPoseFromAxisAngle(
+		r3.Vector{X: 1, Y: 2, Z: 3},
+		r3.Vector{X: 0, Y: 0, Z: 1},
+		math.Pi,
+	)
+	zeroPose := spatialmath.NewZeroPose()
 	bodyToPoseInFrameAll := posetracker.BodyToPoseInFrame{
-		zeroPoseBody:     spatialmath.NewPoseInFrame(bodyFrame, spatialmath.NewZeroPose()),
+		zeroPoseBody:     spatialmath.NewPoseInFrame(bodyFrame, &zeroPose),
 		nonZeroPoseBody:  spatialmath.NewPoseInFrame(bodyFrame, &pose),
-		nonZeroPoseBody2: spatialmath.NewPoseInFrame(otherBodyFrame, &pose),
+		nonZeroPoseBody2: spatialmath.NewPoseInFrame(otherBodyFrame, &pose2),
 	}
 	poseTester := func(
 		t *testing.T, receivedPoseInFrames posetracker.BodyToPoseInFrame,
