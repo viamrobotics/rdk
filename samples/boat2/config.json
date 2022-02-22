@@ -10,45 +10,6 @@
                 "digitalInterrupts":
                 [
                     {
-                        "name": "throttle",
-                        "note": "rc1",
-                        "pin": "33",
-                        "type": "servo",
-                        "formula": "(max 0 (/ (- raw 1150) 8))"
-                    },
-                    {
-                        "name": "direction",
-                        "pin": "35",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) -4)"
-                    },
-                    {
-                        "name": "speed",
-                        "note": "rc3",
-                        "pin": "37",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) 4)"
-                    },
-                    {
-                        "name": "left-horizontal",
-                        "note": "rc4",
-                        "pin": "36",
-                        "type": "servo",
-                        "formula": "(/ (- raw 1500) -4)"
-                    },
-                    {
-                        "name": "a",
-                        "note": "rc5",
-                        "pin": "38",
-                        "type": "servo"
-                    },
-                    {
-                        "name": "mode",
-                        "note": "rc6",
-                        "pin": "40",
-                        "type": "servo"
-                    },
-                    {
                         "name": "encoder-steering-a",
                         "pin": "io23"
                     },
@@ -159,7 +120,12 @@
             "type": "gps",
             "model": "nmea-serial",
             "attributes" : {
-                "path" : "/dev/ttyAMA0"
+                "path" : "/dev/serial/by-id/usb-u-blox_AG_-_www.u-blox.com_u-blox_GNSS_receiver-if00",
+                "ntrip" : "http://rtn.dot.ny.gov:8082/NJI2",
+                "username" : "john",
+                "password" : "johnviam",
+                "writepath" : "",
+                "writebaud" : 38400
             }
             
         },
@@ -168,14 +134,38 @@
             "type" : "imu",
             "model" : "wit",
             "attributes" : {
-                "port" : "/dev/ttyUSB1"
+                "port" : "/dev/ttyUSB0"
             }
         },
         {
             "name" : "base1",
             "type" : "base",
             "model" : "viam-boat2"
-        }
+        },
+        { "name" : "wc",
+            "type" : "camera",
+            "model" : "webcam",
+            "attributes" : {
+            }
+        },
+        {
+            "name": "WebGamepad",
+            "model": "webgamepad",
+            "type": "input_controller"
+        },
+        {
+            "name": "BoatRC",
+            "model": "mux",
+            "type": "input_controller",
+            "depends_on": [
+              "WebGamepad"
+            ],
+            "attributes": {
+              "sources": [
+                "WebGamepad"
+              ]
+            }
+          }
     ],
     "services":
     [
