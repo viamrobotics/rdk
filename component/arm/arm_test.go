@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -27,14 +28,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mock{Name: testArmName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case arm.Named(testArmName):
-			return arm1, true
+			return arm1, nil
 		case arm.Named(fakeArmName):
-			return "not an arm", true
+			return "not an arm", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

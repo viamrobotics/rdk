@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -76,8 +77,8 @@ func TestServiceFailures(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(resource.Name) (interface{}, error) {
+		return nil, errors.New("no resources exist with this name")
 	}
 	// fails on not finding the service
 	_, err := objectsegmentation.FromRobot(r)
@@ -101,12 +102,12 @@ func TestServiceFailures(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, true
+			return cam, nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 
@@ -130,12 +131,12 @@ func TestGetObjectPointClouds(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, true
+			return cam, nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 
@@ -158,8 +159,8 @@ func TestGetObjectPointClouds(t *testing.T) {
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return svc1, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
 	}
 	return r, svc1
 }
@@ -176,8 +177,8 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldHaveLength, 2)
 	test.That(t, svc1.timesCalled, test.ShouldEqual, 1)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "not object segmentation", true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "not object segmentation", nil
 	}
 
 	svc, err = objectsegmentation.FromRobot(r)
@@ -185,8 +186,8 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "expected implementation of objectsegmentation.Service")
 	test.That(t, svc, test.ShouldBeNil)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, errors.New("no resources exist with this name")
 	}
 
 	svc, err = objectsegmentation.FromRobot(r)
@@ -223,12 +224,12 @@ func TestFullClientServerLoop(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{camera.Named("fakeCamera")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
 		case "fakeCamera":
-			return cam, true
+			return cam, nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	oss, err := objectsegmentation.New(context.Background(), r, cfgService, logger)

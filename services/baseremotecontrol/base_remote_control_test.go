@@ -23,14 +23,14 @@ func TestBaseRemoteControl(t *testing.T) {
 	fakeRobot := &inject.Robot{}
 	fakeController := &inject.InputController{}
 
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case input.Subtype:
-			return fakeController, true
+			return fakeController, nil
 		case base.Subtype:
-			return &fakebase.Base{}, true
+			return &fakebase.Base{}, nil
 		}
-		return nil, false
+		return nil, errors.New("no resources exist with this name")
 	}
 
 	fakeController.RegisterControlCallbackFunc = func(
@@ -73,11 +73,11 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, ok, test.ShouldBeTrue)
 
 	// Controller import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Subtype == base.Subtype {
-			return &fakebase.Base{}, true
+			return &fakebase.Base{}, nil
 		}
-		return nil, false
+		return nil, errors.New("no resources exist with this name")
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -90,11 +90,11 @@ func TestBaseRemoteControl(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:component:input_controller\" not found"))
 
 	// Base import failure
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Subtype == input.Subtype {
-			return fakeController, true
+			return fakeController, nil
 		}
-		return nil, false
+		return nil, errors.New("no resources exist with this name")
 	}
 
 	_, err = New(ctx, fakeRobot,

@@ -54,8 +54,8 @@ func TestTMCStepperMotor(t *testing.T) {
 	b.SPIs = map[string]*fakeboard.SPI{}
 	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
 	r := inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return b, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return b, nil
 	}
 
 	mc := tmcstepper.TMC5072Config{

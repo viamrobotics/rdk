@@ -19,7 +19,7 @@ import (
 type Robot struct {
 	robot.Robot
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
-	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
+	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc    func() []string
 	FunctionNamesFunc  func() []string
 	FrameSystemFunc    func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
@@ -41,7 +41,7 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
 	if r.ResourceByNameFunc == nil {
 		return r.Robot.ResourceByName(name)
 	}

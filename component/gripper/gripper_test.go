@@ -2,6 +2,7 @@ package gripper_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -24,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gripper1 := &mock{Name: testGripperName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gripper.Named(testGripperName):
-			return gripper1, true
+			return gripper1, nil
 		case gripper.Named(fakeGripperName):
-			return "not a gripper", true
+			return "not a gripper", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

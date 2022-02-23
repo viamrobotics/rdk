@@ -72,8 +72,8 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	}
 
 	for _, s := range conf.SubAxes {
-		oneAx, ok := r.ResourceByName(gantry.Named(s))
-		if !ok {
+		oneAx, err := r.ResourceByName(gantry.Named(s))
+		if err != nil {
 			return nil, errors.Errorf("no axes named [%s]", s)
 		}
 		subAx, ok := oneAx.(gantry.Gantry)

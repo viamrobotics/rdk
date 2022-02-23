@@ -156,8 +156,8 @@ var (
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
 func FromRobot(r robot.Robot, name string) (Camera, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
 		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	part, ok := res.(Camera)

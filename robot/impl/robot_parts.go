@@ -393,18 +393,25 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
+func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error) {
+	partExists := false
 	part, ok := parts.resources.Nodes[name]
 	if ok {
-		return part, true
+		partExists = true
 	}
 	for _, remote := range parts.remotes {
-		part, ok := remote.ResourceByName(name)
-		if ok {
-			return part, true
+		part, err := remote.ResourceByName(name)
+		if err == nil {
+			if partExists {
+				return nil, errors.New("there are multiple resources with the same name. Change name to avoid duplicates to access")
+			}
+			return part, nil
 		}
 	}
-	return nil, false
+	if partExists {
+		return part, nil
+	}
+	return nil, errors.New("no resources exist with this name")
 }
 
 // PartsMergeResult is the result of merging in parts together.
@@ -583,8 +590,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
@@ -594,8 +601,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {

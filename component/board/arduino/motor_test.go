@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/motor"
@@ -41,8 +42,8 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, errors.New("no resources exist with this name")
 		}
 		_motor, err := motorReg.Constructor(
 			context.Background(), _robot, badBoardConfig, logger)
@@ -59,8 +60,8 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Board{}, true
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return &inject.Board{}, nil
 		}
 		_motor, err := motorReg.Constructor(
 			context.Background(), _robot, badBoardConfig, logger)
