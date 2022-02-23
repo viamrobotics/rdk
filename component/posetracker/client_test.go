@@ -49,7 +49,7 @@ func TestClient(t *testing.T) {
 		math.Pi,
 	)
 	zeroPose := spatialmath.NewZeroPose()
-	bodyToPoseInFrameAll := posetracker.BodyToPoseInFrame{
+	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
 		zeroPoseBody:     spatialmath.NewPoseInFrame(bodyFrame, &zeroPose),
 		nonZeroPoseBody:  spatialmath.NewPoseInFrame(bodyFrame, &pose),
 		nonZeroPoseBody2: spatialmath.NewPoseInFrame(otherBodyFrame, &pose2),
@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 		t.Helper()
 		poseInFrame, ok := receivedPoseInFrames[bodyName]
 		test.That(t, ok, test.ShouldBeTrue)
-		expectedPoseInFrame := bodyToPoseInFrameAll[bodyName]
+		expectedPoseInFrame := allBodiesToPoseInFrames[bodyName]
 		test.That(t, poseInFrame.Frame(), test.ShouldEqual, expectedPoseInFrame.Frame())
 		poseEqualToExpected := spatialmath.PoseAlmostEqual(poseInFrame.Pose(), expectedPoseInFrame.Pose())
 		test.That(t, poseEqualToExpected, test.ShouldBeTrue)
@@ -70,7 +70,7 @@ func TestClient(t *testing.T) {
 	workingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
 		posetracker.BodyToPoseInFrame, error,
 	) {
-		return bodyToPoseInFrameAll, nil
+		return allBodiesToPoseInFrames, nil
 	}
 
 	failingPT.GetPosesFunc = func(ctx context.Context, bodyNames []string) (
