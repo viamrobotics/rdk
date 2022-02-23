@@ -8,7 +8,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
-	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // serviceClient is a client that satisfies the pose_tracker.proto contract.
@@ -85,7 +85,7 @@ func (c *client) GetPoses(
 	}
 	result := BodyToPoseInFrame{}
 	for key, pf := range resp.GetBodyPoses() {
-		result[key] = spatialmath.ProtobufToPoseInFrame(pf)
+		result[key] = referenceframe.ProtobufToPoseInFrame(pf)
 	}
 	return result, nil
 }

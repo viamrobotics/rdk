@@ -11,11 +11,11 @@ import (
 	"go.viam.com/utils/rpc"
 
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -58,7 +58,7 @@ var (
 )
 
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.
-type BodyToPoseInFrame map[string]*spatialmath.PoseInFrame
+type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 
 // A PoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
