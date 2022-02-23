@@ -79,8 +79,8 @@ var (
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
 func FromRobot(r robot.Robot, name string) (Arm, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
 		return nil, utils.NewResourceNotFoundError(Named(name))
 	}
 	part, ok := res.(Arm)

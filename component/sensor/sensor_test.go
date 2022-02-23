@@ -2,6 +2,7 @@ package sensor_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -25,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	sensor1 := &mock{Name: testSensorName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case sensor.Named(testSensorName):
-			return sensor1, true
+			return sensor1, nil
 		case sensor.Named(fakeSensorName):
-			return "not a sensor", true
+			return "not a sensor", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

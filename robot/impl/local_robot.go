@@ -53,7 +53,7 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	return r.parts.ResourceByName(name)
 }
 
@@ -125,9 +125,19 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
+<<<<<<< HEAD
 	fsService, err := framesystem.FromRobot(r)
 	if err != nil {
 		return nil, err
+=======
+	service, err := r.ResourceByName(framesystem.Name)
+	if err != nil {
+		return nil, errors.New("service frame_system not found")
+	}
+	fsService, ok := service.(framesystem.Service)
+	if !ok {
+		return nil, errors.New("service is not a frame_system service")
+>>>>>>> 23df71cd (update ResourceByName function to output an error instead of bool)
 	}
 	parts, err := fsService.Config(ctx)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gantry"
@@ -41,14 +42,14 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case gantry.Subtype:
-			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, true
+			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, nil
 		case motor.Subtype:
-			return &fm.Motor{PositionSupported: true}, true
+			return &fm.Motor{PositionSupported: true}, nil
 		}
-		return nil, false
+		return nil, errors.New("no resources exist with this name")
 	}
 	return fakerobot
 }

@@ -2,6 +2,7 @@ package motor_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -25,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	motor1 := &mock{Name: testMotorName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case motor.Named(testMotorName):
-			return motor1, true
+			return motor1, nil
 		case motor.Named(fakeMotorName):
-			return "not a motor", true
+			return "not a motor", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
