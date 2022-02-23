@@ -8,9 +8,11 @@ import Camera from "./components/Camera.vue";
 import Accordion from "./components/Accordion.vue";
 import ToggleButton from "./components/ToggleButton.vue";
 import VueAccordion from "./components/VueAccordion.vue";
+import ViamButton from "./components/Button.vue";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
     MotorDetail,
+    ViamButton,
     InputController,
     WebGamepad,
     Camera,

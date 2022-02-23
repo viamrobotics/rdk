@@ -83,6 +83,7 @@
 </template>
 
 <script>
+import Vue from 'vue';
 const validator = {
   color: [
     'danger',
@@ -106,8 +107,7 @@ const validator = {
     'secondary',
   ],
 };
-export default {
-  name: 'Button',
+export default Vue.extend({
   validator,
   props: {
     busy: {
@@ -159,5 +159,5 @@ export default {
       validator: (value) => validator.variant.includes(value),
     },
   },
-};
+});
 </script>

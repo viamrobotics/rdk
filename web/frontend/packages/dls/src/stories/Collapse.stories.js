@@ -8,5 +8,5 @@ storiesOf("Collapse", module).add("Default Collapse", () => ({
     };
   },
   template:
-    '<Collapse>Test</Collapse>',
+    '<Collapse>Test<template v-slot:content><div class="content">Test content</div></template></Collapse>',
 }));
