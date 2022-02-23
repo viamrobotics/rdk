@@ -459,9 +459,9 @@
                       });
 
                   },
-                  getReadings : function() {
+                  getReadings : function(sensorNames) {
                       var req = new sensorsApi.GetReadingsRequest();
-                      let names = theData.sensorNames.map(name => {
+                      let names = sensorNames.map(name => {
                         let resourceName = new commonApi.ResourceName()
                         resourceName.setUuid(name.uuid)
                         resourceName.setNamespace(name.namespace)
@@ -1649,20 +1649,20 @@
       <table border=1 v-if="nonEmpty(sensorNames)">
         <tr>
           <th colspan="2">Sensors</th>
-          <th colspan="2"> <button v-on:click="getReadings()">Get All Readings</button></th>
         </tr>
 
         <tr>
           <th>Name</th>
           <th>Type</th>
           <th>Reading</th>
-
+          <th colspan="2"> <button v-on:click="getReadings(sensorNames)">Get All Readings</button></th>
         </tr>
 
         <tr v-for="name in sensorNames">
           <td>${name.name}</td>
           <td>${name.subtype}</td>
           <td>${sensorReadings[resourceNameToString(name)]}</td>
+          <td> <button v-on:click="getReadings([name])">Get Readings</button></td>
         </tr>
 
       </table>
