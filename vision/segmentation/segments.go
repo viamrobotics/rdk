@@ -69,7 +69,10 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 	if err != nil {
 		return err
 	}
-	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index].PointCloud)
+	if c.Objects[index].Size() == 0 {
+		return nil
+	}
+	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index])
 	if err != nil {
 		return err
 	}
@@ -78,11 +81,19 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 
 // MergeClusters moves all the points in index "from" to the segment at index "to".
 func (c *Segments) MergeClusters(from, to int) error {
-	var err error
+	// ensure no out of bounrs errors
 	index := utils.MaxInt(from, to)
 	for index >= len(c.Objects) {
 		c.Objects = append(c.Objects, vision.NewEmptyObject())
 	}
+
+	// if no objects are in the cluster to delete, just return
+	if c.Objects[from].Size() == 0 {
+		return nil
+	}
+
+	// perform merge
+	var err error
 	c.Objects[from].Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
 		c.Indices[v] = to
@@ -94,7 +105,7 @@ func (c *Segments) MergeClusters(from, to int) error {
 		return err
 	}
 	c.Objects[from] = vision.NewEmptyObject()
-	c.Objects[to].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[to].PointCloud)
+	c.Objects[to].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[to])
 	if err != nil {
 		return err
 	}
