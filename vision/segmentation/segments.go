@@ -70,6 +70,9 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 		return err
 	}
 	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index].PointCloud)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

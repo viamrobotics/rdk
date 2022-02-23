@@ -7,8 +7,9 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/spatialmath"
 	"gonum.org/v1/gonum/stat"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
@@ -32,6 +33,7 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 	return colorSegmentation, nil
 }
 
+// BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	if cloud.Size() == 0 {
 		return nil, errors.New("cannot calculate bounding box from point cloud of size zero")

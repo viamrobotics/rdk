@@ -91,7 +91,6 @@ func TestAssignCluter(t *testing.T) {
 	test.That(t, clusters.N(), test.ShouldEqual, 101)
 	test.That(t, clusters.Indices[pNew.Position()], test.ShouldEqual, 100)
 	testPointCloudBoundingBox(t, clusters.Objects[100], r3.Vector{30, 30, 30}, r3.Vector{})
-
 }
 
 func TestMergeCluster(t *testing.T) {

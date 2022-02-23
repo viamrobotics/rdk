@@ -36,6 +36,7 @@ var testPointCloud = []pointcloud.Point{
 }
 
 func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
+	t.Helper()
 	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
 	test.That(t, err, test.ShouldBeNil)
 	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
