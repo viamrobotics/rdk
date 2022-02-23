@@ -15,6 +15,12 @@ type (
 	KeyPoints []image.Point // set of keypoints type
 )
 
+// OrientedKeypoints stores keypoint locations and orientations (nil if not oriented).
+type OrientedKeypoints struct {
+	Points       KeyPoints
+	Orientations []float64
+}
+
 // PlotKeypoints plots keypoints on image.
 func PlotKeypoints(img *image.Gray, kps []image.Point, outName string) error {
 	w, h := img.Bounds().Max.X, img.Bounds().Max.Y
