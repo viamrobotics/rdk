@@ -160,13 +160,13 @@ func Clamp(value float64, min float64, max float64) float64 {
 func SampleNIntegersNormal(n int, vMin, vMax float64) []int {
 	z := make([]int, n)
 	// get normal distribution centered on (vMax-vMin) / 2 and whose sampled are mostly in [vMin, vMax] (var=0.1)
-	mean := (vMax - vMin) / 2
+	mean := (vMax + vMin) / 2
 	dist := distuv.Normal{
 		Mu:    mean,
-		Sigma: vMax * 0.4472,
+		Sigma: (vMax - vMin) * 0.4472,
 	}
 	for i := range z {
-		val := math.Round(vMax * dist.Rand())
+		val := math.Round(dist.Rand())
 		for val < vMin || val > vMax {
 			val = math.Round(dist.Rand())
 		}
