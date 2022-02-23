@@ -62,7 +62,7 @@ func GetGaussian3() Kernel {
 	}
 }
 
-// GetGaussian5 returns the Kernel corresponding to 3x3 Gaussian blurring kernel.
+// GetGaussian5 returns the Kernel corresponding to 5x5 Gaussian blurring kernel.
 func GetGaussian5() Kernel {
 	return Kernel{
 		[][]float64{
