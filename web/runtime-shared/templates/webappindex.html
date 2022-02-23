@@ -1324,220 +1324,210 @@
       </div>
 
       <div style="color: red">${ error }</div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <!-- ******* BASE *******  -->
+          <div class="base" v-for="base in status.basesMap" :key="base[0]">
+            <h3>${base[0]}</h3>
+            <ul>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button" v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</button></li>
+              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</button></li>
+            </ul>
 
-      <!-- ******* BASE *******  -->
-      <div class="base" v-for="base in status.basesMap" :key="base[0]">
-        <h3>${base[0]}</h3>
-        <ul>
-          <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</button></li>
-        </ul>
-
-        Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-        Distances (mm): <input id="distance" name="distance" value="500"/><br>
-        Angle (degree): <input id="angle" name="angle" value="0"/><br>
-      </div>
-
-      <!-- ******* GANTRY *******  -->
-      <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name">
-        <h3>Gantry ${gantry.name}</h3>
-        <table>
-          <tr>
-            <th>axis</th>
-            <th>position</th>
-            <th>length</th>
-          </tr>
-          <tr v-for="pp in gantryByName(gantry.name).parts" :key="pp.axis">
-            <th>${pp.axis}</th>
-            <td>
-              <button v-on:click="gantryInc( gantry.name, pp.axis, -.1 )">--</button>
-              <button v-on:click="gantryInc( gantry.name, pp.axis, -.01 )">-</button>
-              <button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</button>
-              <button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</button>
-            </td>
-            <td>${pp.pos.toFixed(2)}</td>
-            <td>${pp.length}</td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- ******* ForceMatrix *******  -->
-      <div>
-        <div v-for="(forcematrix, x) in filterResources('rdk', 'component', 'forcematrix').entries()" :key="forcematrix[1].name">
-          <hr>
-          <h2>ForceMatrix: ${forcematrix[1].name}</h2>
-          <template>
-            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
-            <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
-            <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
-            <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
-            <div :id="'force-3d-id-' + x"></div>
-          </template>
+            Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
+            Distances (mm): <input id="distance" name="distance" value="500"/><br>
+            Angle (degree): <input id="angle" name="angle" value="0"/><br>
+          </div>
         </div>
-        <hr>
-      </div>
-
-      <!-- ******* IMU *******  -->
-      <div>
-        <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
-          <hr>
-          <h2>IMU: ${imu[1].name}</h2>
-          <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
-            <tr><th colspan="2">Orientation (degrees)</th></tr>
-            <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
-            <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
-            <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
-            <tr><th colspan="2">Angular Velocity</th></tr>
-            <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
-            <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
-            <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
-          </table>
+        <div>
+          <!-- ******* GANTRY *******  -->
+          <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name">
+            <h3>Gantry ${gantry.name}</h3>
+            <table>
+              <tr>
+                <th>axis</th>
+                <th>position</th>
+                <th>length</th>
+              </tr>
+              <tr v-for="pp in gantryByName(gantry.name).parts" :key="pp.axis">
+                <th>${pp.axis}</th>
+                <td>
+                  <button v-on:click="gantryInc( gantry.name, pp.axis, -.1 )">--</button>
+                  <button v-on:click="gantryInc( gantry.name, pp.axis, -.01 )">-</button>
+                  <button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</button>
+                  <button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</button>
+                </td>
+                <td>${pp.pos.toFixed(2)}</td>
+                <td>${pp.length}</td>
+              </tr>
+            </table>
+          </div>
         </div>
-        <hr>
-      </div>
-
-
-      <!-- ******* ARM *******  -->
-      <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
-        <h3>Arm ${arm.name}</h3>
-        <table v-if="armToggle[arm.name]" border="1">
-          <tr>
-            <th colspan="2"><h5>GRID (mms)</h5></th>
-            <th colspan="2"><h5>JOINTS (degrees)</h5></th>
-          </tr>
-          <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
-            <th>${aa.grid[0]}</th>
-            <td><input v-model="aa.gridValue"></td>
-
-            <th>Joint ${aa.joint}</th>
-            <td><input v-model="aa.jointValue"></td>
-          </tr>
-          <tr>
-            <th colspan="6">
-              <button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</button>
-              <button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</button>
-              <button v-on:click="armModifyAllCancel(arm.name)">Cancel</button>
-            </th>
-          </tr>
-        </table>
-        <table border="1" v-else>
-          <tr>
-            <th colspan="3"><h5>GRID (mms)</h5></th>
-            <th colspan="3"><h5>JOINTS (degrees)</h5></th>
-          </tr>
-          <tr v-for="aa in armByName(arm.name).pieces" :key="aa.joint">
-            <th>${aa.grid[0]}</th>
-            <td>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
-            </td>
-            <td>${aa.gridValue.toFixed(2)}</td>
-
-            <th>Joint ${aa.joint}</th>
-            <td>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</button>
-            </td>
-            <td>${aa.jointValue.toFixed(2)}</td>
-          </tr>
-          <tr>
-            <th colspan="8">
-              <button v-on:click="armHome(arm.name)">Home</button>
-              <button v-on:click="armModifyAll(arm.name)">Modify All</button>
-            </th>
-          </tr>
-        </table> <!-- end main table -->
-      </div>
-
-      <!-- ******* GRIPPER *******  -->
-      <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
-        <h3>Gripper ${ gripper.name }</h3>
-        <ul>
-          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
-          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
-        </ul>
-      </div>
-
-      <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
-        <h3>Servo ${ servo.name }</h3>
-        <table border="1">
-          <tr><th>Angle</th><td>${servo.angle}</td></tr>
-          <tr>
-            <td></td>
-            <td>
-              <button v-on:click="servoMove(servo.name, -10)">-10</button>
-              <button v-on:click="servoMove(servo.name, -1)">-1</button>
-              <button v-on:click="servoMove(servo.name, 1)">1</button>
-              <button v-on:click="servoMove(servo.name, 10)">10</button>
-            </td>
-          </tr>
-        </table>
-      </div>
-
-      <!-- ******* MOTOR *******  -->
-      <motor-detail
-        v-for="motor in status.motorsMap"
-        :key="'new-' + motor[0]"
-        v-bind:motor-name="motor[0]"
-        v-bind:motor-status="motor[1]"
-        v-on:execute="motorCommand(motor[0], $event)"
-        style="max-width: 1080px;">
-      </motor-detail>
-
-      <!-- ******* INPUT VIEW *******  -->
-      <input-controller
-        v-for="controller in filteredInputControllerList()"
-        :key="'new-' + controller.name"
-        v-bind:controller-name="controller.name"
-        v-bind:controller-status="inputControllerByName(controller.name)[1]"
-        style="max-width: 1080px;">
-      </input-controller>
-
-      <!-- ******* WEB CONTROLS *******  -->
-      <web-gamepad
-        v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
-        v-on:execute="inputInject($event)"
-        style="max-width: 1080px;">
-      </web-gamepad>
-
-      <!-- ******* CAMERAS *******  -->
-      <div class="camera" v-for="streamName in streamNames" :key="streamName">
-        <h3>Camera ${streamName}</h3>
-        <div :id="'stream-' + streamName">
-          <button v-on:click="viewCamera(streamName)">View</button>
+        <div>
+          <!-- ******* ForceMatrix *******  -->
+          <div>
+            <div v-for="(forcematrix, x) in filterResources('rdk', 'component', 'forcematrix').entries()" :key="forcematrix[1].name">
+              <hr>
+              <h2>ForceMatrix: ${forcematrix[1].name}</h2>
+              <template>
+                <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
+                <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
+                <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
+                <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
+                <div :id="'force-3d-id-' + x"></div>
+              </template>
+            </div>
+            <hr>
+          </div>
         </div>
-      </div>
+        <div>
+          <!-- ******* IMU *******  -->
+          <div>
+            <div v-for="(imu, x) in filterResources('rdk', 'component', 'imu').entries()" :key="imu[1].name">
+              <hr>
+              <h2>IMU: ${imu[1].name}</h2>
+              <table v-if="imuData[imu[1].name] && imuData[imu[1].name].angularVelocity">
+                <tr><th colspan="2">Orientation (degrees)</th></tr>
+                <tr><th>Roll</th><td>${imuData[imu[1].name].orientation.rollDeg.toFixed(2)}</td></tr>
+                <tr><th>Pitch</th><td>${imuData[imu[1].name].orientation.pitchDeg.toFixed(2)}</td></tr>
+                <tr><th>Yaw</th><td>${imuData[imu[1].name].orientation.yawDeg.toFixed(2)}</td></tr>
+                <tr><th colspan="2">Angular Velocity</th></tr>
+                <tr><th>X</th><td>${imuData[imu[1].name].angularVelocity.xDegsPerSec.toFixed(2)}</td></tr>
+                <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
+                <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
+              </table>
+            </div>
+            <hr>
+          </div>
+        </div>
+        <div>
+          <!-- ******* ARM *******  -->
+          <div class="arm" v-for="arm in filterResources('rdk', 'component', 'arm')" :key="arm.name">
+            <h3>Arm ${arm.name}</h3>
+            <table v-if="armToggle[arm.name]" border="1">
+              <tr>
+                <th colspan="2"><h5>GRID (mms)</h5></th>
+                <th colspan="2"><h5>JOINTS (degrees)</h5></th>
+              </tr>
+              <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
+                <th>${aa.grid[0]}</th>
+                <td><input v-model="aa.gridValue"></td>
 
-      <!-- ******* BOARD *******  -->
-      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" key="board.name">
-        <h3>Board ${board.name}</h3>
-        <table border="1">
+                <th>Joint ${aa.joint}</th>
+                <td><input v-model="aa.jointValue"></td>
+              </tr>
+              <tr>
+                <th colspan="6">
+                  <button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</button>
+                  <button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</button>
+                  <button v-on:click="armModifyAllCancel(arm.name)">Cancel</button>
+                </th>
+              </tr>
+            </table>
+            <table border="1" v-else>
+              <tr>
+                <th colspan="3"><h5>GRID (mms)</h5></th>
+                <th colspan="3"><h5>JOINTS (degrees)</h5></th>
+              </tr>
+              <tr v-for="aa in armByName(arm.name).pieces" :key="aa.joint">
+                <th>${aa.grid[0]}</th>
+                <td>
+                  <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
+                  <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
+                  <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
+                  <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
+                </td>
+                <td>${aa.gridValue.toFixed(2)}</td>
 
-          <tr><th colspan="2">Analogs</th></tr>
-          <tr v-for="a in boardByName(board.name).analogsMap" :key="a[0]">
-            <th>${a[0]}</th>
-            <td>${a[1].value}</td>
-          </tr>
-
-          <tr><th colspan="2">DigitalInterrupts</th></tr>
-          <tr v-for="di in boardByName(board.name).digitalInterruptsMap" :key="di[0]">
-            <th>${di[0]}</th>
-            <td>${di[1].value}</td>
-          </tr>
-        </table>
-      </div>
-      <!-- end boards -->
-
-      <!-- cameras -->
+                <th>Joint ${aa.joint}</th>
+                <td>
+                  <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
+                  <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
+                  <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
+                  <button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</button>
+                </td>
+                <td>${aa.jointValue.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <th colspan="8">
+                  <button v-on:click="armHome(arm.name)">Home</button>
+                  <button v-on:click="armModifyAll(arm.name)">Modify All</button>
+                </th>
+              </tr>
+            </table> <!-- end main table -->
+          </div>
+        </div>
+        <div>
+          <!-- ******* GRIPPER *******  -->
+          <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
+            <h3>Gripper ${ gripper.name }</h3>
+            <ul>
+              <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
+              <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <!-- ******* SERVO *******  -->
+          <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: 64px;">
+            <h3>Servo ${ servo.name }</h3>
+            <table border="1">
+              <tr><th>Angle</th><td>${servo.angle}</td></tr>
+              <tr>
+                <td></td>
+                <td>
+                  <button v-on:click="servoMove(servo.name, -10)">-10</button>
+                  <button v-on:click="servoMove(servo.name, -1)">-1</button>
+                  <button v-on:click="servoMove(servo.name, 1)">1</button>
+                  <button v-on:click="servoMove(servo.name, 10)">10</button>
+                </td>
+              </tr>
+            </table>
+          </div>
+        </div>
+        <div>
+          <!-- ******* MOTOR *******  -->
+          <motor-detail
+          v-for="motor in status.motorsMap"
+          :key="'new-' + motor[0]"
+          v-bind:motor-name="motor[0]"
+          v-bind:motor-status="motor[1]"
+          v-on:execute="motorCommand(motor[0], $event)"
+          style="max-width: 1080px;">
+        </motor-detail>
+        </div>
+        <div>
+          <!-- ******* INPUT VIEW *******  -->
+          <input-controller
+          v-for="controller in filteredInputControllerList()"
+          :key="'new-' + controller.name"
+          v-bind:controller-name="controller.name"
+          v-bind:controller-status="inputControllerByName(controller.name)[1]"
+          style="max-width: 1080px;">
+          </input-controller>
+        </div>
+        <div>
+          <!-- ******* WEB CONTROLS *******  -->
+          <web-gamepad
+          v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
+          v-on:execute="inputInject($event)"
+          style="max-width: 1080px;">
+          </web-gamepad>
+        </div>
+        <div>
+          <!-- ******* CAMERAS *******  -->
+          <div class="camera" v-for="streamName in streamNames" :key="streamName">
+            <h3>Camera ${streamName}</h3>
+            <div :id="'stream-' + streamName">
+              <button v-on:click="viewCamera(streamName)">View</button>
+            </div>
+          </div>
+        </div>
+        <!-- cameras -->
       <div>
         <Accordion v-if="nonEmpty(filterResources('rdk', 'component', 'camera'))"></Accordion>
       </div>
@@ -1650,15 +1640,39 @@
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
-      <div id="map-container" v-if="hasKey(status.servicesMap, 'rdk:service:navigation')">
-        <br />
-        <br />
-        <button v-on:click="setNavigationMode('manual')">Manual</button>
-        <button v-on:click="setNavigationMode('waypoint')">Waypoint</button>
-        <br />
-        <input type="text" id="nav-set-location" value="40.745297,-74.010916">
-        <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
-        <div id="map" v-map-mounted></div>
+        <div>
+          <!-- ******* BOARD *******  -->
+          <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" key="board.name">
+            <h3>Board ${board.name}</h3>
+            <table border="1">
+
+              <tr><th colspan="2">Analogs</th></tr>
+              <tr v-for="a in boardByName(board.name).analogsMap" :key="a[0]">
+                <th>${a[0]}</th>
+                <td>${a[1].value}</td>
+              </tr>
+
+              <tr><th colspan="2">DigitalInterrupts</th></tr>
+              <tr v-for="di in boardByName(board.name).digitalInterruptsMap" :key="di[0]">
+                <th>${di[0]}</th>
+                <td>${di[1].value}</td>
+              </tr>
+            </table>
+          </div>
+          <!-- end boards -->
+        </div>
+        <div>
+          <div id="map-container" v-if="hasKey(status.servicesMap, 'rdk:service:navigation')">
+            <br />
+            <br />
+            <button v-on:click="setNavigationMode('manual')">Manual</button>
+            <button v-on:click="setNavigationMode('waypoint')">Waypoint</button>
+            <br />
+            <input type="text" id="nav-set-location" value="40.745297,-74.010916">
+            <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
+            <div id="map" v-map-mounted></div>
+          </div>
+        </div>
       </div>
     </div> <!-- end vue app -->
     <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->

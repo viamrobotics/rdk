@@ -5,6 +5,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "lerna run --stream prepare",
     "postinstall": "lerna bootstrap",
     "build": "lerna run build --stream",
     "build:dls": "lerna run build --stream --scope=dls",

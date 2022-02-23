@@ -23,8 +23,7 @@ build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web: buf-web
-	cd web/frontend/core-components && npm install && npm run build:prod
-	cd web/frontend && npm install && npx webpack
+	cd web/frontend && npm run prepare && npm install && npm run build
 
 tool-install:
 	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \
