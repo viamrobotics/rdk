@@ -2,6 +2,7 @@ package vforcematrixtraditional
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"testing"
 
@@ -47,8 +48,8 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return fakeAnalogReader, true
 		}
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 		fsm, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldBeNil)
@@ -62,8 +63,8 @@ func TestNewForceMatrix(t *testing.T) {
 
 	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, errors.New("no resources exist with this name")
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -75,8 +76,8 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false
 		}
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -185,8 +186,8 @@ func TestMatrixAndSlip(t *testing.T) {
 		fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
-		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 
 		t.Run("4x4", func(t *testing.T) {

@@ -102,14 +102,14 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return &remoteRobot{conf: config.Remote{Name: name}}, true
 	}
 
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
 				switch name.Subtype {
 				case arm.Subtype:
-					return &fakearm.Arm{Name: name.Name}, true
+					return &fakearm.Arm{Name: name.Name}, nil
 				case base.Subtype:
-					return &fakebase.Base{Name: name.Name}, true
+					return &fakebase.Base{Name: name.Name}, nil
 				case board.Subtype:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 						Name: name.Name,
@@ -127,24 +127,24 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					if err != nil {
 						panic(err)
 					}
-					return fakeBoard, true
+					return fakeBoard, nil
 				case camera.Subtype:
-					return &fakecamera.Camera{Name: name.Name}, true
+					return &fakecamera.Camera{Name: name.Name}, nil
 				case gripper.Subtype:
-					return &fakegripper.Gripper{Name: name.Name}, true
+					return &fakegripper.Gripper{Name: name.Name}, nil
 				case input.Subtype:
-					return &fakeinput.InputController{Name: name.Name}, true
+					return &fakeinput.InputController{Name: name.Name}, nil
 				case motor.Subtype:
-					return &fakemotor.Motor{Name: name.Name}, true
+					return &fakemotor.Motor{Name: name.Name}, nil
 				case servo.Subtype:
-					return &fakeservo.Servo{Name: name.Name}, true
+					return &fakeservo.Servo{Name: name.Name}, nil
 				}
 				if rName.ResourceType == resource.ResourceTypeService {
-					return struct{}{}, true
+					return struct{}{}, nil
 				}
 			}
 		}
-		return nil, false
+		return nil, errors.New("no resources exist with this name")
 	}
 
 	return injectRobot

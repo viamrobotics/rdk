@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -25,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	board1 := newBoard(testBoardName)
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case board.Named(testBoardName):
-			return board1, true
+			return board1, nil
 		case board.Named(fakeBoardName):
-			return "not a board", true
+			return "not a board", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

@@ -221,8 +221,8 @@ func TestClient(t *testing.T) {
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, errors.New("no resources exist with this name")
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
