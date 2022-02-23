@@ -26,6 +26,8 @@ window.objectManipulationApi = require('./gen/proto/api/service/objectmanipulati
 const { ObjectManipulationServiceClient } = require('./gen/proto/api/service/objectmanipulation/v1/object_manipulation_pb_service.js');
 window.objectSegmentationApi = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb.js');
 const { ObjectSegmentationServiceClient } = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb_service.js');
+window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb.js');
+const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb.js');
 const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
@@ -98,6 +100,7 @@ let connect = async (authEntity, creds) => {
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectManipulationService = new ObjectManipulationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;

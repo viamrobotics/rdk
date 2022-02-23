@@ -53,7 +53,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 }
 
 func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
-	resp, err := c.client.GetSensors(ctx, &pb.SensorsServiceGetSensorsRequest{})
+	resp, err := c.client.GetSensors(ctx, &pb.GetSensorsRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 		names = append(names, protoutils.ResourceNameToProto(name))
 	}
 
-	resp, err := c.client.GetReadings(ctx, &pb.SensorsServiceGetReadingsRequest{SensorNames: names})
+	resp, err := c.client.GetReadings(ctx, &pb.GetReadingsRequest{SensorNames: names})
 	if err != nil {
 		return nil, err
 	}

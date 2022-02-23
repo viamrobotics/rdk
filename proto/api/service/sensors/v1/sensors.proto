@@ -11,27 +11,27 @@ import "proto/api/common/v1/common.proto";
 // A SensorsService services keeps track of all sensors associated with a robot
 service SensorsService {
   // GetSensors returns the list of all sensors.
-  rpc GetSensors(SensorsServiceGetSensorsRequest) returns (SensorsServiceGetSensorsResponse) {
+  rpc GetSensors(GetSensorsRequest) returns (GetSensorsResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/sensors"
     };
   }
 
   // GetReadings returns the list of readings for all sensors specified.
-  rpc GetReadings(SensorsServiceGetReadingsRequest) returns (SensorsServiceGetReadingsResponse) {
+  rpc GetReadings(GetReadingsRequest) returns (GetReadingsResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/sensors/readings"
     };
   }
 }
 
-message SensorsServiceGetSensorsRequest {}
+message GetSensorsRequest {}
 
-message SensorsServiceGetSensorsResponse {
+message GetSensorsResponse {
   repeated common.v1.ResourceName sensor_names = 1;
 }
 
-message SensorsServiceGetReadingsRequest {
+message GetReadingsRequest {
   repeated common.v1.ResourceName sensor_names = 1;
 }
 
@@ -40,7 +40,7 @@ message Reading {
   repeated google.protobuf.Value readings = 2;
 }
 
-message SensorsServiceGetReadingsResponse {
+message GetReadingsResponse {
   repeated Reading readings = 1;
 }
 

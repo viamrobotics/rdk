@@ -32,7 +32,7 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 func request_SensorsService_GetSensors_0(ctx context.Context, marshaler runtime.Marshaler, client SensorsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorsServiceGetSensorsRequest
+	var protoReq GetSensorsRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := client.GetSensors(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -41,7 +41,7 @@ func request_SensorsService_GetSensors_0(ctx context.Context, marshaler runtime.
 }
 
 func local_request_SensorsService_GetSensors_0(ctx context.Context, marshaler runtime.Marshaler, server SensorsServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorsServiceGetSensorsRequest
+	var protoReq GetSensorsRequest
 	var metadata runtime.ServerMetadata
 
 	msg, err := server.GetSensors(ctx, &protoReq)
@@ -54,7 +54,7 @@ var (
 )
 
 func request_SensorsService_GetReadings_0(ctx context.Context, marshaler runtime.Marshaler, client SensorsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorsServiceGetReadingsRequest
+	var protoReq GetReadingsRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
@@ -70,7 +70,7 @@ func request_SensorsService_GetReadings_0(ctx context.Context, marshaler runtime
 }
 
 func local_request_SensorsService_GetReadings_0(ctx context.Context, marshaler runtime.Marshaler, server SensorsServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SensorsServiceGetReadingsRequest
+	var protoReq GetReadingsRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
