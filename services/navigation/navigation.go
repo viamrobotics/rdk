@@ -1,3 +1,4 @@
+// Package navigation contains a navigation service, along with a gRPC server and client
 package navigation
 
 import (
@@ -13,17 +14,33 @@ import (
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/config"
+	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.NavigationService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterNavigationServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)

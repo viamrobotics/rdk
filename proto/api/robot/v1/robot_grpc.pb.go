@@ -33,13 +33,6 @@ type RobotServiceClient interface {
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
-	// Navigation Service
-	NavigationServiceMode(ctx context.Context, in *NavigationServiceModeRequest, opts ...grpc.CallOption) (*NavigationServiceModeResponse, error)
-	NavigationServiceSetMode(ctx context.Context, in *NavigationServiceSetModeRequest, opts ...grpc.CallOption) (*NavigationServiceSetModeResponse, error)
-	NavigationServiceLocation(ctx context.Context, in *NavigationServiceLocationRequest, opts ...grpc.CallOption) (*NavigationServiceLocationResponse, error)
-	NavigationServiceWaypoints(ctx context.Context, in *NavigationServiceWaypointsRequest, opts ...grpc.CallOption) (*NavigationServiceWaypointsResponse, error)
-	NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error)
-	NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error)
 }
 
 type robotServiceClient struct {
@@ -136,60 +129,6 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 	return out, nil
 }
 
-func (c *robotServiceClient) NavigationServiceMode(ctx context.Context, in *NavigationServiceModeRequest, opts ...grpc.CallOption) (*NavigationServiceModeResponse, error) {
-	out := new(NavigationServiceModeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceMode", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) NavigationServiceSetMode(ctx context.Context, in *NavigationServiceSetModeRequest, opts ...grpc.CallOption) (*NavigationServiceSetModeResponse, error) {
-	out := new(NavigationServiceSetModeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceSetMode", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) NavigationServiceLocation(ctx context.Context, in *NavigationServiceLocationRequest, opts ...grpc.CallOption) (*NavigationServiceLocationResponse, error) {
-	out := new(NavigationServiceLocationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceLocation", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) NavigationServiceWaypoints(ctx context.Context, in *NavigationServiceWaypointsRequest, opts ...grpc.CallOption) (*NavigationServiceWaypointsResponse, error) {
-	out := new(NavigationServiceWaypointsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceWaypoints", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) NavigationServiceAddWaypoint(ctx context.Context, in *NavigationServiceAddWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceAddWaypointResponse, error) {
-	out := new(NavigationServiceAddWaypointResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceAddWaypoint", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) NavigationServiceRemoveWaypoint(ctx context.Context, in *NavigationServiceRemoveWaypointRequest, opts ...grpc.CallOption) (*NavigationServiceRemoveWaypointResponse, error) {
-	out := new(NavigationServiceRemoveWaypointResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/NavigationServiceRemoveWaypoint", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -209,13 +148,6 @@ type RobotServiceServer interface {
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
-	// Navigation Service
-	NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error)
-	NavigationServiceSetMode(context.Context, *NavigationServiceSetModeRequest) (*NavigationServiceSetModeResponse, error)
-	NavigationServiceLocation(context.Context, *NavigationServiceLocationRequest) (*NavigationServiceLocationResponse, error)
-	NavigationServiceWaypoints(context.Context, *NavigationServiceWaypointsRequest) (*NavigationServiceWaypointsResponse, error)
-	NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error)
-	NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -243,24 +175,6 @@ func (UnimplementedRobotServiceServer) ExecuteSource(context.Context, *ExecuteSo
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceMode(context.Context, *NavigationServiceModeRequest) (*NavigationServiceModeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceMode not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceSetMode(context.Context, *NavigationServiceSetModeRequest) (*NavigationServiceSetModeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceSetMode not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceLocation(context.Context, *NavigationServiceLocationRequest) (*NavigationServiceLocationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceLocation not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceWaypoints(context.Context, *NavigationServiceWaypointsRequest) (*NavigationServiceWaypointsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceWaypoints not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceAddWaypoint(context.Context, *NavigationServiceAddWaypointRequest) (*NavigationServiceAddWaypointResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceAddWaypoint not implemented")
-}
-func (UnimplementedRobotServiceServer) NavigationServiceRemoveWaypoint(context.Context, *NavigationServiceRemoveWaypointRequest) (*NavigationServiceRemoveWaypointResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NavigationServiceRemoveWaypoint not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -404,114 +318,6 @@ func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RobotService_NavigationServiceMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceModeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceMode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceMode",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceMode(ctx, req.(*NavigationServiceModeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_NavigationServiceSetMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceSetModeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceSetMode(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceSetMode",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceSetMode(ctx, req.(*NavigationServiceSetModeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_NavigationServiceLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceLocationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceLocation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceLocation",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceLocation(ctx, req.(*NavigationServiceLocationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_NavigationServiceWaypoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceWaypointsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceWaypoints(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceWaypoints",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceWaypoints(ctx, req.(*NavigationServiceWaypointsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_NavigationServiceAddWaypoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceAddWaypointRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceAddWaypoint(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceAddWaypoint",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceAddWaypoint(ctx, req.(*NavigationServiceAddWaypointRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_NavigationServiceRemoveWaypoint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NavigationServiceRemoveWaypointRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).NavigationServiceRemoveWaypoint(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/NavigationServiceRemoveWaypoint",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).NavigationServiceRemoveWaypoint(ctx, req.(*NavigationServiceRemoveWaypointRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -542,30 +348,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResourceRunCommand",
 			Handler:    _RobotService_ResourceRunCommand_Handler,
-		},
-		{
-			MethodName: "NavigationServiceMode",
-			Handler:    _RobotService_NavigationServiceMode_Handler,
-		},
-		{
-			MethodName: "NavigationServiceSetMode",
-			Handler:    _RobotService_NavigationServiceSetMode_Handler,
-		},
-		{
-			MethodName: "NavigationServiceLocation",
-			Handler:    _RobotService_NavigationServiceLocation_Handler,
-		},
-		{
-			MethodName: "NavigationServiceWaypoints",
-			Handler:    _RobotService_NavigationServiceWaypoints_Handler,
-		},
-		{
-			MethodName: "NavigationServiceAddWaypoint",
-			Handler:    _RobotService_NavigationServiceAddWaypoint_Handler,
-		},
-		{
-			MethodName: "NavigationServiceRemoveWaypoint",
-			Handler:    _RobotService_NavigationServiceRemoveWaypoint_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
