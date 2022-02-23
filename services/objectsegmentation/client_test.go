@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -19,7 +18,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectsegmentation"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -59,18 +57,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-		test.That(t, err, test.ShouldBeNil)
+		for _, pt := range testPointCloud {
+			test.That(t, pcA.Set(pt), test.ShouldBeNil)
+		}
 
 		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
@@ -84,14 +73,12 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 
-		boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 5}), r3.Vector{0, 0, 2})
-		test.That(t, err, test.ShouldBeNil)
-		box, err := pointcloud.BoundingBoxFromPointCloud(segs[0])
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
-		box, err = pointcloud.BoundingBoxFromPointCloud(segs[1])
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
+		expectedBoxes := makeExpectedBoxes(t)
+		for _, seg := range segs {
+			box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+		}
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
