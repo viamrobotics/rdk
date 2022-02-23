@@ -64,7 +64,7 @@ func sampleIntegers(patchSize int, n int, sampling SamplingType) []int {
 func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConfig) (Descriptors, error) {
 	// blur image
 	kernel := rimage.GetGaussian5()
-	normalized := (&kernel).Normalize()
+	normalized := kernel.Normalize()
 	blurred, err := rimage.ConvolveGray(img, normalized, image.Point{2, 2}, 0)
 	if err != nil {
 		return nil, err
