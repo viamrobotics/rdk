@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
@@ -64,21 +63,10 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	_, err = server.GetObjectPointClouds(context.Background(), req)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
-	// returns response
-	// request the two segments in the point cloud
 	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-	test.That(t, err, test.ShouldBeNil)
+	for _, pt := range testPointCloud {
+		test.That(t, pcA.Set(pt), test.ShouldBeNil)
+	}
 
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
@@ -95,12 +83,11 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
-	boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 5}), r3.Vector{0, 0, 2})
-	test.That(t, err, test.ShouldBeNil)
-	box, err := spatialmath.NewGeometryFromProto(segs.Objects[0].Geometries.Geometries[0])
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
-	box, err = spatialmath.NewGeometryFromProto(segs.Objects[1].Geometries.Geometries[0])
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, box.AlmostEqual(boxExpected), test.ShouldBeTrue)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, object := range segs.Objects {
+		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
 }
