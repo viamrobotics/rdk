@@ -28,6 +28,7 @@ func TestPixelSegmentation(t *testing.T) {
 }
 
 func loadPointCloud(t *testing.T) pc.PointCloud {
+	t.Helper()
 	logger := golog.NewTestLogger(t)
 	cloud, err := pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
 	test.That(t, err, test.ShouldBeNil)

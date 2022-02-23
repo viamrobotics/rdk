@@ -23,7 +23,7 @@ type sphere struct {
 }
 
 // NewSphereCreator instantiates a SphereCreator class, which allows instantiating spheres given only a pose which is applied
-// at the specified offset from the pose. These spheres have a radius specified by the radius argument
+// at the specified offset from the pose. These spheres have a radius specified by the radius argument.
 func NewSphereCreator(radius float64, offset Pose) (GeometryCreator, error) {
 	if radius <= 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
