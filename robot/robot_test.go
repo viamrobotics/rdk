@@ -1,6 +1,7 @@
 package robot_test
 
 import (
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -25,11 +26,11 @@ var (
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Name == "arm2" {
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
-		return "here", true
+		return "here", nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return testutils.ConcatResourceNames(

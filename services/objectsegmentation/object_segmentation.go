@@ -60,8 +60,8 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the object segmentation service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
 		return nil, utils.NewResourceNotFoundError(Name)
 	}
 	svc, ok := resource.(Service)

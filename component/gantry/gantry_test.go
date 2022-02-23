@@ -2,6 +2,7 @@ package gantry_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.viam.com/test"
@@ -25,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gantry1 := &mock{Name: testGantryName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gantry.Named(testGantryName):
-			return gantry1, true
+			return gantry1, nil
 		case gantry.Named(fakeGantryName):
-			return "not a gantry", true
+			return "not a gantry", nil
 		default:
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

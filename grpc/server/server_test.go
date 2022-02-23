@@ -225,9 +225,9 @@ func TestServer(t *testing.T) {
 	t.Run("Sensor", func(t *testing.T) {
 		server, injectRobot := newServer()
 		var capName resource.Name
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 			capName = name
-			return nil, false
+			return nil, errors.New("no resources exist with this name")
 		}
 
 		_, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
