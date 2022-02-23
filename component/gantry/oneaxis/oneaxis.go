@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 	utils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
@@ -21,6 +22,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -29,14 +31,16 @@ const modelname = "oneaxis"
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
-	Board           string                    `json:"board"` // used to read limit switch pins and control motor with gpio pins
-	Motor           string                    `json:"motor"`
-	LimitSwitchPins []string                  `json:"limit_pins"`
-	LimitPinEnabled bool                      `json:"limit_pin_enabled"`
-	LengthMm        float64                   `json:"length_mm"`
-	ReductionRatio  float64                   `json:"reduction_ratio"`
-	GantryRPM       float64                   `json:"gantry_rpm"`
-	Axis            spatial.TranslationConfig `json:"axis"`
+	Board              string                    `json:"board"` // used to read limit switch pins and control motor with gpio pins
+	Motor              string                    `json:"motor"`
+	LimitSwitchPins    []string                  `json:"limit_pins"`
+	LimitPinEnabled    bool                      `json:"limit_pin_enabled"`
+	LengthMm           float64                   `json:"length_mm"`
+	ReductionRatio     float64                   `json:"reduction_ratio"`
+	GantryRPM          float64                   `json:"gantry_rpm"`
+	Axis               spatial.TranslationConfig `json:"axis"`
+	OrientTransform    spatial.OrientationConfig `json:"axis_orientaion_transform"`
+	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -109,8 +113,10 @@ type oneAxis struct {
 	reductionRatio float64
 	rpm            float64
 
-	model referenceframe.Model
-	axis  r3.Vector // TODO (rh) convert to r3.Vector once #471 is merged.
+	model                 referenceframe.Model
+	axis                  r3.Vector
+	axisOrientationOffset *spatial.OrientationVector
+	axisTransaltionOffset r3.Vector
 
 	logger golog.Logger
 }
@@ -148,17 +154,24 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, err
 	}
 
+	orientOffset, err := conf.OrientTransform.ParseConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	oAx := &oneAxis{
-		name:            config.Name,
-		board:           board,
-		motor:           _motor,
-		logger:          logger,
-		limitSwitchPins: conf.LimitSwitchPins,
-		limitHigh:       conf.LimitPinEnabled,
-		lengthMm:        conf.LengthMm,
-		reductionRatio:  conf.ReductionRatio,
-		rpm:             conf.GantryRPM,
-		axis:            r3.Vector(conf.Axis),
+		name:                  config.Name,
+		board:                 board,
+		motor:                 _motor,
+		logger:                logger,
+		limitSwitchPins:       conf.LimitSwitchPins,
+		limitHigh:             conf.LimitPinEnabled,
+		lengthMm:              conf.LengthMm,
+		reductionRatio:        conf.ReductionRatio,
+		rpm:                   conf.GantryRPM,
+		axis:                  r3.Vector(conf.Axis),
+		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
+		axisTransaltionOffset: r3.Vector(conf.TranslateTransform),
 	}
 
 	switch len(oAx.limitSwitchPins) {
@@ -168,7 +181,6 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		oAx.limitType = switchLimitTypetwoPin
 	case 0:
 		oAx.limitType = switchLimitTypeEncoder
-		return nil, errors.New("encoder currently not supported")
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
@@ -224,11 +236,10 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
+	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 0.2*g.lengthMm)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -251,7 +262,20 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 
 // Not yet implemented.
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
-	return errors.New("encoder currently not supported")
+	if err := g.motor.ResetZeroPosition(ctx, 0); err != nil {
+		return err
+	}
+	positionA, err := g.motor.GetPosition(ctx)
+	if err != nil {
+		return err
+	}
+
+	radius := g.reductionRatio
+	stepsPerLength := g.lengthMm / (radius * 2 * math.Pi)
+	positionB := positionA + stepsPerLength
+
+	g.positionLimits = []float64{positionA, positionB}
+	return nil
 }
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
@@ -396,11 +420,22 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error
 //  ModelFrame returns the frame model of the Gantry.
 func (g *oneAxis) ModelFrame() referenceframe.Model {
 	if g.model == nil {
+		var errs error
 		m := referenceframe.NewSimpleModel()
-		f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
-		if err != nil {
-			panic(fmt.Errorf("error creating frame, should be impossible %w", err))
+
+		f, err := referenceframe.NewStaticFrame(g.name,
+			spatialmath.NewPoseFromOrientationVector(g.axisTransaltionOffset, g.axisOrientationOffset))
+		errs = multierr.Combine(errs, err)
+		m.OrdTransforms = append(m.OrdTransforms, f)
+
+		f, err = referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{Min: 0, Max: g.lengthMm})
+		errs = multierr.Combine(errs, err)
+
+		if errs != nil {
+			g.logger.Error(errs)
+			return nil
 		}
+
 		m.OrdTransforms = append(m.OrdTransforms, f)
 		g.model = m
 	}
