@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/posetracker"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
@@ -49,7 +50,7 @@ func TestGetPoses(t *testing.T) {
 	) {
 		zeroPose := spatialmath.NewZeroPose()
 		return posetracker.BodyToPoseInFrame{
-			bodyName: spatialmath.NewPoseInFrame(bodyFrame, &zeroPose),
+			bodyName: referenceframe.NewPoseInFrame(bodyFrame, &zeroPose),
 		}, nil
 	}
 	poseFailureErr := errors.New("failure to get poses")

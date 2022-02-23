@@ -14,6 +14,7 @@ import (
 
 	"go.viam.com/rdk/component/posetracker"
 	viamgrpc "go.viam.com/rdk/grpc"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/spatialmath"
@@ -50,9 +51,9 @@ func TestClient(t *testing.T) {
 	)
 	zeroPose := spatialmath.NewZeroPose()
 	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
-		zeroPoseBody:     spatialmath.NewPoseInFrame(bodyFrame, &zeroPose),
-		nonZeroPoseBody:  spatialmath.NewPoseInFrame(bodyFrame, &pose),
-		nonZeroPoseBody2: spatialmath.NewPoseInFrame(otherBodyFrame, &pose2),
+		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, &zeroPose),
+		nonZeroPoseBody:  referenceframe.NewPoseInFrame(bodyFrame, &pose),
+		nonZeroPoseBody2: referenceframe.NewPoseInFrame(otherBodyFrame, &pose2),
 	}
 	poseTester := func(
 		t *testing.T, receivedPoseInFrames posetracker.BodyToPoseInFrame,

@@ -7,7 +7,7 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
-	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -55,7 +55,7 @@ func (server *subtypeServer) GetPoses(
 	}
 	poseInFrameProtoStructs := map[string]*commonpb.PoseInFrame{}
 	for key, framedPose := range framedPoses {
-		framedPoseProto := spatialmath.PoseInFrameToProtobuf(framedPose)
+		framedPoseProto := referenceframe.PoseInFrameToProtobuf(framedPose)
 		poseInFrameProtoStructs[key] = framedPoseProto
 	}
 	return &pb.GetPosesResponse{
