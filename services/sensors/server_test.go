@@ -34,7 +34,7 @@ func TestServerGetSensors(t *testing.T) {
 		sMap := map[resource.Name]interface{}{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
 	})
 
@@ -42,7 +42,7 @@ func TestServerGetSensors(t *testing.T) {
 		sMap := map[resource.Name]interface{}{sensors.Name: "not sensors"}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
 	})
 
@@ -57,7 +57,7 @@ func TestServerGetSensors(t *testing.T) {
 		injectSensors.GetSensorsFunc = func(ctx context.Context) ([]resource.Name, error) {
 			return nil, passedErr
 		}
-		_, err = server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+		_, err = server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeError, passedErr)
 	})
 
@@ -73,7 +73,7 @@ func TestServerGetSensors(t *testing.T) {
 			return names, nil
 		}
 
-		resp, err := server.GetSensors(context.Background(), &pb.SensorsServiceGetSensorsRequest{})
+		resp, err := server.GetSensors(context.Background(), &pb.GetSensorsRequest{})
 		test.That(t, err, test.ShouldBeNil)
 
 		convertedNames := make([]resource.Name, 0, len(resp.SensorNames))
@@ -89,7 +89,7 @@ func TestServerGetReadings(t *testing.T) {
 		sMap := map[resource.Name]interface{}{}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetReadings(context.Background(), &pb.SensorsServiceGetReadingsRequest{})
+		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
 		test.That(t, err, test.ShouldBeError, errors.New("resource \"rdk:service:sensors\" not found"))
 	})
 
@@ -97,7 +97,7 @@ func TestServerGetReadings(t *testing.T) {
 		sMap := map[resource.Name]interface{}{sensors.Name: "not sensors"}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		_, err = server.GetReadings(context.Background(), &pb.SensorsServiceGetReadingsRequest{})
+		_, err = server.GetReadings(context.Background(), &pb.GetReadingsRequest{})
 		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("sensors.Service", "string"))
 	})
 
@@ -112,7 +112,7 @@ func TestServerGetReadings(t *testing.T) {
 		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
 			return nil, passedErr
 		}
-		req := &pb.SensorsServiceGetReadingsRequest{
+		req := &pb.GetReadingsRequest{
 			SensorNames: []*commonpb.ResourceName{},
 		}
 		_, err = server.GetReadings(context.Background(), req)
@@ -136,7 +136,7 @@ func TestServerGetReadings(t *testing.T) {
 		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
 			return readings, nil
 		}
-		req := &pb.SensorsServiceGetReadingsRequest{
+		req := &pb.GetReadingsRequest{
 			SensorNames: []*commonpb.ResourceName{},
 		}
 

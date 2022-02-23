@@ -39,8 +39,8 @@ func (server *subtypeServer) service() (Service, error) {
 
 func (server *subtypeServer) GetSensors(
 	ctx context.Context,
-	req *pb.SensorsServiceGetSensorsRequest,
-) (*pb.SensorsServiceGetSensorsResponse, error) {
+	req *pb.GetSensorsRequest,
+) (*pb.GetSensorsResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -54,13 +54,13 @@ func (server *subtypeServer) GetSensors(
 		sensorNames = append(sensorNames, protoutils.ResourceNameToProto(name))
 	}
 
-	return &pb.SensorsServiceGetSensorsResponse{SensorNames: sensorNames}, nil
+	return &pb.GetSensorsResponse{SensorNames: sensorNames}, nil
 }
 
 func (server *subtypeServer) GetReadings(
 	ctx context.Context,
-	req *pb.SensorsServiceGetReadingsRequest,
-) (*pb.SensorsServiceGetReadingsResponse, error) {
+	req *pb.GetReadingsRequest,
+) (*pb.GetReadingsResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -92,5 +92,5 @@ func (server *subtypeServer) GetReadings(
 		readingsP = append(readingsP, readingP)
 	}
 
-	return &pb.SensorsServiceGetReadingsResponse{Readings: readingsP}, nil
+	return &pb.GetReadingsResponse{Readings: readingsP}, nil
 }
