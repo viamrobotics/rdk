@@ -59,7 +59,7 @@ func (c *client) GetSensors(ctx context.Context) ([]resource.Name, error) {
 	}
 	sensorNames := make([]resource.Name, 0, len(resp.SensorNames))
 	for _, name := range resp.SensorNames {
-		sensorNames = append(sensorNames, protoutils.ProtoToResourceName(name))
+		sensorNames = append(sensorNames, protoutils.ResourceNameFromProto(name))
 	}
 	return sensorNames, nil
 }
@@ -83,7 +83,7 @@ func (c *client) GetReadings(ctx context.Context, sensorNames []resource.Name) (
 		}
 		readings = append(
 			readings, Readings{
-				Name:     protoutils.ProtoToResourceName(reading.Name),
+				Name:     protoutils.ResourceNameFromProto(reading.Name),
 				Readings: sReading,
 			})
 	}
