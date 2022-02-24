@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from sensors.proto.
+// subtypeServer implements the SensorsService from sensors.proto.
 type subtypeServer struct {
 	pb.UnimplementedSensorsServiceServer
 	subtypeSvc subtype.Service

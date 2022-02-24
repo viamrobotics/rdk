@@ -38,7 +38,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	// update some services
+	// update default services
 	sensorSvc, err := sensors.FromRobot(r)
 	if err != nil {
 		return err
