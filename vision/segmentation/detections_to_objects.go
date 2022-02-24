@@ -59,7 +59,11 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 		if err != nil {
 			return nil, err
 		}
-		objects[i] = vision.NewObject(filtered)
+		obj, err := vision.NewObject(filtered)
+		if err != nil {
+			return nil, err
+		}
+		objects[i] = obj
 	}
 	return objects, nil
 }
