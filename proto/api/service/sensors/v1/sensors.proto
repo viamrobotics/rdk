@@ -35,12 +35,12 @@ message GetReadingsRequest {
   repeated common.v1.ResourceName sensor_names = 1;
 }
 
-message Reading {
+message Readings {
   common.v1.ResourceName name = 1;
   repeated google.protobuf.Value readings = 2;
 }
 
 message GetReadingsResponse {
-  repeated Reading readings = 1;
+  repeated Readings readings = 1;
 }
 

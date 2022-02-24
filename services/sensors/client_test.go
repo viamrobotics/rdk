@@ -64,15 +64,15 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, sensorNames, test.ShouldResemble, names)
 
-		iReading := sensors.Reading{Name: imu.Named("imu"), Reading: []interface{}{1.2, 2.3, 3.4}}
-		gReading := sensors.Reading{Name: gps.Named("gps"), Reading: []interface{}{4.5, 5.6, 6.7}}
-		readings := []sensors.Reading{iReading, gReading}
+		iReading := sensors.Readings{Name: imu.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
+		gReading := sensors.Readings{Name: gps.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
+		readings := []sensors.Readings{iReading, gReading}
 		expected := map[resource.Name]interface{}{
-			iReading.Name: iReading.Reading,
-			gReading.Name: gReading.Reading,
+			iReading.Name: iReading.Readings,
+			gReading.Name: gReading.Readings,
 		}
 
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 
@@ -80,8 +80,8 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 2)
 		observed := map[resource.Name]interface{}{
-			readings[0].Name: readings[0].Reading,
-			readings[1].Name: readings[1].Reading,
+			readings[0].Name: readings[0].Readings,
+			readings[1].Name: readings[1].Readings,
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 
@@ -105,7 +105,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 
 		passedErr = errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
 		_, err = client2.GetReadings(context.Background(), []resource.Name{})
