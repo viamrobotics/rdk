@@ -380,8 +380,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 
 			test.That(t, r2, test.ShouldNotBeNil)
 
-			fmt.Printf("\"blah\": %v\n\n\n\n", "blah")
-
 			status, err := r2.Status(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 
