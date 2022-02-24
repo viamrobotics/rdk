@@ -67,7 +67,7 @@ func (server *subtypeServer) GetReadings(
 	}
 	sensorNames := make([]resource.Name, 0, len(req.SensorNames))
 	for _, name := range req.SensorNames {
-		sensorNames = append(sensorNames, protoutils.ProtoToResourceName(name))
+		sensorNames = append(sensorNames, protoutils.ResourceNameFromProto(name))
 	}
 
 	readings, err := svc.GetReadings(ctx, sensorNames)

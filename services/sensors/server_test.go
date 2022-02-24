@@ -78,7 +78,7 @@ func TestServerGetSensors(t *testing.T) {
 
 		convertedNames := make([]resource.Name, 0, len(resp.SensorNames))
 		for _, rn := range resp.SensorNames {
-			convertedNames = append(convertedNames, protoutils.ProtoToResourceName(rn))
+			convertedNames = append(convertedNames, protoutils.ResourceNameFromProto(rn))
 		}
 		test.That(t, testutils.NewResourceNameSet(convertedNames...), test.ShouldResemble, testutils.NewResourceNameSet(names...))
 	})
@@ -153,8 +153,8 @@ func TestServerGetReadings(t *testing.T) {
 		}
 
 		observed := map[resource.Name]interface{}{
-			protoutils.ProtoToResourceName(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
-			protoutils.ProtoToResourceName(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
+			protoutils.ResourceNameFromProto(resp.Readings[0].Name): conv(resp.Readings[0].Readings),
+			protoutils.ResourceNameFromProto(resp.Readings[1].Name): conv(resp.Readings[1].Readings),
 		}
 		test.That(t, observed, test.ShouldResemble, expected)
 	})

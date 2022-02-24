@@ -17,8 +17,8 @@ func ResourceNameToProto(name resource.Name) *commonpb.ResourceName {
 	}
 }
 
-// ProtoToResourceName converts a proto ResourceName to its rdk counterpart.
-func ProtoToResourceName(name *commonpb.ResourceName) resource.Name {
+// ResourceNameFromProto converts a proto ResourceName to its rdk counterpart.
+func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
 	return resource.NewName(
 		resource.Namespace(name.Namespace),
 		resource.TypeName(name.Type),

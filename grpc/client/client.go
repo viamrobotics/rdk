@@ -250,7 +250,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		for _, name := range names {
-			newName := protoutils.ProtoToResourceName(name)
+			newName := protoutils.ResourceNameFromProto(name)
 			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
