@@ -27,8 +27,6 @@ import (
 
 const (
 	modelName = "DMC4000"
-	// D4140 amplifier model.
-	D4140 = "D4140"
 )
 
 // controllers is global to all instances, mapped by serial device.
@@ -65,9 +63,6 @@ type Config struct {
 	Axis         string  `json:"axis"`          // A-H
 	HomeRPM      float64 `json:"home_rpm"`      // Speed for Home()
 
-	// Model of the built-in amplifier (different for steppers, brushed/etc)
-	// D4140 (stepper) is the only one supported currently
-	AmplifierModel string `json:"amplifier_model"`
 	// Set the per phase current (when using stepper amp)
 	// https://www.galil.com/download/comref/com4103/index.html#amplifier_gain.html
 	AmplifierGain int `json:"amplifier_gain"`
@@ -214,7 +209,10 @@ func newController(c *Config, logger golog.Logger) (*controller, error) {
 	ctrl.port = port
 
 	// Set echo off to not scramble our returns
-	_, _ = ctrl.sendCmd("EO 0")
+	_, err = ctrl.sendCmd("EO 0")
+	if err != nil && !strings.HasPrefix(err.Error(), "unknown error after cmd") {
+		return nil, err
+	}
 
 	ret, err := ctrl.sendCmd("ID")
 	if err != nil {
@@ -346,7 +344,7 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 	}
 	if bytes.LastIndexByte(ret, []byte(":")[0]) == len(ret)-1 {
 		ret := string(bytes.TrimSpace(ret[:len(ret)-1]))
-		c.logger.Debugf("CMD (%s) OK: %s", cmd, ret)
+		// c.logger.Debugf("CMD (%s) OK: %s", cmd, ret)
 		return ret, nil
 	}
 
@@ -501,7 +499,7 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return err
 }
 
-// Position reports the position in revolutions.
+// GetPosition reports the position in revolutions.
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
@@ -516,7 +514,7 @@ func (m *Motor) Stop(ctx context.Context) error {
 	return err
 }
 
-// IsOn returns whether or not the motor is currently moving.
+// IsPowered returns whether or not the motor is currently moving.
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
@@ -678,7 +676,7 @@ func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]int
 	}
 }
 
-
+// GetFeatures returns the additional features supported by this motor.
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{motor.PositionReporting: true}, nil
 }
