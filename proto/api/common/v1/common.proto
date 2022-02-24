@@ -73,8 +73,15 @@ message Geometry {
 }
 
 message GeometriesInFrame {
-  string frame = 1;
+  string reference_frame = 1;
   repeated Geometry geometries = 2;
+}
+
+message PointCloudObject {
+  // image frame expressed in bytes
+  bytes point_cloud = 1;
+  // volume of a given geometry
+  common.v1.GeometriesInFrame geometries = 2;
 }
 
 message GeoPoint {

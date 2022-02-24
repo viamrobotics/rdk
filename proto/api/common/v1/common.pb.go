@@ -622,8 +622,8 @@ type GeometriesInFrame struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Frame      string      `protobuf:"bytes,1,opt,name=frame,proto3" json:"frame,omitempty"`
-	Geometries []*Geometry `protobuf:"bytes,2,rep,name=geometries,proto3" json:"geometries,omitempty"`
+	ReferenceFrame string      `protobuf:"bytes,1,opt,name=reference_frame,json=referenceFrame,proto3" json:"reference_frame,omitempty"`
+	Geometries     []*Geometry `protobuf:"bytes,2,rep,name=geometries,proto3" json:"geometries,omitempty"`
 }
 
 func (x *GeometriesInFrame) Reset() {
@@ -658,14 +658,71 @@ func (*GeometriesInFrame) Descriptor() ([]byte, []int) {
 	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{9}
 }
 
-func (x *GeometriesInFrame) GetFrame() string {
+func (x *GeometriesInFrame) GetReferenceFrame() string {
 	if x != nil {
-		return x.Frame
+		return x.ReferenceFrame
 	}
 	return ""
 }
 
 func (x *GeometriesInFrame) GetGeometries() []*Geometry {
+	if x != nil {
+		return x.Geometries
+	}
+	return nil
+}
+
+type PointCloudObject struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// image frame expressed in bytes
+	PointCloud []byte `protobuf:"bytes,1,opt,name=point_cloud,json=pointCloud,proto3" json:"point_cloud,omitempty"`
+	// volume of a given geometry
+	Geometries *GeometriesInFrame `protobuf:"bytes,2,opt,name=geometries,proto3" json:"geometries,omitempty"`
+}
+
+func (x *PointCloudObject) Reset() {
+	*x = PointCloudObject{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PointCloudObject) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PointCloudObject) ProtoMessage() {}
+
+func (x *PointCloudObject) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PointCloudObject.ProtoReflect.Descriptor instead.
+func (*PointCloudObject) Descriptor() ([]byte, []int) {
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *PointCloudObject) GetPointCloud() []byte {
+	if x != nil {
+		return x.PointCloud
+	}
+	return nil
+}
+
+func (x *PointCloudObject) GetGeometries() *GeometriesInFrame {
 	if x != nil {
 		return x.Geometries
 	}
@@ -684,7 +741,7 @@ type GeoPoint struct {
 func (x *GeoPoint) Reset() {
 	*x = GeoPoint{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_common_v1_common_proto_msgTypes[10]
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -697,7 +754,7 @@ func (x *GeoPoint) String() string {
 func (*GeoPoint) ProtoMessage() {}
 
 func (x *GeoPoint) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_common_v1_common_proto_msgTypes[10]
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -710,7 +767,7 @@ func (x *GeoPoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GeoPoint.ProtoReflect.Descriptor instead.
 func (*GeoPoint) Descriptor() ([]byte, []int) {
-	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{10}
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GeoPoint) GetLatitude() float64 {
@@ -738,7 +795,7 @@ type WorldState struct {
 func (x *WorldState) Reset() {
 	*x = WorldState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_common_v1_common_proto_msgTypes[11]
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -751,7 +808,7 @@ func (x *WorldState) String() string {
 func (*WorldState) ProtoMessage() {}
 
 func (x *WorldState) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_common_v1_common_proto_msgTypes[11]
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -764,7 +821,7 @@ func (x *WorldState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorldState.ProtoReflect.Descriptor instead.
 func (*WorldState) Descriptor() ([]byte, []int) {
-	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{11}
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *WorldState) GetObstacles() []*GeometriesInFrame {
@@ -851,13 +908,22 @@ var file_proto_api_common_v1_common_proto_rawDesc = []byte{
 	0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x52, 0x65,
 	0x63, 0x74, 0x61, 0x6e, 0x67, 0x75, 0x6c, 0x61, 0x72, 0x50, 0x72, 0x69, 0x73, 0x6d, 0x48, 0x00,
 	0x52, 0x03, 0x62, 0x6f, 0x78, 0x42, 0x0f, 0x0a, 0x0d, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72,
-	0x79, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x22, 0x68, 0x0a, 0x11, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74,
-	0x72, 0x69, 0x65, 0x73, 0x49, 0x6e, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x12, 0x14, 0x0a, 0x05, 0x66,
-	0x72, 0x61, 0x6d, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x05, 0x66, 0x72, 0x61, 0x6d,
-	0x65, 0x12, 0x3d, 0x0a, 0x0a, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18,
-	0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70,
-	0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x6f, 0x6d,
-	0x65, 0x74, 0x72, 0x79, 0x52, 0x0a, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73,
+	0x79, 0x5f, 0x74, 0x79, 0x70, 0x65, 0x22, 0x7b, 0x0a, 0x11, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74,
+	0x72, 0x69, 0x65, 0x73, 0x49, 0x6e, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x12, 0x27, 0x0a, 0x0f, 0x72,
+	0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x5f, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x46,
+	0x72, 0x61, 0x6d, 0x65, 0x12, 0x3d, 0x0a, 0x0a, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69,
+	0x65, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x1d, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x47,
+	0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x79, 0x52, 0x0a, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72,
+	0x69, 0x65, 0x73, 0x22, 0x7b, 0x0a, 0x10, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75,
+	0x64, 0x4f, 0x62, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x1f, 0x0a, 0x0b, 0x70, 0x6f, 0x69, 0x6e, 0x74,
+	0x5f, 0x63, 0x6c, 0x6f, 0x75, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x0a, 0x70, 0x6f,
+	0x69, 0x6e, 0x74, 0x43, 0x6c, 0x6f, 0x75, 0x64, 0x12, 0x46, 0x0a, 0x0a, 0x67, 0x65, 0x6f, 0x6d,
+	0x65, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x26, 0x2e, 0x70,
+	0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e,
+	0x76, 0x31, 0x2e, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73, 0x49, 0x6e, 0x46,
+	0x72, 0x61, 0x6d, 0x65, 0x52, 0x0a, 0x67, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73,
 	0x22, 0x44, 0x0a, 0x08, 0x47, 0x65, 0x6f, 0x50, 0x6f, 0x69, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08,
 	0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08,
 	0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x6c, 0x6f, 0x6e, 0x67,
@@ -887,7 +953,7 @@ func file_proto_api_common_v1_common_proto_rawDescGZIP() []byte {
 	return file_proto_api_common_v1_common_proto_rawDescData
 }
 
-var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*ResourceName)(nil),           // 0: proto.api.common.v1.ResourceName
 	(*BoardStatus)(nil),            // 1: proto.api.common.v1.BoardStatus
@@ -899,26 +965,28 @@ var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*RectangularPrism)(nil),       // 7: proto.api.common.v1.RectangularPrism
 	(*Geometry)(nil),               // 8: proto.api.common.v1.Geometry
 	(*GeometriesInFrame)(nil),      // 9: proto.api.common.v1.GeometriesInFrame
-	(*GeoPoint)(nil),               // 10: proto.api.common.v1.GeoPoint
-	(*WorldState)(nil),             // 11: proto.api.common.v1.WorldState
-	nil,                            // 12: proto.api.common.v1.BoardStatus.AnalogsEntry
-	nil,                            // 13: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	(*PointCloudObject)(nil),       // 10: proto.api.common.v1.PointCloudObject
+	(*GeoPoint)(nil),               // 11: proto.api.common.v1.GeoPoint
+	(*WorldState)(nil),             // 12: proto.api.common.v1.WorldState
+	nil,                            // 13: proto.api.common.v1.BoardStatus.AnalogsEntry
+	nil,                            // 14: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 }
 var file_proto_api_common_v1_common_proto_depIdxs = []int32{
-	12, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
-	13, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	13, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
+	14, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 	4,  // 2: proto.api.common.v1.Geometry.center:type_name -> proto.api.common.v1.Pose
 	6,  // 3: proto.api.common.v1.Geometry.sphere:type_name -> proto.api.common.v1.Sphere
 	7,  // 4: proto.api.common.v1.Geometry.box:type_name -> proto.api.common.v1.RectangularPrism
 	8,  // 5: proto.api.common.v1.GeometriesInFrame.geometries:type_name -> proto.api.common.v1.Geometry
-	9,  // 6: proto.api.common.v1.WorldState.obstacles:type_name -> proto.api.common.v1.GeometriesInFrame
-	2,  // 7: proto.api.common.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.common.v1.AnalogStatus
-	3,  // 8: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.common.v1.DigitalInterruptStatus
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	9,  // 6: proto.api.common.v1.PointCloudObject.geometries:type_name -> proto.api.common.v1.GeometriesInFrame
+	9,  // 7: proto.api.common.v1.WorldState.obstacles:type_name -> proto.api.common.v1.GeometriesInFrame
+	2,  // 8: proto.api.common.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.common.v1.AnalogStatus
+	3,  // 9: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.common.v1.DigitalInterruptStatus
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_proto_api_common_v1_common_proto_init() }
@@ -1048,7 +1116,7 @@ func file_proto_api_common_v1_common_proto_init() {
 			}
 		}
 		file_proto_api_common_v1_common_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*GeoPoint); i {
+			switch v := v.(*PointCloudObject); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1060,6 +1128,18 @@ func file_proto_api_common_v1_common_proto_init() {
 			}
 		}
 		file_proto_api_common_v1_common_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*GeoPoint); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_api_common_v1_common_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*WorldState); i {
 			case 0:
 				return &v.state
@@ -1082,7 +1162,7 @@ func file_proto_api_common_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_common_v1_common_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

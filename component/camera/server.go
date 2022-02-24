@@ -133,7 +133,7 @@ func (s *subtypeServer) GetFrame(
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
-	resp.Frame = buf.Bytes()
+	resp.Image = buf.Bytes()
 	return &resp, nil
 }
 
@@ -153,7 +153,7 @@ func (s *subtypeServer) RenderFrame(
 
 	return &httpbody.HttpBody{
 		ContentType: resp.MimeType,
-		Data:        resp.Frame,
+		Data:        resp.Image,
 	}, nil
 }
 
@@ -180,7 +180,7 @@ func (s *subtypeServer) GetPointCloud(
 	}
 
 	return &pb.GetPointCloudResponse{
-		MimeType: utils.MimeTypePCD,
-		Frame:    buf.Bytes(),
+		MimeType:   utils.MimeTypePCD,
+		PointCloud: buf.Bytes(),
 	}, nil
 }
