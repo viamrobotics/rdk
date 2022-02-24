@@ -787,5 +787,24 @@ func TestSensorsService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
 
+	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false}
+	expected := map[resource.Name]interface{}{
+		gps.Named("gps1"): readings1,
+		gps.Named("gps2"): readings1,
+	}
+
+	readings, err := svc.GetReadings(context.Background(), []resource.Name{gps.Named("gps1")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 1)
+	test.That(t, readings[0].Name, test.ShouldResemble, gps.Named("gps1"))
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+
+	readings, err = svc.GetReadings(context.Background(), sensorNames)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 2)
+
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+	test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
+
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
