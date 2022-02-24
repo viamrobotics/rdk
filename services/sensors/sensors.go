@@ -131,7 +131,7 @@ func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource
 		}
 		reading, err := sensor.GetReadings(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "failed to get reading from %q", name)
 		}
 		readings = append(readings, Readings{Name: name, Readings: reading})
 	}
