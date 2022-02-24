@@ -11,6 +11,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
@@ -62,21 +63,10 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	_, err = server.GetObjectPointClouds(context.Background(), req)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
-	// returns response
-	// request the two segments in the point cloud
 	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-	test.That(t, err, test.ShouldBeNil)
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-	test.That(t, err, test.ShouldBeNil)
+	for _, pt := range testPointCloud {
+		test.That(t, pcA.Set(pt), test.ShouldBeNil)
+	}
 
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 		seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
@@ -93,12 +83,11 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
-	test.That(t, segs.Objects[0].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-	test.That(t, segs.Objects[1].CenterCoordinatesMm.Z, test.ShouldEqual, 5.)
-	test.That(t, segs.Objects[0].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[0].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[0].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs.Objects[1].BoundingBoxMm.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[1].BoundingBoxMm.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs.Objects[1].BoundingBoxMm.DepthMm, test.ShouldEqual, 2)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, object := range segs.Objects {
+		box, err := spatialmath.NewGeometryFromProto(object.Geometries.Geometries[0])
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
 }
