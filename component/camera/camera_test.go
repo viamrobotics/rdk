@@ -207,7 +207,7 @@ func TestNewCamera(t *testing.T) {
 	_, ok := cam1.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeFalse)
 	proj := camera.Projector(cam1)
-	test.That(t, err, test.ShouldBeNil)
+	test.That(t, proj, test.ShouldBeNil)
 
 	// camera with camera parameters
 	cam2, err := camera.New(imgSrc, attrs1, cam1)
