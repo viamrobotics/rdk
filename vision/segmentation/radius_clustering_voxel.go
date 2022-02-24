@@ -4,22 +4,71 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/vision"
 )
 
-// NewObjectSegmentationFromVoxelGrid removes the planes (if any) and returns a segmentation of the objects in a point cloud.
-func NewObjectSegmentationFromVoxelGrid(
-	ctx context.Context,
-	vg *pc.VoxelGrid,
-	objConfig *vision.Parameters3D,
-	planeConfig VoxelGridPlaneConfig,
-) (*ObjectSegmentation, error) {
-	if objConfig == nil {
-		return nil, errors.New("config for object segmentation cannot be nil")
+// RadiusClusteringVoxelConfig specifies the necessary parameters for 3D object finding.
+type RadiusClusteringVoxelConfig struct {
+	VoxelSize          float64 `json:"voxel_size"`
+	Lambda             float64 `json:"lambda"` // clustering parameter for making voxel planes
+	MinPtsInPlane      int     `json:"min_points_in_plane"`
+	MinPtsInSegment    int     `json:"min_points_in_segment"`
+	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
+	WeightThresh       float64 `json:"weight_threshold"`
+	AngleThresh        float64 `json:"angle_threshold"` // in degrees
+	CosineThresh       float64 `json:"cosine_threshold"`
+	DistanceThresh     float64 `json:"distance_threshold"`
+}
+
+func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
+	return nil
+}
+
+func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap) error {
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
+	if err != nil {
+		return err
 	}
+	err = decoder.Decode(am)
+	if err == nil {
+		err = rcc.CheckValid()
+	}
+	return err
+}
+
+// RadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.
+func RadiusClusteringFromVoxels(ctx context.Context, c camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
+	// convert attributes to appropriate struct
+	if params == nil {
+		return nil, errors.New("config for radius clustering segmentation cannot be nil")
+	}
+	cfg := &RadiusClusteringVoxelConfig{}
+	err := cfg.ConvertAttributes(params)
+	if err != nil {
+		return nil, err
+	}
+	// get next point cloud and convert it to a  VoxelGrid
+	// NOTE(bh): Maybe one day cameras will return voxel grids directly.
+	cloud, err := c.NextPointCloud(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return ApplyRadiusClusteringVoxels(ctx, cloud, cfg)
+}
+
+// ApplyRadiusClusteringVoxels turns the cloud into a voxel grid and then does radius clustering  to segment it.
+func ApplyRadiusClusteringVoxels(ctx context.Context,
+	cloud pc.PointCloud,
+	cfg *RadiusClusteringVoxelConfig) ([]*vision.Object, error) {
+	// turn the point cloud into a voxel grid
+	vg := pc.NewVoxelGridFromPointCloud(cloud, cfg.VoxelSize, cfg.Lambda)
+	planeConfig := VoxelGridPlaneConfig{cfg.WeightThresh, cfg.AngleThresh, cfg.CosineThresh, cfg.DistanceThresh}
 	ps := NewVoxelGridPlaneSegmentation(vg, planeConfig)
 	planes, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
@@ -32,18 +81,19 @@ func NewObjectSegmentationFromVoxelGrid(
 			return nil, err
 		}
 	}
-
+	objConfig := RadiusClusteringConfig{cfg.MinPtsInPlane, cfg.MinPtsInSegment, cfg.ClusteringRadiusMm}
 	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
 	objects, err := voxelBasedNearestNeighbors(objVoxGrid, objConfig.ClusteringRadiusMm)
 	if err != nil {
 		return nil, err
 	}
-	objects = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
-	segments, err := NewSegmentsFromSlice(objects)
+	objects, err = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
-	return &ObjectSegmentation{nonPlane, segments}, nil
+	segments := NewSegmentsFromSlice(objects)
+
+	return segments.Objects, nil
 }
 
 func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointCloud, error) {
