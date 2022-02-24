@@ -2,10 +2,10 @@ package sensors_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gps"
@@ -142,7 +142,7 @@ func TestGetReadings(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	r := &inject.Robot{}
-	sensorNames := []resource.Name{imu.Named("imu"), gps.Named("gps")}
+	sensorNames := []resource.Name{imu.Named("imu"), gps.Named("gps"), gps.Named("gps2")}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return sensorNames
 	}
@@ -160,9 +160,9 @@ func TestGetReadings(t *testing.T) {
 
 	t.Run("failing sensor", func(t *testing.T) {
 		injectSensor := &inject.Sensor{}
-		passedError := errors.New("can't get readings")
+		passedErr := errors.New("can't get readings")
 		injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
-			return nil, passedError
+			return nil, passedErr
 		}
 		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
 			return injectSensor, true
@@ -171,7 +171,7 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu")})
-		test.That(t, err, test.ShouldBeError, passedError)
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get reading from %q", imu.Named("imu")))
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
@@ -185,6 +185,11 @@ func TestGetReadings(t *testing.T) {
 		injectSensor2.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return readings2, nil
 		}
+		injectSensor3 := &inject.Sensor{}
+		passedErr := errors.New("can't read")
+		injectSensor3.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return nil, passedErr
+		}
 		expected := map[resource.Name]interface{}{
 			imu.Named("imu"): readings1,
 			gps.Named("gps"): readings2,
@@ -195,6 +200,8 @@ func TestGetReadings(t *testing.T) {
 				return injectSensor, true
 			case gps.Named("gps"):
 				return injectSensor2, true
+			case gps.Named("gps2"):
+				return injectSensor3, true
 			}
 			return nil, false
 		}
@@ -211,11 +218,14 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, reading.Name, test.ShouldResemble, imu.Named("imu"))
 		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
-		readings, err = svc.GetReadings(context.Background(), sensorNames)
+		readings, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu"), gps.Named("gps")})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 2)
 		test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
 		test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
+
+		_, err = svc.GetReadings(context.Background(), sensorNames)
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get reading from %q", gps.Named("gps2")))
 	})
 }
 
