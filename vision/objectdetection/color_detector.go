@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/rimage"
 )
 

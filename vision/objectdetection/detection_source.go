@@ -9,8 +9,9 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/utils"
+
+	"go.viam.com/rdk/rimage"
 )
 
 // Result holds all useful information for the detector: contains the original image, the preprocessed image, and the final detections.

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/mitchellh/mapstructure"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
@@ -64,5 +65,4 @@ func ColorObjects(ctx context.Context, cam camera.Camera, params config.Attribut
 		return nil, err
 	}
 	return segmenter(ctx, cam, nil)
-
 }
