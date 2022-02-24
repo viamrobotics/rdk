@@ -5,11 +5,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
@@ -399,23 +401,32 @@ func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error)
 	robotPart, ok := parts.resources.Nodes[name]
 	if ok {
 		fmt.Println("initial name: ", name)
-		partExists = true
+		return robotPart, nil
+	} else {
+		fmt.Println("did not get initial part")
 	}
 	for _, remote := range parts.remotes {
-		part, err := remote.ResourceByName(name)
-		if err == nil {
-			fmt.Println("for loop name: ", name)
-			if partExists {
-				return nil, errors.New("there are multiple resources with the same name. Change name to avoid duplicates to access")
+		fmt.Println("for remote name: ", remote.conf.Name)
+
+		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
+			part, err := remote.ResourceByName(name)
+			if err == nil {
+				fmt.Println("for loop name: ", name)
+				if partExists {
+					return nil, errors.Errorf("multiple remote resources with name %q. Change name to avoid duplicates to access", name)
+				}
+				robotPart = part
+				partExists = true
+			} else {
+				fmt.Println("did not get remote part")
 			}
-			robotPart = part
-			partExists = true
 		}
+
 	}
 	if partExists {
 		return robotPart, nil
 	}
-	return nil, errors.New("no resources exist with this name")
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 // PartsMergeResult is the result of merging in parts together.
