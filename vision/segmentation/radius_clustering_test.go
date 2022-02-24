@@ -11,11 +11,12 @@ import (
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
 
 // get a segmentation of a pointcloud and calculate each object's center.
-func TestCalculateSegmentMeans(t *testing.T) {
+func TestPixelSegmentation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectCamera := &inject.Camera{}
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
@@ -31,11 +32,21 @@ func TestCalculateSegmentMeans(t *testing.T) {
 	}
 	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
 	test.That(t, err, test.ShouldBeNil)
+	testSegmentation(t, segments)
+}
+
+func testSegmentation(t *testing.T, segments []*vision.Object) {
+	t.Helper()
 	test.That(t, len(segments), test.ShouldBeGreaterThan, 0)
-	// get center points
 	for _, seg := range segments {
-		mean := pc.CalculateMeanOfPointCloud(seg.PointCloud)
-		expMean := seg.Center
-		test.That(t, mean, test.ShouldResemble, expMean)
+		box, err := pc.BoundingBoxFromPointCloud(seg)
+		if seg.Size() == 0 {
+			test.That(t, box, test.ShouldBeNil)
+			test.That(t, err, test.ShouldNotBeNil)
+			continue
+		}
+		test.That(t, box, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box.AlmostEqual(seg.BoundingBox), test.ShouldBeTrue)
 	}
 }

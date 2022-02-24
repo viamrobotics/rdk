@@ -36,11 +36,5 @@ func TestVoxelSegmentMeans(t *testing.T) {
 
 	voxSegments, err := segmentation.RadiusClusteringFromVoxels(context.Background(), cam, voxObjConfig)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(voxSegments), test.ShouldBeGreaterThan, 0)
-	// get center points
-	for _, seg := range voxSegments {
-		mean := pc.CalculateMeanOfPointCloud(seg.PointCloud)
-		expMean := seg.Center
-		test.That(t, mean, test.ShouldResemble, expMean)
-	}
+	testSegmentation(t, voxSegments)
 }

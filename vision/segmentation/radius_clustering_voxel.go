@@ -118,11 +118,11 @@ func ApplyRadiusClusteringVoxels(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	objects, err = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
+	objects = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
+	segments, err := NewSegmentsFromSlice(objects)
 	if err != nil {
 		return nil, err
 	}
-	segments := NewSegmentsFromSlice(objects)
 
 	return segments.Objects, nil
 }
