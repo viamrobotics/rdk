@@ -109,7 +109,7 @@ func TestServerGetReadings(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		passedErr := errors.New("can't get readings")
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return nil, passedErr
 		}
 		req := &pb.GetReadingsRequest{
@@ -126,14 +126,14 @@ func TestServerGetReadings(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		iReading := sensors.Reading{Name: imu.Named("imu"), Reading: []interface{}{1.2, 2.3, 3.4}}
-		gReading := sensors.Reading{Name: gps.Named("gps"), Reading: []interface{}{4.5, 5.6, 6.7}}
-		readings := []sensors.Reading{iReading, gReading}
+		iReading := sensors.Readings{Name: imu.Named("imu"), Readings: []interface{}{1.2, 2.3, 3.4}}
+		gReading := sensors.Readings{Name: gps.Named("gps"), Readings: []interface{}{4.5, 5.6, 6.7}}
+		readings := []sensors.Readings{iReading, gReading}
 		expected := map[resource.Name]interface{}{
-			iReading.Name: iReading.Reading,
-			gReading.Name: gReading.Reading,
+			iReading.Name: iReading.Readings,
+			gReading.Name: gReading.Readings,
 		}
-		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Reading, error) {
+		injectSensors.GetReadingsFunc = func(ctx context.Context, sensors []resource.Name) ([]sensors.Readings, error) {
 			return readings, nil
 		}
 		req := &pb.GetReadingsRequest{

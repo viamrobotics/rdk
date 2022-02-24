@@ -12,7 +12,7 @@ type SensorsService struct {
 	sensors.Service
 
 	GetSensorsFunc  func(ctx context.Context) ([]resource.Name, error)
-	GetReadingsFunc func(ctx context.Context, resources []resource.Name) ([]sensors.Reading, error)
+	GetReadingsFunc func(ctx context.Context, resources []resource.Name) ([]sensors.Readings, error)
 }
 
 // GetSensors call the injected GetSensors or the real one.
@@ -24,7 +24,7 @@ func (s *SensorsService) GetSensors(ctx context.Context) ([]resource.Name, error
 }
 
 // GetReadings call the injected GetReadings or the real one.
-func (s *SensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]sensors.Reading, error) {
+func (s *SensorsService) GetReadings(ctx context.Context, names []resource.Name) ([]sensors.Readings, error) {
 	if s.GetReadingsFunc == nil {
 		return s.Service.GetReadings(ctx, names)
 	}

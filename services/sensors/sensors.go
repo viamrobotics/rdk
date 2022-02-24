@@ -40,16 +40,16 @@ func init() {
 	})
 }
 
-// A Reading ties both the sensor name and its reading together.
-type Reading struct {
-	Name    resource.Name
-	Reading []interface{}
+// A Readings ties both the sensor name and its reading together.
+type Readings struct {
+	Name     resource.Name
+	Readings []interface{}
 }
 
 // A Service centralizes all sensors into one place.
 type Service interface {
 	GetSensors(ctx context.Context) ([]resource.Name, error)
-	GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Reading, error)
+	GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -119,11 +119,11 @@ func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error
 }
 
 // GetReadings returns the readings of the resources specified.
-func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Reading, error) {
+func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	readings := make([]Reading, 0, len(sensorNames))
+	readings := make([]Readings, 0, len(sensorNames))
 	for _, name := range sensorNames {
 		sensor, ok := s.sensors[name]
 		if !ok {
@@ -133,7 +133,7 @@ func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource
 		if err != nil {
 			return nil, err
 		}
-		readings = append(readings, Reading{Name: name, Reading: reading})
+		readings = append(readings, Readings{Name: name, Readings: reading})
 	}
 	return readings, nil
 }

@@ -209,13 +209,13 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, len(readings), test.ShouldEqual, 1)
 		reading := readings[0]
 		test.That(t, reading.Name, test.ShouldResemble, imu.Named("imu"))
-		test.That(t, reading.Reading, test.ShouldResemble, readings1)
+		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
 		readings, err = svc.GetReadings(context.Background(), sensorNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 2)
-		test.That(t, readings[0].Reading, test.ShouldResemble, expected[readings[0].Name])
-		test.That(t, readings[1].Reading, test.ShouldResemble, expected[readings[1].Name])
+		test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+		test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
 	})
 }
 
