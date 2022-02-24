@@ -53,6 +53,7 @@ func TestBoundingBoxFromPointCloud(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		box, err := BoundingBoxFromPointCloud(c.pc)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBox), test.ShouldBeTrue)
 	}
 }
