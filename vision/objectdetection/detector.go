@@ -11,7 +11,7 @@ import (
 // Detector returns a slice of object detections from an input image.
 type Detector func(image.Image) ([]Detection, error)
 
-// Build zips up a preprocessor-detector-postprocessor stream into a detector
+// Build zips up a preprocessor-detector-postprocessor stream into a detector.
 func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error) {
 	if det == nil {
 		return nil, errors.New("must have a Detector to build a detection pipeline")
