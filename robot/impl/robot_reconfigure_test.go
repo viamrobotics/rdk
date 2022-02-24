@@ -857,11 +857,11 @@ func TestRobotReconfigure(t *testing.T) {
 		board1, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
@@ -926,7 +926,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)

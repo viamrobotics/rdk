@@ -560,13 +560,13 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok := robot.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = robot.ResourceByName(arm.Named("one.arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.ResourceByName(arm.Named("arm1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = robot.ResourceByName(arm.Named("one.arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot.ResourceByName(arm.Named("arm1_what"))
+	test.That(t, err, test.ShouldBeError)
 
 	wrapped.errRefresh = true
 	err = robot.Refresh(context.Background())
