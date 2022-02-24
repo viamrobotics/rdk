@@ -19,10 +19,12 @@ type RadiusClusteringConfig struct {
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
 }
 
+// CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringConfig) CheckValid() error {
 	return nil
 }
 
+// ConvertAttributes changes the AttributeMap input into a RadiusClusteringConfig.
 func (rcc *RadiusClusteringConfig) ConvertAttributes(am config.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {

@@ -38,7 +38,11 @@ func DetectionSegmenter(detector objectdetection.Detector, proj rimage.Projector
 }
 
 // DetectionsToObjects turns 2D detections into 3D objects using the intrinsic camera projection parameters and the image.
-func DetectionsToObjects(dets []objectdetection.Detection, iwd *rimage.ImageWithDepth, proj rimage.Projector, meanK int, sigma float64) ([]*vision.Object, error) {
+func DetectionsToObjects(dets []objectdetection.Detection,
+	iwd *rimage.ImageWithDepth,
+	proj rimage.Projector,
+	meanK int,
+	sigma float64) ([]*vision.Object, error) {
 	statisticalFilter, err := pointcloud.StatisticalOutlierFilter(meanK, sigma)
 	if err != nil {
 		return nil, err

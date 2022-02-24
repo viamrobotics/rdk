@@ -26,10 +26,12 @@ type RadiusClusteringVoxelConfig struct {
 	DistanceThresh     float64 `json:"distance_threshold"`
 }
 
+// CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	return nil
 }
 
+// ConvertAttributes changes the AttributeMap input into a RadiusClusteringVoxelConfig.
 func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: rcc})
 	if err != nil {

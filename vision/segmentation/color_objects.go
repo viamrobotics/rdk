@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+// ColorObjectsConfig specifies the necessary parameters for the color detection and transformation to 3D objects.
 type ColorObjectsConfig struct {
 	Tolerance      float64 `json:"tolerance"`
 	Color          string  `json:"detect_color"` // form #RRGGBB
@@ -20,10 +21,12 @@ type ColorObjectsConfig struct {
 	MinSegmentSize int     `json:"min_points_in_segment"`
 }
 
+// CheckValid checks to see in the input values are valid.
 func (csc *ColorObjectsConfig) CheckValid() error {
 	return nil
 }
 
+// ConvertAttributes changes the AttributeMap input into a ColorObjectsConfig.
 func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: csc})
 	if err != nil {
