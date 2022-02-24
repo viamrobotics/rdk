@@ -81,6 +81,9 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 			return nil, err
 		}
 		objects[i], err = vision.NewObject(pc)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return objects, nil
 }
