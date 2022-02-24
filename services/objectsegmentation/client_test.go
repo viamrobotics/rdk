@@ -75,7 +75,8 @@ func TestClient(t *testing.T) {
 
 		expectedBoxes := makeExpectedBoxes(t)
 		for _, seg := range segs {
-			box, _ := pointcloud.BoundingBoxFromPointCloud(seg)
+			box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+			test.That(t, err, test.ShouldBeNil)
 			test.That(t, box, test.ShouldNotBeNil)
 			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 		}
