@@ -3,7 +3,6 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"os"
 	"strings"
 
@@ -400,28 +399,19 @@ func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error)
 	partExists := false
 	robotPart, ok := parts.resources.Nodes[name]
 	if ok {
-		fmt.Println("initial name: ", name)
 		return robotPart, nil
-	} else {
-		fmt.Println("did not get initial part")
 	}
 	for _, remote := range parts.remotes {
-		fmt.Println("for remote name: ", remote.conf.Name)
-
 		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
 			part, err := remote.ResourceByName(name)
 			if err == nil {
-				fmt.Println("for loop name: ", name)
 				if partExists {
 					return nil, errors.Errorf("multiple remote resources with name %q. Change name to avoid duplicates to access", name)
 				}
 				robotPart = part
 				partExists = true
-			} else {
-				fmt.Println("did not get remote part")
 			}
 		}
-
 	}
 	if partExists {
 		return robotPart, nil
