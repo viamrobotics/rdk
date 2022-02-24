@@ -113,7 +113,7 @@ func TestServiceFailures(t *testing.T) {
 	obs, err = objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{})
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{500, 500, 10})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector")
 }
 

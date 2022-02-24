@@ -105,10 +105,10 @@ func (h *segmentTestHelper) Process(
 
 	// voxel grid plane segmentation -- do the same thing as above but using the voxel grid method to get the planes.
 	voxelConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    80,
-		cosineThresh:   0.30,
-		distanceThresh: voxelSize * 0.5,
+		WeightThresh:   0.9,
+		AngleThresh:    80,
+		CosineThresh:   0.30,
+		DistanceThresh: voxelSize * 0.5,
 	}
 	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
 	planesVox, nonPlaneVox, err := planeSegVoxel.FindPlanes(context.Background())
@@ -176,10 +176,10 @@ func (h *gripperPlaneTestHelper) Process(
 
 	// voxel grid plane segmentation
 	voxelConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    30,
-		cosineThresh:   0.1,
-		distanceThresh: 0.1,
+		WeightThresh:   0.9,
+		AngleThresh:    30,
+		CosineThresh:   0.1,
+		DistanceThresh: 0.1,
 	}
 	vg := pc.NewVoxelGridFromPointCloud(cloud, 8.0, 0.1)
 	planeSegVoxel := NewVoxelGridPlaneSegmentation(vg, voxelConfig)
