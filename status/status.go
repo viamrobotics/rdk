@@ -52,7 +52,10 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if status.Arms == nil {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
+			fmt.Printf("getting name: %v\n", name)
 			raw, err := r.ResourceByName(name)
+			fmt.Printf("completed getting name: %v\n\n\n", name)
+
 			if err != nil {
 				fmt.Println(err)
 				fmt.Println("error 2")
