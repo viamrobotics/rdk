@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
@@ -121,11 +122,20 @@ func (s *sensorsService) GetSensors(ctx context.Context) ([]resource.Name, error
 // GetReadings returns the readings of the resources specified.
 func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource.Name) ([]Readings, error) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
+	// make a copy of sensors and then unlock
+	copied, err := copystructure.Copy(s.sensors)
+	if err != nil {
+		return nil, err
+	}
+	sensors, ok := copied.(map[resource.Name]sensor.Sensor)
+	if !ok {
+		return nil, errors.New("something went wrong while creating a deep copy of sensors map")
+	}
+	s.mu.RUnlock()
 
 	readings := make([]Readings, 0, len(sensorNames))
 	for _, name := range sensorNames {
-		sensor, ok := s.sensors[name]
+		sensor, ok := sensors[name]
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)
 		}
