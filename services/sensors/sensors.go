@@ -133,8 +133,14 @@ func (s *sensorsService) GetReadings(ctx context.Context, sensorNames []resource
 	}
 	s.mu.RUnlock()
 
-	readings := make([]Readings, 0, len(sensorNames))
-	for _, name := range sensorNames {
+	// dedupe sensorNames
+	deduped := make(map[resource.Name]struct{}, len(sensorNames))
+	for _, val := range sensorNames {
+		deduped[val] = struct{}{}
+	}
+
+	readings := make([]Readings, 0, len(deduped))
+	for name := range deduped {
 		sensor, ok := sensors[name]
 		if !ok {
 			return nil, errors.Errorf("resource %q not a registered sensor", name)

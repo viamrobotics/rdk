@@ -218,6 +218,13 @@ func TestGetReadings(t *testing.T) {
 		test.That(t, reading.Name, test.ShouldResemble, imu.Named("imu"))
 		test.That(t, reading.Readings, test.ShouldResemble, readings1)
 
+		readings, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu"), imu.Named("imu"), imu.Named("imu")})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(readings), test.ShouldEqual, 1)
+		reading = readings[0]
+		test.That(t, reading.Name, test.ShouldResemble, imu.Named("imu"))
+		test.That(t, reading.Readings, test.ShouldResemble, readings1)
+
 		readings, err = svc.GetReadings(context.Background(), []resource.Name{imu.Named("imu"), gps.Named("gps")})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(readings), test.ShouldEqual, 2)
