@@ -468,8 +468,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.BakedAuthEntity = "blah"
 	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 
-	svc, ok := r.ResourceByName(web.Name)
-	test.That(t, ok, test.ShouldBeTrue)
+	svc, err := r.ResourceByName(web.Name)
+	test.That(t, err, test.ShouldBeNil)
 	err = svc.(web.Service).Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

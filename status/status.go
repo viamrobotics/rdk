@@ -3,6 +3,7 @@ package status
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -53,6 +54,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 			raw, err := r.ResourceByName(name)
 			if err != nil {
+				fmt.Println(err)
+				fmt.Println("error 2")
+				fmt.Println(name)
 				return nil, errors.New("should be impossible")
 			}
 
@@ -96,6 +100,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 			raw, err := r.ResourceByName(name)
 			if err != nil {
+				fmt.Println("error 1")
 				return nil, errors.New("should be impossible")
 			}
 
