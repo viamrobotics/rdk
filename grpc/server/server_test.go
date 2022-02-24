@@ -240,8 +240,8 @@ func TestServer(t *testing.T) {
 		err1 := errors.New("whoops")
 
 		device := &inject.Sensor{}
-		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return device, true
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return device, nil
 		}
 
 		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
