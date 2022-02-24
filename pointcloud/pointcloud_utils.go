@@ -36,7 +36,7 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 // BoundingBoxFromPointCloud returns a Geometry object that encompasses all the points in the given point cloud.
 func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	if cloud.Size() == 0 {
-		return nil, errors.New("cannot calculate bounding box from point cloud of size zero")
+		return nil, nil
 	}
 
 	// calculate extents of point cloud

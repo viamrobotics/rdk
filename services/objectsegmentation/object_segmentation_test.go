@@ -150,6 +150,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 	for _, seg := range segs {
 		box, err := pointcloud.BoundingBoxFromPointCloud(seg)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 	}
 }
@@ -254,6 +255,7 @@ func TestFullClientServerLoop(t *testing.T) {
 	for _, seg := range segs {
 		box, err := pointcloud.BoundingBoxFromPointCloud(seg)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
 	}
 

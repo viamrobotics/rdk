@@ -41,9 +41,11 @@ func testSegmentation(t *testing.T, segmentation *ObjectSegmentation) {
 	for i := 0; i < segmentation.N(); i++ {
 		box, err := pc.BoundingBoxFromPointCloud(segmentation.Segments.Objects[i])
 		if segmentation.Segments.Objects[i].Size() == 0 {
+			test.That(t, box, test.ShouldBeNil)
 			test.That(t, err, test.ShouldNotBeNil)
 			continue
 		}
+		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, box.AlmostEqual(segmentation.Segments.Objects[i].BoundingBox), test.ShouldBeTrue)
 	}

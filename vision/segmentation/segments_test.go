@@ -34,7 +34,9 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p03.Position()] = 0
 	test.That(t, clouds[0].Set(p03), test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clouds[0], r3.Vector{0, 0.5, 0.5}, r3.Vector{0, 1, 1})
-	clusters = append(clusters, vision.NewObject(clouds[0]))
+	obj, err := vision.NewObject(clouds[0])
+	test.That(t, err, test.ShouldBeNil)
+	clusters = append(clusters, obj)
 
 	// create a 2nd cloud far away
 	p10 := pc.NewBasicPoint(30, 0, 0)
@@ -50,7 +52,9 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p13.Position()] = 1
 	test.That(t, clouds[1].Set(p13), test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clouds[1], r3.Vector{30, 0.5, 0.5}, r3.Vector{0, 1, 1})
-	clusters = append(clusters, vision.NewObject(clouds[1]))
+	obj, err = vision.NewObject(clouds[1])
+	test.That(t, err, test.ShouldBeNil)
+	clusters = append(clusters, obj)
 
 	// create 3rd cloud
 	p20 := pc.NewBasicPoint(0, 30, 0)
@@ -69,8 +73,9 @@ func createPointClouds(t *testing.T) *Segments {
 	cloudMap[p24.Position()] = 2
 	test.That(t, clouds[2].Set(p24), test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clouds[2], r3.Vector{0.5, 30, 0.5}, r3.Vector{1, 0, 1})
-
-	clusters = append(clusters, vision.NewObject(clouds[2]))
+	obj, err = vision.NewObject(clouds[2])
+	test.That(t, err, test.ShouldBeNil)
+	clusters = append(clusters, obj)
 	return &Segments{clusters, cloudMap}
 }
 
@@ -118,7 +123,7 @@ func TestMergeCluster(t *testing.T) {
 		test.That(t, clusters.Indices[pt.Position()], test.ShouldEqual, 1)
 		return true
 	})
-	testPointCloudBoundingBox(t, clusters.Objects[0].PointCloud, r3.Vector{}, r3.Vector{})
+	test.That(t, clusters.Objects[0].BoundingBox, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[1].PointCloud, r3.Vector{15, 0.5, 0.5}, r3.Vector{30, 1, 1})
 	testPointCloudBoundingBox(t, clusters.Objects[2].PointCloud, r3.Vector{0.5, 30, 0.5}, r3.Vector{1, 0, 1})
 
@@ -130,9 +135,9 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 8)
 	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 0)
 	test.That(t, clusters.Objects[3].Size(), test.ShouldEqual, 5)
-	testPointCloudBoundingBox(t, clusters.Objects[0].PointCloud, r3.Vector{}, r3.Vector{})
+	test.That(t, clusters.Objects[0].BoundingBox, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[1].PointCloud, r3.Vector{15, 0.5, 0.5}, r3.Vector{30, 1, 1})
-	testPointCloudBoundingBox(t, clusters.Objects[2].PointCloud, r3.Vector{}, r3.Vector{})
+	test.That(t, clusters.Objects[2].BoundingBox, test.ShouldBeNil)
 	testPointCloudBoundingBox(t, clusters.Objects[3].PointCloud, r3.Vector{0.5, 30, 0.5}, r3.Vector{1, 0, 1})
 }
 
@@ -140,8 +145,10 @@ func testPointCloudBoundingBox(t *testing.T, cloud pc.PointCloud, center, dims r
 	t.Helper()
 	box, err := pc.BoundingBoxFromPointCloud(cloud)
 	if cloud.Size() == 0 {
+		test.That(t, box, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	} else {
+		test.That(t, box, test.ShouldNotBeNil)
 		test.That(t, err, test.ShouldBeNil)
 		boxExpected, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(center), dims)
 		test.That(t, err, test.ShouldBeNil)

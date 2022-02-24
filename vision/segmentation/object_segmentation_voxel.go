@@ -39,8 +39,10 @@ func NewObjectSegmentationFromVoxelGrid(
 		return nil, err
 	}
 	objects = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
-	segments := NewSegmentsFromSlice(objects)
-
+	segments, err := NewSegmentsFromSlice(objects)
+	if err != nil {
+		return nil, err
+	}
 	return &ObjectSegmentation{nonPlane, segments}, nil
 }
 

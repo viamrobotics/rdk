@@ -80,15 +80,7 @@ func protoToObjects(pco []*commonpb.PointCloudObject) ([]*vision.Object, error) 
 		if err != nil {
 			return nil, err
 		}
-		box, err := pointcloud.BoundingBoxFromPointCloud(pc)
-		if err != nil {
-			return nil, err
-		}
-		object := &vision.Object{
-			PointCloud:  pc,
-			BoundingBox: box,
-		}
-		objects[i] = object
+		objects[i], err = vision.NewObject(pc)
 	}
 	return objects, nil
 }

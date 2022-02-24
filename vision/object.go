@@ -20,15 +20,15 @@ type Object struct {
 }
 
 // NewObject calculates the metadata for an input pointcloud.
-func NewObject(cloud pc.PointCloud) *Object {
+func NewObject(cloud pc.PointCloud) (*Object, error) {
 	if cloud == nil {
-		return NewEmptyObject()
+		return NewEmptyObject(), nil
 	}
 	box, err := pc.BoundingBoxFromPointCloud(cloud)
 	if err != nil {
-		return &Object{PointCloud: cloud}
+		return nil, err
 	}
-	return &Object{cloud, box}
+	return &Object{cloud, box}, nil
 }
 
 // NewEmptyObject creates a new empty point cloud with metadata.

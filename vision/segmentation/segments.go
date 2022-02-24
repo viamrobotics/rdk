@@ -23,17 +23,20 @@ func NewSegments() *Segments {
 }
 
 // NewSegmentsFromSlice creates a Segments struct from a slice of point clouds.
-func NewSegmentsFromSlice(clouds []pc.PointCloud) *Segments {
+func NewSegmentsFromSlice(clouds []pc.PointCloud) (*Segments, error) {
 	segments := NewSegments()
 	for i, cloud := range clouds {
-		seg := vision.NewObject(cloud)
+		seg, err := vision.NewObject(cloud)
+		if err != nil {
+			return nil, err
+		}
 		segments.Objects = append(segments.Objects, seg)
 		cloud.Iterate(func(pt pc.Point) bool {
 			segments.Indices[pt.Position()] = i
 			return true
 		})
 	}
-	return segments
+	return segments, nil
 }
 
 // N gives the number of objects in the partition of the point cloud.
