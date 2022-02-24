@@ -249,10 +249,27 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 
 // VoxelGridPlaneConfig contains the parameters needed to create a Plane from a VoxelGrid.
 type VoxelGridPlaneConfig struct {
-	weightThresh   float64
-	angleThresh    float64 // in degrees
-	cosineThresh   float64
-	distanceThresh float64
+	WeightThresh   float64 `json:"weight_threshold"`
+	AngleThresh    float64 `json:"angle_threshold"` // in degrees
+	CosineThresh   float64 `json:"cosine_threshold"`
+	DistanceThresh float64 `json:"distance_threshold"`
+}
+
+// CheckValid checks to see in the inputs values are valid.
+func (vgpc *VoxelGridPlaneConfig) CheckValid() error {
+	if vgpc.WeightThresh < 0 {
+		return errors.Errorf("weight_threshold cannot be less than 0, got %v", vgpc.WeightThresh)
+	}
+	if vgpc.AngleThresh < -360 || vgpc.AngleThresh > 360 {
+		return errors.Errorf("angle_threshold must be in degrees, between -360 and 360, got %v", vgpc.AngleThresh)
+	}
+	if vgpc.CosineThresh < -1 || vgpc.CosineThresh > 1 {
+		return errors.Errorf("cosine_threshold must be between -1 and 1, got %v", vgpc.CosineThresh)
+	}
+	if vgpc.DistanceThresh < 0 {
+		return errors.Errorf("distance_threshold cannot be less than 0, got %v", vgpc.DistanceThresh)
+	}
+	return nil
 }
 
 type voxelGridPlaneSegmentation struct {
@@ -267,7 +284,7 @@ func NewVoxelGridPlaneSegmentation(vg *pc.VoxelGrid, config VoxelGridPlaneConfig
 
 // FindPlanes takes in a point cloud and outputs an array of the planes and a point cloud of the leftover points.
 func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Plane, pc.PointCloud, error) {
-	vgps.SegmentPlanesRegionGrowing(vgps.config.weightThresh, vgps.config.angleThresh, vgps.config.cosineThresh, vgps.config.distanceThresh)
+	vgps.SegmentPlanesRegionGrowing(vgps.config.WeightThresh, vgps.config.AngleThresh, vgps.config.CosineThresh, vgps.config.DistanceThresh)
 	planes, nonPlaneCloud, err := vgps.GetPlanesFromLabels()
 	if err != nil {
 		return nil, nil, err

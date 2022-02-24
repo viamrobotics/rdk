@@ -2,8 +2,10 @@ package segmentation
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -16,13 +18,29 @@ import (
 type ColorObjectsConfig struct {
 	Tolerance      float64 `json:"tolerance"`
 	Color          string  `json:"detect_color"` // form #RRGGBB
-	MeanK          int     `json:"mean_k"`
-	Sigma          float64 `json:"sigma"`
+	MeanK          int     `json:"mean_k"`       // used for StatisticalFilter
+	Sigma          float64 `json:"sigma"`        // used for StatisticalFilter
 	MinSegmentSize int     `json:"min_points_in_segment"`
 }
 
 // CheckValid checks to see in the input values are valid.
 func (csc *ColorObjectsConfig) CheckValid() error {
+	if csc.Tolerance < 0.0 || csc.Tolerance > 1.0 {
+		return errors.Errorf("tolerance must be between 0.0 and 1.0, got %v", csc.Tolerance)
+	}
+	n, err := fmt.Sscanf(csc.Color, "#%02x%02x%02x")
+	if n != 3 || err != nil {
+		return errors.Wrapf(err, "couldn't parse hex (%s) n: %d", csc.Color, n)
+	}
+	if csc.MeanK <= 0 {
+		return errors.Errorf("mean_k cannot be less than 0, got %v", csc.MeanK)
+	}
+	if csc.Sigma <= 0 {
+		return errors.Errorf("sigma, the std dev used for filtering, cannot be less than 0, got %v", csc.Sigma)
+	}
+	if csc.MinSegmentSize < 0 {
+		return errors.Errorf("min_points_in_segment cannot be less than 0, got %v", csc.MinSegmentSize)
+	}
 	return nil
 }
 
@@ -39,7 +57,7 @@ func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
 	return err
 }
 
-// ColorObjects turns the bounding boxes found by the ColorDetector into 3D objects.
+// ColorObjects is a Segmenter that turns the bounding boxes found by the ColorDetector into 3D objects.
 func ColorObjects(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
 	cfg := &ColorObjectsConfig{}
 	err := cfg.ConvertAttributes(params)

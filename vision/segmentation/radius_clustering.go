@@ -21,6 +21,15 @@ type RadiusClusteringConfig struct {
 
 // CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringConfig) CheckValid() error {
+	if rcc.MinPtsInPlane <= 0 {
+		return errors.Errorf("min_points_in_plane must be greater than 0, got %v", rcc.MinPtsInPlane)
+	}
+	if rcc.MinPtsInSegment <= 0 {
+		return errors.Errorf("min_points_in_segment must be greater than 0, got %v", rcc.MinPtsInSegment)
+	}
+	if rcc.ClusteringRadiusMm <= 0 {
+		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
 	return nil
 }
 

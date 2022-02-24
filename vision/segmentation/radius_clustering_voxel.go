@@ -15,19 +15,28 @@ import (
 
 // RadiusClusteringVoxelConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringVoxelConfig struct {
-	VoxelSize          float64 `json:"voxel_size"`
-	Lambda             float64 `json:"lambda"` // clustering parameter for making voxel planes
-	MinPtsInPlane      int     `json:"min_points_in_plane"`
-	MinPtsInSegment    int     `json:"min_points_in_segment"`
-	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
-	WeightThresh       float64 `json:"weight_threshold"`
-	AngleThresh        float64 `json:"angle_threshold"` // in degrees
-	CosineThresh       float64 `json:"cosine_threshold"`
-	DistanceThresh     float64 `json:"distance_threshold"`
+	VoxelSize float64 `json:"voxel_size"`
+	Lambda    float64 `json:"lambda"` // clustering parameter for making voxel planes
+	*RadiusClusteringConfig
+	*VoxelGridPlaneConfig
 }
 
 // CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
+	err := rcc.RadiusClusteringConfig.CheckValid()
+	if err != nil {
+		return err
+	}
+	err = rcc.VoxelGridPlaneConfig.CheckValid()
+	if err != nil {
+		return err
+	}
+	if rcc.VoxelSize <= 0 {
+		return errors.Errorf("voxel_size must be greater than 0, got %v", rcc.VoxelSize)
+	}
+	if rcc.Lambda <= 0 {
+		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
+	}
 	return nil
 }
 
@@ -37,11 +46,31 @@ func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap
 	if err != nil {
 		return err
 	}
-	err = decoder.Decode(am)
-	if err == nil {
-		err = rcc.CheckValid()
+	clusteringConf := &RadiusClusteringConfig{}
+	clusterDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: clusteringConf})
+	if err != nil {
+		return err
 	}
-	return err
+	voxelPlaneConf := &VoxelGridPlaneConfig{}
+	voxelPlaneDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: voxelPlaneConf})
+	if err != nil {
+		return err
+	}
+	err = decoder.Decode(am)
+	if err != nil {
+		return err
+	}
+	err = clusterDecoder.Decode(am)
+	if err != nil {
+		return err
+	}
+	err = voxelPlaneDecoder.Decode(am)
+	if err != nil {
+		return err
+	}
+	rcc.RadiusClusteringConfig = clusteringConf
+	rcc.VoxelGridPlaneConfig = voxelPlaneConf
+	return rcc.CheckValid()
 }
 
 // RadiusClusteringFromVoxels removes the planes (if any) and returns a segmentation of the objects in a point cloud.

@@ -23,15 +23,15 @@ func TestVoxelSegmentMeans(t *testing.T) {
 
 	// Do voxel segmentation
 	voxObjConfig := config.AttributeMap{
-		"voxel_size":           1.0,
-		"lambda":               0.1,
-		"min_points_in_plane":  100,
-		"min_point_in_segment": 25,
-		"clustering_radius_mm": 7.5,
-		"weight_threshold":     0.9,
-		"angle_threshold":      30,
-		"cosine_threshold":     0.1,
-		"distance_threshold":   0.1,
+		"voxel_size":            1.0,
+		"lambda":                0.1,
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 25,
+		"clustering_radius_mm":  7.5,
+		"weight_threshold":      0.9,
+		"angle_threshold":       30,
+		"cosine_threshold":      0.1,
+		"distance_threshold":    0.1,
 	}
 
 	voxSegments, err := segmentation.RadiusClusteringFromVoxels(context.Background(), cam, voxObjConfig)
