@@ -489,8 +489,8 @@ func TestClient(t *testing.T) {
 	_, err = servo1.GetPosition(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	resource1, ok := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -540,7 +540,6 @@ func TestClient(t *testing.T) {
 
 	_, err = board.FromRobot(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = board.FromRobot(client, "board3")
 	test.That(t, err, test.ShouldBeNil)
@@ -585,8 +584,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
-	resource1, ok = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())

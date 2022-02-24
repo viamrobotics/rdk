@@ -52,7 +52,6 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
 			raw, err := r.ResourceByName(name)
-
 			if err != nil {
 				return nil, errors.New("should be impossible")
 			}
