@@ -3,6 +3,7 @@ package robotimpl
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"os"
 
 	"github.com/alessio/shellescape"
@@ -395,21 +396,24 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 // returns nil otherwise.
 func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error) {
 	partExists := false
-	part, ok := parts.resources.Nodes[name]
+	robotPart, ok := parts.resources.Nodes[name]
 	if ok {
+		fmt.Println("initial name: ", name)
 		partExists = true
 	}
 	for _, remote := range parts.remotes {
 		part, err := remote.ResourceByName(name)
 		if err == nil {
+			fmt.Println("for loop name: ", name)
 			if partExists {
 				return nil, errors.New("there are multiple resources with the same name. Change name to avoid duplicates to access")
 			}
-			return part, nil
+			robotPart = part
+			partExists = true
 		}
 	}
 	if partExists {
-		return part, nil
+		return robotPart, nil
 	}
 	return nil, errors.New("no resources exist with this name")
 }
