@@ -38,7 +38,9 @@ func TestColorDetection(t *testing.T) {
 	f := NewAreaFilter(15000)
 
 	// Make the detection source
-	pipeline, err := NewSource(src, p, d, f)
+	det, err := Build(p, d, f)
+	test.That(t, err, test.ShouldBeNil)
+	pipeline, err := NewSource(src, det)
 	test.That(t, err, test.ShouldBeNil)
 	defer pipeline.Close()
 
