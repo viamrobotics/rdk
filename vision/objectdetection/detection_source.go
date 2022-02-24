@@ -61,7 +61,7 @@ func (s *Source) backgroundWorker(src gostream.ImageSource, det Detector) {
 			if err != nil && errors.Is(err, context.Canceled) {
 				return
 			}
-			clone := rimage.CloneToImageWithDepth(original) // use depth info if available}
+			clone := rimage.CloneToImageWithDepth(original) // use depth info if available
 			detections, err := det(clone)
 
 			r := &Result{
