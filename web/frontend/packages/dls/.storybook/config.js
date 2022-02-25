@@ -16,6 +16,8 @@ import Grid from '../src/components/Grid';
 import Collapse from '../src/components/Collapse';
 import Accordion from '../src/components/Accordion';
 import ViamSwitch from '../src/components/Switch';
+import ViamTabs from '../src/components/ViamTabs';
+import ViamTabsItem from '../src/components/ViamTabsItem';
 
 
 // Register custom components.
@@ -31,7 +33,8 @@ Vue.component('ToggleButton', ToggleButton);
 Vue.component('ViamSwitch', ViamSwitch);
 Vue.component('Grid', Grid);
 Vue.component('Collapse', Collapse);
-Vue.component('Accordion', Accordion);
+Vue.component('ViamTabs', ViamTabs);
+Vue.component('ViamTabsItem', ViamTabsItem);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {
