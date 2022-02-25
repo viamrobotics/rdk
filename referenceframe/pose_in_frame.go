@@ -12,7 +12,7 @@ type PoseInFrame struct {
 	pose  spatialmath.Pose
 }
 
-// Frame returns the name of the frame in which the pose was observed.
+// FrameName returns the name of the frame in which the pose was observed.
 func (pF *PoseInFrame) FrameName() string {
 	return pF.frame
 }
