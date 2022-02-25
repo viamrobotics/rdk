@@ -3,7 +3,7 @@ package spatialmath
 import "github.com/pkg/errors"
 
 func newBadGeometryDimensionsError(g Geometry) error {
-	return errors.Errorf("Dimension(s) for Geometry type %T can not be less than or equal to zero", g)
+	return errors.Errorf("Invalid dimension(s) for Geometry type %T", g)
 }
 
 func newCollisionTypeUnsupportedError(g1, g2 Geometry) error {

@@ -50,7 +50,7 @@ func (sc *sphereCreator) MarshalJSON() ([]byte, error) {
 
 // NewSphere instantiates a new sphere Geometry.
 func NewSphere(pt r3.Vector, radius float64) (Geometry, error) {
-	if radius <= 0 {
+	if radius < 0 {
 		return nil, newBadGeometryDimensionsError(&sphere{})
 	}
 	return &sphere{radius, NewPoseFromPoint(pt)}, nil

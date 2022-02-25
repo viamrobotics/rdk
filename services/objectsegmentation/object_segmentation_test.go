@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
@@ -18,11 +19,30 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
+
+var testPointCloud = []pointcloud.Point{
+	pointcloud.NewBasicPoint(5, 5, 5),
+	pointcloud.NewBasicPoint(5, 5, 6),
+	pointcloud.NewBasicPoint(5, 5, 4),
+	pointcloud.NewBasicPoint(-5, -5, 5),
+	pointcloud.NewBasicPoint(-5, -5, 6),
+	pointcloud.NewBasicPoint(-5, -5, 4),
+}
+
+func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
+	t.Helper()
+	box1, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: -5, Y: -5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	test.That(t, err, test.ShouldBeNil)
+	box2, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{X: 5, Y: 5, Z: 5}), r3.Vector{X: 0, Y: 0, Z: 2})
+	test.That(t, err, test.ShouldBeNil)
+	return []spatialmath.Geometry{box1, box2}
+}
 
 type simpleSource struct{}
 
@@ -42,29 +62,11 @@ func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 
 func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pcA := pointcloud.New()
-	err := pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-	if err != nil {
-		return nil, err
-	}
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-	if err != nil {
-		return nil, err
-	}
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-	if err != nil {
-		return nil, err
-	}
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-	if err != nil {
-		return nil, err
-	}
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-	if err != nil {
-		return nil, err
-	}
-	err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-	if err != nil {
-		return nil, err
+	for _, pt := range testPointCloud {
+		err := pcA.Set(pt)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pcA, nil
 }
@@ -143,14 +145,14 @@ func TestGetObjectPointClouds(t *testing.T) {
 	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
-	test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[0].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs[1].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.DepthMm, test.ShouldEqual, 2)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, seg := range segs {
+		box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
 }
 
 func setupInjectRobot() (*inject.Robot, *mock) {
@@ -248,14 +250,14 @@ func TestFullClientServerLoop(t *testing.T) {
 	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
-	test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
-	test.That(t, segs[0].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[0].BoundingBox.DepthMm, test.ShouldEqual, 2)
-	test.That(t, segs[1].BoundingBox.WidthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.LengthMm, test.ShouldEqual, 0)
-	test.That(t, segs[1].BoundingBox.DepthMm, test.ShouldEqual, 2)
+
+	expectedBoxes := makeExpectedBoxes(t)
+	for _, seg := range segs {
+		box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
+		test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+	}
 
 	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 }

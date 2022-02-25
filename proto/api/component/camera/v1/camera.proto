@@ -47,7 +47,7 @@ message GetFrameResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
-  bytes frame = 2;
+  bytes image = 2;
   // Width of frame in px
   int64 width_px = 3;
   // Height of frame in px
@@ -72,6 +72,5 @@ message GetPointCloudResponse {
   // Actual MIME type of response
   string mime_type = 1;
   // Frame in bytes
-  bytes frame = 2;
+  bytes point_cloud = 2;
 }
-
