@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 
-	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/subtype"
@@ -54,7 +53,7 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(objects)
+	protoSegments, err := segmentsToProto(req.Name, objects)
 	if err != nil {
 		return nil, err
 	}
@@ -65,36 +64,22 @@ func (server *subtypeServer) GetObjectPointClouds(
 	}, nil
 }
 
-func segmentsToProto(segs []*vision.Object) ([]*pb.PointCloudObject, error) {
-	protoSegs := make([]*pb.PointCloudObject, 0, len(segs))
+func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointCloudObject, error) {
+	protoSegs := make([]*commonpb.PointCloudObject, 0, len(segs))
 	for _, seg := range segs {
 		var buf bytes.Buffer
 		err := seg.ToPCD(&buf)
 		if err != nil {
 			return nil, err
 		}
-		ps := &pb.PointCloudObject{
-			Frame:               buf.Bytes(),
-			CenterCoordinatesMm: pointToProto(seg.Center),
-			BoundingBoxMm:       boxToProto(seg.BoundingBox),
+		ps := &commonpb.PointCloudObject{
+			PointCloud: buf.Bytes(),
+			Geometries: &commonpb.GeometriesInFrame{
+				Geometries:     []*commonpb.Geometry{seg.BoundingBox.ToProtobuf()},
+				ReferenceFrame: frame,
+			},
 		}
 		protoSegs = append(protoSegs, ps)
 	}
 	return protoSegs, nil
-}
-
-func pointToProto(p pointcloud.Vec3) *commonpb.Vector3 {
-	return &commonpb.Vector3{
-		X: p.X,
-		Y: p.Y,
-		Z: p.Z,
-	}
-}
-
-func boxToProto(b pointcloud.RectangularPrism) *commonpb.RectangularPrism {
-	return &commonpb.RectangularPrism{
-		WidthMm:  b.WidthMm,
-		LengthMm: b.LengthMm,
-		DepthMm:  b.DepthMm,
-	}
 }

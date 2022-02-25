@@ -23,17 +23,20 @@ func NewSegments() *Segments {
 }
 
 // NewSegmentsFromSlice creates a Segments struct from a slice of point clouds.
-func NewSegmentsFromSlice(clouds []pc.PointCloud) *Segments {
+func NewSegmentsFromSlice(clouds []pc.PointCloud) (*Segments, error) {
 	segments := NewSegments()
 	for i, cloud := range clouds {
-		seg := vision.NewObject(cloud)
+		seg, err := vision.NewObject(cloud)
+		if err != nil {
+			return nil, err
+		}
 		segments.Objects = append(segments.Objects, seg)
 		cloud.Iterate(func(pt pc.Point) bool {
 			segments.Indices[pt.Position()] = i
 			return true
 		})
 	}
-	return segments
+	return segments, nil
 }
 
 // N gives the number of objects in the partition of the point cloud.
@@ -64,42 +67,50 @@ func (c *Segments) AssignCluster(point pc.Point, index int) error {
 	for index >= len(c.Objects) {
 		c.Objects = append(c.Objects, vision.NewEmptyObject())
 	}
-	n := float64(c.Objects[index].Size())
 	c.Indices[point.Position()] = index
 	err := c.Objects[index].Set(point)
 	if err != nil {
 		return err
 	}
-	// update center point
-	pos := point.Position()
-	c.Objects[index].Center.X = (c.Objects[index].Center.X*n + pos.X) / (n + 1)
-	c.Objects[index].Center.Y = (c.Objects[index].Center.Y*n + pos.Y) / (n + 1)
-	c.Objects[index].Center.Z = (c.Objects[index].Center.Z*n + pos.Z) / (n + 1)
+	if c.Objects[index].Size() == 0 {
+		return nil
+	}
+	c.Objects[index].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[index])
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 // MergeClusters moves all the points in index "from" to the segment at index "to".
 func (c *Segments) MergeClusters(from, to int) error {
-	var err error
+	// ensure no out of bounrs errors
 	index := utils.MaxInt(from, to)
 	for index >= len(c.Objects) {
 		c.Objects = append(c.Objects, vision.NewEmptyObject())
 	}
+
+	// if no objects are in the cluster to delete, just return
+	if c.Objects[from].Size() == 0 {
+		return nil
+	}
+
+	// perform merge
+	var err error
 	c.Objects[from].Iterate(func(pt pc.Point) bool {
 		v := pt.Position()
-		n := float64(c.Objects[to].Size())
 		c.Indices[v] = to
 		err = c.Objects[to].Set(pt)
-		// update center point
-		c.Objects[to].Center.X = (c.Objects[to].Center.X*n + v.X) / (n + 1)
-		c.Objects[to].Center.Y = (c.Objects[to].Center.Y*n + v.Y) / (n + 1)
-		c.Objects[to].Center.Z = (c.Objects[to].Center.Z*n + v.Z) / (n + 1)
 		c.Objects[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})
 	if err != nil {
 		return err
 	}
-	c.Objects[from].Center = pc.Vec3{}
+	c.Objects[from] = vision.NewEmptyObject()
+	c.Objects[to].BoundingBox, err = pc.BoundingBoxFromPointCloud(c.Objects[to])
+	if err != nil {
+		return err
+	}
 	return nil
 }
