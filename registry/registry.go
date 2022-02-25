@@ -74,6 +74,9 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
+	// A CreateStatus creates a status from a given resource.
+	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
+
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error
 
@@ -91,6 +94,7 @@ type Component struct {
 // ResourceSubtype stores subtype-specific functions and clients.
 type ResourceSubtype struct {
 	Reconfigurable     CreateReconfigurable
+	Status             CreateStatus
 	RegisterRPCService RegisterSubtypeRPCService
 	RPCClient          CreateRPCClient
 }
@@ -133,10 +137,10 @@ func ComponentLookup(subtype resource.Subtype, model string) *Component {
 func RegisterResourceSubtype(subtype resource.Subtype, creator ResourceSubtype) {
 	_, old := subtypeRegistry[subtype]
 	if old {
-		panic(errors.Errorf("trying to register two of the same component subtype:%s", subtype))
+		panic(errors.Errorf("trying to register two of the same resource subtype: %s", subtype))
 	}
-	if creator.Reconfigurable == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
-		panic(errors.Errorf("cannot register a nil constructor for subtype:%s", subtype))
+	if creator.Reconfigurable == nil && creator.Status == nil && creator.RegisterRPCService == nil && creator.RPCClient == nil {
+		panic(errors.Errorf("cannot register a nil constructor for subtype: %s", subtype))
 	}
 	subtypeRegistry[subtype] = creator
 }
