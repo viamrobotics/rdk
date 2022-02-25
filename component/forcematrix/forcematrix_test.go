@@ -2,8 +2,9 @@ package forcematrix_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/test"
 	"go.viam.com/utils"

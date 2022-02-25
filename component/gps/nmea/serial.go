@@ -4,12 +4,13 @@ package nmea
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"sync"
+
+	"github.com/pkg/errors"
 
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"

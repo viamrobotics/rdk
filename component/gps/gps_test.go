@@ -2,8 +2,9 @@ package gps_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	geo "github.com/kellydunn/golang-geo"
 	"go.viam.com/test"
