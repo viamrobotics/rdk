@@ -53,7 +53,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 			raw, err := r.ResourceByName(name)
 			if err != nil {
-				return nil, errors.New("should be impossible")
+				return nil, errors.Wrapf(err, "should be impossible")
 			}
 
 			arm, ok := raw.(arm.Arm)
@@ -96,7 +96,7 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			}
 			raw, err := r.ResourceByName(name)
 			if err != nil {
-				return nil, errors.New("should be impossible")
+				return nil, errors.Wrapf(err, "should be impossible")
 			}
 
 			g, ok := raw.(gantry.Gantry)
