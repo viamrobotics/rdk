@@ -150,7 +150,7 @@ func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]
 func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Model, error) {
 	part, err := r.ResourceByName(name)
 	if err != nil {
-		return nil, errors.Errorf("no resource found with name %q when extracting model frame json", name)
+		return nil, errors.Wrapf(err, "no resource found with name %q when extracting model frame json", name)
 	}
 	if framer, ok := utils.UnwrapProxy(part).(referenceframe.ModelFramer); ok {
 		return framer.ModelFrame(), nil
