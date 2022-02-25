@@ -159,9 +159,10 @@ func (i *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		i.acceleration.X = scale(line[1], line[2], 16)
-		i.acceleration.Y = scale(line[3], line[4], 16)
-		i.acceleration.Z = scale(line[5], line[6], 16)
+		accScale := 16 * 9806.65
+		i.acceleration.X = scale(line[1], line[2], accScale)
+		i.acceleration.Y = scale(line[3], line[4], accScale)
+		i.acceleration.Z = scale(line[5], line[6], accScale)
 	}
 
 	return nil
