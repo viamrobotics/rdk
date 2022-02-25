@@ -8,7 +8,7 @@
         // busy
         'animate-pulse': props.busy,
         // variant
-        'text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700':
+        'text-black border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700':
           props.variant === 'primary' && props.color === 'primary' && !props.disabled,
         'text-white border-danger-500 bg-danger-500 hover:border-danger-600 hover:bg-danger-600 focus:bg-danger-600 active:bg-danger-700':
           props.variant === 'primary' && props.color === 'danger' && !props.disabled,
@@ -89,6 +89,7 @@ const validator = {
     'danger',
     'primary',
     'warning',
+    'success',
   ],
   group: [
     false,

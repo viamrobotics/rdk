@@ -1,12 +1,12 @@
 import { storiesOf } from "@storybook/vue";
 import { withDesign } from 'storybook-addon-designs'
 
-storiesOf("Collapse", module).add("Default Collapse", () => ({
+storiesOf("ViamInput", module).add("Default ViamInput", () => ({
   data() {
     return {
       streamNames: ["test1", "test2"]
     };
   },
   template:
-    '<Collapse>Test<template v-slot:content><div class="content p-2">Test content</div></template></Collapse>',
+    '<div><ViamInput color="primary" group="False" variant="primary">Primary</ViamButton></div>',
 }));

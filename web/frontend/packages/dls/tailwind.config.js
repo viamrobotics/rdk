@@ -1,3 +1,7 @@
+const colors = require('tailwindcss/colors');
+const { borderRadius, fontWeight } = require('tailwindcss/defaultTheme');
+const plugin = require('tailwindcss/plugin');
+
 module.exports = {
   content: ["./index.html", "./src/**/*.{vue,js,ts,jsx,tsx}"],
   theme: {
@@ -8,29 +12,98 @@ module.exports = {
       xl: '1440px',
     },
     colors: {
-      'blue': '#1fb6ff',
-      'purple': '#7e5bef',
-      'pink': '#ff49db',
-      'orange': '#ff7849',
-      'green': '#13ce66',
-      'yellow': '#ffc82c',
-      'gray-dark': '#273444',
-      'gray': '#8492a6',
-      'gray-light': '#d3dce6',
-    },
-    fontFamily: {
-      sans: ['Graphik', 'sans-serif'],
-      serif: ['Merriweather', 'serif'],
+      primary: colors.white,
+      success: colors.green,
+      warning: colors.orange,
+      danger: colors.red,
+
+      transparent: 'transparent',
+      current: 'currentColor',
+
+      black: '#18181b',
+      white: '#fff',
+
+      blue: colors.sky,
+      cyan: colors.cyan,
+      gray: colors.gray,
+      green: colors.green,
+      indigo: colors.indigo,
+      orange: colors.orange,
+      pink: colors.pink,
+      purple: colors.purple,
+      red: colors.rose,
+      teal: colors.teal,
+      yellow: colors.amber,
     },
     extend: {
-      spacing: {
-        '8xl': '96rem',
-        '9xl': '128rem',
-      },
       borderRadius: {
-        '4xl': '2rem',
-      }
-    }
+        button: borderRadius.lg,
+        form: borderRadius.md,
+      },
+      fontFamily: {
+        sans: ['Source Sans Pro', 'sans-serif'],
+        serif: ['Source Sans Pro', 'serif'],
+      },
+      fontWeight: {
+        button: fontWeight.medium,
+        header: fontWeight.medium,
+        label: fontWeight.medium,
+      },
+      transitionTimingFunction: {
+        'in-mijin': 'cubic-bezier(0.7, 0, 0.84, 0)',
+        'out-mijin': 'cubic-bezier(0.16, 1, 0.3, 1)',
+        'in-out-mijin': 'cubic-bezier(0.87, 0, 0.13, 1)',
+      },
+    },
   },
-  plugins: [],
+  variants: {
+    padding: ['responsive', 'last'],
+  },
+  plugins: [
+    plugin(({ addUtilities }) => {
+      const animationDelay = {
+        '.animation-delay-75': {
+          'animation-delay': '75ms',
+        },
+        '.animation-delay-100': {
+          'animation-delay': '100ms',
+        },
+        '.animation-delay-150': {
+          'animation-delay': '150ms',
+        },
+        '.animation-delay-200': {
+          'animation-delay': '200ms',
+        },
+        '.animation-delay-300': {
+          'animation-delay': '300ms',
+        },
+        '.animation-delay-500': {
+          'animation-delay': '500ms',
+        },
+        '.animation-delay-600': {
+          'animation-delay': '600ms',
+        },
+        '.animation-delay-700': {
+          'animation-delay': '700ms',
+        },
+        '.animation-delay-1000': {
+          'animation-delay': '1000ms',
+        },
+      };
+
+      addUtilities(animationDelay, ['responsive']);
+    }),
+    ({ addBase, config }) => {
+      addBase({
+        html: {
+          color: config('theme.colors.gray.900'),
+          backgroundColor: config('theme.colors.white'),
+        },
+        'html.dark': {
+          color: config('theme.colors.white'),
+          backgroundColor: config('theme.colors.gray.900'),
+        },
+      });
+    },
+  ],
 };

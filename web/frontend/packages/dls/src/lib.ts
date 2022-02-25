@@ -9,6 +9,8 @@ import Accordion from "./components/Accordion.vue";
 import ToggleButton from "./components/ToggleButton.vue";
 import VueAccordion from "./components/VueAccordion.vue";
 import ViamButton from "./components/Button.vue";
+import ViamInput from "./components/ViamInput.vue";
+import Collapse from "./components/Collapse.vue";
 
 const Components: { [key: string]: VueConstructor<Vue> } = {
     MotorDetail,
@@ -18,7 +20,9 @@ const Components: { [key: string]: VueConstructor<Vue> } = {
     Camera,
     Accordion,
     ToggleButton,
-    VueAccordion
+    VueAccordion,
+    ViamInput,
+    Collapse
   };
   
   Object.keys(Components).forEach((name) => {

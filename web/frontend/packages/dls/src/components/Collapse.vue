@@ -5,7 +5,7 @@
     :aria-expanded="collapsed ? 'false' : 'true'"
   >
     <div
-      class="flex items-center"
+      class="flex items-center border border-600 p-2"
       :class="{
         'cursor-pointer' : !disabled,
         'flex-row-reverse': iconLeft,
@@ -43,7 +43,7 @@
 
     <div
       :class="[
-        'transition-all duration-300 ease-in-out',
+        'transition-all duration-300 ease-in-out', 'border-r', 'border-b', 'border-l', 'border-600',
         { 'overflow-y-hidden': !expandedCompleted }
       ]"
       :style="{ maxHeight: maxHeight + 'px' }"
@@ -56,9 +56,9 @@
 </template>
 
 <script>
+import Vue from 'vue';
 const collapseDurationMs = 300;
-export default {
-  name: 'Collapse',
+export default Vue.extend({
   props: {
     disabled: {
       default: false,
@@ -114,5 +114,5 @@ export default {
       }
     },
   },
-};
+});
 </script>

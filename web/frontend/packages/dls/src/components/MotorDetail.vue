@@ -15,18 +15,10 @@
           class="row"
           style="justify-content: flex-end; flex-grow: 1; margin-right: 0"
         >
-          <button class="red" v-on:click="stop" style="align-self: flex-end">
-            <i class="far fa-times-circle"></i>
-            STOP
-          </button>
-          <button
-            class="green"
-            v-on:click="emitCommand"
-            style="align-self: flex-end"
-          >
-            <i class="fas fa-play"></i>
-            RUN
-          </button>
+          <div>
+            <ViamButton color="danger" variant="primary">STOP</ViamButton>
+            <ViamButton color="success" variant="primary">RUN</ViamButton>
+          </div>
         </div>
       </div>
       <div class="row" style="justify-content: space-between">
@@ -120,6 +112,7 @@ import {
   MotorServiceGoToRequest,
 } from "proto/api/component/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
+import ViamButton from "./Button.vue";
 
 enum MotorCommandType {
   Go = "go",
@@ -233,6 +226,7 @@ class MotorCommand {
 @Component({
   components: {
     RadioButtons,
+    ViamButton
   },
 })
 export default class MotorDetail extends Vue {

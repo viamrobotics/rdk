@@ -8,5 +8,5 @@ storiesOf("Button", module).add("Default Button", () => ({
     };
   },
   template:
-    '<ViamButton>Test</ViamButton>',
+    '<div><ViamButton color="primary" group="False" variant="primary">Primary</ViamButton><ViamButton color="success" group="False" variant="primary">Success</ViamButton><ViamButton color="danger" group="False" variant="primary">Danger</ViamButton></div>',
 }));

@@ -19,8 +19,8 @@ module.exports = {
       'gray-light': '#d3dce6',
     },
     fontFamily: {
-      sans: ['Graphik', 'sans-serif'],
-      serif: ['Merriweather', 'serif'],
+      sans: ['Source Sans Pro', 'sans-serif'],
+      serif: ['Source Sans Pro', 'serif'],
     },
     extend: {
       spacing: {

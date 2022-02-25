@@ -8,5 +8,5 @@ storiesOf("ViamSwitch", module).add("Default viamSwitch", () => ({
     };
   },
   template:
-    '<ViamSwitch name="Test" id="test" :option=option></ViamSwitch>',
+    '<ViamSwitch name="Test" id="test" :option=option @change="val => {option = val}"></ViamSwitch>',
 }));
