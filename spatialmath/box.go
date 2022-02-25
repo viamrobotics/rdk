@@ -52,7 +52,7 @@ func (bc *boxCreator) MarshalJSON() ([]byte, error) {
 
 // NewBox instantiates a new box Geometry.
 func NewBox(pose Pose, dims r3.Vector) (Geometry, error) {
-	if dims.X <= 0 || dims.Y <= 0 || dims.Z <= 0 {
+	if dims.X < 0 || dims.Y < 0 || dims.Z < 0 {
 		return nil, newBadGeometryDimensionsError(&box{})
 	}
 	return &box{pose, [3]float64{0.5 * dims.X, 0.5 * dims.Y, 0.5 * dims.Z}}, nil

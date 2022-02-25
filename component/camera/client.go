@@ -88,13 +88,13 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	switch resp.MimeType {
 	case utils.MimeTypeRawRGBA:
 		img := image.NewNRGBA(image.Rect(0, 0, int(resp.WidthPx), int(resp.HeightPx)))
-		img.Pix = resp.Frame
+		img.Pix = resp.Image
 		return img, func() {}, nil
 	case utils.MimeTypeRawIWD:
-		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Frame)
+		img, err := rimage.ImageWithDepthFromRawBytes(int(resp.WidthPx), int(resp.HeightPx), resp.Image)
 		return img, func() {}, err
 	case utils.MimeTypeRawDepth:
-		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Frame)))
+		depth, err := rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(resp.Image)))
 		img := rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToPrettyPicture(0, 0)), depth, true)
 		return img, func() {}, err
 	default:
@@ -115,7 +115,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
 
-	return pointcloud.ReadPCD(bytes.NewReader(resp.Frame))
+	return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
 }
 
 // Close cleanly closes the underlying connections.

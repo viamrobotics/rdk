@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from force_matrix.proto.
+// subtypeServer implements the ForceMatrixService from force_matrix.proto.
 type subtypeServer struct {
 	pb.UnimplementedForceMatrixServiceServer
 	s subtype.Service

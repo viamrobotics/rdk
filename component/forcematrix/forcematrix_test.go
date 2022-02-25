@@ -176,11 +176,11 @@ func TestGetReadings(t *testing.T) {
 
 	readings1, err := forcematrix.GetReadings(context.Background(), actualForceMatrix1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{[][]int{{2, 1}}})
+	test.That(t, readings1, test.ShouldResemble, []interface{}{1, 2, 2, 1})
 
 	result, err := reconfForceMatrix1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{matrix})
+	test.That(t, result, test.ShouldResemble, []interface{}{1, 2, 2, 1})
 
 	actualForceMatrix2 := &mockWithSensor{}
 	reconfForceMatrix2, _ := forcematrix.WrapWithReconfigurable(actualForceMatrix2)

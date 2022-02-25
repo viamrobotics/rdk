@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
@@ -82,15 +84,15 @@ func TestRobotReconfigure(t *testing.T) {
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
-		test.That(t, len(svc.All()), test.ShouldEqual, 7)
-		rCopy := make([]resource.Name, 7)
+		test.That(t, len(svc.All()), test.ShouldEqual, 8)
+		rCopy := make([]resource.Name, 8)
 		copy(rCopy, svc.All())
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -198,7 +200,7 @@ func TestRobotReconfigure(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 
 		ctx := context.Background()
 		svc, err := service.New()
@@ -211,7 +213,7 @@ func TestRobotReconfigure(t *testing.T) {
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
-		test.That(t, len(svc.All()), test.ShouldEqual, 2)
+		test.That(t, len(svc.All()), test.ShouldEqual, 3)
 
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -222,7 +224,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, robot.ResourceNames(), test.ShouldResemble, serviceNames)
+		test.That(
+			t,
+			rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+			test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(serviceNames...),
+		)
 		test.That(t, utils.NewStringSet(robot.FunctionNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
@@ -293,7 +300,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		test.That(t, svc, test.ShouldResemble, service.ContextService(ctx))
-		test.That(t, len(svc.All()), test.ShouldEqual, 7)
+		test.That(t, len(svc.All()), test.ShouldEqual, 8)
 	})
 
 	t.Run("additive diff", func(t *testing.T) {
@@ -310,7 +317,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 
 		test.That(t, robot.Reconfigure(context.Background(), conf1), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -425,7 +432,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -483,7 +490,12 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, utils.NewStringSet(gripper.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(sensor.NamesFromRobot(robot)...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(servo.NamesFromRobot(robot)...), test.ShouldBeEmpty)
-		test.That(t, robot.ResourceNames(), test.ShouldResemble, serviceNames)
+		test.That(
+			t,
+			rdktestutils.NewResourceNameSet(robot.ResourceNames()...),
+			test.ShouldResemble,
+			rdktestutils.NewResourceNameSet(serviceNames...),
+		)
 		test.That(t, utils.NewStringSet(robot.ProcessManager().ProcessIDs()...), test.ShouldBeEmpty)
 
 		_, err = arm.FromRobot(robot, "arm1")
@@ -522,7 +534,7 @@ func TestRobotReconfigure(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -662,7 +674,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -813,7 +825,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -949,7 +961,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -1077,6 +1089,83 @@ func TestRobotReconfigure(t *testing.T) {
 	})
 }
 
+func TestSensorsServiceUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+
+	t.Run("empty to two sensors", func(t *testing.T) {
+		robot, err := New(context.Background(), emptyCfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := sensors.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, foundSensors, test.ShouldBeEmpty)
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
+	})
+
+	t.Run("two sensors to empty", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := sensors.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
+
+		err = robot.Reconfigure(context.Background(), emptyCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, foundSensors, test.ShouldBeEmpty)
+	})
+
+	t.Run("two sensors to two sensors", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := sensors.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err := svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		foundSensors, err = svc.GetSensors(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
+	})
+}
+
 type mockFake struct {
 	x           int
 	reconfCount int
@@ -1085,7 +1174,7 @@ type mockFake struct {
 func (m *mockFake) Reconfigure(ctx context.Context, newResource resource.Reconfigurable) error {
 	res, ok := newResource.(*mockFake)
 	if !ok {
-		return errors.Errorf("expected new arm to be %T but got %T", m, newResource)
+		return errors.Errorf("expected new mock to be %T but got %T", m, newResource)
 	}
 	m.x = res.x
 	m.reconfCount++
