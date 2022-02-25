@@ -68,14 +68,14 @@ func TestGeometryToFromProtobuf(t *testing.T) {
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			newVol, err := NewGeometryFromProtobuf(testCase.geometry.ToProtobuf())
+			newVol, err := NewGeometryFromProto(testCase.geometry.ToProtobuf())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, testCase.geometry.AlmostEqual(newVol), test.ShouldBeTrue)
 		})
 	}
 
 	// test that bad message does not generate error
-	_, err := NewGeometryFromProtobuf(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
+	_, err := NewGeometryFromProto(&commonpb.Geometry{Center: PoseToProtobuf(NewZeroPose())})
 	test.That(t, err.Error(), test.ShouldContainSubstring, newGeometryTypeUnsupportedError("").Error())
 }
 

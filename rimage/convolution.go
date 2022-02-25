@@ -62,6 +62,21 @@ func GetGaussian3() Kernel {
 	}
 }
 
+// GetGaussian5 returns the Kernel corresponding to 5x5 Gaussian blurring kernel.
+func GetGaussian5() Kernel {
+	return Kernel{
+		[][]float64{
+			{1, 4, 7, 4, 1},
+			{4, 16, 26, 16, 4},
+			{7, 26, 41, 26, 7},
+			{4, 16, 26, 16, 4},
+			{1, 4, 7, 4, 1},
+		},
+		5,
+		5,
+	}
+}
+
 // ConvolveGray applies a convolution matrix (Kernel) to a grayscale image.
 // Example of usage:
 //
