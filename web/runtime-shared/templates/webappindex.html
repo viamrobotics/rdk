@@ -785,10 +785,33 @@
                       }
                       return d.toFixed(1);
                   },
+                  getGPIO: function(boardName) {
+                    var pin = document.getElementById("get_pin_" + boardName).value;
+                    var req = new boardApi.GetGPIORequest();
+                    req.setName(boardName);
+                    req.setPin(pin);
+                    boardService.getGPIO(req, {}, (err, resp) => {
+                      if (err) {
+                        console.log(err);
+                        return;
+                      }
+                      var x = resp.toObject();
+                      document.getElementById("get_pin_value_" + boardName).innerHTML = "Pin: " + pin + " is " + (x.high ? "high" : "low");
+                    });
+                  },
+                  setGPIO: function(boardName) {
+                    var pin = document.getElementById("set_pin_" + boardName).value;
+                    var v = document.getElementById("set_pin_v_" + boardName).value;
+                    var req = new boardApi.SetGPIORequest();
+                    req.setName(boardName);
+                    req.setPin(pin);
+                    req.setHigh(v === "high");
+                    boardService.setGPIO(req, {}, grpcCallback);
+                  },
               },
-              directives: {
-                // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
-                mapMounted (el) {
+            directives: {
+              // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
+              mapMounted (el) {
                   if (theData.mapOnce) {
                     return;
                   }
@@ -1623,6 +1646,27 @@
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
+
+          <tr><th colspan="2">GPIO</th></tr>
+          <tr>
+            <th>Get</th>
+            <td>
+              Pin: <input :id="'get_pin_' + board.name"/><button v-on:click="getGPIO(board.name)">Get</button><br>
+              <span :id="'get_pin_value_' + board.name"/>
+            </td>
+          </tr>
+          <tr>
+            <th>Set</th>
+            <td>
+              Pin: <input :id="'set_pin_' + board.name"/><br>
+              <select :id="'set_pin_v_' + board.name">
+                <option>low</option>
+                <option>high</option>
+              </select>
+              <button v-on:click="setGPIO(board.name)">Set</button><br>
+            </td>
+          </tr>
+          
         </table>
       </div>
       <!-- end boards -->
