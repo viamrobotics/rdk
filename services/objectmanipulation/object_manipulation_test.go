@@ -4,10 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"

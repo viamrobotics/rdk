@@ -4,9 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
-
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 

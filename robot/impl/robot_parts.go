@@ -402,6 +402,7 @@ func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error)
 		return robotPart, nil
 	}
 	for _, remote := range parts.remotes {
+		// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
 		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
 			part, err := remote.ResourceByName(name)
 			if err == nil {
