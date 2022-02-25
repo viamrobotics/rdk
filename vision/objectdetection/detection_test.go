@@ -4,8 +4,9 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestBuildFunc(t *testing.T) {
@@ -30,5 +31,4 @@ func TestBuildFunc(t *testing.T) {
 	res, err = pipeline(img)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldHaveLength, 0)
-
 }
