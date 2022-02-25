@@ -2,9 +2,10 @@ package vforcematrixtraditional
 
 import (
 	"context"
-	"errors"
 	"strconv"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/test"
 

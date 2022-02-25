@@ -68,7 +68,7 @@ var (
 func FromRobot(r robot.Robot, name string) (Servo, error) {
 	res, err := r.ResourceByName(Named(name))
 	if err != nil {
-		return nil, utils.NewResourceNotFoundError(Named(name))
+		return nil, err
 	}
 	part, ok := res.(Servo)
 	if !ok {
