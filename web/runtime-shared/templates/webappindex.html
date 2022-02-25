@@ -447,7 +447,7 @@
                           return;
                         }
                         console.log("loading pcd");
-                        theData.fullcloud = resp.getPointCloud();
+                        theData.fullcloud = resp.getPointCloud_asB64();
                         pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                       });
 
@@ -674,7 +674,7 @@
                   },
                   doSegmentLoad : function(i){
                         var segment = theData.objects[i];
-                        var data = segment.getPointCloud();
+                        var data = segment.getPointCloud_asB64();
                         var center = segment.getGeometries()[0].getCenter();
                         var box = segment.getGeometries()[0].getBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
