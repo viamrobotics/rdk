@@ -4,18 +4,15 @@ import (
 	"context"
 	"testing"
 
-	"github.com/edaniels/golog"
 	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/vision"
 )
 
-func TestVoxelSegmentMeans(t *testing.T) {
-	logger := golog.NewTestLogger(t)
-	cloud, err := pc.NewFromLASFile(artifact.MustPath("pointcloud/test.las"), logger)
-	test.That(t, err, test.ShouldBeNil)
+func TestVoxelSegmentation(t *testing.T) {
+	cloud := loadPointCloud(t)
+
 	// turn pointclouds into voxel grid
 	vg := pc.NewVoxelGridFromPointCloud(cloud, 1.0, 0.1)
 
@@ -32,13 +29,7 @@ func TestVoxelSegmentMeans(t *testing.T) {
 		ClusteringRadiusMm: 7.5,
 	}
 
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
+	segmentation, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, voxSegments.N(), test.ShouldBeGreaterThan, 0)
-	// get center points
-	for i := 0; i < voxSegments.N(); i++ {
-		mean := pc.CalculateMeanOfPointCloud(voxSegments.Segments.Objects[i].PointCloud)
-		expMean := voxSegments.Segments.Objects[i].Center
-		test.That(t, mean, test.ShouldResemble, expMean)
-	}
+	testSegmentation(t, segmentation)
 }

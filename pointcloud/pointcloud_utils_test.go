@@ -3,7 +3,10 @@ package pointcloud
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 func makeClouds(t *testing.T) []PointCloud {
@@ -34,20 +37,25 @@ func makeClouds(t *testing.T) []PointCloud {
 	return []PointCloud{cloud0, cloud1}
 }
 
-func TestCalculateMean(t *testing.T) {
+func TestBoundingBoxFromPointCloud(t *testing.T) {
 	clouds := makeClouds(t)
-	mean0 := CalculateMeanOfPointCloud(clouds[0])
-	test.That(t, mean0, test.ShouldResemble, Vec3{0, 0.5, 0.5})
-	mean1 := CalculateMeanOfPointCloud(clouds[1])
-	test.That(t, mean1, test.ShouldResemble, Vec3{29.6, 0.5, 0.5})
-}
+	cases := []struct {
+		pc             PointCloud
+		expectedCenter r3.Vector
+		expectedDims   r3.Vector
+	}{
+		{clouds[0], r3.Vector{0, 0.5, 0.5}, r3.Vector{0, 1, 1}},
+		{clouds[1], r3.Vector{29.6, 0.5, 0.5}, r3.Vector{2, 1, 1}},
+	}
 
-func TestCalculateBoundingBox(t *testing.T) {
-	clouds := makeClouds(t)
-	box0 := CalculateBoundingBoxOfPointCloud(clouds[0])
-	test.That(t, box0, test.ShouldResemble, RectangularPrism{0, 1, 1})
-	box1 := CalculateBoundingBoxOfPointCloud(clouds[1])
-	test.That(t, box1, test.ShouldResemble, RectangularPrism{2, 1, 1})
+	for _, c := range cases {
+		expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(c.expectedCenter), c.expectedDims)
+		test.That(t, err, test.ShouldBeNil)
+		box, err := BoundingBoxFromPointCloud(c.pc)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, box, test.ShouldNotBeNil)
+		test.That(t, box.AlmostEqual(expectedBox), test.ShouldBeTrue)
+	}
 }
 
 func TestMergePointsWithColor(t *testing.T) {

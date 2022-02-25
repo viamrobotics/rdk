@@ -45,7 +45,10 @@ func NewObjectSegmentation(ctx context.Context, cloud pc.PointCloud, cfg *vision
 	if err != nil {
 		return nil, err
 	}
-	objects := NewSegmentsFromSlice(segments)
+	objects, err := NewSegmentsFromSlice(segments)
+	if err != nil {
+		return nil, err
+	}
 	return &ObjectSegmentation{cloud, objects}, nil
 }
 
