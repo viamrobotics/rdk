@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
@@ -87,7 +88,7 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		case servo.Subtype:
 			return &fakeservo.Servo{Name: name.Name}, nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 	}
 

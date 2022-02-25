@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -33,7 +32,7 @@ func setupInjectRobot() *inject.Robot {
 		case input.Named(fakeInputControllerName):
 			return "not an input controller", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

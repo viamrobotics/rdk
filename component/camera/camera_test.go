@@ -38,7 +38,7 @@ func setupInjectRobot() *inject.Robot {
 		case camera.Named(fakeCameraName):
 			return "not a camera", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

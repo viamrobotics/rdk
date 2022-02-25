@@ -12,12 +12,16 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/action"
+	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/resource"
+
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func newServer() (pb.RobotServiceServer, *inject.Robot) {
@@ -219,6 +223,52 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
 	})
+<<<<<<< HEAD
+=======
+	t.Run("Sensor", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName resource.Name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			capName = name
+			return nil, rutils.NewResourceNotFoundError(name)
+		}
+
+		_, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, capName, test.ShouldResemble, sensor.Named("compass1"))
+
+		err1 := errors.New("whoops")
+
+		device := &inject.Sensor{}
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return device, nil
+		}
+
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return nil, err1
+		}
+		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "sensor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return []interface{}{1.2, 2.3}, nil
+		}
+		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "sensor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		readings := make([]interface{}, 0, len(resp.Readings))
+		for _, r := range resp.Readings {
+			readings = append(readings, r.AsInterface())
+		}
+		test.That(t, readings, test.ShouldResemble, []interface{}{1.2, 2.3})
+	})
+
+>>>>>>> 49cb71be (stuck on errors that I did not change :()
 }
 
 type robotServiceStatusStreamServer struct {

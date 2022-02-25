@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -32,7 +31,7 @@ func setupInjectRobot() *inject.Robot {
 		case gripper.Named(fakeGripperName):
 			return "not a gripper", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

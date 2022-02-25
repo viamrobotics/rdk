@@ -33,7 +33,7 @@ func setupInjectRobot() *inject.Robot {
 		case base.Named(fakeBaseName):
 			return "not a base", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

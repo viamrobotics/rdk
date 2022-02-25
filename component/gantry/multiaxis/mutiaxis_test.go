@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/gantry"
@@ -15,6 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
@@ -49,7 +49,7 @@ func createFakeRobot() *inject.Robot {
 		case motor.Subtype:
 			return &fm.Motor{PositionSupported: true}, nil
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 	return fakerobot
 }

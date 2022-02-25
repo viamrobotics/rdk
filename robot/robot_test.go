@@ -3,7 +3,6 @@ package robot_test
 import (
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -14,6 +13,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -28,7 +28,7 @@ func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Name == "arm2" {
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		return "here", nil
 	}

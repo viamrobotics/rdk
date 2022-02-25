@@ -15,14 +15,15 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return svc1, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
 	}
 	return r, svc1
 }
@@ -43,8 +44,8 @@ func TestFromRobot(t *testing.T) {
 	})
 
 	t.Run("not sensors service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "not sensor", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "not sensor", nil
 		}
 
 		svc, err := sensors.FromRobot(r)
@@ -53,8 +54,8 @@ func TestFromRobot(t *testing.T) {
 	})
 
 	t.Run("no sensors service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 
 		svc, err := sensors.FromRobot(r)
@@ -72,16 +73,16 @@ func TestNew(t *testing.T) {
 	}
 
 	t.Run("resource not found", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		_, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(imu.Named("imu")))
 	})
 
 	t.Run("no error", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "something", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "something", nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -99,8 +100,8 @@ func TestGetSensors(t *testing.T) {
 	}
 
 	t.Run("no sensors", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "something", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "something", nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -111,11 +112,11 @@ func TestGetSensors(t *testing.T) {
 	})
 
 	t.Run("one sensor", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 			if name == imu.Named("imu") {
-				return &inject.Sensor{}, true
+				return &inject.Sensor{}, nil
 			}
-			return "something", true
+			return "something", nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -126,8 +127,8 @@ func TestGetSensors(t *testing.T) {
 	})
 
 	t.Run("many sensors", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Sensor{}, true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return &inject.Sensor{}, nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -148,8 +149,8 @@ func TestGetReadings(t *testing.T) {
 	}
 
 	t.Run("no sensors", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "something", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "something", nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -164,8 +165,8 @@ func TestGetReadings(t *testing.T) {
 		injectSensor.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
 			return nil, passedErr
 		}
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return injectSensor, true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return injectSensor, nil
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -194,16 +195,16 @@ func TestGetReadings(t *testing.T) {
 			imu.Named("imu"): readings1,
 			gps.Named("gps"): readings2,
 		}
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 			switch name {
 			case imu.Named("imu"):
-				return injectSensor, true
+				return injectSensor, nil
 			case gps.Named("gps"):
-				return injectSensor2, true
+				return injectSensor2, nil
 			case gps.Named("gps2"):
-				return injectSensor3, true
+				return injectSensor3, nil
 			}
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -244,8 +245,8 @@ func TestUpdate(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return sensorNames
 	}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &inject.Sensor{}, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return &inject.Sensor{}, nil
 	}
 
 	t.Run("update with no sensors", func(t *testing.T) {

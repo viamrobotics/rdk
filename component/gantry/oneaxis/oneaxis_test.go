@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createFakeMotor() *inject.Motor {
@@ -68,7 +69,7 @@ func createFakeRobot() *inject.Robot {
 		case motor.Subtype:
 			return &fake.Motor{PositionSupported: true}, nil
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 
 	return fakerobot
@@ -224,7 +225,7 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
 	fakeRobot = &inject.Robot{ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+		return nil, utils.NewResourceNotFoundError(name)
 	}}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
@@ -241,7 +242,7 @@ func TestNewOneAxis(t *testing.T) {
 			if name.Subtype == motor.Subtype {
 				return injectMotor, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, utils.NewResourceNotFoundError(name)
 		},
 	}
 
@@ -260,7 +261,7 @@ func TestNewOneAxis(t *testing.T) {
 			if name.Subtype == motor.Subtype {
 				return injectMotor, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, utils.NewResourceNotFoundError(name)
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)

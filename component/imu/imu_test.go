@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -34,7 +33,7 @@ func setupInjectRobot() *inject.Robot {
 		case imu.Named(fakeIMUName):
 			return "not an imu", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestBaseRemoteControl(t *testing.T) {
@@ -30,7 +32,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		case base.Subtype:
 			return &fakebase.Base{}, nil
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	fakeController.RegisterControlCallbackFunc = func(
@@ -77,7 +79,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		if name.Subtype == base.Subtype {
 			return &fakebase.Base{}, nil
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	_, err = New(ctx, fakeRobot,
@@ -94,7 +96,7 @@ func TestBaseRemoteControl(t *testing.T) {
 		if name.Subtype == input.Subtype {
 			return fakeController, nil
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	_, err = New(ctx, fakeRobot,

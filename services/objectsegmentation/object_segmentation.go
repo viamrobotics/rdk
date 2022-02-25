@@ -62,7 +62,7 @@ var Name = resource.NameFromSubtype(Subtype, "")
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
 	if err != nil {
-		return nil, err
+		return nil, utils.NewResourceNotFoundError(Name)
 	}
 	svc, ok := resource.(Service)
 	if !ok {

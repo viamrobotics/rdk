@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/robot"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot {
@@ -144,7 +145,7 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 				}
 			}
 		}
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	return injectRobot
