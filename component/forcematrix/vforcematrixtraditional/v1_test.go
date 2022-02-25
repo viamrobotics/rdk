@@ -5,13 +5,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createExpectedMatrix(c *ForceMatrixConfig) ([][]int, error) {
@@ -64,7 +64,7 @@ func TestNewForceMatrix(t *testing.T) {
 	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, errors.New("no resources exist with this name")
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)

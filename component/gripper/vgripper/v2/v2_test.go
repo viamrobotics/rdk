@@ -14,6 +14,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func createWorkingMotor() *inject.LocalMotor {
@@ -50,7 +52,7 @@ func TestNew(t *testing.T) {
 	t.Run("return error when not able to find board", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -62,7 +64,7 @@ func TestNew(t *testing.T) {
 			if name.Subtype == board.Subtype {
 				return &inject.Board{}, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -84,7 +86,7 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -108,7 +110,7 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		motorName := "badMotor"
 		cfg := config.Component{
@@ -138,7 +140,7 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false

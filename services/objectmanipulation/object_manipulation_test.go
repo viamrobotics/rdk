@@ -30,8 +30,8 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r = &inject.Robot{}
-	r.ResourceByNameFunc = func(resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(n)
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -59,7 +59,7 @@ func TestDoGrabFailures(t *testing.T) {
 		case "fakeGripper":
 			return _gripper, nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(n)
 		}
 	}
 
@@ -148,7 +148,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)

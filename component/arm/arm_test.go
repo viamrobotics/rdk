@@ -5,7 +5,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -35,7 +34,7 @@ func setupInjectRobot() *inject.Robot {
 		case arm.Named(fakeArmName):
 			return "not an arm", nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

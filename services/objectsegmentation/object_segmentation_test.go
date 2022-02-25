@@ -77,8 +77,8 @@ func TestServiceFailures(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		return nil, rdkutils.NewResourceNotFoundError(n)
 	}
 	// fails on not finding the service
 	_, err := objectsegmentation.FromRobot(r)
@@ -107,7 +107,7 @@ func TestServiceFailures(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
 
@@ -136,7 +136,7 @@ func TestGetObjectPointClouds(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
 
@@ -187,7 +187,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+		return nil, rdkutils.NewResourceNotFoundError(name)
 	}
 
 	svc, err = objectsegmentation.FromRobot(r)
@@ -229,7 +229,7 @@ func TestFullClientServerLoop(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
-			return nil, errors.New("no resources exist with this name")
+			return nil, rdkutils.NewResourceNotFoundError(n)
 		}
 	}
 	oss, err := objectsegmentation.New(context.Background(), r, cfgService, logger)

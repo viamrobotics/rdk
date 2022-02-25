@@ -49,6 +49,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var emptyStatus = &pb.Status{
@@ -222,7 +223,7 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, errors.New("no resources exist with this name")
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
