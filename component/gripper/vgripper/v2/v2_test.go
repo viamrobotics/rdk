@@ -14,7 +14,6 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -64,7 +63,7 @@ func TestNew(t *testing.T) {
 			if name.Subtype == board.Subtype {
 				return &inject.Board{}, nil
 			}
-			return nil, utils.NewResourceNotFoundError(name)
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
