@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from proto.
+// subtypeServer implements the InputControllerService from proto.
 type subtypeServer struct {
 	pb.UnimplementedInputControllerServiceServer
 	s subtype.Service

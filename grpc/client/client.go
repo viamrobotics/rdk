@@ -20,6 +20,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -249,12 +250,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		for _, name := range names {
-			newName := resource.NewName(
-				resource.Namespace(name.Namespace),
-				resource.TypeName(name.Type),
-				resource.SubtypeName(name.Subtype),
-				name.Name,
-			)
+			newName := protoutils.ResourceNameFromProto(name)
 			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}

@@ -5,7 +5,9 @@ import (
 	"context"
 
 	"go.viam.com/rdk/metadata/service"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 // MetadataServer implements the contract from metadata.proto.
@@ -21,17 +23,11 @@ func New(s service.Metadata) pb.MetadataServiceServer {
 
 // Resources returns the list of resources.
 func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
-	rNames := make([]*pb.ResourceName, 0, len(s.s.All()))
+	rNames := make([]*commonpb.ResourceName, 0, len(s.s.All()))
 	for _, m := range s.s.All() {
 		rNames = append(
 			rNames,
-			&pb.ResourceName{
-				Uuid:      m.UUID,
-				Namespace: string(m.Namespace),
-				Type:      string(m.ResourceType),
-				Subtype:   string(m.ResourceSubtype),
-				Name:      m.Name,
-			},
+			protoutils.ResourceNameToProto(m),
 		)
 	}
 	return &pb.ResourcesResponse{Resources: rNames}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // An ObjectSource3D is anything that generates 3D objects in a scene.
@@ -15,23 +16,23 @@ type ObjectSource3D interface {
 // NOTE(bh):Can potentially add category or pose information to this struct.
 type Object struct {
 	pc.PointCloud
-	Center      pc.Vec3
-	BoundingBox pc.RectangularPrism
+	BoundingBox spatialmath.Geometry
 }
 
 // NewObject calculates the metadata for an input pointcloud.
-func NewObject(cloud pc.PointCloud) *Object {
+func NewObject(cloud pc.PointCloud) (*Object, error) {
 	if cloud == nil {
-		return NewEmptyObject()
+		return NewEmptyObject(), nil
 	}
-	center := pc.CalculateMeanOfPointCloud(cloud)
-	boundingBox := pc.CalculateBoundingBoxOfPointCloud(cloud)
-	return &Object{cloud, center, boundingBox}
+	box, err := pc.BoundingBoxFromPointCloud(cloud)
+	if err != nil {
+		return nil, err
+	}
+	return &Object{cloud, box}, nil
 }
 
 // NewEmptyObject creates a new empty point cloud with metadata.
 func NewEmptyObject() *Object {
 	cloud := pc.New()
-	center := pc.Vec3{}
-	return &Object{PointCloud: cloud, Center: center}
+	return &Object{PointCloud: cloud}
 }

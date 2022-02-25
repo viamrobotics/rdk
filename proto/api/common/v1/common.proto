@@ -5,6 +5,13 @@ option java_package = "com.viam.rdk.proto.api.common.v1";
 
 package proto.api.common.v1;
 
+message ResourceName {
+  string uuid = 1;
+  string namespace = 2;
+  string type = 3;
+  string subtype = 4;
+  string name = 5;
+}
 
 message BoardStatus {
   map<string, AnalogStatus> analogs = 1;
@@ -41,6 +48,12 @@ message Pose {
   double theta = 7;
 }
 
+message PoseInFrame {
+  // reference frame in which the pose was observed
+  string frame = 1;
+  Pose pose = 2;
+}
+
 message Vector3 {
   double x = 1;
   double y = 2;
@@ -66,8 +79,15 @@ message Geometry {
 }
 
 message GeometriesInFrame {
-  string frame = 1;
+  string reference_frame = 1;
   repeated Geometry geometries = 2;
+}
+
+message PointCloudObject {
+  // image frame expressed in bytes
+  bytes point_cloud = 1;
+  // volume of a given geometry
+  common.v1.GeometriesInFrame geometries = 2;
 }
 
 message GeoPoint {

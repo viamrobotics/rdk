@@ -8,6 +8,8 @@ window.armApi = require('./gen/proto/api/component/arm/v1/arm_pb.js');
 const { ArmServiceClient } = require('./gen/proto/api/component/arm/v1/arm_pb_service.js');
 window.baseApi = require('./gen/proto/api/component/base/v1/base_pb.js');
 const { BaseServiceClient } = require('./gen/proto/api/component/base/v1/base_pb_service.js');
+window.boardApi = require('./gen/proto/api/component/board/v1/board_pb.js');
+const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.js');
 window.forceMatrixApi = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb.js');
@@ -26,6 +28,8 @@ window.objectManipulationApi = require('./gen/proto/api/service/objectmanipulati
 const { ObjectManipulationServiceClient } = require('./gen/proto/api/service/objectmanipulation/v1/object_manipulation_pb_service.js');
 window.objectSegmentationApi = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb.js');
 const { ObjectSegmentationServiceClient } = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb_service.js');
+window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb.js');
+const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb.js');
 const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
@@ -89,6 +93,7 @@ let connect = async (authEntity, creds) => {
 	// TODO: these should be created as needed for #272
 	window.armService = new ArmServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
+    window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.forceMatrixService = new ForceMatrixServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
@@ -98,6 +103,7 @@ let connect = async (authEntity, creds) => {
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectManipulationService = new ObjectManipulationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;

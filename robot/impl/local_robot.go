@@ -29,6 +29,7 @@ import (
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
@@ -131,6 +132,10 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	fsService, ok := service.(framesystem.Service)
 	if !ok {
 		return nil, errors.New("service is not a frame_system service")
+
+	fsService, err = framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
 	}
 	parts, err := fsService.Config(ctx)
 	if err != nil {
@@ -196,15 +201,15 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}
 
 	// default services
-
-	// create web service here
-	// somewhat hacky, but the web service start up needs to come last
-	webConfig := config.Service{Type: config.ServiceType(web.SubtypeName)}
-	webSvc, err := r.newService(ctx, webConfig)
-	if err != nil {
-		return nil, err
+	defaultSvc := []resource.Name{sensors.Name, web.Name}
+	for _, name := range defaultSvc {
+		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
+		svc, err := r.newService(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		r.parts.addResource(name, svc)
 	}
-	r.parts.addResource(web.Name, webSvc)
 
 	// if metadata exists, update it
 	if svc := service.ContextService(ctx); svc != nil {

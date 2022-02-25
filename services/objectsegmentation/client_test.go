@@ -57,18 +57,9 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 4))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 5))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 6))
-		test.That(t, err, test.ShouldBeNil)
-		err = pcA.Set(pointcloud.NewBasicPoint(-5, -5, 4))
-		test.That(t, err, test.ShouldBeNil)
+		for _, pt := range testPointCloud {
+			test.That(t, pcA.Set(pt), test.ShouldBeNil)
+		}
 
 		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
 			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
@@ -81,14 +72,14 @@ func TestClient(t *testing.T) {
 		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
-		test.That(t, segs[0].Center.Z, test.ShouldEqual, 5.)
-		test.That(t, segs[1].Center.Z, test.ShouldEqual, 5.)
-		test.That(t, segs[0].BoundingBox.WidthMm, test.ShouldEqual, 0)
-		test.That(t, segs[0].BoundingBox.LengthMm, test.ShouldEqual, 0)
-		test.That(t, segs[0].BoundingBox.DepthMm, test.ShouldEqual, 2)
-		test.That(t, segs[1].BoundingBox.WidthMm, test.ShouldEqual, 0)
-		test.That(t, segs[1].BoundingBox.LengthMm, test.ShouldEqual, 0)
-		test.That(t, segs[1].BoundingBox.DepthMm, test.ShouldEqual, 2)
+
+		expectedBoxes := makeExpectedBoxes(t)
+		for _, seg := range segs {
+			box, err := pointcloud.BoundingBoxFromPointCloud(seg)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, box, test.ShouldNotBeNil)
+			test.That(t, box.AlmostEqual(expectedBoxes[0]) || box.AlmostEqual(expectedBoxes[1]), test.ShouldBeTrue)
+		}
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})

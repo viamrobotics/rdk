@@ -93,7 +93,19 @@ func GetReadings(ctx context.Context, f ForceMatrix) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{matrix}, nil
+	// assume perfectly rectangular
+	numRows := len(matrix)
+	numCols := len(matrix[0])
+
+	readings := make([]interface{}, 0, numRows*numCols+2)
+	// number of rows, number of cols, then all the readings
+	readings = append(readings, numRows, numCols)
+	for row := 0; row < numRows; row++ {
+		for col := 0; col < numCols; col++ {
+			readings = append(readings, matrix[row][col])
+		}
+	}
+	return readings, nil
 }
 
 type reconfigurableForceMatrix struct {

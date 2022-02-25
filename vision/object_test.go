@@ -3,20 +3,23 @@ package vision
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/spatialmath"
 )
 
 func TestObjectCreation(t *testing.T) {
 	// test empty objects
-	obj := NewObject(nil)
+	obj, err := NewObject(nil)
+	test.That(t, err, test.ShouldBeNil)
 	obj2 := NewEmptyObject()
 	test.That(t, obj, test.ShouldResemble, obj2)
 
 	// create from point cloud
 	pc := pointcloud.New()
-	err := pc.Set(pointcloud.NewBasicPoint(0, 0, 0))
+	err = pc.Set(pointcloud.NewBasicPoint(0, 0, 0))
 	test.That(t, err, test.ShouldBeNil)
 	err = pc.Set(pointcloud.NewBasicPoint(0, 1, 0))
 	test.That(t, err, test.ShouldBeNil)
@@ -24,8 +27,10 @@ func TestObjectCreation(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = pc.Set(pointcloud.NewBasicPoint(1, 1, 0))
 	test.That(t, err, test.ShouldBeNil)
-	obj = NewObject(pc)
+	obj, err = NewObject(pc)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, obj.PointCloud, test.ShouldResemble, pc)
-	test.That(t, obj.Center, test.ShouldResemble, pointcloud.Vec3{0.5, 0.5, 0})
-	test.That(t, obj.BoundingBox, test.ShouldResemble, pointcloud.RectangularPrism{1, 1, 0})
+	expectedBox, err := spatialmath.NewBox(spatialmath.NewPoseFromPoint(r3.Vector{0.5, 0.5, 0}), r3.Vector{1, 1, 0})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, obj.BoundingBox.AlmostEqual(expectedBox), test.ShouldBeTrue)
 }

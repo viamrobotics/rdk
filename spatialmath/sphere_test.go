@@ -20,7 +20,7 @@ func TestNewSphere(t *testing.T) {
 	geometry, err := NewSphere(offset.Point(), 1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, geometry, test.ShouldResemble, &sphere{pose: NewPoseFromPoint(offset.Point()), radius: 1})
-	_, err = NewSphere(offset.Point(), 0)
+	_, err = NewSphere(offset.Point(), -1)
 	test.That(t, err.Error(), test.ShouldContainSubstring, newBadGeometryDimensionsError(&sphere{}).Error())
 
 	// test sphere created from GeometryCreator with offset
