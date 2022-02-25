@@ -217,7 +217,7 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		// registration doesn't exist
-		return nil, errors.New("resource cannot be found")
+		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())

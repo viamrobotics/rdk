@@ -2,8 +2,9 @@ package imu_test
 
 import (
 	"context"
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
