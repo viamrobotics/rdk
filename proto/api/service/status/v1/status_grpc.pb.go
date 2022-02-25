@@ -20,8 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type StatusServiceClient interface {
 	// GetStatus returns the list of all statuses requested.
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
-	// GetStatusStream periodically sends the status of all statuses requested.
-	GetStatusStream(ctx context.Context, in *GetStatusStreamRequest, opts ...grpc.CallOption) (StatusService_GetStatusStreamClient, error)
+	// StreamStatus periodically sends the status of all statuses requested.
+	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (StatusService_StreamStatusClient, error)
 }
 
 type statusServiceClient struct {
@@ -41,12 +41,12 @@ func (c *statusServiceClient) GetStatus(ctx context.Context, in *GetStatusReques
 	return out, nil
 }
 
-func (c *statusServiceClient) GetStatusStream(ctx context.Context, in *GetStatusStreamRequest, opts ...grpc.CallOption) (StatusService_GetStatusStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &StatusService_ServiceDesc.Streams[0], "/proto.api.service.status.v1.StatusService/GetStatusStream", opts...)
+func (c *statusServiceClient) StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (StatusService_StreamStatusClient, error) {
+	stream, err := c.cc.NewStream(ctx, &StatusService_ServiceDesc.Streams[0], "/proto.api.service.status.v1.StatusService/StreamStatus", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &statusServiceGetStatusStreamClient{stream}
+	x := &statusServiceStreamStatusClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -56,17 +56,17 @@ func (c *statusServiceClient) GetStatusStream(ctx context.Context, in *GetStatus
 	return x, nil
 }
 
-type StatusService_GetStatusStreamClient interface {
-	Recv() (*GetStatusStreamResponse, error)
+type StatusService_StreamStatusClient interface {
+	Recv() (*StreamStatusResponse, error)
 	grpc.ClientStream
 }
 
-type statusServiceGetStatusStreamClient struct {
+type statusServiceStreamStatusClient struct {
 	grpc.ClientStream
 }
 
-func (x *statusServiceGetStatusStreamClient) Recv() (*GetStatusStreamResponse, error) {
-	m := new(GetStatusStreamResponse)
+func (x *statusServiceStreamStatusClient) Recv() (*StreamStatusResponse, error) {
+	m := new(StreamStatusResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -79,8 +79,8 @@ func (x *statusServiceGetStatusStreamClient) Recv() (*GetStatusStreamResponse, e
 type StatusServiceServer interface {
 	// GetStatus returns the list of all statuses requested.
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
-	// GetStatusStream periodically sends the status of all statuses requested.
-	GetStatusStream(*GetStatusStreamRequest, StatusService_GetStatusStreamServer) error
+	// StreamStatus periodically sends the status of all statuses requested.
+	StreamStatus(*StreamStatusRequest, StatusService_StreamStatusServer) error
 	mustEmbedUnimplementedStatusServiceServer()
 }
 
@@ -91,8 +91,8 @@ type UnimplementedStatusServiceServer struct {
 func (UnimplementedStatusServiceServer) GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStatus not implemented")
 }
-func (UnimplementedStatusServiceServer) GetStatusStream(*GetStatusStreamRequest, StatusService_GetStatusStreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetStatusStream not implemented")
+func (UnimplementedStatusServiceServer) StreamStatus(*StreamStatusRequest, StatusService_StreamStatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamStatus not implemented")
 }
 func (UnimplementedStatusServiceServer) mustEmbedUnimplementedStatusServiceServer() {}
 
@@ -125,24 +125,24 @@ func _StatusService_GetStatus_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StatusService_GetStatusStream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(GetStatusStreamRequest)
+func _StatusService_StreamStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StreamStatusRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(StatusServiceServer).GetStatusStream(m, &statusServiceGetStatusStreamServer{stream})
+	return srv.(StatusServiceServer).StreamStatus(m, &statusServiceStreamStatusServer{stream})
 }
 
-type StatusService_GetStatusStreamServer interface {
-	Send(*GetStatusStreamResponse) error
+type StatusService_StreamStatusServer interface {
+	Send(*StreamStatusResponse) error
 	grpc.ServerStream
 }
 
-type statusServiceGetStatusStreamServer struct {
+type statusServiceStreamStatusServer struct {
 	grpc.ServerStream
 }
 
-func (x *statusServiceGetStatusStreamServer) Send(m *GetStatusStreamResponse) error {
+func (x *statusServiceStreamStatusServer) Send(m *StreamStatusResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -160,8 +160,8 @@ var StatusService_ServiceDesc = grpc.ServiceDesc{
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetStatusStream",
-			Handler:       _StatusService_GetStatusStream_Handler,
+			StreamName:    "StreamStatus",
+			Handler:       _StatusService_StreamStatus_Handler,
 			ServerStreams: true,
 		},
 	},

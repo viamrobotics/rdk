@@ -18,8 +18,8 @@ service StatusService {
     };
   }
 
-  // GetStatusStream periodically sends the status of all statuses requested.
-  rpc GetStatusStream(GetStatusStreamRequest) returns (stream GetStatusStreamResponse) {
+  // StreamStatus periodically sends the status of all statuses requested.
+  rpc StreamStatus(StreamStatusRequest) returns (stream StreamStatusResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/status_stream"
     };
@@ -39,11 +39,11 @@ message GetStatusResponse {
   repeated Status status = 1;
 }
 
-message GetStatusStreamRequest {
+message StreamStatusRequest {
   repeated common.v1.ResourceName resource_names = 1;
   google.protobuf.Duration every = 2; // how often to send a new status.
 }
 
-message GetStatusStreamResponse {
+message StreamStatusResponse {
   repeated Status status = 1;
 }
