@@ -109,7 +109,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
 	if err != nil {
-		return nil, errors.Errorf("resource %q not found", Name)
+		return nil, err
 	}
 	fs, ok := resource.(Service)
 	if !ok {
