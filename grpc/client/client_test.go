@@ -611,24 +611,13 @@ func TestClientRefresh(t *testing.T) {
 
 	var callCount int
 	calledEnough := make(chan struct{})
-	var shouldError bool
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		if shouldError {
-			return nil, errors.New("no more for you")
-		}
-		if callCount > 5 {
-			shouldError = true
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		if callCount == 5 {
 			close(calledEnough)
 		}
 		callCount++
-		if callCount > 5 {
-			return finalStatus, nil
-		}
-		return emptyStatus, nil
-	}
-
-	injectMetadata.AllFunc = func() []resource.Name {
-		if callCount > 5 {
+		if callCount >= 5 {
 			return finalResources
 		}
 		return emptyResources
@@ -646,10 +635,6 @@ func TestClientRefresh(t *testing.T) {
 	<-calledEnough
 	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
 	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
-
-	status, err := client.Status(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status.String(), test.ShouldResemble, finalStatus.String())
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
@@ -713,10 +698,6 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return emptyStatus, nil
-	}
-
 	injectMetadata.AllFunc = func() []resource.Name {
 		return emptyResources
 	}
@@ -779,9 +760,6 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return finalStatus, nil
-	}
 	injectMetadata.AllFunc = func() []resource.Name {
 		return finalResources
 	}
@@ -853,17 +831,11 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectRobot := &inject.Robot{}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
 	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
-
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return emptyStatus, nil
-	}
 
 	injectMetadata.AllFunc = func() []resource.Name {
 		return emptyResources
