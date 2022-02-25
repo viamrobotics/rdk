@@ -28,7 +28,8 @@ func (csc *ColorObjectsConfig) CheckValid() error {
 	if csc.Tolerance < 0.0 || csc.Tolerance > 1.0 {
 		return errors.Errorf("tolerance must be between 0.0 and 1.0, got %v", csc.Tolerance)
 	}
-	n, err := fmt.Sscanf(csc.Color, "#%02x%02x%02x")
+	var r, g, b uint8
+	n, err := fmt.Sscanf(csc.Color, "#%02x%02x%02x", &r, &g, &b)
 	if n != 3 || err != nil {
 		return errors.Wrapf(err, "couldn't parse hex (%s) n: %d", csc.Color, n)
 	}
