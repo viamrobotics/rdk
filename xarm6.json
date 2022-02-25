@@ -1,0 +1,38 @@
+{
+    "services": [
+      {
+          "type": "frame_system"
+      },
+      {
+          "type": "object_manipulation"
+      },
+      {
+          "type": "object_segmentation"
+      }
+    ],
+    "components": [
+      {
+        "attributes": {
+          "host": "10.237.115.4",
+          "speed": 0.1
+        },
+        "model": "xArm6",
+        "name": "theArm",
+        "type": "arm",
+        "frame" : {
+            "parent" : "world"
+        }
+      }
+    ],
+    "remotes": [
+      {
+        "address": "vg2105m05.60758fe0f6.viam.cloud",
+        "secret": "pem1epjv07fq2cz2z5723gq6ntuyhue5t30boohkiz3iqht4",
+        "prefix": false,
+        "name": "gripper",
+        "frame" : {
+            "parent" : "theArm"
+        }
+      }
+    ]
+  }
