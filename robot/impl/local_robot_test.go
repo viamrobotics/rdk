@@ -32,8 +32,10 @@ import (
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -204,6 +206,7 @@ func TestConfigRemote(t *testing.T) {
 		Services: map[string]bool{
 			"rdk:service:frame_system": true,
 			"rdk:service:web":          true,
+			"rdk:service:sensors":      true,
 		},
 	}
 
@@ -406,6 +409,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				Services: map[string]bool{
 					"rdk:service:web":          true,
 					"rdk:service:frame_system": true,
+					"rdk:service:sensors":      true,
 				},
 			}
 
@@ -580,6 +584,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		Services: map[string]bool{
 			"rdk:service:web":          true,
 			"rdk:service:frame_system": true,
+			"rdk:service:sensors":      true,
 		},
 	}
 
@@ -686,20 +691,14 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web and metadata service
-	test.That(t, len(svc.All()), test.ShouldEqual, 10)
+	// 8 declared resources + default web, sensors, and metadata service
+	test.That(t, len(svc.All()), test.ShouldEqual, 11)
 
 	resources := map[resource.Name]struct{}{
 		{
-			UUID: "00db7188-edaa-5ea9-b573-80ce7d2cee61",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
-				},
-				ResourceSubtype: service.SubtypeName,
-			},
-			Name: "",
+			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
+			Subtype: service.Subtype,
+			Name:    "",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -717,26 +716,14 @@ func TestMetadataUpdate(t *testing.T) {
 			Name:    "pieceGripper",
 		}: {},
 		{
-			UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps1",
+			UUID:    "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
+			Subtype: gps.Subtype,
+			Name:    "gps1",
 		}: {},
 		{
-			UUID: "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps2",
+			UUID:    "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
+			Subtype: gps.Subtype,
+			Name:    "gps2",
 		}: {},
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
@@ -770,6 +757,11 @@ func TestMetadataUpdate(t *testing.T) {
 			Subtype: web.Subtype,
 			Name:    "",
 		}: {},
+		{
+			UUID:    "69f2c4af-f71e-5c49-90b8-9e4a4bf2e900",
+			Subtype: sensors.Subtype,
+			Name:    "",
+		}: {},
 	}
 	svcResources := svc.All()
 	svcResourcesSet := make(map[resource.Name]struct{})
@@ -777,4 +769,42 @@ func TestMetadataUpdate(t *testing.T) {
 		svcResourcesSet[r] = struct{}{}
 	}
 	test.That(t, svcResourcesSet, test.ShouldResemble, resources)
+}
+
+func TestSensorsService(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	svc, err := sensors.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+
+	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	foundSensors, err := svc.GetSensors(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
+
+	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false}
+	expected := map[resource.Name]interface{}{
+		gps.Named("gps1"): readings1,
+		gps.Named("gps2"): readings1,
+	}
+
+	readings, err := svc.GetReadings(context.Background(), []resource.Name{gps.Named("gps1")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 1)
+	test.That(t, readings[0].Name, test.ShouldResemble, gps.Named("gps1"))
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+
+	readings, err = svc.GetReadings(context.Background(), sensorNames)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 2)
+
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+	test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
