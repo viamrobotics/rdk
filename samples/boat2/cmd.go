@@ -566,7 +566,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	navServiceTemp, err := myRobot.ResourceByName(navigation.Name)
 	if err != nil {
-		return errors.New("no navigation service")
+		return errors.Wrapf(err, "no navigation service")
 	}
 	myB.navService, ok = navServiceTemp.(navigation.Service)
 	if !ok {

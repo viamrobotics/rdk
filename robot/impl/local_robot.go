@@ -132,7 +132,7 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 =======
 	service, err := r.ResourceByName(framesystem.Name)
 	if err != nil {
-		return nil, errors.New("service frame_system not found")
+		return nil, errors.Wrapf(err, "service frame_system not found")
 	}
 	fsService, ok := service.(framesystem.Service)
 	if !ok {
