@@ -219,7 +219,7 @@ func (s *Server) ResourceRunCommand(
 	// we know only gps has this right now, so just look at sensors!
 	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
 	if err != nil {
-		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
+		return nil, err
 	}
 	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
 	if !ok {
@@ -244,7 +244,7 @@ func (s *Server) NavigationServiceMode(
 ) (*pb.NavigationServiceModeResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
@@ -273,7 +273,7 @@ func (s *Server) NavigationServiceSetMode(
 ) (*pb.NavigationServiceSetModeResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
@@ -303,7 +303,7 @@ func (s *Server) NavigationServiceLocation(
 ) (*pb.NavigationServiceLocationResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
@@ -325,7 +325,7 @@ func (s *Server) NavigationServiceWaypoints(
 ) (*pb.NavigationServiceWaypointsResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
@@ -354,7 +354,7 @@ func (s *Server) NavigationServiceAddWaypoint(
 ) (*pb.NavigationServiceAddWaypointResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
@@ -371,7 +371,7 @@ func (s *Server) NavigationServiceRemoveWaypoint(
 ) (*pb.NavigationServiceRemoveWaypointResponse, error) {
 	svc, err := s.r.ResourceByName(navigation.Name)
 	if err != nil {
-		return nil, errors.New("no navigation service")
+		return nil, errors.Wrapf(err, "no navigation service")
 	}
 	navSvc, ok := svc.(navigation.Service)
 	if !ok {
