@@ -1312,14 +1312,14 @@
           <span>{{ $authType }}: </span>
           <div id="auth-{{ $authType }}">
             <input type="password"/>
-            <button>Login</button>
+            <viam-button>Login</viam-button>
           </div>
       {{ end }}
     </div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
-        <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
+        <viam-button v-on:click="doAction('{{$r}}')">{{$r}}</viam-button>
         {{end}}
       </div>
 
@@ -1327,21 +1327,23 @@
       <div class="grid grid-cols-2 gap-2">
         <div>
           <!-- ******* BASE *******  -->
-          <div class="base" v-for="base in status.basesMap" :key="base[0]">
-            <h3>${base[0]}</h3>
-            <ul>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button" v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</button></li>
-              <li><button class="relative leading-tight font-button border transition-colors duration-150 focus:outline-none shadow-sm text-white border-primary-500 bg-primary-500 hover:border-primary-600 hover:bg-primary-600 focus:bg-primary-600 active:bg-primary-700 cursor-pointer  px-5 py-2 rounded-button"  v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</button></li>
-            </ul>
+          <collapse>Base<template v-slot:content>
+            <div class="base" v-for="base in status.basesMap" :key="base[0]">
+              <h3>${base[0]}</h3>
+              <ul>
+                <li><viam-button v-on:click="baseAction(base[0], 'straight', 1)">Forward</viam-button></li>
+                <li><viam-button v-on:click="baseAction(base[0], 'straight', -1)">Backward</viam-button></li>
+                <li><viam-button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</viam-button></li>
+                <li><viam-button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</viam-button></li>
+                <li><viam-button v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</viam-button></li>
+                <li><viam-button v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</viam-button></li>
+              </ul>
 
-            Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-            Distances (mm): <input id="distance" name="distance" value="500"/><br>
-            Angle (degree): <input id="angle" name="angle" value="0"/><br>
-          </div>
+              Speed (mm per sec): <viam-input id="speed" name="speed" value="300"/><br>
+              Distances (mm): <viam-input id="distance" name="distance" value="500"/><br>
+              Angle (degree): <viam-input id="angle" name="angle" value="0"/><br>
+            </div>
+          </template></collapse>
         </div>
         <div>
           <!-- ******* GANTRY *******  -->
@@ -1356,10 +1358,10 @@
               <tr v-for="pp in gantryByName(gantry.name).parts" :key="pp.axis">
                 <th>${pp.axis}</th>
                 <td>
-                  <button v-on:click="gantryInc( gantry.name, pp.axis, -.1 )">--</button>
-                  <button v-on:click="gantryInc( gantry.name, pp.axis, -.01 )">-</button>
-                  <button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</button>
-                  <button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</button>
+                  <viam-button v-on:click="gantryInc( gantry.name, pp.axis, -.1 )">--</viam-button>
+                  <viam-button v-on:click="gantryInc( gantry.name, pp.axis, -.01 )">-</viam-button>
+                  <viam-button v-on:click="gantryInc( gantry.name, pp.axis, .01 )">+</viam-button>
+                  <viam-button v-on:click="gantryInc( gantry.name, pp.axis, .1 )">++</viam-button>
                 </td>
                 <td>${pp.pos.toFixed(2)}</td>
                 <td>${pp.length}</td>
@@ -1374,7 +1376,7 @@
               <hr>
               <h2>ForceMatrix: ${forcematrix[1].name}</h2>
               <template>
-                <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
+                <viam-button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</viam-button>
                 <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
                 <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
                 <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
@@ -1415,16 +1417,16 @@
               </tr>
               <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
                 <th>${aa.grid[0]}</th>
-                <td><input v-model="aa.gridValue"></td>
+                <td><viam-input v-model="aa.gridValue"></td>
 
                 <th>Joint ${aa.joint}</th>
-                <td><input v-model="aa.jointValue"></td>
+                <td><viam-input v-model="aa.jointValue"></td>
               </tr>
               <tr>
                 <th colspan="6">
-                  <button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</button>
-                  <button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</button>
-                  <button v-on:click="armModifyAllCancel(arm.name)">Cancel</button>
+                  <viam-button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</viam-button>
+                  <viam-button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</viam-button>
+                  <viam-button v-on:click="armModifyAllCancel(arm.name)">Cancel</viam-button>
                 </th>
               </tr>
             </table>
@@ -1436,26 +1438,26 @@
               <tr v-for="aa in armByName(arm.name).pieces" :key="aa.joint">
                 <th>${aa.grid[0]}</th>
                 <td>
-                  <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
-                  <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
-                  <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
-                  <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
+                  <viam-button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</viam-button>
+                  <viam-button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</viam-button>
+                  <viam-button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</viam-button>
+                  <viam-button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</viam-button>
                 </td>
                 <td>${aa.gridValue.toFixed(2)}</td>
 
                 <th>Joint ${aa.joint}</th>
                 <td>
-                  <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
-                  <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
-                  <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
-                  <button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</button>
+                  <viam-button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</viam-button>
+                  <viam-button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</viam-button>
+                  <viam-button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</viam-button>
+                  <viam-button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</viam-button>
                 </td>
                 <td>${aa.jointValue.toFixed(2)}</td>
               </tr>
               <tr>
                 <th colspan="8">
-                  <button v-on:click="armHome(arm.name)">Home</button>
-                  <button v-on:click="armModifyAll(arm.name)">Modify All</button>
+                  <viam-button v-on:click="armHome(arm.name)">Home</viam-button>
+                  <viam-button v-on:click="armModifyAll(arm.name)">Modify All</viam-button>
                 </th>
               </tr>
             </table> <!-- end main table -->
@@ -1466,8 +1468,8 @@
           <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
             <h3>Gripper ${ gripper.name }</h3>
             <ul>
-              <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
-              <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
+              <li><viam-button v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button></li>
+              <li><viam-button v-on:click="gripperAction( gripper.name, 'grab')">Grab</viam-button></li>
             </ul>
           </div>
         </div>
@@ -1480,10 +1482,10 @@
               <tr>
                 <td></td>
                 <td>
-                  <button v-on:click="servoMove(servo.name, -10)">-10</button>
-                  <button v-on:click="servoMove(servo.name, -1)">-1</button>
-                  <button v-on:click="servoMove(servo.name, 1)">1</button>
-                  <button v-on:click="servoMove(servo.name, 10)">10</button>
+                  <viam-button v-on:click="servoMove(servo.name, -10)">-10</viam-button>
+                  <viam-button v-on:click="servoMove(servo.name, -1)">-1</viam-button>
+                  <viam-button v-on:click="servoMove(servo.name, 1)">1</viam-button>
+                  <viam-button v-on:click="servoMove(servo.name, 10)">10</viam-button>
                 </td>
               </tr>
             </table>
@@ -1523,7 +1525,7 @@
           <div class="camera" v-for="streamName in streamNames" :key="streamName">
             <h3>Camera ${streamName}</h3>
             <div :id="'stream-' + streamName">
-              <button v-on:click="viewCamera(streamName)">View</button>
+              <viam-button v-on:click="viewCamera(streamName)">View</viam-button>
             </div>
           </div>
         </div>
@@ -1545,7 +1547,7 @@
         <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
           <td>${camera.name}</td>
           <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">frame</a></td>
-          <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
+          <td><viam-button v-on:click="renderPCD(camera.name)">GO</viam-button></td>
         </tr>
       </table>
 
@@ -1566,7 +1568,7 @@
           <td>${sensor[1].type}</td>
           <td>${sensorReadings[sensor[0]]}</td>
           <td>
-            <button v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
+            <viam-button v-on:click="doSensorReadings(sensor[0])">Get Readings</viam-button>
           </td>
         </tr>
 
@@ -1597,7 +1599,7 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    <button v-on:click="doPCDGrab">Grab</button>
+                    <viam-button v-on:click="doPCDGrab">Grab</viam-button>
                   </td>
                 </tr>
               </table>
@@ -1609,14 +1611,14 @@
       <table v-if="pcdClick.pcdloaded">
         <tr>
           <td colspan=2>
-              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
-              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
-              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
+              Min Pts in Plane: <viam-input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
+              Min Pts in Segment: <viam-input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
+              Clustering Radius (mm): <viam-input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
           </td>
         </tr>
         <tr>
             <td>
-                <button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</button>
+                <viam-button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</viam-button>
             </td>
             <td v-if="pcdClick.calculatingSegments">Finding...</td>
         </tr>
@@ -1630,14 +1632,14 @@
         </tr>
         <tr>
           <td>Full Image</td>
-          <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
+          <td><viam-button v-on:click="doPCDLoad(fullcloud)">GO</viam-button></td>
           <td>--</td>
         </tr>
         <tr v-for="(seg, i) in objects">
             <td>Object ${i}</td>
-            <td><button v-on:click="doSegmentLoad(i)">GO</button></td>
-            <td><button v-on:click="doPointLoad(i)">GO</button></td>
-            <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
+            <td><viam-button v-on:click="doSegmentLoad(i)">GO</viam-button></td>
+            <td><viam-button v-on:click="doPointLoad(i)">GO</viam-button></td>
+            <td><viam-button v-on:click="doBoundingBoxLoad(i)">GO</viam-button></td>
         </tr>
       </table>
         <div>
@@ -1665,11 +1667,11 @@
           <div id="map-container" v-if="hasKey(status.servicesMap, 'rdk:service:navigation')">
             <br />
             <br />
-            <button v-on:click="setNavigationMode('manual')">Manual</button>
-            <button v-on:click="setNavigationMode('waypoint')">Waypoint</button>
+            <viam-button v-on:click="setNavigationMode('manual')">Manual</viam-button>
+            <viam-button v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
             <br />
-            <input type="text" id="nav-set-location" value="40.745297,-74.010916">
-            <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
+            <viam-input type="text" id="nav-set-location" value="40.745297,-74.010916">
+            <viam-button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
             <div id="map" v-map-mounted></div>
           </div>
         </div>
