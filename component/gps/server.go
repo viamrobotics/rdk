@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from gps_subtype.proto.
+// subtypeServer implements the GPSService from gps.proto.
 type subtypeServer struct {
 	pb.UnimplementedGPSServiceServer
 	s subtype.Service
