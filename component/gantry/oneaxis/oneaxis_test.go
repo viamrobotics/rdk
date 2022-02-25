@@ -483,7 +483,9 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 }
 
 func TestHomeEncoder(t *testing.T) {
-	fakegantry := &oneAxis{}
+	fakegantry := &oneAxis{
+		limitType: switchLimitTypeEncoder,
+	}
 	ctx := context.Background()
 	err := fakegantry.homeEncoder(ctx)
 	test.That(t, err, test.ShouldNotBeNil)

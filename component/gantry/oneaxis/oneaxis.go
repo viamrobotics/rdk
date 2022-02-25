@@ -41,6 +41,7 @@ type AttrConfig struct {
 	Axis               spatial.TranslationConfig `json:"axis"`
 	OrientTransform    spatial.OrientationConfig `json:"axis_orientaion_transform"`
 	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform"`
+	StartPosition      float64                   `json:"starting_position"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -118,6 +119,8 @@ type oneAxis struct {
 	axisOrientationOffset *spatial.OrientationVector
 	axisTransaltionOffset r3.Vector
 
+	startPosition float64
+
 	logger golog.Logger
 }
 
@@ -154,10 +157,13 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, err
 	}
 
+	// default no rotation using ParseConfig()
 	orientOffset, err := conf.OrientTransform.ParseConfig()
 	if err != nil {
 		return nil, err
 	}
+
+	translationOffset := r3.Vector(conf.TranslateTransform)
 
 	oAx := &oneAxis{
 		name:                  config.Name,
@@ -171,7 +177,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		rpm:                   conf.GantryRPM,
 		axis:                  r3.Vector(conf.Axis),
 		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
-		axisTransaltionOffset: r3.Vector(conf.TranslateTransform),
+		axisTransaltionOffset: translationOffset,
 	}
 
 	switch len(oAx.limitSwitchPins) {
@@ -188,6 +194,10 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 
 	if oAx.limitType == switchLimitTypeOnePin && oAx.reductionRatio <= 0 {
 		return nil, errors.New("gantry with one limit switch per axis needs a reduction ratio defined")
+	}
+
+	if oAx.limitType == switchLimitTypeEncoder && oAx.startPosition == 0 {
+		return nil, errors.New("gantyr of type encoder needs a start position set")
 	}
 
 	if err := oAx.Home(ctx); err != nil {
@@ -262,7 +272,8 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 
 // Not yet implemented.
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
-	if err := g.motor.ResetZeroPosition(ctx, 0); err != nil {
+
+	if err := g.motor.ResetZeroPosition(ctx, g.startPosition); err != nil {
 		return err
 	}
 	positionA, err := g.motor.GetPosition(ctx)
