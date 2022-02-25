@@ -220,6 +220,68 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 	test.That(t, err, test.ShouldBeError)
 }
 
+func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeError)
+}
+
+func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPartsWithSameNameInBaseAndRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
