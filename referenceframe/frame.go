@@ -6,10 +6,11 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
+
+	"github.com/pkg/errors"
 
 	"github.com/golang/geo/r3"
 

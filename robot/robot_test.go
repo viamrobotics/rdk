@@ -1,8 +1,9 @@
 package robot_test
 
 import (
-	"errors"
 	"testing"
+
+	"github.com/pkg/errors"
 
 	"go.viam.com/test"
 	"go.viam.com/utils"
