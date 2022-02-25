@@ -10,13 +10,12 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/pkg/errors"
-
 	"github.com/adrianmo/go-nmea"
 	"github.com/edaniels/golog"
 	"github.com/go-gnss/ntrip"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"
