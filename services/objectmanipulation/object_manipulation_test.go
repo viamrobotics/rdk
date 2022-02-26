@@ -59,7 +59,11 @@ func TestDoGrabFailures(t *testing.T) {
 		case "fakeGripper":
 			return _gripper, nil
 		default:
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(n)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 	}
 
@@ -148,7 +152,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+<<<<<<< HEAD
 		return nil, rutils.NewResourceNotFoundError(name)
+=======
+		return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)

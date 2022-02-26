@@ -51,7 +51,11 @@ func TestNew(t *testing.T) {
 	t.Run("return error when not able to find board", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -63,7 +67,11 @@ func TestNew(t *testing.T) {
 			if name.Subtype == board.Subtype {
 				return &inject.Board{}, nil
 			}
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -85,7 +93,11 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 
 		_, err := newGripper(context.Background(), fakeRobot, config.Component{}, logger)
@@ -109,7 +121,11 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 		motorName := "badMotor"
 		cfg := config.Component{
@@ -139,7 +155,11 @@ func TestNew(t *testing.T) {
 				}
 				return fakeMotor, nil
 			}
+<<<<<<< HEAD
 			return nil, rutils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false
