@@ -39,3 +39,35 @@ func TestColorObjects(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objects, test.ShouldHaveLength, 1)
 }
+
+func TestColorObjectsValidate(t *testing.T) {
+	cfg := segmentation.ColorObjectsConfig{}
+	// tolerance value too big
+	cfg.Tolerance = 10.
+	err := cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "tolerance must be between 0.0 and 1.0")
+	// not a valid color
+	cfg.Tolerance = 1.
+	cfg.Color = "#GGGGGG"
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "couldn't parse hex")
+	// not a valid meanK
+	cfg.Color = "#123456"
+	cfg.MeanK = -5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "mean_k must be greater than 0")
+	// not a valid sigma
+	cfg.MeanK = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "must be greater than 0")
+	// not a valid min segment size
+	cfg.Sigma = 1
+	cfg.MinSegmentSize = -1
+	t.Logf("conf: %v", cfg)
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_points_in_segment cannot be less than 0")
+	// valid
+	cfg.MinSegmentSize = 5
+	err = cfg.CheckValid()
+	test.That(t, err, test.ShouldBeNil)
+}

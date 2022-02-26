@@ -23,6 +23,12 @@ type RadiusClusteringVoxelConfig struct {
 
 // CheckValid checks to see in the input values are valid.
 func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
+	if rcc.VoxelSize <= 0 {
+		return errors.Errorf("voxel_size must be greater than 0, got %v", rcc.VoxelSize)
+	}
+	if rcc.Lambda <= 0 {
+		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
+	}
 	err := rcc.RadiusClusteringConfig.CheckValid()
 	if err != nil {
 		return err
@@ -30,12 +36,6 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	err = rcc.VoxelGridPlaneConfig.CheckValid()
 	if err != nil {
 		return err
-	}
-	if rcc.VoxelSize <= 0 {
-		return errors.Errorf("voxel_size must be greater than 0, got %v", rcc.VoxelSize)
-	}
-	if rcc.Lambda <= 0 {
-		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
 	}
 	return nil
 }
