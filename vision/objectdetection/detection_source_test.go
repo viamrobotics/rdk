@@ -5,11 +5,12 @@ import (
 	"image"
 	"testing"
 
+	"go.viam.com/test"
+	"go.viam.com/utils/artifact"
+
 	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/vision/objectdetection"
-	"go.viam.com/test"
-	"go.viam.com/utils/artifact"
 )
 
 func TestDetectionSource(t *testing.T) {

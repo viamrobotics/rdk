@@ -14,6 +14,37 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
+func TestClusteringVoxelConfig(t *testing.T) {
+	// invalid voxel size
+	cfg := segmentation.RadiusClusteringVoxelConfig{}
+	err := cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "voxel_size must be greater than 0")
+	// invalid lambda
+	cfg.VoxelSize = 2.0
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "lambda must be greater than 0")
+	// invalid clustering
+	cfg.Lambda = 0.1
+	cfg.RadiusClusteringConfig = &segmentation.RadiusClusteringConfig{}
+	cfg.RadiusClusteringConfig.MinPtsInSegment = 5
+	cfg.RadiusClusteringConfig.ClusteringRadiusMm = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_points_in_plane must be greater than 0")
+	// invalid plane config
+	cfg.RadiusClusteringConfig.MinPtsInPlane = 5
+	cfg.VoxelGridPlaneConfig = &segmentation.VoxelGridPlaneConfig{}
+	cfg.VoxelGridPlaneConfig.WeightThresh = -1
+	cfg.VoxelGridPlaneConfig.AngleThresh = 40
+	cfg.VoxelGridPlaneConfig.CosineThresh = .1
+	cfg.VoxelGridPlaneConfig.DistanceThresh = 44
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "weight_threshold cannot be less than 0")
+	// valid
+	cfg.VoxelGridPlaneConfig.WeightThresh = 1
+	err = cfg.CheckValid()
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestVoxelSegmentMeans(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cam := &inject.Camera{}

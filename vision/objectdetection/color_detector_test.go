@@ -20,7 +20,7 @@ func TestColorDetector(t *testing.T) {
 	// detector with error
 	_, err = NewColorDetector(8., hue)
 	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
-	// detector with 100% tolerance - detections at edge of image
+	// detector with 100% tolerance
 	d, err := NewColorDetector(1., hue)
 	test.That(t, err, test.ShouldBeNil)
 	f := NewAreaFilter(150000)

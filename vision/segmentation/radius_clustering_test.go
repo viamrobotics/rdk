@@ -15,6 +15,25 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
+func TestRadiusClusteringValidate(t *testing.T) {
+	cfg := segmentation.RadiusClusteringConfig{}
+	// invalid points in plane
+	err := cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_points_in_plane must be greater than 0")
+	// invalid points in segment
+	cfg.MinPtsInPlane = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "min_points_in_segment must be greater than 0")
+	// invalid clustering radius
+	cfg.MinPtsInSegment = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater than 0")
+	// valid
+	cfg.ClusteringRadiusMm = 5
+	err = cfg.CheckValid()
+	test.That(t, err, test.ShouldBeNil)
+}
+
 // get a segmentation of a pointcloud and calculate each object's center.
 func TestPixelSegmentation(t *testing.T) {
 	logger := golog.NewTestLogger(t)
