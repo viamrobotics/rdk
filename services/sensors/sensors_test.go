@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	"go.viam.com/rdk/utils"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -55,7 +54,7 @@ func TestFromRobot(t *testing.T) {
 
 	t.Run("no sensors service", func(t *testing.T) {
 		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, utils.NewResourceNotFoundError(name)
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 
 		svc, err := sensors.FromRobot(r)
@@ -74,7 +73,7 @@ func TestNew(t *testing.T) {
 
 	t.Run("resource not found", func(t *testing.T) {
 		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-			return nil, utils.NewResourceNotFoundError(name)
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		_, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(imu.Named("imu")))
@@ -204,7 +203,7 @@ func TestGetReadings(t *testing.T) {
 			case gps.Named("gps2"):
 				return injectSensor3, nil
 			}
-			return nil, utils.NewResourceNotFoundError(name)
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 		svc, err := sensors.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)

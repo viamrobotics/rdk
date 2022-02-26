@@ -226,11 +226,11 @@ func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
 
 	parts := partsForRemoteRobot(injectRobot)
 	parts.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
 		config.Remote{Name: "remote1"},
 	)
 	parts.addRemote(
-		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
 		config.Remote{Name: "remote2"},
 	)
 
