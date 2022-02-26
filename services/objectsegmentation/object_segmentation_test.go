@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
