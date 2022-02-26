@@ -4,6 +4,7 @@ import (
 	"image"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/rimage"
@@ -13,11 +14,19 @@ func TestBuildFunc(t *testing.T) {
 	img := rimage.NewImage(400, 400)
 	_, err := Build(nil, nil, nil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "must have a Detector")
-	// make simple detector
+	// detector that creates an error
 	det := func(image.Image) ([]Detection, error) {
-		return []Detection{&detection2D{}}, nil
+		return nil, errors.New("detector error")
 	}
 	pipeline, err := Build(nil, det, nil)
+	test.That(t, err, test.ShouldBeNil)
+	_, err = pipeline(img)
+	test.That(t, err.Error(), test.ShouldEqual, "detector error")
+	// make simple detector
+	det = func(image.Image) ([]Detection, error) {
+		return []Detection{&detection2D{}}, nil
+	}
+	pipeline, err = Build(nil, det, nil)
 	test.That(t, err, test.ShouldBeNil)
 	res, err := pipeline(img)
 	test.That(t, err, test.ShouldBeNil)
