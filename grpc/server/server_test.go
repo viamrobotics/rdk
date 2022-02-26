@@ -219,6 +219,49 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
 	})
+	t.Run("Sensor", func(t *testing.T) {
+		server, injectRobot := newServer()
+		var capName resource.Name
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			capName = name
+			return nil, errors.New("no resources exist with this name")
+		}
+
+		_, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "compass1",
+		})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+		test.That(t, capName, test.ShouldResemble, sensor.Named("compass1"))
+
+		err1 := errors.New("whoops")
+
+		device := &inject.Sensor{}
+		injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return device, nil
+		}
+
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return nil, err1
+		}
+		_, err = server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "sensor1",
+		})
+		test.That(t, err, test.ShouldEqual, err1)
+		device.GetReadingsFunc = func(ctx context.Context) ([]interface{}, error) {
+			return []interface{}{1.2, 2.3}, nil
+		}
+		resp, err := server.SensorReadings(context.Background(), &pb.SensorReadingsRequest{
+			Name: "sensor1",
+		})
+		test.That(t, err, test.ShouldBeNil)
+		readings := make([]interface{}, 0, len(resp.Readings))
+		for _, r := range resp.Readings {
+			readings = append(readings, r.AsInterface())
+		}
+		test.That(t, readings, test.ShouldResemble, []interface{}{1.2, 2.3})
+	})
+
 }
 
 type robotServiceStatusStreamServer struct {

@@ -69,7 +69,11 @@ func createFakeRobot() *inject.Robot {
 		case motor.Subtype:
 			return &fake.Motor{PositionSupported: true}, nil
 		}
+<<<<<<< HEAD
 		return nil, utils.NewResourceNotFoundError(name)
+=======
+		return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}
 
 	return fakerobot
@@ -225,7 +229,11 @@ func TestNewOneAxis(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
 	fakeRobot = &inject.Robot{ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
+<<<<<<< HEAD
 		return nil, utils.NewResourceNotFoundError(name)
+=======
+		return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
@@ -261,7 +269,11 @@ func TestNewOneAxis(t *testing.T) {
 			if name.Subtype == motor.Subtype {
 				return injectMotor, nil
 			}
+<<<<<<< HEAD
 			return nil, utils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)

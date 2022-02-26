@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -106,7 +107,11 @@ func TestServiceFailures(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
+<<<<<<< HEAD
 			return nil, rdkutils.NewResourceNotFoundError(n)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 	}
 
@@ -135,7 +140,11 @@ func TestGetObjectPointClouds(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
+<<<<<<< HEAD
 			return nil, rdkutils.NewResourceNotFoundError(n)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 	}
 
@@ -186,7 +195,11 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+<<<<<<< HEAD
 		return nil, rdkutils.NewResourceNotFoundError(name)
+=======
+		return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}
 
 	svc, err = objectsegmentation.FromRobot(r)
@@ -228,7 +241,11 @@ func TestFullClientServerLoop(t *testing.T) {
 		case "fakeCamera":
 			return cam, nil
 		default:
+<<<<<<< HEAD
 			return nil, rdkutils.NewResourceNotFoundError(n)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 	}
 	oss, err := objectsegmentation.New(context.Background(), r, cfgService, logger)

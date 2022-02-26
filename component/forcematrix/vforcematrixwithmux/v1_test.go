@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -65,7 +66,11 @@ func TestNewForceMatrix(t *testing.T) {
 	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+<<<<<<< HEAD
 			return nil, utils.NewResourceNotFoundError(name)
+=======
+			return nil, errors.New("no resources exist with this name")
+>>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig, logger)
 		test.That(t, err, test.ShouldNotBeNil)
