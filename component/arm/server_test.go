@@ -95,15 +95,15 @@ func TestServer(t *testing.T) {
 
 	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, Pose: pose2})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, Pose: pose2})
+		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, Pose: pose1})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, To: pose1})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose1.String())

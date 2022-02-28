@@ -50,7 +50,7 @@ func TestGetPoses(t *testing.T) {
 	) {
 		zeroPose := spatialmath.NewZeroPose()
 		return posetracker.BodyToPoseInFrame{
-			bodyName: referenceframe.NewPoseInFrame(bodyFrame, &zeroPose),
+			bodyName: referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
 		}, nil
 	}
 	poseFailureErr := errors.New("failure to get poses")
