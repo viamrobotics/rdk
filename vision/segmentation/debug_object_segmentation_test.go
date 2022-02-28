@@ -1,4 +1,4 @@
-package segmentation
+package segmentation_test
 
 import (
 	"context"
@@ -10,11 +10,13 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 const debugObjSeg = "VIAM_DEBUG"
@@ -45,23 +47,30 @@ func (h *segmentObjectTestHelper) Process(
 	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "intel-full-pointcloud")
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return cloud, nil
+	}
 
-	objConfig := &vision.Parameters3D{
-		MinPtsInPlane:      50000,
-		MinPtsInSegment:    500,
-		ClusteringRadiusMm: 10.0,
+	objConfig := config.AttributeMap{
+		"min_points_in_plane":   50000,
+		"min_points_in_segment": 500,
+		"clustering_radius_mm":  10.0,
 	}
 
 	// Do object segmentation with point clouds
-	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
+	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	objectClouds := segments.PointClouds()
+	objectClouds := []pc.PointCloud{}
+	for _, seg := range segments {
+		objectClouds = append(objectClouds, seg.PointCloud)
+	}
 	coloredSegments, err := pc.MergePointCloudsWithColor(objectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "intel-segments-pointcloud")
 
-	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, objectClouds)
+	segImage, err := segmentation.PointCloudSegmentsToMask(h.cameraParams.ColorCamera, objectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "segmented-pointcloud-image-with-depth")
 
@@ -110,23 +119,32 @@ func (h *gripperSegmentTestHelper) Process(
 	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
-
-	// Do object segmentation with point clouds
-	objConfig := &vision.Parameters3D{
-		MinPtsInPlane:      15000,
-		MinPtsInSegment:    100,
-		ClusteringRadiusMm: 10.0,
+	injectCamera := &inject.Camera{}
+	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return cloud, nil
 	}
 
-	segments, err := NewObjectSegmentation(context.Background(), cloud, objConfig)
+	// Do object segmentation with point clouds
+	objConfig := config.AttributeMap{
+		"min_points_in_plane":   15000,
+		"min_points_in_segment": 100,
+		"clustering_radius_mm":  10.0,
+	}
+
+	// Do object segmentation with point clouds
+	segments, err := segmentation.RadiusClustering(context.Background(), injectCamera, objConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	objectClouds := segments.PointClouds()
+	objectClouds := []pc.PointCloud{}
+	for _, seg := range segments {
+		objectClouds = append(objectClouds, seg.PointCloud)
+	}
+
 	coloredSegments, err := pc.MergePointCloudsWithColor(objectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(coloredSegments, "gripper-segments-pointcloud")
 
-	segImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, objectClouds)
+	segImage, err := segmentation.PointCloudSegmentsToMask(h.cameraParams.ColorCamera, objectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(segImage, "gripper-segmented-pointcloud-image-with-depth")
 
