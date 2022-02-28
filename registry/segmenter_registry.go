@@ -8,11 +8,11 @@ import (
 )
 
 type (
-	// A CreateSegmenter creates a service from a given config.
+	// A CreateSegmenter creates a segmenter used to find 3D objects in a scene.
 	CreateSegmenter func(ctx context.Context) (interface{}, error)
 )
 
-// Segmenter registry.
+// The segmenter registry
 var segmenterRegistry = make(map[string]Segmenter)
 
 // Segmenter stores a Segmenter constructor (mandatory).
