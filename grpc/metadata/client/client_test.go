@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/grpc/metadata/client"
 	"go.viam.com/rdk/grpc/metadata/server"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
@@ -26,7 +27,7 @@ var newResource = resource.NewName(
 	"",
 )
 
-var oneResourceResponse = []*pb.ResourceName{
+var oneResourceResponse = []*commonpb.ResourceName{
 	{
 		Uuid:      newResource.UUID,
 		Namespace: string(newResource.Namespace),

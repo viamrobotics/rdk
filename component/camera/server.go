@@ -19,7 +19,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from camera.proto.
+// subtypeServer implements the CameraService from camera.proto.
 type subtypeServer struct {
 	pb.UnimplementedCameraServiceServer
 	s subtype.Service
