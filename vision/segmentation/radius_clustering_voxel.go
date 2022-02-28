@@ -10,8 +10,17 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/vision"
 )
+
+const RadiusClusteringVoxelSegmenter = "radius_clustering_voxel"
+
+func init() {
+	registry.RegisterSegmenter(RadiusClusteringVoxelSegmenter, registry.Segmenter{
+		Constructor: func(ctx context.Context) (interface{}, error) { return Segmenter(RadiusClusteringFromVoxels), nil },
+	})
+}
 
 // RadiusClusteringVoxelConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringVoxelConfig struct {
