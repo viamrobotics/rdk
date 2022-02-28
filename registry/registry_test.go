@@ -38,7 +38,7 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 		return nil, nil
 	}
 	statf := func(context.Context, interface{}) (interface{}, error) {
-		return nil, nil
+		return true, nil
 	}
 	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
