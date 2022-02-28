@@ -4,7 +4,7 @@ package piimpl
 
 import (
 	"context"
-	"errors"
+	"github.com/pkg/errors"
 	"testing"
 	"time"
 
@@ -128,8 +128,8 @@ func TestPiPigpio(t *testing.T) {
 	})
 
 	injectRobot := Robot{}
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return pp, true
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return pp, nil
 	}
 
 	motorReg := registry.ComponentLookup(motor.Subtype, picommon.ModelName)
@@ -235,11 +235,11 @@ func TestPiPigpio(t *testing.T) {
 
 type Robot struct {
 	robot.Robot
-	ResourceByNameFunc func(name resource.Name) (interface{}, bool)
+	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 }
 
 // ResourceByName calls the injected ResourceByName or the real version.
-func (r *Robot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
 	if r.ResourceByNameFunc == nil {
 		return r.Robot.ResourceByName(name)
 	}

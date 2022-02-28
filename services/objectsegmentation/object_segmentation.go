@@ -60,8 +60,8 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the object segmentation service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
 		return nil, utils.NewResourceNotFoundError(Name)
 	}
 	svc, ok := resource.(Service)
@@ -92,14 +92,14 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	// do default segmentation otherwise
-	cloud, err := cam.NextPointCloud(ctx)
+	params := config.AttributeMap{
+		"min_points_in_plane":   pmtrs.MinPtsInPlane,
+		"min_points_in_segment": pmtrs.MinPtsInSegment,
+		"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
+	}
+	segments, err := segmentation.RadiusClustering(ctx, cam, params)
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentation.NewObjectSegmentation(ctx, cloud, pmtrs)
-	if err != nil {
-		return nil, err
-	}
-	return segments.Objects(), nil
+	return segments, nil
 }

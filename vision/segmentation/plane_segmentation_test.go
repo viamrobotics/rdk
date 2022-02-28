@@ -20,6 +20,33 @@ func init() {
 	sortPositions = true
 }
 
+func TestPlaneConfig(t *testing.T) {
+	cfg := VoxelGridPlaneConfig{}
+	// invalid weight threshold
+	cfg.WeightThresh = -1.
+	err := cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "weight_threshold cannot be less than 0")
+	// invalid angle threshold
+	cfg.WeightThresh = 1.
+	cfg.AngleThresh = 1000.
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "angle_threshold must be in degrees, between -360 and 360")
+	// invalid cosine threshold
+	cfg.AngleThresh = 30.
+	cfg.CosineThresh = 2.
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cosine_threshold must be between -1 and 1")
+	// invalid distance threshold
+	cfg.CosineThresh = 0.2
+	cfg.DistanceThresh = -5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "distance_threshold cannot be less than 0")
+	// valid
+	cfg.DistanceThresh = 5
+	err = cfg.CheckValid()
+	test.That(t, err, test.ShouldBeNil)
+}
+
 func TestSegmentPlane(t *testing.T) {
 	// Intel Sensor Extrinsic data from manufacturer
 	// Intel sensor depth 1024x768 to  RGB 1280x720

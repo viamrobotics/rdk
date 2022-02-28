@@ -25,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gantry1 := &mock{Name: testGantryName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gantry.Named(testGantryName):
-			return gantry1, true
+			return gantry1, nil
 		case gantry.Named(fakeGantryName):
-			return "not a gantry", true
+			return "not a gantry", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

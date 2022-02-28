@@ -25,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	inputController1 := &mock{Name: testInputControllerName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case input.Named(testInputControllerName):
-			return inputController1, true
+			return inputController1, nil
 		case input.Named(fakeInputControllerName):
-			return "not an input controller", true
+			return "not an input controller", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

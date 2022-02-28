@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"os"
+	"strings"
 
 	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
@@ -17,6 +18,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // robotParts are the actual parts that make up a robot.
@@ -393,18 +395,29 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
-	part, ok := parts.resources.Nodes[name]
+func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error) {
+	partExists := false
+	robotPart, ok := parts.resources.Nodes[name]
 	if ok {
-		return part, true
+		return robotPart, nil
 	}
 	for _, remote := range parts.remotes {
-		part, ok := remote.ResourceByName(name)
-		if ok {
-			return part, true
+		// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
+		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
+			part, err := remote.ResourceByName(name)
+			if err == nil {
+				if partExists {
+					return nil, errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", name)
+				}
+				robotPart = part
+				partExists = true
+			}
 		}
 	}
-	return nil, false
+	if partExists {
+		return robotPart, nil
+	}
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 // PartsMergeResult is the result of merging in parts together.
@@ -583,8 +596,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
@@ -594,8 +607,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {

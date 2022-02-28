@@ -26,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	base1 := &mock{Name: testBaseName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case base.Named(testBaseName):
-			return base1, true
+			return base1, nil
 		case base.Named(fakeBaseName):
-			return "not a base", true
+			return "not a base", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
