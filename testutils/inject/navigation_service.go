@@ -12,23 +12,23 @@ import (
 // NavigationService represents a fake instance of a navigation service.
 type NavigationService struct {
 	navigation.Service
-	ModeFunc    func(ctx context.Context) (navigation.Mode, error)
+	GetModeFunc func(ctx context.Context) (navigation.Mode, error)
 	SetModeFunc func(ctx context.Context, mode navigation.Mode) error
 	CloseFunc   func(ctx context.Context) error
 
-	LocationFunc func(ctx context.Context) (*geo.Point, error)
+	GetLocationFunc func(ctx context.Context) (*geo.Point, error)
 
-	WaypointsFunc      func(ctx context.Context) ([]navigation.Waypoint, error)
+	GetWaypointsFunc   func(ctx context.Context) ([]navigation.Waypoint, error)
 	AddWaypointFunc    func(ctx context.Context, point *geo.Point) error
 	RemoveWaypointFunc func(ctx context.Context, id primitive.ObjectID) error
 }
 
-// Mode calls the injected ModeFunc or the real version.
-func (ns *NavigationService) Mode(ctx context.Context) (navigation.Mode, error) {
-	if ns.ModeFunc == nil {
-		return ns.Service.Mode(ctx)
+// GetMode calls the injected ModeFunc or the real version.
+func (ns *NavigationService) GetMode(ctx context.Context) (navigation.Mode, error) {
+	if ns.GetModeFunc == nil {
+		return ns.Service.GetMode(ctx)
 	}
-	return ns.ModeFunc(ctx)
+	return ns.GetModeFunc(ctx)
 }
 
 // Close calls the injected CloseFunc or the real version.
@@ -47,20 +47,20 @@ func (ns *NavigationService) SetMode(ctx context.Context, mode navigation.Mode) 
 	return ns.SetModeFunc(ctx, mode)
 }
 
-// Location calls the injected LocationFunc or the real version.
-func (ns *NavigationService) Location(ctx context.Context) (*geo.Point, error) {
-	if ns.LocationFunc == nil {
-		return ns.Service.Location(ctx)
+// GetLocation calls the injected LocationFunc or the real version.
+func (ns *NavigationService) GetLocation(ctx context.Context) (*geo.Point, error) {
+	if ns.GetLocationFunc == nil {
+		return ns.Service.GetLocation(ctx)
 	}
-	return ns.LocationFunc(ctx)
+	return ns.GetLocationFunc(ctx)
 }
 
-// Waypoints calls the injected WaypointsFunc or the real version.
-func (ns *NavigationService) Waypoints(ctx context.Context) ([]navigation.Waypoint, error) {
-	if ns.WaypointsFunc == nil {
-		return ns.Service.Waypoints(ctx)
+// GetWaypoints calls the injected WaypointsFunc or the real version.
+func (ns *NavigationService) GetWaypoints(ctx context.Context) ([]navigation.Waypoint, error) {
+	if ns.GetWaypointsFunc == nil {
+		return ns.Service.GetWaypoints(ctx)
 	}
-	return ns.WaypointsFunc(ctx)
+	return ns.GetWaypointsFunc(ctx)
 }
 
 // AddWaypoint calls the injected AddWaypointFunc or the real version.

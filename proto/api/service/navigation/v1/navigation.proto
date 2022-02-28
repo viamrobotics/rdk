@@ -9,25 +9,25 @@ import "proto/api/common/v1/common.proto";
 
 // A NavigationService declares the gRPC contract for a Navigation service
 service NavigationService {
-  rpc Mode(ModeRequest) returns (ModeResponse) {
+  rpc GetMode(GetModeRequest) returns (GetModeResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/navigation/config"
+      get: "/api/v1/service/navigation/mode"
     };
   }
 
   rpc SetMode(SetModeRequest) returns (SetModeResponse) {
     option (google.api.http) = {
-      put: "/api/v1/service/navigation/mode"
+      put: "/api/v1/service/navigation/set_mode"
     };
   }
 
-  rpc Location(LocationRequest) returns (LocationResponse) {
+  rpc GetLocation(GetLocationRequest) returns (GetLocationResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/navigation/location"
     };
   }
 
-  rpc Waypoints(WaypointsRequest) returns (WaypointsResponse) {
+  rpc GetWaypoints(GetWaypointsRequest) returns (GetWaypointsResponse) {
     option (google.api.http) = {
       get: "/api/v1/service/navigation/waypoints"
     };
@@ -52,9 +52,9 @@ enum Mode {
   MODE_WAYPOINT = 2;
 }
 
-message ModeRequest {}
+message GetModeRequest {}
 
-message ModeResponse {
+message GetModeResponse {
   Mode mode = 1;
 }
 
@@ -69,15 +69,15 @@ message Waypoint {
   common.v1.GeoPoint location = 2;
 }
 
-message LocationRequest {}
+message GetLocationRequest {}
 
-message LocationResponse {
+message GetLocationResponse {
   common.v1.GeoPoint location = 1;
 }
 
-message WaypointsRequest {}
+message GetWaypointsRequest {}
 
-message WaypointsResponse {
+message GetWaypointsResponse {
   repeated Waypoint waypoints = 1;
 }
 

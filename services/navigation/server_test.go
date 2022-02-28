@@ -66,39 +66,39 @@ func TestServer(t *testing.T) {
 
 	t.Run("test working mode function", func(t *testing.T) {
 		// manual mode
-		injectSvc.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
 		}
-		req := &pb.ModeRequest{}
-		resp, err := navServer.Mode(context.Background(), req)
+		req := &pb.GetModeRequest{}
+		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_MANUAL)
 
 		// waypoint mode
-		injectSvc.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.ModeWaypoint, nil
 		}
-		req = &pb.ModeRequest{}
-		resp, err = navServer.Mode(context.Background(), req)
+		req = &pb.GetModeRequest{}
+		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_WAYPOINT)
 
 		// return unspecified mode when returned mode unrecognized
-		injectSvc.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.Mode(math.MaxUint8), nil
 		}
-		req = &pb.ModeRequest{}
-		resp, err = navServer.Mode(context.Background(), req)
+		req = &pb.GetModeRequest{}
+		resp, err = navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_UNSPECIFIED)
 	})
 
 	t.Run("test failing mode function", func(t *testing.T) {
-		injectSvc.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return 0, errors.New("mode failed")
 		}
-		req := &pb.ModeRequest{}
-		resp, err := navServer.Mode(context.Background(), req)
+		req := &pb.GetModeRequest{}
+		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 	})
@@ -155,11 +155,11 @@ func TestServer(t *testing.T) {
 
 	t.Run("test working location function", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
-		injectSvc.LocationFunc = func(ctx context.Context) (*geo.Point, error) {
+		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return loc, nil
 		}
-		req := &pb.LocationRequest{}
-		resp, err := navServer.Location(context.Background(), req)
+		req := &pb.GetLocationRequest{}
+		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		protoLoc := resp.GetLocation()
 		test.That(t, protoLoc.GetLatitude(), test.ShouldEqual, loc.Lat())
@@ -167,32 +167,32 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("test failing location function", func(t *testing.T) {
-		injectSvc.LocationFunc = func(ctx context.Context) (*geo.Point, error) {
+		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return nil, errors.New("location retrieval failed")
 		}
-		req := &pb.LocationRequest{}
-		resp, err := navServer.Location(context.Background(), req)
+		req := &pb.GetLocationRequest{}
+		resp, err := navServer.GetLocation(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
 	t.Run("test working waypoints function", func(t *testing.T) {
 		waypoints, expectedResp := createWaypoints()
-		injectSvc.WaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
+		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return waypoints, nil
 		}
-		req := &pb.WaypointsRequest{}
-		resp, err := navServer.Waypoints(context.Background(), req)
+		req := &pb.GetWaypointsRequest{}
+		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.GetWaypoints(), test.ShouldResemble, expectedResp)
 	})
 
 	t.Run("test failing waypoints function", func(t *testing.T) {
-		injectSvc.WaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
+		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return nil, errors.New("waypoints retrieval failed")
 		}
-		req := &pb.WaypointsRequest{}
-		resp, err := navServer.Waypoints(context.Background(), req)
+		req := &pb.GetWaypointsRequest{}
+		resp, err := navServer.GetWaypoints(context.Background(), req)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 	})

@@ -18,10 +18,10 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type NavigationServiceClient interface {
-	Mode(ctx context.Context, in *ModeRequest, opts ...grpc.CallOption) (*ModeResponse, error)
+	GetMode(ctx context.Context, in *GetModeRequest, opts ...grpc.CallOption) (*GetModeResponse, error)
 	SetMode(ctx context.Context, in *SetModeRequest, opts ...grpc.CallOption) (*SetModeResponse, error)
-	Location(ctx context.Context, in *LocationRequest, opts ...grpc.CallOption) (*LocationResponse, error)
-	Waypoints(ctx context.Context, in *WaypointsRequest, opts ...grpc.CallOption) (*WaypointsResponse, error)
+	GetLocation(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*GetLocationResponse, error)
+	GetWaypoints(ctx context.Context, in *GetWaypointsRequest, opts ...grpc.CallOption) (*GetWaypointsResponse, error)
 	AddWaypoint(ctx context.Context, in *AddWaypointRequest, opts ...grpc.CallOption) (*AddWaypointResponse, error)
 	RemoveWaypoint(ctx context.Context, in *RemoveWaypointRequest, opts ...grpc.CallOption) (*RemoveWaypointResponse, error)
 }
@@ -34,9 +34,9 @@ func NewNavigationServiceClient(cc grpc.ClientConnInterface) NavigationServiceCl
 	return &navigationServiceClient{cc}
 }
 
-func (c *navigationServiceClient) Mode(ctx context.Context, in *ModeRequest, opts ...grpc.CallOption) (*ModeResponse, error) {
-	out := new(ModeResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/Mode", in, out, opts...)
+func (c *navigationServiceClient) GetMode(ctx context.Context, in *GetModeRequest, opts ...grpc.CallOption) (*GetModeResponse, error) {
+	out := new(GetModeResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/GetMode", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -52,18 +52,18 @@ func (c *navigationServiceClient) SetMode(ctx context.Context, in *SetModeReques
 	return out, nil
 }
 
-func (c *navigationServiceClient) Location(ctx context.Context, in *LocationRequest, opts ...grpc.CallOption) (*LocationResponse, error) {
-	out := new(LocationResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/Location", in, out, opts...)
+func (c *navigationServiceClient) GetLocation(ctx context.Context, in *GetLocationRequest, opts ...grpc.CallOption) (*GetLocationResponse, error) {
+	out := new(GetLocationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/GetLocation", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *navigationServiceClient) Waypoints(ctx context.Context, in *WaypointsRequest, opts ...grpc.CallOption) (*WaypointsResponse, error) {
-	out := new(WaypointsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/Waypoints", in, out, opts...)
+func (c *navigationServiceClient) GetWaypoints(ctx context.Context, in *GetWaypointsRequest, opts ...grpc.CallOption) (*GetWaypointsResponse, error) {
+	out := new(GetWaypointsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.navigation.v1.NavigationService/GetWaypoints", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,10 +92,10 @@ func (c *navigationServiceClient) RemoveWaypoint(ctx context.Context, in *Remove
 // All implementations must embed UnimplementedNavigationServiceServer
 // for forward compatibility
 type NavigationServiceServer interface {
-	Mode(context.Context, *ModeRequest) (*ModeResponse, error)
+	GetMode(context.Context, *GetModeRequest) (*GetModeResponse, error)
 	SetMode(context.Context, *SetModeRequest) (*SetModeResponse, error)
-	Location(context.Context, *LocationRequest) (*LocationResponse, error)
-	Waypoints(context.Context, *WaypointsRequest) (*WaypointsResponse, error)
+	GetLocation(context.Context, *GetLocationRequest) (*GetLocationResponse, error)
+	GetWaypoints(context.Context, *GetWaypointsRequest) (*GetWaypointsResponse, error)
 	AddWaypoint(context.Context, *AddWaypointRequest) (*AddWaypointResponse, error)
 	RemoveWaypoint(context.Context, *RemoveWaypointRequest) (*RemoveWaypointResponse, error)
 	mustEmbedUnimplementedNavigationServiceServer()
@@ -105,17 +105,17 @@ type NavigationServiceServer interface {
 type UnimplementedNavigationServiceServer struct {
 }
 
-func (UnimplementedNavigationServiceServer) Mode(context.Context, *ModeRequest) (*ModeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Mode not implemented")
+func (UnimplementedNavigationServiceServer) GetMode(context.Context, *GetModeRequest) (*GetModeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetMode not implemented")
 }
 func (UnimplementedNavigationServiceServer) SetMode(context.Context, *SetModeRequest) (*SetModeResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetMode not implemented")
 }
-func (UnimplementedNavigationServiceServer) Location(context.Context, *LocationRequest) (*LocationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Location not implemented")
+func (UnimplementedNavigationServiceServer) GetLocation(context.Context, *GetLocationRequest) (*GetLocationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetLocation not implemented")
 }
-func (UnimplementedNavigationServiceServer) Waypoints(context.Context, *WaypointsRequest) (*WaypointsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Waypoints not implemented")
+func (UnimplementedNavigationServiceServer) GetWaypoints(context.Context, *GetWaypointsRequest) (*GetWaypointsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWaypoints not implemented")
 }
 func (UnimplementedNavigationServiceServer) AddWaypoint(context.Context, *AddWaypointRequest) (*AddWaypointResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddWaypoint not implemented")
@@ -136,20 +136,20 @@ func RegisterNavigationServiceServer(s grpc.ServiceRegistrar, srv NavigationServ
 	s.RegisterService(&NavigationService_ServiceDesc, srv)
 }
 
-func _NavigationService_Mode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ModeRequest)
+func _NavigationService_GetMode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetModeRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NavigationServiceServer).Mode(ctx, in)
+		return srv.(NavigationServiceServer).GetMode(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.navigation.v1.NavigationService/Mode",
+		FullMethod: "/proto.api.service.navigation.v1.NavigationService/GetMode",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NavigationServiceServer).Mode(ctx, req.(*ModeRequest))
+		return srv.(NavigationServiceServer).GetMode(ctx, req.(*GetModeRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -172,38 +172,38 @@ func _NavigationService_SetMode_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NavigationService_Location_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LocationRequest)
+func _NavigationService_GetLocation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetLocationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NavigationServiceServer).Location(ctx, in)
+		return srv.(NavigationServiceServer).GetLocation(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.navigation.v1.NavigationService/Location",
+		FullMethod: "/proto.api.service.navigation.v1.NavigationService/GetLocation",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NavigationServiceServer).Location(ctx, req.(*LocationRequest))
+		return srv.(NavigationServiceServer).GetLocation(ctx, req.(*GetLocationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NavigationService_Waypoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(WaypointsRequest)
+func _NavigationService_GetWaypoints_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetWaypointsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NavigationServiceServer).Waypoints(ctx, in)
+		return srv.(NavigationServiceServer).GetWaypoints(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.api.service.navigation.v1.NavigationService/Waypoints",
+		FullMethod: "/proto.api.service.navigation.v1.NavigationService/GetWaypoints",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NavigationServiceServer).Waypoints(ctx, req.(*WaypointsRequest))
+		return srv.(NavigationServiceServer).GetWaypoints(ctx, req.(*GetWaypointsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -252,20 +252,20 @@ var NavigationService_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*NavigationServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Mode",
-			Handler:    _NavigationService_Mode_Handler,
+			MethodName: "GetMode",
+			Handler:    _NavigationService_GetMode_Handler,
 		},
 		{
 			MethodName: "SetMode",
 			Handler:    _NavigationService_SetMode_Handler,
 		},
 		{
-			MethodName: "Location",
-			Handler:    _NavigationService_Location_Handler,
+			MethodName: "GetLocation",
+			Handler:    _NavigationService_GetLocation_Handler,
 		},
 		{
-			MethodName: "Waypoints",
-			Handler:    _NavigationService_Waypoints_Handler,
+			MethodName: "GetWaypoints",
+			Handler:    _NavigationService_GetWaypoints_Handler,
 		},
 		{
 			MethodName: "AddWaypoint",
