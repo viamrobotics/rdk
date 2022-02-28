@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+// RadiusClusteringVoxelSegmenter is the name of a segmenter that finds well separated objects of a flat plane in a voxel image.
 const RadiusClusteringVoxelSegmenter = "radius_clustering_voxel"
 
 func init() {
