@@ -1,4 +1,4 @@
-package segmentation
+package segmentation_test
 
 import (
 	"context"
@@ -10,11 +10,13 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
+	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 // Test finding objects in images from the gripper camera in voxel.
@@ -46,32 +48,36 @@ func (h *gripperVoxelSegmentTestHelper) Process(
 	cloud, err := h.cameraParams.ImageWithDepthToPointCloud(ii)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(cloud, "gripper-pointcloud")
-
-	// turn pointclouds into voxel grid
-	vg := pc.NewVoxelGridFromPointCloud(cloud, 5.0, 1.0)
+	cam := &inject.Camera{}
+	cam.NextPointCloudFunc = func(ctx context.Context) (pc.PointCloud, error) {
+		return cloud, nil
+	}
 
 	// Do voxel segmentation
-	voxPlaneConfig := VoxelGridPlaneConfig{
-		weightThresh:   0.9,
-		angleThresh:    30,
-		cosineThresh:   0.1,
-		distanceThresh: 0.1,
-	}
-	voxObjConfig := &vision.Parameters3D{
-		MinPtsInPlane:      15000,
-		MinPtsInSegment:    100,
-		ClusteringRadiusMm: 7.5,
+	voxObjConfig := config.AttributeMap{
+		"voxel_size":            5.0,
+		"lambda":                1.0,
+		"min_points_in_plane":   15000,
+		"min_points_in_segment": 100,
+		"clustering_radius_mm":  7.5,
+		"weight_threshold":      0.9,
+		"angle_threshold":       30,
+		"cosine_threshold":      0.1,
+		"distance_threshold":    0.1,
 	}
 
-	voxSegments, err := NewObjectSegmentationFromVoxelGrid(context.Background(), vg, voxObjConfig, voxPlaneConfig)
+	voxSegments, err := segmentation.RadiusClusteringFromVoxels(context.Background(), cam, voxObjConfig)
 	test.That(t, err, test.ShouldBeNil)
 
-	voxObjectClouds := voxSegments.PointClouds()
+	voxObjectClouds := []pc.PointCloud{}
+	for _, seg := range voxSegments {
+		voxObjectClouds = append(voxObjectClouds, seg.PointCloud)
+	}
 	voxColoredSegments, err := pc.MergePointCloudsWithColor(voxObjectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(voxColoredSegments, "gripper-segments-voxels")
 
-	voxSegImage, err := PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxObjectClouds)
+	voxSegImage, err := segmentation.PointCloudSegmentsToMask(h.cameraParams.ColorCamera, voxObjectClouds)
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugImage(voxSegImage, "gripper-segmented-voxels-image-with-depth")
 
