@@ -407,7 +407,7 @@ func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error)
 			part, err := remote.ResourceByName(name)
 			if err == nil {
 				if partExists {
-					return nil, errors.Errorf("multiple remote resources with name %q. Change name to avoid duplicates to access", name)
+					return nil, errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", name)
 				}
 				robotPart = part
 				partExists = true
