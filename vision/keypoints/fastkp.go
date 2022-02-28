@@ -44,10 +44,7 @@ type FASTPixel struct {
 }
 
 // FASTKeypoints stores keypoint locations and orientations (nil if not oriented).
-type FASTKeypoints struct {
-	Points       KeyPoints
-	Orientations []float64
-}
+type FASTKeypoints OrientedKeypoints
 
 // NewFASTKeypointsFromImage returns a pointer to a FASTKeypoints struct containing keypoints locations and
 // orientations if Oriented is set to true in the configuration.
