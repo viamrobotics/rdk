@@ -8,9 +8,9 @@ import (
 	"go.viam.com/rdk/rimage"
 )
 
-// NewColorDetector a detector that identifies objects based on color.
+// NewColorDetector is a detector that identifies objects based on color.
 // It takes in a hue value between 0 and 360, and then defines a valid range around the hue of that color
-// based on the tolerance. The color is considered valid if the pixel is between hue - tol < color < hue + tol.
+// based on the tolerance. The color is considered valid if the pixel is between (hue - tol) <= color <= (hue + tol).
 func NewColorDetector(tol, hue float64) (Detector, error) {
 	if tol > 1.0 || tol < 0.0 {
 		return nil, errors.Errorf("tolerance must be between 0.0 and 1.0. Got %.5f", tol)
