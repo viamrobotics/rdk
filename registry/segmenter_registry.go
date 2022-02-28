@@ -12,10 +12,10 @@ type (
 	CreateSegmenter func(ctx context.Context) (interface{}, error)
 )
 
-// Segmenter registry
+// Segmenter registry.
 var segmenterRegistry = make(map[string]Segmenter)
 
-// Segementer stores a Segmenter constructor (mandatory).
+// Segmenter stores a Segmenter constructor (mandatory).
 type Segmenter struct {
 	RegDebugInfo
 	Constructor CreateSegmenter
@@ -24,8 +24,7 @@ type Segmenter struct {
 // RegisterSegmenter registers a Segmenter type to a registration.
 func RegisterSegmenter(name string, creator Segmenter) {
 	creator.RegistrarLoc = getCallerName()
-	_, old := segmenterRegistry[name]
-	if old {
+	if _, old := segmenterRegistry[name]; old {
 		panic(errors.Errorf("trying to register two segmenters with the same name: %s", name))
 	}
 	if creator.Constructor == nil {

@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
+// ColorObjectsSegmenter is the name of a segmenter that finds objects using the bounding boxes of a color detector.
 const ColorObjectsSegmenter = "color_objects"
 
 func init() {
