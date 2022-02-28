@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from object_manipulation.proto.
+// subtypeServer implements the ObjectManipulationService from object_manipulation.proto.
 type subtypeServer struct {
 	pb.UnimplementedObjectManipulationServiceServer
 	subtypeSvc subtype.Service

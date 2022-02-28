@@ -4,32 +4,21 @@ option java_package = "com.viam.rdk.proto.api.service.metadata.v1";
 
 package proto.api.service.metadata.v1;
 
-import "google/protobuf/struct.proto";
-import "google/protobuf/duration.proto";
 import "google/api/annotations.proto";
-import "google/api/httpbody.proto";
-
+import "proto/api/common/v1/common.proto";
 
 // A MetadataService services all resources associated with a robot
 service MetadataService {
   // Resources returns the list of all resources.
   rpc Resources(ResourcesRequest) returns (ResourcesResponse) {
-      option (google.api.http) = {
-        get: "/api/v1/service/metadata"
+    option (google.api.http) = {
+      get: "/api/v1/service/metadata"
     };
   }
 }
 
 message ResourcesRequest {}
 
-message ResourceName {
-  string uuid = 1;
-  string namespace = 2;
-  string type = 3;
-  string subtype = 4;
-  string name = 5;
-}
-
 message ResourcesResponse {
-  repeated ResourceName resources = 1;
+  repeated common.v1.ResourceName resources = 1;
 }
