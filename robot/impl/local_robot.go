@@ -30,8 +30,10 @@ import (
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
-	"go.viam.com/rdk/status"
+
+	statusCreator "go.viam.com/rdk/status"
 )
 
 var _ = robot.LocalRobot(&localRobot{})
@@ -118,7 +120,7 @@ func (r *localRobot) getRemoteConfig(remoteName string) (*config.Remote, error) 
 // should use the CreateStatus helper instead of directly calling
 // this.
 func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
-	return status.Create(ctx, r)
+	return statusCreator.Create(ctx, r)
 }
 
 // FrameSystem returns the FrameSystem of the robot.
@@ -193,7 +195,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}
 
 	// default services
-	defaultSvc := []resource.Name{sensors.Name, web.Name}
+	defaultSvc := []resource.Name{sensors.Name, status.Name, web.Name}
 	for _, name := range defaultSvc {
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
 		svc, err := r.newService(ctx, cfg)
