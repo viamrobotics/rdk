@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 )
 
@@ -37,17 +38,25 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 		}
 	}
 
-	// update web service
+	// update default services
+	sensorSvc, err := sensors.FromRobot(r)
+	if err != nil {
+		return err
+	}
 	webSvc, err := web.FromRobot(r)
 	if err != nil {
 		return err
 	}
-	updateable, ok := webSvc.(resource.Updateable)
-	if ok {
-		if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
-			return err
+	toUpdate := []interface{}{sensorSvc, webSvc}
+	for _, svc := range toUpdate {
+		updateable, ok := svc.(resource.Updateable)
+		if ok {
+			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
