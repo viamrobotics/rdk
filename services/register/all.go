@@ -9,5 +9,6 @@ import (
 	_ "go.viam.com/rdk/services/navigation"
 	_ "go.viam.com/rdk/services/objectmanipulation"
 	_ "go.viam.com/rdk/services/objectsegmentation"
+	_ "go.viam.com/rdk/services/sensors"
 	_ "go.viam.com/rdk/services/web"
 )

@@ -10,7 +10,7 @@ import (
 	"go.viam.com/rdk/subtype"
 )
 
-// subtypeServer implements the contract from board_subtype.proto.
+// subtypeServer implements the BoardService from board.proto.
 type subtypeServer struct {
 	pb.UnimplementedBoardServiceServer
 	s subtype.Service

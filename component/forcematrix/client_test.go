@@ -108,9 +108,13 @@ func TestClientWorking(t *testing.T) {
 	t.Run("working", func(t *testing.T) {
 		injectFsm := &inject.ForceMatrix{}
 		expectedMatrix := make([][]int, 4)
+		expectedReadings := make([]interface{}, 0, 18)
+		expectedReadings = append(expectedReadings, 4, 4)
 		for i := 0; i < len(expectedMatrix); i++ {
 			expectedMatrix[i] = []int{1, 2, 3, 4}
+			expectedReadings = append(expectedReadings, 1, 2, 3, 4)
 		}
+
 		injectFsm.ReadMatrixFunc = func(ctx context.Context) ([][]int, error) {
 			return expectedMatrix, nil
 		}
@@ -146,7 +150,7 @@ func TestClientWorking(t *testing.T) {
 
 			rs, err := forceMatrixClient.(sensor.Sensor).GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
+			test.That(t, rs, test.ShouldResemble, expectedReadings)
 
 			test.That(t, utils.TryClose(context.Background(), forceMatrixClient), test.ShouldBeNil)
 		})
@@ -169,7 +173,7 @@ func TestClientWorking(t *testing.T) {
 
 			rs, err := forceMatrixClient.(sensor.Sensor).GetReadings(context.Background())
 			test.That(t, err, test.ShouldBeNil)
-			test.That(t, rs, test.ShouldResemble, []interface{}{expectedMatrix})
+			test.That(t, rs, test.ShouldResemble, expectedReadings)
 
 			test.That(t, conn.Close(), test.ShouldBeNil)
 		})

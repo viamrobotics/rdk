@@ -28,8 +28,6 @@ type RobotServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
-	// SensorReadings returns the readings of a sensor of the underlying robot.
-	SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(ctx context.Context, in *ExecuteFunctionRequest, opts ...grpc.CallOption) (*ExecuteFunctionResponse, error)
 	ExecuteSource(ctx context.Context, in *ExecuteSourceRequest, opts ...grpc.CallOption) (*ExecuteSourceResponse, error)
@@ -105,15 +103,6 @@ func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
 	out := new(DoActionResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/DoAction", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *robotServiceClient) SensorReadings(ctx context.Context, in *SensorReadingsRequest, opts ...grpc.CallOption) (*SensorReadingsResponse, error) {
-	out := new(SensorReadingsResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/SensorReadings", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,8 +204,6 @@ type RobotServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
-	// SensorReadings returns the readings of a sensor of the underlying robot.
-	SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error)
 	// TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
 	ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error)
 	ExecuteSource(context.Context, *ExecuteSourceRequest) (*ExecuteSourceResponse, error)
@@ -247,9 +234,6 @@ func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (
 }
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
-}
-func (UnimplementedRobotServiceServer) SensorReadings(context.Context, *SensorReadingsRequest) (*SensorReadingsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SensorReadings not implemented")
 }
 func (UnimplementedRobotServiceServer) ExecuteFunction(context.Context, *ExecuteFunctionRequest) (*ExecuteFunctionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteFunction not implemented")
@@ -362,24 +346,6 @@ func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RobotServiceServer).DoAction(ctx, req.(*DoActionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _RobotService_SensorReadings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SensorReadingsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).SensorReadings(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/SensorReadings",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).SensorReadings(ctx, req.(*SensorReadingsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -564,10 +530,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
-		},
-		{
-			MethodName: "SensorReadings",
-			Handler:    _RobotService_SensorReadings_Handler,
 		},
 		{
 			MethodName: "ExecuteFunction",
