@@ -122,7 +122,7 @@ func TestClient(t *testing.T) {
 	go workingServer.Serve(listener1)
 	defer workingServer.Stop()
 
-	t.Run("Failing client due to cancellation", func(t *testing.T) {
+	t.Run("context canceled", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
 		_, err = navigation.NewClient(cancelCtx, navigation.Name.String(), listener1.Addr().String(), logger)

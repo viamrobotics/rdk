@@ -64,7 +64,7 @@ func TestServer(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	navServer := navigation.NewServer(injectSubtypeSvc)
 
-	t.Run("test working mode function", func(t *testing.T) {
+	t.Run("working mode function", func(t *testing.T) {
 		// manual mode
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return navigation.ModeManual, nil
@@ -93,7 +93,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.Mode, test.ShouldEqual, pb.Mode_MODE_UNSPECIFIED)
 	})
 
-	t.Run("test failing mode function", func(t *testing.T) {
+	t.Run("failing mode function", func(t *testing.T) {
 		injectSvc.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 			return 0, errors.New("mode failed")
 		}
@@ -103,7 +103,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("test working set mode function", func(t *testing.T) {
+	t.Run("working set mode function", func(t *testing.T) {
 		var currentMode navigation.Mode
 		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode) error {
 			currentMode = mode
@@ -129,7 +129,7 @@ func TestServer(t *testing.T) {
 		test.That(t, currentMode, test.ShouldEqual, navigation.ModeWaypoint)
 	})
 
-	t.Run("test failing set mode function", func(t *testing.T) {
+	t.Run("failing set mode function", func(t *testing.T) {
 		// internal set mode failure
 		injectSvc.SetModeFunc = func(ctx context.Context, mode navigation.Mode) error {
 			return errors.New("failed to set mode")
@@ -153,7 +153,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("test working location function", func(t *testing.T) {
+	t.Run("working location function", func(t *testing.T) {
 		loc := geo.NewPoint(90, 1)
 		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return loc, nil
@@ -166,7 +166,7 @@ func TestServer(t *testing.T) {
 		test.That(t, protoLoc.GetLongitude(), test.ShouldEqual, loc.Lng())
 	})
 
-	t.Run("test failing location function", func(t *testing.T) {
+	t.Run("failing location function", func(t *testing.T) {
 		injectSvc.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 			return nil, errors.New("location retrieval failed")
 		}
@@ -176,7 +176,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("test working waypoints function", func(t *testing.T) {
+	t.Run("working waypoints function", func(t *testing.T) {
 		waypoints, expectedResp := createWaypoints()
 		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return waypoints, nil
@@ -187,7 +187,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp.GetWaypoints(), test.ShouldResemble, expectedResp)
 	})
 
-	t.Run("test failing waypoints function", func(t *testing.T) {
+	t.Run("failing waypoints function", func(t *testing.T) {
 		injectSvc.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 			return nil, errors.New("waypoints retrieval failed")
 		}
@@ -197,7 +197,7 @@ func TestServer(t *testing.T) {
 		test.That(t, resp, test.ShouldBeNil)
 	})
 
-	t.Run("test working add waypoint", func(t *testing.T) {
+	t.Run("working add waypoint", func(t *testing.T) {
 		var receivedPoint geo.Point
 		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point) error {
 			receivedPoint = *point
@@ -218,7 +218,7 @@ func TestServer(t *testing.T) {
 		test.That(t, receivedPoint.Lng(), test.ShouldEqual, expectedLongitude)
 	})
 
-	t.Run("test failing add waypoint", func(t *testing.T) {
+	t.Run("failing add waypoint", func(t *testing.T) {
 		addWaypointCalled := false
 		injectSvc.AddWaypointFunc = func(ctx context.Context, point *geo.Point) error {
 			addWaypointCalled = true
@@ -236,7 +236,7 @@ func TestServer(t *testing.T) {
 		test.That(t, addWaypointCalled, test.ShouldBeTrue)
 	})
 
-	t.Run("test working remove waypoint", func(t *testing.T) {
+	t.Run("working remove waypoint", func(t *testing.T) {
 		var receivedID primitive.ObjectID
 		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID) error {
 			receivedID = id
@@ -252,7 +252,7 @@ func TestServer(t *testing.T) {
 		test.That(t, receivedID, test.ShouldEqual, objectID)
 	})
 
-	t.Run("test failing remove waypoint", func(t *testing.T) {
+	t.Run("failing remove waypoint", func(t *testing.T) {
 		// fail on bad hex
 		injectSvc.RemoveWaypointFunc = func(ctx context.Context, id primitive.ObjectID) error {
 			return nil
@@ -282,7 +282,7 @@ func TestServer(t *testing.T) {
 	injectSubtypeSvc, _ = subtype.New(resourceMap)
 	navServer = navigation.NewServer(injectSubtypeSvc)
 
-	t.Run("test failing on improper service interface", func(t *testing.T) {
+	t.Run("failing on improper service interface", func(t *testing.T) {
 		getModeReq := &pb.GetModeRequest{}
 		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
 		test.That(t, getModeResp, test.ShouldBeNil)
@@ -308,7 +308,7 @@ func TestServer(t *testing.T) {
 
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
 	navServer = navigation.NewServer(injectSubtypeSvc)
-	t.Run("test failing on nonexistent server", func(t *testing.T) {
+	t.Run("failing on nonexistent server", func(t *testing.T) {
 		req := &pb.GetModeRequest{}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
