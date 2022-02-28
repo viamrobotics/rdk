@@ -1,15 +1,17 @@
 package keypoints
 
 import (
-	"fmt"
+	"github.com/gonum/floats"
 	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/mat"
 )
 
+// rangeInt generates a sliced of integers from u to l-1, with step
 func rangeInt(u, l, step int) ([]int, error) {
 	n := (u - l) / step
 	out := make([]int, n)
-	current := u
+	current := l
+	out[0] = l
 	for i := 1; i < n; i++ {
 		current += step
 		out[i] = current
@@ -17,42 +19,98 @@ func rangeInt(u, l, step int) ([]int, error) {
 	return out, nil
 }
 
+// MatchingConfig contains the parameters for matching descriptors
 type MatchingConfig struct {
-	DoCrossCheck bool
-	MaxDist      float64
-	DistRatio    float64
+	DoCrossCheck bool    `json:"do_cross_check"`
+	MaxDist      float64 `json:"max_dist"`
 }
 
-// MatchKeypoints takes 2 sets of decriptors and performs a matching
-func MatchKeypoints(kps1, kps2 KeyPoints, cfg MatchingConfig) [][]KeyPoint {
-	distances, err := utils.PairwiseDistance(nil, nil, utils.Hamming)
+// DescriptorMatch contains the index of a match in the first and second set of descriptors
+type DescriptorMatch struct {
+	Idx1 int
+	Idx2 int
+}
+
+// DescriptorMatches contains the descriptors and their matches
+type DescriptorMatches struct {
+	Indices      []DescriptorMatch
+	Descriptors1 Descriptors
+	Descriptors2 Descriptors
+}
+
+func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
+	out := make([][]float64, len(desc))
+	for i := range out {
+		out[i] = *(*[]float64)((&desc[i]))
+	}
+	return out
+}
+
+// MatchKeypoints takes 2 sets of descriptors and performs matching.
+func MatchKeypoints(desc1, desc2 Descriptors, cfg MatchingConfig) *DescriptorMatches {
+	d1 := convertDescriptorsToFloats(desc1)
+	d2 := convertDescriptorsToFloats(desc2)
+	distances, err := utils.PairwiseDistance(d1, d2, utils.Hamming)
 	if err != nil {
 		return nil
 	}
-	indices1, err := rangeInt(0, len(kps1), 1)
+	indices1, err := rangeInt(len(desc1), 0, 1)
 	if err != nil {
 		return nil
 	}
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
-	fmt.Println(len(indices1) == len(indices2))
 	// mask for valid indices
-	maskIdx := make([]int, len(kps1))
+	maskIdx := make([]int, len(desc1))
 	for i := range maskIdx {
 		maskIdx[i] = 1
 	}
 	if cfg.DoCrossCheck {
 		// transpose distances
-		distT := mat.NewDense(len(kps2), len(kps1), nil)
+		distT := mat.NewDense(len(desc2), len(desc1), nil)
 		distTM := distances.T()
 		distT.Copy(distTM)
-		fmt.Println(distT.Dims())
-		// compute argmin cols
+		// compute argmin per rows on transposed mat
 		matches1 := utils.GetArgMinDistancesPerRow(distT)
-		fmt.Println(len(matches1) == len(kps2))
+		// create mask for indices in cross check
+		for i := range indices1 {
+			if indices1[i] == matches1[indices2[i]] {
+				maskIdx[i] *= 1
+			} else {
+				maskIdx[i] *= 0
+			}
+		}
 	}
 	if cfg.MaxDist > 0 {
-
+		for i := range indices1 {
+			if distances.At(indices1[i], indices2[i]) < cfg.MaxDist {
+				maskIdx[i] *= 1
+			} else {
+				maskIdx[i] = 0
+			}
+		}
+	}
+	// masked indices
+	idx1 := make([]int, 0, len(desc1))
+	idx2 := make([]int, 0, len(desc1))
+	for i := range desc1 {
+		if maskIdx[i] == 1 {
+			idx1 = append(idx1, indices1[i])
+			idx2 = append(idx2, indices2[i])
+		}
+	}
+	// get minimum distances per selected pair of descriptor
+	dist := make([]float64, len(idx1))
+	for i := range dist {
+		dist[i] = distances.At(idx1[i], idx2[i])
+	}
+	// sort
+	sortedIndices := make([]int, len(idx1))
+	floats.Argsort(dist, sortedIndices)
+	// fill matches
+	matches := make([]DescriptorMatch, len(idx1))
+	for i, idx := range sortedIndices {
+		matches[i] = DescriptorMatch{idx1[idx], idx2[idx]}
 	}
 
-	return nil
+	return &DescriptorMatches{matches, desc1, desc2}
 }

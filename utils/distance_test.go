@@ -68,9 +68,8 @@ func TestPairwiseDistance(t *testing.T) {
 	test.That(t, distancesHamming.At(0, 0), test.ShouldEqual, 1)
 
 	minIdx := GetArgMinDistancesPerRow(distancesHamming)
-	test.That(t, len(minIdx), test.ShouldEqual, 4)
+	test.That(t, len(minIdx), test.ShouldEqual, 3)
 	test.That(t, minIdx[0], test.ShouldEqual, 0)
 	test.That(t, minIdx[1], test.ShouldEqual, 1)
 	test.That(t, minIdx[2], test.ShouldEqual, 0)
-	test.That(t, minIdx[3], test.ShouldEqual, 0)
 }

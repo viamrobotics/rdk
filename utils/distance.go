@@ -47,8 +47,8 @@ func PairwiseDistance(pts1, pts2 [][]float64, distType DistanceType) (*mat.Dense
 
 // GetArgMinDistancesPerRow returns in a slice of int the index of the point with minimum distance for each row
 func GetArgMinDistancesPerRow(distances *mat.Dense) []int {
-	nRows, nCols := distances.Dims()
-	indices := make([]int, nCols)
+	nRows, _ := distances.Dims()
+	indices := make([]int, nRows)
 	for i := 0; i < nRows; i++ {
 		row := mat.Row(nil, i, distances)
 		indices[i] = floats.MinIdx(row)
