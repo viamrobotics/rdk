@@ -32,7 +32,7 @@ func (server *subtypeServer) service() (Service, error) {
 	svc, ok := resource.(Service)
 	if !ok {
 		return nil, errors.Errorf(
-			"resource with name (%s) is not a frame system service", Name)
+			"resource with name (%s) is not a navigation service", Name)
 	}
 	return svc, nil
 }

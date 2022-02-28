@@ -2,6 +2,7 @@ package navigation_test
 
 import (
 	"context"
+	"math"
 	"net"
 	"testing"
 
@@ -145,9 +146,9 @@ func TestClient(t *testing.T) {
 		test.That(t, mode, test.ShouldEqual, navigation.ModeWaypoint)
 
 		// test set mode
-		err = workingNavClient.SetMode(context.Background(), navigation.ModeWaypoint)
+		err = workingNavClient.SetMode(context.Background(), navigation.ModeManual)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeWaypoint)
+		test.That(t, receivedMode, test.ShouldEqual, navigation.ModeManual)
 
 		// test add waypoint
 		point := geo.NewPoint(90, 1)
@@ -204,6 +205,8 @@ func TestClient(t *testing.T) {
 		err = failingNavClient.SetMode(context.Background(), navigation.ModeWaypoint)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, receivedFailingMode, test.ShouldEqual, navigation.ModeWaypoint)
+		err = failingNavClient.SetMode(context.Background(), navigation.Mode(math.MaxUint8))
+		test.That(t, err, test.ShouldNotBeNil)
 
 		// test add waypoint
 		point := geo.NewPoint(90, 1)

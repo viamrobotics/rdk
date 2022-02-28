@@ -275,4 +275,43 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, resp, test.ShouldBeNil)
 	})
+
+	resourceMap = map[resource.Name]interface{}{
+		navigation.Name: "not a frame system",
+	}
+	injectSubtypeSvc, _ = subtype.New(resourceMap)
+	navServer = navigation.NewServer(injectSubtypeSvc)
+
+	t.Run("test failing on improper service interface", func(t *testing.T) {
+		getModeReq := &pb.GetModeRequest{}
+		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
+		test.That(t, getModeResp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+
+		setModeReq := &pb.SetModeRequest{
+			Mode: pb.Mode_MODE_MANUAL,
+		}
+		setModeResp, err := navServer.SetMode(context.Background(), setModeReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, setModeResp, test.ShouldBeNil)
+
+		getLocReq := &pb.GetLocationRequest{}
+		getLocResp, err := navServer.GetLocation(context.Background(), getLocReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, getLocResp, test.ShouldBeNil)
+
+		waypointReq := &pb.GetWaypointsRequest{}
+		waypointResp, err := navServer.GetWaypoints(context.Background(), waypointReq)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, waypointResp, test.ShouldBeNil)
+	})
+
+	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
+	navServer = navigation.NewServer(injectSubtypeSvc)
+	t.Run("test failing on nonexistent server", func(t *testing.T) {
+		req := &pb.GetModeRequest{}
+		resp, err := navServer.GetMode(context.Background(), req)
+		test.That(t, resp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 }
