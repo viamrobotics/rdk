@@ -8,6 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 )
 
@@ -41,7 +42,7 @@ func (mc *MetadataServiceClient) Close() error {
 }
 
 // Resources either gets the latest version of the list of resources for the remote robot.
-func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*pb.ResourceName, error) {
+func (mc *MetadataServiceClient) Resources(ctx context.Context) ([]*commonpb.ResourceName, error) {
 	resp, err := mc.client.Resources(ctx, &pb.ResourcesRequest{})
 	if err != nil {
 		return nil, err
