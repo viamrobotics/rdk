@@ -1280,8 +1280,8 @@
         const knownWaypoints = {};
         let localLabelCounter = 0;
         const updateWaypoints = function() {
-          var req = new navigationApi.WaypointsRequest();
-          navigationService.waypoints(req, {}, (err, resp) => {
+          var req = new navigationApi.GetWaypointsRequest();
+          navigationService.getWaypoints(req, {}, (err, resp) => {
             grpcCallback(err, resp, false)
             if (err) {
               console.log(err);
@@ -1332,8 +1332,8 @@
 
         const locationMarker = new google.maps.Marker({label: "robot"});
         const updateLocation = function() {
-          var req = new navigationApi.LocationRequest();
-          navigationService.location(req, {}, (err, resp) => {
+          var req = new navigationApi.GetLocationRequest();
+          navigationService.getLocation(req, {}, (err, resp) => {
             grpcCallback(err, resp, false)
             if (err) {
               console.log(err);

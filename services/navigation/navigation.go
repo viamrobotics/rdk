@@ -72,14 +72,14 @@ const (
 
 // A Service controls the navigation for a robot.
 type Service interface {
-	Mode(ctx context.Context) (Mode, error)
+	GetMode(ctx context.Context) (Mode, error)
 	SetMode(ctx context.Context, mode Mode) error
 	Close(ctx context.Context) error
 
-	Location(ctx context.Context) (*geo.Point, error)
+	GetLocation(ctx context.Context) (*geo.Point, error)
 
 	// Waypoint
-	Waypoints(ctx context.Context) ([]Waypoint, error)
+	GetWaypoints(ctx context.Context) ([]Waypoint, error)
 	AddWaypoint(ctx context.Context, point *geo.Point) error
 	RemoveWaypoint(ctx context.Context, id primitive.ObjectID) error
 }
@@ -175,7 +175,7 @@ type navService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *navService) Mode(ctx context.Context) (Mode, error) {
+func (svc *navService) GetMode(ctx context.Context) (Mode, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.mode, nil
@@ -290,14 +290,14 @@ func (svc *navService) waypointDirectionAndDistanceToGo(ctx context.Context, cur
 	return fixAngle(currentLoc.BearingTo(goal)), currentLoc.GreatCircleDistance(goal), nil
 }
 
-func (svc *navService) Location(ctx context.Context) (*geo.Point, error) {
+func (svc *navService) GetLocation(ctx context.Context) (*geo.Point, error) {
 	if svc.gpsDevice == nil {
 		return nil, errors.New("no way to get location")
 	}
 	return svc.gpsDevice.ReadLocation(ctx)
 }
 
-func (svc *navService) Waypoints(ctx context.Context) ([]Waypoint, error) {
+func (svc *navService) GetWaypoints(ctx context.Context) ([]Waypoint, error) {
 	wps, err := svc.store.Waypoints(ctx)
 	if err != nil {
 		return nil, err

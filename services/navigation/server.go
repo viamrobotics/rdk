@@ -37,14 +37,14 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) Mode(ctx context.Context, req *pb.ModeRequest) (
-	*pb.ModeResponse, error,
+func (server *subtypeServer) GetMode(ctx context.Context, req *pb.GetModeRequest) (
+	*pb.GetModeResponse, error,
 ) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	mode, err := svc.Mode(ctx)
+	mode, err := svc.GetMode(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (server *subtypeServer) Mode(ctx context.Context, req *pb.ModeRequest) (
 	case ModeWaypoint:
 		protoMode = pb.Mode_MODE_WAYPOINT
 	}
-	return &pb.ModeResponse{
+	return &pb.GetModeResponse{
 		Mode: protoMode,
 	}, nil
 }
@@ -84,30 +84,30 @@ func (server *subtypeServer) SetMode(ctx context.Context, req *pb.SetModeRequest
 	return &pb.SetModeResponse{}, nil
 }
 
-func (server *subtypeServer) Location(ctx context.Context, req *pb.LocationRequest) (
-	*pb.LocationResponse, error,
+func (server *subtypeServer) GetLocation(ctx context.Context, req *pb.GetLocationRequest) (
+	*pb.GetLocationResponse, error,
 ) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	loc, err := svc.Location(ctx)
+	loc, err := svc.GetLocation(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.LocationResponse{
+	return &pb.GetLocationResponse{
 		Location: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
 	}, nil
 }
 
-func (server *subtypeServer) Waypoints(ctx context.Context, req *pb.WaypointsRequest) (
-	*pb.WaypointsResponse, error,
+func (server *subtypeServer) GetWaypoints(ctx context.Context, req *pb.GetWaypointsRequest) (
+	*pb.GetWaypointsResponse, error,
 ) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	waypoints, err := svc.Waypoints(ctx)
+	waypoints, err := svc.GetWaypoints(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (server *subtypeServer) Waypoints(ctx context.Context, req *pb.WaypointsReq
 			Location: &commonpb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
 		})
 	}
-	return &pb.WaypointsResponse{
+	return &pb.GetWaypointsResponse{
 		Waypoints: protoWaypoints,
 	}, nil
 }
@@ -131,8 +131,7 @@ func (server *subtypeServer) AddWaypoint(ctx context.Context, req *pb.AddWaypoin
 		return nil, err
 	}
 	point := geo.NewPoint(req.Location.Latitude, req.Location.Longitude)
-	err = svc.AddWaypoint(ctx, point)
-	if err != nil {
+	if err = svc.AddWaypoint(ctx, point); err != nil {
 		return nil, err
 	}
 	return &pb.AddWaypointResponse{}, nil
@@ -149,8 +148,7 @@ func (server *subtypeServer) RemoveWaypoint(ctx context.Context, req *pb.RemoveW
 	if err != nil {
 		return nil, err
 	}
-	err = svc.RemoveWaypoint(ctx, id)
-	if err != nil {
+	if err = svc.RemoveWaypoint(ctx, id); err != nil {
 		return nil, err
 	}
 	return &pb.RemoveWaypointResponse{}, nil

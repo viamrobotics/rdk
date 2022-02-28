@@ -52,8 +52,8 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Mode(ctx context.Context) (Mode, error) {
-	resp, err := c.client.Mode(ctx, &pb.ModeRequest{})
+func (c *client) GetMode(ctx context.Context) (Mode, error) {
+	resp, err := c.client.GetMode(ctx, &pb.GetModeRequest{})
 	if err != nil {
 		return 0, err
 	}
@@ -87,8 +87,8 @@ func (c *client) SetMode(ctx context.Context, mode Mode) error {
 	return nil
 }
 
-func (c *client) Location(ctx context.Context) (*geo.Point, error) {
-	resp, err := c.client.Location(ctx, &pb.LocationRequest{})
+func (c *client) GetLocation(ctx context.Context) (*geo.Point, error) {
+	resp, err := c.client.GetLocation(ctx, &pb.GetLocationRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +97,8 @@ func (c *client) Location(ctx context.Context) (*geo.Point, error) {
 	return result, nil
 }
 
-func (c *client) Waypoints(ctx context.Context) ([]Waypoint, error) {
-	resp, err := c.client.Waypoints(ctx, &pb.WaypointsRequest{})
+func (c *client) GetWaypoints(ctx context.Context) ([]Waypoint, error) {
+	resp, err := c.client.GetWaypoints(ctx, &pb.GetWaypointsRequest{})
 	if err != nil {
 		return nil, err
 	}

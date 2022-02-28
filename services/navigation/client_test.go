@@ -36,7 +36,7 @@ func TestClient(t *testing.T) {
 	failingNavigationService := &inject.NavigationService{}
 
 	modeTested := false
-	workingNavigationService.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+	workingNavigationService.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 		if !modeTested {
 			modeTested = true
 			return navigation.ModeManual, nil
@@ -52,7 +52,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 	expectedLoc := geo.NewPoint(80, 1)
-	workingNavigationService.LocationFunc = func(ctx context.Context) (*geo.Point, error) {
+	workingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return expectedLoc, nil
 	}
 	waypoints := []navigation.Waypoint{
@@ -63,7 +63,7 @@ func TestClient(t *testing.T) {
 			Long:  20,
 		},
 	}
-	workingNavigationService.WaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
+	workingNavigationService.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 		return waypoints, nil
 	}
 	var receivedPoint *geo.Point
@@ -77,7 +77,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	failingNavigationService.ModeFunc = func(ctx context.Context) (navigation.Mode, error) {
+	failingNavigationService.GetModeFunc = func(ctx context.Context) (navigation.Mode, error) {
 		return navigation.ModeManual, errors.New("failure to retrieve mode")
 	}
 	var receivedFailingMode navigation.Mode
@@ -88,10 +88,10 @@ func TestClient(t *testing.T) {
 	failingNavigationService.CloseFunc = func(ctx context.Context) error {
 		return errors.New("failure to close")
 	}
-	failingNavigationService.LocationFunc = func(ctx context.Context) (*geo.Point, error) {
+	failingNavigationService.GetLocationFunc = func(ctx context.Context) (*geo.Point, error) {
 		return nil, errors.New("failure to retrieve location")
 	}
-	failingNavigationService.WaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
+	failingNavigationService.GetWaypointsFunc = func(ctx context.Context) ([]navigation.Waypoint, error) {
 		return nil, errors.New("failure to retrieve waypoints")
 	}
 	var receivedFailingPoint *geo.Point
@@ -137,10 +137,10 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for working navigation service", func(t *testing.T) {
 		// test mode
-		mode, err := workingNavClient.Mode(context.Background())
+		mode, err := workingNavClient.GetMode(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeManual)
-		mode, err = workingNavClient.Mode(context.Background())
+		mode, err = workingNavClient.GetMode(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mode, test.ShouldEqual, navigation.ModeWaypoint)
 
@@ -162,7 +162,7 @@ func TestClient(t *testing.T) {
 		workingDialedClient := navigation.NewClientFromConn(context.Background(), conn, "", logger)
 
 		// test location
-		loc, err := workingDialedClient.Location(context.Background())
+		loc, err := workingDialedClient.GetLocation(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, loc, test.ShouldResemble, expectedLoc)
 
@@ -181,7 +181,7 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
-		receivedWpts, err := workingDialedClient.Waypoints(context.Background())
+		receivedWpts, err := workingDialedClient.GetWaypoints(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, receivedWpts, test.ShouldResemble, waypoints)
 	})
@@ -197,7 +197,7 @@ func TestClient(t *testing.T) {
 
 	t.Run("client tests for failing navigation service", func(t *testing.T) {
 		// test mode
-		_, err := failingNavClient.Mode(context.Background())
+		_, err := failingNavClient.GetMode(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test set mode
@@ -220,11 +220,11 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		// test waypoints
-		_, err = failingDialedClient.Waypoints(context.Background())
+		_, err = failingDialedClient.GetWaypoints(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 
 		// test location
-		loc, err := failingDialedClient.Location(context.Background())
+		loc, err := failingDialedClient.GetLocation(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, loc, test.ShouldBeNil)
 
