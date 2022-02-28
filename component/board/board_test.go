@@ -25,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	board1 := newBoard(testBoardName)
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case board.Named(testBoardName):
-			return board1, true
+			return board1, nil
 		case board.Named(fakeBoardName):
-			return "not a board", true
+			return "not a board", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

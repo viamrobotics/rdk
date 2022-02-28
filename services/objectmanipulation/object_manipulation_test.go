@@ -2,11 +2,11 @@ package objectmanipulation_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -30,8 +30,8 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r = &inject.Robot{}
-	r.ResourceByNameFunc = func(resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(n)
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -52,14 +52,14 @@ func TestDoGrabFailures(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
 		case "fakeArm":
-			return _arm, true
+			return _arm, nil
 		case "fakeGripper":
-			return _gripper, true
+			return _gripper, nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(n)
 		}
 	}
 
@@ -121,8 +121,8 @@ func TestMultiplePieces(t *testing.T) {
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return svc1, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
 	}
 	return r, svc1
 }
@@ -139,16 +139,16 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, result, test.ShouldEqual, success)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "not object manipulation", true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "not object manipulation", nil
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
 	test.That(t, svc, test.ShouldBeNil)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	svc, err = objectmanipulation.FromRobot(r)

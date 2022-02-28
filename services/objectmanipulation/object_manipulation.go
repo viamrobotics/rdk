@@ -67,9 +67,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the object manipulation service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
-		return nil, errors.Errorf("resource %q not found", Name)
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
 	}
 	svc, ok := resource.(Service)
 	if !ok {

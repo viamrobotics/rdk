@@ -28,7 +28,6 @@ import (
 // The operation can take time and be expensive, so it can be cancelled by the
 // given context.
 func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
-	var err error
 	var status pb.Status
 
 	status.Services = make(map[string]bool)
@@ -52,9 +51,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if status.Arms == nil {
 				status.Arms = make(map[string]*pb.ArmStatus)
 			}
-			raw, ok := r.ResourceByName(name)
-			if !ok {
-				return nil, errors.New("should be impossible")
+			raw, err := r.ResourceByName(name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "should be impossible")
 			}
 
 			arm, ok := raw.(arm.Arm)
@@ -95,9 +94,9 @@ func Create(ctx context.Context, r robot.Robot) (*pb.Status, error) {
 			if status.Gantries == nil {
 				status.Gantries = make(map[string]*pb.GantryStatus)
 			}
-			raw, ok := r.ResourceByName(name)
-			if !ok {
-				return nil, errors.New("should be impossible")
+			raw, err := r.ResourceByName(name)
+			if err != nil {
+				return nil, errors.Wrapf(err, "should be impossible")
 			}
 
 			g, ok := raw.(gantry.Gantry)

@@ -19,8 +19,8 @@ func TestFourWheelBase1(t *testing.T) {
 
 	fakeRobot := &inject.Robot{}
 
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fake.Motor{}, true
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return &fake.Motor{}, nil
 	}
 
 	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
@@ -301,8 +301,8 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 
 	fakeRobot := &inject.Robot{}
-	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return &fake.Motor{}, true
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return &fake.Motor{}, nil
 	}
 
 	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
