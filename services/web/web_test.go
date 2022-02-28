@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -494,11 +493,7 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-<<<<<<< HEAD
 		return name, rutils.NewResourceNotFoundError(name)
-=======
-		return name, errors.New("no resources exist with this name")
->>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
 
