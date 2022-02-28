@@ -28,7 +28,7 @@ func TestRotateSource(t *testing.T) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	source := &staticSource{pc}
+	source := &StaticSource{pc}
 	rs := &rotateImageDepthSource{source}
 
 	rawImage, _, err := rs.Next(context.Background())
@@ -60,7 +60,7 @@ func BenchmarkRotate(b *testing.B) {
 	pc, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(b, err, test.ShouldBeNil)
 
-	source := &staticSource{pc}
+	source := &StaticSource{pc}
 	rs := &rotateImageDepthSource{source}
 
 	b.ResetTimer()

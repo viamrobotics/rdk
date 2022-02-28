@@ -25,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	forcematrix1 := &mock{Name: testForceMatrixName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case forcematrix.Named(testForceMatrixName):
-			return forcematrix1, true
+			return forcematrix1, nil
 		case forcematrix.Named(fakeForceMatrixName):
-			return "not a forcematrix", true
+			return "not a forcematrix", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

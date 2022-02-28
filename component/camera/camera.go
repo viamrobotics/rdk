@@ -68,6 +68,17 @@ type WithProjector interface {
 	GetProjector() rimage.Projector
 }
 
+// Projector will return the camera's projector if it has it, or returns nil if not.
+func Projector(cam Camera) rimage.Projector {
+	var proj rimage.Projector
+	if c, ok := cam.(WithProjector); ok {
+		proj = c.GetProjector()
+	} else if c, ok := utils.UnwrapProxy(cam).(WithProjector); ok {
+		proj = c.GetProjector()
+	}
+	return proj
+}
+
 // New creates a Camera either with or without a projector, depending on if the camera config has the parameters,
 // or if it has a parent Camera with camera parameters that it should copy. parentSource and attrs can be nil.
 func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (Camera, error) {
@@ -156,9 +167,9 @@ var (
 
 // FromRobot is a helper for getting the named Camera from the given Robot.
 func FromRobot(r robot.Robot, name string) (Camera, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
-		return nil, utils.NewResourceNotFoundError(Named(name))
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
 	part, ok := res.(Camera)
 	if !ok {

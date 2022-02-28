@@ -4,10 +4,33 @@ package objectdetection
 
 import (
 	"image"
+
+	"github.com/pkg/errors"
 )
 
 // Detector returns a slice of object detections from an input image.
 type Detector func(image.Image) ([]Detection, error)
+
+// Build zips up a preprocessor-detector-postprocessor stream into a detector.
+func Build(prep Preprocessor, det Detector, post Postprocessor) (Detector, error) {
+	if det == nil {
+		return nil, errors.New("must have a Detector to build a detection pipeline")
+	}
+	if prep == nil {
+		prep = func(img image.Image) image.Image { return img }
+	}
+	if post == nil {
+		post = func(inp []Detection) []Detection { return inp }
+	}
+	return func(img image.Image) ([]Detection, error) {
+		preprocessed := prep(img)
+		detections, err := det(preprocessed)
+		if err != nil {
+			return nil, err
+		}
+		return post(detections), nil
+	}, nil
+}
 
 // Detection returns a bounding box around the object and a confidence score of the detection.
 type Detection interface {

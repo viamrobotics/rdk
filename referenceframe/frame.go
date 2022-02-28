@@ -6,12 +6,12 @@ package referenceframe
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"math"
 	"math/rand"
 
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"

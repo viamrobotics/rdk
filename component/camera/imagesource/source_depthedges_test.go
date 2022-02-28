@@ -18,7 +18,7 @@ import (
 func TestDepthSource(t *testing.T) {
 	img, err := rimage.NewImageWithDepth(artifact.MustPath("rimage/board1.png"), artifact.MustPath("rimage/board1.dat.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
-	source := &staticSource{img}
+	source := &StaticSource{img}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	blur := 3.0
 	ds := &depthEdgesSource{source, canny, blur}
@@ -48,7 +48,7 @@ func (h *depthSourceTestHelper) Process(
 
 	// change to use projection camera
 	// create edge map
-	source := &staticSource{fixed}
+	source := &StaticSource{fixed}
 	canny := rimage.NewCannyDericheEdgeDetectorWithParameters(0.85, 0.40, true)
 	blur := 3.0
 	ds := &depthEdgesSource{source, canny, blur}
@@ -63,7 +63,7 @@ func (h *depthSourceTestHelper) Process(
 	pCtx.GotDebugPointCloud(fixedPointCloud, "aligned-pointcloud")
 
 	// preprocess depth map
-	source = &staticSource{fixed}
+	source = &StaticSource{fixed}
 	rs := &preprocessDepthSource{source}
 
 	output, _, err := rs.Next(context.Background())
@@ -75,7 +75,7 @@ func (h *depthSourceTestHelper) Process(
 	test.That(t, err, test.ShouldBeNil)
 	pCtx.GotDebugPointCloud(preprocessedPointCloud, "preprocessed-aligned-pointcloud")
 
-	source = &staticSource{preprocessed}
+	source = &StaticSource{preprocessed}
 	ds = &depthEdgesSource{source, canny, blur}
 	processedEdges, _, err := ds.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
