@@ -8,8 +8,9 @@ import (
 )
 
 type Metadata struct {
-	component   string
-	method      string
+	component string
+	method    string
+	// TODO: should this be an absolute path instead of a File?
 	destination *os.File
 	params      map[string]string
 }
@@ -17,8 +18,8 @@ type Metadata struct {
 type Collector struct {
 	lock     *sync.Mutex
 	metadata Metadata
-	client   interface{}  // TODO: find more specific generic interface for a PB service client if one exists
-	queue    chan any.Any // Will actually be chan of SensorData; just putting any.Any because I want this to compile.
+	client   interface{} // TODO: find more specific generic interface for a PB service client if one exists
+	queue    chan []byte // TODO: Will actually be chan of SensorData; just putting any.Any because I want this to compile.
 }
 
 func (c Collector) Collect(periodMS int64) error {
@@ -30,7 +31,7 @@ func (c Collector) Collect(periodMS int64) error {
 			// TODO: return some appropriate error
 			return nil
 		}
-		c.queue <- reading
+		c.queue <- reading.Value
 	}
 
 	return nil
@@ -50,7 +51,7 @@ func (c Collector) Write() error {
 }
 
 // TODO: implement buffered write method that appends a length-prefixed proto message to a file, as desc in tech spec
-func bufferedWrite(f *os.File, reading any.Any) error {
+func bufferedWrite(f *os.File, reading []byte) error {
 	return nil
 }
 
