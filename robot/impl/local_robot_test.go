@@ -792,3 +792,40 @@ func TestSensorsService(t *testing.T) {
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
+
+func TestStatusService(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	svc, err := status.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+
+	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1")}
+	rArm, err := arm.FromRobot(r, "pieceArm")
+	test.That(t, err, test.ShouldBeNil)
+	armStatus, err := arm.CreateStatus(context.Background(), rArm)
+	test.That(t, err, test.ShouldBeNil)
+	expected := map[resource.Name]interface{}{
+		arm.Named("pieceArm"): armStatus,
+		gps.Named("gps1"):     true,
+	}
+
+	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 1)
+	test.That(t, statuses[0].Name, test.ShouldResemble, gps.Named("gps1"))
+	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+
+	statuses, err = svc.GetStatus(context.Background(), resourceNames)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 2)
+
+	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+	test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+}

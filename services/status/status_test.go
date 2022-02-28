@@ -30,7 +30,7 @@ var (
 	fail1       = resource.NameFromSubtype(failSubtype, "fail1")
 
 	workingStatus = map[string]string{"position": "up"}
-	passedErr     = errors.New("can't get status")
+	errFailed     = errors.New("can't get status")
 )
 
 func init() {
@@ -44,7 +44,7 @@ func init() {
 	registry.RegisterResourceSubtype(
 		failSubtype,
 		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, passedErr },
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
 		},
 	)
 }
@@ -138,7 +138,6 @@ func TestGetStatus(t *testing.T) {
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button2})
 		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
-
 	})
 
 	t.Run("no CreateStatus", func(t *testing.T) {
@@ -155,7 +154,7 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{fail1})
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get status from %q", fail1))
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 
 	t.Run("many status", func(t *testing.T) {
@@ -190,7 +189,7 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 
 		_, err = svc.GetStatus(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeError, errors.Wrapf(passedErr, "failed to get status from %q", fail1))
+		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
 	})
 }
 

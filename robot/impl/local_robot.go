@@ -32,7 +32,6 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
-
 	statusCreator "go.viam.com/rdk/status"
 )
 
