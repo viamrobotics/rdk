@@ -715,7 +715,7 @@
                   doBoundingBoxLoad : function(i){
                         var segment = theData.objects[i];
                         var center = segment.getCenterCoordinatesMm();
-                         var box = segment.getBoundingBoxMm();
+                        var box = segment.getBoundingBoxMm();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
