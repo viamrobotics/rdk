@@ -11,7 +11,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from imu_subtype.proto.
+// subtypeServer implements the IMUService from imu.proto.
 type subtypeServer struct {
 	pb.UnimplementedIMUServiceServer
 	s subtype.Service

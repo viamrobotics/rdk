@@ -16,7 +16,6 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -146,30 +145,6 @@ func (s *Server) DoAction(
 		act(s.cancelCtx, s.r)
 	})
 	return &pb.DoActionResponse{}, nil
-}
-
-// SensorReadings returns the readings of a sensor of the underlying robot.
-func (s *Server) SensorReadings(
-	ctx context.Context,
-	req *pb.SensorReadingsRequest,
-) (*pb.SensorReadingsResponse, error) {
-	sensorDevice, err := sensor.FromRobot(s.r, req.Name)
-	if err != nil {
-		return nil, err
-	}
-	readings, err := sensorDevice.GetReadings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	readingsP := make([]*structpb.Value, 0, len(readings))
-	for _, r := range readings {
-		v, err := structpb.NewValue(r)
-		if err != nil {
-			return nil, err
-		}
-		readingsP = append(readingsP, v)
-	}
-	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
 }
 
 // ExecuteFunction executes the given function with access to the underlying robot.

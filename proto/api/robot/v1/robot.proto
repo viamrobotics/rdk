@@ -43,13 +43,6 @@ service RobotService {
     };  
   }
 
-  // SensorReadings returns the readings of a sensor of the underlying robot.
-  rpc SensorReadings(SensorReadingsRequest) returns (SensorReadingsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/sensors/sensor/{name}/readings"
-    };  
-  }
-
   // TODO(https://github.com/viamrobotics/rdk/issues/407): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
@@ -199,14 +192,6 @@ message JointPositions {
 
 message SensorStatus {
   string type = 1;
-}
-
-message SensorReadingsRequest {
-  string name = 1;
-}
-
-message SensorReadingsResponse {
-  repeated google.protobuf.Value readings = 1;
 }
 
 message ExecuteFunctionRequest {

@@ -155,7 +155,6 @@
           status.grippersMap = rawStatusObj.grippersMap;
           status.boardsMap = rawStatusObj.boardsMap;
           status.camerasMap = rawStatusObj.camerasMap;
-          status.sensorsMap = rawStatusObj.sensorsMap;
           status.servosMap = rawStatusObj.servosMap;
           status.motorsMap = rawStatusObj.motorsMap;
           status.servicesMap = rawStatusObj.servicesMap;
@@ -184,6 +183,7 @@
               pcdClick : {},
               sensorReadings: {},
               resources: [],
+              sensorNames: [],
               streamNames: [],
               fullcloud: null,
               objects: null,
@@ -205,6 +205,13 @@
                     return theData.resources.filter(elem => {
                       return elem.namespace == namespace && elem.type == type && elem.subtype == subtype
                     })
+                  },
+                  resourceNameToString : function(name) {
+                    strName = `${name.namespace}:${name.type}:${name.subtype}`
+                    if (name.name !== "") {
+                      strName += `/${name.name}`
+                    }
+                    return strName
                   },
                   armByName : function(name) {
                     return theData.status.armsMap.find(elem => elem.name == name) || {}
@@ -452,12 +459,26 @@
                       });
 
                   },
-                  doSensorReadings : function(name) {
-                      var req = new robotApi.SensorReadingsRequest();
-                      req.setName(name);
-                      robotService.sensorReadings(req, {}, (err, resp) => {
-                        grpcCallback(err, resp)
-                        theData.sensorReadings[name] = theData.res;
+                  getReadings : function(sensorNames) {
+                      var req = new sensorsApi.GetReadingsRequest();
+                      let names = sensorNames.map(name => {
+                        let resourceName = new commonApi.ResourceName()
+                        resourceName.setUuid(name.uuid)
+                        resourceName.setNamespace(name.namespace)
+                        resourceName.setType(name.type)
+                        resourceName.setSubtype(name.subtype)
+                        resourceName.setName(name.name)
+                        return resourceName
+                      })
+                      req.setSensorNamesList(names);
+                      sensorsService.getReadings(req, {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          return;
+                        }
+                        resp.toObject().readingsList.forEach(function(r) {
+                          theData.sensorReadings[theApp.resourceNameToString(r.name)] = r.readingsList;
+                        });
                       });
                   },
                   processFunctionResults: function(err, resp) {
@@ -764,10 +785,33 @@
                       }
                       return d.toFixed(1);
                   },
+                  getGPIO: function(boardName) {
+                    var pin = document.getElementById("get_pin_" + boardName).value;
+                    var req = new boardApi.GetGPIORequest();
+                    req.setName(boardName);
+                    req.setPin(pin);
+                    boardService.getGPIO(req, {}, (err, resp) => {
+                      if (err) {
+                        console.log(err);
+                        return;
+                      }
+                      var x = resp.toObject();
+                      document.getElementById("get_pin_value_" + boardName).innerHTML = "Pin: " + pin + " is " + (x.high ? "high" : "low");
+                    });
+                  },
+                  setGPIO: function(boardName) {
+                    var pin = document.getElementById("set_pin_" + boardName).value;
+                    var v = document.getElementById("set_pin_v_" + boardName).value;
+                    var req = new boardApi.SetGPIORequest();
+                    req.setName(boardName);
+                    req.setPin(pin);
+                    req.setHigh(v === "high");
+                    boardService.setGPIO(req, {}, grpcCallback);
+                  },
               },
-              directives: {
-                // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
-                mapMounted (el) {
+            directives: {
+              // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
+              mapMounted (el) {
                   if (theData.mapOnce) {
                     return;
                   }
@@ -785,6 +829,7 @@
               pResolve = resolve;
               pReject = reject;
             });
+            let resourcesChanged = false
             metadataService.resources(new metadataApi.ResourcesRequest(), {}, function(err, resp) {
               grpcCallback(err, resp, false)
               if (err) {
@@ -792,10 +837,42 @@
                 return;
               }
               resources = resp.toObject().resourcesList
+
+              // if resource list has changed, flag that
+              let differences = new Set(theData.resources.map(name => theApp.resourceNameToString(name)))
+              let resourceSet = new Set(resources.map(name => theApp.resourceNameToString(name)))
+              for (let elem of resourceSet) {
+                  if (differences.has(elem)) {
+                    differences.delete(elem)
+                  } else {
+                    differences.add(elem)
+                  }
+              }
+              if (differences.size > 0) {
+                resourcesChanged = true
+              }
+
               theData.resources = resources
               pResolve(null);
             });
             await p;
+
+            if (resourcesChanged === true) {
+              p = new Promise((resolve, reject) => {
+                pResolve = resolve;
+                pReject = reject;
+              });
+              sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, function(err, resp) {
+                grpcCallback(err, resp, false)
+                if (err) {
+                  pReject(err);
+                  return;
+                }
+                theData.sensorNames = resp.toObject().sensorNamesList
+                pResolve(null);
+              });
+              await p;
+            }
             setTimeout(() => queryMetadata(), 500);
           }
 
@@ -1569,6 +1646,27 @@
             <th>${di[0]}</th>
             <td>${di[1].value}</td>
           </tr>
+
+          <tr><th colspan="2">GPIO</th></tr>
+          <tr>
+            <th>Get</th>
+            <td>
+              Pin: <input :id="'get_pin_' + board.name"/><button v-on:click="getGPIO(board.name)">Get</button><br>
+              <span :id="'get_pin_value_' + board.name"/>
+            </td>
+          </tr>
+          <tr>
+            <th>Set</th>
+            <td>
+              Pin: <input :id="'set_pin_' + board.name"/><br>
+              <select :id="'set_pin_v_' + board.name">
+                <option>low</option>
+                <option>high</option>
+              </select>
+              <button v-on:click="setGPIO(board.name)">Set</button><br>
+            </td>
+          </tr>
+          
         </table>
       </div>
       <!-- end boards -->
@@ -1592,7 +1690,7 @@
         </tr>
       </table>
 
-      <table border=1 v-if="nonEmpty(status.sensorsMap)">
+      <table border=1 v-if="nonEmpty(sensorNames)">
         <tr>
           <th colspan="2">Sensors</th>
         </tr>
@@ -1600,17 +1698,15 @@
         <tr>
           <th>Name</th>
           <th>Type</th>
-          <th>Reading</th>
-
+          <th>Readings</th>
+          <th colspan="2"> <button v-on:click="getReadings(sensorNames)">Get All Readings</button></th>
         </tr>
 
-        <tr v-for="(sensor, x) in status.sensorsMap">
-          <td>${sensor[0]}</td>
-          <td>${sensor[1].type}</td>
-          <td>${sensorReadings[sensor[0]]}</td>
-          <td>
-            <button v-on:click="doSensorReadings(sensor[0])">Get Readings</button>
-          </td>
+        <tr v-for="name in sensorNames">
+          <td>${name.name}</td>
+          <td>${name.subtype}</td>
+          <td>${sensorReadings[resourceNameToString(name)]}</td>
+          <td> <button v-on:click="getReadings([name])">Get Readings</button></td>
         </tr>
 
       </table>
