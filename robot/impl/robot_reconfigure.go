@@ -43,8 +43,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	// update default services
 	defaultSvc := []resource.Name{sensors.Name, status.Name, web.Name}
 	for _, name := range defaultSvc {
-		svc, ok := r.ResourceByName(name)
-		if !ok {
+		svc, err := r.ResourceByName(name)
+		if err != nil {
 			return utils.NewResourceNotFoundError(name)
 		}
 		updateable, ok := svc.(resource.Updateable)

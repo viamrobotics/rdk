@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
+	"go.viam.com/rdk/utils"
 )
 
 var (
@@ -52,8 +52,8 @@ func init() {
 func setupInjectRobot() (*inject.Robot, *mock) {
 	svc1 := &mock{}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return svc1, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
 	}
 	return r, svc1
 }
@@ -74,22 +74,22 @@ func TestFromRobot(t *testing.T) {
 	})
 
 	t.Run("not status service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "not status", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "not status", nil
 		}
 
 		svc, err := status.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("status.Service", "string"))
+		test.That(t, err, test.ShouldBeError, utils.NewUnimplementedInterfaceError("status.Service", "string"))
 		test.That(t, svc, test.ShouldBeNil)
 	})
 
 	t.Run("no status service", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(status.Name)
 		}
 
 		svc, err := status.FromRobot(r)
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(status.Name))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(status.Name))
 		test.That(t, svc, test.ShouldBeNil)
 	})
 }
@@ -103,16 +103,16 @@ func TestNew(t *testing.T) {
 	}
 
 	t.Run("resource not found", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		_, err := status.New(context.Background(), r, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(imu.Named("imu")))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(imu.Named("imu")))
 	})
 
 	t.Run("no error", func(t *testing.T) {
-		r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return "something", true
+		r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return "something", nil
 		}
 		svc, err := status.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -128,8 +128,8 @@ func TestGetStatus(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return resourceNames
 	}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "something", true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "something", nil
 	}
 
 	t.Run("not found", func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
 	})
 
 	t.Run("no CreateStatus", func(t *testing.T) {
@@ -166,7 +166,7 @@ func TestGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button2})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
 
 		resp, err := svc.GetStatus(context.Background(), []resource.Name{working1})
 		test.That(t, err, test.ShouldBeNil)
@@ -201,8 +201,8 @@ func TestUpdate(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return resourceNames
 	}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "something", true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "something", nil
 	}
 
 	t.Run("update with no resources", func(t *testing.T) {
@@ -217,7 +217,7 @@ func TestUpdate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button1})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button1))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button1))
 	})
 
 	t.Run("update with one resource", func(t *testing.T) {
@@ -234,7 +234,7 @@ func TestUpdate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), resourceNames)
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button2))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button2))
 
 		resp, err = svc.GetStatus(context.Background(), []resource.Name{button1})
 		test.That(t, err, test.ShouldBeNil)
@@ -270,7 +270,7 @@ func TestUpdate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		_, err = svc.GetStatus(context.Background(), []resource.Name{button3})
-		test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(button3))
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(button3))
 
 		err = svc.(resource.Updateable).Update(
 			context.Background(),
