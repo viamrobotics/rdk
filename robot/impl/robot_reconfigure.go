@@ -10,7 +10,9 @@ import (
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/utils"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -39,16 +41,12 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update default services
-	sensorSvc, err := sensors.FromRobot(r)
-	if err != nil {
-		return err
-	}
-	webSvc, err := web.FromRobot(r)
-	if err != nil {
-		return err
-	}
-	toUpdate := []interface{}{sensorSvc, webSvc}
-	for _, svc := range toUpdate {
+	defaultSvc := []resource.Name{sensors.Name, status.Name, web.Name}
+	for _, name := range defaultSvc {
+		svc, ok := r.ResourceByName(name)
+		if !ok {
+			return utils.NewResourceNotFoundError(name)
+		}
 		updateable, ok := svc.(resource.Updateable)
 		if ok {
 			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
