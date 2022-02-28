@@ -29,7 +29,7 @@ var (
 	failSubtype = resource.NewSubtype(resource.Namespace("acme"), resource.ResourceTypeComponent, resource.SubtypeName("fail"))
 	fail1       = resource.NameFromSubtype(failSubtype, "fail1")
 
-	workingStatus = map[string]string{"position": "up"}
+	workingStatus = map[string]interface{}{"position": "up"}
 	errFailed     = errors.New("can't get status")
 )
 
@@ -37,14 +37,16 @@ func init() {
 	registry.RegisterResourceSubtype(
 		workingSubtype,
 		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return workingStatus, nil },
+			Status: func(ctx context.Context, resource interface{}) (map[string]interface{}, error) {
+				return workingStatus, nil
+			},
 		},
 	)
 
 	registry.RegisterResourceSubtype(
 		failSubtype,
 		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
+			Status: func(ctx context.Context, resource interface{}) (map[string]interface{}, error) { return nil, errFailed },
 		},
 	)
 }
@@ -286,7 +288,7 @@ func TestUpdate(t *testing.T) {
 	})
 }
 
-var statuses = []status.Status{{Name: button1, Status: true}}
+var statuses = []status.Status{{Name: button1, Status: map[string]interface{}{"exists": true}}}
 
 type mock struct {
 	status.Service

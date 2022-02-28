@@ -74,8 +74,8 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
-	// A CreateStatus creates a status from a given resource.
-	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
+	// A CreateStatus creates a status from a given resource. If a list exists within the map, it must be of type []interface{}.
+	CreateStatus func(ctx context.Context, resource interface{}) (map[string]interface{}, error)
 
 	// A RegisterSubtypeRPCService will register the subtype service to the grpc server.
 	RegisterSubtypeRPCService func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error

@@ -37,8 +37,8 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	rf := func(r interface{}) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
-	statf := func(context.Context, interface{}) (interface{}, error) {
-		return true, nil
+	statf := func(context.Context, interface{}) (map[string]interface{}, error) {
+		return map[string]interface{}{}, nil
 	}
 	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
