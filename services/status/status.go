@@ -9,13 +9,29 @@ import (
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/config"
+	pb "go.viam.com/rdk/proto/api/service/status/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
+	"go.viam.com/utils/rpc"
 )
 
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&pb.StatusService_ServiceDesc,
+				NewServer(subtypeSvc),
+				pb.RegisterStatusServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -26,7 +42,7 @@ func init() {
 // Status holds a resource name and it's corresponding status.
 type Status struct {
 	Name   resource.Name
-	Status interface{}
+	Status map[string]interface{}
 }
 
 // A Service returns statuses for resources when queried.
@@ -112,7 +128,7 @@ func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.
 
 		// if resource subtype has an associated CreateStatus method, use that
 		// otherwise return true to indicate resource exists
-		var status interface{} = true
+		status := map[string]interface{}{"exists": true}
 		var err error
 		subtype := registry.ResourceSubtypeLookup(name.Subtype)
 		if subtype != nil && subtype.Status != nil {

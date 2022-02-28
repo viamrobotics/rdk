@@ -3,10 +3,13 @@ package arm
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -96,27 +99,65 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// Status holds the status of the Arm.
-type Status struct {
-	GridPosition   *commonpb.Pose
-	JointPositions *pb.ArmJointPositions
+type EndPosition struct {
+	X     float64
+	Y     float64
+	Z     float64
+	OX    float64
+	OY    float64
+	OZ    float64
+	Theta float64
 }
 
-// CreateStatus creates a status from the robot.
-func CreateStatus(ctx context.Context, resource interface{}) (interface{}, error) {
+type JointPositions struct {
+	Degrees []interface{}
+}
+
+// Status holds the status of an Arm.
+type Status struct {
+	EndPosition    EndPosition
+	JointPositions JointPositions
+}
+
+// CreateStatus creates a status from the arm.
+func CreateStatus(ctx context.Context, resource interface{}) (map[string]interface{}, error) {
 	arm, ok := resource.(Arm)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
 	}
-	armStatus := &Status{}
-	var err error
-	if armStatus.GridPosition, err = arm.GetEndPosition(ctx); err != nil {
+	gridPosition, err := arm.GetEndPosition(ctx)
+	if err != nil {
 		return nil, err
 	}
-	if armStatus.JointPositions, err = arm.GetJointPositions(ctx); err != nil {
+	jointPositions, err := arm.GetJointPositions(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return armStatus, nil
+	degrees := make([]interface{}, 0, len(jointPositions.Degrees))
+	for _, v := range jointPositions.Degrees {
+		degrees = append(degrees, v)
+	}
+	armStatus := Status{
+		EndPosition: EndPosition{
+			X:     gridPosition.X,
+			Y:     gridPosition.Y,
+			Z:     gridPosition.Z,
+			OX:    gridPosition.OX,
+			OY:    gridPosition.OY,
+			OZ:    gridPosition.OZ,
+			Theta: gridPosition.Theta,
+		},
+		JointPositions: JointPositions{
+			Degrees: degrees,
+		},
+	}
+
+	encoded := map[string]interface{}{}
+	if err := mapstructure.Decode(armStatus, &encoded); err != nil {
+		return nil, errors.Wrapf(err, "failed to encode status as map[string]interface{}")
+	}
+	fmt.Printf("encoded: %v\n", encoded)
+	return encoded, nil
 }
 
 type reconfigurableArm struct {
