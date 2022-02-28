@@ -12,7 +12,7 @@ type (
 	CreateSegmenter func(ctx context.Context) (interface{}, error)
 )
 
-// The segmenter registry
+// The segmenter registry.
 var segmenterRegistry = make(map[string]Segmenter)
 
 // Segmenter stores a Segmenter constructor (mandatory).
