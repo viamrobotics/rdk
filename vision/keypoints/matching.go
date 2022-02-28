@@ -2,12 +2,13 @@ package keypoints
 
 import (
 	"github.com/gonum/floats"
-	"go.viam.com/rdk/utils"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/utils"
 )
 
-// rangeInt generates a sliced of integers from u to l-1, with step
-func rangeInt(u, l, step int) ([]int, error) {
+// rangeInt generates a sliced of integers from u to l-1, with step.
+func rangeInt(u, l, step int) []int {
 	n := (u - l) / step
 	out := make([]int, n)
 	current := l
@@ -16,22 +17,22 @@ func rangeInt(u, l, step int) ([]int, error) {
 		current += step
 		out[i] = current
 	}
-	return out, nil
+	return out
 }
 
-// MatchingConfig contains the parameters for matching descriptors
+// MatchingConfig contains the parameters for matching descriptors.
 type MatchingConfig struct {
 	DoCrossCheck bool    `json:"do_cross_check"`
 	MaxDist      float64 `json:"max_dist"`
 }
 
-// DescriptorMatch contains the index of a match in the first and second set of descriptors
+// DescriptorMatch contains the index of a match in the first and second set of descriptors.
 type DescriptorMatch struct {
 	Idx1 int
 	Idx2 int
 }
 
-// DescriptorMatches contains the descriptors and their matches
+// DescriptorMatches contains the descriptors and their matches.
 type DescriptorMatches struct {
 	Indices      []DescriptorMatch
 	Descriptors1 Descriptors
@@ -54,10 +55,7 @@ func MatchKeypoints(desc1, desc2 Descriptors, cfg MatchingConfig) *DescriptorMat
 	if err != nil {
 		return nil
 	}
-	indices1, err := rangeInt(len(desc1), 0, 1)
-	if err != nil {
-		return nil
-	}
+	indices1 := rangeInt(len(desc1), 0, 1)
 	indices2 := utils.GetArgMinDistancesPerRow(distances)
 	// mask for valid indices
 	maskIdx := make([]int, len(desc1))

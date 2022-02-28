@@ -4,24 +4,23 @@ import (
 	"image"
 	"testing"
 
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestRangeInt(t *testing.T) {
 	u1, l1 := 2, -5
 	step1 := 1
-	r1, err := rangeInt(u1, l1, step1)
-	test.That(t, err, test.ShouldBeNil)
+	r1 := rangeInt(u1, l1, step1)
 	test.That(t, len(r1), test.ShouldEqual, 7)
 	test.That(t, r1[0], test.ShouldEqual, -5)
 	test.That(t, r1[6], test.ShouldEqual, 1)
 
 	u2, l2 := 8, 2
 	step2 := 2
-	r2, err := rangeInt(u2, l2, step2)
-	test.That(t, err, test.ShouldBeNil)
+	r2 := rangeInt(u2, l2, step2)
 	test.That(t, len(r2), test.ShouldEqual, 3)
 	test.That(t, r2[0], test.ShouldEqual, 2)
 	test.That(t, r2[1], test.ShouldEqual, 4)
@@ -31,7 +30,6 @@ func TestRangeInt(t *testing.T) {
 func TestMatchKeypoints(t *testing.T) {
 	// load config
 	cfg := LoadFASTConfiguration("kpconfig.json")
-	test.That(t, cfg, test.ShouldNotBeNil)
 	// load image from artifacts and convert to gray image
 	im, err := rimage.NewImageFromFile(artifact.MustPath("vision/keypoints/chess3.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -85,5 +83,4 @@ func TestMatchKeypoints(t *testing.T) {
 	cfgMatch.DoCrossCheck = true
 	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, cfgMatch)
 	test.That(t, len(matches2.Indices), test.ShouldEqual, 14)
-
 }
