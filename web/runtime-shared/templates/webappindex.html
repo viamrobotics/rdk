@@ -447,7 +447,7 @@
                           return;
                         }
                         console.log("loading pcd");
-                        theData.fullcloud = resp.getFrame_asB64();
+                        theData.fullcloud = resp.getPointCloud_asB64();
                         pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                       });
 
@@ -674,9 +674,9 @@
                   },
                   doSegmentLoad : function(i){
                         var segment = theData.objects[i];
-                        var data = segment.getFrame_asB64();
-                        var center = segment.getCenterCoordinatesMm();
-                        var box = segment.getBoundingBoxMm();
+                        var data = segment.getPointCloud_asB64();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
@@ -686,15 +686,15 @@
                   },
                   doPointLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenterCoordinatesMm();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenterCoordinatesMm();
-                        var box = segment.getBoundingBoxMm();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
@@ -1398,11 +1398,11 @@
 
       <!-- ******* ForceMatrix *******  -->
       <div>
-        <div v-for="(forcematrix, x) in filterResources('rdk', 'component', 'forcematrix').entries()" :key="forcematrix[1].name">
+        <div v-for="(forceMatrix, x) in filterResources('rdk', 'component', 'force_matrix').entries()" :key="forceMatrix[1].name">
           <hr>
-          <h2>ForceMatrix: ${forcematrix[1].name}</h2>
+          <h2>ForceMatrix: ${forceMatrix[1].name}</h2>
           <template>
-            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forcematrix[1].name, x)">Visualize Force Matrix</button>
+            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forceMatrix[1].name, x)">Visualize Force Matrix</button>
             <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
             <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
             <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>

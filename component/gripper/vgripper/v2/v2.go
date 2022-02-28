@@ -127,7 +127,7 @@ func newGripper(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, errors.Errorf("failed to find analog reader named '%v'", currentAnalogReaderName)
 	}
 
-	forceMatrixName := config.Attributes.String("forcematrix")
+	forceMatrixName := config.Attributes.String("force_matrix")
 	forceMatrixDevice, err := forcematrix.FromRobot(r, forceMatrixName)
 	if err != nil {
 		return nil, err
