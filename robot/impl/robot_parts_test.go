@@ -238,11 +238,11 @@ func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
 	_, err := parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
-	correctErr := errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", arm.Named("arm1_r1"))
-	test.That(t, err, test.ShouldBeError, correctErr)
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", arm.Named("arm1_r1")))
 }
 
-func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
+func TestPartsWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
@@ -270,6 +270,46 @@ func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPartsWithSameNameInRemoteBothWithPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote2",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote2",
+			Prefix: true,
+		},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1")))
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("arm1_r1")))
 	_, err = parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
