@@ -711,39 +711,21 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
 	// 8 declared resources + default web, sensors, status, and metadata service
-	test.That(t, len(svc.All()), test.ShouldEqual, 12)
-
-	resources := map[resource.Name]struct{}{
+	resourceNames := []resource.Name{
 		{
 			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
 			Subtype: service.Subtype,
 			Name:    "",
-		}: {},
-		{
-			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
-			Subtype: arm.Subtype,
-			Name:    "pieceArm",
-		}: {},
-		{
-			UUID:    "f926189a-1206-5af1-8cc6-cc934c2a6d59",
-			Subtype: camera.Subtype,
-			Name:    "cameraOver",
-		}: {},
-		{
-			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
-			Subtype: gripper.Subtype,
-			Name:    "pieceGripper",
-		}: {},
-		{
-			UUID:    "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
-			Subtype: gps.Subtype,
-			Name:    "gps1",
-		}: {},
-		{
-			UUID:    "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
-			Subtype: gps.Subtype,
-			Name:    "gps2",
-		}: {},
+		},
+		arm.Named("pieceArm"),
+		camera.Named("cameraOver"),
+		gripper.Named("pieceGripper"),
+		gps.Named("gps1"),
+		gps.Named("gps2"),
+		framesystem.Name,
+		sensors.Name,
+		status.Name,
+		web.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
@@ -754,7 +736,7 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
 			Name: "func1",
-		}: {},
+		},
 		{
 			UUID: "9ba51a01-26a3-5e12-8b83-219076150c74",
 			Subtype: resource.Subtype{
@@ -765,34 +747,12 @@ func TestMetadataUpdate(t *testing.T) {
 				ResourceSubtype: resource.ResourceSubtypeFunction,
 			},
 			Name: "func2",
-		}: {},
-		{
-			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
-			Subtype: framesystem.Subtype,
-			Name:    "",
-		}: {},
-		{
-			UUID:    "6b2d25f5-81ee-5386-8db8-42a0c5a29df3",
-			Subtype: web.Subtype,
-			Name:    "",
-		}: {},
-		{
-			UUID:    "69f2c4af-f71e-5c49-90b8-9e4a4bf2e900",
-			Subtype: sensors.Subtype,
-			Name:    "",
-		}: {},
-		{
-			UUID:    "be4eda92-d45d-5bc0-acc4-87ec3f41473f",
-			Subtype: status.Subtype,
-			Name:    "",
-		}: {},
+		},
 	}
+	test.That(t, len(svc.All()), test.ShouldEqual, len(resourceNames))
+
 	svcResources := svc.All()
-	svcResourcesSet := make(map[resource.Name]struct{})
-	for _, r := range svcResources {
-		svcResourcesSet[r] = struct{}{}
-	}
-	test.That(t, svcResourcesSet, test.ShouldResemble, resources)
+	test.That(t, rtestutils.NewResourceNameSet(svcResources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 }
 
 func TestSensorsService(t *testing.T) {
