@@ -31,14 +31,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	camera1 := &mock{Name: testCameraName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case camera.Named(testCameraName):
-			return camera1, true
+			return camera1, nil
 		case camera.Named(fakeCameraName):
-			return "not a camera", true
+			return "not a camera", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
