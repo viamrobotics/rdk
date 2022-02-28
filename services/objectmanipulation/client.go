@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // client is a client satisfies the object_manipulation.proto contract.
@@ -51,11 +52,22 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+func (c *client) DoGrab(
+	ctx context.Context,
+	gripperName string,
+	grabPose *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
+) (bool, error) {
+	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
+	}
 	resp, err := c.client.DoGrab(ctx, &pb.DoGrabRequest{
 		GripperName: gripperName,
-		CameraName:  cameraName,
-		CameraPoint: vectorToProto(cameraPoint),
+		Target:      referenceframe.PoseInFrameToProtobuf(grabPose),
+		WorldState: &commonpb.WorldState{
+			Obstacles: geometriesInFrames,
+		},
 	})
 	if err != nil {
 		return false, err

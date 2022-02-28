@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -15,6 +14,7 @@ import (
 
 	viamgrpc "go.viam.com/rdk/grpc"
 	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
@@ -57,11 +57,16 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		success := true
-		injectOMS.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+		injectOMS.DoGrabFunc = func(
+			ctx context.Context,
+			gripperName string,
+			grabPose *referenceframe.PoseInFrame,
+			obstacles []*referenceframe.GeometriesInFrame,
+		) (bool, error) {
 			return success, nil
 		}
 
-		result, err := client.DoGrab(context.Background(), "", "", "", &r3.Vector{})
+		result, err := client.DoGrab(context.Background(), "", &referenceframe.PoseInFrame{}, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -77,11 +82,16 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake dograb error")
-		injectOMS.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+		injectOMS.DoGrabFunc = func(
+			ctx context.Context,
+			gripperName string,
+			grabPose *referenceframe.PoseInFrame,
+			obstacles []*referenceframe.GeometriesInFrame,
+		) (bool, error) {
 			return false, passedErr
 		}
 
-		resp, err := client2.DoGrab(context.Background(), "", "", "", &r3.Vector{})
+		resp, err := client2.DoGrab(context.Background(), "", &referenceframe.PoseInFrame{}, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)

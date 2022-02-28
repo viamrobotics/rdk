@@ -84,7 +84,7 @@ func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name: c.name,
-		Pose: pose,
+		To:   pose,
 	})
 	return err
 }

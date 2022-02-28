@@ -5,11 +5,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/subtype"
@@ -47,23 +46,28 @@ func TestServerDoGrab(t *testing.T) {
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake dograb error")
-	injectOMS.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	injectOMS.DoGrabFunc = func(
+		ctx context.Context,
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error) {
 		return false, passedErr
 	}
-	req := &pb.DoGrabRequest{
-		CameraName:  "fakeC",
-		GripperName: "fakeG",
-		ArmName:     "fakeA",
-		CameraPoint: &commonpb.Vector3{X: 0, Y: 0, Z: 0},
-	}
-	_, err = server.DoGrab(context.Background(), req)
+
+	_, err = server.DoGrab(context.Background(), &pb.DoGrabRequest{})
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
-	injectOMS.DoGrabFunc = func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	injectOMS.DoGrabFunc = func(
+		ctx context.Context,
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error) {
 		return true, nil
 	}
-	resp, err := server.DoGrab(context.Background(), req)
+	resp, err := server.DoGrab(context.Background(), &pb.DoGrabRequest{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resp.GetSuccess(), test.ShouldBeTrue)
 }
