@@ -238,7 +238,8 @@ func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "multiple remote resources with name \"rdk:component:arm/arm1_r1\". Change duplicate names to access")
+	errorMsg := "multiple remote resources with name \"rdk:component:arm/arm1_r1\". Change duplicate names to access"
+	test.That(t, err.Error(), test.ShouldEqual, errorMsg)
 }
 
 func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
