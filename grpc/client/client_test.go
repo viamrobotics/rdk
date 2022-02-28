@@ -223,11 +223,7 @@ func TestClient(t *testing.T) {
 		return nil, errors.New("whoops")
 	}
 	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-<<<<<<< HEAD
 		return nil, rutils.NewResourceNotFoundError(name)
-=======
-		return nil, errors.New("no resources exist with this name")
->>>>>>> bc829aed30b3962fa37a2ba7e5fc3e6ba903da14
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil

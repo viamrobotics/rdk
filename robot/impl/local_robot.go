@@ -125,15 +125,8 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	service, err := r.ResourceByName(framesystem.Name)
-	if err != nil {
-		return nil, errors.Wrapf(err, "service frame_system not found")
-	}
-	fsService, ok := service.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a frame_system service")
 
-	fsService, err = framesystem.FromRobot(r)
+	fsService, err := framesystem.FromRobot(r)
 	if err != nil {
 		return nil, err
 	}
