@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -237,9 +238,8 @@ func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
 	_, err := parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
-	test.That(t, err, test.ShouldBeError)
-	errorMsg := "multiple remote resources with name \"rdk:component:arm/arm1_r1\". Change duplicate names to access"
-	test.That(t, err.Error(), test.ShouldEqual, errorMsg)
+	correctErr := errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeError, correctErr)
 }
 
 func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
@@ -265,11 +265,9 @@ func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
 	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
-	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote2.arm1_r1\" not found")
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1_r1")))
 	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
-	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote1.arm1\" not found")
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1"))
@@ -289,8 +287,7 @@ func TestPartsWithSameNameInBaseAndRemote(t *testing.T) {
 	_, err := parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
-	test.That(t, err, test.ShouldBeError)
-	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote1.arm1\" not found")
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
 }
 
 func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
