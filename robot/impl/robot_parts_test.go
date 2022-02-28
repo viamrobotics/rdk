@@ -238,6 +238,7 @@ func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "multiple remote resources with name \"rdk:component:arm/arm1_r1\". Change duplicate names to access")
 }
 
 func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
@@ -262,6 +263,12 @@ func TestPartsWithSameNameInRemoteWithPrefix(t *testing.T) {
 
 	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote2.arm1_r1\" not found")
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote1.arm1\" not found")
 	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
 	_, err = parts.ResourceByName(arm.Named("arm1"))
@@ -280,6 +287,9 @@ func TestPartsWithSameNameInBaseAndRemote(t *testing.T) {
 
 	_, err := parts.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError)
+	test.That(t, err.Error(), test.ShouldEqual, "resource \"rdk:component:arm/remote1.arm1\" not found")
 }
 
 func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
