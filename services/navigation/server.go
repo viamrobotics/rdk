@@ -31,7 +31,7 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("NavigationService", resource)
+		return nil, utils.NewUnimplementedInterfaceError("navigation.Service", resource)
 	}
 	return svc, nil
 }

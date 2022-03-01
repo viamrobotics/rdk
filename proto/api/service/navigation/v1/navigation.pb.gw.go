@@ -244,7 +244,7 @@ func RegisterNavigationServiceHandlerServer(ctx context.Context, mux *runtime.Se
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/api/v1/service/navigation/set_mode"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -418,7 +418,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/api/v1/service/navigation/set_mode"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.navigation.v1.NavigationService/SetMode", runtime.WithHTTPPathPattern("/api/v1/service/navigation/mode"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -520,7 +520,7 @@ func RegisterNavigationServiceHandlerClient(ctx context.Context, mux *runtime.Se
 var (
 	pattern_NavigationService_GetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "navigation", "mode"}, ""))
 
-	pattern_NavigationService_SetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "navigation", "set_mode"}, ""))
+	pattern_NavigationService_SetMode_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "navigation", "mode"}, ""))
 
 	pattern_NavigationService_GetLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "navigation", "location"}, ""))
 
