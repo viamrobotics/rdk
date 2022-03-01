@@ -35,6 +35,7 @@ import (
 	"go.viam.com/rdk/robot"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot {
@@ -102,14 +103,14 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 		return &remoteRobot{conf: config.Remote{Name: name}}, true
 	}
 
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		for _, rName := range injectRobot.ResourceNames() {
 			if rName == name {
 				switch name.Subtype {
 				case arm.Subtype:
-					return &fakearm.Arm{Name: name.Name}, true
+					return &fakearm.Arm{Name: name.Name}, nil
 				case base.Subtype:
-					return &fakebase.Base{Name: name.Name}, true
+					return &fakebase.Base{Name: name.Name}, nil
 				case board.Subtype:
 					fakeBoard, err := fakeboard.NewBoard(context.Background(), config.Component{
 						Name: name.Name,
@@ -127,24 +128,24 @@ func setupInjectRobotWithSuffx(logger golog.Logger, suffix string) *inject.Robot
 					if err != nil {
 						panic(err)
 					}
-					return fakeBoard, true
+					return fakeBoard, nil
 				case camera.Subtype:
-					return &fakecamera.Camera{Name: name.Name}, true
+					return &fakecamera.Camera{Name: name.Name}, nil
 				case gripper.Subtype:
-					return &fakegripper.Gripper{Name: name.Name}, true
+					return &fakegripper.Gripper{Name: name.Name}, nil
 				case input.Subtype:
-					return &fakeinput.InputController{Name: name.Name}, true
+					return &fakeinput.InputController{Name: name.Name}, nil
 				case motor.Subtype:
-					return &fakemotor.Motor{Name: name.Name}, true
+					return &fakemotor.Motor{Name: name.Name}, nil
 				case servo.Subtype:
-					return &fakeservo.Servo{Name: name.Name}, true
+					return &fakeservo.Servo{Name: name.Name}, nil
 				}
 				if rName.ResourceType == resource.ResourceTypeService {
-					return struct{}{}, true
+					return struct{}{}, nil
 				}
 			}
 		}
-		return nil, false
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	return injectRobot
@@ -560,13 +561,13 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 
 	robot.conf.Prefix = false
-	_, ok := robot.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = robot.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	robot.conf.Prefix = true
-	_, ok = robot.ResourceByName(arm.Named("one.arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = robot.ResourceByName(arm.Named("arm1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = robot.ResourceByName(arm.Named("one.arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = robot.ResourceByName(arm.Named("arm1_what"))
+	test.That(t, err, test.ShouldBeError)
 
 	wrapped.errRefresh = true
 	err = robot.Refresh(context.Background())

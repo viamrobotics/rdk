@@ -21,10 +21,10 @@ func TestAlignTypeError(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	ii, err := rimage.ReadBothFromFile(artifact.MustPath("align/intel515/chairs.both.gz"), false)
 	test.That(t, err, test.ShouldBeNil)
-	colorSrc := &staticSource{ii.Color}
+	colorSrc := &StaticSource{ii.Color}
 	colorCam, err := camera.New(colorSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	depthSrc := &staticSource{ii.Depth}
+	depthSrc := &StaticSource{ii.Depth}
 	depthCam, err := camera.New(depthSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	attrs := &camera.AttrConfig{}
@@ -117,10 +117,10 @@ func applyAlignment(
 	logger golog.Logger,
 ) *rimage.ImageWithDepth {
 	t.Helper()
-	colorSrc := &staticSource{ii.Color}
+	colorSrc := &StaticSource{ii.Color}
 	colorCam, err := camera.New(colorSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	depthSrc := &staticSource{ii.Depth}
+	depthSrc := &StaticSource{ii.Depth}
 	depthCam, err := camera.New(depthSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 	is, err := newAlignColorDepth(colorCam, depthCam, attrs, logger)

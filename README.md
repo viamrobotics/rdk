@@ -24,21 +24,22 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 ## Development
 
 ### Conventions
-1. Write tests!
-2. Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
-3. Always run `make setup build lint` and test before pushing.
-4. Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
-5. If you add a new package, please add it to this README.
-6. If you add a new sample or command, please add it to this README.
-7. Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
-8. Use imperative mood for commits (see [Git Documenation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
-9. Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
-10. Delete any non-release branches ASAP when done, or use a personal fork
-11. Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
+* Write tests!
+* Follow this [Go Style Guide](https://github.com/uber-go/guide/blob/master/style.md)
+* Always run `make lint` and test before pushing. `make build` should be run if `control.js` or proto files have changed. `make setup` should be run if any dependencies have changed (run it once per PR to check), but does not need to be run otherwise.
+* If `control.js`, `webappindex.html` or proto files have changed, double check the UI still works through the instructions in [here](#first-time-run)
+* Usually merge and squash your PRs and more rarely do merge commits with each commit being a logical unit of work.
+* If you add a new package, please add it to this README.
+* If you add a new sample or command, please add it to this README.
+* Experiments should go in samples or any subdirectory with /samples/ in it. As "good" pieces get abstracted, put into a real package command directory.
+* Use imperative mood for commits (see [Git Documentation](https://git.kernel.org/pub/scm/git/git.git/tree/Documentation/SubmittingPatches?id=a5828ae6b52137b913b978e16cd2334482eb4c1f#n136)).
+* Try to avoid large merges unless you're really doing a big merge. Try to rebase (e.g. `git pull --rebase`).
+* Delete any non-release branches ASAP when done, or use a personal fork
+* Prefer metric SI prefixes where possible (e.g. millis) https://www.nist.gov/pml/weights-and-measures/metric-si-prefixes. The type of measurement (e.g. meters) is not necessary if it is implied (e.g. rulerLengthMillis).
 
 ### Resources
 
-All resources implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in [robot/impl/local_robot.go](./robot/impl/local_robot.go). They should be placed in the corresponding component's register package going forward.
+All resources implemented within the RDK follow the pattern of registering themselves within an `func init()` block. This requires the package they are implemented in be imported, but typically not explicitly used. The place where we currently put blank imports (`_ "pkgpath"`) is in the corresponding resource's register package.
 
 ### Protocol Buffers/gRPC
 

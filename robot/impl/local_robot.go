@@ -53,7 +53,7 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	return r.parts.ResourceByName(name)
 }
 

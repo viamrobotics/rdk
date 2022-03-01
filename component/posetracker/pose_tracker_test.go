@@ -19,14 +19,14 @@ const missingPTName = "dne"
 func setupInjectRobot() *inject.Robot {
 	poseTracker := &inject.PoseTracker{}
 	robot := &inject.Robot{}
-	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case posetracker.Named(workingPTName):
-			return poseTracker, true
+			return poseTracker, nil
 		case posetracker.Named(notPTName):
-			return "not an arm", true
+			return "not an arm", nil
 		default:
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 	}
 	robot.ResourceNamesFunc = func() []resource.Name {

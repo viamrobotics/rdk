@@ -312,6 +312,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						Auth: config.RemoteAuth{
 							Managed: tc.Managed,
 						},
+						Prefix: true,
 					},
 					{
 						Name:    "bar",
@@ -394,17 +395,31 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 							Degrees: []float64{0, 0, 0, 0, 0, 0},
 						},
 					},
+					"foo.pieceArm": {
+						GridPosition: &pb.Pose{
+							X: 0.0,
+							Y: 0.0,
+							Z: 0.0,
+						},
+						JointPositions: &pb.JointPositions{
+							Degrees: []float64{0, 0, 0, 0, 0, 0},
+						},
+					},
 				},
 				Cameras: map[string]bool{
-					"cameraOver": true,
+					"cameraOver":     true,
+					"foo.cameraOver": true,
 				},
 				Grippers: map[string]bool{
-					"pieceGripper": true,
+					"pieceGripper":     true,
+					"foo.pieceGripper": true,
 				},
 				Sensors: nil,
 				Functions: map[string]bool{
-					"func1": true,
-					"func2": true,
+					"func1":     true,
+					"func2":     true,
+					"foo.func1": true,
+					"foo.func2": true,
 				},
 				Services: map[string]bool{
 					"rdk:service:web":          true,
@@ -472,8 +487,8 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	options.BakedAuthEntity = "blah"
 	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
 
-	svc, ok := r.ResourceByName(web.Name)
-	test.That(t, ok, test.ShouldBeTrue)
+	svc, err := r.ResourceByName(web.Name)
+	test.That(t, err, test.ShouldBeNil)
 	err = svc.(web.Service).Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 

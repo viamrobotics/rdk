@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var (
@@ -25,11 +26,11 @@ var (
 
 func setupInjectRobot() *inject.Robot {
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		if name.Name == "arm2" {
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
-		return "here", true
+		return "here", nil
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
 		return testutils.ConcatResourceNames(
