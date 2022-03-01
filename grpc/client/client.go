@@ -214,15 +214,15 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 }
 
 // ResourceByName returns resource by name.
-func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		// registration doesn't exist
-		return nil, false
+		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
-	return resourceClient, true
+	return resourceClient, nil
 }
 
 // Refresh manually updates the underlying parts of the robot based

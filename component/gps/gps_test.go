@@ -27,14 +27,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gps1 := &mock{Name: testGPSName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gps.Named(testGPSName):
-			return gps1, true
+			return gps1, nil
 		case gps.Named(fakeGPSName):
-			return "not a gps", true
+			return "not a gps", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
