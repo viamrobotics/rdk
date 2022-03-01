@@ -724,18 +724,18 @@
                         pcdLoad(`data:${mimeType};base64,${data}`);
                   },
                   setNavigationMode : function(mode){
-                    let pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_UNSPECIFIED;
+                    let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
                     switch (mode) {
                       case 'manual':
-                        pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_MANUAL;
+                        pbMode = navigationApi.Mode.MODE_MANUAL;
                         break;
                       case 'waypoint':
-                        pbMode = robotApi.NavigationServiceMode.NAVIGATION_SERVICE_MODE_WAYPOINT;
+                        pbMode = navigationApi.Mode.MODE_WAYPOINT;
                         break;
                     }
-                    var req = new robotApi.NavigationServiceSetModeRequest();
+                    var req = new navigationApi.SetModeRequest();
                     req.setMode(pbMode);
-                    robotService.navigationServiceSetMode(req, {}, (err, resp) => grpcCallback(err, resp));
+                    navigationService.setMode(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   setNavigationLocation: function(elId) {
                     const posSplit = document.getElementById(elId).value.split(",");
@@ -1268,20 +1268,20 @@
         await mapReady;
         window.map = new google.maps.Map(document.getElementById("map"), {zoom: 18});
         window.map.addListener("click", (e) => {
-          var req = new robotApi.NavigationServiceAddWaypointRequest();
+          var req = new navigationApi.AddWaypointRequest();
           var point = new commonApi.GeoPoint();
           point.setLatitude(e.latLng.lat());
           point.setLongitude(e.latLng.lng());
           req.setLocation(point);
-          robotService.navigationServiceAddWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
+          navigationService.addWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
         });
 
         let centered = false;
         const knownWaypoints = {};
         let localLabelCounter = 0;
         const updateWaypoints = function() {
-          var req = new robotApi.NavigationServiceWaypointsRequest();
-          robotService.navigationServiceWaypoints(req, {}, (err, resp) => {
+          var req = new navigationApi.GetWaypointsRequest();
+          navigationService.getWaypoints(req, {}, (err, resp) => {
             grpcCallback(err, resp, false)
             if (err) {
               console.log(err);
@@ -1312,9 +1312,9 @@
                 console.log("clicked on marker", pos)
               });
               marker.addListener("dblclick", () => {
-                var req = new robotApi.NavigationServiceRemoveWaypointRequest();
+                var req = new navigationApi.RemoveWaypointRequest();
                 req.setId(waypoint.getId());
-                robotService.navigationServiceRemoveWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
+                navigationService.removeWaypoint(req, {}, (err, resp) => grpcCallback(err, resp));
               });
             }
             const waypointsToDelete = Object.keys(knownWaypoints).filter(elem => {
@@ -1332,8 +1332,8 @@
 
         const locationMarker = new google.maps.Marker({label: "robot"});
         const updateLocation = function() {
-          var req = new robotApi.NavigationServiceLocationRequest();
-          robotService.navigationServiceLocation(req, {}, (err, resp) => {
+          var req = new navigationApi.GetLocationRequest();
+          navigationService.getLocation(req, {}, (err, resp) => {
             grpcCallback(err, resp, false)
             if (err) {
               console.log(err);
