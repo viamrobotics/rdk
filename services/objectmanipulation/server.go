@@ -4,9 +4,6 @@ package objectmanipulation
 import (
 	"context"
 
-	"github.com/golang/geo/r3"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
@@ -54,12 +51,4 @@ func (server *subtypeServer) DoGrab(ctx context.Context, req *pb.DoGrabRequest) 
 		return nil, err
 	}
 	return &pb.DoGrabResponse{Success: success}, nil
-}
-
-func protoToVector(p *commonpb.Vector3) *r3.Vector {
-	return &r3.Vector{
-		X: p.X,
-		Y: p.Y,
-		Z: p.Z,
-	}
 }

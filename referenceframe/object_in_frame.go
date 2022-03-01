@@ -55,17 +55,17 @@ type GeometriesInFrame struct {
 	geometries []spatialmath.Geometry
 }
 
-// FrameName returns the name of the frame in which the geometries were observed
+// FrameName returns the name of the frame in which the geometries were observed.
 func (gF *GeometriesInFrame) FrameName() string {
 	return gF.frame
 }
 
-// FrameName returns the geometries observed
+// Geometries returns the geometries observed.
 func (gF *GeometriesInFrame) Geometries() []spatialmath.Geometry {
 	return gF.geometries
 }
 
-// NewGeometriesInFrame generates a new GeometriesInFrame
+// NewGeometriesInFrame generates a new GeometriesInFrame.
 func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *GeometriesInFrame {
 	return &GeometriesInFrame{
 		frame:      frame,
@@ -73,7 +73,7 @@ func NewGeometriesInFrame(frame string, geometries []spatialmath.Geometry) *Geom
 	}
 }
 
-// GeometriesInFrameToProtobuf converts a GeometriesInFrame struct to a GeometriesInFrame message as specified in common.proto
+// GeometriesInFrameToProtobuf converts a GeometriesInFrame struct to a GeometriesInFrame message as specified in common.proto.
 func GeometriesInFrameToProtobuf(framedGeometries *GeometriesInFrame) *commonpb.GeometriesInFrame {
 	geometries := make([]*commonpb.Geometry, len(framedGeometries.geometries))
 	for i, geometry := range framedGeometries.geometries {

@@ -128,6 +128,8 @@ func (mgs objectMService) moveGripper(
 	goal *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) error {
+	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
+
 	r := mgs.r
 	logger := r.Logger()
 	goalFrameName := goal.FrameName()

@@ -5,7 +5,6 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
@@ -73,12 +72,4 @@ func (c *client) DoGrab(
 		return false, err
 	}
 	return resp.Success, nil
-}
-
-func vectorToProto(v *r3.Vector) *commonpb.Vector3 {
-	return &commonpb.Vector3{
-		X: v.X,
-		Y: v.Y,
-		Z: v.Z,
-	}
 }
