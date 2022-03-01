@@ -47,7 +47,6 @@
           stroke-linecap="round"
           fill="none"
         >
-          <path d="M18 8L12 2L6 8" />
           <path d="M18 16L12 22L6 16" />
         </svg>
       </div>
