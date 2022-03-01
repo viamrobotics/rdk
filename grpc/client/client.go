@@ -15,6 +15,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
@@ -218,4 +219,26 @@ func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (re
 // Logger returns the logger being used for this robot.
 func (rc *RobotClient) Logger() golog.Logger {
 	return rc.logger
+}
+
+// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
+func (rc *RobotClient) ResourceRunCommand(ctx context.Context,
+	resName string,
+	cmd string,
+	args map[string]interface{},
+) (map[string]interface{}, error) {
+	argStruct, err := structpb.NewStruct(args)
+	if err != nil {
+		return nil, err
+	}
+
+	req := &pb.ResourceRunCommandRequest{ResourceName: resName, CommandName: cmd, Args: argStruct}
+
+	rc.logger.Debug(req)
+
+	resp, err := rc.client.ResourceRunCommand(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Result.AsMap(), nil
 }
