@@ -9,6 +9,7 @@ import MotorDetail from '../src/components/MotorDetail';
 import WebGamepad from '../src/components/WebGamepad';
 import Camera from '../src/components/Camera';
 import ViamButton from '../src/components/Button';
+import ViamBadge from '../src/components/Badge';
 import ViamInput from '../src/components/ViamInput';
 import Container from '../src/components/Container';
 import ToggleButton from '../src/components/ToggleButton';
@@ -18,6 +19,7 @@ import Accordion from '../src/components/Accordion';
 import ViamSwitch from '../src/components/Switch';
 import ViamTabs from '../src/components/ViamTabs';
 import ViamTabsItem from '../src/components/ViamTabsItem';
+import Breadcrumbs from '../src/components/Breadcrumbs';
 
 
 // Register custom components.
@@ -27,6 +29,8 @@ Vue.component('MotorDetail', MotorDetail);
 Vue.component('WebGamepad', WebGamepad);
 Vue.component('Camera', Camera);
 Vue.component('ViamButton', ViamButton);
+Vue.component('Breadcrumbs', Breadcrumbs);
+Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamInput', ViamInput);
 Vue.component('Container', Container);
 Vue.component('ToggleButton', ToggleButton);

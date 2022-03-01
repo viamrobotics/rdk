@@ -1,19 +1,18 @@
 <template>
   <div class="component">
     <div class="card">
-      <div class="row" style="margin-right: 0; align-items: center">
+      <div class="row">
         <div class="header">
           <h2>{{ motorName }} Motor</h2>
           <span v-if="motorStatus.on" class="pill green">Running</span>
           <span v-else class="pill">Idle</span>
         </div>
         <div class="column" v-if="motorStatus.positionSupported">
-          <h3 style="line-height: 0.65">{{ motorStatus.position }}</h3>
+          <h3>{{ motorStatus.position }}</h3>
           <p class="subtitle">Position</p>
         </div>
         <div
           class="row"
-          style="justify-content: flex-end; flex-grow: 1; margin-right: 0"
         >
           <div>
             <ViamButton color="danger" variant="primary">STOP</ViamButton>
@@ -21,7 +20,7 @@
           </div>
         </div>
       </div>
-      <div class="row" style="justify-content: space-between">
+      <div class="row">
         <div class="row">
           <div class="column">
             <p class="subtitle">Type of Rotation</p>

@@ -1,6 +1,7 @@
 <template>
   <div id="app">
     <div id="nav">
+      <font-awesome-icon icon="fa-regular fa-address-book" />
       <router-link to="/">Home</router-link> |
       <router-link to="/about">About</router-link>
     </div>
