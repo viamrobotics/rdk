@@ -1,14 +1,21 @@
 package keypoints
 
 import (
+	"github.com/edaniels/golog"
 	"github.com/gonum/floats"
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/utils"
 )
 
-// rangeInt generates a sliced of integers from u to l-1, with step.
+var logger = golog.NewLogger("matching")
+
+// rangeInt generates a sliced of integers from l to u-1, with step size step.
 func rangeInt(u, l, step int) []int {
+	if u < l {
+		logger.Info("Upper bound u is lower than the lower bound l. Inverting u and l.")
+		u, l = l, u
+	}
 	n := (u - l) / step
 	out := make([]int, n)
 	current := l
@@ -42,7 +49,7 @@ type DescriptorMatches struct {
 func convertDescriptorsToFloats(desc Descriptors) [][]float64 {
 	out := make([][]float64, len(desc))
 	for i := range out {
-		out[i] = *(*[]float64)((&desc[i]))
+		out[i] = []float64(desc[i])
 	}
 	return out
 }

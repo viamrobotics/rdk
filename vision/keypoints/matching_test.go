@@ -2,6 +2,7 @@ package keypoints
 
 import (
 	"image"
+	"image/draw"
 	"testing"
 
 	"go.viam.com/test"
@@ -25,6 +26,15 @@ func TestRangeInt(t *testing.T) {
 	test.That(t, r2[0], test.ShouldEqual, 2)
 	test.That(t, r2[1], test.ShouldEqual, 4)
 	test.That(t, r2[2], test.ShouldEqual, 6)
+
+	// test u < l
+	u3, l3 := 2, 8
+	step3 := 2
+	r3 := rangeInt(u3, l3, step3)
+	test.That(t, len(r3), test.ShouldEqual, 3)
+	test.That(t, r3[0], test.ShouldEqual, 2)
+	test.That(t, r3[1], test.ShouldEqual, 4)
+	test.That(t, r3[2], test.ShouldEqual, 6)
 }
 
 func TestMatchKeypoints(t *testing.T) {
@@ -37,11 +47,7 @@ func TestMatchKeypoints(t *testing.T) {
 	bounds := im.Bounds()
 	w, h := bounds.Max.X, bounds.Max.Y
 	imGray := image.NewGray(image.Rect(0, 0, w, h))
-	for x := 0; x < w; x++ {
-		for y := 0; y < h; y++ {
-			imGray.Set(x, y, im.At(x, y))
-		}
-	}
+	draw.Draw(imGray, imGray.Bounds(), im, im.Bounds().Min, draw.Src)
 	fastKps := NewFASTKeypointsFromImage(imGray, cfg)
 
 	// load BRIEF cfg
@@ -58,11 +64,7 @@ func TestMatchKeypoints(t *testing.T) {
 	bounds2 := im2.Bounds()
 	w2, h2 := bounds2.Max.X, bounds2.Max.Y
 	imGray2 := image.NewGray(image.Rect(0, 0, w2, h2))
-	for x := 0; x < w2; x++ {
-		for y := 0; y < h2; y++ {
-			imGray2.Set(x, y, im2.At(x, y))
-		}
-	}
+	draw.Draw(imGray2, imGray2.Bounds(), im2, im2.Bounds().Min, draw.Src)
 	fastKps2 := NewFASTKeypointsFromImage(imGray2, cfg)
 
 	// load BRIEF cfg
@@ -80,7 +82,10 @@ func TestMatchKeypoints(t *testing.T) {
 		test.That(t, match.Idx1, test.ShouldEqual, match.Idx2)
 	}
 	// test matches with bigger image
-	cfgMatch.DoCrossCheck = true
 	matches2 := MatchKeypoints(briefDescriptors, briefDescriptors2, cfgMatch)
-	test.That(t, len(matches2.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
+	test.That(t, len(matches2.Indices), test.ShouldEqual, len(matches2.Descriptors1))
+	// test matches with bigger image and cross-check; #matches <= #kps2
+	cfgMatch.DoCrossCheck = true
+	matches3 := MatchKeypoints(briefDescriptors, briefDescriptors2, cfgMatch)
+	test.That(t, len(matches3.Indices), test.ShouldBeLessThanOrEqualTo, len(fastKps2.Points))
 }
