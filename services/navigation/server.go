@@ -24,6 +24,8 @@ func NewServer(s subtype.Service) pb.NavigationServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
+// NewIsNotNavigationServiceError returns an error for when a registered
+// navigation service is not properly implemented.
 func NewIsNotNavigationServiceError() error {
 	return errors.Errorf(
 		"resource with name (%s) is not a navigation service", Name.String())
