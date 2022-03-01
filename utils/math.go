@@ -155,11 +155,11 @@ func Clamp(value float64, min float64, max float64) float64 {
 	return value
 }
 
-// SampleNIntegersNormal samples n integers from normal distribution centered around (vMax-vMin) / 2
+// SampleNIntegersNormal samples n integers from normal distribution centered around (vMax+vMin) / 2
 // and in range [vMin, vMax].
 func SampleNIntegersNormal(n int, vMin, vMax float64) []int {
 	z := make([]int, n)
-	// get normal distribution centered on (vMax-vMin) / 2 and whose sampled are mostly in [vMin, vMax] (var=0.1)
+	// get normal distribution centered on (vMax+vMin) / 2 and whose sampled are mostly in [vMin, vMax] (var=0.1)
 	mean := (vMax + vMin) / 2
 	dist := distuv.Normal{
 		Mu:    mean,

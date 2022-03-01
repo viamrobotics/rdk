@@ -6,6 +6,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
@@ -68,34 +69,34 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		)...),
 	)
 
-	_, ok := parts.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(arm.Named("arm_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(base.Named("base1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(base.Named("base1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(board.Named("board1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(board.Named("board1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(camera.Named("camera1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(camera.Named("camera1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(gripper.Named("gripper1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(gripper.Named("gripper1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(motor.Named("motor1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(motor.Named("motor1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
-	_, ok = parts.ResourceByName(servo.Named("servo1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(servo.Named("servo_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(base.Named("base1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(base.Named("base1_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(board.Named("board1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(board.Named("board1_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(camera.Named("camera1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(camera.Named("camera1_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(gripper.Named("gripper1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(gripper.Named("gripper1_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(motor.Named("motor1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(motor.Named("motor1_what"))
+	test.That(t, err, test.ShouldBeError)
+	_, err = parts.ResourceByName(servo.Named("servo1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(servo.Named("servo_what"))
+	test.That(t, err, test.ShouldBeError)
 }
 
 func TestPartsMergeNamesWithRemotes(t *testing.T) {
@@ -156,68 +157,177 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	_, ok := parts.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(arm.Named("arm1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(arm.Named("arm1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(arm.Named("arm1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(base.Named("base1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(base.Named("base1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(base.Named("base1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(base.Named("base1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(base.Named("base1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(base.Named("base1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(base.Named("base1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(base.Named("base1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(board.Named("board1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(board.Named("board1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(board.Named("board1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(board.Named("board1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(board.Named("board1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(board.Named("board1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(board.Named("board1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(board.Named("board1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(camera.Named("camera1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(camera.Named("camera1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(camera.Named("camera1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(camera.Named("camera1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(camera.Named("camera1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(camera.Named("camera1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(camera.Named("camera1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(camera.Named("camera1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(gripper.Named("gripper1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(gripper.Named("gripper1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(gripper.Named("gripper1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(gripper.Named("gripper1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(gripper.Named("gripper1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(gripper.Named("gripper1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(gripper.Named("gripper1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(gripper.Named("gripper1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(motor.Named("motor1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(motor.Named("motor1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(motor.Named("motor1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(motor.Named("motor1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(motor.Named("motor1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(motor.Named("motor1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(motor.Named("motor1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(motor.Named("motor1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = parts.ResourceByName(servo.Named("servo1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(servo.Named("servo1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(servo.Named("servo1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = parts.ResourceByName(servo.Named("servo1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = parts.ResourceByName(servo.Named("servo1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(servo.Named("servo1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(servo.Named("servo1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(servo.Named("servo1_what"))
+	test.That(t, err, test.ShouldBeError)
+}
+
+func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
+		config.Remote{Name: "remote1"},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
+		config.Remote{Name: "remote2"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeError,
+		errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", arm.Named("arm1_r1")))
+}
+
+func TestPartsWithSameNameInRemoteOneWithPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
+		config.Remote{Name: "remote2"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1_r1")))
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPartsWithSameNameInRemoteBothWithPrefix(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote1",
+			Prefix: true,
+		},
+	)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
+			Name:   "remote2",
+			Prefix: true,
+		}),
+		config.Remote{
+			Name:   "remote2",
+			Prefix: true,
+		},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
+	_, err = parts.ResourceByName(arm.Named("remote2.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1")))
+	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("arm1_r1")))
+	_, err = parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+}
+
+func TestPartsWithSameNameInBaseAndRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	injectRobot := setupInjectRobot(logger)
+
+	parts := partsForRemoteRobot(injectRobot)
+	parts.addRemote(
+		newRemoteRobot(setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
+		config.Remote{Name: "remote1"},
+	)
+
+	_, err := parts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
 }
 
 func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
@@ -366,68 +476,68 @@ func TestPartsClone(t *testing.T) {
 		utils.NewStringSet("1", "2"),
 	)
 
-	_, ok = newParts.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(arm.Named("arm1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(arm.Named("arm1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(arm.Named("arm1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(arm.Named("arm1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(arm.Named("arm1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(arm.Named("arm1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(base.Named("base1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(base.Named("base1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(base.Named("base1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(base.Named("base1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(base.Named("base1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(base.Named("base1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(base.Named("base1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(base.Named("base1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(board.Named("board1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(board.Named("board1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(board.Named("board1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(board.Named("board1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(board.Named("board1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(board.Named("board1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(board.Named("board1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(board.Named("board1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(camera.Named("camera1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(camera.Named("camera1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(camera.Named("camera1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(camera.Named("camera1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(camera.Named("camera1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(camera.Named("camera1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(camera.Named("camera1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(camera.Named("camera1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(gripper.Named("gripper1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(gripper.Named("gripper1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(gripper.Named("gripper1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(gripper.Named("gripper1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(gripper.Named("gripper1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(gripper.Named("gripper1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(gripper.Named("gripper1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(gripper.Named("gripper1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(motor.Named("motor1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(motor.Named("motor1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(motor.Named("motor1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(motor.Named("motor1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(motor.Named("motor1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(motor.Named("motor1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(motor.Named("motor1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(motor.Named("motor1_what"))
+	test.That(t, err, test.ShouldBeError)
 
-	_, ok = newParts.ResourceByName(servo.Named("servo1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(servo.Named("servo1_r1"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(servo.Named("servo1_r2"))
-	test.That(t, ok, test.ShouldBeTrue)
-	_, ok = newParts.ResourceByName(servo.Named("servo1_what"))
-	test.That(t, ok, test.ShouldBeFalse)
+	_, err = newParts.ResourceByName(servo.Named("servo1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(servo.Named("servo1_r1"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(servo.Named("servo1_r2"))
+	test.That(t, err, test.ShouldBeNil)
+	_, err = newParts.ResourceByName(servo.Named("servo1_what"))
+	test.That(t, err, test.ShouldBeError)
 
 	proc, ok := newParts.processManager.ProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
@@ -447,8 +557,8 @@ func TestPartsAdd(t *testing.T) {
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName := cfg.ResourceName()
 	parts.addResource(rName, injectArm)
-	arm1, ok := parts.ResourceByName(rName)
-	test.That(t, ok, test.ShouldBeTrue)
+	arm1, err := parts.ResourceByName(rName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
 	injectBoard := &inject.Board{}
@@ -480,11 +590,11 @@ func TestPartsAdd(t *testing.T) {
 	cfg = &config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
 	rName = cfg.ResourceName()
 	parts.addResource(rName, injectBoard)
-	board1, ok := parts.ResourceByName(board.Named("board1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	board1, err := parts.ResourceByName(board.Named("board1"))
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldEqual, injectBoard)
-	resource1, ok := parts.ResourceByName(rName)
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err := parts.ResourceByName(rName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
@@ -498,8 +608,8 @@ func TestPartsAdd(t *testing.T) {
 	}
 	objectMResName := objectmanipulation.Name
 	parts.addResource(objectMResName, injectObjectManipulationService)
-	objectManipulationService, ok := parts.ResourceByName(objectMResName)
-	test.That(t, ok, test.ShouldBeTrue)
+	objectManipulationService, err := parts.ResourceByName(objectMResName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
 	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
@@ -511,8 +621,8 @@ func TestPartsAdd(t *testing.T) {
 	}
 	objectSegResName := objectsegmentation.Name
 	parts.addResource(objectSegResName, injectObjectSegmentationService)
-	objectSegmentationService, ok := parts.ResourceByName(objectSegResName)
-	test.That(t, ok, test.ShouldBeTrue)
+	objectSegmentationService, err := parts.ResourceByName(objectSegResName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objectSegmentationService, test.ShouldEqual, injectObjectSegmentationService)
 }
 
@@ -1047,12 +1157,12 @@ func TestPartsMergeModify(t *testing.T) {
 			utils.NewStringSet("1", "2"),
 		)
 
-		resource1, ok := toCheck.ResourceByName(board.Named("board1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := toCheck.ResourceByName(board.Named("board1"))
+		test.That(t, err, test.ShouldBeNil)
 		board1, ok := resource1.(board.Board)
 		test.That(t, ok, test.ShouldBeTrue)
-		resource2r1, ok := toCheck.ResourceByName(board.Named("board2_r1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource2r1, err := toCheck.ResourceByName(board.Named("board2_r1"))
+		test.That(t, err, test.ShouldBeNil)
 		board2r1, ok := resource2r1.(board.Board)
 		test.That(t, ok, test.ShouldBeTrue)
 		test.That(

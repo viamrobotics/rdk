@@ -31,9 +31,10 @@ func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
 func main() {
 	imgPtr := flag.String("img", "", "path to image to apply simple detection to")
 	urlPtr := flag.String("url", "", "url to image source to apply simple detection to")
-	threshPtr := flag.Float64("thresh", 10, "the tolerance around the selected color")
+	threshPtr := flag.Float64("thresh", .1, "the tolerance around the selected color")
 	sizePtr := flag.Int("size", 500, "minimum size of a detection")
 	streamPtr := flag.String("stream", "color", "type of url stream")
+	colorPtr := flag.String("color", "#416C1C", "color as a hex string")
 	flag.Parse()
 	logger := golog.NewLogger("simple_detection")
 	if *imgPtr == "" && *urlPtr == "" {
@@ -48,7 +49,7 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(cam, *threshPtr, *sizePtr, logger)
+		pipeline(cam, *threshPtr, *sizePtr, *colorPtr, logger)
 	} else {
 		u, err := url.Parse(*urlPtr)
 		if err != nil {
@@ -70,20 +71,15 @@ func main() {
 		if err != nil {
 			logger.Fatal(err)
 		}
-		pipeline(src, *threshPtr, *sizePtr, logger)
+		pipeline(src, *threshPtr, *sizePtr, *colorPtr, logger)
 	}
 	logger.Info("Done")
 	os.Exit(0)
 }
 
-func pipeline(src gostream.ImageSource, tol float64, size int, logger golog.Logger) {
-	// create preprocessor
-	p, err := objectdetection.RemoveColorChannel("b")
-	if err != nil {
-		logger.Fatal(err)
-	}
+func pipeline(src gostream.ImageSource, tol float64, size int, colorString string, logger golog.Logger) {
 	// create detector
-	col := rimage.NewColor(79, 56, 21)
+	col := rimage.NewColorFromHexOrPanic(colorString)
 	hue, _, _ := col.HsvNormal()
 	d, err := objectdetection.NewColorDetector(tol, hue)
 	if err != nil {
@@ -93,7 +89,11 @@ func pipeline(src gostream.ImageSource, tol float64, size int, logger golog.Logg
 	f := objectdetection.NewAreaFilter(size)
 
 	// make a pipeline
-	pipe, err := objectdetection.NewSource(src, p, d, f)
+	det, err := objectdetection.Build(nil, d, f)
+	if err != nil {
+		logger.Fatal(err)
+	}
+	pipe, err := objectdetection.NewSource(src, det)
 	if err != nil {
 		logger.Fatal(err)
 	}

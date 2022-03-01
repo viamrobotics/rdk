@@ -67,9 +67,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the sensor service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
-		return nil, utils.NewResourceNotFoundError(Name)
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
 	}
 	svc, ok := resource.(Service)
 	if !ok {
@@ -88,9 +88,9 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	// trigger an update here
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
-		res, ok := r.ResourceByName(n)
-		if !ok {
-			return nil, utils.NewResourceNotFoundError(n)
+		res, err := r.ResourceByName(n)
+		if err != nil {
+			return nil, err
 		}
 		resources[n] = res
 	}

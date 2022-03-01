@@ -438,7 +438,7 @@ func TestWebUpdate(t *testing.T) {
 	// now start it with the arm already in it
 	ctx, robot2 := setupRobotCtx()
 	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return append(resources, arm.Named(arm1)) }
-	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return injectArm, true }
+	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (interface{}, error) { return injectArm, nil }
 
 	svc2, err := New(ctx, robot2, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -492,7 +492,9 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) { return name, false }
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return name, rutils.NewResourceNotFoundError(name)
+	}
 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
 
 	injectMetadata := &inject.Metadata{}
@@ -505,8 +507,8 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 func setupInjectRobot() (*inject.Robot, *mock) {
 	web1 := &mock{}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return web1, true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return web1, nil
 	}
 	return r, web1
 }
@@ -522,16 +524,16 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, web1.startCount, test.ShouldEqual, 1)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return "not web", true
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "not web", nil
 	}
 
 	rWeb, err = FromRobot(r)
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("web.Service", "string"))
 	test.That(t, rWeb, test.ShouldBeNil)
 
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
 	rWeb, err = FromRobot(r)

@@ -4,7 +4,6 @@ package nmea
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +15,7 @@ import (
 	"github.com/go-gnss/ntrip"
 	slib "github.com/jacobsa/go-serial/serial"
 	geo "github.com/kellydunn/golang-geo"
+	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
 	"go.viam.com/utils/serial"

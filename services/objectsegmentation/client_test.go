@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	servicepb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
@@ -56,17 +57,26 @@ func TestClient(t *testing.T) {
 		client, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
-		pcA := pointcloud.New()
-		for _, pt := range testPointCloud {
-			test.That(t, pcA.Set(pt), test.ShouldBeNil)
+		injCam := &inject.Camera{}
+		injCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
+			pcA := pointcloud.New()
+			for _, pt := range testPointCloud {
+				test.That(t, pcA.Set(pt), test.ShouldBeNil)
+			}
+			return pcA, nil
 		}
 
-		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
-			seg, err := segmentation.NewObjectSegmentation(ctx, pcA, params)
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
+			params := config.AttributeMap{
+				"min_points_in_plane":   pmtrs.MinPtsInPlane,
+				"min_points_in_segment": pmtrs.MinPtsInSegment,
+				"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
+			}
+			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
 			if err != nil {
 				return nil, err
 			}
-			return seg.Objects(), nil
+			return segments, nil
 		}
 
 		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})

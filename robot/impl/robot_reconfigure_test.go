@@ -172,23 +172,23 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ResourceByName(board.Named("board1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = robot.ResourceByName(board.Named("board1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -281,20 +281,20 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -399,21 +399,21 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 	})
@@ -477,8 +477,8 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		_, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		_, err = robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
 		test.That(t, robot.Reconfigure(context.Background(), emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -510,14 +510,14 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
-		_, ok = robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeError)
 
-		_, ok = robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeError)
 
-		_, ok = robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeError)
 	})
 
 	t.Run("modificative diff", func(t *testing.T) {
@@ -578,16 +578,16 @@ func TestRobotReconfigure(t *testing.T) {
 		board1, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
@@ -640,18 +640,18 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
-		_, ok = newBoard1.AnalogReaderByName("analog1")
+		_, ok := newBoard1.AnalogReaderByName("analog1")
 		test.That(t, ok, test.ShouldBeTrue)
 
 		_, ok = newBoard1.AnalogReaderByName("analog2")
 		test.That(t, ok, test.ShouldBeFalse)
 
-		newResource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newResource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newResource1, test.ShouldEqual, resource1)
 
-		newMock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newMock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
 
 		_, ok = robot.ProcessManager().ProcessByID("1")
@@ -718,16 +718,16 @@ func TestRobotReconfigure(t *testing.T) {
 		board1, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
@@ -790,18 +790,18 @@ func TestRobotReconfigure(t *testing.T) {
 		_, err = board.FromRobot(robot, "board2")
 		test.That(t, err, test.ShouldBeNil)
 
-		newResource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newResource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newResource1, test.ShouldEqual, resource1)
 
-		newMock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newMock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
 
-		_, ok = robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeFalse)
+		_, err = robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeError)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeFalse)
@@ -869,11 +869,11 @@ func TestRobotReconfigure(t *testing.T) {
 		board1, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
@@ -930,15 +930,15 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
-		newResource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newResource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newResource1, test.ShouldEqual, resource1)
 
-		newMock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newMock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
@@ -1006,16 +1006,16 @@ func TestRobotReconfigure(t *testing.T) {
 		board1, err := board.FromRobot(robot, "board1")
 		test.That(t, err, test.ShouldBeNil)
 
-		resource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		resource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 
-		mock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock1.(*mockFake).x, test.ShouldEqual, 5)
 		test.That(t, mock1.(*mockFake).reconfCount, test.ShouldEqual, 0)
 
-		mock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		mock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, mock2.(*mockFake2).x, test.ShouldEqual, 5)
 		test.That(t, mock2.(*mockFake2).reconfCount, test.ShouldEqual, 0)
 
@@ -1070,19 +1070,19 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newBoard1, test.ShouldEqual, board1)
 
-		newResource1, ok := robot.ResourceByName(arm.Named("arm1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newResource1, err := robot.ResourceByName(arm.Named("arm1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newResource1, test.ShouldEqual, resource1)
 
-		newMock1, ok := robot.ResourceByName(mockNamed("mock1"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newMock1, err := robot.ResourceByName(mockNamed("mock1"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock1, test.ShouldEqual, mock1)
 
-		newMock2, ok := robot.ResourceByName(mockNamed("mock2"))
-		test.That(t, ok, test.ShouldBeTrue)
+		newMock2, err := robot.ResourceByName(mockNamed("mock2"))
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, newMock2, test.ShouldEqual, mock2)
 
-		_, ok = robot.ProcessManager().ProcessByID("1")
+		_, ok := robot.ProcessManager().ProcessByID("1")
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
