@@ -85,13 +85,13 @@ func init() {
 		&camera.AttrConfig{})
 }
 
-// staticSource is a fixed, stored image.
-type staticSource struct {
+// StaticSource is a fixed, stored image.
+type StaticSource struct {
 	Img image.Image
 }
 
 // Next returns the stored image.
-func (ss *staticSource) Next(ctx context.Context) (image.Image, func(), error) {
+func (ss *StaticSource) Next(ctx context.Context) (image.Image, func(), error) {
 	return ss.Img, func() {}, nil
 }
 

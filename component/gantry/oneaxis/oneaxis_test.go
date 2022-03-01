@@ -2,11 +2,11 @@ package oneaxis
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"
@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createFakeMotor() *inject.Motor {
@@ -59,16 +60,16 @@ func createFakeBoard() *inject.Board {
 func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case board.Subtype:
 			return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
 				return true, nil
-			}}, true
+			}}, nil
 		case motor.Subtype:
-			return &fake.Motor{PositionSupported: true}, true
+			return &fake.Motor{PositionSupported: true}, nil
 		}
-		return nil, false
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 
 	return fakerobot
@@ -223,7 +224,9 @@ func TestNewOneAxis(t *testing.T) {
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type: need 1, 2 or 0 pins per axis, have 3 pins")
 
-	fakeRobot = &inject.Robot{ResourceByNameFunc: func(name resource.Name) (interface{}, bool) { return nil, false }}
+	fakeRobot = &inject.Robot{ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
+		return nil, utils.NewResourceNotFoundError(name)
+	}}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
 
@@ -235,11 +238,11 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	fakeRobot = &inject.Robot{
-		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) {
+		ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
 			if name.Subtype == motor.Subtype {
-				return injectMotor, true
+				return injectMotor, nil
 			}
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		},
 	}
 
@@ -254,11 +257,11 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	fakeRobot = &inject.Robot{
-		ResourceByNameFunc: func(name resource.Name) (interface{}, bool) {
+		ResourceByNameFunc: func(name resource.Name) (interface{}, error) {
 			if name.Subtype == motor.Subtype {
-				return injectMotor, true
+				return injectMotor, nil
 			}
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)

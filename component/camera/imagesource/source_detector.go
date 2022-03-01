@@ -87,7 +87,11 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 	}
 	f := objectdetection.NewAreaFilter(segmentSize)
 
-	detector, err := objectdetection.NewSource(src, p, d, f)
+	det, err := objectdetection.Build(p, d, f)
+	if err != nil {
+		return nil, err
+	}
+	detector, err := objectdetection.NewSource(src, det)
 	if err != nil {
 		return nil, err
 	}
