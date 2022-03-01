@@ -107,9 +107,9 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 
 // FromRobot retrieves the frame system service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
-		return nil, errors.Errorf("resource %q not found", Name)
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
 	}
 	fs, ok := resource.(Service)
 	if !ok {

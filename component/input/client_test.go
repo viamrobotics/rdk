@@ -2,12 +2,12 @@ package input_test
 
 import (
 	"context"
-	"errors"
 	"net"
 	"testing"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"

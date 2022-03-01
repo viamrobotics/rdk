@@ -16,7 +16,7 @@ func TestColorDetectionSource(t *testing.T) {
 	ctx, _ := context.WithCancel(context.Background())
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(t, err, test.ShouldBeNil)
-	source := &staticSource{img}
+	source := &StaticSource{img}
 	cam, err := camera.New(source, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -36,7 +36,7 @@ func BenchmarkColorDetectionSource(b *testing.B) {
 	ctx, _ := context.WithCancel(context.Background())
 	img, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
 	test.That(b, err, test.ShouldBeNil)
-	source := &staticSource{img}
+	source := &StaticSource{img}
 	cam, err := camera.New(source, nil, nil)
 	test.That(b, err, test.ShouldBeNil)
 

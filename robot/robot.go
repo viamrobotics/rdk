@@ -20,7 +20,7 @@ type Robot interface {
 	RemoteByName(name string) (Robot, bool)
 
 	// ResourceByName returns a resource by name
-	ResourceByName(name resource.Name) (interface{}, bool)
+	ResourceByName(name resource.Name) (interface{}, error)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
@@ -76,8 +76,8 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 
 	for _, n := range r.ResourceNames() {
 		if n.Name == name {
-			r, ok := r.ResourceByName(n)
-			if !ok {
+			r, err := r.ResourceByName(n)
+			if err != nil {
 				panic("this should be impossible")
 			}
 			all = append(all, r)

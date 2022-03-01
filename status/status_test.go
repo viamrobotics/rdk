@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
@@ -68,26 +69,26 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return logger
 	}
 
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case arm.Subtype:
-			return &fakearm.Arm{Name: name.Name}, true
+			return &fakearm.Arm{Name: name.Name}, nil
 		case base.Subtype:
-			return &fakebase.Base{Name: name.Name}, true
+			return &fakebase.Base{Name: name.Name}, nil
 		case board.Subtype:
-			return &fakeboard.Board{Name: name.Name}, true
+			return &fakeboard.Board{Name: name.Name}, nil
 		case camera.Subtype:
-			return &fakecamera.Camera{Name: name.Name}, true
+			return &fakecamera.Camera{Name: name.Name}, nil
 		case gripper.Subtype:
-			return &fakegripper.Gripper{Name: name.Name}, true
+			return &fakegripper.Gripper{Name: name.Name}, nil
 		case input.Subtype:
-			return &fakeinput.InputController{Name: name.Name}, true
+			return &fakeinput.InputController{Name: name.Name}, nil
 		case motor.Subtype:
-			return &fakemotor.Motor{Name: name.Name}, true
+			return &fakemotor.Motor{Name: name.Name}, nil
 		case servo.Subtype:
-			return &fakeservo.Servo{Name: name.Name}, true
+			return &fakeservo.Servo{Name: name.Name}, nil
 		default:
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 	}
 

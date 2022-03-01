@@ -67,9 +67,9 @@ type Gantry interface {
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
-		return nil, utils.NewResourceNotFoundError(Named(name))
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
 	part, ok := res.(Gantry)
 	if !ok {
