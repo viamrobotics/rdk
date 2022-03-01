@@ -284,7 +284,7 @@ func TestServer(t *testing.T) {
 	navServer = navigation.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
-		improperImplErr := utils.NewUnimplementedInterfaceError("NavigationService", "string")
+		improperImplErr := utils.NewUnimplementedInterfaceError("navigation.Service", "string")
 
 		getModeReq := &pb.GetModeRequest{}
 		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
