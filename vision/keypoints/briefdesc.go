@@ -107,6 +107,5 @@ func ComputeBRIEFDescriptors(img *image.Gray, kps *FASTKeypoints, cfg *BRIEFConf
 		}
 		descriptors[k] = descriptor
 	}
-
 	return descriptors, nil
 }
