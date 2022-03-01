@@ -22,6 +22,15 @@ import ViamTabsItem from '../src/components/ViamTabsItem';
 import Breadcrumbs from '../src/components/Breadcrumbs';
 import Select from '../src/components/Select';
 
+/* import the fontawesome core */
+import { library } from '@fortawesome/fontawesome-svg-core'
+import { faCheckSquare } from '@fortawesome/free-regular-svg-icons'
+/* import font awesome icon component */
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+
+library.add(faCheckSquare)
+
+Vue.component('font-awesome-icon', FontAwesomeIcon);
 
 // Register custom components.
 Vue.component('InputController', InputController);

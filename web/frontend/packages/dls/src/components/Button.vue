@@ -84,6 +84,8 @@
 
 <script>
 import Vue from 'vue';
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+
 const validator = {
   color: [
     'danger',
@@ -109,6 +111,9 @@ const validator = {
   ],
 };
 export default Vue.extend({
+  components: {
+    FontAwesomeIcon
+  },
   validator,
   props: {
     busy: {
