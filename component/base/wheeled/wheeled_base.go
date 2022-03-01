@@ -321,11 +321,11 @@ func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logge
 	}
 
 	if base.widthMm == 0 {
-		return nil, errors.New("need a widthMm for a wheeled base")
+		return nil, errors.New("need a width_mm for a wheeled base")
 	}
 
 	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheelCircumferenceMm for a wheeled base")
+		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
 	}
 
 	if base.spinSlipFactor == 0 {
