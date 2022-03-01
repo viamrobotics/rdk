@@ -190,19 +190,19 @@ func TestResourceNameNewFromString(t *testing.T) {
 			"malformed name",
 			"rdk/component/arm/arm1",
 			resource.Name{},
-			"there is more than one backslash",
+			"invalid resource name string, use format: namespace:type:subtype/name",
 		},
 		{
 			"too many colons",
 			"rdk::component::arm/arm1",
 			resource.Name{},
-			"there are more than 2 colons",
+			"invalid resource name string, use format: namespace:type:subtype/name",
 		},
 		{
 			"too few colons",
 			"rdk.component.arm/arm1",
 			resource.Name{},
-			"there are less than 2 colons",
+			"invalid resource name string, use format: namespace:type:subtype/name",
 		},
 		{
 			"missing name",
