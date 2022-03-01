@@ -58,9 +58,9 @@ var Name = resource.NameFromSubtype(Subtype, "")
 
 // FromRobot retrieves the web service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
-	resource, ok := r.ResourceByName(Name)
-	if !ok {
-		return nil, errors.Errorf("resource %q not found", Name)
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
 	}
 	web, ok := resource.(Service)
 	if !ok {
@@ -539,8 +539,8 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 
 	resources := make(map[resource.Name]interface{})
 	for _, name := range svc.r.ResourceNames() {
-		resource, ok := svc.r.ResourceByName(name)
-		if !ok {
+		resource, err := svc.r.ResourceByName(name)
+		if err != nil {
 			continue
 		}
 		resources[name] = resource

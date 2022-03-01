@@ -149,7 +149,7 @@ func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	newName := rr.unprefixResourceName(name)
@@ -290,8 +290,8 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 	}
 
 	for _, name := range robot.ResourceNames() {
-		part, ok := robot.ResourceByName(name)
-		if !ok {
+		part, err := robot.ResourceByName(name)
+		if err != nil {
 			continue
 		}
 		parts.addResource(name, part)

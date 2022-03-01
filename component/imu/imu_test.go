@@ -26,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	imu1 := &mock{Name: testIMUName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case imu.Named(testIMUName):
-			return imu1, true
+			return imu1, nil
 		case imu.Named(fakeIMUName):
-			return "not an imu", true
+			return "not an imu", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {

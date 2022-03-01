@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func TestArduinoMotorInit(t *testing.T) {
@@ -41,8 +42,8 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return nil, false
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		_motor, err := motorReg.Constructor(
 			context.Background(), _robot, badBoardConfig, logger)
@@ -59,8 +60,8 @@ func TestArduinoMotorInit(t *testing.T) {
 			},
 		}
 		_robot := &inject.Robot{}
-		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-			return &inject.Board{}, true
+		_robot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return &inject.Board{}, nil
 		}
 		_motor, err := motorReg.Constructor(
 			context.Background(), _robot, badBoardConfig, logger)
