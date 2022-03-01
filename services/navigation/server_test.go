@@ -317,7 +317,6 @@ func TestServer(t *testing.T) {
 		remWptResp, err := navServer.RemoveWaypoint(context.Background(), remWptReq)
 		test.That(t, remWptResp, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, improperImplErr)
-
 	})
 
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
