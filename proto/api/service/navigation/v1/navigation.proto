@@ -17,7 +17,7 @@ service NavigationService {
 
   rpc SetMode(SetModeRequest) returns (SetModeResponse) {
     option (google.api.http) = {
-      put: "/api/v1/service/navigation/set_mode"
+      put: "/api/v1/service/navigation/mode"
     };
   }
 
