@@ -20,6 +20,7 @@ import ViamSwitch from '../src/components/Switch';
 import ViamTabs from '../src/components/ViamTabs';
 import ViamTabsItem from '../src/components/ViamTabsItem';
 import Breadcrumbs from '../src/components/Breadcrumbs';
+import Select from '../src/components/Select';
 
 
 // Register custom components.
@@ -39,6 +40,7 @@ Vue.component('Grid', Grid);
 Vue.component('Collapse', Collapse);
 Vue.component('ViamTabs', ViamTabs);
 Vue.component('ViamTabsItem', ViamTabsItem);
+Vue.component('Select', Select);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {

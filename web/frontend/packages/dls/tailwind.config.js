@@ -48,12 +48,7 @@ module.exports = {
         button: fontWeight.medium,
         header: fontWeight.medium,
         label: fontWeight.medium,
-      },
-      transitionTimingFunction: {
-        'in-mijin': 'cubic-bezier(0.7, 0, 0.84, 0)',
-        'out-mijin': 'cubic-bezier(0.16, 1, 0.3, 1)',
-        'in-out-mijin': 'cubic-bezier(0.87, 0, 0.13, 1)',
-      },
+      }
     },
   },
   variants: {
