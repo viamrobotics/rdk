@@ -24,6 +24,11 @@ func NewServer(s subtype.Service) pb.NavigationServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
+func NewIsNotNavigationServiceError() error {
+	return errors.Errorf(
+		"resource with name (%s) is not a navigation service", Name.String())
+}
+
 func (server *subtypeServer) service() (Service, error) {
 	resource := server.subtypeSvc.Resource(Name.String())
 	if resource == nil {
@@ -31,8 +36,7 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, errors.Errorf(
-			"resource with name (%s) is not a navigation service", Name)
+		return nil, NewIsNotNavigationServiceError()
 	}
 	return svc, nil
 }

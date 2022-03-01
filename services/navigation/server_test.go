@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createWaypoints() ([]navigation.Waypoint, []*pb.Waypoint) {
@@ -283,27 +284,40 @@ func TestServer(t *testing.T) {
 	navServer = navigation.NewServer(injectSubtypeSvc)
 
 	t.Run("failing on improper service interface", func(t *testing.T) {
+		improperImplErr := navigation.NewIsNotNavigationServiceError()
+
 		getModeReq := &pb.GetModeRequest{}
 		getModeResp, err := navServer.GetMode(context.Background(), getModeReq)
 		test.That(t, getModeResp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
 
 		setModeReq := &pb.SetModeRequest{
 			Mode: pb.Mode_MODE_MANUAL,
 		}
 		setModeResp, err := navServer.SetMode(context.Background(), setModeReq)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, setModeResp, test.ShouldBeNil)
 
 		getLocReq := &pb.GetLocationRequest{}
 		getLocResp, err := navServer.GetLocation(context.Background(), getLocReq)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, getLocResp, test.ShouldBeNil)
 
 		waypointReq := &pb.GetWaypointsRequest{}
 		waypointResp, err := navServer.GetWaypoints(context.Background(), waypointReq)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
 		test.That(t, waypointResp, test.ShouldBeNil)
+
+		addWptReq := &pb.AddWaypointRequest{}
+		addWptResp, err := navServer.AddWaypoint(context.Background(), addWptReq)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
+		test.That(t, addWptResp, test.ShouldBeNil)
+
+		remWptReq := &pb.RemoveWaypointRequest{}
+		remWptResp, err := navServer.RemoveWaypoint(context.Background(), remWptReq)
+		test.That(t, remWptResp, test.ShouldBeNil)
+		test.That(t, err, test.ShouldBeError, improperImplErr)
+
 	})
 
 	injectSubtypeSvc, _ = subtype.New(map[resource.Name]interface{}{})
@@ -312,6 +326,6 @@ func TestServer(t *testing.T) {
 		req := &pb.GetModeRequest{}
 		resp, err := navServer.GetMode(context.Background(), req)
 		test.That(t, resp, test.ShouldBeNil)
-		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err, test.ShouldBeError, utils.NewResourceNotFoundError(navigation.Name))
 	})
 }
