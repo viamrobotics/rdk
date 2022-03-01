@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -38,6 +39,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(objectmanipulation.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
+	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
 
 	go rpcServer.Serve(listener1)
 	defer rpcServer.Stop()
@@ -66,7 +68,7 @@ func TestClient(t *testing.T) {
 			return success, nil
 		}
 
-		result, err := client.DoGrab(context.Background(), "", &referenceframe.PoseInFrame{}, []*referenceframe.GeometriesInFrame{})
+		result, err := client.DoGrab(context.Background(), "", grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
@@ -91,7 +93,7 @@ func TestClient(t *testing.T) {
 			return false, passedErr
 		}
 
-		resp, err := client2.DoGrab(context.Background(), "", &referenceframe.PoseInFrame{}, []*referenceframe.GeometriesInFrame{})
+		resp, err := client2.DoGrab(context.Background(), "", grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
