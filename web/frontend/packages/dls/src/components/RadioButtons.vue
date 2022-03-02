@@ -1,16 +1,16 @@
 <template>
   <div class="component">
-    <div class="radio-buttons">
-      <button
+    <div>
+      <ViamButton color="primary" group variant="primary"
         v-for="option in options"
         v-bind:key="option"
         :class="[selected === option ? 'black' : 'clear']"
         v-on:click="selectOption(option)"
         :disabled="isDisabled(option)"
       >
-        <i v-if="selected === option" class="fas fa-check"></i>
+        <template v-slot:icon  v-if="selected === option"><font-awesome-icon icon="fa-regular fa-check-square"></font-awesome-icon></template>
         {{ option }}
-      </button>
+      </ViamButton>
     </div>
   </div>
 </template>
@@ -18,8 +18,15 @@
 <script lang="ts">
 import { Component, Prop, Vue, Watch } from "vue-property-decorator";
 import "vue-class-component/hooks";
+import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
+import ViamButton from "./Button.vue";
 
-@Component
+@Component({
+  components: {
+    FontAwesomeIcon,
+    ViamButton
+  },
+})
 export default class RadioButtons extends Vue {
   @Prop() options!: [string];
   @Prop() defaultOption?: string;
@@ -44,11 +51,4 @@ export default class RadioButtons extends Vue {
 </script>
 
 <style scoped>
-.radio-buttons {
-  display: flex;
-  flex-direction: row;
-}
-.radio-buttons button {
-  margin: 0;
-}
 </style>

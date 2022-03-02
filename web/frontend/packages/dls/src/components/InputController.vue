@@ -1,25 +1,33 @@
 <template>
   <div class="component">
-    <div class="card">
-      <div class="row" style="margin-right: 0; align-items: center">
-        <div class="header">
-          <h2>{{ controllerName }} Input</h2>
-          <span v-if="connected" class="pill green">Connected</span>
-          <span v-else class="pill">Disconnected</span>
+    <Container>
+      <div  class="flex flex-row border">
+        <div class="row flex-auto w-5/6 basis-1/2 p-1">
+          <div class="header flex p-1">
+            <h2>{{ controllerName }}</h2>
+            <Breadcrumbs :crumbs="controls"></Breadcrumbs>
+          </div>
         </div>
-      </div>
 
-      <div class="row" v-if="connected">
-        <div
-          v-for="control in controls"
-          :key="control[0]"
-          class="column control"
-        >
-          <p class="subtitle">{{ control[0] }}</p>
-          {{ control[1] }}
+        <div class="row basis-1/4 p-1">
+          <div
+            v-for="control in controls"
+            :key="control[0]"
+            class="column control"
+          >
+            <p class="subtitle">{{ control[0] }}</p>
+            {{ control[1] }}
+          </div>
+          <div class="flex">
+            <ViamSwitch class="p-3" name="Test" size="sm" id="test" :option=connected></ViamSwitch>
+            <div class="p-2">
+              <ViamBadge v-if="connected" color="green">Connected</ViamBadge>
+              <ViamBadge v-else color="red">Disconnected</ViamBadge>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </Container>
   </div>
 </template>
 
@@ -27,11 +35,23 @@
 import { Component, Prop, Vue } from "vue-property-decorator";
 
 import { InputControllerStatus } from "proto/api/v1/robot_pb";
+import ViamBadge from "./Badge.vue";
+import ViamSwitch from "./Switch.vue";
+import Container from "./Container.vue";
+import Breadcrumbs from "./Breadcrumbs.vue";
 
-@Component
+@Component({
+  components: {
+    Breadcrumbs,
+    Container,
+    ViamSwitch,
+    ViamBadge
+  },
+})
 export default class InputController extends Vue {
   @Prop() controllerName!: string;
   @Prop() controllerStatus!: InputControllerStatus.AsObject;
+  @Prop() option: Boolean;
 
   self = this;
 
@@ -96,43 +116,5 @@ export default class InputController extends Vue {
 </script>
 
 <style scoped>
-p,
-h2,
-h3 {
-  margin: 0;
-}
 
-.header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  align-content: center;
-  gap: 8px;
-}
-
-.row {
-  display: flex;
-  flex-direction: row;
-  margin-right: 12px;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.subtitle {
-  color: var(--black-70);
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  margin-left: 0px;
-}
-
-.control {
-  width: 8ex;
-}
-
-.margin-bottom {
-  margin-bottom: 32px;
-}
 </style>

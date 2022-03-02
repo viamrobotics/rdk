@@ -1,104 +1,106 @@
 <template>
   <div class="component">
-    <div class="card">
-      <div class="row">
-        <div class="header">
-          <h2>{{ motorName }} Motor</h2>
-          <span v-if="motorStatus.on" class="pill green">Running</span>
-          <span v-else class="pill">Idle</span>
+    <Collapse>
+     <div class="flex">
+       <div class="flex-auto w-5/6 basis-1/2">
+        <div class="flex p-4">
+            <h2>{{ motorName }} <ViamBadge color="gray">Motor</ViamBadge></h2>
+            <ViamBadge v-if="motorStatus.on" color="green">Running</ViamBadge>
+            <ViamBadge v-else color="yellow">Idle</ViamBadge>
         </div>
-        <div class="column" v-if="motorStatus.positionSupported">
-          <h3>{{ motorStatus.position }}</h3>
-          <p class="subtitle">Position</p>
-        </div>
-        <div
-          class="row"
-        >
-          <div>
-            <ViamButton color="danger" variant="primary">STOP</ViamButton>
-            <ViamButton color="success" variant="primary">RUN</ViamButton>
-          </div>
-        </div>
+       </div>
+      <div class="flex-auto p-2">
+        <ViamButton color="danger" group variant="primary">STOP</ViamButton>
       </div>
-      <div class="row">
-        <div class="row">
-          <div class="column">
-            <p class="subtitle">Type of Rotation</p>
-            <RadioButtons
-              :options="['Continuous', 'Discrete']"
-              :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
-              :disabledOptions="
-                motorStatus.positionSupported ? [] : ['Discrete']
-              "
-              v-on:selectOption="isContinuous = $event === 'Continuous'"
-            />
-          </div>
-          <div class="column">
-            <label
-              for="numberOfRotations"
-              v-bind:class="['subtitle', errors.revolutions ? 'error' : '']"
-            >
-              Number of Rotations
-              {{ errors.revolutions ? " - " + errors.revolutions : "" }}
-            </label>
-            <input
-              id="numberOfRotations"
-              name="numberOfRotations"
-              type="text"
-              placeholder="Enter a number"
-              min="0"
-              :disabled="isContinuous"
-              v-bind:class="[
-                'margin-bottom',
-                errors.revolutions ? 'error' : '',
-              ]"
-              style="max-width: 128px"
-              v-model="numberOfRotations"
-            />
-          </div>
-        </div>
-        <div class="column">
-          <p class="subtitle">Direction of Rotation</p>
-          <RadioButtons
-            :options="['Backward', 'Forward']"
-            :defaultOption="isGoingForward ? 'Forward' : 'Backward'"
-            v-on:selectOption="isGoingForward = $event === 'Forward'"
-          />
-        </div>
-        <div class="row">
-          <div class="column">
-            <label class="subtitle">Mode</label>
-            <RadioButtons
-              :options="['Power', 'RPM']"
-              :defaultOption="isContinuous ? 'Power' : 'RPM'"
-              :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
-            />
-          </div>
-          <div class="column">
-            <label
-              for="speedFinite"
-              v-bind:class="['subtitle', errors.speed ? 'error' : '']"
-            >
-              {{ isContinuous ? "Power" : "RPM" }}
-              {{ errors.speed ? " - " + errors.speed : "" }}
-            </label>
-            <div class="input-group">
-              <input
-                name="speedFinite"
-                id="speedFinite"
-                type="text"
-                v-model="speed"
-                min="0"
-                v-bind:max="motorStatus.positionSupported ? '' : 100"
-                v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
-                style="width: 48px"
+      
+     </div>
+      <template v-slot:content>
+      <Container>
+        <div class="flex">
+          <div class="row flex-auto">
+            <div class="row">
+              <div class="column">
+                <p class="subtitle">Type of Rotation</p>
+                <RadioButtons
+                  :options="['Continuous', 'Discrete']"
+                  :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
+                  :disabledOptions="
+                    motorStatus.positionSupported ? [] : ['Discrete']
+                  "
+                  v-on:selectOption="isContinuous = $event === 'Continuous'"
+                />
+              </div>
+              <div class="column">
+                <label
+                  for="numberOfRotations"
+                  v-bind:class="['subtitle', errors.revolutions ? 'error' : '']"
+                >
+                  Number of Rotations
+                  {{ errors.revolutions ? " - " + errors.revolutions : "" }}
+                </label>
+                <input
+                  id="numberOfRotations"
+                  name="numberOfRotations"
+                  type="text"
+                  placeholder="Enter a number"
+                  min="0"
+                  :disabled="isContinuous"
+                  v-bind:class="[
+                    'margin-bottom',
+                    errors.revolutions ? 'error' : '',
+                  ]"
+                  style="max-width: 128px"
+                  v-model="numberOfRotations"
+                />
+              </div>
+            </div>
+            <div class="column">
+              <p class="subtitle">Direction of Rotation</p>
+              <RadioButtons
+                :options="['Backward', 'Forward']"
+                :defaultOption="isGoingForward ? 'Forward' : 'Backward'"
+                v-on:selectOption="isGoingForward = $event === 'Forward'"
               />
-              <span class="input-post">{{ isContinuous ? "%" : "RPM" }}</span>
+            </div>
+            <div class="row">
+              <div class="column">
+                <label class="subtitle">Mode</label>
+                <RadioButtons
+                  :options="['Power', 'RPM']"
+                  :defaultOption="isContinuous ? 'Power' : 'RPM'"
+                  :disabledOptions="isContinuous ? ['RPM'] : ['Power']"
+                />
+              </div>
+              <div class="column">
+                <label
+                  for="speedFinite"
+                  v-bind:class="['subtitle', errors.speed ? 'error' : '']"
+                >
+                  {{ isContinuous ? "Power" : "RPM" }}
+                  {{ errors.speed ? " - " + errors.speed : "" }}
+                </label>
+                <div class="input-group">
+                  <Range :percentage=speed></Range>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row flex-auto">
+            <div class="column" v-if="motorStatus.positionSupported">
+              <h3>{{ motorStatus.position }}</h3>
+              <p class="subtitle">Position</p>
+            </div>
+            <div
+              class="row flex-auto"
+            >
+              <div>
+                <ViamButton color="success" group variant="primary">RUN</ViamButton>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </Container>
+    </template></Collapse>
   </div>
 </template>
 
@@ -112,6 +114,12 @@ import {
 } from "proto/api/component/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
 import ViamButton from "./Button.vue";
+import ViamBadge from "./Badge.vue";
+import ViamSwitch from "./Switch.vue";
+import Container from "./Container.vue";
+import Breadcrumbs from "./Breadcrumbs.vue";
+import Collapse from "./Collapse.vue";
+import Range from "./Range.vue";
 
 enum MotorCommandType {
   Go = "go",
@@ -225,7 +233,13 @@ class MotorCommand {
 @Component({
   components: {
     RadioButtons,
-    ViamButton
+    ViamButton,
+    Breadcrumbs,
+    Container,
+    ViamSwitch,
+    ViamBadge,
+    Collapse,
+    Range
   },
 })
 export default class MotorDetail extends Vue {
@@ -313,39 +327,4 @@ export default class MotorDetail extends Vue {
 </script>
 
 <style scoped>
-p,
-h2,
-h3 {
-  margin: 0;
-}
-
-.header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  align-content: center;
-  gap: 8px;
-}
-
-.row {
-  display: flex;
-  flex-direction: row;
-  margin-right: 12px;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.subtitle {
-  color: var(--black-70);
-}
-
-.column {
-  display: flex;
-  flex-direction: column;
-  margin-left: 0px;
-}
-
-.margin-bottom {
-  margin-bottom: 32px;
-}
 </style>
