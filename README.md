@@ -70,3 +70,8 @@ artifact push
 git add .artifact
 # commit the file at some point
 ```
+
+General workflow:
+1. Add your file of interest to the `.artifact/data` directory, wherever you want. You can even make a new folder for it.
+2. `artifact push` to create an entry for it in `.artfact/tree.json`
+3. `artifact pull` to download all the files that are in the `tree.json` file
