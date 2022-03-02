@@ -81,10 +81,17 @@ func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return resp.Pose, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
+func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
+	}
 	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name: c.name,
-		Pose: pose,
+		To:   pose,
+		WorldState: &commonpb.WorldState{
+			Obstacles: geometriesInFrames,
+		},
 	})
 	return err
 }

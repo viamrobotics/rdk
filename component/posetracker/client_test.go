@@ -51,9 +51,9 @@ func TestClient(t *testing.T) {
 	)
 	zeroPose := spatialmath.NewZeroPose()
 	allBodiesToPoseInFrames := posetracker.BodyToPoseInFrame{
-		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, &zeroPose),
-		nonZeroPoseBody:  referenceframe.NewPoseInFrame(bodyFrame, &pose),
-		nonZeroPoseBody2: referenceframe.NewPoseInFrame(otherBodyFrame, &pose2),
+		zeroPoseBody:     referenceframe.NewPoseInFrame(bodyFrame, zeroPose),
+		nonZeroPoseBody:  referenceframe.NewPoseInFrame(bodyFrame, pose),
+		nonZeroPoseBody2: referenceframe.NewPoseInFrame(otherBodyFrame, pose2),
 	}
 	poseTester := func(
 		t *testing.T, receivedPoseInFrames posetracker.BodyToPoseInFrame,

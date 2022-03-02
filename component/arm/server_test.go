@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -47,7 +48,7 @@ func TestServer(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return positionDegs1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return nil
 	}
@@ -65,7 +66,7 @@ func TestServer(t *testing.T) {
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return nil, errors.New("can't get joint positions")
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return errors.New("can't move to pose")
 	}
@@ -95,15 +96,15 @@ func TestServer(t *testing.T) {
 
 	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, Pose: pose2})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, Pose: pose2})
+		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, Pose: pose1})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, To: pose1})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose1.String())

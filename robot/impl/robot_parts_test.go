@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
@@ -23,6 +22,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/services/objectsegmentation"
@@ -600,10 +600,10 @@ func TestPartsAdd(t *testing.T) {
 	injectObjectManipulationService := &inject.ObjectManipulationService{}
 	injectObjectManipulationService.DoGrabFunc = func(
 		ctx context.Context,
-		gripperName,
-		armName,
-		cameraName string,
-		cameraPoint *r3.Vector) (bool, error) {
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error) {
 		return false, nil
 	}
 	objectMResName := objectmanipulation.Name
