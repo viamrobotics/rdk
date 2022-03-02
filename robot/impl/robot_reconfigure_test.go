@@ -1167,6 +1167,93 @@ func TestSensorsServiceUpdate(t *testing.T) {
 	})
 }
 
+func TestStatusServiceUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	expected := map[resource.Name]interface{}{
+		gps.Named("gps1"): map[string]interface{}{"exists": true},
+		gps.Named("gps2"): map[string]interface{}{"exists": true},
+	}
+
+	t.Run("empty to not empty", func(t *testing.T) {
+		robot, err := New(context.Background(), emptyCfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+	})
+
+	t.Run("not empty to empty", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+
+		err = robot.Reconfigure(context.Background(), emptyCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+
+	t.Run("no change", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+	})
+}
+
 type mockFake struct {
 	x           int
 	reconfCount int
