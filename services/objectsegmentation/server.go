@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/subtype"
@@ -44,16 +45,12 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	config := &vision.Parameters3D{
-		MinPtsInPlane:      int(req.MinPointsInPlane),
-		MinPtsInSegment:    int(req.MinPointsInSegment),
-		ClusteringRadiusMm: req.ClusteringRadiusMm,
-	}
-	objects, err := svc.GetObjectPointClouds(ctx, req.Name, config)
+	conf := config.AttributeMap(req.Parameters.AsMap())
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, conf)
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(req.Name, objects)
+	protoSegments, err := segmentsToProto(req.CameraName, objects)
 	if err != nil {
 		return nil, err
 	}

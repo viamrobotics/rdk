@@ -66,12 +66,10 @@ func TestClient(t *testing.T) {
 			return pcA, nil
 		}
 
-		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
-			params := config.AttributeMap{
-				"min_points_in_plane":   pmtrs.MinPtsInPlane,
-				"min_points_in_segment": pmtrs.MinPtsInSegment,
-				"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
-			}
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+			cameraName string,
+			segmenterName string,
+			params config.AttributeMap) ([]*vision.Object, error) {
 			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
 			if err != nil {
 				return nil, err
@@ -79,7 +77,12 @@ func TestClient(t *testing.T) {
 			return segments, nil
 		}
 
-		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
+		params := config.AttributeMap{
+			"min_points_in_plane":   100,
+			"min_points_in_segment": 3,
+			"clustering_radius_mm":  5.0,
+		}
+		segs, err := client.GetObjectPointClouds(context.Background(), "", "", params)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -102,11 +105,14 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake get objects error")
-		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+			cameraName string,
+			segmenterName string,
+			params config.AttributeMap) ([]*vision.Object, error) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{})
+		resp, err := client2.GetObjectPointClouds(context.Background(), "", "", config.AttributeMap{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
