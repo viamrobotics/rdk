@@ -17,7 +17,7 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
-build: build-go build-web
+build: build-web build-go
 
 build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
