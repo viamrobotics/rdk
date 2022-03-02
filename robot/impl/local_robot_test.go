@@ -811,7 +811,7 @@ func TestStatusService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
-		gps.Named("gps1"):     true,
+		gps.Named("gps1"):     map[string]interface{}{"exists": true},
 	}
 
 	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})

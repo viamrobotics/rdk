@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
 	pb "go.viam.com/rdk/proto/api/service/status/v1"
@@ -15,7 +16,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
-	"go.viam.com/utils/rpc"
 )
 
 func init() {
@@ -39,10 +39,12 @@ func init() {
 	})
 }
 
-// Status holds a resource name and it's corresponding status.
+// Status holds a resource name and its corresponding status. Status is expected to be comprised of string keys
+// and values comprised of primitives, list of primitives, maps with string keys (or at least can be decomposed into one),
+// or lists of the forementioned type of maps. Results with other types of data are not guaranteed.
 type Status struct {
 	Name   resource.Name
-	Status map[string]interface{}
+	Status interface{}
 }
 
 // A Service returns statuses for resources when queried.
@@ -128,7 +130,7 @@ func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.
 
 		// if resource subtype has an associated CreateStatus method, use that
 		// otherwise return true to indicate resource exists
-		status := map[string]interface{}{"exists": true}
+		var status interface{} = map[string]interface{}{"exists": true}
 		var err error
 		subtype := registry.ResourceSubtypeLookup(name.Subtype)
 		if subtype != nil && subtype.Status != nil {
