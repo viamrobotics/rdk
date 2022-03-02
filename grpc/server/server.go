@@ -8,25 +8,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/geo/r3"
-	geo "github.com/kellydunn/golang-geo"
 	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/utils"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/component/sensor"
 	functionrobot "go.viam.com/rdk/function/robot"
 	functionvm "go.viam.com/rdk/function/vm"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
-	"go.viam.com/rdk/referenceframe"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/services/navigation"
-	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -152,30 +143,6 @@ func (s *Server) DoAction(
 	return &pb.DoActionResponse{}, nil
 }
 
-// SensorReadings returns the readings of a sensor of the underlying robot.
-func (s *Server) SensorReadings(
-	ctx context.Context,
-	req *pb.SensorReadingsRequest,
-) (*pb.SensorReadingsResponse, error) {
-	sensorDevice, ok := sensor.FromRobot(s.r, req.Name)
-	if !ok {
-		return nil, errors.Errorf("no sensor with name (%s)", req.Name)
-	}
-	readings, err := sensorDevice.GetReadings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	readingsP := make([]*structpb.Value, 0, len(readings))
-	for _, r := range readings {
-		v, err := structpb.NewValue(r)
-		if err != nil {
-			return nil, err
-		}
-		readingsP = append(readingsP, v)
-	}
-	return &pb.SensorReadingsResponse{Readings: readingsP}, nil
-}
-
 // ExecuteFunction executes the given function with access to the underlying robot.
 func (s *Server) ExecuteFunction(
 	ctx context.Context,
@@ -246,9 +213,9 @@ func (s *Server) ResourceRunCommand(
 ) (*pb.ResourceRunCommandResponse, error) {
 	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
 	// we know only gps has this right now, so just look at sensors!
-	resource, ok := s.r.ResourceByName(gps.Named(req.ResourceName))
-	if !ok {
-		return nil, errors.Errorf("no resource with name (%s)", req.ResourceName)
+	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
+	if err != nil {
+		return nil, err
 	}
 	commander, ok := rdkutils.UnwrapProxy(resource).(runCommander)
 	if !ok {
@@ -266,214 +233,6 @@ func (s *Server) ResourceRunCommand(
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
-// FrameServiceConfig returns all the information needed to recreate the frame system for a robot.
-// That is: the directed acyclic graph of the frame system parent structure, the static offset poses between frames,
-// and the kinematic/model frames for any robot parts that move or have intrinsic frame properties.
-func (s *Server) FrameServiceConfig(
-	ctx context.Context,
-	req *pb.FrameServiceConfigRequest,
-) (*pb.FrameServiceConfigResponse, error) {
-	svc, ok := s.r.ResourceByName(framesystem.Name)
-	if !ok {
-		return nil, errors.New("no framesystem service")
-	}
-	fsSvc, ok := svc.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a framesystem.Service")
-	}
-	sortedParts, err := fsSvc.FrameSystemConfig(ctx)
-	if err != nil {
-		return nil, err
-	}
-	configs := make([]*pb.FrameSystemConfig, len(sortedParts))
-	for i, part := range sortedParts {
-		c, err := part.ToProtobuf()
-		if err != nil {
-			if errors.Is(err, referenceframe.ErrNoModelInformation) {
-				configs[i] = nil
-				continue
-			}
-			return nil, err
-		}
-		configs[i] = c
-	}
-	return &pb.FrameServiceConfigResponse{FrameSystemConfigs: configs}, nil
-}
-
-// NavigationServiceMode returns the mode of the service.
-func (s *Server) NavigationServiceMode(
-	ctx context.Context,
-	req *pb.NavigationServiceModeRequest,
-) (*pb.NavigationServiceModeResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	m, err := navSvc.Mode(ctx)
-	if err != nil {
-		return nil, err
-	}
-	pbM := pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_UNSPECIFIED
-	switch m {
-	case navigation.ModeManual:
-		pbM = pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_MANUAL
-	case navigation.ModeWaypoint:
-		pbM = pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_WAYPOINT
-	}
-	return &pb.NavigationServiceModeResponse{
-		Mode: pbM,
-	}, nil
-}
-
-// NavigationServiceSetMode sets the mode of the service.
-func (s *Server) NavigationServiceSetMode(
-	ctx context.Context,
-	req *pb.NavigationServiceSetModeRequest,
-) (*pb.NavigationServiceSetModeResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	switch req.Mode {
-	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_MANUAL:
-		if err := navSvc.SetMode(ctx, navigation.ModeManual); err != nil {
-			return nil, err
-		}
-	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_WAYPOINT:
-		if err := navSvc.SetMode(ctx, navigation.ModeWaypoint); err != nil {
-			return nil, err
-		}
-	case pb.NavigationServiceMode_NAVIGATION_SERVICE_MODE_UNSPECIFIED:
-		fallthrough
-	default:
-		return nil, errors.Errorf("unknown mode %q", req.Mode.String())
-	}
-	return &pb.NavigationServiceSetModeResponse{}, nil
-}
-
-// NavigationServiceLocation returns the location of the robot.
-func (s *Server) NavigationServiceLocation(
-	ctx context.Context,
-	req *pb.NavigationServiceLocationRequest,
-) (*pb.NavigationServiceLocationResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	loc, err := navSvc.Location(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.NavigationServiceLocationResponse{
-		Location: &commonpb.GeoPoint{Latitude: loc.Lat(), Longitude: loc.Lng()},
-	}, nil
-}
-
-// NavigationServiceWaypoints returns the navigation waypoints of the robot.
-func (s *Server) NavigationServiceWaypoints(
-	ctx context.Context,
-	req *pb.NavigationServiceWaypointsRequest,
-) (*pb.NavigationServiceWaypointsResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	wps, err := navSvc.Waypoints(ctx)
-	if err != nil {
-		return nil, err
-	}
-	pbWps := make([]*pb.NavigationServiceWaypoint, 0, len(wps))
-	for _, wp := range wps {
-		pbWps = append(pbWps, &pb.NavigationServiceWaypoint{
-			Id:       wp.ID.Hex(),
-			Location: &commonpb.GeoPoint{Latitude: wp.Lat, Longitude: wp.Long},
-		})
-	}
-	return &pb.NavigationServiceWaypointsResponse{
-		Waypoints: pbWps,
-	}, nil
-}
-
-// NavigationServiceAddWaypoint adds a new navigation waypoint.
-func (s *Server) NavigationServiceAddWaypoint(
-	ctx context.Context,
-	req *pb.NavigationServiceAddWaypointRequest,
-) (*pb.NavigationServiceAddWaypointResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	err := navSvc.AddWaypoint(ctx, geo.NewPoint(req.Location.Latitude, req.Location.Longitude))
-	return &pb.NavigationServiceAddWaypointResponse{}, err
-}
-
-// NavigationServiceRemoveWaypoint removes a navigation waypoint.
-func (s *Server) NavigationServiceRemoveWaypoint(
-	ctx context.Context,
-	req *pb.NavigationServiceRemoveWaypointRequest,
-) (*pb.NavigationServiceRemoveWaypointResponse, error) {
-	svc, ok := s.r.ResourceByName(navigation.Name)
-	if !ok {
-		return nil, errors.New("no navigation service")
-	}
-	navSvc, ok := svc.(navigation.Service)
-	if !ok {
-		return nil, errors.New("service is not a navigation service")
-	}
-	id, err := primitive.ObjectIDFromHex(req.Id)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.NavigationServiceRemoveWaypointResponse{}, navSvc.RemoveWaypoint(ctx, id)
-}
-
-// ObjectManipulationServiceDoGrab commands a gripper to move and grab
-// an object at the passed camera point.
-func (s *Server) ObjectManipulationServiceDoGrab(
-	ctx context.Context,
-	req *pb.ObjectManipulationServiceDoGrabRequest,
-) (*pb.ObjectManipulationServiceDoGrabResponse, error) {
-	svc, ok := s.r.ResourceByName(objectmanipulation.Name)
-	if !ok {
-		return nil, errors.New("no objectmanipulation service")
-	}
-	omSvc, ok := svc.(objectmanipulation.Service)
-	if !ok {
-		return nil, errors.New("service is not a objectmanipulation service")
-	}
-	cameraPointProto := req.GetCameraPoint()
-	cameraPoint := &r3.Vector{
-		X: cameraPointProto.X,
-		Y: cameraPointProto.Y,
-		Z: cameraPointProto.Z,
-	}
-	hasGrabbed, err := omSvc.DoGrab(ctx, req.GetGripperName(), req.GetArmName(), req.GetCameraName(), cameraPoint)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.ObjectManipulationServiceDoGrabResponse{HasGrabbed: hasGrabbed}, nil
-}
-
 type executionResultRPC struct {
 	Results []*structpb.Value
 	StdOut  string
@@ -489,7 +248,8 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	for _, result := range execResult.Results {
 		val := result.Interface()
 		if (val == functionvm.Undefined{}) {
-			val = "<undefined>" // TODO(erd): holdover for now to make my life easier :)
+			// TODO(https://github.com/viamrobotics/rdk/issues/518): holdover for now to make my life easier :)
+			val = "<undefined>"
 		}
 		pbVal, err := structpb.NewValue(val)
 		if err != nil {

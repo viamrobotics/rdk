@@ -6,11 +6,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -64,15 +63,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named Sensor from the given Robot.
-func FromRobot(r robot.Robot, name string) (Sensor, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Sensor)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (Sensor, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(Sensor)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all sensor names from the given Robot.
@@ -122,7 +122,7 @@ func (r *reconfigurableSensor) Reconfigure(ctx context.Context, newSensor resour
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	Sensor, ok := r.(Sensor)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Sensor but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Sensor", r)
 	}
 	if reconfigurable, ok := Sensor.(*reconfigurableSensor); ok {
 		return reconfigurable, nil

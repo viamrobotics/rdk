@@ -5,10 +5,12 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -46,6 +48,8 @@ func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
+var _ = sensor.Sensor(&client{})
+
 // client is an IMU client.
 type client struct {
 	*serviceClient
@@ -72,7 +76,7 @@ func clientFromSvcClient(sc *serviceClient, name string) IMU {
 }
 
 func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	resp, err := c.client.ReadAngularVelocity(ctx, &pb.IMUServiceReadAngularVelocityRequest{
+	resp, err := c.client.ReadAngularVelocity(ctx, &pb.ReadAngularVelocityRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -86,7 +90,7 @@ func (c *client) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVe
 }
 
 func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	resp, err := c.client.ReadOrientation(ctx, &pb.IMUServiceReadOrientationRequest{
+	resp, err := c.client.ReadOrientation(ctx, &pb.ReadOrientationRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -99,17 +103,22 @@ func (c *client) ReadOrientation(ctx context.Context) (spatialmath.Orientation, 
 	}, nil
 }
 
+func (c *client) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.ReadAcceleration(ctx, &pb.ReadAccelerationRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return r3.Vector{
+		X: resp.Acceleration.XMmPerSecPerSec,
+		Y: resp.Acceleration.YMmPerSecPerSec,
+		Z: resp.Acceleration.ZMmPerSecPerSec,
+	}, nil
+}
+
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	vel, err := c.ReadAngularVelocity(ctx)
-	if err != nil {
-		return nil, err
-	}
-	orientation, err := c.ReadOrientation(ctx)
-	if err != nil {
-		return nil, err
-	}
-	ea := orientation.EulerAngles()
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw}, nil
+	return GetReadings(ctx, c)
 }
 
 // Close cleanly closes the underlying connections.

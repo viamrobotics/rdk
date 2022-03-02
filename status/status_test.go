@@ -27,12 +27,13 @@ import (
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/status"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRemote bool) *inject.Robot {
@@ -42,28 +43,24 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return []resource.Name{
 			arm.Named("arm1"),
 			arm.Named("arm2"),
+			base.Named("base1"),
+			base.Named("base2"),
+			board.Named("board1"),
+			board.Named("board2"),
+			camera.Named("camera1"),
+			camera.Named("camera2"),
 			gripper.Named("gripper1"),
 			gripper.Named("gripper2"),
-			resource.NameFromSubtype(framesystem.Subtype, ""),
-			sensor.Named("sensor1"),
-			sensor.Named("sensor2"),
 			input.Named("inputController1"),
 			input.Named("inputController2"),
+			motor.Named("motor1"),
+			motor.Named("motor2"),
+			sensor.Named("sensor1"),
+			sensor.Named("sensor2"),
 			servo.Named("servo1"),
 			servo.Named("servo2"),
+			framesystem.Name,
 		}
-	}
-	injectRobot.CameraNamesFunc = func() []string {
-		return []string{"camera1", "camera2"}
-	}
-	injectRobot.BaseNamesFunc = func() []string {
-		return []string{"base1", "base2"}
-	}
-	injectRobot.BoardNamesFunc = func() []string {
-		return []string{"board1", "board2"}
-	}
-	injectRobot.MotorNamesFunc = func() []string {
-		return []string{"motor1", "motor2"}
 	}
 	injectRobot.FunctionNamesFunc = func() []string {
 		return []string{"func1", "func2"}
@@ -72,39 +69,27 @@ func setupInjectRobotHelper(logger golog.Logger, withRemotes, refreshFail, isRem
 		return logger
 	}
 
-	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case arm.Subtype:
-			return &fakearm.Arm{Name: name.Name}, true
+			return &fakearm.Arm{Name: name.Name}, nil
 		case base.Subtype:
-			return &fakebase.Base{Name: name.Name}, true
-		case gripper.Subtype:
-			return &fakegripper.Gripper{Name: name.Name}, true
-		case camera.Subtype:
-			return &fakecamera.Camera{Name: name.Name}, true
+			return &fakebase.Base{Name: name.Name}, nil
 		case board.Subtype:
-			return &fakeboard.Board{Name: name.Name}, true
-		case servo.Subtype:
-			return &fakeservo.Servo{Name: name.Name}, true
-		case motor.Subtype:
-			return &fakemotor.Motor{Name: name.Name}, true
+			return &fakeboard.Board{Name: name.Name}, nil
+		case camera.Subtype:
+			return &fakecamera.Camera{Name: name.Name}, nil
+		case gripper.Subtype:
+			return &fakegripper.Gripper{Name: name.Name}, nil
 		case input.Subtype:
-			return &fakeinput.InputController{Name: name.Name}, true
+			return &fakeinput.InputController{Name: name.Name}, nil
+		case motor.Subtype:
+			return &fakemotor.Motor{Name: name.Name}, nil
+		case servo.Subtype:
+			return &fakeservo.Servo{Name: name.Name}, nil
 		default:
-			return nil, false
+			return nil, utils.NewResourceNotFoundError(name)
 		}
-	}
-	injectRobot.BaseByNameFunc = func(name string) (base.Base, bool) {
-		return &fakebase.Base{Name: name}, true
-	}
-	injectRobot.CameraByNameFunc = func(name string) (camera.Camera, bool) {
-		return &fakecamera.Camera{Name: name}, true
-	}
-	injectRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return &fakeboard.Board{Name: name}, true
-	}
-	injectRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fakemotor.Motor{Name: name}, true
 	}
 
 	if withRemotes {

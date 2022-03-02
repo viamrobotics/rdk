@@ -8,14 +8,14 @@ import (
 	"go.viam.com/test"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
 
 func TestCreateNloptIKSolver(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := referenceframe.ParseJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	ik, err := CreateNloptIKSolver(m, logger, -1)
 	test.That(t, err, test.ShouldBeNil)

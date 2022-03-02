@@ -25,7 +25,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -346,7 +346,7 @@ func (e *eva) GoToInputs(ctx context.Context, goal []referenceframe.Input) error
 
 // EvaModel() returns the kinematics model of the Eva, also has all Frame information.
 func evaModel() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(evamodeljson, "")
+	return referenceframe.UnmarshalModelJSON(evamodeljson, "")
 }
 
 // NewEva TODO.

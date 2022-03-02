@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"image"
 	"image/png"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -127,7 +128,7 @@ func TestToGray16Picture(t *testing.T) {
 }
 
 //nolint:dupl
-func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
+func makeImagesForSubImageTest(ori, crop image.Rectangle) (*Image, *Image) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -143,11 +144,14 @@ func makeImagesForSubImageTest(ori, crop image.Rectangle) (Image, Image) {
 			i++
 		}
 	}
-	return Image{data: oriData, width: oriWidth, height: oriHeight}, Image{data: cropData, width: cropWidth, height: cropHeight}
+	if crop.Empty() {
+		return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{}
+	}
+	return &Image{data: oriData, width: oriWidth, height: oriHeight}, &Image{data: cropData, width: cropWidth, height: cropHeight}
 }
 
 //nolint:dupl
-func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap) {
+func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (*DepthMap, *DepthMap) {
 	oriWidth, oriHeight := ori.Max.X-ori.Min.X, ori.Max.Y-ori.Min.Y
 	overlap := ori.Intersect(crop)
 	cropWidth, cropHeight := overlap.Max.X-overlap.Min.X, overlap.Max.Y-overlap.Min.Y
@@ -163,7 +167,10 @@ func makeDepthMapsForSubImageTest(ori, crop image.Rectangle) (DepthMap, DepthMap
 			i++
 		}
 	}
-	return DepthMap{width: oriWidth, height: oriHeight, data: oriData}, DepthMap{width: cropWidth, height: cropHeight, data: cropData}
+	if crop.Empty() {
+		return &DepthMap{data: oriData, width: oriWidth, height: oriHeight}, &DepthMap{}
+	}
+	return &DepthMap{width: oriWidth, height: oriHeight, data: oriData}, &DepthMap{width: cropWidth, height: cropHeight, data: cropData}
 }
 
 func TestSubImage(t *testing.T) {
@@ -179,6 +186,7 @@ func TestSubImage(t *testing.T) {
 		{image.Rect(0, 0, 100, 75), image.Rect(0, 0, 2, 75)},        // crop left
 		{image.Rect(0, 0, 100, 75), image.Rect(95, 70, 105, 80)},    // crop is not a full subset
 		{image.Rect(0, 0, 100, 75), image.Rect(200, 200, 300, 300)}, // out of bounds
+		{image.Rect(0, 0, 100, 75), image.Rectangle{}},              // empty
 	}
 	for _, rec := range tests {
 		originalImg, expectedCrop := makeImagesForSubImageTest(rec.Original, rec.Crop)
@@ -239,4 +247,18 @@ func TestDepthMapStats(t *testing.T) {
 
 	img = dm.InterestingPixels(10)
 	test.That(t, img.GrayAt(1, 1).Y, test.ShouldEqual, uint8(0))
+}
+
+func TestDepthMap_ConvertDepthMapToLuminanceFloat(t *testing.T) {
+	iwd, err := NewImageWithDepth(artifact.MustPath("rimage/board2.png"), artifact.MustPath("rimage/board2.dat.gz"), false)
+	test.That(t, err, test.ShouldBeNil)
+	fimg := iwd.Depth.ConvertDepthMapToLuminanceFloat()
+	nRows, nCols := fimg.Dims()
+	// test dimensions
+	test.That(t, nCols, test.ShouldEqual, iwd.Depth.Width())
+	test.That(t, nRows, test.ShouldEqual, iwd.Depth.Height())
+	// test values
+	// select random pixel
+	x, y := rand.Intn(nCols), rand.Intn(nRows)
+	test.That(t, fimg.At(y, x), test.ShouldEqual, float64(iwd.Depth.GetDepth(x, y)))
 }

@@ -74,7 +74,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeForceMatrix,
+	config.RegisterComponentAttributeMapConverter(config.ComponentType(forcematrix.SubtypeName),
 		model, func(attributes config.AttributeMap) (interface{}, error) {
 			var conf ForceMatrixConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)
@@ -101,9 +101,9 @@ type ForceMatrixWithMux struct {
 // newForceMatrix returns a new ForceMatrixWithMux given column gpio pins, mux gpio pins, io pins, and
 // an analog channel.
 func newForceMatrix(r robot.Robot, c *ForceMatrixConfig, logger golog.Logger) (*ForceMatrixWithMux, error) {
-	b, exists := r.BoardByName(c.BoardName)
-	if !exists {
-		return nil, errors.Errorf("need a board for force sensor, named (%v)", c.BoardName)
+	b, err := board.FromRobot(r, c.BoardName)
+	if err != nil {
+		return nil, err
 	}
 
 	reader, exists := b.AnalogReaderByName(c.AnalogChannel)
@@ -209,25 +209,6 @@ func (fmsm *ForceMatrixWithMux) ReadMatrix(ctx context.Context) ([][]int, error)
 	}
 	fmsm.addToPreviousMatricesWindow(matrix)
 	return matrix, nil
-}
-
-// GetReadings returns a flattened matrix of measurements from the force sensor.
-func (fmsm *ForceMatrixWithMux) GetReadings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := fmsm.ReadMatrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	numRows := len(fmsm.ioPins)
-	numCols := len(fmsm.columnGpioPins)
-
-	readings := make([]interface{}, 0, numRows*numCols)
-	for row := 0; row < numRows; row++ {
-		for col := 0; col < numCols; col++ {
-			readings = append(readings, matrix[row][col])
-		}
-	}
-	return readings, nil
 }
 
 // GetPreviousMatrices is an accessor for the history of matrix readings stored

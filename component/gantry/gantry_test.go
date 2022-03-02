@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -24,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gantry1 := &mock{Name: testGantryName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gantry.Named(testGantryName):
-			return gantry1, true
+			return gantry1, nil
 		case gantry.Named(fakeGantryName):
-			return "not res gantry", false
+			return "not a gantry", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -43,21 +44,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := gantry.FromRobot(r, testGantryName)
+	res, err := gantry.FromRobot(r, testGantryName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	lengths1, err := res.GetLengths(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, lengths1, test.ShouldResemble, lengths)
 
-	res, ok = gantry.FromRobot(r, fakeGantryName)
+	res, err = gantry.FromRobot(r, fakeGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = gantry.FromRobot(r, missingGantryName)
+	res, err = gantry.FromRobot(r, missingGantryName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(gantry.Named(missingGantryName)))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -111,9 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gantry.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
-
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", nil))
 	reconfGantry2, err := gantry.WrapWithReconfigurable(reconfGantry1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfGantry2, test.ShouldEqual, reconfGantry1)

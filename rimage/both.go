@@ -30,7 +30,7 @@ func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 		return nil, err
 	}
 
-	return &ImageWithDepth{ConvertImage(img), depth, isAligned, nil}, nil
+	return &ImageWithDepth{ConvertImage(img), depth, isAligned}, nil
 }
 
 // ReadBothFromFile reads the given file as an image that contains depth. isAligned

@@ -7,12 +7,8 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
@@ -23,35 +19,11 @@ type Robot interface {
 	// RemoteByName returns a remote robot by name.
 	RemoteByName(name string) (Robot, bool)
 
-	// BaseByName returns a base by name.
-	BaseByName(name string) (base.Base, bool)
-
-	// CameraByName returns a camera by name.
-	CameraByName(name string) (camera.Camera, bool)
-
-	// BoardByName returns a board by name.
-	BoardByName(name string) (board.Board, bool)
-
-	// MotorByName returns a motor by name.
-	MotorByName(name string) (motor.Motor, bool)
-
 	// ResourceByName returns a resource by name
-	ResourceByName(name resource.Name) (interface{}, bool)
+	ResourceByName(name resource.Name) (interface{}, error)
 
 	// RemoteNames returns the name of all known remote robots.
 	RemoteNames() []string
-
-	// CameraNames returns the name of all known cameras.
-	CameraNames() []string
-
-	// BaseNames returns the name of all known bases.
-	BaseNames() []string
-
-	// BoardNames returns the name of all known boards.
-	BoardNames() []string
-
-	// MotorNames returns the name of all known motors.
-	MotorNames() []string
 
 	// FunctionNames returns the name of all known functions.
 	FunctionNames() []string
@@ -104,8 +76,8 @@ func AllResourcesByName(r Robot, name string) []interface{} {
 
 	for _, n := range r.ResourceNames() {
 		if n.Name == name {
-			r, ok := r.ResourceByName(n)
-			if !ok {
+			r, err := r.ResourceByName(n)
+			if err != nil {
 				panic("this should be impossible")
 			}
 			all = append(all, r)

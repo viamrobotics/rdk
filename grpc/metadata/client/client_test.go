@@ -13,7 +13,8 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/grpc/metadata/client"
 	"go.viam.com/rdk/grpc/metadata/server"
-	pb "go.viam.com/rdk/proto/api/service/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -26,7 +27,7 @@ var newResource = resource.NewName(
 	"",
 )
 
-var oneResourceResponse = []*pb.ResourceName{
+var oneResourceResponse = []*commonpb.ResourceName{
 	{
 		Uuid:      newResource.UUID,
 		Namespace: string(newResource.Namespace),
@@ -51,12 +52,12 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.New(cancelCtx, listener1.Addr().String(), logger, rpc.WithInsecure())
+	_, err = client.New(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	// working
-	client, err := client.New(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+	client, err := client.New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	injectMetadata.AllFunc = func() []resource.Name {
@@ -83,11 +84,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := client.New(ctx, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := client.New(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := client.New(ctx, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := client.New(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = client1.Close()
 	test.That(t, err, test.ShouldBeNil)

@@ -13,6 +13,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -26,14 +27,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	arm1 := &mock{Name: testArmName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case arm.Named(testArmName):
-			return arm1, true
+			return arm1, nil
 		case arm.Named(fakeArmName):
-			return "not an arm", false
+			return "not an arm", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -45,21 +46,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	a, ok := arm.FromRobot(r, testArmName)
+	a, err := arm.FromRobot(r, testArmName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, a, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	pose1, err := a.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose1, test.ShouldResemble, pose)
 
-	a, ok = arm.FromRobot(r, fakeArmName)
+	a, err = arm.FromRobot(r, fakeArmName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
 	test.That(t, a, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	a, ok = arm.FromRobot(r, missingArmName)
+	a, err = arm.FromRobot(r, missingArmName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(arm.Named(missingArmName)))
 	test.That(t, a, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -113,8 +114,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = arm.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", nil))
 
 	reconfArm2, err := arm.WrapWithReconfigurable(reconfArm1)
 	test.That(t, err, test.ShouldBeNil)

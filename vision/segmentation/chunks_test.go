@@ -14,7 +14,7 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const debugChunks = "VIAM_DEBUG_CHUNKS"
+const debugChunks = "VIAM_DEBUG"
 
 func init() {
 	utils.ParallelFactor = 1
@@ -119,7 +119,8 @@ func (cid *chunkImageDebug) Process(
 		x2 := iwd.Depth.InterestingPixels(2)
 		pCtx.GotDebugImage(x2, "depth-interesting")
 
-		pc, err := iwd.ToPointCloud()
+		pp := rimage.ParallelProjection{}
+		pc, err := pp.ImageWithDepthToPointCloud(iwd)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -22,9 +22,9 @@ import (
 func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 	numTests := 10000
 
-	mSVA, err := referenceframe.ParseJSON(ur5modeljson, "")
+	mSVA, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
-	mDH, err := referenceframe.ParseJSON(ur5DHmodeljson, "")
+	mDH, err := referenceframe.UnmarshalModelJSON(ur5DHmodeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	seed := rand.New(rand.NewSource(23))
@@ -49,7 +49,7 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 
 func testUR5eForwardKinements(t *testing.T, jointRadians []float64, correct *commonpb.Pose) {
 	t.Helper()
-	m, err := referenceframe.ParseJSON(ur5modeljson, "")
+	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 
 	pos, err := motionplan.ComputePosition(m, referenceframe.JointPositionsFromRadians(jointRadians))
@@ -74,7 +74,7 @@ func testUR5eInverseKinements(t *testing.T, pos *commonpb.Pose) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	m, err := referenceframe.ParseJSON(ur5modeljson, "")
+	m, err := referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 	test.That(t, err, test.ShouldBeNil)
 	mp, err := motionplan.NewCBiRRTMotionPlanner(m, 4, logger)
 	test.That(t, err, test.ShouldBeNil)

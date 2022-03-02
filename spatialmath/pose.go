@@ -14,12 +14,10 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// Translation is the translation between two objects in the grid system. It is always in millimeters.
-type Translation struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
-	Z float64 `json:"z"`
-}
+// Epsilon represents the acceptable discrepancy between two floats
+// representing spatial coordinates wherin the coordinates should be
+// considered equivalent.
+const Epsilon = 1e-8
 
 // Pose represents a 6dof pose, position and orientation, with respect to the origin.
 // The Point() method returns the position in (x,y,z) mm coordinates,
@@ -32,13 +30,13 @@ type Pose interface {
 
 // PoseMap encodes the orientation interface to something serializable and human readable.
 func PoseMap(p Pose) (map[string]interface{}, error) {
-	orientation, err := OrientationMap(p.Orientation().AxisAngles())
+	oc, err := NewOrientationConfig(p.Orientation().AxisAngles())
 	if err != nil {
 		return nil, err
 	}
 	return map[string]interface{}{
 		"point":       p.Point(),
-		"orientation": orientation,
+		"orientation": oc,
 	}, nil
 }
 
@@ -146,9 +144,9 @@ func PoseToProtobuf(p Pose) *commonpb.Pose {
 	return final
 }
 
-// Invert will return the inverse of a pose. So if a given pose p is the pose of A relative to B, Invert(p) will give
+// PoseInverse will return the inverse of a pose. So if a given pose p is the pose of A relative to B, PoseInverse(p) will give
 // the pose of B relative to A.
-func Invert(p Pose) Pose {
+func PoseInverse(p Pose) Pose {
 	return newDualQuaternionFromPose(p).Invert()
 }
 
@@ -175,8 +173,14 @@ func PoseAlmostEqual(a, b Pose) bool {
 }
 
 // PoseAlmostCoincident will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses the same epsilon as the default value for the Viam IK solver.
 func PoseAlmostCoincident(a, b Pose) bool {
-	const epsilon = 1e-8
+	return PoseAlmostCoincidentEps(a, b, Epsilon)
+}
+
+// PoseAlmostCoincidentEps will return a bool describing whether 2 poses approximately are at the same 3D coordinate location.
+// This uses a passed in epsilon value.
+func PoseAlmostCoincidentEps(a, b Pose, epsilon float64) bool {
 	ap := a.Point()
 	bp := b.Point()
 	return utils.Float64AlmostEqual(ap.X, bp.X, epsilon) &&

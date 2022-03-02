@@ -7,9 +7,9 @@ import (
 
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/testutils/inject"
 )
@@ -19,8 +19,8 @@ func TestFourWheelBase1(t *testing.T) {
 
 	fakeRobot := &inject.Robot{}
 
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fake.Motor{}, true
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return &fake.Motor{}, nil
 	}
 
 	_, err := CreateFourWheelBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
@@ -74,7 +74,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsPowered(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -88,7 +88,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsPowered(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -98,9 +98,9 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		err = base.allMotors[0].Go(ctx, 1)
+		err = base.allMotors[0].SetPower(ctx, 1)
 		test.That(t, err, test.ShouldBeNil)
-		isOn, err := base.allMotors[0].IsOn(ctx)
+		isOn, err := base.allMotors[0].IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, isOn, test.ShouldBeTrue)
 
@@ -108,7 +108,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -117,7 +117,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -128,7 +128,7 @@ func TestFourWheelBase1(t *testing.T) {
 		err := base.MoveStraight(ctx, 10000, 1000, false)
 		test.That(t, err, test.ShouldBeNil)
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
 		}
@@ -149,7 +149,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -177,7 +177,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeTrue)
 		}
@@ -198,7 +198,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -213,7 +213,7 @@ func TestFourWheelBase1(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(context.Background())
+			isOn, err := m.IsPowered(context.Background())
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, isOn, test.ShouldBeFalse)
 		}
@@ -301,31 +301,27 @@ func TestWheeledBaseConstructor(t *testing.T) {
 	ctx := context.Background()
 
 	fakeRobot := &inject.Robot{}
-	fakeRobot.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return &fake.Motor{}, true
+	fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return &fake.Motor{}, nil
 	}
 
-	_, err := CreateWheeledBase(context.Background(), fakeRobot, config.Component{}, rlog.Logger)
+	_, err := CreateWheeledBase(context.Background(), fakeRobot, &Config{}, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg := config.Component{
-		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"left":                 []string{"fl-m", "bl-m"},
-			"right":                []string{"fr-m"},
-		},
+	cfg := &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m"},
 	}
 	_, err = CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	cfg = config.Component{
-		Attributes: config.AttributeMap{
-			"widthMm":              100,
-			"wheelCircumferenceMm": 1000,
-			"left":                 []string{"fl-m", "bl-m"},
-			"right":                []string{"fr-m", "br-m"},
-		},
+	cfg = &Config{
+		WidthMM:              100,
+		WheelCircumferenceMM: 1000,
+		Left:                 []string{"fl-m", "bl-m"},
+		Right:                []string{"fr-m", "br-m"},
 	}
 	baseBase, err := CreateWheeledBase(ctx, fakeRobot, cfg, rlog.Logger)
 	test.That(t, err, test.ShouldBeNil)

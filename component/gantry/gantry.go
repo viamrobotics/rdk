@@ -5,11 +5,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -67,15 +66,16 @@ type Gantry interface {
 }
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
-func FromRobot(r robot.Robot, name string) (Gantry, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Gantry)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (Gantry, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(Gantry)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
@@ -87,7 +87,7 @@ func NamesFromRobot(r robot.Robot) []string {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	g, ok := r.(Gantry)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Gantry but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", r)
 	}
 	if reconfigurable, ok := g.(*reconfigurableGantry); ok {
 		return reconfigurable, nil

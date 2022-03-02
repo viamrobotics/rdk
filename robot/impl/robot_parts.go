@@ -2,7 +2,9 @@ package robotimpl
 
 import (
 	"context"
+	"crypto/tls"
 	"os"
+	"strings"
 
 	"github.com/alessio/shellescape"
 	"github.com/edaniels/golog"
@@ -12,33 +14,40 @@ import (
 	"go.viam.com/utils/pexec"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/camera"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	rutils "go.viam.com/rdk/utils"
 )
 
 // robotParts are the actual parts that make up a robot.
 type robotParts struct {
-	remotes         map[string]*remoteRobot
-	functions       map[string]struct{}
-	resources       *resource.Graph
-	processManager  pexec.ProcessManager
-	robotClientOpts []client.RobotClientOption
+	remotes        map[string]*remoteRobot
+	functions      map[string]struct{}
+	resources      *resource.Graph
+	processManager pexec.ProcessManager
+	opts           robotPartsOptions
+}
+
+type robotPartsOptions struct {
+	debug              bool
+	fromCommand        bool
+	allowInsecureCreds bool
+	tlsConfig          *tls.Config
 }
 
 // newRobotParts returns a properly initialized set of parts.
-func newRobotParts(logger golog.Logger, opts ...client.RobotClientOption) *robotParts {
+func newRobotParts(
+	opts robotPartsOptions,
+	logger golog.Logger,
+) *robotParts {
 	return &robotParts{
-		remotes:         map[string]*remoteRobot{},
-		functions:       map[string]struct{}{},
-		resources:       resource.NewGraph(),
-		processManager:  pexec.NewProcessManager(logger),
-		robotClientOpts: opts,
+		remotes:        map[string]*remoteRobot{},
+		functions:      map[string]struct{}{},
+		resources:      resource.NewGraph(),
+		processManager: pexec.NewProcessManager(logger),
+		opts:           opts,
 	}
 }
 
@@ -106,50 +115,6 @@ func (parts *robotParts) mergeResourceNamesWithRemotes(names []resource.Name) []
 		}
 	}
 	return names
-}
-
-// CameraNames returns the names of all cameras in the parts.
-func (parts *robotParts) CameraNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == camera.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.CameraNames)
-}
-
-// BaseNames returns the names of all bases in the parts.
-func (parts *robotParts) BaseNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == base.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.BaseNames)
-}
-
-// BoardNames returns the names of all boards in the parts.
-func (parts *robotParts) BoardNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == board.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.BoardNames)
-}
-
-// MotorNames returns the names of all motors in the parts.
-func (parts *robotParts) MotorNames() []string {
-	names := []string{}
-	for _, n := range parts.ResourceNames() {
-		if n.Subtype == motor.Subtype {
-			names = append(names, n.Name)
-		}
-	}
-	return parts.mergeNamesWithRemotes(names, robot.Robot.MotorNames)
 }
 
 // FunctionNames returns the names of all functions in the parts.
@@ -299,10 +264,19 @@ func (parts *robotParts) newProcesses(ctx context.Context, processes []pexec.Pro
 // newRemotes constructs all remotes defined and integrates their parts in.
 func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote, logger golog.Logger) error {
 	for _, config := range remotes {
-		opts := make([]client.RobotClientOption, len(parts.robotClientOpts))
-		copy(opts, parts.robotClientOpts)
-		dialOpts := client.ExtractDialOptions(opts...)
-
+		var dialOpts []rpc.DialOption
+		if parts.opts.debug {
+			dialOpts = append(dialOpts, rpc.WithDialDebug())
+		}
+		if config.Insecure {
+			dialOpts = append(dialOpts, rpc.WithInsecure())
+		}
+		if parts.opts.allowInsecureCreds {
+			dialOpts = append(dialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
+		}
+		if parts.opts.tlsConfig != nil {
+			dialOpts = append(dialOpts, rpc.WithTLSConfig(parts.opts.tlsConfig))
+		}
 		if config.Auth.Credentials != nil {
 			if config.Auth.Entity == "" {
 				dialOpts = append(dialOpts, rpc.WithCredentials(*config.Auth.Credentials))
@@ -313,11 +287,50 @@ func (parts *robotParts) newRemotes(ctx context.Context, remotes []config.Remote
 			// explicitly unset credentials so they are not fed to remotes unintentionally.
 			dialOpts = append(dialOpts, rpc.WithEntityCredentials("", rpc.Credentials{}))
 		}
-		//nolint:makezero
-		opts = append(opts, client.WithDialOptions(dialOpts...))
 
-		robotClient, err := client.New(ctx, config.Address, logger, opts...)
+		if config.Auth.ExternalAuthAddress != "" {
+			dialOpts = append(dialOpts, rpc.WithExternalAuth(
+				config.Auth.ExternalAuthAddress,
+				config.Auth.ExternalAuthToEntity,
+			))
+		}
+
+		if config.Auth.ExternalAuthInsecure {
+			dialOpts = append(dialOpts, rpc.WithExternalAuthInsecure())
+		}
+
+		if config.Auth.SignalingServerAddress != "" {
+			wrtcOpts := rpc.DialWebRTCOptions{
+				Config:                 &rpc.DefaultWebRTCConfiguration,
+				SignalingServerAddress: config.Auth.SignalingServerAddress,
+				SignalingAuthEntity:    config.Auth.SignalingAuthEntity,
+			}
+			if config.Auth.SignalingCreds != nil {
+				wrtcOpts.SignalingCreds = *config.Auth.SignalingCreds
+			}
+			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(wrtcOpts))
+
+			if config.Auth.Managed {
+				// managed robots use TLS authN/Z
+				dialOpts = append(dialOpts, rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
+					RemoveAuthCredentials: true,
+				}))
+			}
+		} else {
+			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
+				Config: &rpc.DefaultWebRTCConfiguration,
+			}))
+		}
+
+		robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
 		if err != nil {
+			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+				if parts.opts.fromCommand {
+					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+				} else {
+					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+				}
+			}
 			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
 
@@ -380,100 +393,31 @@ func (parts *robotParts) RemoteByName(name string) (robot.Robot, bool) {
 	return nil, false
 }
 
-// BoardByName returns the given board by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) BoardByName(name string) (board.Board, bool) {
-	rName := board.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(board.Board)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.BoardByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// BaseByName returns the given base by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) BaseByName(name string) (base.Base, bool) {
-	rName := base.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(base.Base)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.BaseByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// CameraByName returns the given camera by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) CameraByName(name string) (camera.Camera, bool) {
-	rName := camera.Named(name)
-	r, ok := parts.resources.Nodes[rName]
-	if ok {
-		part, ok := r.(camera.Camera)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.CameraByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
-// MotorByName returns the given motor by name, if it exists;
-// returns nil otherwise.
-func (parts *robotParts) MotorByName(name string) (motor.Motor, bool) {
-	motorResourceName := motor.Named(name)
-	resource, ok := parts.resources.Nodes[motorResourceName]
-	if ok {
-		part, ok := resource.(motor.Motor)
-		if ok {
-			return part, true
-		}
-	}
-	for _, remote := range parts.remotes {
-		part, ok := remote.MotorByName(name)
-		if ok {
-			return part, true
-		}
-	}
-	return nil, false
-}
-
 // ResourceByName returns the given resource by fully qualified name, if it exists;
 // returns nil otherwise.
-func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, bool) {
-	part, ok := parts.resources.Nodes[name]
+func (parts *robotParts) ResourceByName(name resource.Name) (interface{}, error) {
+	partExists := false
+	robotPart, ok := parts.resources.Nodes[name]
 	if ok {
-		return part, true
+		return robotPart, nil
 	}
 	for _, remote := range parts.remotes {
-		part, ok := remote.ResourceByName(name)
-		if ok {
-			return part, true
+		// only check for part if remote has prefix and the prefix matches the name of remote OR if remote doesn't have a prefix
+		if (remote.conf.Prefix && strings.HasPrefix(name.Name, remote.conf.Name)) || !remote.conf.Prefix {
+			part, err := remote.ResourceByName(name)
+			if err == nil {
+				if partExists {
+					return nil, errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", name)
+				}
+				robotPart = part
+				partExists = true
+			}
 		}
 	}
-	return nil, false
+	if partExists {
+		return robotPart, nil
+	}
+	return nil, rutils.NewResourceNotFoundError(name)
 }
 
 // PartsMergeResult is the result of merging in parts together.
@@ -630,7 +574,7 @@ func (parts *robotParts) MergeRemove(toRemove *robotParts) {
 // FilterFromConfig returns a shallow copy of the parts reflecting
 // a given config.
 func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Config, logger golog.Logger) (*robotParts, error) {
-	filtered := newRobotParts(logger, parts.robotClientOpts...)
+	filtered := newRobotParts(parts.opts, logger)
 
 	for _, conf := range conf.Processes {
 		proc, ok := parts.processManager.ProcessByID(conf.ID)
@@ -652,8 +596,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, compConf := range conf.Components {
 		rName := compConf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
@@ -663,8 +607,8 @@ func (parts *robotParts) FilterFromConfig(ctx context.Context, conf *config.Conf
 
 	for _, conf := range conf.Services {
 		rName := conf.ResourceName()
-		_, ok := parts.ResourceByName(rName)
-		if !ok {
+		_, err := parts.ResourceByName(rName)
+		if err != nil {
 			continue
 		}
 		if err := filtered.resources.MergeNode(rName, parts.resources); err != nil {
