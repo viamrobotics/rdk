@@ -73,7 +73,7 @@ func TestWriteViam(t *testing.T) {
 	curPos, err := fs.TransformFrame(seedMap, moveFrame, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 
-	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame, fs.World())
+	steps, err := fss.SolvePose(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
@@ -89,7 +89,7 @@ func TestWriteViam(t *testing.T) {
 		opt.SetMetric(destGrad)
 		opt.AddConstraint("whiteboard", validFunc)
 
-		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), opt)
 		test.That(t, err, test.ShouldBeNil)
 		return waysteps[len(waysteps)-1]
 	}

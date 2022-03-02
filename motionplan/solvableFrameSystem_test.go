@@ -78,8 +78,8 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal1,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame(frame.World),
+		"xArmVgripper",
+		frame.World,
 	)
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
@@ -100,8 +100,8 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal2,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame("urCamera"),
+		"xArmVgripper",
+		"urCamera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 

@@ -201,7 +201,7 @@ func (mgs objectMService) moveGripper(
 	}
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, solver.GetFrame(gripperName), solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose, gripperName, solvingFrame.Name())
 	if err != nil {
 		return err
 	}
