@@ -34,7 +34,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 
-import { InputControllerStatus } from "proto/api/v1/robot_pb";
+import { InputControllerStatus } from "proto/api/robot/v1/robot_pb";
 import ViamBadge from "./Badge.vue";
 import ViamSwitch from "./Switch.vue";
 import Container from "./Container.vue";
