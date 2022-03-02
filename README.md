@@ -62,7 +62,7 @@ Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull 
 
 ```
 # get ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
-# export the path as an environment variable: 
+# export the path with the json file as an environment variable: 
 export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/json/credentials
 go install go.viam.com/utils/artifact/cmd/artifact
 # place new artifacts in ./artifact/data
