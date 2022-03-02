@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"go.viam.com/test"
+
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/vision"
-	"go.viam.com/test"
 )
 
 func TestSegmenterRegistry(t *testing.T) {
