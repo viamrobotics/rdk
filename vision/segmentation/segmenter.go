@@ -28,7 +28,7 @@ func RegisterSegmenter(name string, seg Segmenter) {
 	segmenterRegistry[name] = seg
 }
 
-// SegmenterLookup looks up a segmenter registration by name. nil is returned if
+// SegmenterLookup looks up a segmenter registration by name. An error is returned if
 // there is no registration.
 func SegmenterLookup(name string) (Segmenter, error) {
 	registration, ok := RegisteredSegmenters()[name]
