@@ -628,28 +628,28 @@ func TestMoveToPosition(t *testing.T) {
 		limitHigh: true,
 	}
 	pos := []float64{1, 2}
-	err := fakegantry.MoveToPosition(ctx, pos)
+	err := fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry MoveToPosition needs 1 position, got: 2")
 
 	pos = []float64{1}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err.Error(), test.ShouldEqual, "oneAxis gantry position out of range, got 1.00 max is 0.00")
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0, 4}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	fakegantry.lengthMm = float64(4)
 	fakegantry.positionLimits = []float64{0.01, .01}
 	fakegantry.limitSwitchPins = []string{"1", "2"}
 	fakegantry.motor = &inject.Motor{StopFunc: func(ctx context.Context) error { return errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return false, errors.New("err") }}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return false, nil }}
@@ -657,11 +657,11 @@ func TestMoveToPosition(t *testing.T) {
 		StopFunc: func(ctx context.Context) error { return nil },
 		GoToFunc: func(ctx context.Context, rpm float64, rotations float64) error { return errors.New("err") },
 	}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.motor = &inject.Motor{GoToFunc: func(ctx context.Context, rpm float64, rotations float64) error { return nil }}
-	err = fakegantry.MoveToPosition(ctx, pos)
+	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
