@@ -452,7 +452,7 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 
 	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
 	if err != nil {
-		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
+		return nil, errors.Wrap(err, "couldn't set vpe adaptive tuning")
 	}
 	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
 	if err != nil {
