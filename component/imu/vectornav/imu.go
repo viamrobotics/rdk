@@ -19,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const model = "vectornav"
@@ -38,8 +39,6 @@ type vectornav struct {
 	dV              r3.Vector
 	dTheta          r3.Vector
 	dt              float32
-	temp            float32
-	pressure        float32
 	orientation     spatialmath.EulerAngles
 
 	mu      sync.Mutex
@@ -78,6 +77,7 @@ const (
 	referenceVectorConfiguration vectornavRegister = 83
 	magAccRefVectors             vectornavRegister = 21
 	accCompensationConfiguration vectornavRegister = 25
+	vpeAccTunning                vectornavRegister = 38
 )
 
 func (v *vectornav) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -103,28 +103,34 @@ func (v *vectornav) getReadings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	v.orientation.Yaw = float64(float32frombytes(out[0:4]))
-	v.orientation.Pitch = float64(float32frombytes(out[4:8]))
-	v.orientation.Roll = float64(float32frombytes(out[8:12]))
+	v.orientation.Yaw = rutils.DegToRad(float64(float32frombytes(out[0:4])))
+	v.orientation.Pitch = rutils.DegToRad(float64(float32frombytes(out[4:8])))
+	v.orientation.Roll = rutils.DegToRad(float64(float32frombytes(out[8:12])))
+	// unit gauss
 	v.magnetometer.X = float64(float32frombytes(out[12:16]))
 	v.magnetometer.Y = float64(float32frombytes(out[16:20]))
 	v.magnetometer.Z = float64(float32frombytes(out[20:24]))
-	v.acceleration.X = float64(float32frombytes(out[24:28]))
-	v.acceleration.Y = float64(float32frombytes(out[28:32]))
-	v.acceleration.Z = float64(float32frombytes(out[32:36]))
-	v.angularVelocity.X = float64(float32frombytes(out[36:40]))
-	v.angularVelocity.Y = float64(float32frombytes(out[40:44]))
-	v.angularVelocity.Z = float64(float32frombytes(out[44:48]))
+	// unit m/s^2
+	v.acceleration.X = float64(float32frombytes(out[24:28])) * 1000
+	v.acceleration.Y = float64(float32frombytes(out[28:32])) * 1000
+	v.acceleration.Z = float64(float32frombytes(out[32:36])) * 1000
+	//unit rad/s
+	v.angularVelocity.X = rutils.RadToDeg(float64(float32frombytes(out[36:40])))
+	v.angularVelocity.Y = rutils.RadToDeg(float64(float32frombytes(out[40:44])))
+	v.angularVelocity.Z = rutils.RadToDeg(float64(float32frombytes(out[44:48])))
 	dv, err := v.readRegisterSPI(ctx, deltaVDeltaTheta, 28)
 	if err != nil {
 		return err
 	}
+	//unit deg/s
 	v.dTheta.X = float64(float32frombytes(dv[4:8]))
 	v.dTheta.Y = float64(float32frombytes(dv[8:12]))
 	v.dTheta.Z = float64(float32frombytes(dv[12:16]))
+	//unit m/s
 	v.dV.X = float64(float32frombytes(dv[16:20])) - v.bdVX
 	v.dV.Y = float64(float32frombytes(dv[20:24])) - v.bdVY
 	v.dV.Z = float64(float32frombytes(dv[24:28])) - v.bdVZ
+	// unit s
 	v.dt = float32frombytes(dv[0:4])
 	if err != nil {
 		return err
@@ -148,8 +154,6 @@ func (v *vectornav) GetReadings(ctx context.Context) ([]interface{}, error) {
 		v.dV,
 		v.dt,
 		v.dTheta,
-		v.pressure,
-		v.temp,
 	}, nil
 }
 
@@ -168,7 +172,7 @@ func (v *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister, 
 	if err != nil {
 		return nil, err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, readLen+4)
 	out, err := hnd.Xfer(ctx, uint(v.speed), v.cs, 3, cmd)
 	if err != nil {
@@ -181,7 +185,7 @@ func (v *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister, 
 	if err != nil {
 		return nil, err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	return out[4:], nil
 }
 
@@ -201,7 +205,7 @@ func (v *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister,
 	if err != nil {
 		return err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = make([]byte, len(data)+4)
 	out, err := hnd.Xfer(ctx, uint(v.speed), v.cs, 3, cmd)
 	if err != nil {
@@ -214,7 +218,7 @@ func (v *vectornav) writeRegisterSPI(ctx context.Context, reg vectornavRegister,
 	if err != nil {
 		return err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	return nil
 }
 
@@ -233,7 +237,7 @@ func (v *vectornav) vectornavTareSPI(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	cmd = []byte{0, 0, 0, 0}
 	out, err := hnd.Xfer(ctx, uint(v.speed), v.cs, 3, cmd)
 	if err != nil {
@@ -246,7 +250,7 @@ func (v *vectornav) vectornavTareSPI(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	rdkutils.SelectContextOrWait(ctx, 200*time.Microsecond)
+	rdkutils.SelectContextOrWait(ctx, 110*time.Microsecond)
 	return nil
 }
 
@@ -433,19 +437,34 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't set reference vector")
 	}
-	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 1, 1, 0, 0, 0})
+	accVpeTunning := []byte{}
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+	accVpeTunning = append(accVpeTunning, bytesFromFloat32(10)...)
+
+	err = v.writeRegisterSPI(ctx, vpeAccTunning, accVpeTunning)
+	if err != nil {
+		return nil, errors.Wrap(err, "couldn't set vpe adaptive tunning")
+	}
+	err = v.writeRegisterSPI(ctx, deltaVDeltaThetaConfig, []byte{0, 0, 0, 0, 0, 0})
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't configure deltaV register")
+	}
+	err = v.vectornavTareSPI(ctx)
+	if err != nil {
+		return nil, err
 	}
 	err = v.compensateAccelBias(ctx)
 	if err != nil {
 		return nil, err
 	}
 	err = v.compensateDVBias(ctx)
-	if err != nil {
-		return nil, err
-	}
-	err = v.vectornavTareSPI(ctx)
 	if err != nil {
 		return nil, err
 	}
