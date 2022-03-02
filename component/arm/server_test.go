@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -47,7 +48,7 @@ func TestServer(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return positionDegs1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return nil
 	}
@@ -65,7 +66,7 @@ func TestServer(t *testing.T) {
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 		return nil, errors.New("can't get joint positions")
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return errors.New("can't move to pose")
 	}

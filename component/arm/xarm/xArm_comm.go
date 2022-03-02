@@ -403,7 +403,7 @@ func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err
