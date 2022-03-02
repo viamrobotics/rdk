@@ -114,7 +114,7 @@ func (v *vectornav) getReadings(ctx context.Context) error {
 	v.acceleration.X = float64(float32frombytes(out[24:28])) * 1000
 	v.acceleration.Y = float64(float32frombytes(out[28:32])) * 1000
 	v.acceleration.Z = float64(float32frombytes(out[32:36])) * 1000
-	//unit rad/s
+	// unit rad/s
 	v.angularVelocity.X = rutils.RadToDeg(float64(float32frombytes(out[36:40])))
 	v.angularVelocity.Y = rutils.RadToDeg(float64(float32frombytes(out[40:44])))
 	v.angularVelocity.Z = rutils.RadToDeg(float64(float32frombytes(out[44:48])))
@@ -122,11 +122,11 @@ func (v *vectornav) getReadings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	//unit deg/s
+	// unit deg/s
 	v.dTheta.X = float64(float32frombytes(dv[4:8]))
 	v.dTheta.Y = float64(float32frombytes(dv[8:12]))
 	v.dTheta.Z = float64(float32frombytes(dv[12:16]))
-	//unit m/s
+	// unit m/s
 	v.dV.X = float64(float32frombytes(dv[16:20])) - v.bdVX
 	v.dV.Y = float64(float32frombytes(dv[20:24])) - v.bdVY
 	v.dV.Z = float64(float32frombytes(dv[24:28])) - v.bdVZ
@@ -426,6 +426,7 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	}
 	logger.Debugf("model detected %s sn %d %d.%d.%d.%d", string(mdl), binary.LittleEndian.Uint32(sn), fwver[0], fwver[1], fwver[2], fwver[3])
 
+	// set imu location to New York for the WGM model
 	refvec := []byte{1, 1, 0, 0}
 	refvec = append(refvec, bytesFromUint32(1000)...)
 	refvec = append(refvec, bytesFromFloat32(2010.0)...)
@@ -437,6 +438,7 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't set reference vector")
 	}
+	// enforce acceleration tuinning and reduce "trust" in acceleration data
 	accVpeTunning := []byte{}
 	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
 	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
@@ -456,20 +458,24 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't configure deltaV register")
 	}
+	// tare the heading
 	err = v.vectornavTareSPI(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// compensate for acceleration bias due to misalignement
 	err = v.compensateAccelBias(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// compensate for constant DV bias in mesurament
 	err = v.compensateDVBias(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var cancelCtx context.Context
 	cancelCtx, v.cancelFunc = context.WithCancel(ctx)
+	// optionally start a polling goroutine
 	if pfreq > 0 {
 		logger.Debugf("vecnav: will pool at %d Hz", pfreq)
 		waitCh := make(chan struct{})
