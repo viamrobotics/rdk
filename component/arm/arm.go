@@ -3,13 +3,10 @@ package arm
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/mitchellh/mapstructure"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -27,7 +24,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
-		Status:         CreateStatus,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -99,65 +98,60 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
+// EndPosition holds 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
+// millimeters and theta, ox, oy, oz coordinates which express an orientation vector.
 type EndPosition struct {
-	X     float64
-	Y     float64
-	Z     float64
-	OX    float64
-	OY    float64
-	OZ    float64
-	Theta float64
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Z     float64 `json:"z"`
+	OX    float64 `json:"ox"`
+	OY    float64 `json:"oy"`
+	OZ    float64 `json:"oz"`
+	Theta float64 `json:"theta"`
 }
 
+// JointPositions holds a list of joint positions represented in degrees
+// The numbers are ordered spatially from the base toward the end effector.
 type JointPositions struct {
-	Degrees []interface{}
+	Degrees []float64 `json:"degrees"`
 }
 
 // Status holds the status of an Arm.
 type Status struct {
-	EndPosition    EndPosition
-	JointPositions JointPositions
+	EndPosition    EndPosition    `json:"end_position"`
+	JointPositions JointPositions `json:"joint_positions"`
 }
 
 // CreateStatus creates a status from the arm.
-func CreateStatus(ctx context.Context, resource interface{}) (map[string]interface{}, error) {
+func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 	arm, ok := resource.(Arm)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
+		return Status{}, utils.NewUnimplementedInterfaceError("Arm", resource)
 	}
-	gridPosition, err := arm.GetEndPosition(ctx)
+	endPosition, err := arm.GetEndPosition(ctx)
 	if err != nil {
-		return nil, err
+		return Status{}, err
 	}
 	jointPositions, err := arm.GetJointPositions(ctx)
 	if err != nil {
-		return nil, err
-	}
-	degrees := make([]interface{}, 0, len(jointPositions.Degrees))
-	for _, v := range jointPositions.Degrees {
-		degrees = append(degrees, v)
-	}
-	armStatus := Status{
-		EndPosition: EndPosition{
-			X:     gridPosition.X,
-			Y:     gridPosition.Y,
-			Z:     gridPosition.Z,
-			OX:    gridPosition.OX,
-			OY:    gridPosition.OY,
-			OZ:    gridPosition.OZ,
-			Theta: gridPosition.Theta,
-		},
-		JointPositions: JointPositions{
-			Degrees: degrees,
-		},
+		return Status{}, err
 	}
 
-	encoded := map[string]interface{}{}
-	if err := mapstructure.Decode(armStatus, &encoded); err != nil {
-		return nil, errors.Wrapf(err, "failed to encode status as map[string]interface{}")
+	armStatus := Status{
+		EndPosition: EndPosition{
+			X:     endPosition.X,
+			Y:     endPosition.Y,
+			Z:     endPosition.Z,
+			OX:    endPosition.OX,
+			OY:    endPosition.OY,
+			OZ:    endPosition.OZ,
+			Theta: endPosition.Theta,
+		},
+		JointPositions: JointPositions{
+			Degrees: jointPositions.Degrees,
+		},
 	}
-	fmt.Printf("encoded: %v\n", encoded)
-	return encoded, nil
+	return armStatus, nil
 }
 
 type reconfigurableArm struct {

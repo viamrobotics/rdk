@@ -37,16 +37,14 @@ func init() {
 	registry.RegisterResourceSubtype(
 		workingSubtype,
 		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (map[string]interface{}, error) {
-				return workingStatus, nil
-			},
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return workingStatus, nil },
 		},
 	)
 
 	registry.RegisterResourceSubtype(
 		failSubtype,
 		registry.ResourceSubtype{
-			Status: func(ctx context.Context, resource interface{}) (map[string]interface{}, error) { return nil, errFailed },
+			Status: func(ctx context.Context, resource interface{}) (interface{}, error) { return nil, errFailed },
 		},
 	)
 }
@@ -162,7 +160,7 @@ func TestGetStatus(t *testing.T) {
 	t.Run("many status", func(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			working1: workingStatus,
-			button1:  true,
+			button1:  map[string]interface{}{"exists": true},
 		}
 		svc, err := status.New(context.Background(), r, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -229,8 +227,8 @@ func TestUpdate(t *testing.T) {
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldEqual, true)
-		test.That(t, resp[1].Status, test.ShouldEqual, true)
+		test.That(t, resp[0].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
+		test.That(t, resp[1].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
 
 		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{button1: "something"})
 		test.That(t, err, test.ShouldBeNil)
@@ -251,8 +249,8 @@ func TestUpdate(t *testing.T) {
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldEqual, true)
-		test.That(t, resp[1].Status, test.ShouldEqual, true)
+		test.That(t, resp[0].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
+		test.That(t, resp[1].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
 
 		err = svc.(resource.Updateable).Update(
 			context.Background(),
@@ -263,8 +261,8 @@ func TestUpdate(t *testing.T) {
 		resp, err = svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldEqual, true)
-		test.That(t, resp[1].Status, test.ShouldEqual, true)
+		test.That(t, resp[0].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
+		test.That(t, resp[1].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
 	})
 
 	t.Run("update with diff resources", func(t *testing.T) {
@@ -284,7 +282,7 @@ func TestUpdate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Name, test.ShouldResemble, button3)
-		test.That(t, resp[0].Status, test.ShouldEqual, true)
+		test.That(t, resp[0].Status, test.ShouldResemble, map[string]interface{}{"exists": true})
 	})
 }
 
