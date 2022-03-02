@@ -381,8 +381,8 @@ func (v *vectornav) compensateDVBias(ctx context.Context) error {
 	return nil
 }
 
-// NewVectornav connect and set up a vectornav IMU over SPI.
-// Will also compensate for acceleration and delta velocity bias so be sure the IMU is still when calling this function.
+// NewVectornav connects and sets up a vectornav IMU over SPI.
+// Will also compensate for acceleration and delta velocity bias so be sure the IMU is at rest when calling this function.
 func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (imu.IMU, error) {
 	logger.Debug("building a vectornav IMU")
 	b, err := board.FromRobot(r, config.Attributes.String("board"))
@@ -438,7 +438,7 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't set reference vector")
 	}
-	// enforce acceleration tuinning and reduce "trust" in acceleration data
+	// enforce acceleration tuning and reduce "trust" in acceleration data
 	accVpeTunning := []byte{}
 	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
 	accVpeTunning = append(accVpeTunning, bytesFromFloat32(3)...)
@@ -468,7 +468,7 @@ func NewVectornav(ctx context.Context, r robot.Robot, config config.Component, l
 	if err != nil {
 		return nil, err
 	}
-	// compensate for constant DV bias in mesurament
+	// compensate for constant DV bias in measurement
 	err = v.compensateDVBias(ctx)
 	if err != nil {
 		return nil, err
