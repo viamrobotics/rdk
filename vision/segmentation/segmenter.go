@@ -3,31 +3,46 @@ package segmentation
 import (
 	"context"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/registry"
-	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
 // A Segmenter is a function that takes images/pointclouds from an input camera and segments them into objects.
 type Segmenter func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vision.Object, error)
 
-// GetSegmenter queries the registry of segmenters to look for a Segmenter by name.
-func GetSegmenter(ctx context.Context, segmenterName string) (Segmenter, error) {
-	segmenterConstructor := registry.SegmenterLookup(segmenterName)
-	if segmenterConstructor == nil {
-		return nil, errors.Errorf("cannot find segmenter %q in registry", segmenterName)
+// The segmenter registry.
+var segmenterRegistry = make(map[string]Segmenter)
+
+// RegisterSegmenter registers a Segmenter type to a registration.
+func RegisterSegmenter(name string, seg Segmenter) {
+	if _, old := segmenterRegistry[name]; old {
+		panic(errors.Errorf("trying to register two segmenters with the same name: %s", name))
 	}
-	result, err := segmenterConstructor.Constructor(ctx)
+	if seg == nil {
+		panic(errors.Errorf("cannot register a nil segmenter: %s", name))
+	}
+	segmenterRegistry[name] = seg
+}
+
+// SegmenterLookup looks up a segmenter registration by name. nil is returned if
+// there is no registration.
+func SegmenterLookup(name string) (Segmenter, error) {
+	registration, ok := RegisteredSegmenters()[name]
+	if ok {
+		return registration, nil
+	}
+	return nil, errors.Errorf("no Segmenter with name %q", name)
+}
+
+// RegisteredSegmenters returns a copy of the registered segmenters.
+func RegisteredSegmenters() map[string]Segmenter {
+	copied, err := copystructure.Copy(segmenterRegistry)
 	if err != nil {
-		return nil, err
+		panic(err)
 	}
-	segmenter, ok := result.(Segmenter)
-	if !ok {
-		return nil, utils.NewUnexpectedTypeError(segmenter, result)
-	}
-	return segmenter, nil
+	return copied.(map[string]Segmenter)
 }

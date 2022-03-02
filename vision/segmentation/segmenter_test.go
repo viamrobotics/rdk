@@ -4,29 +4,28 @@ import (
 	"context"
 	"testing"
 
-	"github.com/pkg/errors"
+	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/vision"
 	"go.viam.com/test"
-
-	"go.viam.com/rdk/registry"
 )
 
-func TestGetSegmenter(t *testing.T) {
-	// segmenter that does not exist
-	_, err := GetSegmenter(context.Background(), "does_not_exist")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find segmenter")
-	// segmenter has bad constructor
-	registry.RegisterSegmenter("error_constructor", registry.Segmenter{
-		Constructor: func(ctx context.Context) (interface{}, error) { return nil, errors.New("constructor error") },
-	})
-	_, err = GetSegmenter(context.Background(), "error_constructor")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "constructor error")
-	// returned function is not a segmenter
-	registry.RegisterSegmenter("not_segmenter", registry.Segmenter{
-		Constructor: func(ctx context.Context) (interface{}, error) { return 5, nil },
-	})
-	_, err = GetSegmenter(context.Background(), "not_segmenter")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected segmentation.Segmenter but got int")
+func TestSegmenterRegistry(t *testing.T) {
+	fn := func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vision.Object, error) {
+		return []*vision.Object{vision.NewEmptyObject()}, nil
+	}
+	fnName := "x"
+	// no segmenter
+	test.That(t, func() { RegisterSegmenter(fnName, nil) }, test.ShouldPanic)
 	// success
-	_, err = GetSegmenter(context.Background(), RadiusClusteringSegmenter)
+	RegisterSegmenter(fnName, fn)
+	// look up
+	creator, err := SegmenterLookup(fnName)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, creator, test.ShouldEqual, fn)
+	creator, err = SegmenterLookup("z")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+	test.That(t, creator, test.ShouldBeNil)
+	// duplicate
+	test.That(t, func() { RegisterSegmenter(fnName, fn) }, test.ShouldPanic)
 }

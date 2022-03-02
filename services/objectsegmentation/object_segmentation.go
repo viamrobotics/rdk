@@ -92,7 +92,7 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := segmentation.GetSegmenter(ctx, segmentation.RadiusClusteringSegmenter)
+	segmenter, err := segmentation.SegmenterLookup(segmentation.RadiusClusteringSegmenter)
 	if err != nil {
 		return nil, err
 	}
