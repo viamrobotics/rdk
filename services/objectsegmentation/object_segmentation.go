@@ -92,14 +92,14 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
+	segmenter, err := segmentation.SegmenterLookup(segmentation.RadiusClusteringSegmenter)
+	if err != nil {
+		return nil, err
+	}
 	params := config.AttributeMap{
 		"min_points_in_plane":   pmtrs.MinPtsInPlane,
 		"min_points_in_segment": pmtrs.MinPtsInSegment,
 		"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
 	}
-	segments, err := segmentation.RadiusClustering(ctx, cam, params)
-	if err != nil {
-		return nil, err
-	}
-	return segments, nil
+	return segmenter(ctx, cam, params)
 }
