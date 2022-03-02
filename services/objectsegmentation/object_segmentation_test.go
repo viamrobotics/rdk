@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
+	"go.viam.com/rdk/vision/segmentation"
 )
 
 var testPointCloud = []pointcloud.Point{
@@ -87,7 +88,7 @@ func TestServiceFailures(t *testing.T) {
 	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{})
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", "", config.AttributeMap{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails since camera cannot generate point clouds (no depth in image)
@@ -113,7 +114,12 @@ func TestServiceFailures(t *testing.T) {
 	obs, err = objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{500, 500, 10})
+	params := config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+	}
+	_, err = obs.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, params)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "source has no Projector")
 }
 
@@ -142,7 +148,12 @@ func TestGetObjectPointClouds(t *testing.T) {
 	// from a camera that has a PointCloud func -- apply default
 	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
-	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
+	cfg := config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.0,
+	}
+	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, cfg)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -171,7 +182,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
-	result, err := svc.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{})
+	result, err := svc.GetObjectPointClouds(context.Background(), "", "", config.AttributeMap{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldHaveLength, 2)
 	test.That(t, svc1.timesCalled, test.ShouldEqual, 1)
@@ -200,7 +211,10 @@ type mock struct {
 	timesCalled int
 }
 
-func (m *mock) GetObjectPointClouds(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+func (m *mock) GetObjectPointClouds(ctx context.Context,
+	cameraName string,
+	segmenterName string,
+	params config.AttributeMap) ([]*vision.Object, error) {
 	m.timesCalled++
 	return []*vision.Object{vision.NewEmptyObject(), vision.NewEmptyObject()}, nil
 }
@@ -247,7 +261,12 @@ func TestFullClientServerLoop(t *testing.T) {
 
 	client, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", &vision.Parameters3D{100, 3, 5.})
+	params := config.AttributeMap{
+		"min_points_in_plane":   100,
+		"min_points_in_segment": 3,
+		"clustering_radius_mm":  5.,
+	}
+	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, params)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs), test.ShouldEqual, 2)
 
