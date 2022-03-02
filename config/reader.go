@@ -234,6 +234,20 @@ func CreateCloudRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, er
 	return r, nil
 }
 
+// CreateCloudCertificateRequest makes a request to fetch the robot's TLS
+// certificate from a cloud endpoint.
+func CreateCloudCertificateRequest(ctx context.Context, cloudCfg *Cloud) (*http.Request, error) {
+	url := fmt.Sprintf("%s?id=%s&cert=true", cloudCfg.Path, cloudCfg.ID)
+
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error creating request for %s", url)
+	}
+	r.Header.Set(cloudConfigSecretField, cloudCfg.Secret)
+
+	return r, nil
+}
+
 var viamDotDir = filepath.Join(os.Getenv("HOME"), ".viam")
 
 func getCloudCacheFilePath(id string) string {
@@ -258,10 +272,16 @@ func storeToCache(id string, cfg *Config) error {
 
 // ReadFromCloud fetches a robot config from the cloud based
 // on the given config.
-func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*Config, error) {
+func ReadFromCloud(
+	ctx context.Context,
+	cloudCfg *Cloud,
+	readFromCache bool,
+	checkForNewCert bool,
+	logger golog.Logger,
+) (*Config, *Config, error) {
 	cloudReq, err := CreateCloudRequest(ctx, cloudCfg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var client http.Client
@@ -269,6 +289,7 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 	resp, err := client.Do(cloudReq)
 
 	var configReader io.ReadCloser
+	var cached bool
 	if err == nil {
 		if resp.StatusCode != http.StatusOK {
 			defer func() {
@@ -276,86 +297,192 @@ func ReadFromCloud(ctx context.Context, cloudCfg *Cloud, readFromCache bool) (*C
 			}()
 			rd, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 			if len(rd) != 0 {
-				return nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
+				return nil, nil, errors.Errorf("unexpected status %d: %s", resp.StatusCode, string(rd))
 			}
-			return nil, errors.Errorf("unexpected status %d", resp.StatusCode)
+			return nil, nil, errors.Errorf("unexpected status %d", resp.StatusCode)
 		}
 		configReader = resp.Body
 	} else {
 		if !readFromCache {
-			return nil, err
+			return nil, nil, err
 		}
 		var urlErr *url.Error
-		if !errors.As(err, &urlErr) || urlErr.Temporary() {
-			return nil, err
+		if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
+			return nil, nil, err
 		}
 		var cacheErr error
 		configReader, cacheErr = openFromCache(cloudCfg.ID)
 		if cacheErr != nil {
 			if os.IsNotExist(cacheErr) {
-				return nil, err
+				return nil, nil, err
 			}
-			return nil, cacheErr
+			return nil, nil, cacheErr
 		}
+		cached = true
+		logger.Warnw("unable to get cloud config; using cached version", "error", err)
 	}
 	defer utils.UncheckedErrorFunc(configReader.Close)
 
 	// read the actual config and do not make a cloud request again to avoid
 	// infinite recursion.
-	cfg, err := fromReader(ctx, "", configReader, true)
+	cfg, unprocessedConfig, err := fromReader(ctx, "", configReader, true, logger)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if cfg.Cloud == nil {
-		return nil, errors.New("expected config to have cloud section")
+		return nil, nil, errors.New("expected config to have cloud section")
 	}
-	fqdns := cfg.Cloud.FQDNs
-	signalingAddress := cfg.Cloud.SignalingAddress
-	*cfg.Cloud = *cloudCfg
-	cfg.Cloud.FQDNs = fqdns
-	cfg.Cloud.SignalingAddress = signalingAddress
 
-	if err := storeToCache(cloudCfg.ID, cfg); err != nil {
+	// empty if not cached, since its a separate request, which we check next
+	tlsCertificate := cfg.Cloud.TLSCertificate
+	tlsPrivateKey := cfg.Cloud.TLSPrivateKey
+	if !cached {
+		// get cached certificate data
+		cachedConfigReader, err := openFromCache(cloudCfg.ID)
+		if err == nil {
+			cachedConfig, _, err := fromReader(ctx, "", cachedConfigReader, true, logger)
+			if err != nil {
+				return nil, nil, err
+			}
+			if cachedConfig.Cloud != nil {
+				tlsCertificate = cachedConfig.Cloud.TLSCertificate
+				tlsPrivateKey = cachedConfig.Cloud.TLSPrivateKey
+			}
+		} else if !os.IsNotExist(err) {
+			return nil, nil, err
+		}
+	}
+
+	if checkForNewCert || tlsCertificate == "" || tlsPrivateKey == "" {
+		certReq, err := CreateCloudCertificateRequest(ctx, cloudCfg)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var client http.Client
+		defer client.CloseIdleConnections()
+		resp, err := client.Do(certReq)
+		if err == nil {
+			defer func() {
+				utils.UncheckedError(resp.Body.Close())
+			}()
+
+			dec := json.NewDecoder(resp.Body)
+			var certData Cloud
+			if err := dec.Decode(&certData); err != nil {
+				return nil, nil, errors.Wrap(err, "error decoding certificate data from cloud; try again later")
+			}
+
+			if certData.TLSCertificate == "" {
+				return nil, nil, errors.New("no TLS certificate yet from cloud; try again later")
+			}
+			if certData.TLSPrivateKey == "" {
+				return nil, nil, errors.New("no TLS private key yet from cloud; try again later")
+			}
+
+			tlsCertificate = certData.TLSCertificate
+			tlsPrivateKey = certData.TLSPrivateKey
+		} else {
+			var urlErr *url.Error
+			if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {
+				return nil, nil, err
+			}
+			if tlsCertificate == "" || tlsPrivateKey == "" {
+				return nil, nil, errors.Wrap(err, "error getting certificate data from cloud; try again later")
+			}
+			logger.Warnw("failed to refresh certificate data; using cached for now", "error", err)
+		}
+	}
+
+	fqdn := cfg.Cloud.FQDN
+	localFQDN := cfg.Cloud.LocalFQDN
+	signalingAddress := cfg.Cloud.SignalingAddress
+	managedBy := cfg.Cloud.ManagedBy
+	locationSecret := cfg.Cloud.LocationSecret
+
+	mergeCloudConfig := func(to *Config) {
+		*to.Cloud = *cloudCfg
+		to.Cloud.FQDN = fqdn
+		to.Cloud.LocalFQDN = localFQDN
+		to.Cloud.SignalingAddress = signalingAddress
+		to.Cloud.ManagedBy = managedBy
+		to.Cloud.LocationSecret = locationSecret
+		to.Cloud.TLSCertificate = tlsCertificate
+		to.Cloud.TLSPrivateKey = tlsPrivateKey
+	}
+
+	mergeCloudConfig(cfg)
+	mergeCloudConfig(unprocessedConfig)
+
+	if err := storeToCache(cloudCfg.ID, unprocessedConfig); err != nil {
 		golog.Global.Errorw("failed to cache config", "error", err)
 	}
 
-	return cfg, nil
+	return cfg, unprocessedConfig, nil
 }
 
 // Read reads a config from the given file.
-func Read(ctx context.Context, filePath string) (*Config, error) {
+func Read(
+	ctx context.Context,
+	filePath string,
+	logger golog.Logger,
+) (*Config, error) {
 	buf, err := envsubst.ReadFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 
-	return FromReader(ctx, filePath, bytes.NewReader(buf))
+	return FromReader(ctx, filePath, bytes.NewReader(buf), logger)
 }
 
 // FromReader reads a config from the given reader and specifies
 // where, if applicable, the file the reader originated from.
-func FromReader(ctx context.Context, originalPath string, r io.Reader) (*Config, error) {
-	return fromReader(ctx, originalPath, r, false)
+func FromReader(
+	ctx context.Context,
+	originalPath string,
+	r io.Reader,
+	logger golog.Logger,
+) (*Config, error) {
+	cfg, _, err := fromReader(ctx, originalPath, r, false, logger)
+	return cfg, err
 }
 
-func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud bool) (*Config, error) {
+func fromReader(
+	ctx context.Context,
+	originalPath string,
+	r io.Reader,
+	skipCloud bool,
+	logger golog.Logger,
+) (*Config, *Config, error) {
 	cfg := Config{
 		ConfigFilePath: originalPath,
 	}
+	unprocessedCfg := Config{
+		ConfigFilePath: originalPath,
+	}
 
-	decoder := json.NewDecoder(r)
-	if err := decoder.Decode(&cfg); err != nil {
-		return nil, errors.Wrap(err, "cannot parse config")
+	rd, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := json.Unmarshal(rd, &cfg); err != nil {
+		return nil, nil, errors.Wrap(err, "cannot parse config")
+	}
+	if err := json.Unmarshal(rd, &unprocessedCfg); err != nil {
+		return nil, nil, errors.Wrap(err, "cannot parse config")
 	}
 	if err := cfg.Ensure(skipCloud); err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	if err := unprocessedCfg.Ensure(skipCloud); err != nil {
+		return nil, nil, err
 	}
 
 	if !skipCloud && cfg.Cloud != nil {
-		return ReadFromCloud(ctx, cfg.Cloud, true)
+		return ReadFromCloud(ctx, cfg.Cloud, true, true, logger)
 	}
 
 	for idx, c := range cfg.Components {
@@ -369,7 +496,7 @@ func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud
 
 			n, err := attrConv(v)
 			if err != nil {
-				return nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
+				return nil, nil, errors.Wrapf(err, "error converting attribute for (%s, %s, %s)", c.Type, c.Model, k)
 			}
 			cfg.Components[idx].Attributes[k] = n
 		}
@@ -379,7 +506,7 @@ func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud
 
 		converted, err := conv(c.Attributes)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for (%s, %s)", c.Type, c.Model)
+			return nil, nil, errors.Wrapf(err, "error converting attributes for (%s, %s)", c.Type, c.Model)
 		}
 		cfg.Components[idx].Attributes = nil
 		cfg.Components[idx].ConvertedAttributes = converted
@@ -393,14 +520,14 @@ func fromReader(ctx context.Context, originalPath string, r io.Reader, skipCloud
 
 		converted, err := conv(c.Attributes)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error converting attributes for %s", c.Type)
+			return nil, nil, errors.Wrapf(err, "error converting attributes for %s", c.Type)
 		}
 		cfg.Services[idx].Attributes = nil
 		cfg.Services[idx].ConvertedAttributes = converted
 	}
 
 	if err := cfg.Ensure(skipCloud); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &cfg, nil
+	return &cfg, &unprocessedCfg, nil
 }

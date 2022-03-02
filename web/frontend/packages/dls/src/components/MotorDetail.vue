@@ -12,7 +12,7 @@
       <div class="flex-auto p-2">
         <ViamButton color="danger" group variant="primary">STOP</ViamButton>
       </div>
-      
+
      </div>
       <template v-slot:content>
       <Container>
@@ -106,12 +106,14 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
-import { MotorStatus } from "proto/api/v1/robot_pb";
 import {
-  MotorServiceGoRequest,
-  MotorServiceGoForRequest,
-  MotorServiceGoToRequest,
-} from "proto/api/component/v1/motor_pb";
+  MotorStatus,
+} from "proto/api/robot/v1/robot_pb";
+import {
+  SetPowerRequest,
+  GoForRequest,
+  GoToRequest,
+} from "proto/api/component/motor/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
 import ViamButton from "./Button.vue";
 import ViamBadge from "./Badge.vue";
@@ -201,26 +203,23 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request:
-      | MotorServiceGoRequest
-      | MotorServiceGoForRequest
-      | MotorServiceGoToRequest;
+    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
   } {
     let req;
     switch (this.type) {
       case MotorCommandType.Go:
-        req = new MotorServiceGoRequest();
-        req.setPowerPct((this.speed * this.direction) / 100);
+        req = new SetPowerRequest();
+        req.setPowerPct(this.speed * this.direction);
         break;
       case MotorCommandType.GoFor:
-        req = new MotorServiceGoForRequest();
+        req = new GoForRequest();
         req.setRpm(this.speed * this.direction);
         req.setRevolutions(this.revolutions);
         break;
       case MotorCommandType.GoTo:
-        req = new MotorServiceGoToRequest();
+        req = new GoToRequest();
         req.setRpm(this.speed);
-        req.setPosition(this.position);
+        req.setPositionRevolutions(this.position);
         break;
     }
     return {

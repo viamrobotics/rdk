@@ -38,7 +38,8 @@ type pmtkI2CNMEAGPS struct {
 	addr   byte
 	logger golog.Logger
 
-	data gpsData
+	data        gpsData
+	ntripClient ntripInfo
 
 	cancelCtx               context.Context
 	cancelFunc              func()
@@ -46,9 +47,9 @@ type pmtkI2CNMEAGPS struct {
 }
 
 func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (gps.LocalGPS, error) {
-	b, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, fmt.Errorf("gps init: failed to find board %s", config.Attributes.String("board"))
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	if err != nil {
+		return nil, fmt.Errorf("gps init: failed to find board: %w", err)
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
@@ -65,7 +66,10 @@ func newPmtkI2CNMEAGPS(ctx context.Context, r robot.Robot, config config.Compone
 
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 
-	g := &pmtkI2CNMEAGPS{bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger}
+	g := &pmtkI2CNMEAGPS{
+		bus: i2cbus, addr: byte(addr), cancelCtx: cancelCtx, cancelFunc: cancelFunc, logger: logger,
+		ntripClient: ntripInfo{sendNMEA: false},
+	}
 	g.Start(ctx)
 
 	return g, nil
@@ -132,7 +136,7 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 				if b == 0x0D {
 					if strBuf != "" {
 						g.mu.Lock()
-						err = parseAndUpdate(strBuf, &g.data)
+						err = g.data.parseAndUpdate(strBuf, g.ntripClient)
 						g.mu.Unlock()
 						if err != nil {
 							g.logger.Debugf("can't parse nmea %s : %v", strBuf, err)
@@ -145,10 +149,6 @@ func (g *pmtkI2CNMEAGPS) Start(ctx context.Context) {
 			}
 		}
 	})
-}
-
-func (g *pmtkI2CNMEAGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	return []interface{}{g.data}, nil
 }
 
 func (g *pmtkI2CNMEAGPS) ReadLocation(ctx context.Context) (*geo.Point, error) {

@@ -234,28 +234,28 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
 }
 
-// Volume takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
-// intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to volumes.
+// Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
+// intermediate frames (if any exist) up to and including the end effector, and eturns a map of frame names to geometries.
 // The key for each frame in the map will be the string: "<model_name>:<frame_name>".
-func (sf *solverFrame) Volumes(inputs []frame.Input) (map[string]spatial.Volume, error) {
+func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geometry, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, errors.New("incorrect number of inputs to transform")
 	}
 	var errAll error
 	inputMap := sf.sliceToMap(inputs)
-	volumes := make(map[string]spatial.Volume)
+	sfGeometries := make(map[string]spatial.Geometry)
 	for _, frame := range sf.frames {
-		vols, err := sf.fss.VolumesOfFrame(inputMap, frame, sf.goalFrame)
-		if vols == nil {
-			// only propagate errors that result in nil volume
+		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame, sf.goalFrame)
+		if geometries == nil {
+			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		for name, vol := range vols {
-			volumes[name] = vol
+		for name, geometry := range geometries {
+			sfGeometries[name] = geometry
 		}
 	}
-	return volumes, errAll
+	return sfGeometries, errAll
 }
 
 // DoF returns the summed DoF of all frames between the two solver frames.

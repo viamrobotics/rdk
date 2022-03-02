@@ -1,4 +1,8 @@
 {
+    "network": {
+        "fqdn": "something-unique",
+        "bind_address": ":8080"
+    },
     "components":
     [
         {
@@ -107,7 +111,7 @@
         },
         {
             "name": "forcematrix1",
-            "type": "forcematrix",
+            "type": "force_matrix",
             "model": "fake"
         }
     ],
@@ -150,7 +154,6 @@
     "services":
     [
         {
-            "name": "navigation",
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -159,9 +162,12 @@
                 "gps": "gps1",
                 "base": "base1"
             }
+        },
+        {
+            "type": "object_manipulation"
+        },
+        {
+            "type": "frame_system"
         }
-    ],
-    "network": {
-		"bind_address": ":8080"
-	}
+    ]
 }

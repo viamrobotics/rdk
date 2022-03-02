@@ -39,7 +39,6 @@ const (
 	ComponentTypeBoard           = ComponentType("board")
 	ComponentTypeServo           = ComponentType("servo")
 	ComponentTypeMotor           = ComponentType("motor")
-	ComponentTypeForceMatrix     = ComponentType("forcematrix")
 	ComponentTypeInputController = ComponentType("input_controller")
 )
 
@@ -54,7 +53,7 @@ type Component struct {
 	DependsOn []string      `json:"depends_on"`
 
 	Attributes          AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}
+	ConvertedAttributes interface{}  `json:"-"`
 }
 
 // Ensure Component conforms to flag.Value.
@@ -161,7 +160,7 @@ type Service struct {
 	Name                string       `json:"name"` // NOTE: This property is deprecated for services
 	Type                ServiceType  `json:"type"`
 	Attributes          AttributeMap `json:"attributes"`
-	ConvertedAttributes interface{}
+	ConvertedAttributes interface{}  `json:"-"`
 }
 
 // Ensure Service conforms to flag.Value.

@@ -9,7 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/sensor"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/sensor/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -47,19 +47,19 @@ func TestServer(t *testing.T) {
 			test.That(t, err, test.ShouldBeNil)
 			expected = append(expected, v)
 		}
-		resp, err := sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: testSensorName})
+		resp, err := sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: testSensorName})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resp.Readings, test.ShouldResemble, expected)
 
-		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: failSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: failSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get readings")
 
-		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: fakeSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: fakeSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not a generic sensor")
 
-		_, err = sensorServer.GetReadings(context.Background(), &pb.SensorServiceGetReadingsRequest{Name: missingSensorName})
+		_, err = sensorServer.GetReadings(context.Background(), &pb.GetReadingsRequest{Name: missingSensorName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
 	})

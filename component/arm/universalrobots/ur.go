@@ -23,7 +23,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -62,7 +62,7 @@ func init() {
 
 // Ur5eModel() returns the kinematics model of the xArm, also has all Frame information.
 func ur5eModel() (referenceframe.Model, error) {
-	return referenceframe.ParseJSON(ur5modeljson, "")
+	return referenceframe.UnmarshalModelJSON(ur5modeljson, "")
 }
 
 // URArm TODO.
@@ -132,7 +132,7 @@ func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger
 	var d net.Dialer
 	conn, err := d.DialContext(ctx, "tcp", host+":30001")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("can't connect to ur arm (%s): %w", host, err)
 	}
 
 	cancelCtx, cancel := context.WithCancel(context.Background())

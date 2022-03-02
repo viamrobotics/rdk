@@ -27,15 +27,25 @@ func init() {
 			return CreateFourWheelBase(ctx, r, config, logger)
 		},
 	}
+	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+
 	wheeledBaseComp := registry.Component{
 		Constructor: func(
 			ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger,
 		) (interface{}, error) {
-			return CreateWheeledBase(ctx, r, config, logger)
+			return CreateWheeledBase(ctx, r, config.ConvertedAttributes.(*Config), logger)
 		},
 	}
-	registry.RegisterComponent(base.Subtype, "four-wheel", fourWheelComp)
+
 	registry.RegisterComponent(base.Subtype, "wheeled", wheeledBaseComp)
+	config.RegisterComponentAttributeMapConverter(
+		config.ComponentTypeBase,
+		"wheeled",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf Config
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&Config{})
 }
 
 type wheeledBase struct {
@@ -214,7 +224,7 @@ func (base *wheeledBase) WaitForMotorsToStop(ctx context.Context) error {
 		anyOff := false
 
 		for _, m := range base.allMotors {
-			isOn, err := m.IsOn(ctx)
+			isOn, err := m.IsPowered(ctx)
 			if err != nil {
 				return err
 			}
@@ -254,21 +264,21 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
-	frontLeft, ok := r.MotorByName(config.Attributes.String("frontLeft"))
-	if !ok {
-		return nil, errors.New("frontLeft motor not found")
+	frontLeft, err := motor.FromRobot(r, config.Attributes.String("frontLeft"))
+	if err != nil {
+		return nil, errors.Wrap(err, "frontLeft motor not found")
 	}
-	frontRight, ok := r.MotorByName(config.Attributes.String("frontRight"))
-	if !ok {
-		return nil, errors.New("frontRight motor not found")
+	frontRight, err := motor.FromRobot(r, config.Attributes.String("frontRight"))
+	if err != nil {
+		return nil, errors.Wrap(err, "frontRight motor not found")
 	}
-	backLeft, ok := r.MotorByName(config.Attributes.String("backLeft"))
-	if !ok {
-		return nil, errors.New("backLeft motor not found")
+	backLeft, err := motor.FromRobot(r, config.Attributes.String("backLeft"))
+	if err != nil {
+		return nil, errors.Wrap(err, "backLeft motor not found")
 	}
-	backRight, ok := r.MotorByName(config.Attributes.String("backRight"))
-	if !ok {
-		return nil, errors.New("backRight motor not found")
+	backRight, err := motor.FromRobot(r, config.Attributes.String("backRight"))
+	if err != nil {
+		return nil, errors.Wrap(err, "backRight motor not found")
 	}
 
 	base := &wheeledBase{
@@ -293,34 +303,47 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 	return base, nil
 }
 
+// Config is how you configure a wheeled base.
+type Config struct {
+	WidthMM              int      `json:"width_mm"`
+	WheelCircumferenceMM int      `json:"wheel_circumference_mm"`
+	SpinSlipFactor       float64  `json:"spin_slip_factor,omitempty"`
+	Left                 []string `json:"left"`
+	Right                []string `json:"right"`
+}
+
 // CreateWheeledBase returns a new wheeled base defined by the given config.
-func CreateWheeledBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
+func CreateWheeledBase(ctx context.Context, r robot.Robot, config *Config, logger golog.Logger) (base.LocalBase, error) {
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("widthMm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
+		widthMm:              config.WidthMM,
+		wheelCircumferenceMm: config.WheelCircumferenceMM,
+		spinSlipFactor:       config.SpinSlipFactor,
 	}
 
 	if base.widthMm == 0 {
-		return nil, errors.New("need a widthMm for a wheeled base")
+		return nil, errors.New("need a width_mm for a wheeled base")
 	}
 
 	if base.wheelCircumferenceMm == 0 {
-		return nil, errors.New("need a wheelCircumferenceMm for a wheeled base")
+		return nil, errors.New("need a wheel_circumference_mm for a wheeled base")
 	}
 
-	for _, name := range config.Attributes.StringSlice("left") {
-		m, ok := r.MotorByName(name)
-		if !ok {
-			return nil, fmt.Errorf("no left motor named (%s)", name)
+	if base.spinSlipFactor == 0 {
+		base.spinSlipFactor = 1
+	}
+
+	for _, name := range config.Left {
+		m, err := motor.FromRobot(r, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no left motor named (%s)", name)
 		}
 		base.left = append(base.left, m)
 	}
 
-	for _, name := range config.Attributes.StringSlice("right") {
-		m, ok := r.MotorByName(name)
-		if !ok {
-			return nil, fmt.Errorf("no right motor named (%s)", name)
+	for _, name := range config.Right {
+		m, err := motor.FromRobot(r, name)
+		if err != nil {
+			return nil, errors.Wrapf(err, "no right motor named (%s)", name)
 		}
 		base.right = append(base.right, m)
 	}

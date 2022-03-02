@@ -10,8 +10,8 @@ import (
 
 // Encoder keeps track of a motor position.
 type Encoder interface {
-	// Position returns the current position in terms of ticks
-	Position(ctx context.Context) (int64, error)
+	// GetPosition returns the current position in terms of ticks
+	GetPosition(ctx context.Context) (int64, error)
 
 	// ResetZeroPosition sets the current position of the motor (adjusted by a given offset)
 	// to be its new zero position
@@ -146,8 +146,8 @@ func (e *HallEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers *
 	}, activeBackgroundWorkers.Done)
 }
 
-// Position returns the current position.
-func (e *HallEncoder) Position(ctx context.Context) (int64, error) {
+// GetPosition returns the current position.
+func (e *HallEncoder) GetPosition(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 
@@ -225,8 +225,8 @@ func (e *SingleEncoder) Start(cancelCtx context.Context, activeBackgroundWorkers
 	}, activeBackgroundWorkers.Done)
 }
 
-// Position returns the current position.
-func (e *SingleEncoder) Position(ctx context.Context) (int64, error) {
+// GetPosition returns the current position.
+func (e *SingleEncoder) GetPosition(ctx context.Context) (int64, error) {
 	return atomic.LoadInt64(&e.position), nil
 }
 

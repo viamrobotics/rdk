@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -33,18 +33,18 @@ func (server *subtypeServer) getServo(name string) (Servo, error) {
 	return servo, nil
 }
 
-func (server *subtypeServer) Move(ctx context.Context, req *pb.ServoServiceMoveRequest) (*pb.ServoServiceMoveResponse, error) {
+func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
 	servo, err := server.getServo(req.GetName())
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ServoServiceMoveResponse{}, servo.Move(ctx, uint8(req.GetAngleDeg()))
+	return &pb.MoveResponse{}, servo.Move(ctx, uint8(req.GetAngleDeg()))
 }
 
 func (server *subtypeServer) GetPosition(
 	ctx context.Context,
-	req *pb.ServoServiceGetPositionRequest,
-) (*pb.ServoServiceGetPositionResponse, error) {
+	req *pb.GetPositionRequest,
+) (*pb.GetPositionResponse, error) {
 	servo, err := server.getServo(req.GetName())
 	if err != nil {
 		return nil, err
@@ -53,5 +53,5 @@ func (server *subtypeServer) GetPosition(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.ServoServiceGetPositionResponse{PositionDeg: uint32(angleDeg)}, nil
+	return &pb.GetPositionResponse{PositionDeg: uint32(angleDeg)}, nil
 }

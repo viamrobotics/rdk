@@ -2,11 +2,11 @@ package objectmanipulation_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -16,10 +16,11 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestDoGrabFailures(t *testing.T) {
-	cfgService := config.Service{Name: "objectmanipulation"}
+	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
 	var r *inject.Robot
@@ -29,8 +30,8 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r = &inject.Robot{}
-	r.ResourceByNameFunc = func(resource.Name) (interface{}, bool) {
-		return nil, false
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(n)
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -51,14 +52,14 @@ func TestDoGrabFailures(t *testing.T) {
 	r.ResourceNamesFunc = func() []resource.Name {
 		return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
 	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		switch n.Name {
 		case "fakeArm":
-			return _arm, true
+			return _arm, nil
 		case "fakeGripper":
-			return _gripper, true
+			return _gripper, nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(n)
 		}
 	}
 
@@ -80,7 +81,7 @@ func TestDoGrab(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read(ctx, "data/moving_arm.json")
+	cfg, err := config.Read(ctx, "data/moving_arm.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -98,7 +99,7 @@ func TestMultiplePieces(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	cfg, err := config.Read(ctx, "data/fake_tomato.json")
+	cfg, err := config.Read(ctx, "data/fake_tomato.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
@@ -115,4 +116,55 @@ func TestMultiplePieces(t *testing.T) {
 	theArm, _ := arm.FromRobot(myRobot, "a")
 	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
+}
+
+func setupInjectRobot() (*inject.Robot, *mock) {
+	svc1 := &mock{}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
+	}
+	return r, svc1
+}
+
+func TestFromRobot(t *testing.T) {
+	r, svc1 := setupInjectRobot()
+
+	svc, err := objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, svc, test.ShouldNotBeNil)
+
+	result, err := svc.DoGrab(context.Background(), "", "", "", &r3.Vector{})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldEqual, success)
+	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return "not object manipulation", nil
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
+	test.That(t, svc, test.ShouldBeNil)
+
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(name)
+	}
+
+	svc, err = objectmanipulation.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(objectmanipulation.Name))
+	test.That(t, svc, test.ShouldBeNil)
+}
+
+const success = false
+
+type mock struct {
+	objectmanipulation.Service
+
+	grabCount int
+}
+
+func (m *mock) DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+	m.grabCount++
+	return success, nil
 }

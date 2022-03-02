@@ -14,8 +14,9 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	viamgrpc "go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -45,7 +46,7 @@ func TestClient(t *testing.T) {
 	injectGPS2.ReadAltitudeFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get altitude") }
 	injectGPS2.ReadSpeedFunc = func(ctx context.Context) (float64, error) { return 0, errors.New("can't get speed") }
 
-	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2}))
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS, gps.Named(failGPSName): injectGPS2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(gps.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, gpsSvc)
@@ -57,14 +58,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gps.NewClient(cancelCtx, testGPSName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = gps.NewClient(cancelCtx, testGPSName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("GPS client 1", func(t *testing.T) {
 		// working
-		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		gps1Client, err := gps.NewClient(context.Background(), testGPSName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		loc1, err := gps1Client.ReadLocation(context.Background())
@@ -79,7 +80,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, speed1, test.ShouldAlmostEqual, speed)
 
-		rs1, err := gps1Client.GetReadings(context.Background())
+		rs1, err := gps1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
 
@@ -87,7 +88,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("GPS client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failGPSName, logger)
 		gps2Client, ok := client.(gps.GPS)
@@ -105,7 +106,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get speed")
 
-		_, err = gps2Client.GetReadings(context.Background())
+		_, err = gps2Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't get location")
 
@@ -120,7 +121,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGPS := &inject.GPS{}
 
-	gpsSvc, err := subtype.New((map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS}))
+	gpsSvc, err := subtype.New(map[resource.Name]interface{}{gps.Named(testGPSName): injectGPS})
 	test.That(t, err, test.ShouldBeNil)
 	pb.RegisterGPSServiceServer(gServer, gps.NewServer(gpsSvc))
 
@@ -129,11 +130,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := gps.NewClient(ctx, testGPSName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

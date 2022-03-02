@@ -3,8 +3,6 @@ package config
 import (
 	"encoding/json"
 
-	"github.com/golang/geo/r3"
-
 	ref "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -25,9 +23,9 @@ The Orientation field is an interface. When writing a config file, the orientati
 }.
 */
 type Frame struct {
-	Parent      string              `json:"parent"`
-	Translation spatial.Translation `json:"translation"`
-	Orientation spatial.Orientation `json:"orientation"`
+	Parent      string                    `json:"parent"`
+	Translation spatial.TranslationConfig `json:"translation"`
+	Orientation spatial.Orientation       `json:"orientation"`
 }
 
 // Pose combines Translation and Orientation in a Pose.
@@ -44,16 +42,16 @@ func (f *Frame) StaticFrame(name string) (ref.Frame, error) {
 // UnmarshalJSON will parse the Orientation field into a spatial.Orientation object from a json.rawMessage.
 func (f *Frame) UnmarshalJSON(b []byte) error {
 	temp := struct {
-		Parent      string                 `json:"parent"`
-		Translation spatial.Translation    `json:"translation"`
-		Orientation spatial.RawOrientation `json:"orientation"`
+		Parent      string                    `json:"parent"`
+		Translation spatial.TranslationConfig `json:"translation"`
+		Orientation spatial.OrientationConfig `json:"orientation"`
 	}{}
 
 	err := json.Unmarshal(b, &temp)
 	if err != nil {
 		return err
 	}
-	orientation, err := spatial.ParseOrientation(temp.Orientation)
+	orientation, err := temp.Orientation.ParseConfig()
 	if err != nil {
 		return err
 	}
@@ -94,6 +92,5 @@ func MergeFrameSystems(toFS, fromFS ref.FrameSystem, cfg *Frame) error {
 // makePose creates a new pose from a config.
 func makePose(cfg *Frame) spatial.Pose {
 	// get the translation vector. If there is no translation/orientation attribute will default to 0
-	translation := r3.Vector{cfg.Translation.X, cfg.Translation.Y, cfg.Translation.Z}
-	return spatial.NewPoseFromOrientation(translation, cfg.Orientation)
+	return spatial.NewPoseFromOrientation(cfg.Translation.ParseConfig(), cfg.Orientation)
 }

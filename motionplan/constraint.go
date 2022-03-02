@@ -128,16 +128,38 @@ func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
 	return dist <= epsilon
 }
 
+// CollisionConstraintFromFrame takes a frame and will construct a self-collision constraint from it if available.
+func CollisionConstraintFromFrame(f referenceframe.Frame) Constraint {
+	// Add self-collision check if available
+	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
+	dof := len(f.DoF())
+	zeroInput := make([]referenceframe.Input, 0, dof)
+	for i := 0; i < dof; i++ {
+		zeroInput = append(zeroInput, referenceframe.Input{0})
+	}
+	zeroVols, err := f.Geometries(zeroInput)
+	if zeroVols == nil && err != nil {
+		// No collision avoidance available
+		return nil
+	}
+	zeroCG, err := CheckCollisions(zeroVols)
+	if zeroCG == nil || err != nil {
+		// No collision avoidance available
+		return nil
+	}
+	return NewCollisionConstraint(zeroCG)
+}
+
 // NewCollisionConstraint creates a constraint function that will decide if the StartInput of a given ConstraintInput
-// is valid. This function will check for collisions between the volumes in the provided input's frame.
+// is valid. This function will check for collisions between the geometries in the provided input's frame.
 // Collisions present in the provided reference CollisionGraph will not be ignored.
 func NewCollisionConstraint(reference *CollisionGraph) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
-		vols, err := cInput.Frame.Volumes(cInput.StartInput)
-		if err != nil && vols == nil {
+		geometries, err := cInput.Frame.Geometries(cInput.StartInput)
+		if err != nil && geometries == nil {
 			return false, 0
 		}
-		cg, err := CheckUniqueCollisions(vols, reference)
+		cg, err := CheckUniqueCollisions(geometries, reference)
 		if err != nil {
 			return false, 0
 		}
@@ -218,7 +240,16 @@ func orientDistToRegion(goal spatial.Orientation, alpha float64) func(spatial.Or
 	ov1 := goal.OrientationVectorRadians()
 	return func(o spatial.Orientation) float64 {
 		ov2 := o.OrientationVectorRadians()
-		dist := math.Acos(ov1.OX*ov2.OX + ov1.OY*ov2.OY + ov1.OZ*ov2.OZ)
+		acosInput := ov1.OX*ov2.OX + ov1.OY*ov2.OY + ov1.OZ*ov2.OZ
+
+		// Account for floating point issues
+		if acosInput > 1.0 {
+			acosInput = 1.0
+		}
+		if acosInput < -1.0 {
+			acosInput = -1.0
+		}
+		dist := math.Acos(acosInput)
 		return math.Max(0, dist-alpha)
 	}
 }

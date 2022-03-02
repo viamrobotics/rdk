@@ -112,6 +112,10 @@ func TestOrientationBetween(t *testing.T) {
 	test.That(t, result.OZ, test.ShouldAlmostEqual, btw.OZ)
 }
 
+func TestOrientationInverse(t *testing.T) {
+	test.That(t, OrientationAlmostEqual(OrientationInverse(aa45x), &R4AA{-th, 1., 0., 0.}), test.ShouldBeTrue)
+}
+
 func testCompatibility(t *testing.T, o Orientation) {
 	t.Helper()
 

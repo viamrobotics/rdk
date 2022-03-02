@@ -2,6 +2,8 @@ package robotimpl_test
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"math"
 	"os"
@@ -10,9 +12,11 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/board"
@@ -20,22 +24,24 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
+	rtestutils "go.viam.com/rdk/testutils"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestConfig1(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/cfgtest1.json")
+	cfg, err := config.Read(context.Background(), "data/cfgtest1.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -44,8 +50,8 @@ func TestConfig1(t *testing.T) {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	}()
 
-	c1, ok := r.CameraByName("c1")
-	test.That(t, ok, test.ShouldBeTrue)
+	c1, err := camera.FromRobot(r, "c1")
+	test.That(t, err, test.ShouldBeNil)
 	pic, _, err := c1.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
@@ -58,7 +64,7 @@ func TestConfig1(t *testing.T) {
 
 func TestConfigFake(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -68,14 +74,14 @@ func TestConfigFake(t *testing.T) {
 
 func TestConfigRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	metadataSvc, err := service.New()
 	test.That(t, err, test.ShouldBeNil)
 	ctx := service.ContextWithService(context.Background(), metadataSvc)
 
-	r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	r, err := robotimpl.New(ctx, cfg, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
 		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -85,9 +91,9 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	options := web.NewOptions()
 	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
-	svc, ok := r.ResourceByName(web.Name)
-	test.That(t, ok, test.ShouldBeTrue)
-	err = svc.(web.Service).Start(ctx, options)
+	svc, err := web.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
 	addr := fmt.Sprintf("localhost:%d", port)
@@ -114,7 +120,7 @@ func TestConfigRemote(t *testing.T) {
 				Prefix:  true,
 				Frame: &config.Frame{
 					Parent:      "foo",
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
@@ -129,23 +135,20 @@ func TestConfigRemote(t *testing.T) {
 				Address: addr,
 				Frame: &config.Frame{
 					Parent:      referenceframe.World,
-					Translation: spatialmath.Translation{100, 200, 300},
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
 				},
 			},
 		},
 	}
 
-	r2, err := robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := r2.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
 	expectedStatus := &pb.Status{
-		Bases: map[string]bool{
-			"foo": true,
-		},
 		Arms: map[string]*pb.ArmStatus{
 			"pieceArm": {
 				GridPosition: &pb.Pose{
@@ -178,15 +181,18 @@ func TestConfigRemote(t *testing.T) {
 				},
 			},
 		},
-		Grippers: map[string]bool{
-			"pieceGripper":     true,
-			"foo.pieceGripper": true,
-			"bar.pieceGripper": true,
+		Bases: map[string]bool{
+			"foo": true,
 		},
 		Cameras: map[string]bool{
 			"cameraOver":     true,
 			"foo.cameraOver": true,
 			"bar.cameraOver": true,
+		},
+		Grippers: map[string]bool{
+			"pieceGripper":     true,
+			"foo.pieceGripper": true,
+			"bar.pieceGripper": true,
 		},
 		Sensors: nil,
 		Functions: map[string]bool{
@@ -200,6 +206,7 @@ func TestConfigRemote(t *testing.T) {
 		Services: map[string]bool{
 			"rdk:service:frame_system": true,
 			"rdk:service:web":          true,
+			"rdk:service:sensors":      true,
 		},
 	}
 
@@ -210,15 +217,15 @@ func TestConfigRemote(t *testing.T) {
 	test.That(t, 16, test.ShouldEqual, len(cfg2.Components))
 
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.Translation{500, 500, 1000})
+	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
 	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
@@ -232,25 +239,25 @@ func TestConfigRemote(t *testing.T) {
 
 func TestConfigRemoteWithAuth(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	for _, tc := range []struct {
-		Case        string
-		Managed     bool
-		EntityNames []string
+		Case       string
+		Managed    bool
+		EntityName string
 	}{
 		{Case: "unmanaged and default host"},
-		{Case: "unmanaged and specific host", EntityNames: []string{"something-different", "something-really-different"}},
+		{Case: "unmanaged and specific host", EntityName: "something-different"},
 		{Case: "managed and default host", Managed: true},
-		{Case: "managed and specific host", Managed: true, EntityNames: []string{"something-different", "something-really-different"}},
+		{Case: "managed and specific host", Managed: true, EntityName: "something-different"},
 	} {
 		t.Run(tc.Case, func(t *testing.T) {
 			metadataSvc, err := service.New()
 			test.That(t, err, test.ShouldBeNil)
 			ctx := service.ContextWithService(context.Background(), metadataSvc)
 
-			r, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+			r, err := robotimpl.New(ctx, cfg, logger)
 			test.That(t, err, test.ShouldBeNil)
 			defer func() {
 				test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -259,10 +266,14 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			port, err := utils.TryReserveRandomPort()
 			test.That(t, err, test.ShouldBeNil)
 			options := web.NewOptions()
-			options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+			addr := fmt.Sprintf("localhost:%d", port)
+			options.Network.BindAddress = addr
 			options.Managed = tc.Managed
-			options.FQDNs = tc.EntityNames
+			options.FQDN = tc.EntityName
+			options.LocalFQDN = primitive.NewObjectID().Hex()
 			apiKey := "sosecret"
+			locationSecret := "locsosecret"
+
 			options.Auth.Handlers = []config.AuthHandlerConfig{
 				{
 					Type: rpc.CredentialsTypeAPIKey,
@@ -270,69 +281,104 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 						"key": apiKey,
 					},
 				},
-			}
-			svc, ok := r.ResourceByName(web.Name)
-			test.That(t, ok, test.ShouldBeTrue)
-			err = svc.(web.Service).Start(ctx, options)
-			test.That(t, err, test.ShouldBeNil)
-
-			addr := fmt.Sprintf("localhost:%d", port)
-			remoteConfig := &config.Config{
-				Remotes: []config.Remote{
-					{
-						Name:    "foo",
-						Address: addr,
+				{
+					Type: rutils.CredentialsTypeRobotLocationSecret,
+					Config: config.AttributeMap{
+						"secret": locationSecret,
 					},
 				},
 			}
 
-			_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+			if tc.Managed {
+				options.BakedAuthEntity = "blah"
+				options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
+			}
+			svc, err := web.FromRobot(r)
+			test.That(t, err, test.ShouldBeNil)
+			err = svc.Start(ctx, options)
+			test.That(t, err, test.ShouldBeNil)
+
+			entityName := tc.EntityName
+			if entityName == "" {
+				entityName = options.LocalFQDN
+			}
+
+			remoteConfig := &config.Config{
+				Debug: true,
+				Remotes: []config.Remote{
+					{
+						Name:    "foo",
+						Address: addr,
+						Auth: config.RemoteAuth{
+							Managed: tc.Managed,
+						},
+						Prefix: true,
+					},
+					{
+						Name:    "bar",
+						Address: addr,
+						Auth: config.RemoteAuth{
+							Managed: tc.Managed,
+						},
+					},
+				},
+			}
+
+			_, err = robotimpl.New(context.Background(), remoteConfig, logger)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-
-			entityNames := tc.EntityNames
-			if len(entityNames) == 0 {
-				entityNames = []string{web.DefaultFQDN}
-			}
-			for _, entityName := range entityNames {
-				t.Run(fmt.Sprintf("auth required for %s", entityName), func(t *testing.T) {
-					_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(
-						rpc.WithInsecure(),
-						rpc.WithEntityCredentials(entityName, rpc.Credentials{
-							Type:    rpc.CredentialsTypeAPIKey,
-							Payload: apiKey,
-						}),
-					))
-					test.That(t, err, test.ShouldNotBeNil)
-					test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
-				})
-			}
 
 			remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
 				Type:    rpc.CredentialsTypeAPIKey,
 				Payload: apiKey,
 			}
+			remoteConfig.Remotes[1].Auth.Credentials = &rpc.Credentials{
+				Type:    rutils.CredentialsTypeRobotLocationSecret,
+				Payload: locationSecret,
+			}
 
 			var r2 robot.LocalRobot
 			if tc.Managed {
-				_, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				remoteConfig.Remotes[0].Auth.Entity = "wrong"
+				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+
+				remoteConfig.AllowInsecureCreds = true
+
+				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				for idx, entityName := range entityNames {
-					t.Run(fmt.Sprintf("good auth for %s", entityName), func(t *testing.T) {
-						remoteConfig.Remotes[0].Auth.Entity = entityName
-						r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
-						test.That(t, err, test.ShouldBeNil)
-						if idx != len(entityNames)-1 {
-							test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
-						}
-					})
+				remoteConfig.Remotes[0].Auth.Entity = entityName
+				remoteConfig.Remotes[1].Auth.Entity = entityName
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				if tc.EntityName != "" {
+					remoteConfig.Remotes[1].Address = options.FQDN
 				}
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldBeNil)
 			} else {
-				r2, err = robotimpl.New(context.Background(), remoteConfig, logger, client.WithDialOptions(rpc.WithInsecure()))
+				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldNotBeNil)
+				test.That(t, err.Error(), test.ShouldContainSubstring, "must use Config.AllowInsecureCreds")
+
+				remoteConfig.AllowInsecureCreds = true
+
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+				remoteConfig.Remotes[0].Address = options.LocalFQDN
+				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
 			}
+
+			test.That(t, r2, test.ShouldNotBeNil)
 
 			status, err := r2.Status(context.Background())
 			test.That(t, err, test.ShouldBeNil)
@@ -349,38 +395,223 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 							Degrees: []float64{0, 0, 0, 0, 0, 0},
 						},
 					},
-				},
-				Grippers: map[string]bool{
-					"pieceGripper": true,
+					"foo.pieceArm": {
+						GridPosition: &pb.Pose{
+							X: 0.0,
+							Y: 0.0,
+							Z: 0.0,
+						},
+						JointPositions: &pb.JointPositions{
+							Degrees: []float64{0, 0, 0, 0, 0, 0},
+						},
+					},
 				},
 				Cameras: map[string]bool{
-					"cameraOver": true,
+					"cameraOver":     true,
+					"foo.cameraOver": true,
+				},
+				Grippers: map[string]bool{
+					"pieceGripper":     true,
+					"foo.pieceGripper": true,
 				},
 				Sensors: nil,
 				Functions: map[string]bool{
-					"func1": true,
-					"func2": true,
+					"func1":     true,
+					"func2":     true,
+					"foo.func1": true,
+					"foo.func2": true,
 				},
 				Services: map[string]bool{
-					"rdk:service:web": true,
+					"rdk:service:web":          true,
+					"rdk:service:frame_system": true,
+					"rdk:service:sensors":      true,
 				},
 			}
 
 			test.That(t, status, test.ShouldResemble, expectedStatus)
+			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
-			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 		})
 	}
+}
+
+func TestConfigRemoteWithTLSAuth(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	metadataSvc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx := service.ContextWithService(context.Background(), metadataSvc)
+
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, r.Close(context.Background()), test.ShouldBeNil)
+	}()
+
+	altName := primitive.NewObjectID().Hex()
+	cert, _, _, certPool, err := testutils.GenerateSelfSignedCertificate("somename", altName)
+	test.That(t, err, test.ShouldBeNil)
+
+	leaf, err := x509.ParseCertificate(cert.Certificate[0])
+	test.That(t, err, test.ShouldBeNil)
+
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	addr := fmt.Sprintf("localhost:%d", port)
+	options.Network.BindAddress = addr
+	options.Network.TLSConfig = &tls.Config{
+		RootCAs:      certPool,
+		ClientCAs:    certPool,
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
+		ClientAuth:   tls.VerifyClientCertIfGiven,
+	}
+	options.Auth.TLSAuthEntities = leaf.DNSNames
+	options.Managed = true
+	options.FQDN = altName
+	locationSecret := "locsosecret"
+
+	options.Auth.Handlers = []config.AuthHandlerConfig{
+		{
+			Type: rutils.CredentialsTypeRobotLocationSecret,
+			Config: config.AttributeMap{
+				"secret": locationSecret,
+			},
+		},
+	}
+
+	options.BakedAuthEntity = "blah"
+	options.BakedAuthCreds = rpc.Credentials{Type: "blah"}
+
+	svc, err := r.ResourceByName(web.Name)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.(web.Service).Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+
+	remoteTLSConfig := options.Network.TLSConfig.Clone()
+	remoteTLSConfig.Certificates = nil
+	remoteTLSConfig.ServerName = "somename"
+	remoteConfig := &config.Config{
+		Debug: true,
+		Remotes: []config.Remote{
+			{
+				Name:    "foo",
+				Address: addr,
+				Auth: config.RemoteAuth{
+					Managed: true,
+				},
+			},
+		},
+		Network: config.NetworkConfig{
+			NetworkConfigData: config.NetworkConfigData{
+				TLSConfig: remoteTLSConfig,
+			},
+		},
+	}
+
+	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	remoteConfig.Remotes[0].Auth.Entity = "wrong"
+	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	remoteConfig.Remotes[0].Auth.Entity = options.FQDN
+	_, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
+
+	// use secret
+	remoteConfig.Remotes[0].Auth.Credentials = &rpc.Credentials{
+		Type:    rutils.CredentialsTypeRobotLocationSecret,
+		Payload: locationSecret,
+	}
+	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	// use cert
+	remoteTLSConfig.Certificates = []tls.Certificate{cert}
+	r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	// use cert with mDNS
+	remoteConfig.Remotes[0].Address = options.FQDN
+	r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	// use signaling creds
+	remoteConfig.Remotes[0].Address = addr
+	remoteConfig.Remotes[0].Auth.Credentials = nil
+	remoteConfig.Remotes[0].Auth.SignalingServerAddress = addr
+	remoteConfig.Remotes[0].Auth.SignalingAuthEntity = options.FQDN
+	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
+		Type:    rutils.CredentialsTypeRobotLocationSecret,
+		Payload: locationSecret,
+	}
+	r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	// use cert with mDNS while signaling present
+	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
+		Type:    rutils.CredentialsTypeRobotLocationSecret,
+		Payload: locationSecret + "bad",
+	}
+	remoteConfig.Remotes[0].Address = options.FQDN
+	r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	status, err := r2.Status(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedStatus := &pb.Status{
+		Arms: map[string]*pb.ArmStatus{
+			"pieceArm": {
+				GridPosition: &pb.Pose{
+					X: 0.0,
+					Y: 0.0,
+					Z: 0.0,
+				},
+				JointPositions: &pb.JointPositions{
+					Degrees: []float64{0, 0, 0, 0, 0, 0},
+				},
+			},
+		},
+		Grippers: map[string]bool{
+			"pieceGripper": true,
+		},
+		Cameras: map[string]bool{
+			"cameraOver": true,
+		},
+		Sensors: nil,
+		Functions: map[string]bool{
+			"func1": true,
+			"func2": true,
+		},
+		Services: map[string]bool{
+			"rdk:service:web":          true,
+			"rdk:service:frame_system": true,
+			"rdk:service:sensors":      true,
+		},
+	}
+
+	test.That(t, status, test.ShouldResemble, expectedStatus)
+	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
 
 type dummyBoard struct {
 	board.LocalBoard
 	closeCount int
-}
-
-func (db *dummyBoard) MotorNames() []string {
-	return nil
 }
 
 func (db *dummyBoard) SPINames() []string {
@@ -439,19 +670,19 @@ func TestNewTeardown(t *testing.T) {
     "components": [
         {
             "model": "%[1]s",
-            "name": "gripper1",
-            "type": "gripper",
-            "depends_on": ["board1"]
+            "name": "board1",
+            "type": "board"
         },
         {
             "model": "%[1]s",
-            "name": "board1",
-            "type": "board"
+            "name": "gripper1",
+            "type": "gripper",
+            "depends_on": ["board1"]
         }
     ]
 }
 `, modelName)
-	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig))
+	cfg, err := config.FromReader(context.Background(), "", strings.NewReader(failingConfig), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = robotimpl.New(context.Background(), cfg, logger)
@@ -462,7 +693,7 @@ func TestNewTeardown(t *testing.T) {
 
 func TestMetadataUpdate(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	ctx := context.Background()
@@ -475,20 +706,14 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
-	// 8 declared resources + default web and metadata service
-	test.That(t, len(svc.All()), test.ShouldEqual, 10)
+	// 8 declared resources + default web, sensors, and metadata service
+	test.That(t, len(svc.All()), test.ShouldEqual, 11)
 
 	resources := map[resource.Name]struct{}{
 		{
-			UUID: "00db7188-edaa-5ea9-b573-80ce7d2cee61",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeService,
-				},
-				ResourceSubtype: service.SubtypeName,
-			},
-			Name: "",
+			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
+			Subtype: service.Subtype,
+			Name:    "",
 		}: {},
 		{
 			UUID:    "a2521aec-dd23-5bd4-bfe6-21d9887c917f",
@@ -499,6 +724,21 @@ func TestMetadataUpdate(t *testing.T) {
 			UUID:    "f926189a-1206-5af1-8cc6-cc934c2a6d59",
 			Subtype: camera.Subtype,
 			Name:    "cameraOver",
+		}: {},
+		{
+			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
+			Subtype: gripper.Subtype,
+			Name:    "pieceGripper",
+		}: {},
+		{
+			UUID:    "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
+			Subtype: gps.Subtype,
+			Name:    "gps1",
+		}: {},
+		{
+			UUID:    "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
+			Subtype: gps.Subtype,
+			Name:    "gps2",
 		}: {},
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
@@ -523,33 +763,6 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		}: {},
 		{
-			UUID:    "6e1135a7-4ce9-54bc-b9e4-1c50aa9b5ce8",
-			Subtype: gripper.Subtype,
-			Name:    "pieceGripper",
-		}: {},
-		{
-			UUID: "07c9cc8d-f36d-5f7d-a114-5a38b96a148c",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps1",
-		}: {},
-		{
-			UUID: "d89112b0-8f1c-51ea-a4ab-87b9129ae671",
-			Subtype: resource.Subtype{
-				Type: resource.Type{
-					Namespace:    resource.ResourceNamespaceRDK,
-					ResourceType: resource.ResourceTypeComponent,
-				},
-				ResourceSubtype: gps.SubtypeName,
-			},
-			Name: "gps2",
-		}: {},
-		{
 			UUID:    "e1c00c06-16ca-5069-be52-30084eb40d4f",
 			Subtype: framesystem.Subtype,
 			Name:    "",
@@ -559,6 +772,11 @@ func TestMetadataUpdate(t *testing.T) {
 			Subtype: web.Subtype,
 			Name:    "",
 		}: {},
+		{
+			UUID:    "69f2c4af-f71e-5c49-90b8-9e4a4bf2e900",
+			Subtype: sensors.Subtype,
+			Name:    "",
+		}: {},
 	}
 	svcResources := svc.All()
 	svcResourcesSet := make(map[resource.Name]struct{})
@@ -566,4 +784,42 @@ func TestMetadataUpdate(t *testing.T) {
 		svcResourcesSet[r] = struct{}{}
 	}
 	test.That(t, svcResourcesSet, test.ShouldResemble, resources)
+}
+
+func TestSensorsService(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	r, err := robotimpl.New(context.Background(), cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	svc, err := sensors.FromRobot(r)
+	test.That(t, err, test.ShouldBeNil)
+
+	sensorNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	foundSensors, err := svc.GetSensors(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, rtestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rtestutils.NewResourceNameSet(sensorNames...))
+
+	readings1 := []interface{}{0.0, 0.0, 0.0, 0.0, 0, 0, 0.0, 0.0, false}
+	expected := map[resource.Name]interface{}{
+		gps.Named("gps1"): readings1,
+		gps.Named("gps2"): readings1,
+	}
+
+	readings, err := svc.GetReadings(context.Background(), []resource.Name{gps.Named("gps1")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 1)
+	test.That(t, readings[0].Name, test.ShouldResemble, gps.Named("gps1"))
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+
+	readings, err = svc.GetReadings(context.Background(), sensorNames)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(readings), test.ShouldEqual, 2)
+
+	test.That(t, readings[0].Readings, test.ShouldResemble, expected[readings[0].Name])
+	test.That(t, readings[1].Readings, test.ShouldResemble, expected[readings[1].Name])
+
+	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }

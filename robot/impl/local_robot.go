@@ -13,69 +13,23 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/pexec"
 
-	// register arm.
-	_ "go.viam.com/rdk/component/arm/register"
-	"go.viam.com/rdk/component/base"
-
-	// register base.
-	_ "go.viam.com/rdk/component/base/register"
-	"go.viam.com/rdk/component/board"
-
-	// register board.
-	_ "go.viam.com/rdk/component/board/register"
-	"go.viam.com/rdk/component/camera"
-
-	// register camera.
-	_ "go.viam.com/rdk/component/camera/register"
-
-	// register force matrix.
-	_ "go.viam.com/rdk/component/forcematrix/register"
-
-	// register gantry.
-	_ "go.viam.com/rdk/component/gantry/register"
-
-	// register gps.
-	_ "go.viam.com/rdk/component/gps/register"
-
-	// register gripper.
-	_ "go.viam.com/rdk/component/gripper/register"
-
-	// register imu.
-	_ "go.viam.com/rdk/component/imu/register"
-
-	// register input.
-	_ "go.viam.com/rdk/component/input/register"
-	"go.viam.com/rdk/component/motor"
-
-	// register motor.
-	_ "go.viam.com/rdk/component/motor/register"
-
-	// register sensor.
-	_ "go.viam.com/rdk/component/sensor/register"
-
-	// register servo.
-	_ "go.viam.com/rdk/component/servo/register"
+	// registers all components.
+	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
-
-	// detect pi.
-	_ "go.viam.com/rdk/platformdetector/pi"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-
-	// register base remote control.
-	_ "go.viam.com/rdk/services/baseremotecontrol"
 	"go.viam.com/rdk/services/framesystem"
 
-	// register navigation.
-	_ "go.viam.com/rdk/services/navigation"
+	// registers all services.
+	_ "go.viam.com/rdk/services/register"
+	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/status"
 )
@@ -97,59 +51,15 @@ func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
 	return r.parts.RemoteByName(name)
 }
 
-// BoardByName returns a board by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BoardByName(name string) (board.Board, bool) {
-	return r.parts.BoardByName(name)
-}
-
-// BaseByName returns a base by name. If it does not exist
-// nil is returned.
-func (r *localRobot) BaseByName(name string) (base.Base, bool) {
-	return r.parts.BaseByName(name)
-}
-
-// CameraByName returns a camera by name. If it does not exist
-// nil is returned.
-func (r *localRobot) CameraByName(name string) (camera.Camera, bool) {
-	return r.parts.CameraByName(name)
-}
-
-// MotorByName returns a motor by name. If it does not exist
-// nil is returned.
-func (r *localRobot) MotorByName(name string) (motor.Motor, bool) {
-	return r.parts.MotorByName(name)
-}
-
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
-func (r *localRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	return r.parts.ResourceByName(name)
 }
 
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
 	return r.parts.RemoteNames()
-}
-
-// CameraNames returns the name of all known cameras.
-func (r *localRobot) CameraNames() []string {
-	return r.parts.CameraNames()
-}
-
-// BaseNames returns the name of all known bases.
-func (r *localRobot) BaseNames() []string {
-	return r.parts.BaseNames()
-}
-
-// BoardNames returns the name of all known boards.
-func (r *localRobot) BoardNames() []string {
-	return r.parts.BoardNames()
-}
-
-// MotorNames returns the name of all known motors.
-func (r *localRobot) MotorNames() []string {
-	return r.parts.MotorNames()
 }
 
 // FunctionNames returns the name of all known functions.
@@ -215,15 +125,15 @@ func (r *localRobot) Status(ctx context.Context) (*pb.Status, error) {
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	logger := r.Logger()
 	// create the base reference frame system
-	service, ok := r.ResourceByName(framesystem.Name)
-	if !ok {
-		return nil, errors.New("service frame_system not found")
+	fsService, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
 	}
-	fsService, ok := service.(framesystem.Service)
-	if !ok {
-		return nil, errors.New("service is not a frame_system service")
+	parts, err := fsService.Config(ctx)
+	if err != nil {
+		return nil, err
 	}
-	baseFrameSys, err := fsService.LocalFrameSystem(ctx, name)
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -254,9 +164,17 @@ func (r *localRobot) Logger() golog.Logger {
 }
 
 // New returns a new robot with parts sourced from the given config.
-func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...client.RobotClientOption) (robot.LocalRobot, error) {
+func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts:  newRobotParts(logger, opts...),
+		parts: newRobotParts(
+			robotPartsOptions{
+				debug:              cfg.Debug,
+				fromCommand:        cfg.FromCommand,
+				allowInsecureCreds: cfg.AllowInsecureCreds,
+				tlsConfig:          cfg.Network.TLSConfig,
+			},
+			logger,
+		),
 		logger: logger,
 	}
 
@@ -275,15 +193,15 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger, opts ...c
 	}
 
 	// default services
-
-	// create web service here
-	// somewhat hacky, but the web service start up needs to come last
-	webConfig := config.Service{Type: config.ServiceType(web.SubtypeName)}
-	webSvc, err := r.newService(ctx, webConfig)
-	if err != nil {
-		return nil, err
+	defaultSvc := []resource.Name{sensors.Name, web.Name}
+	for _, name := range defaultSvc {
+		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
+		svc, err := r.newService(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		r.parts.addResource(name, svc)
 	}
-	r.parts.addResource(web.Name, webSvc)
 
 	// if metadata exists, update it
 	if svc := service.ContextService(ctx); svc != nil {

@@ -3,13 +3,12 @@ package motor
 
 import (
 	"context"
-	"errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/motor/v1"
 )
 
 // serviceClient is a client that satisfies the motor.proto contract.
@@ -82,7 +81,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Motor {
 }
 
 func (c *client) SetPower(ctx context.Context, powerPct float64) error {
-	req := &pb.MotorServiceSetPowerRequest{
+	req := &pb.SetPowerRequest{
 		Name:     c.name,
 		PowerPct: powerPct,
 	}
@@ -90,17 +89,8 @@ func (c *client) SetPower(ctx context.Context, powerPct float64) error {
 	return err
 }
 
-func (c *client) Go(ctx context.Context, powerPct float64) error {
-	req := &pb.MotorServiceGoRequest{
-		Name:     c.name,
-		PowerPct: powerPct,
-	}
-	_, err := c.client.Go(ctx, req)
-	return err
-}
-
 func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	req := &pb.MotorServiceGoForRequest{
+	req := &pb.GoForRequest{
 		Name:        c.name,
 		Rpm:         rpm,
 		Revolutions: revolutions,
@@ -109,34 +99,18 @@ func (c *client) GoFor(ctx context.Context, rpm float64, revolutions float64) er
 	return err
 }
 
-func (c *client) GoTo(ctx context.Context, rpm float64, position float64) error {
-	req := &pb.MotorServiceGoToRequest{
-		Name:     c.name,
-		Rpm:      rpm,
-		Position: position,
+func (c *client) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
+	req := &pb.GoToRequest{
+		Name:                c.name,
+		Rpm:                 rpm,
+		PositionRevolutions: positionRevolutions,
 	}
 	_, err := c.client.GoTo(ctx, req)
 	return err
 }
 
-func (c *client) GoTillStop(
-	ctx context.Context,
-	rpm float64,
-	stopFunc func(ctx context.Context) bool,
-) error {
-	if stopFunc != nil {
-		return errors.New("stopFunc must be nil when using gRPC")
-	}
-	req := &pb.MotorServiceGoTillStopRequest{
-		Name: c.name,
-		Rpm:  rpm,
-	}
-	_, err := c.client.GoTillStop(ctx, req)
-	return err
-}
-
 func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
-	req := &pb.MotorServiceResetZeroPositionRequest{
+	req := &pb.ResetZeroPositionRequest{
 		Name:   c.name,
 		Offset: offset,
 	}
@@ -144,33 +118,33 @@ func (c *client) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return err
 }
 
-func (c *client) Position(ctx context.Context) (float64, error) {
-	req := &pb.MotorServicePositionRequest{Name: c.name}
-	resp, err := c.client.Position(ctx, req)
+func (c *client) GetPosition(ctx context.Context) (float64, error) {
+	req := &pb.GetPositionRequest{Name: c.name}
+	resp, err := c.client.GetPosition(ctx, req)
 	if err != nil {
 		return 0, err
 	}
 	return resp.GetPosition(), nil
 }
 
-func (c *client) PositionSupported(ctx context.Context) (bool, error) {
-	req := &pb.MotorServicePositionSupportedRequest{Name: c.name}
-	resp, err := c.client.PositionSupported(ctx, req)
+func (c *client) GetFeatures(ctx context.Context) (map[Feature]bool, error) {
+	req := &pb.GetFeaturesRequest{Name: c.name}
+	resp, err := c.client.GetFeatures(ctx, req)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-	return resp.GetSupported(), nil
+	return ProtoFeaturesToMap(resp), nil
 }
 
 func (c *client) Stop(ctx context.Context) error {
-	req := &pb.MotorServiceStopRequest{Name: c.name}
+	req := &pb.StopRequest{Name: c.name}
 	_, err := c.client.Stop(ctx, req)
 	return err
 }
 
-func (c *client) IsOn(ctx context.Context) (bool, error) {
-	req := &pb.MotorServiceIsOnRequest{Name: c.name}
-	resp, err := c.client.IsOn(ctx, req)
+func (c *client) IsPowered(ctx context.Context) (bool, error) {
+	req := &pb.IsPoweredRequest{Name: c.name}
+	resp, err := c.client.IsPowered(ctx, req)
 	if err != nil {
 		return false, err
 	}

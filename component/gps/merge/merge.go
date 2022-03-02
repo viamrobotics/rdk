@@ -10,6 +10,7 @@ import (
 	"go.uber.org/multierr"
 
 	"go.viam.com/rdk/component/gps"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -40,9 +41,9 @@ func newMerge(r robot.Robot, config config.Component, logger golog.Logger) (gps.
 	m := &mergeGPS{r, nil, logger}
 
 	for _, s := range subs {
-		g, ok := gps.FromRobot(r, s)
-		if !ok {
-			return nil, errors.Errorf("%q not found or not a gps", s)
+		g, err := gps.FromRobot(r, s)
+		if err != nil {
+			return nil, err
 		}
 
 		m.subs = append(m.subs, g)
@@ -148,9 +149,18 @@ func (m *mergeGPS) ReadValid(ctx context.Context) (bool, error) {
 
 // GetReadings return data specific to the type of sensor and can be of any type.
 func (m *mergeGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	var allErrors error
+	var (
+		r         []interface{}
+		err       error
+		allErrors error
+	)
 	for _, g := range m.subs {
-		r, err := g.GetReadings(ctx)
+		s, ok := g.(sensor.Sensor)
+		if ok {
+			r, err = s.GetReadings(ctx)
+		} else {
+			r, err = gps.GetReadings(ctx, g)
+		}
 		if err == nil {
 			return r, nil
 		}

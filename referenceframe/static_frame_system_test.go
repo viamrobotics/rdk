@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 
 	spatial "go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 )
 
 var blankPos map[string][]Input
@@ -61,24 +60,23 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
-	e1 := errors.New("parent frame is nil")
 	e2 := errors.New("parent frame with name \"foo\" not in frame system")
 	e3 := errors.New("frame with name \"frame2\" already in frame system")
 	e4 := errors.New("frame with name \"frame1\" not in frame system")
 	if sfs, ok := fs.(*simpleFrameSystem); ok {
-		err = sfs.checkName("foo", nil)
-		test.That(t, err.Error(), test.ShouldEqual, e1.Error())
+		err = sfs.AddFrame(f2, nil)
+		test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
 
 		fFoo := NewZeroStaticFrame("foo")
 		err = sfs.checkName("bar", fFoo)
-		test.That(t, err.Error(), test.ShouldEqual, e2.Error())
+		test.That(t, err, test.ShouldBeError, e2)
 
 		err = sfs.checkName("frame2", fs.World())
-		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
+		test.That(t, err, test.ShouldBeError, e3)
 	}
 
 	_, err = fs.TracebackFrame(f1)
-	test.That(t, err.Error(), test.ShouldEqual, e4.Error())
+	test.That(t, err, test.ShouldBeError, e4)
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -234,7 +232,7 @@ func TestFrameTransform(t *testing.T) {
 }
 
 /*
-This test uses the same setup as the above test, but this time is concede with representing a volume in a difference reference frame
+This test uses the same setup as the above test, but this time is concede with representing a geometry in a difference reference frame
 
 |              |
 |*frame1       |*object
@@ -248,11 +246,11 @@ This test uses the same setup as the above test, but this time is concede with r
 world
 */
 
-// transform the object volume that is in the world frame is at (5, 7, 0) from frame1 to frame2.
+// transform the object geometry that is in the world frame is at (5, 7, 0) from frame1 to frame2.
 // frame1 has its origin at (0, 7, 0) in the world referenceframe. and frame2 has its origin
 // at (5, 1, 0), and orientation 90 degrees around z.
 // frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
-func TestVolumesOfFrame(t *testing.T) {
+func TestGeometriesOfFrame(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
 	// location of frame3 with respect to world frame
@@ -272,15 +270,18 @@ func TestVolumesOfFrame(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	objectFromFrame1 := r3.Vector{5., 0., 0.}
-	object, err := NewStaticFrameWithVolume("object", spatial.NewPoseFromPoint(objectFromFrame1), spatial.NewBox(r3.Vector{}))
+	gc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	object, err := NewStaticFrameWithGeometry("object", spatial.NewPoseFromPoint(objectFromFrame1), gc)
+
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(object, f1)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectFromFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
-	vols, _ := fs.VolumesOfFrame(blankPos, fs.GetFrame("object"), fs.GetFrame("frame2"))
-	test.That(t, vols, test.ShouldNotBeNil)
-	test.That(t, utils.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
+	geometries, _ := fs.GeometriesOfFrame(blankPos, fs.GetFrame("object"), fs.GetFrame("frame2"))
+	test.That(t, geometries, test.ShouldNotBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(geometries["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {

@@ -25,7 +25,7 @@ import (
 
 var (
 	logger      = golog.NewDevelopmentLogger("armplay")
-	whiteboardY = -509.
+	whiteboardY = -529.
 )
 
 func init() {
@@ -77,9 +77,9 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
-	if !ok {
-		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
+	a, err := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
+	if err != nil {
+		return err
 	}
 
 	return multierr.Combine(
@@ -95,9 +95,9 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
-	if !ok {
-		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
+	a, err := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
+	if err != nil {
+		return err
 	}
 
 	for i := 0; i < 5; i++ {
@@ -128,9 +128,9 @@ func play(ctx context.Context, r robot.Robot) error {
 		return errors.New("need 1 arm name")
 	}
 
-	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
-	if !ok {
-		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
+	a, err := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
+	if err != nil {
+		return err
 	}
 
 	start, err := a.GetJointPositions(ctx)
@@ -225,7 +225,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	}
 
 	opt := motionplan.NewDefaultPlannerOptions()
-	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY+15))
+	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY-15))
 	steps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame, fs.World(), opt)
 	if err != nil {
 		return err
@@ -247,7 +247,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
 
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
-		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
+		curPos, err = fs.TransformFrame(seedMap, moveFrame, fs.World())
 
 		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, pathO, pathD)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)

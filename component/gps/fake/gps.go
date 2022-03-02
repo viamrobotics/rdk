@@ -60,13 +60,6 @@ type GPS struct {
 	valid      bool
 }
 
-// GetReadings always returns the set values.
-func (g *GPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return []interface{}{g.Latitude, g.Longitude}, nil
-}
-
 // ReadLocation always returns the set values.
 func (g *GPS) ReadLocation(ctx context.Context) (*geo.Point, error) {
 	g.mu.Lock()
@@ -146,13 +139,13 @@ func newInterceptingGPSBase(r robot.Robot, c config.Component) (*interceptingGPS
 	if gpsName == "" {
 		return nil, errors.New("'gps' name must be set")
 	}
-	b, ok := r.BaseByName(baseName)
-	if !ok {
-		return nil, errors.Errorf("no base named %q", baseName)
+	b, err := base.FromRobot(r, baseName)
+	if err != nil {
+		return nil, err
 	}
-	gpsDevice, ok := gps.FromRobot(r, gpsName)
-	if !ok {
-		return nil, errors.Errorf("%q not found or not a gps", gpsName)
+	gpsDevice, err := gps.FromRobot(r, gpsName)
+	if err != nil {
+		return nil, err
 	}
 	fakeG, ok := utils.UnwrapProxy(gpsDevice).(*GPS)
 	if !ok {

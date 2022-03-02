@@ -24,7 +24,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -103,7 +103,7 @@ func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error
 		return nil, err
 	}
 
-	model, err := referenceframe.ParseJSON(vx300smodeljson, "")
+	model, err := referenceframe.UnmarshalModelJSON(vx300smodeljson, "")
 	if err != nil {
 		return nil, err
 	}

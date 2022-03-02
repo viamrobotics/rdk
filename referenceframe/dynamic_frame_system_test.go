@@ -53,7 +53,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	fs := NewEmptySimpleFrameSystem("test")
 
 	// 1D gantry that slides in X
-	gantry, err := NewTranslationalFrame("gantry", []bool{true, false, false}, []Limit{{Min: math.Inf(-1), Max: math.Inf(1)}})
+	gantry, err := NewTranslationalFrame("gantry", r3.Vector{1, 0, 0}, Limit{Min: math.Inf(-1), Max: math.Inf(1)})
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(gantry, fs.World())
 

@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
@@ -26,7 +25,6 @@ import (
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -327,20 +325,21 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
+	var err error
 	var ok bool
-	b.theBoard, ok = r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("cannot find board")
+	b.theBoard, err = board.FromRobot(r, "local")
+	if err != nil {
+		return nil, err
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("need a starboard motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a starboard motor")
 	}
 
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("need a port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "need a port motor")
 	}
 
 	b.throttle, ok = b.theBoard.DigitalInterruptByName("throttle")
@@ -385,7 +384,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
@@ -402,15 +401,15 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		},
 	})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
 	defer myRobot.Close(ctx)
 
-	depth1, ok := sensor.FromRobot(myRobot, "depth1")
-	if !ok {
-		return errors.New("failed to find depth1 sensor")
+	depth1, err := sensor.FromRobot(myRobot, "depth1")
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(ctx)

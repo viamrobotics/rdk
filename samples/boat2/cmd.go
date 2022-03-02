@@ -2,72 +2,41 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"math"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/edaniels/golog"
-	slib "github.com/jacobsa/go-serial/serial"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
-	"go.viam.com/utils/serial"
 
 	"go.viam.com/rdk/component/base"
-	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/imu"
+	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/web"
-	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 	webserver "go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("boat2")
 
-type remoteControl interface {
-	Signal(ctx context.Context, name string) (int64, error)
-	Signals(ctx context.Context, name []string) (map[string]int64, error)
-}
-
-type rcRemoteControl struct {
-	theBoard board.Board
-}
-
-func (rc *rcRemoteControl) Signal(ctx context.Context, name string) (int64, error) {
-	r, ok := rc.theBoard.DigitalInterruptByName(name)
-	if !ok {
-		return 0, fmt.Errorf("no signal named %s", name)
-	}
-	return r.Value(ctx)
-}
-
-func (rc *rcRemoteControl) Signals(ctx context.Context, names []string) (map[string]int64, error) {
-	m := map[string]int64{}
-
-	for _, n := range names {
-		val, err := rc.Signal(ctx, n)
-		if err != nil {
-			return nil, fmt.Errorf("cannot read value of %s %w", n, err)
-		}
-		m[n] = val
-	}
-
-	return m, nil
-}
+// different states used for roboat operation.
+const (
+	OFFMODE = iota
+	MANUALMODE
+	ROBOTMODE
+	PUSHMODE
+)
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
@@ -75,13 +44,14 @@ func main() {
 
 type boat struct {
 	myRobot robot.Robot
-	rc      remoteControl
 	myImu   imu.IMU
+	rc      input.Controller
 
-	squirt, steering, thrust motor.Motor
-	starboard, port          motor.Motor
-	middle                   float64
-	steeringRange            float64
+	squirt, thrust  motor.Motor
+	starboard, port motor.Motor
+	steering        motor.LocalMotor
+	middle          float64
+	steeringRange   float64
 
 	navService navigation.Service
 
@@ -122,54 +92,55 @@ func (b *boat) steerColumn(ctx context.Context, dir float64) error {
 }
 
 func (b *boat) SteerAndMoveHelp(ctx context.Context,
-	thrustSpeed float64,
-	portSpeed float64,
-	starboardSpeed float64) error {
-	thrustSpeed = math.Max(0, thrustSpeed)
+	thrustPowerPct float64,
+	portPowerPct float64,
+	starboardPowerPct float64,
+) error {
+	thrustPowerPct = math.Max(0, thrustPowerPct)
 
-	thrustSpeed = math.Min(1, thrustSpeed)
-	portSpeed = math.Min(1, portSpeed)
-	starboardSpeed = math.Min(1, starboardSpeed)
+	thrustPowerPct = math.Min(1, thrustPowerPct)
+	portPowerPct = math.Min(1, portPowerPct)
+	starboardPowerPct = math.Min(1, starboardPowerPct)
 
 	if false {
-		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustSpeed, portSpeed, starboardSpeed)
+		logger.Infof("SteerAndMoveHelp %0.2f %0.2f %0.2f\n", thrustPowerPct, portPowerPct, starboardPowerPct)
 	}
 	return multierr.Combine(
-		b.thrust.Go(ctx, thrustSpeed),
-		b.port.Go(ctx, portSpeed),
-		b.starboard.Go(ctx, starboardSpeed),
+		b.thrust.SetPower(ctx, thrustPowerPct),
+		b.port.SetPower(ctx, portPowerPct),
+		b.starboard.SetPower(ctx, starboardPowerPct),
 	)
 }
 
 // dir -1 -> 1 : -1 = hard left 1 = hard right
-// speed -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
-func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
+// pctMaxRPM -1 -> 1 : 0 means stop, 1 is forward, -1 is backwards.
+func (b *boat) SteerAndMove(ctx context.Context, dir, pctMaxRPM float64) error {
 	if false { // using column
 		return b.steerColumn(ctx, dir)
 	}
 
 	if false {
-		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, speed)
+		logger.Infof("SteerAndMove %0.2f %0.2f \n", dir, pctMaxRPM)
 	}
 
-	if speed > 0.4 {
+	if pctMaxRPM > 0.4 {
 		// forwards
 		if dir < 0 {
-			return b.SteerAndMoveHelp(ctx, speed-dir/3, speed, math.Max(0, speed-dir*1.5))
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, pctMaxRPM, math.Max(0, pctMaxRPM-dir*1.5))
 		}
 		dir *= -1
-		return b.SteerAndMoveHelp(ctx, speed-dir/3, math.Max(0, speed-dir*1.5), speed)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM-dir/3, math.Max(0, pctMaxRPM-dir*1.5), pctMaxRPM)
 	}
 
-	if speed < -0.4 {
-		speed *= -1
+	if pctMaxRPM < -0.4 {
+		pctMaxRPM *= -1
 		// backwards
 		if dir < 0 {
 			dir *= -1
-			return b.SteerAndMoveHelp(ctx, speed, speed, math.Max(0, speed-dir))
+			return b.SteerAndMoveHelp(ctx, pctMaxRPM, pctMaxRPM, math.Max(0, pctMaxRPM-dir))
 		}
 
-		return b.SteerAndMoveHelp(ctx, speed, math.Max(0, speed-dir), speed)
+		return b.SteerAndMoveHelp(ctx, pctMaxRPM, math.Max(0, pctMaxRPM-dir), pctMaxRPM)
 	}
 
 	// we really want to spin with a little straight movement
@@ -177,59 +148,64 @@ func (b *boat) SteerAndMove(ctx context.Context, dir, speed float64) error {
 	if dir > 0 {
 		return multierr.Combine(
 			b.thrust.Stop(ctx),
-			b.port.Go(ctx, dir),
-			b.starboard.Go(ctx, dir),
+			b.port.SetPower(ctx, dir),
+			b.starboard.SetPower(ctx, dir),
 		)
 	}
 
 	dir *= -1
 	return multierr.Combine(
 		b.thrust.Stop(ctx),
-		b.port.Go(ctx, dir),
-		b.starboard.Go(ctx, dir),
+		b.port.SetPower(ctx, dir),
+		b.starboard.SetPower(ctx, dir),
 	)
 }
 
 func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.LocalBase, error) {
 	var err error
+	var ok bool
+
 	b := &boat{myRobot: r}
 
-	bb, ok := r.BoardByName("local")
-	if !ok {
-		return nil, errors.New("no local board")
-	}
-	b.rc = &rcRemoteControl{bb}
-
-	b.myImu, ok = imu.FromRobot(r, "imu")
-	if !ok {
-		return nil, errors.New("'imu' not found or not an IMU")
+	b.myImu, err = imu.FromRobot(r, "imu")
+	if err != nil {
+		return nil, err
 	}
 
+	b.rc, err = input.FromRobot(r, "BoatRC")
+	if err != nil {
+		return nil, err
+	}
 	// get all motors
 
-	b.squirt, ok = r.MotorByName("squirt")
-	if !ok {
-		return nil, errors.New("no squirt motor")
+	b.squirt, err = motor.FromRobot(r, "squirt")
+	if err != nil {
+		return nil, errors.Wrap(err, "no squirt motor")
 	}
 
-	b.steering, ok = r.MotorByName("steering")
+	steeringMotor, err := motor.FromRobot(r, "steering")
+	if err != nil {
+		return nil, errors.Wrap(err, "no steering motor")
+	}
+	stoppableMotor, ok := steeringMotor.(motor.LocalMotor)
 	if !ok {
-		return nil, errors.New("no steering motor")
+		return nil, motor.NewGoTillStopUnsupportedError("steering")
+	}
+	b.steering = stoppableMotor
+
+	b.thrust, err = motor.FromRobot(r, "thrust")
+	if err != nil {
+		return nil, errors.Wrap(err, "no thrust motor")
 	}
 
-	b.thrust, ok = r.MotorByName("thrust")
-	if !ok {
-		return nil, errors.New("no thrust motor")
+	b.starboard, err = motor.FromRobot(r, "starboard")
+	if err != nil {
+		return nil, errors.Wrap(err, "no starboard motor")
 	}
 
-	b.starboard, ok = r.MotorByName("starboard")
-	if !ok {
-		return nil, errors.New("no starboard motor")
-	}
-
-	b.port, ok = r.MotorByName("port")
-	if !ok {
-		return nil, errors.New("no port motor")
+	b.port, err = motor.FromRobot(r, "port")
+	if err != nil {
+		return nil, errors.Wrap(err, "no port motor")
 	}
 
 	err = b.Stop(ctx)
@@ -244,7 +220,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		bwdLimit, err := b.steering.Position(ctx)
+		bwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -254,7 +230,7 @@ func newBoat(ctx context.Context, r robot.Robot, logger golog.Logger) (base.Loca
 			return nil, err
 		}
 
-		fwdLimit, err := b.steering.Position(ctx)
+		fwdLimit, err := b.steering.GetPosition(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -370,41 +346,127 @@ func (b *boat) Close(ctx context.Context) error {
 	return b.Stop(ctx)
 }
 
-func runRC(ctx context.Context, myBoat *boat) {
+func runRC2(ctx context.Context, myBoat *boat) {
+	var err error
+
+	pushFlag := 0
+	navModeNum := OFFMODE
+	speed := 0.0
+	dir := 0.0
 	previousPushMode := false
 	pushDirection := 0.0
 
+	err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+	if err != nil {
+		logger.Errorw("error setting mode: %w", err)
+	}
+
+	repFunc := func(ctx context.Context, event input.Event) {
+		switch event.Control {
+		case input.ButtonNorth:
+			if event.Event == input.ButtonPress {
+				// reset pushmode on a mode switch, and make sure we are not overwriting last push
+				if navModeNum != PUSHMODE {
+					previousPushMode = false
+				}
+				// cannot access these modes unless the robot is on
+				if navModeNum != OFFMODE {
+					switch pushFlag {
+					case 1:
+						// push mode is activated with LT+North
+						navModeNum = PUSHMODE
+						err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+						if err != nil {
+							logger.Errorw("error setting mode: %w", err)
+						}
+					default:
+						switch navModeNum {
+						case MANUALMODE:
+							// only pressing North will switch between Robot and Manual
+							// Can only access ROBOT mode if in manual currently
+							navModeNum = ROBOTMODE
+							err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
+							if err != nil {
+								logger.Errorw("error setting mode: %w", err)
+							}
+						default:
+							navModeNum = MANUALMODE
+							err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+							if err != nil {
+								logger.Errorw("error setting mode: %w", err)
+							}
+						}
+					}
+				}
+			}
+		case input.ButtonLT:
+			pushFlag = int(event.Value)
+		case input.AbsoluteY:
+			speed = -event.Value
+
+		case input.AbsoluteX:
+			dir = event.Value
+
+		case input.AbsoluteZ:
+			// only squirt if you actually press it
+			if event.Value > .75 && navModeNum != OFFMODE {
+				myBoat.squirt.SetPower(ctx, event.Value)
+			} else {
+				myBoat.squirt.SetPower(ctx, 0)
+			}
+
+		case input.ButtonStart:
+			// if the robot is "on", turn it "off", if off then go into robot mode
+			if event.Event == input.ButtonPress {
+				if navModeNum != OFFMODE {
+					// make sure we are not using waypoints and turn off
+					navModeNum = OFFMODE
+					err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
+					if err != nil {
+						logger.Errorw("error setting mode: %w", err)
+					}
+				} else {
+					navModeNum = MANUALMODE
+				}
+			}
+		}
+	}
+
+	// Expects auto_reconnect to be set in the config
+	controls, err := myBoat.rc.GetControls(ctx)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	for _, control := range controls {
+		err = myBoat.rc.RegisterControlCallback(ctx, control, []input.EventType{input.AllEvents}, repFunc)
+		if err != nil {
+			return
+		}
+	}
 	for {
 		if !utils.SelectContextOrWait(ctx, 10*time.Millisecond) {
 			return
 		}
 
-		vals, err := myBoat.rc.Signals(ctx, []string{"throttle", "direction", "speed", "mode", "left-horizontal", "a"})
-		if err != nil {
-			logger.Errorw("error getting rc signal %w", err)
-			continue
-		}
-		// logger.Debugf("vals: %v", vals)
+		switch navModeNum {
+		case OFFMODE:
 
-		if vals["mode"] <= 1300 {
-			err = myBoat.navService.SetMode(ctx, navigation.ModeWaypoint)
+			err = myBoat.SteerAndMove(ctx, 0.0, 0.0)
 			if err != nil {
-				logger.Errorw("error setting mode: %w", err)
+				logger.Errorw("error moving: %w", err)
+				continue
 			}
-			continue
-		}
-		err = myBoat.navService.SetMode(ctx, navigation.ModeManual)
-		if err != nil {
-			logger.Errorw("error setting mode: %w", err)
-		}
+		case MANUALMODE:
 
-		if vals["mode"] <= 1800 {
-			continue
-		}
-
-		if vals["a"] < 1500 {
-			// push mode
-
+			err = myBoat.SteerAndMove(ctx, dir, speed)
+			if err != nil {
+				logger.Errorw("error moving: %w", err)
+				continue
+			}
+		case ROBOTMODE:
+			// navservice(waypoint) handles everything
+		case PUSHMODE:
 			now, err := myBoat.myImu.ReadOrientation(ctx)
 			if err != nil {
 				logger.Errorw("error getting orientation: %w", err)
@@ -422,142 +484,17 @@ func runRC(ctx context.Context, myBoat *boat) {
 			logger.Infof("pushDirection: %0.1f now: %0.1f delta: %0.2f steer: %.2f\n",
 				pushDirection, now.EulerAngles().Yaw, delta, steer)
 
-			err = multierr.Combine(
-				myBoat.SteerAndMove(ctx, steer, 1.0),
-				myBoat.squirt.SetPower(ctx, 1.0),
-			)
+			err = myBoat.SteerAndMove(ctx, steer, 1.0)
 			if err != nil {
 				logger.Errorw("error in push mode: %w", err)
 			}
-			continue
 		}
-		previousPushMode = false
 
-		squirtPower := float64(vals["throttle"]) / 100.0
-		err = myBoat.squirt.SetPower(ctx, squirtPower)
 		if err != nil {
 			logger.Errorw("error turning on squirt: %w", err)
 			continue
 		}
-
-		direction := float64(vals["direction"]) / 100.0
-		speed := float64(vals["speed"]) / 100.0
-
-		err = myBoat.SteerAndMove(ctx, direction, speed)
-		if err != nil {
-			logger.Errorw("error moving: %w", err)
-			continue
-		}
 	}
-}
-
-func newArduinoIMU(ctx context.Context) (sensor.Sensor, error) {
-	options := slib.OpenOptions{
-		BaudRate:        115200,
-		DataBits:        8,
-		StopBits:        1,
-		MinimumReadSize: 1,
-	}
-
-	ds := serial.Search(serial.SearchFilter{serial.TypeArduino})
-	if len(ds) != 1 {
-		return nil, fmt.Errorf("found %d arduinos", len(ds))
-	}
-	options.PortName = ds[0].Path
-
-	port, err := slib.Open(options)
-	if err != nil {
-		return nil, err
-	}
-
-	portReader := bufio.NewReader(port)
-
-	i := &myIMU{}
-
-	go func() {
-		defer port.Close()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			line, err := portReader.ReadString('\n')
-			if err != nil {
-				i.lastError = err
-			} else {
-				i.lastError = i.parse(line)
-			}
-		}
-	}()
-
-	return i, nil
-}
-
-type myIMU struct {
-	angularVelocity spatialmath.AngularVelocity
-	orientation     spatialmath.EulerAngles
-	lastError       error
-}
-
-func (i *myIMU) parse(line string) error {
-	line = strings.TrimSpace(line)
-	line = strings.ReplaceAll(line, " ", "")
-	line = strings.ReplaceAll(line, "\t", "")
-
-	pcs := strings.Split(line, ":")
-	if len(pcs) != 2 {
-		// probably init
-		return nil
-	}
-
-	pcs = strings.Split(pcs[1], "|")
-	if len(pcs) != 3 {
-		return fmt.Errorf("bad line %s", line)
-	}
-
-	x, err := strconv.ParseFloat(pcs[0][2:], 64)
-	if err != nil {
-		return fmt.Errorf("bad line %s", line)
-	}
-
-	y, err := strconv.ParseFloat(pcs[1][2:], 64)
-	if err != nil {
-		return fmt.Errorf("bad line %s", line)
-	}
-
-	z, err := strconv.ParseFloat(pcs[2][2:], 64)
-	if err != nil {
-		return fmt.Errorf("bad line %s", line)
-	}
-
-	if name := pcs[0]; name == "Orient" {
-		// TODO: not sure if units are right, but docs say the raw data is euler
-		i.orientation.Roll = x
-		i.orientation.Pitch = y
-		i.orientation.Yaw = z
-	} else if name == "Gyro" {
-		// TODO: not sure if units are right
-		i.angularVelocity.X = x
-		i.angularVelocity.Y = y
-		i.angularVelocity.Z = z
-	}
-
-	return nil
-}
-
-func (i *myIMU) ReadAngularVelocity(_ context.Context) (spatialmath.AngularVelocity, error) {
-	return i.angularVelocity, i.lastError
-}
-
-func (i *myIMU) Orientation(_ context.Context) (spatialmath.Orientation, error) {
-	return &i.orientation, i.lastError
-}
-
-func (i *myIMU) GetReadings(_ context.Context) ([]interface{}, error) {
-	return []interface{}{i.angularVelocity, i.orientation}, i.lastError
 }
 
 func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
@@ -587,12 +524,17 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0))
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}
-
+	metadataSvc, err := service.New()
+	if err != nil {
+		return err
+	}
+	ctx = service.ContextWithService(ctx, metadataSvc)
 	// register boat as base properly
+
 	registry.RegisterComponent(base.Subtype, "viam-boat2", registry.Component{
 		Constructor: func(
 			ctx context.Context,
@@ -604,18 +546,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		},
 	})
 
-	registry.RegisterComponent(imu.Subtype, "temp-imu", registry.Component{
-		Constructor: func(
-			ctx context.Context,
-			r robot.Robot,
-			config config.Component,
-			logger golog.Logger,
-		) (interface{}, error) {
-			return newArduinoIMU(ctx)
-		},
-	})
-
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -624,25 +555,25 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b, ok := myRobot.BaseByName("base1")
-	if !ok {
-		return errors.New("no base")
+	b, err := base.FromRobot(myRobot, "base1")
+	if err != nil {
+		return err
 	}
 	myB, ok := rdkutils.UnwrapProxy(b).(*boat)
 	if !ok {
 		return rdkutils.NewUnexpectedTypeError(myB, rdkutils.UnwrapProxy(b))
 	}
 
-	navServiceTemp, ok := myRobot.ResourceByName(navigation.Name)
-	if !ok {
-		return errors.New("no navigation service")
+	navServiceTemp, err := myRobot.ResourceByName(navigation.Name)
+	if err != nil {
+		return errors.Wrapf(err, "no navigation service")
 	}
 	myB.navService, ok = navServiceTemp.(navigation.Service)
 	if !ok {
 		return errors.New("navigation service isn't a nav service")
 	}
 
-	go runRC(ctx, myB)
+	go runRC2(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
 	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
