@@ -203,7 +203,7 @@ class MotorCommand {
 
   asObject(): {
     type: string;
-    request: MotorServiceGoRequest | MotorServiceGoForRequest | MotorServiceGoToRequest;
+    request: SetPowerRequest | GoForRequest | GoToRequest;
   } {
     let req;
     switch (this.type) {

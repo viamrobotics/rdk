@@ -51,7 +51,7 @@ import Breadcrumbs from "./Breadcrumbs.vue";
 export default class InputController extends Vue {
   @Prop() controllerName!: string;
   @Prop() controllerStatus!: InputControllerStatus.AsObject;
-  @Prop() option!: Boolean;
+  @Prop() option!: boolean;
 
   self = this;
 
