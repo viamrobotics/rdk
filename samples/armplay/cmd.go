@@ -83,10 +83,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 	}
 
 	return multierr.Combine(
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}, []*referenceframe.GeometriesInFrame{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}, []*referenceframe.GeometriesInFrame{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}, []*referenceframe.GeometriesInFrame{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}, []*referenceframe.GeometriesInFrame{}),
 	)
 }
 
@@ -108,13 +108,13 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		}
 
 		pos.Y += 550
-		err = a.MoveToPosition(ctx, pos)
+		err = a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}
 
 		pos.Y -= 550
-		err = a.MoveToPosition(ctx, pos)
+		err = a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}

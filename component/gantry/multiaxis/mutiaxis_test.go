@@ -23,7 +23,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
 			return positions, nil
 		},
-		MoveToPositionFunc: func(ctx context.Context, positions []float64) error {
+		MoveToPositionFunc: func(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 			return nil
 		},
 		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
@@ -109,17 +109,17 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.MoveToPosition(ctx, positions)
+	err := fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	positions = []float64{1, 2, 3}
-	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	positions = []float64{1, 2}
-	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 

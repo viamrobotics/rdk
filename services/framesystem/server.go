@@ -9,6 +9,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 // subtypeServer implements the FrameSystemService from frame_system.proto.
@@ -26,7 +27,7 @@ func (server *subtypeServer) service() (Service, error) {
 	name := Name
 	resource := server.subtypeSvc.Resource(name.String())
 	if resource == nil {
-		return nil, errors.Errorf("no resource with name (%s)", name)
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 	svc, ok := resource.(Service)
 	if !ok {

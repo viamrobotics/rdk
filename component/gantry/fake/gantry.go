@@ -48,7 +48,7 @@ func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 	g.positionsMm = positionsMm
 	return nil
 }
@@ -75,5 +75,5 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
 }

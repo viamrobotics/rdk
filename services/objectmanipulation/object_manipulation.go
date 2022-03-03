@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
@@ -49,7 +48,12 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
+	DoGrab(
+		ctx context.Context,
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -93,7 +97,12 @@ type objectMService struct {
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object.
-func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+func (mgs objectMService) DoGrab(
+	ctx context.Context,
+	gripperName string,
+	grabPose *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
+) (bool, error) {
 	// get gripper component
 	gripper, err := gripper.FromRobot(mgs.r, gripperName)
 	if err != nil {
@@ -104,8 +113,7 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 	if err != nil {
 		return false, err
 	}
-	cameraPose := spatialmath.NewPoseFromPoint(*cameraPoint)
-	err = mgs.moveGripper(ctx, gripperName, cameraPose, cameraName)
+	err = mgs.moveGripper(ctx, gripperName, grabPose, obstacles)
 	if err != nil {
 		return false, err
 	}
@@ -117,11 +125,14 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 func (mgs objectMService) moveGripper(
 	ctx context.Context,
 	gripperName string,
-	goalPose spatialmath.Pose,
-	goalFrameName string,
+	goal *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
 ) error {
+	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
+
 	r := mgs.r
 	logger := r.Logger()
+	goalFrameName := goal.FrameName()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	if goalFrameName == gripperName {
@@ -174,7 +185,7 @@ func (mgs objectMService) moveGripper(
 	solvingFrame := solver.World() // TODO(erh): this should really be the parent of rootName
 
 	// re-evaluate goalPose to be in the frame we're going to move in
-	goalPose, err = solver.TransformPose(input, goalPose, solver.GetFrame(goalFrameName), solvingFrame)
+	goalPose, err := solver.TransformPose(input, goal.Pose(), solver.GetFrame(goalFrameName), solvingFrame)
 	if err != nil {
 		return err
 	}

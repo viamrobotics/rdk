@@ -13,6 +13,13 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
+// RadiusClusteringVoxelSegmenter is the name of a segmenter that finds well separated objects of a flat plane in a voxel image.
+const RadiusClusteringVoxelSegmenter = "radius_clustering_voxel"
+
+func init() {
+	RegisterSegmenter(RadiusClusteringVoxelSegmenter, Segmenter(RadiusClusteringFromVoxels))
+}
+
 // RadiusClusteringVoxelConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringVoxelConfig struct {
 	VoxelSize float64 `json:"voxel_size"`

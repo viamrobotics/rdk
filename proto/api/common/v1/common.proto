@@ -49,8 +49,7 @@ message Pose {
 }
 
 message PoseInFrame {
-  // reference frame in which the pose was observed
-  string frame = 1;
+  string reference_frame = 1;
   Pose pose = 2;
 }
 
