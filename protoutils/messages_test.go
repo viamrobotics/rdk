@@ -19,11 +19,13 @@ var (
 	simpleMap    = map[string]bool{"exists": true}
 	sliceMap     = map[string][]string{"foo": {"bar"}}
 	nestedMap    = map[string]map[string]string{"foo": {"bar": "bar2"}}
+	pointerMap   = map[string]interface{}{"foo": &simpleStruct}
 	structMap    = map[string]SimpleStruct{"foo": simpleStruct}
 	structMapMap = map[string]MapStruct{"foo": mapStruct}
 	mapTests     = []mapTest{
 		{"simple map", simpleMap, map[string]interface{}{"exists": true}},
 		{"slice map", sliceMap, map[string]interface{}{"foo": []interface{}{"bar"}}},
+		{"pointer map", pointerMap, map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
 		{"nested map", nestedMap, map[string]interface{}{"foo": map[string]interface{}{"bar": "bar2"}}},
 		{"struct map", structMap, map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
 		{"struct map map", structMapMap, map[string]interface{}{"foo": map[string]interface{}{"status": map[string]interface{}{"foo": "bar"}}}},
@@ -41,6 +43,7 @@ var (
 	simpleStruct    = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
 	sliceStruct     = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
 	mapStruct       = MapStruct{Status: map[string]string{"foo": "bar"}}
+	pointerStruct   = PointerStruct{&simpleStruct}
 	nestedMapStruct = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
 	nestedStruct    = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
 	noTagStruct     = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
@@ -50,6 +53,12 @@ var (
 		{"simple struct", simpleStruct, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}, SimpleStruct{}},
 		{"slice struct", sliceStruct, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}, SliceStruct{}},
 		{"map struct", mapStruct, map[string]interface{}{"status": map[string]interface{}{"foo": "bar"}}, MapStruct{}},
+		{
+			"pointer struct",
+			pointerStruct,
+			map[string]interface{}{"simple_struct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}},
+			PointerStruct{},
+		},
 		{
 			"nested map struct",
 			nestedMapStruct,
@@ -249,6 +258,10 @@ type NestedMapStruct struct {
 	Status map[string]SimpleStruct `json:"status"`
 }
 
+type PointerStruct struct {
+	SimpleStruct *SimpleStruct `json:"simple_struct"`
+}
+
 type NestedStruct struct {
 	SimpleStruct SimpleStruct `json:"simple_struct"`
 	SliceStruct  SliceStruct  `json:"slice_struct"`
@@ -262,6 +275,3 @@ type EmbeddedStruct struct {
 	SimpleStruct
 	SliceStruct
 }
-
-// struct in map
-// list in map
