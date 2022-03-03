@@ -3,6 +3,7 @@ package protoutils
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/pkg/errors"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -88,7 +89,25 @@ func toInterface(data interface{}) (interface{}, error) {
 	return newData, nil
 }
 
-// structToMap attempts to coerce a struct into a form acceptable by grpc
+func isEmptyValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
+}
+
+// structToMap attempts to coerce a struct into a form acceptable by grpc. Ignores omitempty tags
 func structToMap(data interface{}) (map[string]interface{}, error) {
 	t := reflect.TypeOf(data)
 	if t.Kind() == reflect.Ptr {
@@ -104,11 +123,29 @@ func structToMap(data interface{}) (map[string]interface{}, error) {
 		sField := t.Field(i)
 		tag := sField.Tag.Get("json")
 		key := sField.Name
-		if tag != "" && tag != "-" {
-			key = tag
+
+		if tag == "-" {
+			continue
+		}
+
+		// tag name should be first element of tag string
+		tagName := strings.Split(tag, ",")[0]
+		if tagName != "" {
+			key = tagName
+		}
+
+		// skip unexported fields
+		if !value.Field(i).CanInterface() {
+			continue
 		}
 
 		field := value.Field(i).Interface()
+
+		// If "omitempty" is specified in the tag, it ignores empty values.
+		if strings.Contains(tag, "omitempty") && isEmptyValue(reflect.ValueOf(field)) {
+			continue
+		}
+
 		data, err := toInterface(field)
 		if err != nil {
 			return nil, err

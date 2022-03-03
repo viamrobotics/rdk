@@ -51,6 +51,8 @@ var (
 
 	structTests = []structTest{
 		{"simple struct", simpleStruct, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}, SimpleStruct{}},
+		{"omit struct", OmitStruct{}, map[string]interface{}{"x": 0.0}, OmitStruct{}},
+		{"ignore struct", IgnoreStruct{X: 1}, map[string]interface{}{}, IgnoreStruct{X: 1}},
 		{"slice struct", sliceStruct, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}, SliceStruct{}},
 		{"map struct", mapStruct, map[string]interface{}{"status": map[string]interface{}{"foo": "bar"}}, MapStruct{}},
 		{
@@ -246,6 +248,14 @@ type SimpleStruct struct {
 	Z float64 `json:"z"`
 }
 
+type OmitStruct struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y,omitempty"`
+}
+type IgnoreStruct struct {
+	X float64 `json:"-"`
+	Y float64 `json:"y,omitempty"`
+}
 type SliceStruct struct {
 	Degrees []float64 `json:"degrees"`
 }
