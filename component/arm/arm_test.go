@@ -125,7 +125,7 @@ func TestCreateStatus(t *testing.T) {
 		test.That(t, status1, test.ShouldResemble, status)
 	})
 
-	t.Run("fail on GetJointPositionsFunc", func(t *testing.T) {
+	t.Run("fail on GetJointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
 		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
 			return nil, errFail
