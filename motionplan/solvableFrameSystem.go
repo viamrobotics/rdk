@@ -239,7 +239,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
+	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
@@ -253,7 +253,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geom
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
 	for _, frame := range sf.frames {
-		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame, sf.goalFrame)
+		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame.Name(), sf.goalFrame.Name())
 		if geometries == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
