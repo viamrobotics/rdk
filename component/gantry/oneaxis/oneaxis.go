@@ -3,6 +3,7 @@ package oneaxis
 
 import (
 	"context"
+	"encoding/json"
 
 	// for embedding model file.
 	"fmt"
@@ -29,12 +30,34 @@ import (
 
 const modelname = "oneaxis"
 
+type validatedBool struct {
+	valBool bool
+	Set     bool
+}
+
+// TODO: (rh) figure out how to add this/where to add this
+func (vB *validatedBool) UnmarshalJSON(data []byte) error {
+	vB.Set = true
+
+	if string(data) == "null" {
+		vB.Set = false
+		return nil
+	}
+	var temp bool
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	vB.valBool = temp
+	return nil
+}
+
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
 	Board              string                    `json:"board"` // used to read limit switch pins and control motor with gpio pins
 	Motor              string                    `json:"motor"`
 	LimitSwitchPins    []string                  `json:"limit_pins"`
-	LimitPinEnabled    bool                      `json:"limit_pin_enabled"`
+	LimitPinEnabled    validatedBool             `json:"limit_pin_enabled_high"`
 	LengthMm           float64                   `json:"length_mm"`
 	ReductionRatio     float64                   `json:"reduction_ratio"`
 	GantryRPM          float64                   `json:"gantry_rpm"`
@@ -65,6 +88,10 @@ func (config *AttrConfig) Validate(path string) error {
 	if len(config.LimitSwitchPins) == 1 && config.ReductionRatio == 0 {
 		return utils.NewConfigValidationError(path,
 			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"))
+	}
+
+	if !config.LimitPinEnabled.Set {
+		return utils.NewConfigValidationError(path, errors.New("limit pin enabled muist be set to true or false"))
 	}
 
 	if config.Axis.X == 0 && config.Axis.Y == 0 && config.Axis.Z == 0 {
@@ -102,8 +129,9 @@ func init() {
 type oneAxis struct {
 	name string
 
-	board board.Board
-	motor motor.Motor
+	board       board.Board
+	boardExists bool
+	motor       motor.Motor
 
 	limitSwitchPins []string
 	limitHigh       bool
@@ -152,11 +180,6 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, conf.Motor)
 	}
 
-	board, err := board.FromRobot(r, conf.Board)
-	if err != nil {
-		return nil, err
-	}
-
 	// default no rotation using ParseConfig()
 	orientOffset, err := conf.OrientTransform.ParseConfig()
 	if err != nil {
@@ -167,11 +190,10 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 
 	oAx := &oneAxis{
 		name:                  config.Name,
-		board:                 board,
 		motor:                 _motor,
 		logger:                logger,
 		limitSwitchPins:       conf.LimitSwitchPins,
-		limitHigh:             conf.LimitPinEnabled,
+		limitHigh:             conf.LimitPinEnabled.valBool,
 		lengthMm:              conf.LengthMm,
 		reductionRatio:        conf.ReductionRatio,
 		rpm:                   conf.GantryRPM,
@@ -183,22 +205,37 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 	switch len(oAx.limitSwitchPins) {
 	case 1:
 		oAx.limitType = switchLimitTypeOnePin
+		if oAx.reductionRatio <= 0 {
+			return nil, errors.New("gantry with one limit switch per axis needs a reduction ratio defined")
+		}
+
+		board, err := board.FromRobot(r, conf.Board)
+		if err != nil {
+			return nil, err
+		}
+		oAx.board = board
 	case 2:
 		oAx.limitType = switchLimitTypetwoPin
+		board, err := board.FromRobot(r, conf.Board)
+		if err != nil {
+			return nil, err
+		}
+		oAx.board = board
 	case 0:
 		oAx.limitType = switchLimitTypeEncoder
+		_, err := board.FromRobot(r, conf.Board)
+		if err == nil {
+			return nil, errors.New("remove board from gantry attribute list, it shoudl be included in motor attribute list")
+		}
+		if oAx.startPosition == 0 {
+			return nil, errors.New("gantry of type encoder needs a start position set")
+		}
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
 
-	if oAx.limitType == switchLimitTypeOnePin && oAx.reductionRatio <= 0 {
-		return nil, errors.New("gantry with one limit switch per axis needs a reduction ratio defined")
-	}
-
-	if oAx.limitType == switchLimitTypeEncoder && oAx.startPosition == 0 {
-		return nil, errors.New("gantyr of type encoder needs a start position set")
-	}
+	//if oAx.limitType == switchLimitTypeOnePin || oAx.limitType == switchLimitTypetwoPin
 
 	if err := oAx.Home(ctx); err != nil {
 		return nil, err
@@ -273,7 +310,10 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 // Not yet implemented.
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
 
-	if err := g.motor.ResetZeroPosition(ctx, g.startPosition); err != nil {
+	radius := g.reductionRatio
+	stepsPerLength := g.lengthMm / (radius * 2 * math.Pi)
+
+	if err := g.motor.ResetZeroPosition(ctx, g.startPosition*stepsPerLength); err != nil {
 		return err
 	}
 	positionA, err := g.motor.GetPosition(ctx)
@@ -281,8 +321,6 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 		return err
 	}
 
-	radius := g.reductionRatio
-	stepsPerLength := g.lengthMm / (radius * 2 * math.Pi)
 	positionB := positionA + stepsPerLength
 
 	g.positionLimits = []float64{positionA, positionB}
