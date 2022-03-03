@@ -92,7 +92,7 @@ type Status struct {
 	Lengths   []float64 `json:"lengths,omitempty"`
 }
 
-// CreateStatus creates a status from the arm.
+// CreateStatus creates a status from the gantry.
 func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 	gantry, ok := resource.(Gantry)
 	if !ok {
