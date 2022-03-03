@@ -9,6 +9,7 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -40,7 +41,7 @@ func TestServer(t *testing.T) {
 	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 		gantryPos = pos
 		return nil
 	}
@@ -52,7 +53,7 @@ func TestServer(t *testing.T) {
 	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return nil, errors.New("can't get position")
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 		gantryPos = pos
 		return errors.New("can't move to position")
 	}
