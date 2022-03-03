@@ -98,28 +98,10 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// EndPosition holds 6d pose of the end effector relative to the base, represented by X,Y,Z coordinates which express
-// millimeters and theta, ox, oy, oz coordinates which express an orientation vector.
-type EndPosition struct {
-	X     float64 `json:"x"`
-	Y     float64 `json:"y"`
-	Z     float64 `json:"z"`
-	OX    float64 `json:"ox"`
-	OY    float64 `json:"oy"`
-	OZ    float64 `json:"oz"`
-	Theta float64 `json:"theta"`
-}
-
-// JointPositions holds a list of joint positions represented in degrees
-// The numbers are ordered spatially from the base toward the end effector.
-type JointPositions struct {
-	Degrees []float64 `json:"degrees"`
-}
-
 // Status holds the status of an Arm.
 type Status struct {
-	EndPosition    EndPosition    `json:"end_position"`
-	JointPositions JointPositions `json:"joint_positions"`
+	EndPosition    *commonpb.Pose        `json:"end_position"`
+	JointPositions *pb.ArmJointPositions `json:"joint_positions"`
 }
 
 // CreateStatus creates a status from the arm.
@@ -138,18 +120,8 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 	}
 
 	armStatus := Status{
-		EndPosition: EndPosition{
-			X:     endPosition.X,
-			Y:     endPosition.Y,
-			Z:     endPosition.Z,
-			OX:    endPosition.OX,
-			OY:    endPosition.OY,
-			OZ:    endPosition.OZ,
-			Theta: endPosition.Theta,
-		},
-		JointPositions: JointPositions{
-			Degrees: jointPositions.Degrees,
-		},
+		EndPosition:    endPosition,
+		JointPositions: jointPositions,
 	}
 	return armStatus, nil
 }

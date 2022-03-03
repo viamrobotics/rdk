@@ -77,8 +77,8 @@ func TestNamesFromRobot(t *testing.T) {
 
 func TestStatusValid(t *testing.T) {
 	status := arm.Status{
-		EndPosition:    arm.EndPosition{X: pose.X, Y: pose.Y, Z: pose.Z, OX: pose.OX, OY: pose.OY, OZ: pose.OZ, Theta: pose.Theta},
-		JointPositions: arm.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		EndPosition:    pose,
+		JointPositions: &pb.ArmJointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
@@ -99,8 +99,8 @@ func TestCreateStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
 
 	status := arm.Status{
-		EndPosition:    arm.EndPosition{X: pose.X, Y: pose.Y, Z: pose.Z, OX: pose.OX, OY: pose.OY, OZ: pose.OZ, Theta: pose.Theta},
-		JointPositions: arm.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		EndPosition:    pose,
+		JointPositions: &pb.ArmJointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
 
 	injectArm := &inject.Arm{}
