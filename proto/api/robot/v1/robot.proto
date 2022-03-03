@@ -62,43 +62,6 @@ service RobotService {
       post: "/api/v1/resource/{resource_name}/run_command"
     };
   }
-  
-  // Navigation Service
-  rpc NavigationServiceMode(NavigationServiceModeRequest) returns (NavigationServiceModeResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/navigation/mode"
-    };
-  }
-
-  rpc NavigationServiceSetMode(NavigationServiceSetModeRequest) returns (NavigationServiceSetModeResponse) {
-    option (google.api.http) = {
-      put: "/api/v1/services/navigation/mode"
-    };
-  }
-
-  rpc NavigationServiceLocation(NavigationServiceLocationRequest) returns (NavigationServiceLocationResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/navigation/location"
-    };
-  }
-
-  rpc NavigationServiceWaypoints(NavigationServiceWaypointsRequest) returns (NavigationServiceWaypointsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/services/navigation/waypoints"
-    };
-  }
-
-  rpc NavigationServiceAddWaypoint(NavigationServiceAddWaypointRequest) returns (NavigationServiceAddWaypointResponse) {
-    option (google.api.http) = {
-      post: "/api/v1/services/navigation/waypoints"
-    };
-  }
-
-  rpc NavigationServiceRemoveWaypoint(NavigationServiceRemoveWaypointRequest) returns (NavigationServiceRemoveWaypointResponse) {
-    option (google.api.http) = {
-      delete: "/api/v1/services/navigation/waypoints/{id}"
-    };
-  }
 
 }
 
@@ -241,62 +204,6 @@ message ResourceRunCommandRequest {
 
 message ResourceRunCommandResponse {
   google.protobuf.Struct result = 1;
-}
-
-enum NavigationServiceMode {
-  NAVIGATION_SERVICE_MODE_UNSPECIFIED = 0;
-  NAVIGATION_SERVICE_MODE_MANUAL = 1;
-  NAVIGATION_SERVICE_MODE_WAYPOINT = 2;
-}
-
-message NavigationServiceModeRequest {
-
-}
-
-message NavigationServiceModeResponse {
-  NavigationServiceMode mode = 1;
-}
-
-message NavigationServiceSetModeRequest {
-  NavigationServiceMode mode = 1;
-}
-
-message NavigationServiceSetModeResponse {
-}
-
-message NavigationServiceWaypoint {
-  string id = 1;
-  common.v1.GeoPoint location = 2;
-}
-
-message NavigationServiceLocationRequest {
-
-}
-
-message NavigationServiceLocationResponse {
-  common.v1.GeoPoint location = 1;
-}
-
-message NavigationServiceWaypointsRequest {
-
-}
-
-message NavigationServiceWaypointsResponse {
-  repeated NavigationServiceWaypoint waypoints = 1;
-}
-
-message NavigationServiceAddWaypointRequest {
-  common.v1.GeoPoint location = 1;
-}
-
-message NavigationServiceAddWaypointResponse {
-}
-
-message NavigationServiceRemoveWaypointRequest {
-  string id = 1;
-}
-
-message NavigationServiceRemoveWaypointResponse {
 }
 
 message InputControllerEvent {

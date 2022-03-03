@@ -42,6 +42,7 @@ import (
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
@@ -49,6 +50,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var emptyStatus = &pb.Status{
@@ -221,8 +223,8 @@ func TestClient(t *testing.T) {
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
@@ -430,7 +432,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
+	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -489,8 +491,8 @@ func TestClient(t *testing.T) {
 	_, err = servo1.GetPosition(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	resource1, ok := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -499,7 +501,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -540,7 +542,6 @@ func TestClient(t *testing.T) {
 
 	_, err = board.FromRobot(client, "board1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	_, err = board.FromRobot(client, "board3")
 	test.That(t, err, test.ShouldBeNil)
@@ -585,8 +586,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
-	resource1, ok = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err = client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())

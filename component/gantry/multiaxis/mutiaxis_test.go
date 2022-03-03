@@ -14,6 +14,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
@@ -22,7 +23,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
 			return positions, nil
 		},
-		MoveToPositionFunc: func(ctx context.Context, positions []float64) error {
+		MoveToPositionFunc: func(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 			return nil
 		},
 		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
@@ -41,14 +42,14 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 func createFakeRobot() *inject.Robot {
 	fakerobot := &inject.Robot{}
 
-	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case gantry.Subtype:
-			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, true
+			return &inject.Gantry{GetLengthsFunc: func(ctx context.Context) ([]float64, error) { return []float64{1}, nil }}, nil
 		case motor.Subtype:
-			return &fm.Motor{PositionSupported: true}, true
+			return &fm.Motor{PositionSupported: true}, nil
 		}
-		return nil, false
+		return nil, utils.NewResourceNotFoundError(name)
 	}
 	return fakerobot
 }
@@ -108,17 +109,17 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.MoveToPosition(ctx, positions)
+	err := fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	positions = []float64{1, 2, 3}
-	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	positions = []float64{1, 2}
-	err = fakemultiaxis.MoveToPosition(ctx, positions)
+	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 

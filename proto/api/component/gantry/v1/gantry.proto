@@ -5,6 +5,7 @@ option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 package proto.api.component.gantry.v1;
 
 import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
 
 // An GantryService services all gantries associated with a robot
 service GantryService {
@@ -41,6 +42,7 @@ message GetPositionResponse {
 message MoveToPositionRequest {
   string name = 1;
   repeated double positions_mm = 2;
+  optional common.v1.WorldState world_state = 3;
 }
 
 message MoveToPositionResponse {}

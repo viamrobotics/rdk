@@ -24,6 +24,8 @@ window.inputApi = require('./gen/proto/api/component/inputcontroller/v1/input_co
 const { InputControllerServiceClient } = require('./gen/proto/api/component/inputcontroller/v1/input_controller_pb_service.js');
 window.motorApi = require('./gen/proto/api/component/motor/v1/motor_pb.js');
 const { MotorServiceClient } = require('./gen/proto/api/component/motor/v1/motor_pb_service.js');
+window.navigationApi = require('./gen/proto/api/service/navigation/v1/navigation_pb.js');
+const { NavigationServiceClient } = require('./gen/proto/api/service/navigation/v1/navigation_pb_service.js');
 window.objectManipulationApi = require('./gen/proto/api/service/objectmanipulation/v1/object_manipulation_pb.js');
 const { ObjectManipulationServiceClient } = require('./gen/proto/api/service/objectmanipulation/v1/object_manipulation_pb_service.js');
 window.objectSegmentationApi = require('./gen/proto/api/service/objectsegmentation/v1/object_segmentation_pb.js');
@@ -101,6 +103,7 @@ let connect = async (authEntity, creds) => {
 	window.imuService = new IMUServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectManipulationService = new ObjectManipulationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });

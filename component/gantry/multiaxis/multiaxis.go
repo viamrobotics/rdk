@@ -72,9 +72,9 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 	}
 
 	for _, s := range conf.SubAxes {
-		oneAx, ok := r.ResourceByName(gantry.Named(s))
-		if !ok {
-			return nil, errors.Errorf("no axes named [%s]", s)
+		oneAx, err := r.ResourceByName(gantry.Named(s))
+		if err != nil {
+			return nil, errors.Wrapf(err, "no axes named [%s]", s)
 		}
 		subAx, ok := oneAx.(gantry.Gantry)
 		if !ok {
@@ -93,7 +93,7 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 	if len(positions) == 0 {
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
@@ -105,7 +105,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64) err
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1])
+		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], obstacles)
 		if err != nil {
 			return err
 		}
@@ -127,7 +127,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]))
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}

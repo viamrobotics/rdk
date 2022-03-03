@@ -1,44 +1,38 @@
-package objectdetection
+package objectdetection_test
 
 import (
 	"context"
 	"image"
 	"testing"
 
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
+	"go.viam.com/rdk/component/camera/imagesource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/vision/objectdetection"
 )
 
-type simpleSource struct {
-	filePath string
-}
-
-func (s *simpleSource) Next(ctx context.Context) (image.Image, func(), error) {
-	img, err := rimage.NewImageFromFile(s.filePath)
-	return img, func() {}, err
-}
-
-func TestColorDetection(t *testing.T) {
+func TestDetectionSource(t *testing.T) {
 	// make the original source
-	src := &simpleSource{artifact.MustPath("vision/objectdetection/detection_test.jpg")}
+	sourceImg, err := rimage.NewImageFromFile(artifact.MustPath("vision/objectdetection/detection_test.jpg"))
+	test.That(t, err, test.ShouldBeNil)
+	src := &imagesource.StaticSource{sourceImg}
 	// make the preprocessing function
-	p, err := RemoveColorChannel("b")
+	p, err := objectdetection.RemoveColorChannel("b")
 	test.That(t, err, test.ShouldBeNil)
 	// make the detector
 	theColor := rimage.NewColor(79, 56, 21) // a yellow color
 	hue, _, _ := theColor.HsvNormal()
-	_, err = NewColorDetector(8., hue)
-	test.That(t, err, test.ShouldBeError, errors.New("tolerance must be between 0.0 and 1.0. Got 8.00000"))
-	d, err := NewColorDetector(0.0444444444, hue)
+	d, err := objectdetection.NewColorDetector(0.0444444444, hue)
 	test.That(t, err, test.ShouldBeNil)
 	// make the filter
-	f := NewAreaFilter(15000)
+	f := objectdetection.NewAreaFilter(15000)
 
 	// Make the detection source
-	pipeline, err := NewSource(src, p, d, f)
+	det, err := objectdetection.Build(p, d, f)
+	test.That(t, err, test.ShouldBeNil)
+	pipeline, err := objectdetection.NewSource(src, det)
 	test.That(t, err, test.ShouldBeNil)
 	defer pipeline.Close()
 
