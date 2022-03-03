@@ -130,7 +130,7 @@ func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.
 
 		// if resource subtype has an associated CreateStatus method, use that
 		// otherwise return true to indicate resource exists
-		var status interface{} = map[string]interface{}{"exists": true}
+		var status interface{} = DefaultStatus{Exists: true}
 		var err error
 		subtype := registry.ResourceSubtypeLookup(name.Subtype)
 		if subtype != nil && subtype.Status != nil {
@@ -155,4 +155,9 @@ func (s *statusService) Update(ctx context.Context, r map[resource.Name]interfac
 	}
 	s.resources = resources
 	return nil
+}
+
+// DefaultStatus is a default status for resources that don't have a CreateStatus method registered.
+type DefaultStatus struct {
+	Exists bool `json:"exists"`
 }
