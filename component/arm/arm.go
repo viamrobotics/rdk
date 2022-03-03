@@ -119,11 +119,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 		return Status{}, err
 	}
 
-	armStatus := Status{
-		EndPosition:    endPosition,
-		JointPositions: jointPositions,
-	}
-	return armStatus, nil
+	return Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
 }
 
 type reconfigurableArm struct {
