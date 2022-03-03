@@ -4,6 +4,7 @@ package status
 import (
 	"context"
 
+	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "go.viam.com/rdk/proto/api/service/status/v1"
@@ -36,7 +37,6 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-// If resource status contains a list and it is not of type []interface, this will fail.
 func (server *subtypeServer) GetStatus(ctx context.Context, req *pb.GetStatusRequest) (*pb.GetStatusResponse, error) {
 	svc, err := server.service()
 	if err != nil {
@@ -54,13 +54,15 @@ func (server *subtypeServer) GetStatus(ctx context.Context, req *pb.GetStatusReq
 
 	statusesP := make([]*pb.Status, 0, len(statuses))
 	for _, status := range statuses {
-		encoded, err := protoutils.StructToMap(status.Status)
+		// InterfaceToMap necessary because structpb.NewStruct only accepts []interface{} for slices and mapstructure does not do the
+		// conversion necessary.
+		encoded, err := protoutils.InterfaceToMap(status.Status)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to convert status for %q to a form acceptable to structpb.NewStruct", status.Name)
 		}
 		statusP, err := structpb.NewStruct(encoded)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to construct a structpb.Struct from status for %q", status.Name)
 		}
 		statusesP = append(
 			statusesP,
