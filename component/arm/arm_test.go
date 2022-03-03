@@ -84,7 +84,15 @@ func TestStatusValid(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap()["joint_positions"], test.ShouldResemble, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}})
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{
+			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
+			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+		},
+	)
 
 	convMap := arm.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
