@@ -2,13 +2,17 @@ package servo_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/servo"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -66,6 +70,49 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := servo.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testServoName})
+}
+
+func TestStatusValid(t *testing.T) {
+	status := servo.Status{Position: uint32(8)}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position": 8.0})
+
+	convMap := servo.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := servo.CreateStatus(context.Background(), "not an servo")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
+
+	status := servo.Status{Position: uint32(8)}
+
+	injectServo := &inject.Servo{}
+	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+		return uint8(status.Position), nil
+	}
+
+	t.Run("working", func(t *testing.T) {
+		status1, err := servo.CreateStatus(context.Background(), injectServo)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("fail on GetPosition", func(t *testing.T) {
+		errFail := errors.New("can't get position")
+		injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+			return 0, errFail
+		}
+		_, err = servo.CreateStatus(context.Background(), injectServo)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
 }
 
 func TestServoName(t *testing.T) {
