@@ -97,7 +97,7 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := gantry.CreateStatus(context.Background(), "not an gantry")
+	_, err := gantry.CreateStatus(context.Background(), "not a gantry")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 
 	status := gantry.Status{

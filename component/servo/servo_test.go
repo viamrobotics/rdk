@@ -89,7 +89,7 @@ func TestStatusValid(t *testing.T) {
 }
 
 func TestCreateStatus(t *testing.T) {
-	_, err := servo.CreateStatus(context.Background(), "not an servo")
+	_, err := servo.CreateStatus(context.Background(), "not a servo")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
 
 	status := servo.Status{Position: uint32(8)}
