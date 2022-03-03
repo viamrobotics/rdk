@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -66,6 +67,9 @@ func TestClient(t *testing.T) {
 			return pcA, nil
 		}
 
+		injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]string, error) {
+			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+		}
 		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 			cameraName string,
 			segmenterName string,
@@ -77,10 +81,13 @@ func TestClient(t *testing.T) {
 			return segments, nil
 		}
 
+		paramNames, err := client.GetSegmenterParameters(context.Background(), "")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, paramNames, test.ShouldHaveLength, 3)
 		params := config.AttributeMap{
-			"min_points_in_plane":   100,
-			"min_points_in_segment": 3,
-			"clustering_radius_mm":  5.0,
+			paramNames[0]: 100,
+			paramNames[1]: 3,
+			paramNames[2]: 5.0,
 		}
 		segs, err := client.GetObjectPointClouds(context.Background(), "", "", params)
 		test.That(t, err, test.ShouldBeNil)

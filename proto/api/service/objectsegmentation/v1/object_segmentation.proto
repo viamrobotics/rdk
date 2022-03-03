@@ -52,5 +52,5 @@ message GetSegmenterParametersRequest {
 
 message GetSegmenterParametersResponse {
   // parameters for the chosen segmenter
-  google.protobuf.Struct parameters = 1;
+  repeated string parameters = 1;
 }
