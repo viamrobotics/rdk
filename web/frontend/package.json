@@ -10,7 +10,9 @@
     "prepare": "lerna run --stream prepare",
     "postinstall": "lerna bootstrap",
     "build": "lerna run build --stream",
-    "build:api": "lerna run build --stream --scope=rdk-api"
+    "build:dls": "lerna run build --stream --scope=dls",
+    "build:api": "lerna run build --stream --scope=rdk-api",
+    "storybook:dls": "lerna run storybook --stream --scope=dls"
   },
   "devDependencies": {
     "lerna": "^4.0.0"
