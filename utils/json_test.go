@@ -15,9 +15,10 @@ func TestJSONTags(t *testing.T) {
 		FifthVar   int     `json:"-"`
 		SixthVar   float64
 		SeventhVar string `json:""`
+		EigthVar   string `json:",omitempty"`
 	}{}
-	expectedNames := []string{"int_var", "float_var", "string_var", "bool_var", "SixthVar", "SeventhVar"}
+	expectedNames := []string{"int_var", "float_var", "string_var", "bool_var", "SixthVar", "SeventhVar", "EigthVar"}
 	tagNames := JSONTags(testStruct)
-	test.That(t, tagNames, test.ShouldHaveLength, 6)
+	test.That(t, tagNames, test.ShouldHaveLength, 7)
 	test.That(t, tagNames, test.ShouldResemble, expectedNames)
 }
