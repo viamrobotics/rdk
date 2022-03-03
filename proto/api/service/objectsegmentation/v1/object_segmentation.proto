@@ -30,7 +30,7 @@ service ObjectSegmentationService {
 message GetObjectPointCloudsRequest {
   // Name of a camera
   string camera_name = 1;
-  // Name of the segmentation algo
+  // Name of the segmentation algorithm
   string segmenter_name = 2;
   // Requested MIME type of response
   string mime_type = 3;
@@ -51,6 +51,6 @@ message GetSegmenterParametersRequest {
 }
 
 message GetSegmenterParametersResponse {
-  // parameters for the chosen segmenter
+  // parameter names of the segmenter in the request
   repeated string parameters = 1;
 }

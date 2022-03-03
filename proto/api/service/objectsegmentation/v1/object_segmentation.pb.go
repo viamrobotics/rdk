@@ -30,7 +30,7 @@ type GetObjectPointCloudsRequest struct {
 
 	// Name of a camera
 	CameraName string `protobuf:"bytes,1,opt,name=camera_name,json=cameraName,proto3" json:"camera_name,omitempty"`
-	// Name of the segmentation algo
+	// Name of the segmentation algorithm
 	SegmenterName string `protobuf:"bytes,2,opt,name=segmenter_name,json=segmenterName,proto3" json:"segmenter_name,omitempty"`
 	// Requested MIME type of response
 	MimeType string `protobuf:"bytes,3,opt,name=mime_type,json=mimeType,proto3" json:"mime_type,omitempty"`
@@ -208,7 +208,7 @@ type GetSegmenterParametersResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// parameters for the chosen segmenter
+	// parameter names of the segmenter in the request
 	Parameters []string `protobuf:"bytes,1,rep,name=parameters,proto3" json:"parameters,omitempty"`
 }
 
