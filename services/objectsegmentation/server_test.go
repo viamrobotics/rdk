@@ -69,7 +69,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	_, err = server.GetObjectPointClouds(context.Background(), req)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
-	// working request
+	// create a working segmenter
 	injCam := &inject.Camera{}
 	injCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pcA := pointcloud.New()
@@ -89,10 +89,39 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		}
 		return segmenter.Segmenter(ctx, injCam, params)
 	}
+	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]string, error) {
+		segmenter, err := segmentation.SegmenterLookup(segmenterName)
+		if err != nil {
+			return nil, err
+		}
+		return segmenter.Parameters, nil
+	}
+
+	// no such segmenter in registry
+	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: "no_such_segmenter",
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		CameraName:    "fakeCamera",
+		SegmenterName: "no_such_segmenter",
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	// successful request
+	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: segmentation.RadiusClusteringSegmenter,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	paramNames := paramNamesResp.Parameters
+
 	params, err = structpb.NewStruct(config.AttributeMap{
-		"min_points_in_plane":   100,
-		"min_points_in_segment": 3,
-		"clustering_radius_mm":  5.,
+		paramNames[0]: 100, // min points in plane
+		paramNames[1]: 3,   // min points in segment
+		paramNames[2]: 5.,  //  clustering radius
 	})
 	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{

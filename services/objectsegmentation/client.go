@@ -56,6 +56,16 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
+func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
+	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
+		SegmenterName: segmenterName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Parameters, nil
+}
+
 func (c *client) GetObjectPointClouds(ctx context.Context,
 	cameraName string,
 	segmenterName string,

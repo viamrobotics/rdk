@@ -35,6 +35,23 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
+func (server *subtypeServer) GetSegmenterParameters(
+	ctx context.Context,
+	req *pb.GetSegmenterParametersRequest,
+) (*pb.GetSegmenterParametersResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetSegmenterParametersResponse{
+		Parameters: params,
+	}, nil
+}
+
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
 func (server *subtypeServer) GetObjectPointClouds(

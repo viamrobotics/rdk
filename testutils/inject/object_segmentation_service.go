@@ -12,7 +12,10 @@ import (
 // service.
 type ObjectSegmentationService struct {
 	objectsegmentation.Service
-	GetObjectPointCloudsFunc func(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*vision.Object, error)
+	GetObjectPointCloudsFunc func(ctx context.Context,
+		cameraName, segmenterName string,
+		params config.AttributeMap) ([]*vision.Object, error)
+	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]string, error)
 }
 
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
@@ -25,4 +28,15 @@ func (seg *ObjectSegmentationService) GetObjectPointClouds(
 		return seg.Service.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
 	}
 	return seg.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName, params)
+}
+
+// GetSegmenterParameters calls the injected GetSegmenterParameters or the real variant.
+func (seg *ObjectSegmentationService) GetSegmenterParameters(
+	ctx context.Context,
+	segmenterName string,
+) ([]string, error) {
+	if seg.GetSegmenterParametersFunc == nil {
+		return seg.Service.GetSegmenterParameters(ctx, segmenterName)
+	}
+	return seg.GetSegmenterParametersFunc(ctx, segmenterName)
 }

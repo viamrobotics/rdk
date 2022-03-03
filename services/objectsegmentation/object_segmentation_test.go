@@ -148,10 +148,13 @@ func TestGetObjectPointClouds(t *testing.T) {
 	// from a camera that has a PointCloud func -- apply default
 	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
+	paramNames, err := obs.GetSegmenterParameters(context.Background(), segmentation.RadiusClusteringSegmenter)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, paramNames, test.ShouldHaveLength, 3)
 	cfg := config.AttributeMap{
-		"min_points_in_plane":   100,
-		"min_points_in_segment": 3,
-		"clustering_radius_mm":  5.0,
+		paramNames[0]: 100, // min points in plane
+		paramNames[1]: 3,   // min points in segment
+		paramNames[2]: 5.,  // clustering radius
 	}
 	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, cfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -261,10 +264,13 @@ func TestFullClientServerLoop(t *testing.T) {
 
 	client, err := objectsegmentation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+	paramNames, err := client.GetSegmenterParameters(context.Background(), segmentation.RadiusClusteringSegmenter)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, paramNames, test.ShouldHaveLength, 3)
 	params := config.AttributeMap{
-		"min_points_in_plane":   100,
-		"min_points_in_segment": 3,
-		"clustering_radius_mm":  5.,
+		paramNames[0]: 100, // min points in plane
+		paramNames[1]: 3,   // min points in segment
+		paramNames[2]: 5.,  // clustering radius
 	}
 	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, params)
 	test.That(t, err, test.ShouldBeNil)
