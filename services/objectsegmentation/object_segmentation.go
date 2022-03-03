@@ -96,5 +96,5 @@ func (seg *objectSegService) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	return segmenter(ctx, cam, params)
+	return segmenter.Segmenter(ctx, cam, params)
 }

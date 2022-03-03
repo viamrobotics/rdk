@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/objectdetection"
 )
@@ -18,7 +19,11 @@ import (
 const ColorObjectsSegmenter = "color_objects"
 
 func init() {
-	RegisterSegmenter(ColorObjectsSegmenter, Segmenter(ColorObjects))
+	RegisterSegmenter(ColorObjectsSegmenter,
+		Registration{
+			Segmenter(ColorObjects),
+			utils.JSONTags(ColorObjectsConfig{}),
+		})
 }
 
 // ColorObjectsConfig specifies the necessary parameters for the color detection and transformation to 3D objects.
