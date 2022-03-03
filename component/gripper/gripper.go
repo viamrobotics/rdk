@@ -82,9 +82,9 @@ var (
 
 // FromRobot is a helper for getting the named Gripper from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gripper, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
-		return nil, utils.NewResourceNotFoundError(Named(name))
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
 	part, ok := res.(Gripper)
 	if !ok {

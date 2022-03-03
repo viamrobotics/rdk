@@ -56,7 +56,7 @@ type Gantry interface {
 	GetPosition(ctx context.Context) ([]float64, error)
 
 	// MoveToPosition is in meters
-	MoveToPosition(ctx context.Context, positionsMm []float64) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error
 
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
@@ -67,9 +67,9 @@ type Gantry interface {
 
 // FromRobot is a helper for getting the named gantry from the given Robot.
 func FromRobot(r robot.Robot, name string) (Gantry, error) {
-	res, ok := r.ResourceByName(Named(name))
-	if !ok {
-		return nil, utils.NewResourceNotFoundError(Named(name))
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
 	part, ok := res.(Gantry)
 	if !ok {
@@ -121,10 +121,14 @@ func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+func (g *reconfigurableGantry) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	obstacles []*referenceframe.GeometriesInFrame,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm)
+	return g.actual.MoveToPosition(ctx, positionsMm, obstacles)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {
