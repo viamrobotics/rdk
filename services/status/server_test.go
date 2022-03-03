@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
@@ -82,7 +83,8 @@ func TestServerGetStatus(t *testing.T) {
 			err,
 			test.ShouldBeError,
 			errors.New(
-				"unable to convert status for \"rdk:component:arm/arm\" to a form acceptable to structpb.NewStruct: data of type int not a struct or a map-like object",
+				"unable to convert status for \"rdk:component:arm/arm\" to a form acceptable to structpb.NewStruct: "+
+					"data of type int not a struct or a map-like object",
 			),
 		)
 	})
@@ -99,11 +101,17 @@ func TestServerGetStatus(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			aStatus.Name: map[string]interface{}{"exists": true},
 		}
-		injectStatus.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]status.Status, error) {
+		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
+			test.That(
+				t,
+				testutils.NewResourceNameSet(resourceNames...),
+				test.ShouldResemble,
+				testutils.NewResourceNameSet(aStatus.Name),
+			)
 			return readings, nil
 		}
 		req := &pb.GetStatusRequest{
-			ResourceNames: []*commonpb.ResourceName{},
+			ResourceNames: []*commonpb.ResourceName{protoutils.ResourceNameToProto(aStatus.Name)},
 		}
 
 		resp, err := server.GetStatus(context.Background(), req)
@@ -126,17 +134,27 @@ func TestServerGetStatus(t *testing.T) {
 		iStatus := status.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
 		gStatus := status.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
 		aStatus := status.Status{Name: arm.Named("arm"), Status: status.DefaultStatus{Exists: true}}
-		readings := []status.Status{iStatus, gStatus, aStatus}
+		statuses := []status.Status{iStatus, gStatus, aStatus}
 		expected := map[resource.Name]interface{}{
 			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
 			aStatus.Name: map[string]interface{}{"exists": true},
 		}
-		injectStatus.GetStatusFunc = func(ctx context.Context, status []resource.Name) ([]status.Status, error) {
-			return readings, nil
+		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
+			test.That(
+				t,
+				testutils.NewResourceNameSet(resourceNames...),
+				test.ShouldResemble,
+				testutils.NewResourceNameSet(iStatus.Name, gStatus.Name, aStatus.Name),
+			)
+			return statuses, nil
 		}
 		req := &pb.GetStatusRequest{
-			ResourceNames: []*commonpb.ResourceName{},
+			ResourceNames: []*commonpb.ResourceName{
+				protoutils.ResourceNameToProto(iStatus.Name),
+				protoutils.ResourceNameToProto(gStatus.Name),
+				protoutils.ResourceNameToProto(aStatus.Name),
+			},
 		}
 
 		resp, err := server.GetStatus(context.Background(), req)
