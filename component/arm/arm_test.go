@@ -80,7 +80,7 @@ func TestStatusValid(t *testing.T) {
 		EndPosition:    arm.EndPosition{X: pose.X, Y: pose.Y, Z: pose.Z, OX: pose.OX, OY: pose.OY, OZ: pose.OZ, Theta: pose.Theta},
 		JointPositions: arm.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
-	map1, err := protoutils.StructToMap(status)
+	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)

@@ -91,11 +91,15 @@ func toInterface(data interface{}) (interface{}, error) {
 // structToMap attempts to coerce a struct into a form acceptable by grpc
 func structToMap(data interface{}) (map[string]interface{}, error) {
 	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
 	if t.Kind() != reflect.Struct {
 		return nil, errors.Errorf("data of type %T is not a struct", data)
 	}
 	res := map[string]interface{}{}
 	value := reflect.ValueOf(data)
+	value = reflect.Indirect(value)
 	for i := 0; i < t.NumField(); i++ {
 		sField := t.Field(i)
 		tag := sField.Tag.Get("json")
