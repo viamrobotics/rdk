@@ -21,6 +21,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -81,6 +84,31 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// Status holds the status of a Gantry.
+type Status struct {
+	Positions []float64 `json:"positions,omitempty"`
+	Lengths   []float64 `json:"lengths,omitempty"`
+}
+
+// CreateStatus creates a status from the arm.
+func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
+	gantry, ok := resource.(Gantry)
+	if !ok {
+		return Status{}, utils.NewUnimplementedInterfaceError("Gantry", resource)
+	}
+	positions, err := gantry.GetPosition(ctx)
+	if err != nil {
+		return Status{}, err
+	}
+
+	lengths, err := gantry.GetLengths(ctx)
+	if err != nil {
+		return Status{}, err
+	}
+
+	return Status{Positions: positions, Lengths: lengths}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
