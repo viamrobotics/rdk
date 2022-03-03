@@ -87,7 +87,7 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		if err != nil {
 			return nil, err
 		}
-		return segmenter(ctx, injCam, params)
+		return segmenter.Segmenter(ctx, injCam, params)
 	}
 	params, err = structpb.NewStruct(config.AttributeMap{
 		"min_points_in_plane":   100,
