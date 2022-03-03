@@ -219,14 +219,14 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 		return err
 	}
 
-	curPos, err := fs.TransformFrame(seedMap, moveFrame, fs.World())
+	curPos, err := fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
 	if err != nil {
 		return err
 	}
 
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY-15))
-	steps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), opt)
+	steps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrameName, referenceframe.World, opt)
 	if err != nil {
 		return err
 	}
@@ -247,7 +247,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
 
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
-		curPos, err = fs.TransformFrame(seedMap, moveFrame, fs.World())
+		curPos, err = fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
 
 		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, pathO, pathD)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
@@ -273,13 +273,13 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	finish := func(seedMap map[string][]referenceframe.Input) map[string][]referenceframe.Input {
 		goal := spatial.NewPoseFromProtobuf(&commonpb.Pose{X: 260, Y: whiteboardY + 150, Z: 520, OY: -1})
 
-		curPos, _ = fs.TransformFrame(seedMap, moveFrame, fs.World())
+		curPos, _ = fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
 
 		// update constraints
 		opt := motionplan.NewDefaultPlannerOptions()
 		opt.AddConstraint("officewall", DontHitPetersWallConstraint(whiteboardY))
 
-		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrame.Name(), fs.World().Name(), opt)
+		waysteps, err := fss.SolvePoseWithOptions(ctx, seedMap, goal, moveFrameName, fs.World().Name(), opt)
 		if err != nil {
 			return map[string][]referenceframe.Input{}
 		}
