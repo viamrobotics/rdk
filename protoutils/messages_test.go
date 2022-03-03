@@ -1,189 +1,267 @@
-package protoutils_test
+package protoutils
 
 import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+type mapTest struct {
+	TestName string
+	Data     interface{}
+	Expected map[string]interface{}
+}
+
+var (
+	simpleMap    = map[string]bool{"exists": true}
+	sliceMap     = map[string][]string{"foo": {"bar"}}
+	nestedMap    = map[string]map[string]string{"foo": {"bar": "bar2"}}
+	structMap    = map[string]SimpleStruct{"foo": simpleStruct}
+	structMapMap = map[string]MapStruct{"foo": mapStruct}
+	mapTests     = []mapTest{
+		{"simple map", simpleMap, map[string]interface{}{"exists": true}},
+		{"slice map", sliceMap, map[string]interface{}{"foo": []interface{}{"bar"}}},
+		{"nested map", nestedMap, map[string]interface{}{"foo": map[string]interface{}{"bar": "bar2"}}},
+		{"struct map", structMap, map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
+		{"struct map map", structMapMap, map[string]interface{}{"foo": map[string]interface{}{"status": map[string]interface{}{"foo": "bar"}}}},
+	}
+)
+
+type structTest struct {
+	TestName string
+	Data     interface{}
+	Expected map[string]interface{}
+	Return   interface{}
+}
+
+var (
+	simpleStruct    = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
+	sliceStruct     = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
+	mapStruct       = MapStruct{Status: map[string]string{"foo": "bar"}}
+	nestedMapStruct = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
+	nestedStruct    = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	noTagStruct     = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	embeddedStruct  = EmbeddedStruct{simpleStruct, sliceStruct}
+
+	structTests = []structTest{
+		{"simple struct", simpleStruct, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}, SimpleStruct{}},
+		{"slice struct", sliceStruct, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}, SliceStruct{}},
+		{"map struct", mapStruct, map[string]interface{}{"status": map[string]interface{}{"foo": "bar"}}, MapStruct{}},
+		{
+			"nested map struct",
+			nestedMapStruct,
+			map[string]interface{}{"status": map[string]interface{}{"foo": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}}},
+			NestedMapStruct{},
+		},
+		{
+			"nested struct",
+			nestedStruct,
+			map[string]interface{}{
+				"slice_struct":  map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+				"simple_struct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
+			},
+			NestedStruct{},
+		},
+		{
+			"nested struct with no tags",
+			noTagStruct,
+			map[string]interface{}{
+				"slice_struct": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+				"SimpleStruct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
+			},
+			NoTagsStruct{},
+		},
+		{
+			"embedded struct",
+			embeddedStruct,
+			map[string]interface{}{
+				"SliceStruct":  map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+				"SimpleStruct": map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
+			},
+			EmbeddedStruct{},
+		},
+	}
+)
+
+func TestInterfaceToMap(t *testing.T) {
+	t.Run("not a map or struct", func(t *testing.T) {
+		_, err := InterfaceToMap("1")
+		test.That(t, err, test.ShouldBeError, errors.New("data of type string not a struct or a map-like object"))
+
+		_, err = InterfaceToMap([]string{"1"})
+		test.That(t, err, test.ShouldBeError, errors.New("data of type []string not a struct or a map-like object"))
+	})
+
+	for _, tc := range mapTests {
+		map1, err := InterfaceToMap(tc.Data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, map1, test.ShouldResemble, tc.Expected)
+
+		newStruct, err := structpb.NewStruct(map1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+	}
+
+	for _, tc := range structTests {
+		map1, err := InterfaceToMap(tc.Data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, map1, test.ShouldResemble, tc.Expected)
+
+		newStruct, err := structpb.NewStruct(map1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &tc.Return})
+		test.That(t, err, test.ShouldBeNil)
+		err = decoder.Decode(newStruct.AsMap())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+	}
+}
+
+func TestMarshalMap(t *testing.T) {
+	t.Run("not a valid map", func(t *testing.T) {
+		_, err := marshalMap(simpleStruct)
+		test.That(t, err, test.ShouldBeError, errors.New("data of type protoutils.SimpleStruct is not a map"))
+
+		_, err = marshalMap("1")
+		test.That(t, err, test.ShouldBeError, errors.New("data of type string is not a map"))
+
+		_, err = marshalMap([]string{"1"})
+		test.That(t, err, test.ShouldBeError, errors.New("data of type []string is not a map"))
+
+		_, err = marshalMap(map[int]string{1: "1"})
+		test.That(t, err, test.ShouldBeError, errors.New("map keys of type int are not strings"))
+
+		_, err = marshalMap(map[interface{}]string{"1": "1"})
+		test.That(t, err, test.ShouldBeError, errors.New("map keys of type interface are not strings"))
+	})
+
+	for _, tc := range mapTests {
+		map1, err := marshalMap(tc.Data)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, map1, test.ShouldResemble, tc.Expected)
+
+		newStruct, err := structpb.NewStruct(map1)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
+	}
+}
+
 func TestStructToMap(t *testing.T) {
-	mockV := mockVector{X: 1.1, Y: 2.2, Z: 3.3}
-	t.Run("simple struct", func(t *testing.T) {
-		map1, err := protoutils.StructToMap(mockV)
+	t.Run("not a struct", func(t *testing.T) {
+		_, err := structToMap(map[string]interface{}{"exists": true})
+		test.That(t, err, test.ShouldBeError, errors.New("data of type map[string]interface {} is not a struct"))
+
+		_, err = structToMap(1)
+		test.That(t, err, test.ShouldBeError, errors.New("data of type int is not a struct"))
+
+		_, err = structToMap([]string{"1"})
+		test.That(t, err, test.ShouldBeError, errors.New("data of type []string is not a struct"))
+	})
+
+	for _, tc := range structTests {
+		map1, err := structToMap(tc.Data)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, map1, test.ShouldResemble, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3})
+		test.That(t, map1, test.ShouldResemble, tc.Expected)
 
 		newStruct, err := structpb.NewStruct(map1)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap()["x"], test.ShouldResemble, 1.1)
+		test.That(t, newStruct.AsMap(), test.ShouldResemble, tc.Expected)
 
-		convMap := mockVector{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &tc.Return})
 		test.That(t, err, test.ShouldBeNil)
 		err = decoder.Decode(newStruct.AsMap())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, convMap, test.ShouldResemble, mockV)
-	})
-
-	mockD := mockDegrees{Degrees: []float64{1.1, 2.2, 3.3}}
-	t.Run("simple struct with slice", func(t *testing.T) {
-		map1, err := protoutils.StructToMap(mockD)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, map1, test.ShouldResemble, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}})
-
-		newStruct, err := structpb.NewStruct(map1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap()["degrees"], test.ShouldResemble, []interface{}{1.1, 2.2, 3.3})
-
-		convMap := mockDegrees{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(newStruct.AsMap())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, convMap, test.ShouldResemble, mockD)
-	})
-
-	mockS := mockStruct{MockVector: mockV, MockDegrees: mockD}
-	t.Run("nested struct", func(t *testing.T) {
-		map1, err := protoutils.StructToMap(mockS)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(
-			t,
-			map1,
-			test.ShouldResemble,
-			map[string]interface{}{
-				"mock_degrees": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
-				"mock_vector":  map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
-			},
-		)
-
-		newStruct, err := structpb.NewStruct(map1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap()["mock_degrees"], test.ShouldResemble, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}})
-
-		convMap := mockStruct{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(newStruct.AsMap())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, convMap, test.ShouldResemble, mockS)
-	})
-
-	noT := noTags{MockVector: mockV, MockDegrees: mockD}
-	t.Run("nested struct with no tags", func(t *testing.T) {
-		map1, err := protoutils.StructToMap(noT)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(
-			t,
-			map1,
-			test.ShouldResemble,
-			map[string]interface{}{
-				"mock_degrees": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
-				"MockVector":   map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3},
-			},
-		)
-
-		newStruct, err := structpb.NewStruct(map1)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, newStruct.AsMap()["mock_degrees"], test.ShouldResemble, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}})
-
-		convMap := noTags{}
-		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
-		test.That(t, err, test.ShouldBeNil)
-		err = decoder.Decode(newStruct.AsMap())
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, convMap, test.ShouldResemble, noT)
-	})
+		test.That(t, tc.Return, test.ShouldResemble, tc.Data)
+	}
 }
 func TestMarshalSlice(t *testing.T) {
 	t.Run("not a list", func(t *testing.T) {
-		_, err := protoutils.MarshalSlice(1)
-		test.That(t, err, test.ShouldBeError, errors.New("input is not a slice"))
+		_, err := marshalSlice(1)
+		test.That(t, err, test.ShouldBeError, errors.New("data of type int is not a slice"))
 	})
 
 	degs := []float64{1.1, 2.2, 3.3}
-	t.Run("simple list", func(t *testing.T) {
-		marshalled, err := protoutils.MarshalSlice(degs)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 3)
-		test.That(t, marshalled, test.ShouldResemble, []interface{}{1.1, 2.2, 3.3})
-	})
-
 	matrix := [][]float64{degs}
-	t.Run("list of simple lists", func(t *testing.T) {
-		marshalled, err := protoutils.MarshalSlice(matrix)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 1)
-		test.That(t, marshalled, test.ShouldResemble, []interface{}{[]interface{}{1.1, 2.2, 3.3}})
-	})
+	embeddedMatrix := [][][]float64{matrix}
+	objects := []SliceStruct{{Degrees: degs}}
+	objectList := [][]SliceStruct{objects}
+	maps := []map[string]interface{}{{"hello": "world"}, {"foo": 1}}
+	mapsOfLists := []map[string][]string{{"hello": {"world"}}, {"foo": {"bar"}}}
+	mixed := []interface{}{degs, matrix, objects}
 
-	t.Run("list of list of simple lists", func(t *testing.T) {
-		embeddedMatrix := [][][]float64{matrix}
-		marshalled, err := protoutils.MarshalSlice(embeddedMatrix)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 1)
-		test.That(t, marshalled, test.ShouldResemble, []interface{}{[]interface{}{[]interface{}{1.1, 2.2, 3.3}}})
-	})
-
-	objects := []mockDegrees{{Degrees: degs}}
-	t.Run("list of objects", func(t *testing.T) {
-		marshalled, err := protoutils.MarshalSlice(objects)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 1)
-		test.That(t, marshalled, test.ShouldResemble, []interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}})
-	})
-
-	t.Run("list of lists of objects", func(t *testing.T) {
-		objectList := [][]mockDegrees{objects}
-		marshalled, err := protoutils.MarshalSlice(objectList)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 1)
-		test.That(
-			t,
-			marshalled,
-			test.ShouldResemble,
-			[]interface{}{[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}},
-		)
-	})
-
-	t.Run("list of mixed objects", func(t *testing.T) {
-		mixed := []interface{}{degs, matrix, objects}
-		marshalled, err := protoutils.MarshalSlice(mixed)
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(marshalled), test.ShouldEqual, 3)
-		test.That(
-			t,
-			marshalled,
-			test.ShouldResemble,
+	for _, tc := range []struct {
+		TestName string
+		Data     interface{}
+		Length   int
+		Expected []interface{}
+	}{
+		{"simple list", degs, 3, []interface{}{1.1, 2.2, 3.3}},
+		{"list of simple lists", matrix, 1, []interface{}{[]interface{}{1.1, 2.2, 3.3}}},
+		{"list of list of simple lists", embeddedMatrix, 1, []interface{}{[]interface{}{[]interface{}{1.1, 2.2, 3.3}}}},
+		{"list of objects", objects, 1, []interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}},
+		{"list of lists of objects", objectList, 1, []interface{}{[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}}}},
+		{"list of maps", maps, 2, []interface{}{map[string]interface{}{"hello": "world"}, map[string]interface{}{"foo": 1}}},
+		{
+			"list of maps of lists",
+			mapsOfLists,
+			2,
+			[]interface{}{map[string]interface{}{"hello": []interface{}{"world"}}, map[string]interface{}{"foo": []interface{}{"bar"}}}},
+		{
+			"list of mixed objects",
+			mixed,
+			3,
 			[]interface{}{
 				[]interface{}{1.1, 2.2, 3.3},
 				[]interface{}{[]interface{}{1.1, 2.2, 3.3}},
 				[]interface{}{map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}},
 			},
-		)
-	})
+		},
+	} {
+		t.Run(tc.TestName, func(t *testing.T) {
+			marshalled, err := marshalSlice(tc.Data)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(marshalled), test.ShouldEqual, tc.Length)
+			test.That(t, marshalled, test.ShouldResemble, tc.Expected)
+		})
+	}
 }
 
-type mockVector struct {
+type SimpleStruct struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
 }
 
-type mockDegrees struct {
+type SliceStruct struct {
 	Degrees []float64 `json:"degrees"`
 }
 
-type mockStruct struct {
-	MockVector  mockVector  `json:"mock_vector"`
-	MockDegrees mockDegrees `json:"mock_degrees"`
+type MapStruct struct {
+	Status map[string]string `json:"status"`
 }
 
-type noTags struct {
-	MockVector  mockVector
-	MockDegrees mockDegrees `json:"mock_degrees"`
+type NestedMapStruct struct {
+	Status map[string]SimpleStruct `json:"status"`
 }
+
+type NestedStruct struct {
+	SimpleStruct SimpleStruct `json:"simple_struct"`
+	SliceStruct  SliceStruct  `json:"slice_struct"`
+}
+
+type NoTagsStruct struct {
+	SimpleStruct SimpleStruct
+	SliceStruct  SliceStruct `json:"slice_struct"`
+}
+type EmbeddedStruct struct {
+	SimpleStruct
+	SliceStruct
+}
+
+// struct in map
+// list in map

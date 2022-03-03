@@ -30,78 +30,129 @@ func ResourceNameFromProto(name *commonpb.ResourceName) resource.Name {
 	)
 }
 
-// StructToMap attempts to coerce data into a form acceptable by grpc
-func StructToMap(data interface{}) (map[string]interface{}, error) {
-	res := map[string]interface{}{}
+// InterfaceToMap attempts to coerce an interface into a form acceptable by structpb.NewStruct.
+// Expects a struct or a map-like object.
+func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 	if data == nil {
-		return res, nil
+		return nil, errors.New("no data passed in")
 	}
-	v := reflect.TypeOf(data)
-	reflectValue := reflect.ValueOf(data)
-	reflectValue = reflect.Indirect(reflectValue)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
+	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
 	}
+	var res map[string]interface{}
 	var err error
-	for i := 0; i < v.NumField(); i++ {
-		tag := v.Field(i).Tag.Get("json")
-		field := reflectValue.Field(i).Interface()
-
-		key := v.Field(i).Name
-		if tag != "" && tag != "-" {
-			key = tag
+	switch t.Kind() {
+	case reflect.Struct:
+		res, err = structToMap(data)
+		if err != nil {
+			return nil, err
 		}
-
-		if v.Field(i).Type.Kind() == reflect.Struct {
-			res[key], err = StructToMap(field)
-			if err != nil {
-				return nil, err
-			}
-		} else if v.Field(i).Type.Kind() == reflect.Slice {
-			res[key], err = MarshalSlice(field)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			res[key] = field
+	case reflect.Map:
+		res, err = marshalMap(data)
+		if err != nil {
+			return nil, err
 		}
+	default:
+		return nil, errors.Errorf("data of type %T not a struct or a map-like object", data)
 	}
 	return res, nil
 }
 
-// MarshalSlice attempts to coerce list data into a form acceptable by grpc
-func MarshalSlice(lst interface{}) ([]interface{}, error) {
-	s := reflect.ValueOf(lst)
-	if s.Kind() != reflect.Slice {
-		return nil, errors.New("input is not a slice")
+func toInterface(data interface{}) (interface{}, error) {
+	t := reflect.TypeOf(data)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	var newData interface{}
+	var err error
+	switch t.Kind() {
+	case reflect.Struct:
+		newData, err = structToMap(data)
+		if err != nil {
+			return nil, err
+		}
+	case reflect.Map:
+		newData, err = marshalMap(data)
+		if err != nil {
+			return nil, err
+		}
+	case reflect.Slice:
+		newData, err = marshalSlice(data)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		newData = data
+	}
+	return newData, nil
+}
+
+// structToMap attempts to coerce a struct into a form acceptable by grpc
+func structToMap(data interface{}) (map[string]interface{}, error) {
+	t := reflect.TypeOf(data)
+	if t.Kind() != reflect.Struct {
+		return nil, errors.Errorf("data of type %T is not a struct", data)
+	}
+	res := map[string]interface{}{}
+	value := reflect.ValueOf(data)
+	for i := 0; i < t.NumField(); i++ {
+		sField := t.Field(i)
+		tag := sField.Tag.Get("json")
+		key := sField.Name
+		if tag != "" && tag != "-" {
+			key = tag
+		}
+
+		field := value.Field(i).Interface()
+		data, err := toInterface(field)
+		if err != nil {
+			return nil, err
+		}
+		res[key] = data
+	}
+	return res, nil
+}
+
+// marshalMap attempts to coerce maps of string keys into a form acceptable by grpc
+func marshalMap(data interface{}) (map[string]interface{}, error) {
+	s := reflect.ValueOf(data)
+	if s.Kind() != reflect.Map {
+		return nil, errors.Errorf("data of type %T is not a map", data)
 	}
 
-	newField := make([]interface{}, 0, s.Len())
+	iter := reflect.ValueOf(data).MapRange()
+	result := map[string]interface{}{}
+	var err error
+	for iter.Next() {
+		k := iter.Key()
+		if k.Kind() != reflect.String {
+			return nil, errors.Errorf("map keys of type %v are not strings", k.Kind())
+		}
+		v := iter.Value().Interface()
+		result[k.String()], err = toInterface(v)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// marshalSlice attempts to coerce list data into a form acceptable by grpc
+func marshalSlice(data interface{}) ([]interface{}, error) {
+	s := reflect.ValueOf(data)
+	if s.Kind() != reflect.Slice {
+		return nil, errors.Errorf("data of type %T is not a slice", data)
+	}
+
+	newList := make([]interface{}, 0, s.Len())
 	for i := 0; i < s.Len(); i++ {
 		value := s.Index(i).Interface()
-		v := reflect.TypeOf(value)
-		reflectValue := reflect.ValueOf(value)
-		reflectValue = reflect.Indirect(reflectValue)
-		if v.Kind() == reflect.Ptr {
-			v = v.Elem()
+		data, err := toInterface(value)
+		if err != nil {
+			return nil, err
 		}
-		switch v.Kind() {
-		case reflect.Struct:
-			newData, err := StructToMap(value)
-			if err != nil {
-				return nil, err
-			}
-			newField = append(newField, newData)
-
-		case reflect.Slice:
-			newData, err := MarshalSlice(value)
-			if err != nil {
-				return nil, err
-			}
-			newField = append(newField, newData)
-		default:
-			newField = append(newField, value)
-		}
+		newList = append(newList, data)
 	}
-	return newField, nil
+	return newList, nil
 }
