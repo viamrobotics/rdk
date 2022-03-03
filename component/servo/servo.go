@@ -90,7 +90,7 @@ type Status struct {
 	Position uint32 `json:"position,omitempty"`
 }
 
-// CreateStatus creates a status from the arm.
+// CreateStatus creates a status from the servo.
 func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 	servo, ok := resource.(Servo)
 	if !ok {
