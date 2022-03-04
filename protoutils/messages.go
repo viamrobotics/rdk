@@ -83,6 +83,8 @@ func toInterface(data interface{}) (interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
+	case reflect.String:
+		newData = reflect.ValueOf(data).String()
 	default:
 		newData = data
 	}
