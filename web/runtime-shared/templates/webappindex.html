@@ -852,22 +852,27 @@
             await p;
 
             if (resourcesChanged === true) {
-              p = new Promise((resolve, reject) => {
-                pResolve = resolve;
-                pReject = reject;
-              });
-              sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, function(err, resp) {
-                grpcCallback(err, resp, false)
-                if (err) {
-                  pReject(err);
-                  return;
-                }
-                theData.sensorNames = resp.toObject().sensorNamesList
-                pResolve(null);
-              });
-              await p;
+              querySensors()
             }
             setTimeout(() => queryMetadata(), 500);
+          }
+
+          const querySensors = async function() {
+            let pResolve;
+            let pReject;
+            p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            sensorsService.getSensors(new sensorsApi.GetSensorsRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              theData.sensorNames = resp.toObject().sensorNamesList
+              pResolve(null);
+            });
           }
 
           // query stream service every 0.5s
@@ -905,13 +910,13 @@
 
           let statusStream;
           let lastStatusTS = Date.now();
-          const checkInternvalMillis = 3000;
+          const checkIntervalMillis = 3000;
           const checkLastStatus = function() {
-            if ((Date.now() - lastStatusTS) > checkInternvalMillis) {
+            if ((Date.now() - lastStatusTS) > checkIntervalMillis) {
               restartStatusStream();
               return
             }
-            setTimeout(checkLastStatus, checkInternvalMillis)
+            setTimeout(checkLastStatus, checkIntervalMillis)
           }
 
           const restartStatusStream = async function() {
