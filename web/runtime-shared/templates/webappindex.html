@@ -142,7 +142,6 @@
 
      async function updateStatus(rawStatus) {
           theData.rawStatus = rawStatus;
-          window.rawStatus = rawStatus;
           // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
           const rawStatusObj = rawStatus.toObject();
 
@@ -150,14 +149,10 @@
 
           // make vue friendly
           status.armsMap = rawStatusObj.armsMap;
-          status.basesMap = rawStatusObj.basesMap;
           status.gantriesMap = rawStatusObj.gantriesMap;
-          status.grippersMap = rawStatusObj.grippersMap;
           status.boardsMap = rawStatusObj.boardsMap;
-          status.camerasMap = rawStatusObj.camerasMap;
           status.servosMap = rawStatusObj.servosMap;
           status.motorsMap = rawStatusObj.motorsMap;
-          status.servicesMap = rawStatusObj.servicesMap;
           status.inputControllersMap = rawStatusObj.inputControllersMap;
 
           status.armsMap = fixArms(status.armsMap);
@@ -639,7 +634,7 @@
 
                   },
                   doPCDGrab : function(){
-                      let gripperName = theData.status.grippersMap[0][0];
+                      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0].name;
                       let armName = theData.status.armsMap[0].name;
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
@@ -1433,15 +1428,15 @@
       <div style="color: red">${ error }</div>
 
       <!-- ******* BASE *******  -->
-      <div class="base" v-for="base in status.basesMap" :key="base[0]">
-        <h3>${base[0]}</h3>
+      <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
+        <h3>Base ${base.name}</h3>
         <ul>
-          <li><button v-on:click="baseAction(base[0], 'straight', 1)">Forward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'arc', 1)">Arc Forward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'arc', -1)">Arc Backward</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', -1)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base[0], 'angle', 1)">Spin Counterclockwise</button></li>
+          <li><button v-on:click="baseAction(base.name, 'straight', 1)">Forward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'straight', -1)">Backward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'arc', 1)">Arc Forward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'arc', -1)">Arc Backward</button></li>
+          <li><button v-on:click="baseAction(base.name, 'angle', -1)">Spin Clockwise</button></li>
+          <li><button v-on:click="baseAction(base.name, 'angle', 1)">Spin Counterclockwise</button></li>
         </ul>
 
         Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
@@ -1778,7 +1773,7 @@
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
-      <div id="map-container" v-if="hasKey(status.servicesMap, 'rdk:service:navigation')">
+      <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
         <br />
         <br />
         <button v-on:click="setNavigationMode('manual')">Manual</button>
