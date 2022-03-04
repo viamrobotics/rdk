@@ -3,6 +3,7 @@ package status
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -74,4 +75,34 @@ func (server *subtypeServer) GetStatus(ctx context.Context, req *pb.GetStatusReq
 	}
 
 	return &pb.GetStatusResponse{Status: statusesP}, nil
+}
+
+const defaultStreamInterval = 1 * time.Second
+
+func (server *subtypeServer) StreamStatus(req *pb.StreamStatusRequest, streamServer pb.StatusService_StreamStatusServer) error {
+	every := defaultStreamInterval
+	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
+		every = reqEvery
+	}
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		default:
+		}
+		select {
+		case <-streamServer.Context().Done():
+			return streamServer.Context().Err()
+		case <-ticker.C:
+		}
+		status, err := server.GetStatus(streamServer.Context(), &pb.GetStatusRequest{ResourceNames: req.ResourceNames})
+		if err != nil {
+			return err
+		}
+		if err := streamServer.Send(&pb.StreamStatusResponse{Status: status.Status}); err != nil {
+			return err
+		}
+	}
 }

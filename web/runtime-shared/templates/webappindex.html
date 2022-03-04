@@ -208,6 +208,26 @@
                     }
                     return strName
                   },
+                  stringToResourceName : function(nameStr) {
+                    let nameParts = nameStr.split("/")
+                    let name = ""
+                    if (nameParts.length === 2){
+                      name = nameParts[1]
+                    } else if (nameParts.length === 2) {
+                      console.error("more than one backslash in resource name string")
+                      return {}
+                    }
+                    let subtypeParts = nameParts[0].split(":")
+                    if (subtypeParts.length > 3) {
+                      console.error("more than 2 colons in resource name string")
+                      return {}
+                    }
+                    if (subtypeParts.length < 3){
+                      console.error("less than 2 colons in resource name string")
+                      return {}
+                    }
+                    return {namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name: name}
+                  },
                   armByName : function(name) {
                     return theData.status.armsMap.find(elem => elem.name == name) || {}
                   },
@@ -815,6 +835,8 @@
               },
           })
 
+          const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"]
+
           // query metadata service every 0.5s
           const queryMetadata = async function() {
             let pResolve;
@@ -824,6 +846,7 @@
               pReject = reject;
             });
             let resourcesChanged = false
+            let shouldRestartStatusStream = false
             metadataService.resources(new metadataApi.ResourcesRequest(), {}, function(err, resp) {
               grpcCallback(err, resp, false)
               if (err) {
@@ -844,6 +867,15 @@
               }
               if (differences.size > 0) {
                 resourcesChanged = true
+
+                // restart status stream if resource difference includes a resource we care about
+                for (let elem of differences) {
+                  let name = theApp.stringToResourceName(elem)
+                  if (name.namespace == "rdk" && name.type == "component" && relevantSubtypesForStatus.includes(name.subtype)){
+                    shouldRestartStatusStream = true
+                    break
+                  }
+                }
               }
 
               theData.resources = resources
@@ -853,6 +885,10 @@
 
             if (resourcesChanged === true) {
               querySensors()
+
+              if (shouldRestartStatusStream === true){
+                restartStatusStream()
+              }
             }
             setTimeout(() => queryMetadata(), 500);
           }
@@ -905,9 +941,6 @@
             setTimeout(() => queryStreams(), 500);
           }
 
-          const streamReq = new robotApi.StatusStreamRequest();
-          streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
-
           let statusStream;
           let lastStatusTS = Date.now();
           const checkIntervalMillis = 3000;
@@ -930,7 +963,24 @@
                 setTimeout(() => restartStatusStream(), 1000);
               }
             }
-            statusStream = robotService.statusStream(streamReq);
+            let resourceNames = [];
+            // get all relevant resource names
+            relevantSubtypesForStatus.forEach(
+              subtype => resourceNames = resourceNames.concat(theApp.filterResources('rdk', 'component', subtype))
+            );
+            let names = resourceNames.map(name => {
+              let resourceName = new commonApi.ResourceName();
+              resourceName.setUuid(name.uuid);
+              resourceName.setNamespace(name.namespace);
+              resourceName.setType(name.type);
+              resourceName.setSubtype(name.subtype);
+              resourceName.setName(name.name);
+              return resourceName;
+            });
+            const streamReq = new statusApi.StreamStatusRequest();
+            streamReq.setResourceNamesList(names);
+            streamReq.setEvery((new proto.google.protobuf.Duration()).setNanos(500000000)); // 500ms
+            statusStream = statusService.streamStatus(streamReq);
             let firstData = true;
             statusStream.on('data', function(response) {
               lastStatusTS = Date.now();
@@ -954,7 +1004,10 @@
               setTimeout(() => restartStatusStream(), 1000);
             });
           }
-          await restartStatusStream();
+          queryMetadata();
+          if (window.streamService) {
+            queryStreams();
+          }
       }
 
       pcdGlobal = null;
