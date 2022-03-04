@@ -40,17 +40,19 @@ type structTest struct {
 }
 
 var (
-	simpleStruct    = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
-	sliceStruct     = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
-	mapStruct       = MapStruct{Status: map[string]string{"foo": "bar"}}
-	pointerStruct   = PointerStruct{&simpleStruct}
-	nestedMapStruct = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
-	nestedStruct    = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
-	noTagStruct     = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
-	embeddedStruct  = EmbeddedStruct{simpleStruct, sliceStruct}
+	simpleStruct      = SimpleStruct{X: 1.1, Y: 2.2, Z: 3.3}
+	typedStringStruct = TypedStringStruct{TypedString: TypedString("hello")}
+	sliceStruct       = SliceStruct{Degrees: []float64{1.1, 2.2, 3.3}}
+	mapStruct         = MapStruct{Status: map[string]string{"foo": "bar"}}
+	pointerStruct     = PointerStruct{&simpleStruct}
+	nestedMapStruct   = NestedMapStruct{Status: map[string]SimpleStruct{"foo": simpleStruct}}
+	nestedStruct      = NestedStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	noTagStruct       = NoTagsStruct{SimpleStruct: simpleStruct, SliceStruct: sliceStruct}
+	embeddedStruct    = EmbeddedStruct{simpleStruct, sliceStruct}
 
 	structTests = []structTest{
 		{"simple struct", simpleStruct, map[string]interface{}{"x": 1.1, "y": 2.2, "z": 3.3}, SimpleStruct{}},
+		{"typed string struct", typedStringStruct, map[string]interface{}{"typed_string": "hello"}, TypedStringStruct{}},
 		{"omit struct", OmitStruct{}, map[string]interface{}{"x": 0.0}, OmitStruct{}},
 		{"ignore struct", IgnoreStruct{X: 1}, map[string]interface{}{}, IgnoreStruct{X: 1}},
 		{"slice struct", sliceStruct, map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}}, SliceStruct{}},
@@ -242,10 +244,16 @@ func TestMarshalSlice(t *testing.T) {
 	}
 }
 
+type TypedString string
+
 type SimpleStruct struct {
 	X float64 `json:"x"`
 	Y float64 `json:"y"`
 	Z float64 `json:"z"`
+}
+
+type TypedStringStruct struct {
+	TypedString TypedString `json:"typed_string"`
 }
 
 type OmitStruct struct {
