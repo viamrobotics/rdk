@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	"github.com/mitchellh/mapstructure"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/protoutils"
 )
 
 func TestStatusValid(t *testing.T) {
