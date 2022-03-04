@@ -29,7 +29,6 @@ func init() {
 			board, ok := resource.(Board)
 			if !ok {
 				return nil, utils.NewUnimplementedInterfaceError("Board", resource)
-
 			}
 			return board.Status(ctx)
 		},
