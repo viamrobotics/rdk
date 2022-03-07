@@ -154,7 +154,6 @@
         theData.rawStatus = rawStatus;
 
         // make vue friendly
-        status.gantriesMap = [];
         status.boardsMap = [];
         status.servosMap = [];
         status.motorsMap = [];
@@ -237,7 +236,6 @@
                     return theData.status.boardsMap.find(elem => elem.name == name) || {}
                   },
                   gantryInc : function(name, axis, amount) {
-                      var g = theData.status.gantriesMap.find(elem => elem.name == name);
                       var g = theApp.resourceStatusByName(name)
                       var pos = [];
                       for ( var i=0; i < g.parts.length; i++) {
