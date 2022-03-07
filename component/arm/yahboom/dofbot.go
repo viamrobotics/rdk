@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -97,9 +97,9 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 
 	a := dofBot{}
 
-	b, ok := r.BoardByName(config.Attributes.String("board"))
-	if !ok {
-		return nil, fmt.Errorf("no board for yahboom-dofbot arm %s", config.Name)
+	b, err := board.FromRobot(r, config.Attributes.String("board"))
+	if err != nil {
+		return nil, err
 	}
 	localB, ok := b.(board.LocalBoard)
 	if !ok {
@@ -133,7 +133,7 @@ func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err

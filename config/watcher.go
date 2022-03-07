@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"context"
+	"io/ioutil"
 	"time"
 
 	"github.com/edaniels/golog"
@@ -38,12 +40,16 @@ type cloudWatcher struct {
 	cancel        func()
 }
 
+const checkForNewCertInterval = time.Hour
+
 // newCloudWatcher returns a cloudWatcher that will periodically fetch
 // new configs from the cloud.
 func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *cloudWatcher {
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
+
+	nextCheckForNewCert := time.Now().Add(checkForNewCertInterval)
 
 	// TODO(https://github.com/viamrobotics/rdk/issues/45): in the future when the web app
 	// supports gRPC streams, use that instead for pushed config updates;
@@ -54,10 +60,17 @@ func newCloudWatcher(ctx context.Context, config *Cloud, logger golog.Logger) *c
 			if !utils.SelectContextOrWait(cancelCtx, config.RefreshInterval) {
 				return
 			}
-			newConfig, err := ReadFromCloud(cancelCtx, config, false)
+			var checkForNewCert bool
+			if time.Now().After(nextCheckForNewCert) {
+				checkForNewCert = true
+			}
+			newConfig, _, err := ReadFromCloud(cancelCtx, config, false, checkForNewCert, logger)
 			if err != nil {
 				logger.Errorw("error reading cloud config", "error", err)
 				continue
+			}
+			if checkForNewCert {
+				nextCheckForNewCert = time.Now().Add(checkForNewCertInterval)
 			}
 			select {
 			case <-cancelCtx.Done():
@@ -106,6 +119,7 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 	configCh := make(chan *Config)
 	watcherDoneCh := make(chan struct{})
 	cancelCtx, cancel := context.WithCancel(ctx)
+	var lastRd []byte
 	utils.ManagedGo(func() {
 		for {
 			if cancelCtx.Err() != nil {
@@ -116,7 +130,17 @@ func newFSWatcher(ctx context.Context, configPath string, logger golog.Logger) (
 				return
 			case event := <-fsWatcher.Events:
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					newConfig, err := Read(cancelCtx, configPath)
+					//nolint:gosec
+					rd, err := ioutil.ReadFile(configPath)
+					if err != nil {
+						logger.Errorw("error reading config file after write", "error", err)
+						continue
+					}
+					if bytes.Equal(rd, lastRd) {
+						continue
+					}
+					lastRd = rd
+					newConfig, err := FromReader(cancelCtx, configPath, bytes.NewReader(rd), logger)
 					if err != nil {
 						logger.Errorw("error reading config after write", "error", err)
 						continue

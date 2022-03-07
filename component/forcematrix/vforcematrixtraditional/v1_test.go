@@ -9,7 +9,9 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	"go.viam.com/rdk/utils"
 )
 
 func createExpectedMatrix(c *ForceMatrixConfig) ([][]int, error) {
@@ -46,8 +48,8 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return fakeAnalogReader, true
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 		fsm, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldBeNil)
@@ -61,8 +63,8 @@ func TestNewForceMatrix(t *testing.T) {
 
 	t.Run("board not found", func(t *testing.T) {
 		fakeRobot := &inject.Robot{}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return nil, false
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return nil, utils.NewResourceNotFoundError(name)
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -74,8 +76,8 @@ func TestNewForceMatrix(t *testing.T) {
 		fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 			return nil, false
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 		_, err := newForceMatrix(fakeRobot, validConfig)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -184,8 +186,8 @@ func TestMatrixAndSlip(t *testing.T) {
 		fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
 			return nil
 		}
-		fakeRobot.BoardByNameFunc = func(name string) (board.Board, bool) {
-			return fakeBoard, true
+		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+			return fakeBoard, nil
 		}
 
 		t.Run("4x4", func(t *testing.T) {

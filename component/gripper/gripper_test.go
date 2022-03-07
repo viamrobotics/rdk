@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -23,14 +24,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	gripper1 := &mock{Name: testGripperName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case gripper.Named(testGripperName):
-			return gripper1, true
+			return gripper1, nil
 		case gripper.Named(fakeGripperName):
-			return "not a gripper", false
+			return "not a gripper", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -42,21 +43,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := gripper.FromRobot(r, testGripperName)
+	res, err := gripper.FromRobot(r, testGripperName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := res.Grab(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, grabbed)
 
-	res, ok = gripper.FromRobot(r, fakeGripperName)
+	res, err = gripper.FromRobot(r, fakeGripperName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", "string"))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = gripper.FromRobot(r, missingGripperName)
+	res, err = gripper.FromRobot(r, missingGripperName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(gripper.Named(missingGripperName)))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -110,8 +111,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = gripper.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gripper", nil))
 
 	reconfGripper2, err := gripper.WrapWithReconfigurable(reconfGripper1)
 	test.That(t, err, test.ShouldBeNil)

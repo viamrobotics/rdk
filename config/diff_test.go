@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/edaniels/golog"
 	"go.viam.com/test"
 	"go.viam.com/utils/pexec"
 
@@ -373,9 +374,10 @@ func TestDiffConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := config.Read(context.Background(), tc.LeftFile)
+			logger := golog.NewTestLogger(t)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(context.Background(), tc.RightFile)
+			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			diff, err := config.DiffConfigs(left, right)
@@ -423,9 +425,10 @@ func TestDiffConfigHeterogenousTypes(t *testing.T) {
 		},
 	} {
 		t.Run(tc.Name, func(t *testing.T) {
-			left, err := config.Read(context.Background(), tc.LeftFile)
+			logger := golog.NewTestLogger(t)
+			left, err := config.Read(context.Background(), tc.LeftFile, logger)
 			test.That(t, err, test.ShouldBeNil)
-			right, err := config.Read(context.Background(), tc.RightFile)
+			right, err := config.Read(context.Background(), tc.RightFile, logger)
 			test.That(t, err, test.ShouldBeNil)
 
 			_, err = config.DiffConfigs(left, right)

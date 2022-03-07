@@ -11,6 +11,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/component/motor/gpio"
 	"go.viam.com/rdk/config"
@@ -18,6 +19,10 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
+
+// SetPowerZeroThreshold represents a power below which value attempting
+// to run the motor simply stops it.
+const SetPowerZeroThreshold = .0001
 
 // init registers an arduino motor.
 func init() {
@@ -30,9 +35,9 @@ func init() {
 			if motorConfig.BoardName == "" {
 				return nil, errors.New("expected board name in config for motor")
 			}
-			b, ok := r.BoardByName(motorConfig.BoardName)
-			if !ok {
-				return nil, fmt.Errorf("expected to find board %q", motorConfig.BoardName)
+			b, err := board.FromRobot(r, motorConfig.BoardName)
+			if err != nil {
+				return nil, err
 			}
 			// Note(erd): this would not be needed if encoders were a component
 			actualBoard, ok := utils.UnwrapProxy(b).(*arduinoBoard)
@@ -50,7 +55,7 @@ func init() {
 }
 
 func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.Component, motorConfig *motor.Config) (motor.Motor, error) {
-	if !((motorConfig.Pins["pwm"] != "" && motorConfig.Pins["dir"] != "") || (motorConfig.Pins["a"] != "" || motorConfig.Pins["b"] != "")) {
+	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Dir != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
@@ -62,18 +67,29 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 		return nil, errors.New("arduino motors TicksPerRotation to be set")
 	}
 
-	for _, pin := range []string{"pwm", "a", "b", "dir", "en"} {
-		if _, ok := motorConfig.Pins[pin]; !ok {
-			motorConfig.Pins[pin] = "-1"
-		}
+	if motorConfig.Pins.PWM == "" {
+		motorConfig.Pins.PWM = "-1"
 	}
+	if motorConfig.Pins.A == "" {
+		motorConfig.Pins.A = "-1"
+	}
+	if motorConfig.Pins.B == "" {
+		motorConfig.Pins.B = "-1"
+	}
+	if motorConfig.Pins.Dir == "" {
+		motorConfig.Pins.Dir = "-1"
+	}
+	if motorConfig.Pins.En == "" {
+		motorConfig.Pins.En = "-1"
+	}
+
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		config.Name,
-		motorConfig.Pins["pwm"], // Optional if using A/B inputs (one of them will be PWMed if missing)
-		motorConfig.Pins["a"],   // Use either A & B, or DIR inputs, never both
-		motorConfig.Pins["b"],   // (A & B [& PWM] ) || (DIR & PWM)
-		motorConfig.Pins["dir"], // PWM is also required when using DIR
-		motorConfig.Pins["en"],  // Always optional, inverting input (LOW = ENABLED)
+		motorConfig.Pins.PWM, // Optional if using A/B inputs (one of them will be PWMed if missing)
+		motorConfig.Pins.A,   // Use either A & B, or DIR inputs, never both
+		motorConfig.Pins.B,   // (A & B [& PWM] ) || (DIR & PWM)
+		motorConfig.Pins.Dir, // PWM is also required when using DIR
+		motorConfig.Pins.En,  // Always optional, inverting input (LOW = ENABLED)
 		motorConfig.Encoder,
 		motorConfig.EncoderB,
 	)
@@ -96,21 +112,21 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 	if err != nil {
 		return nil, err
 	}
-	if motorConfig.Pins["pwm"] != "-1" && motorConfig.PWMFreq > 0 {
+	if motorConfig.Pins.PWM != "-1" && motorConfig.PWMFreq > 0 {
 		// When the motor controller has a PWM pin exposed (either (A && B && PWM) || (DIR && PWM))
 		// We control the motor speed with the PWM pin
-		err = b.SetPWMFreq(ctx, motorConfig.Pins["pwm"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins.PWM, motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
-	} else if (motorConfig.Pins["a"] != "-1" && motorConfig.Pins["b"] != "-1") && motorConfig.PWMFreq > 0 {
+	} else if (motorConfig.Pins.A != "-1" && motorConfig.Pins.B != "-1") && motorConfig.PWMFreq > 0 {
 		// When the motor controller only exposes A & B pin
 		// We control the motor speed with both pins
-		err = b.SetPWMFreq(ctx, motorConfig.Pins["a"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins.A, motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
-		err = b.SetPWMFreq(ctx, motorConfig.Pins["b"], motorConfig.PWMFreq)
+		err = b.SetPWMFreq(ctx, motorConfig.Pins.B, motorConfig.PWMFreq)
 		if err != nil {
 			return nil, err
 		}
@@ -126,27 +142,11 @@ type arduinoMotor struct {
 
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 func (m *arduinoMotor) SetPower(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) <= .001 {
+	if math.Abs(powerPct) <= SetPowerZeroThreshold {
 		return m.Stop(ctx)
 	}
 
 	_, err := m.b.runCommand(fmt.Sprintf("motor-power %s %d", m.name, int(255.0*math.Abs(powerPct))))
-	return err
-}
-
-// Go instructs the motor to go in a specific direction at a percentage of power between -1 and 1.
-func (m *arduinoMotor) Go(ctx context.Context, powerPct float64) error {
-	if math.Abs(powerPct) < 0.0001 {
-		return m.Stop(ctx)
-	}
-	var dir string
-	if !math.Signbit(powerPct) {
-		dir = "f"
-	} else {
-		dir = "n"
-	}
-
-	_, err := m.b.runCommand(fmt.Sprintf("motor-go %s %s %d", m.name, dir, int(255.0*math.Abs(powerPct))))
 	return err
 }
 
@@ -163,7 +163,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 		// ticksPerSecond *= 1
 	}
 
-	err := m.Go(ctx, powerPct)
+	err := m.SetPower(ctx, powerPct)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (m *arduinoMotor) GoFor(ctx context.Context, rpm float64, revolutions float
 // Position reports the position of the motor based on its encoder. If it's not supported, the returned
 // data is undefined. The unit returned is the number of revolutions which is intended to be fed
 // back into calls of GoFor.
-func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
+func (m *arduinoMotor) GetPosition(ctx context.Context) (float64, error) {
 	res, err := m.b.runCommand("motor-position " + m.name)
 	if err != nil {
 		return 0, err
@@ -188,10 +188,11 @@ func (m *arduinoMotor) Position(ctx context.Context) (float64, error) {
 	return float64(ticks) / float64(m.cfg.TicksPerRotation), nil
 }
 
-// PositionSupported returns whether or not the motor supports reporting of its position which
-// is reliant on having an encoder.
-func (m *arduinoMotor) PositionSupported(ctx context.Context) (bool, error) {
-	return true, nil
+// GetFeatures returns the status of optional features supported by the motor.
+func (m *arduinoMotor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
+	return map[motor.Feature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
 // Stop turns the power to the motor off immediately, without any gradual step down.
@@ -200,8 +201,8 @@ func (m *arduinoMotor) Stop(ctx context.Context) error {
 	return err
 }
 
-// IsOn returns whether or not the motor is currently on.
-func (m *arduinoMotor) IsOn(ctx context.Context) (bool, error) {
+// IsPowered returns whether or not the motor is currently on.
+func (m *arduinoMotor) IsPowered(ctx context.Context) (bool, error) {
 	res, err := m.b.runCommand("motor-ison " + m.name)
 	if err != nil {
 		return false, err
@@ -242,7 +243,7 @@ type encoder struct {
 }
 
 // Position returns the current position in terms of ticks.
-func (e *encoder) Position(ctx context.Context) (int64, error) {
+func (e *encoder) GetPosition(ctx context.Context) (int64, error) {
 	res, err := e.b.runCommand("motor-position " + e.name)
 	if err != nil {
 		return 0, err

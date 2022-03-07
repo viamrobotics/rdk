@@ -48,12 +48,12 @@ func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 	g.positionsMm = positionsMm
 	return nil
 }
 
-// ModelFrame TODO.
+// ModelFrame returns a Gantry frame.
 func (g *Gantry) ModelFrame() referenceframe.Model {
 	m := referenceframe.NewSimpleModel()
 	f, err := referenceframe.NewTranslationalFrame(g.name, g.axis, referenceframe.Limit{0, g.lengthMeters})
@@ -64,7 +64,7 @@ func (g *Gantry) ModelFrame() referenceframe.Model {
 	return m
 }
 
-// CurrentInputs TODO.
+// CurrentInputs returns positions in the Gantry frame model..
 func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {
 	res, err := g.GetPosition(ctx)
 	if err != nil {
@@ -73,7 +73,7 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 	return referenceframe.FloatsToInputs(res), nil
 }
 
-// GoToInputs TODO.
+// GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
 }

@@ -14,7 +14,8 @@ import (
 	"go.viam.com/rdk/component/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -43,7 +44,7 @@ func TestClient(t *testing.T) {
 	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 		return jointPos1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return nil
 	}
@@ -62,7 +63,7 @@ func TestClient(t *testing.T) {
 	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
 		return jointPos2, nil
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return nil
 	}
@@ -72,7 +73,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2}))
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm, arm.Named(testArmName2): injectArm2})
 	test.That(t, err, test.ShouldBeNil)
 	resourceSubtype := registry.ResourceSubtypeLookup(arm.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, armSvc)
@@ -84,16 +85,16 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = arm.NewClient(cancelCtx, testArmName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = arm.NewClient(cancelCtx, testArmName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger, rpc.WithInsecure())
-	test.That(t, err, test.ShouldBeNil)
-
 	t.Run("arm client 1", func(t *testing.T) {
+		arm1Client, err := arm.NewClient(context.Background(), testArmName, listener1.Addr().String(), logger)
+		test.That(t, err, test.ShouldBeNil)
+
 		pos, err := arm1Client.GetEndPosition(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
@@ -102,17 +103,19 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, jointPos.String(), test.ShouldResemble, jointPos1.String())
 
-		err = arm1Client.MoveToPosition(context.Background(), pos2)
+		err = arm1Client.MoveToPosition(context.Background(), pos2, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pos2.String())
 
 		err = arm1Client.MoveToJointPositions(context.Background(), jointPos2)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmJointPos.String(), test.ShouldResemble, jointPos2.String())
+
+		test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 	})
 
 	t.Run("arm client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, testArmName, logger)
 		arm1Client2, ok := client.(arm.Arm)
@@ -123,7 +126,6 @@ func TestClient(t *testing.T) {
 		test.That(t, pos.String(), test.ShouldResemble, pos1.String())
 		test.That(t, conn.Close(), test.ShouldBeNil)
 	})
-	test.That(t, utils.TryClose(context.Background(), arm1Client), test.ShouldBeNil)
 }
 
 func TestClientDialerOption(t *testing.T) {
@@ -133,7 +135,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectArm := &inject.Arm{}
 
-	armSvc, err := subtype.New((map[resource.Name]interface{}{arm.Named(testArmName): injectArm}))
+	armSvc, err := subtype.New(map[resource.Name]interface{}{arm.Named(testArmName): injectArm})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterArmServiceServer(gServer, arm.NewServer(armSvc))
 
@@ -142,11 +144,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := arm.NewClient(ctx, testArmName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

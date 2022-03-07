@@ -13,7 +13,8 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -36,7 +37,7 @@ func TestClient(t *testing.T) {
 	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 		gantryPos = pos
 		return nil
 	}
@@ -50,7 +51,7 @@ func TestClient(t *testing.T) {
 	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos2, nil
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 		gantryPos = pos
 		return nil
 	}
@@ -72,13 +73,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = gantry.NewClient(cancelCtx, testGantryName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = gantry.NewClient(cancelCtx, testGantryName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	gantry1Client, err := gantry.NewClient(context.Background(), testGantryName2, listener1.Addr().String(), logger, rpc.WithInsecure())
+	gantry1Client, err := gantry.NewClient(context.Background(), testGantryName2, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("gantry client 1", func(t *testing.T) {
@@ -86,7 +87,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos1)
+		err = gantry1Client.MoveToPosition(context.Background(), pos1, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 
@@ -96,7 +97,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("gantry client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, testGantryName, logger)
 		gantry1Client2, ok := client.(gantry.Gantry)
@@ -117,7 +118,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectGantry := &inject.Gantry{}
 
-	gantrySvc, err := subtype.New((map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry}))
+	gantrySvc, err := subtype.New(map[resource.Name]interface{}{gantry.Named(testGantryName): injectGantry})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterGantryServiceServer(gServer, gantry.NewServer(gantrySvc))
 
@@ -126,11 +127,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := gantry.NewClient(ctx, testGantryName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

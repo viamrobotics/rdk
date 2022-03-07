@@ -8,12 +8,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -39,8 +38,8 @@ func init() {
 	})
 }
 
-// SubtypeName is a constant that identifies the component resource subtype string "forcematrix".
-const SubtypeName = resource.SubtypeName("forcematrix")
+// SubtypeName is a constant that identifies the component resource subtype string "force_matrix".
+const SubtypeName = resource.SubtypeName("force_matrix")
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
@@ -60,31 +59,53 @@ const MatrixStorageSize = 200
 // A ForceMatrix represents a force sensor that outputs a 2-dimensional array
 // with integers that correlate to the forces applied to the sensor.
 type ForceMatrix interface {
-	sensor.Sensor
 	ReadMatrix(ctx context.Context) ([][]int, error)
 	DetectSlip(ctx context.Context) (bool, error)
 }
 
 var (
 	_ = ForceMatrix(&reconfigurableForceMatrix{})
+	_ = sensor.Sensor(&reconfigurableForceMatrix{})
 	_ = resource.Reconfigurable(&reconfigurableForceMatrix{})
 )
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
-func FromRobot(r robot.Robot, name string) (ForceMatrix, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(ForceMatrix)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (ForceMatrix, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(ForceMatrix)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("ForceMatrix", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all force matrix sensor names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// GetReadings is a helper for getting all readings from a force matrix sensor.
+func GetReadings(ctx context.Context, f ForceMatrix) ([]interface{}, error) {
+	matrix, err := f.ReadMatrix(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// assume perfectly rectangular
+	numRows := len(matrix)
+	numCols := len(matrix[0])
+
+	readings := make([]interface{}, 0, numRows*numCols+2)
+	// number of rows, number of cols, then all the readings
+	readings = append(readings, numRows, numCols)
+	for row := 0; row < numRows; row++ {
+		for col := 0; col < numCols; col++ {
+			readings = append(readings, matrix[row][col])
+		}
+	}
+	return readings, nil
 }
 
 type reconfigurableForceMatrix struct {
@@ -110,10 +131,15 @@ func (r *reconfigurableForceMatrix) DetectSlip(ctx context.Context) (bool, error
 	return r.actual.DetectSlip(ctx)
 }
 
+// GetReadings will use the default ForceMatrix GetReadings if not provided.
 func (r *reconfigurableForceMatrix) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+
+	if sensor, ok := r.actual.(sensor.Sensor); ok {
+		return sensor.GetReadings(ctx)
+	}
+	return GetReadings(ctx, r.actual)
 }
 
 func (r *reconfigurableForceMatrix) Close(ctx context.Context) error {
@@ -142,7 +168,7 @@ func (r *reconfigurableForceMatrix) Reconfigure(ctx context.Context,
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	fm, ok := r.(ForceMatrix)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be ForceMatrix but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("ForceMatrix", r)
 	}
 	if reconfigurable, ok := fm.(*reconfigurableForceMatrix); ok {
 		return reconfigurable, nil

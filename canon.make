@@ -1,33 +1,46 @@
+DOCKER_CMD = docker run -v$(HOME)/.ssh:/home/testbot/.ssh:ro -v$(shell pwd):/host --workdir /host --rm -ti $(DOCKER_PLATFORM) ghcr.io/viamrobotics/canon:$(DOCKER_TAG) --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
+
 ifeq ("aarch64", "$(shell uname -m)")
-	NATIVE_DOCKER := arm64
+	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
+	DOCKER_NATIVE_TAG = arm64
+	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("x86_64", "$(shell uname -m)")
-	NATIVE_DOCKER := amd64
+	DOCKER_NATIVE_PLATFORM = --platform linux/amd64
+	DOCKER_NATIVE_TAG = amd64
+	DOCKER_NATIVE_TAG_CACHE = amd64-cache
 else
-	NATIVE_DOCKER := $(shell uname -m)
+	DOCKER_NATIVE_TAG = latest
 endif
 
-ENTRYCMD = --testbot-uid $(shell id -u) --testbot-gid $(shell id -g)
+DOCKER_PLATFORM = $(DOCKER_NATIVE_PLATFORM)
+DOCKER_TAG = $(DOCKER_NATIVE_TAG)
 
 # This sets up multi-arch emulation under linux. Run before using multi-arch targets.
 canon-emulation:
 	docker run --rm --privileged multiarch/qemu-user-static --reset -c yes -p yes
 
 # Canon versions of targets run in the canonical viam docker image
+canon-build: DOCKER_TAG = $(DOCKER_NATIVE_TAG_CACHE)
 canon-build:
-	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build lint
+	$(DOCKER_CMD) make build lint
 
+canon-test: DOCKER_TAG = $(DOCKER_NATIVE_TAG_CACHE)
 canon-test:
-	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER)-cache $(ENTRYCMD) make build lint test
+	$(DOCKER_CMD) make build lint test
 
 # Canon shells use the raw (non-cached) canon docker image
 canon-shell:
-	docker run -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:$(NATIVE_DOCKER) $(ENTRYCMD) bash
+	$(DOCKER_CMD) bash
 
+canon-shell-amd64: DOCKER_PLATFORM = --platform linux/amd64
+canon-shell-amd64: DOCKER_TAG = amd64
 canon-shell-amd64:
-	docker run --platform linux/amd64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:amd64 $(ENTRYCMD) bash
+	$(DOCKER_CMD) bash
 
+canon-shell-arm64: DOCKER_PLATFORM = --platform linux/arm64
+canon-shell-arm64: DOCKER_TAG = arm64
 canon-shell-arm64:
-	docker run --platform linux/arm64 -v$(shell pwd):/host --workdir /host --rm -ti ghcr.io/viamrobotics/canon:arm64 $(ENTRYCMD) bash
+	$(DOCKER_CMD) bash
 
 
 # Docker targets that pre-cache go module downloads (intended to be rebuilt weekly/nightly)

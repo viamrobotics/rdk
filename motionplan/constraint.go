@@ -137,7 +137,7 @@ func CollisionConstraintFromFrame(f referenceframe.Frame) Constraint {
 	for i := 0; i < dof; i++ {
 		zeroInput = append(zeroInput, referenceframe.Input{0})
 	}
-	zeroVols, err := f.Volumes(zeroInput)
+	zeroVols, err := f.Geometries(zeroInput)
 	if zeroVols == nil && err != nil {
 		// No collision avoidance available
 		return nil
@@ -151,15 +151,15 @@ func CollisionConstraintFromFrame(f referenceframe.Frame) Constraint {
 }
 
 // NewCollisionConstraint creates a constraint function that will decide if the StartInput of a given ConstraintInput
-// is valid. This function will check for collisions between the volumes in the provided input's frame.
+// is valid. This function will check for collisions between the geometries in the provided input's frame.
 // Collisions present in the provided reference CollisionGraph will not be ignored.
 func NewCollisionConstraint(reference *CollisionGraph) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
-		vols, err := cInput.Frame.Volumes(cInput.StartInput)
-		if err != nil && vols == nil {
+		geometries, err := cInput.Frame.Geometries(cInput.StartInput)
+		if err != nil && geometries == nil {
 			return false, 0
 		}
-		cg, err := CheckUniqueCollisions(vols, reference)
+		cg, err := CheckUniqueCollisions(geometries, reference)
 		if err != nil {
 			return false, 0
 		}

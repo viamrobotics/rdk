@@ -7,12 +7,11 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -61,7 +60,7 @@ type Arm interface {
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
@@ -79,15 +78,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named Arm from the given Robot.
-func FromRobot(r robot.Robot, name string) (Arm, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Arm)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (Arm, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(Arm)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
@@ -112,10 +112,10 @@ func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose,
 	return r.actual.GetEndPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose)
+	return r.actual.MoveToPosition(ctx, pose, obstacles)
 }
 
 func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
@@ -173,7 +173,7 @@ func (r *reconfigurableArm) Reconfigure(ctx context.Context, newArm resource.Rec
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	arm, ok := r.(Arm)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Arm but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("Arm", r)
 	}
 	if reconfigurable, ok := arm.(*reconfigurableArm); ok {
 		return reconfigurable, nil

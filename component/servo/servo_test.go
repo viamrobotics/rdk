@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -24,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	servo1 := &mock{Name: testServoName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case servo.Named(testServoName):
-			return servo1, true
+			return servo1, nil
 		case servo.Named(fakeServoName):
-			return "not a servo", false
+			return "not a servo", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -43,21 +44,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := servo.FromRobot(r, testServoName)
+	s, err := servo.FromRobot(r, testServoName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, pos)
 
-	s, ok = servo.FromRobot(r, fakeServoName)
+	s, err = servo.FromRobot(r, fakeServoName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = servo.FromRobot(r, missingServoName)
+	s, err = servo.FromRobot(r, missingServoName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(servo.Named(missingServoName)))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -111,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = servo.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", nil))
 
 	reconfServo2, err := servo.WrapWithReconfigurable(reconfServo1)
 	test.That(t, err, test.ShouldBeNil)

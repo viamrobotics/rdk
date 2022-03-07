@@ -3416,6 +3416,14 @@
     }
   },
   "rimage": {
+    "binary_image.jpg": {
+      "hash": "45ca9ed407019c8ef93872c24dff9766",
+      "size": 15292
+    },
+    "binary_image_nearest_downscaled2.png": {
+      "hash": "f94fef53bb2a6f7e25441f679b71adc6",
+      "size": 1540
+    },
     "board1.dat.gz": {
       "hash": "7c1dff933898f30d86407c5bd0c5edb5",
       "size": 165941
@@ -3491,6 +3499,10 @@
     "shelf_grayscale.png": {
       "hash": "8382a0b821c7034033d7ba7aff4daec2",
       "size": 343317
+    },
+    "sobelx.png": {
+      "hash": "78e2fa73efdac49f6dc33de0c7e2ddca",
+      "size": 19308
     },
     "test_canny.png": {
       "hash": "d1989b26b62943152fa05e63d476a623",
@@ -50138,6 +50150,16 @@
       "board5.png": {
         "hash": "68cbd22d5bd37ad6de562f5604c0fe9b",
         "size": 1209633
+      }
+    },
+    "keypoints": {
+      "chess.jpg": {
+        "hash": "66c0c0baa3b39ac23f90e7f0493e5d55",
+        "size": 67917
+      },
+      "chess3.jpg": {
+        "hash": "0fefadf89ef5ef419d9c98297cd3299e",
+        "size": 30714
       }
     },
     "objectdetection": {

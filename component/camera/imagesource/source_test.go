@@ -12,10 +12,11 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 )
 
-const debugImageSource = "VIAM_DEBUG_IMAGESOURCE"
+const debugImageSource = "VIAM_DEBUG"
 
 func debugImageSourceOrSkip(t *testing.T) {
 	t.Helper()
@@ -45,7 +46,7 @@ func doServerSourceTest(t *testing.T, s gostream.ImageSource) {
 }
 
 func TestDualServerSourceNoDepth(t *testing.T) {
-	s := dualServerSource{ColorURL: "http://placehold.it/120x120&text=image1", DepthURL: ""}
+	s := dualServerSource{ColorURL: "https://via.placeholder.com/350x150", DepthURL: ""}
 	_, _, err := s.Next(context.Background())
 	test.That(t, err, test.ShouldBeError, errors.New("couldn't ready depth url: Get \"\": unsupported protocol scheme \"\""))
 }
@@ -64,9 +65,10 @@ func TestDualServerSource(t *testing.T) {
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := rimage.AttrConfig{}
+	attrs := camera.AttrConfig{}
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
+	attrs.Stream = "both"
 	s, err := NewServerSource(&attrs, logger)
 	test.That(t, err, test.ShouldBeNil)
 	doServerSourceTest(t, s)

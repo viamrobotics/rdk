@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	r3 "github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
@@ -180,4 +181,120 @@ func TestScaleByPct(t *testing.T) {
 func TestFloat64AlmostEqual(t *testing.T) {
 	test.That(t, Float64AlmostEqual(1, 1.001, 1e-4), test.ShouldBeFalse)
 	test.That(t, Float64AlmostEqual(1, 1.001, 1e-2), test.ShouldBeTrue)
+}
+
+func TestR3VectorAlmostEqual(t *testing.T) {
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2, 3}, 1e-4), test.ShouldBeFalse)
+	test.That(t, R3VectorAlmostEqual(r3.Vector{1, 2, 3}, r3.Vector{1.001, 2.001, 3.001}, 1e-2), test.ShouldBeTrue)
+}
+
+func TestClamp(t *testing.T) {
+	for i, tc := range []struct {
+		value    float64
+		min      float64
+		max      float64
+		expected float64
+	}{
+		{
+			3,
+			1,
+			2,
+			2,
+		},
+		{
+			1.5,
+			1,
+			2,
+			1.5,
+		},
+		{
+			0.5,
+			1,
+			2,
+			1,
+		},
+	} {
+		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
+			test.That(t, Clamp(tc.value, tc.min, tc.max), test.ShouldAlmostEqual, tc.expected)
+		})
+	}
+}
+
+func TestSampleNIntegersNormal(t *testing.T) {
+	samples1 := SampleNIntegersNormal(256, -7, 8)
+	test.That(t, len(samples1), test.ShouldEqual, 256)
+	mean1 := 0.
+	for _, sample := range samples1 {
+		mean1 += float64(sample)
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -7)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 8)
+	}
+	mean1 /= float64(len(samples1))
+	// mean1 should be approximately 0.5
+	test.That(t, mean1, test.ShouldBeLessThanOrEqualTo, 1.6)
+	test.That(t, mean1, test.ShouldBeGreaterThanOrEqualTo, -0.6)
+
+	nSample2 := 25000
+	samples2 := SampleNIntegersNormal(nSample2, -16, 32)
+	test.That(t, len(samples2), test.ShouldEqual, nSample2)
+	mean2 := 0.
+	// test that distribution is uniform
+	counter := make(map[int]int)
+
+	for _, sample := range samples2 {
+		mean2 += float64(sample)
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -16)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 32)
+		if _, ok := counter[sample]; !ok {
+			counter[sample] = 1
+		} else {
+			counter[sample]++
+		}
+	}
+	mean2 /= float64(len(samples2))
+	nMean := counter[6] + counter[7] + counter[8] + counter[9] + counter[10]
+	nBelow := counter[-6] + counter[-5] + counter[-4] + counter[-3] + counter[-2]
+	nAbove := counter[15] + counter[16] + counter[17] + counter[18] + counter[19]
+	// mean2 should be approximately 8
+	test.That(t, mean2, test.ShouldBeLessThanOrEqualTo, 10)
+	test.That(t, mean2, test.ShouldBeGreaterThanOrEqualTo, 6)
+	// test that bins around mean value have more points than at mean-X and mean+X
+	test.That(t, nMean, test.ShouldBeGreaterThanOrEqualTo, nBelow)
+	test.That(t, nMean, test.ShouldBeGreaterThanOrEqualTo, nAbove)
+}
+
+func TestSampleNIntegersUniform(t *testing.T) {
+	samples1 := SampleNIntegersUniform(256, -7, 8)
+	test.That(t, len(samples1), test.ShouldEqual, 256)
+	for _, sample := range samples1 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -7)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 8)
+	}
+
+	samples2 := SampleNIntegersUniform(16, -16, 32)
+	test.That(t, len(samples2), test.ShouldEqual, 16)
+	for _, sample := range samples2 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -16)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 32)
+	}
+
+	samples3 := SampleNIntegersUniform(1000, -4, 16)
+	// test number of samples
+	test.That(t, len(samples3), test.ShouldEqual, 1000)
+	// test that distribution is uniform
+	counter := make(map[int]int)
+	for _, sample := range samples3 {
+		test.That(t, sample, test.ShouldBeGreaterThanOrEqualTo, -4)
+		test.That(t, sample, test.ShouldBeLessThanOrEqualTo, 16)
+		if _, ok := counter[sample]; !ok {
+			counter[sample] = 1
+		} else {
+			counter[sample]++
+		}
+	}
+	for _, value := range counter {
+		// 1000 samples in a range of 20 values - counter should be on average 50
+		test.That(t, value, test.ShouldBeGreaterThanOrEqualTo, 10)
+		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 65)
+	}
 }

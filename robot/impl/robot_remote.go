@@ -12,11 +12,9 @@ import (
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
 
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -129,18 +127,6 @@ func (rr *remoteRobot) RemoteNames() []string {
 	return nil
 }
 
-func (rr *remoteRobot) BoardNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.BoardNames())
-}
-
-func (rr *remoteRobot) MotorNames() []string {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.MotorNames())
-}
-
 func (rr *remoteRobot) FunctionNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
@@ -163,19 +149,7 @@ func (rr *remoteRobot) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-func (rr *remoteRobot) BoardByName(name string) (board.Board, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.BoardByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) MotorByName(name string) (motor.Motor, bool) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-	return rr.parts.MotorByName(rr.unprefixName(name))
-}
-
-func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, bool) {
+func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	newName := rr.unprefixResourceName(name)
@@ -310,14 +284,14 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 // which should be unaware of remotes.
 // Be sure to update this function if robotParts grows.
 func partsForRemoteRobot(robot robot.Robot) *robotParts {
-	parts := newRobotParts(robot.Logger().Named("parts"))
+	parts := newRobotParts(robotPartsOptions{}, robot.Logger().Named("parts"))
 	for _, name := range robot.FunctionNames() {
 		parts.addFunction(name)
 	}
 
 	for _, name := range robot.ResourceNames() {
-		part, ok := robot.ResourceByName(name)
-		if !ok {
+		part, err := robot.ResourceByName(name)
+		if err != nil {
 			continue
 		}
 		parts.addResource(name, part)

@@ -8,12 +8,11 @@ import (
 
 	"github.com/edaniels/golog"
 	geo "github.com/kellydunn/golang-geo"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/gps/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -56,7 +55,6 @@ func Named(name string) resource.Name {
 
 // A GPS represents a GPS that can report lat/long measurements.
 type GPS interface {
-	sensor.Sensor
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
 	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in kph
@@ -72,24 +70,64 @@ type LocalGPS interface {
 
 var (
 	_ = LocalGPS(&reconfigurableGPS{})
+	_ = sensor.Sensor(&reconfigurableGPS{})
 	_ = resource.Reconfigurable(&reconfigurableGPS{})
 )
 
 // FromRobot is a helper for getting the named GPS from the given Robot.
-func FromRobot(r robot.Robot, name string) (GPS, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(GPS)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (GPS, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(GPS)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("GPS", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all GPS names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// GetReadings is a helper for getting all readings from a GPS.
+func GetReadings(ctx context.Context, g GPS) ([]interface{}, error) {
+	loc, err := g.ReadLocation(ctx)
+	if err != nil {
+		return nil, err
+	}
+	alt, err := g.ReadAltitude(ctx)
+	if err != nil {
+		return nil, err
+	}
+	speed, err := g.ReadSpeed(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	readings := []interface{}{loc.Lat(), loc.Lng(), alt, speed}
+
+	localG, ok := g.(LocalGPS)
+	if !ok {
+		return readings, nil
+	}
+
+	active, total, err := localG.ReadSatellites(ctx)
+	if err != nil {
+		return nil, err
+	}
+	hAcc, vAcc, err := localG.ReadAccuracy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	valid, err := localG.ReadValid(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(readings, active, total, hAcc, vAcc, valid), nil
 }
 
 type reconfigurableGPS struct {
@@ -145,10 +183,15 @@ func (r *reconfigurableGPS) ReadValid(ctx context.Context) (bool, error) {
 	return r.actual.ReadValid(ctx)
 }
 
+// GetReadings will use the default GPS GetReadings if not provided.
 func (r *reconfigurableGPS) GetReadings(ctx context.Context) ([]interface{}, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetReadings(ctx)
+
+	if sensor, ok := r.actual.(sensor.Sensor); ok {
+		return sensor.GetReadings(ctx)
+	}
+	return GetReadings(ctx, r.actual)
 }
 
 func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Reconfigurable) error {
@@ -170,7 +213,7 @@ func (r *reconfigurableGPS) Reconfigure(ctx context.Context, newGPS resource.Rec
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	gps, ok := r.(LocalGPS)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be GPS but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalGPS", r)
 	}
 	if reconfigurable, ok := gps.(*reconfigurableGPS); ok {
 		return reconfigurable, nil

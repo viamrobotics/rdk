@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -68,7 +68,7 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	a.position = c
 	return nil
 }

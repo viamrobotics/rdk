@@ -6,12 +6,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the contract from imu_subtype.proto.
+// subtypeServer implements the IMUService from imu.proto.
 type subtypeServer struct {
 	pb.UnimplementedIMUServiceServer
 	s subtype.Service
@@ -38,8 +38,8 @@ func (s *subtypeServer) getIMU(name string) (IMU, error) {
 // ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
 func (s *subtypeServer) ReadAngularVelocity(
 	ctx context.Context,
-	req *pb.IMUServiceReadAngularVelocityRequest,
-) (*pb.IMUServiceReadAngularVelocityResponse, error) {
+	req *pb.ReadAngularVelocityRequest,
+) (*pb.ReadAngularVelocityResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (s *subtypeServer) ReadAngularVelocity(
 	if err != nil {
 		return nil, err
 	}
-	return &pb.IMUServiceReadAngularVelocityResponse{
+	return &pb.ReadAngularVelocityResponse{
 		AngularVelocity: &pb.AngularVelocity{
 			XDegsPerSec: vel.X,
 			YDegsPerSec: vel.Y,
@@ -60,8 +60,8 @@ func (s *subtypeServer) ReadAngularVelocity(
 // Orientation returns the most recent angular velocity reading from the given IMU.
 func (s *subtypeServer) ReadOrientation(
 	ctx context.Context,
-	req *pb.IMUServiceReadOrientationRequest,
-) (*pb.IMUServiceReadOrientationResponse, error) {
+	req *pb.ReadOrientationRequest,
+) (*pb.ReadOrientationResponse, error) {
 	imuDevice, err := s.getIMU(req.Name)
 	if err != nil {
 		return nil, err
@@ -71,11 +71,32 @@ func (s *subtypeServer) ReadOrientation(
 		return nil, err
 	}
 	ea := o.EulerAngles()
-	return &pb.IMUServiceReadOrientationResponse{
+	return &pb.ReadOrientationResponse{
 		Orientation: &pb.EulerAngles{
 			RollDeg:  utils.RadToDeg(ea.Roll),
 			PitchDeg: utils.RadToDeg(ea.Pitch),
 			YawDeg:   utils.RadToDeg(ea.Yaw),
+		},
+	}, nil
+}
+
+func (s *subtypeServer) ReadAcceleration(
+	ctx context.Context,
+	req *pb.ReadAccelerationRequest,
+) (*pb.ReadAccelerationResponse, error) {
+	imuDevice, err := s.getIMU(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	acc, err := imuDevice.ReadAcceleration(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ReadAccelerationResponse{
+		Acceleration: &pb.Acceleration{
+			XMmPerSecPerSec: acc.X,
+			YMmPerSecPerSec: acc.Y,
+			ZMmPerSecPerSec: acc.Z,
 		},
 	}, nil
 }

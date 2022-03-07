@@ -6,11 +6,10 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
-	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/base/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -86,15 +85,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named base from the given Robot.
-func FromRobot(r robot.Robot, name string) (Base, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Base)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (Base, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(Base)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Base", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.
@@ -172,7 +172,7 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	base, ok := r.(LocalBase)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Base but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("LocalBase", r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil
