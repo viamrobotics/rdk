@@ -140,7 +140,7 @@ func TestReconfigurableCamera(t *testing.T) {
 	err = reconfCamera1.Reconfigure(context.Background(), reconfCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfCamera1, test.ShouldResemble, reconfCamera2)
-	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
 	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
