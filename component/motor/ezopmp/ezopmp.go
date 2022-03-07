@@ -1,9 +1,11 @@
 // write a motor driver for the hydrogarden pump
-package i2c
+package ezopmp
 
 import (
 	"context"
 	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
@@ -16,13 +18,13 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-type I2CConfig struct {
+type EZOPMPConfig struct {
 	motor.Config
 	BusName    string `json:"bus_name"`
 	I2CAddress byte   `json:"i2c_address"`
 }
 
-const modelName = "i2c"
+const modelName = "ezopmp"
 
 func init() {
 	_motor := registry.Component{
@@ -32,7 +34,7 @@ func init() {
 			// 	return nil, err
 			// }
 
-			return NewMotor(ctx, r, config.ConvertedAttributes.(*I2CConfig), logger)
+			return NewMotor(ctx, r, config.ConvertedAttributes.(*EZOPMPConfig), logger)
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, modelName, _motor)
@@ -40,7 +42,7 @@ func init() {
 		config.ComponentTypeMotor,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf I2CConfig
+			var conf EZOPMPConfig
 			decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Squash: true, Result: &conf})
 			if err != nil {
 				return nil, err
@@ -49,7 +51,7 @@ func init() {
 				return nil, err
 			}
 			return &conf, nil
-		}, &I2CConfig{})
+		}, &EZOPMPConfig{})
 }
 
 // A Motor represents a motor connected via the I2C protocol.
@@ -71,10 +73,17 @@ const (
 	reverseDispenseTilStop = "D,-*"
 	dispenseStatus         = "D,?"
 	stop                   = "X"
+	pumpVoltage            = "PV,?"
+	status                 = "Status"
+	pause                  = "P"
+	pauseStatus            = "P,?"
+	totVolDispensed        = "TV,?"
+	absoluteTotVolDisp     = "ATV,?"
+	clear                  = "clear"
 )
 
 // NewMotor returns a motor with I2C protocol.
-func NewMotor(ctx context.Context, r robot.Robot, c *I2CConfig, logger golog.Logger) (*Motor, error) {
+func NewMotor(ctx context.Context, r robot.Robot, c *EZOPMPConfig, logger golog.Logger) (*Motor, error) {
 	b, err := board.FromRobot(r, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -100,11 +109,8 @@ func NewMotor(ctx context.Context, r robot.Robot, c *I2CConfig, logger golog.Log
 }
 
 func (m *Motor) writeReg(ctx context.Context, command []byte) error {
-
-	// no
 	handle, err := m.bus.OpenHandle(m.I2CAddress)
 	if err != nil {
-		fmt.Println("broken at openhandle")
 		return err
 	}
 	defer func() {
@@ -116,17 +122,39 @@ func (m *Motor) writeReg(ctx context.Context, command []byte) error {
 	return handle.Write(ctx, command)
 }
 
+func (m *Motor) readReg(ctx context.Context, command []byte) error {
+	handle, err := m.bus.OpenHandle(m.I2CAddress)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := handle.Close(); err != nil {
+			m.logger.Error(err)
+		}
+	}()
+
+	readInput, err := strconv.Atoi(string(command))
+	readVal, err := handle.Read(ctx, readInput)
+	fmt.Println(readVal)
+	return err
+}
+
 // SetPower sets the percentage of power the motor should employ between -1 and 1.
 // Negative power implies a backward directional rotational
+// for this pump, it goes between 0.5ml to 105ml/min
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	command := []byte{}
+	powerVal := (powerPct / 100 * 104.5) + 0.5
 	if powerPct < 0 {
-		command = []byte(reverseDispenseTilStop)
+		stringVal := "DC," + fmt.Sprintf("%f", -1*math.Round(powerVal*100)/100) + ",*"
+		fmt.Println(stringVal)
+		command = []byte(stringVal)
 	} else if powerPct == 0 {
-		fmt.Println("power to something else")
 		command = []byte(stop)
 	} else {
-		command = []byte(dispenseTilStop)
+		stringVal := "DC," + fmt.Sprintf("%f", math.Round(powerVal*100)/100) + ",*"
+		fmt.Println(stringVal)
+		command = []byte(stringVal)
 	}
 	fmt.Println(command)
 	writeErr := m.writeReg(ctx, command)
@@ -148,17 +176,20 @@ func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
 	return nil
 }
 
+// for this pump, it will return the volume dispensed
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	return 0, nil
 }
 
+// GetFeatures returns the status of optional features on the motor.
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
-	return nil, nil
+	return map[motor.Feature]bool{
+		motor.PositionReporting: true,
+	}, nil
 }
 
 func (m *Motor) Stop(ctx context.Context) error {
 	command := []byte(stop)
-	fmt.Println(command)
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
 		return errors.New(writeErr.Error())
@@ -167,6 +198,8 @@ func (m *Motor) Stop(ctx context.Context) error {
 }
 
 func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
+	// command := []byte(status)
+	// readErr := m.read
 	return false, nil
 }
 
