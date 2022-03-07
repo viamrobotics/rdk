@@ -18,7 +18,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	viamgrpc "go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -50,7 +50,6 @@ func TestClient(t *testing.T) {
 	injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		return pcA, nil
 	}
-
 	injectCamera2 := &inject.Camera{}
 	injectCamera2.NextFunc = func(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, errors.New("can't generate next frame")
@@ -74,13 +73,13 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = camera.NewClient(cancelCtx, testCameraName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		_, err = camera.NewClient(cancelCtx, testCameraName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	t.Run("camera client 1", func(t *testing.T) {
-		camera1Client, err := camera.NewClient(context.Background(), testCameraName, listener1.Addr().String(), logger, rpc.WithInsecure())
+		camera1Client, err := camera.NewClient(context.Background(), testCameraName, listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		frame, _, err := camera1Client.Next(context.Background())
 		test.That(t, err, test.ShouldBeNil)
@@ -97,7 +96,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("camera client 2", func(t *testing.T) {
-		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger, rpc.WithInsecure())
+		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, failCameraName, logger)
 		camera2Client, ok := client.(camera.Camera)
@@ -122,7 +121,7 @@ func TestClientDialerOption(t *testing.T) {
 	gServer := grpc.NewServer()
 	injectCamera := &inject.Camera{}
 
-	cameraSvc, err := subtype.New((map[resource.Name]interface{}{camera.Named(testCameraName): injectCamera}))
+	cameraSvc, err := subtype.New(map[resource.Name]interface{}{camera.Named(testCameraName): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
 	componentpb.RegisterCameraServiceServer(gServer, camera.NewServer(cameraSvc))
 
@@ -131,11 +130,12 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger, rpc.WithInsecure())
+	client1, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger, rpc.WithInsecure())
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+	client2, err := camera.NewClient(ctx, testCameraName, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 2)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)

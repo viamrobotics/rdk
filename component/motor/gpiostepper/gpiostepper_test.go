@@ -32,18 +32,24 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	mc.Pins = map[string]string{"dir": "b"}
+	mc.Pins = motor.PinConfig{Dir: "b"}
 
 	_, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)
 
-	mc.Pins["step"] = "c"
+	mc.Pins.Step = "c"
 
 	m, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldBeNil)
 
+	t.Run("motor test supports position reporting", func(t *testing.T) {
+		features, err := m.GetFeatures(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, features[motor.PositionReporting], test.ShouldBeTrue)
+	})
+
 	t.Run("motor test isOn functionality", func(t *testing.T) {
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, false)
 	})
@@ -52,18 +58,18 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsOn(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 2)
 	})
@@ -72,18 +78,18 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, -100, 2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsOn(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -92,18 +98,18 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsOn(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, -2)
 	})
@@ -112,18 +118,18 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, -100, -2)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			on, err = m.IsOn(ctx)
+			on, err = m.IsPowered(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, on, test.ShouldEqual, false)
 		})
 
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldEqual, 0)
 	})
@@ -132,13 +138,13 @@ func Test1(t *testing.T) {
 		err = m.GoFor(ctx, 100, 200)
 		test.That(t, err, test.ShouldBeNil)
 
-		on, err := m.IsOn(ctx)
+		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldEqual, true)
 
 		testutils.WaitForAssertion(t, func(tb testing.TB) {
 			tb.Helper()
-			pos, err := m.Position(ctx)
+			pos, err := m.GetPosition(ctx)
 			test.That(tb, err, test.ShouldBeNil)
 			test.That(tb, pos, test.ShouldBeGreaterThan, 2)
 		})
@@ -146,7 +152,7 @@ func Test1(t *testing.T) {
 		err = m.Stop(ctx)
 		test.That(t, err, test.ShouldBeNil)
 
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldBeGreaterThan, 2)
 		test.That(t, pos, test.ShouldBeLessThan, 202)

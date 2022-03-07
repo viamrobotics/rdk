@@ -18,7 +18,6 @@ type GPS struct {
 	ReadSatellitesFunc func(ctx context.Context) (int, int, error)
 	ReadAccuracyFunc   func(ctx context.Context) (float64, float64, error)
 	ReadValidFunc      func(ctx context.Context) (bool, error)
-	GetReadingsFunc    func(ctx context.Context) ([]interface{}, error)
 	CloseFunc          func(ctx context.Context) error
 }
 
@@ -68,14 +67,6 @@ func (i *GPS) ReadValid(ctx context.Context) (bool, error) {
 		return i.LocalGPS.ReadValid(ctx)
 	}
 	return i.ReadValidFunc(ctx)
-}
-
-// GetReadings calls the injected GetReadings or the real version.
-func (i *GPS) GetReadings(ctx context.Context) ([]interface{}, error) {
-	if i.GetReadingsFunc == nil {
-		return i.LocalGPS.GetReadings(ctx)
-	}
-	return i.GetReadingsFunc(ctx)
 }
 
 // Close calls the injected Close or the real version.

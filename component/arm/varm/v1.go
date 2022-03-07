@@ -20,7 +20,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
+	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -90,18 +90,18 @@ func (j joint) validate() error {
 }
 
 func getMotor(ctx context.Context, r robot.Robot, name string) (motor.Motor, error) {
-	m, ok := r.MotorByName(name)
-	if !ok {
-		return nil, errors.Errorf("no motor with name: %s", name)
-	}
-
-	pok, err := m.PositionSupported(ctx)
+	m, err := motor.FromRobot(r, name)
 	if err != nil {
 		return nil, err
 	}
 
+	supportedFeatures, err := m.GetFeatures(ctx)
+	if err != nil {
+		return nil, err
+	}
+	pok := supportedFeatures[motor.PositionReporting]
 	if !pok {
-		return nil, errors.Errorf("motor %s doesn't support position", name)
+		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, name)
 	}
 
 	return m, nil
@@ -130,7 +130,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 		if !utils.SelectContextOrWait(ctx, 25*time.Millisecond) {
 			return math.NaN(), ctx.Err()
 		}
-		pos, err := m.Position(ctx)
+		pos, err := m.GetPosition(ctx)
 		if err != nil {
 			return math.NaN(), motorOffError(ctx, m, err)
 		}
@@ -148,7 +148,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 				}
 				bigger = true
 				positions = []float64{}
-				err := m.Go(ctx, float64(dir)*TestingForce)
+				err := m.SetPower(ctx, float64(dir)*TestingForce)
 				if err != nil {
 					return math.NaN(), motorOffError(ctx, m, err)
 				}
@@ -228,7 +228,7 @@ func (a *armV1) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (a *armV1) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -294,14 +294,14 @@ func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJo
 
 // IsOn TODO.
 func (a *armV1) IsOn(ctx context.Context) (bool, error) {
-	on0, err0 := a.j0Motor.IsOn(ctx)
-	on1, err1 := a.j0Motor.IsOn(ctx)
+	on0, err0 := a.j0Motor.IsPowered(ctx)
+	on1, err1 := a.j0Motor.IsPowered(ctx)
 
 	return on0 || on1, multierr.Combine(err0, err1)
 }
 
 func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error) {
-	pos, err := m.Position(ctx)
+	pos, err := m.GetPosition(ctx)
 	if err != nil {
 		return 0, err
 	}

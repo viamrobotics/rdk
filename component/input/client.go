@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 )
 
 // serviceClient is a client satisfies the proto contract.
@@ -86,7 +86,7 @@ func clientFromSvcClient(ctx context.Context, sc *serviceClient, name string) Co
 }
 
 func (c *client) GetControls(ctx context.Context) ([]Control, error) {
-	resp, err := c.client.GetControls(ctx, &pb.InputControllerServiceGetControlsRequest{
+	resp, err := c.client.GetControls(ctx, &pb.GetControlsRequest{
 		Controller: c.name,
 	})
 	if err != nil {
@@ -100,7 +100,7 @@ func (c *client) GetControls(ctx context.Context) ([]Control, error) {
 }
 
 func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
-	resp, err := c.client.GetEvents(ctx, &pb.InputControllerServiceGetEventsRequest{
+	resp, err := c.client.GetEvents(ctx, &pb.GetEventsRequest{
 		Controller: c.name,
 	})
 	if err != nil {
@@ -121,14 +121,14 @@ func (c *client) GetEvents(ctx context.Context) (map[Control]Event, error) {
 
 // TriggerEvent allows directly sending an Event (such as a button press) from external code.
 func (c *client) TriggerEvent(ctx context.Context, event Event) error {
-	eventMsg := &pb.InputControllerServiceEvent{
+	eventMsg := &pb.Event{
 		Time:    timestamppb.New(event.Time),
 		Event:   string(event.Event),
 		Control: string(event.Control),
 		Value:   event.Value,
 	}
 
-	_, err := c.client.TriggerEvent(ctx, &pb.InputControllerServiceTriggerEventRequest{
+	_, err := c.client.TriggerEvent(ctx, &pb.TriggerEventRequest{
 		Controller: c.name,
 		Event:      eventMsg,
 	})
@@ -221,12 +221,12 @@ func (c *client) connectStream(ctx context.Context) {
 
 		var haveCallbacks bool
 		c.mu.RLock()
-		req := &pb.InputControllerServiceStreamEventsRequest{
+		req := &pb.StreamEventsRequest{
 			Controller: c.name,
 		}
 
 		for control, v := range c.callbacks {
-			outEvent := &pb.InputControllerServiceStreamEventsRequest_Events{
+			outEvent := &pb.StreamEventsRequest_Events{
 				Control: string(control),
 			}
 

@@ -26,7 +26,8 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return &Camera{Name: config.Name}, nil
+			cam := &Camera{Name: config.Name}
+			return camera.New(cam, nil, nil)
 		}})
 }
 

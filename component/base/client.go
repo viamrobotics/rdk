@@ -8,7 +8,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/base/v1"
 )
 
 // serviceClient is a client satisfies the arm.proto contract.
@@ -70,7 +70,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Base {
 }
 
 func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec float64, block bool) error {
-	_, err := c.client.MoveStraight(ctx, &pb.BaseServiceMoveStraightRequest{
+	_, err := c.client.MoveStraight(ctx, &pb.MoveStraightRequest{
 		Name:       c.name,
 		DistanceMm: int64(distanceMm),
 		MmPerSec:   mmPerSec,
@@ -83,7 +83,7 @@ func (c *client) MoveStraight(ctx context.Context, distanceMm int, mmPerSec floa
 }
 
 func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, angleDeg float64, block bool) error {
-	_, err := c.client.MoveArc(ctx, &pb.BaseServiceMoveArcRequest{
+	_, err := c.client.MoveArc(ctx, &pb.MoveArcRequest{
 		Name:       c.name,
 		MmPerSec:   mmPerSec,
 		AngleDeg:   angleDeg,
@@ -97,7 +97,7 @@ func (c *client) MoveArc(ctx context.Context, distanceMm int, mmPerSec float64, 
 }
 
 func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64, block bool) error {
-	_, err := c.client.Spin(ctx, &pb.BaseServiceSpinRequest{
+	_, err := c.client.Spin(ctx, &pb.SpinRequest{
 		Name:       c.name,
 		AngleDeg:   angleDeg,
 		DegsPerSec: degsPerSec,
@@ -110,7 +110,7 @@ func (c *client) Spin(ctx context.Context, angleDeg float64, degsPerSec float64,
 }
 
 func (c *client) Stop(ctx context.Context) error {
-	_, err := c.client.Stop(ctx, &pb.BaseServiceStopRequest{Name: c.name})
+	_, err := c.client.Stop(ctx, &pb.StopRequest{Name: c.name})
 	if err != nil {
 		return err
 	}

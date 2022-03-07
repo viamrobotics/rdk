@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -25,14 +26,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	base1 := &mock{Name: testBaseName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case base.Named(testBaseName):
-			return base1, true
+			return base1, nil
 		case base.Named(fakeBaseName):
-			return "not a base", false
+			return "not a base", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -44,21 +45,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	res, ok := base.FromRobot(r, testBaseName)
+	res, err := base.FromRobot(r, testBaseName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := res.(base.LocalBase).GetWidth(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, width)
 
-	res, ok = base.FromRobot(r, fakeBaseName)
+	res, err = base.FromRobot(r, fakeBaseName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Base", "string"))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	res, ok = base.FromRobot(r, missingBaseName)
+	res, err = base.FromRobot(r, missingBaseName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(base.Named(missingBaseName)))
 	test.That(t, res, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -81,8 +82,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBase", nil))
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)

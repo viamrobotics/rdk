@@ -7,11 +7,12 @@ import (
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/forcematrix/v1"
 )
 
-// serviceClient satisfies the forcematrix.proto contract.
+// serviceClient satisfies the force_matrix.proto contract.
 type serviceClient struct {
 	conn   rpc.ClientConn
 	client pb.ForceMatrixServiceClient
@@ -44,6 +45,8 @@ func (sc *serviceClient) Close() error {
 	return sc.conn.Close()
 }
 
+var _ = sensor.Sensor(&client{})
+
 // client is a ForceMatrix client.
 type client struct {
 	*serviceClient
@@ -71,7 +74,7 @@ func clientFromSvcClient(sc *serviceClient, name string) ForceMatrix {
 
 func (c *client) ReadMatrix(ctx context.Context) ([][]int, error) {
 	resp, err := c.client.ReadMatrix(ctx,
-		&pb.ForceMatrixServiceReadMatrixRequest{
+		&pb.ReadMatrixRequest{
 			Name: c.name,
 		})
 	if err != nil {
@@ -82,7 +85,7 @@ func (c *client) ReadMatrix(ctx context.Context) ([][]int, error) {
 
 func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 	resp, err := c.client.DetectSlip(ctx,
-		&pb.ForceMatrixServiceDetectSlipRequest{
+		&pb.DetectSlipRequest{
 			Name: c.name,
 		})
 	if err != nil {
@@ -92,11 +95,7 @@ func (c *client) DetectSlip(ctx context.Context) (bool, error) {
 }
 
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
-	matrix, err := c.ReadMatrix(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return []interface{}{matrix}, nil
+	return GetReadings(ctx, c)
 }
 
 // Close cleanly closes the underlying connections.
@@ -105,7 +104,7 @@ func (c *client) Close() error {
 }
 
 // protoToMatrix is a helper function to convert protobuf matrix values into a 2-dimensional int slice.
-func protoToMatrix(matrixResponse *pb.ForceMatrixServiceReadMatrixResponse) [][]int {
+func protoToMatrix(matrixResponse *pb.ReadMatrixResponse) [][]int {
 	numRows := matrixResponse.Matrix.Rows
 	numCols := matrixResponse.Matrix.Cols
 

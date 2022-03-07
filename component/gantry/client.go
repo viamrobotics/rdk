@@ -8,7 +8,8 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -71,7 +72,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Gantry {
 }
 
 func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
-	resp, err := c.client.GetPosition(ctx, &pb.GantryServiceGetPositionRequest{
+	resp, err := c.client.GetPosition(ctx, &pb.GetPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -81,7 +82,7 @@ func (c *client) GetPosition(ctx context.Context) ([]float64, error) {
 }
 
 func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
-	lengths, err := c.client.GetLengths(ctx, &pb.GantryServiceGetLengthsRequest{
+	lengths, err := c.client.GetLengths(ctx, &pb.GetLengthsRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -90,10 +91,17 @@ func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.GantryServiceMoveToPositionRequest{
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
+	}
+	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
+		WorldState: &commonpb.WorldState{
+			Obstacles: geometriesInFrames,
+		},
 	})
 	return err
 }
@@ -112,7 +120,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
 }
 
 // Close cleanly closes the underlying connections.

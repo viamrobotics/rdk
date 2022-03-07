@@ -16,16 +16,16 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/component/board"
-	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
-	pb "go.viam.com/rdk/proto/api/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 )
 
@@ -43,7 +43,6 @@ type RobotClient struct {
 
 	namesMu       *sync.RWMutex
 	functionNames []string
-	serviceNames  []string
 	resourceNames []resource.Name
 
 	activeBackgroundWorkers *sync.WaitGroup
@@ -214,45 +213,16 @@ func (rc *RobotClient) RemoteByName(name string) (robot.Robot, bool) {
 	panic(errUnimplemented)
 }
 
-// BoardByName returns a board by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) BoardByName(name string) (board.Board, bool) {
-	resource, ok := rc.ResourceByName(board.Named(name))
-	if !ok {
-		return nil, false
-	}
-	actualBoard, ok := resource.(board.Board)
-	if !ok {
-		return nil, false
-	}
-	return actualBoard, true
-}
-
-// MotorByName returns a motor by name. It is assumed to exist on the
-// other end.
-func (rc *RobotClient) MotorByName(name string) (motor.Motor, bool) {
-	nameObj := motor.Named(name)
-	resource, ok := rc.ResourceByName(nameObj)
-	if !ok {
-		return nil, false
-	}
-	actualMotor, ok := resource.(motor.Motor)
-	if !ok {
-		return nil, false
-	}
-	return actualMotor, true
-}
-
 // ResourceByName returns resource by name.
-func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, bool) {
+func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 	c := registry.ResourceSubtypeLookup(name.Subtype)
 	if c == nil || c.RPCClient == nil {
 		// registration doesn't exist
-		return nil, false
+		return nil, errors.New("resource client registration doesn't exist")
 	}
 	// pass in conn
 	resourceClient := c.RPCClient(rc.closeContext, rc.conn, name.Name, rc.Logger())
-	return resourceClient, true
+	return resourceClient, nil
 }
 
 // Refresh manually updates the underlying parts of the robot based
@@ -280,12 +250,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		for _, name := range names {
-			newName := resource.NewName(
-				resource.Namespace(name.Namespace),
-				resource.TypeName(name.Type),
-				resource.SubtypeName(name.Subtype),
-				name.Name,
-			)
+			newName := protoutils.ResourceNameFromProto(name)
 			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
@@ -295,13 +260,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 		rc.functionNames = make([]string, 0, len(status.Functions))
 		for name := range status.Functions {
 			rc.functionNames = append(rc.functionNames, name)
-		}
-	}
-	rc.serviceNames = nil
-	if len(status.Services) != 0 {
-		rc.serviceNames = make([]string, 0, len(status.Services))
-		for name := range status.Services {
-			rc.serviceNames = append(rc.serviceNames, name)
 		}
 	}
 	return nil
@@ -318,32 +276,6 @@ func copyStringSlice(src []string) []string {
 // RemoteNames returns the names of all known remotes.
 func (rc *RobotClient) RemoteNames() []string {
 	return nil
-}
-
-// BoardNames returns the names of all known boards.
-func (rc *RobotClient) BoardNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, v := range rc.ResourceNames() {
-		if v.Subtype == board.Subtype {
-			names = append(names, v.Name)
-		}
-	}
-	return copyStringSlice(names)
-}
-
-// MotorNames returns the names of all known motors.
-func (rc *RobotClient) MotorNames() []string {
-	rc.namesMu.RLock()
-	defer rc.namesMu.RUnlock()
-	names := []string{}
-	for _, res := range rc.ResourceNames() {
-		if res.Subtype == motor.Subtype {
-			names = append(names, res.Name)
-		}
-	}
-	return copyStringSlice(names)
 }
 
 // FunctionNames returns the names of all known functions.
@@ -376,45 +308,20 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 	return names
 }
 
-// Logger returns the logger being used for this robot.
-func (rc *RobotClient) Logger() golog.Logger {
-	return rc.logger
-}
-
-// FrameSystem retrieves an ordered slice of the frame configs and then builds a FrameSystem from the configs.
+// FrameSystem returns the robot's underlying frame system.
 func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	// request the full config from the remote robot's frame system service.FrameSystemConfig()
-	resp, err := rc.client.FrameServiceConfig(ctx, &pb.FrameServiceConfigRequest{})
+	fs, err := framesystem.FromRobot(rc)
 	if err != nil {
 		return nil, err
 	}
-	configs := resp.FrameSystemConfigs
-	// using the configs, build a FrameSystem using model frames and static offset frames, the configs slice should already be sorted.
-	for _, conf := range configs {
-		part, err := config.ProtobufToFrameSystemPart(conf)
-		if err != nil {
-			return nil, err
-		}
-		// rename everything with prefixes
-		part.Name = prefix + part.Name
-		if part.FrameConfig.Parent != referenceframe.World {
-			part.FrameConfig.Parent = prefix + part.FrameConfig.Parent
-		}
-		// make the frames from the configs
-		modelFrame, staticOffsetFrame, err := config.CreateFramesFromPart(part, rc.Logger())
-		if err != nil {
-			return nil, err
-		}
-		// attach static offset frame to parent, attach model frame to static offset frame
-		err = fs.AddFrame(staticOffsetFrame, fs.GetFrame(part.FrameConfig.Parent))
-		if err != nil {
-			return nil, err
-		}
-		err = fs.AddFrame(modelFrame, staticOffsetFrame)
-		if err != nil {
-			return nil, err
-		}
+	parts, err := fs.Config(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return fs, nil
+	return framesystem.NewFrameSystemFromParts(name, prefix, parts, rc.logger)
+}
+
+// Logger returns the logger being used for this robot.
+func (rc *RobotClient) Logger() golog.Logger {
+	return rc.logger
 }

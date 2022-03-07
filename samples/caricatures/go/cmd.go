@@ -4,16 +4,14 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
@@ -43,9 +41,9 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 	if len(arm.NamesFromRobot(r)) != 1 {
 		return errors.New("need 1 arm name")
 	}
-	a, ok := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
-	if !ok {
-		return fmt.Errorf("failed to find arm %q", arm.NamesFromRobot(r)[0])
+	a, err := arm.FromRobot(r, arm.NamesFromRobot(r)[0])
+	if err != nil {
+		return err
 	}
 
 	for i := 0; i < numFacialLandmarks; i++ {
@@ -53,7 +51,7 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 		if err != nil {
 			return err
 		}
-		a.MoveToPosition(ctx, pos)
+		a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	}
 	return nil
 }
@@ -73,11 +71,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 
 	if false {
 		flag.Parse()
-		cfg, err := config.Read(ctx, flag.Arg(0))
+		cfg, err := config.Read(ctx, flag.Arg(0), logger)
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+		myRobot, err := robotimpl.New(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}

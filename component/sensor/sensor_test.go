@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -24,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	sensor1 := &mock{Name: testSensorName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case sensor.Named(testSensorName):
-			return sensor1, true
+			return sensor1, nil
 		case sensor.Named(fakeSensorName):
-			return "not a sensor", false
+			return "not a sensor", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -43,21 +44,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := sensor.FromRobot(r, testSensorName)
+	s, err := sensor.FromRobot(r, testSensorName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, []interface{}{reading})
 
-	s, ok = sensor.FromRobot(r, fakeSensorName)
+	s, err = sensor.FromRobot(r, fakeSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", "string"))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = sensor.FromRobot(r, missingSensorName)
+	s, err = sensor.FromRobot(r, missingSensorName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(sensor.Named(missingSensorName)))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -111,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = sensor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Sensor", nil))
 
 	reconfSensor2, err := sensor.WrapWithReconfigurable(reconfSensor1)
 	test.That(t, err, test.ShouldBeNil)

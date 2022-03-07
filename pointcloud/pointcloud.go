@@ -82,6 +82,10 @@ type PointCloud interface {
 	// it is based off the X,Y plane at the 0 Z coordinate making this useful for only 2D
 	// point clouds.
 	ToVec2Matrix() (*utils.Vec2Matrix, error)
+
+	// Points returns a slice of all the points in the point cloud, not in any particular order.
+	// Used to build kd-trees in order to define nearest neighbor functions on point clouds.
+	Points() []Point
 }
 
 // basicPointCloud is the basic implementation of the PointCloud interface backed by
@@ -111,6 +115,14 @@ func NewWithPrealloc(size int) PointCloud {
 		maxY:   -math.MaxFloat64,
 		maxZ:   -math.MaxFloat64,
 	}
+}
+
+func (cloud *basicPointCloud) Points() []Point {
+	pts := make([]Point, 0, cloud.Size())
+	for _, v := range cloud.points {
+		pts = append(pts, v)
+	}
+	return pts
 }
 
 func (cloud *basicPointCloud) Size() int {

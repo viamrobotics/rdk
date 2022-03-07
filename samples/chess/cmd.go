@@ -22,14 +22,13 @@ import (
 	"go.uber.org/multierr"
 	goutils "go.viam.com/utils"
 	"go.viam.com/utils/artifact"
-	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc/client"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -79,7 +78,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		return err
 	}
 	where.Z = SafeMoveHeight + float64(heightModMillis)
-	err = myArm.MoveToPosition(ctx, where)
+	err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		where.X = float64(f.x)
 		where.Y = float64(f.y)
 	}
-	return myArm.MoveToPosition(ctx, where)
+	return myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 }
 
 func movePiece(
@@ -142,7 +141,7 @@ func movePiece(
 		return err
 	}
 	where.Z = BoardHeight + height + 10
-	myArm.MoveToPosition(ctx, where)
+	myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 
 	// grab piece
 	for {
@@ -168,7 +167,7 @@ func movePiece(
 		if where.Z <= BoardHeight {
 			return errors.New("no piece")
 		}
-		myArm.MoveToPosition(ctx, where)
+		myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -205,8 +204,7 @@ func movePiece(
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPosition(ctx, where)
-
+	myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 	myGripper.Open(ctx)
 
 	if to != "-" {
@@ -215,8 +213,7 @@ func movePiece(
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPosition(ctx, where)
-
+		myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 		moveOutOfWay(ctx, myArm)
 	}
 	return nil
@@ -233,7 +230,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Y = float64(foo.y)
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
-	return myArm.MoveToPosition(ctx, where)
+	return myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 }
 
 func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
@@ -247,7 +244,7 @@ func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle floa
 
 func initArm(ctx context.Context, myArm arm.Arm) error {
 	foo := getCoord("a1")
-	err := myArm.MoveToPosition(ctx, &commonpb.Pose{
+	target := &commonpb.Pose{
 		X:     float64(foo.x),
 		Y:     float64(foo.y),
 		Z:     SafeMoveHeight,
@@ -255,7 +252,8 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		OX:    1,
 		OY:    0,
 		OZ:    0,
-	})
+	}
+	err := myArm.MoveToPosition(ctx, target, []*referenceframe.GeometriesInFrame{})
 	if err != nil {
 		return err
 	}
@@ -362,7 +360,7 @@ func lookForBoardAdjust(
 
 		where.X += xMove * 1000
 		where.Y += yMove * 1000
-		err = myArm.MoveToPosition(ctx, where)
+		err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}
@@ -378,9 +376,9 @@ func lookForBoardAdjust(
 func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error {
 	debugNumber := 0
 
-	wristCam, ok := camera.FromRobot(myRobot, "wristCam")
-	if !ok {
-		return errors.New("can't find wristCam")
+	wristCam, err := camera.FromRobot(myRobot, "wristCam")
+	if err != nil {
+		return err
 	}
 
 	for foo := -1.0; foo <= 1.0; foo += 2 {
@@ -396,7 +394,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		where.OX = -2.600206
 		where.OY = -0.007839
 		where.OZ = -0.061827
-		err = myArm.MoveToPosition(ctx, where)
+		err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}
@@ -429,14 +427,14 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 		return ctx.Err()
 	}
 
-	cam, ok := camera.FromRobot(robot, "gripperCam")
-	if !ok {
-		return errors.New("can't find gripperCam")
+	cam, err := camera.FromRobot(robot, "gripperCam")
+	if err != nil {
+		return err
 	}
 
-	arm, ok := arm.FromRobot(robot, "pieceArm")
-	if !ok {
-		return errors.New("can't find pieceArm")
+	arm, err := arm.FromRobot(robot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
 	for {
@@ -485,7 +483,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 
 		rlog.Logger.Infof("\t moving to %v,%v\n", where.X, where.Y)
 
-		err = arm.MoveToPosition(ctx, where)
+		err = arm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
 		if err != nil {
 			return err
 		}
@@ -517,12 +515,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		defer pprof.StopCPUProfile()
 	}
 
-	cfg, err := config.Read(ctx, cfgFile)
+	cfg, err := config.Read(ctx, cfgFile, logger)
 	if err != nil {
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger, client.WithDialOptions(rpc.WithInsecure()))
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -530,19 +528,19 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		err = multierr.Combine(myRobot.Close(context.Background()))
 	}()
 
-	myArm, ok := arm.FromRobot(myRobot, "pieceArm")
-	if !ok {
-		return errors.New("need an arm called pieceArm")
+	myArm, err := arm.FromRobot(myRobot, "pieceArm")
+	if err != nil {
+		return err
 	}
 
-	myGripper, ok := gripper.FromRobot(myRobot, "grippie")
-	if !ok {
-		return errors.New("need a gripper called gripped")
+	myGripper, err := gripper.FromRobot(myRobot, "grippie")
+	if err != nil {
+		return err
 	}
 
-	webcam, ok := camera.FromRobot(myRobot, "cameraOver")
-	if !ok {
-		return errors.New("can't find cameraOver camera")
+	webcam, err := camera.FromRobot(myRobot, "cameraOver")
+	if err != nil {
+		return err
 	}
 
 	if false { // TODO(erh): put this back once we have a wrist camera again

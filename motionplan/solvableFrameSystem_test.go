@@ -60,7 +60,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
 	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})
-	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	transformPoint, err := solver.TransformFrame(positions, "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint, pointXarmGripper), test.ShouldBeTrue)
 
@@ -78,11 +78,11 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal1,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame(frame.World),
+		"xArmVgripper",
+		frame.World,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal1, 0.01), test.ShouldBeTrue)
 
@@ -100,15 +100,15 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal2,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame("urCamera"),
+		"xArmVgripper",
+		"urCamera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], "xArmVgripper", "urCamera")
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
+	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], "urCamera", "xArmVgripper")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal2, 0.1), test.ShouldBeTrue)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose2, goal2, 0.1), test.ShouldBeTrue)
@@ -140,14 +140,12 @@ func TestSolverFrame(t *testing.T) {
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 	sf := &solverFrame{"", solver, frames, solveFrame, goalFrame}
 
-	// get the Volume at the zero position and test that the output is correct
+	// get the Geometry at the zero position and test that the output is correct
 	inputs := frame.StartPositions(solver)
-	vols, _ := sf.Volumes(sf.mapToSlice(inputs))
-	test.That(t, vols, test.ShouldNotBeNil)
+	geometries, _ := sf.Geometries(sf.mapToSlice(inputs))
+	test.That(t, geometries, test.ShouldNotBeNil)
 	jointExpected := spatial.NewPoseFromPoint(r3.Vector{-425, 0, 162.5})
 	linkOffset := spatial.NewPoseFromPoint(r3.Vector{-190, 0, 0})
 	poseExpect := spatial.Compose(jointExpected, linkOffset)
-	volPose := vols["UR5e:forearm_link"].Pose()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(volPose, poseExpect), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(geometries["UR5e:forearm_link"].Pose(), poseExpect), test.ShouldBeTrue)
 }

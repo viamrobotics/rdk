@@ -7,22 +7,38 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
+	"go.viam.com/rdk/subtype"
+	"go.viam.com/rdk/utils"
 )
 
 const frameSystemName = "move_gripper"
 
 func init() {
+	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
+		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
+			return rpcServer.RegisterServiceServer(
+				ctx,
+				&servicepb.ObjectManipulationService_ServiceDesc,
+				NewServer(subtypeSvc),
+				servicepb.RegisterObjectManipulationServiceHandlerFromEndpoint,
+			)
+		},
+		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
+			return NewClientFromConn(ctx, conn, name, logger)
+		},
+	})
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
 			return New(ctx, r, c, logger)
@@ -32,7 +48,12 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	DoGrab(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
+	DoGrab(
+		ctx context.Context,
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -47,6 +68,19 @@ var Subtype = resource.NewSubtype(
 
 // Name is the ObjectManipulationService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
+
+// FromRobot retrieves the object manipulation service of a robot.
+func FromRobot(r robot.Robot) (Service, error) {
+	resource, err := r.ResourceByName(Name)
+	if err != nil {
+		return nil, err
+	}
+	svc, ok := resource.(Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("objectmanipulation.Service", resource)
+	}
+	return svc, nil
+}
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
@@ -63,19 +97,23 @@ type objectMService struct {
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object.
-func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cameraName string, cameraPoint *r3.Vector) (bool, error) {
+func (mgs objectMService) DoGrab(
+	ctx context.Context,
+	gripperName string,
+	grabPose *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
+) (bool, error) {
 	// get gripper component
-	gripper, ok := gripper.FromRobot(mgs.r, gripperName)
-	if !ok {
-		return false, fmt.Errorf("failed to find gripper %q", gripperName)
-	}
-	// do gripper movement
-	err := gripper.Open(ctx)
+	gripper, err := gripper.FromRobot(mgs.r, gripperName)
 	if err != nil {
 		return false, err
 	}
-	cameraPose := spatialmath.NewPoseFromPoint(*cameraPoint)
-	err = mgs.moveGripper(ctx, gripperName, cameraPose, cameraName)
+	// do gripper movement
+	err = gripper.Open(ctx)
+	if err != nil {
+		return false, err
+	}
+	err = mgs.moveGripper(ctx, gripperName, grabPose, obstacles)
 	if err != nil {
 		return false, err
 	}
@@ -87,11 +125,14 @@ func (mgs objectMService) DoGrab(ctx context.Context, gripperName, rootName, cam
 func (mgs objectMService) moveGripper(
 	ctx context.Context,
 	gripperName string,
-	goalPose spatialmath.Pose,
-	goalFrameName string,
+	goal *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
 ) error {
+	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
+
 	r := mgs.r
 	logger := r.Logger()
+	goalFrameName := goal.FrameName()
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	if goalFrameName == gripperName {
@@ -141,10 +182,10 @@ func (mgs objectMService) moveGripper(
 	}
 	logger.Debugf("frame system inputs: %v", input)
 
-	solvingFrame := solver.World() // TODO(erh): this should really be the parent of rootName
+	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
 
 	// re-evaluate goalPose to be in the frame we're going to move in
-	goalPose, err = solver.TransformPose(input, goalPose, solver.GetFrame(goalFrameName), solvingFrame)
+	goalPose, err := solver.TransformPose(input, goal.Pose(), goalFrameName, solvingFrame)
 	if err != nil {
 		return err
 	}
@@ -152,7 +193,7 @@ func (mgs objectMService) moveGripper(
 	if true { // if we want to keep the orientation of the gripper the same
 		// TODO(erh): this is often desirable, but not necessarily, and many times will be wrong.
 		// update the goal orientation to match the current orientation, keep the point from goalPose
-		armPose, err := solver.TransformFrame(input, solver.GetFrame(gripperName), solvingFrame)
+		armPose, err := solver.TransformFrame(input, gripperName, solvingFrame)
 		if err != nil {
 			return err
 		}
@@ -160,7 +201,7 @@ func (mgs objectMService) moveGripper(
 	}
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, solver.GetFrame(gripperName), solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose, gripperName, solvingFrame)
 	if err != nil {
 		return err
 	}

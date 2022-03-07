@@ -26,7 +26,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 	expectP2 := r3.Vector{2., -10., 2.}
 	expectP3 := r3.Vector{2., 10., -2.}
 
-	transformPoint1, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint1, err := fs.TransformPoint(positions, point, "joint", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, expectP1.X)
 	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, expectP1.Y)
@@ -34,7 +34,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 	// Rotate 90 degrees one way
 	positions["joint"] = []Input{{math.Pi / 2}}
-	transformPoint2, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint2, err := fs.TransformPoint(positions, point, "joint", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, expectP2.X)
 	test.That(t, transformPoint2.Y, test.ShouldAlmostEqual, expectP2.Y)
@@ -42,7 +42,7 @@ func TestSimpleRotationalFrame(t *testing.T) {
 
 	// Rotate 90 degrees the other way
 	positions["joint"] = []Input{{-math.Pi / 2}}
-	transformPoint3, err := fs.TransformPoint(positions, point, fs.GetFrame("joint"), fs.World())
+	transformPoint3, err := fs.TransformPoint(positions, point, "joint", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.X, test.ShouldAlmostEqual, expectP3.X)
 	test.That(t, transformPoint3.Y, test.ShouldAlmostEqual, expectP3.Y)
@@ -63,7 +63,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 	endPoint := r3.Vector{45., 0., 0.}
 
 	// Confirm we start at origin
-	transformPoint1, err := fs.TransformPoint(positions, startPoint, fs.GetFrame("gantry"), fs.World())
+	transformPoint1, err := fs.TransformPoint(positions, startPoint, "gantry", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, 0)
 	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, 0)
@@ -71,7 +71,7 @@ func TestSimpleTranslationalFrame(t *testing.T) {
 
 	// Slide gantry by 45
 	positions["gantry"] = []Input{{45.}}
-	transformPoint2, err := fs.TransformPoint(positions, startPoint, fs.GetFrame("gantry"), fs.World())
+	transformPoint2, err := fs.TransformPoint(positions, startPoint, "gantry", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.X, test.ShouldAlmostEqual, endPoint.X)
 	test.That(t, transformPoint2.Y, test.ShouldAlmostEqual, endPoint.Y)

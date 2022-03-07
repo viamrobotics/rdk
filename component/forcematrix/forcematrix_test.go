@@ -9,8 +9,10 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/forcematrix"
+	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 const (
@@ -23,14 +25,14 @@ const (
 func setupInjectRobot() *inject.Robot {
 	forcematrix1 := &mock{Name: testForceMatrixName}
 	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name {
 		case forcematrix.Named(testForceMatrixName):
-			return forcematrix1, true
+			return forcematrix1, nil
 		case forcematrix.Named(fakeForceMatrixName):
-			return "not a forcematrix", false
+			return "not a forcematrix", nil
 		default:
-			return nil, false
+			return nil, rutils.NewResourceNotFoundError(name)
 		}
 	}
 	r.ResourceNamesFunc = func() []resource.Name {
@@ -42,21 +44,21 @@ func setupInjectRobot() *inject.Robot {
 func TestFromRobot(t *testing.T) {
 	r := setupInjectRobot()
 
-	s, ok := forcematrix.FromRobot(r, testForceMatrixName)
+	s, err := forcematrix.FromRobot(r, testForceMatrixName)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, s, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
 
 	result, err := s.DetectSlip(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, slip)
 
-	s, ok = forcematrix.FromRobot(r, fakeForceMatrixName)
+	s, err = forcematrix.FromRobot(r, fakeForceMatrixName)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("ForceMatrix", "string"))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 
-	s, ok = forcematrix.FromRobot(r, missingForceMatrixName)
+	s, err = forcematrix.FromRobot(r, missingForceMatrixName)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(forcematrix.Named(missingForceMatrixName)))
 	test.That(t, s, test.ShouldBeNil)
-	test.That(t, ok, test.ShouldBeFalse)
 }
 
 func TestNamesFromRobot(t *testing.T) {
@@ -76,7 +78,7 @@ func TestForceMatrixName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "08174524-a3f0-585d-a7da-9763d9534dd1",
+				UUID: "b98d67b7-1798-519e-9371-f85ce4ec6afa",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: forcematrix.SubtypeName,
@@ -88,7 +90,7 @@ func TestForceMatrixName(t *testing.T) {
 			"all fields included",
 			testForceMatrixName,
 			resource.Name{
-				UUID: "a5f3c7aa-4267-5856-81ae-565e7ad44916",
+				UUID: "66d86686-ff79-5562-bf09-4e1253523d51",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: forcematrix.SubtypeName,
@@ -110,8 +112,7 @@ func TestWrapWithReconfigurable(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = forcematrix.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "expected resource")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("ForceMatrix", nil))
 
 	reconfForceMatrix2, err := forcematrix.WrapWithReconfigurable(reconfForceMatrix1)
 	test.That(t, err, test.ShouldBeNil)
@@ -172,11 +173,22 @@ func TestGetReadings(t *testing.T) {
 	actualForceMatrix1 := &mock{Name: testForceMatrixName}
 	reconfForceMatrix1, _ := forcematrix.WrapWithReconfigurable(actualForceMatrix1)
 
-	test.That(t, actualForceMatrix1.readingsCount, test.ShouldEqual, 0)
-	result, err := reconfForceMatrix1.(forcematrix.ForceMatrix).GetReadings(context.Background())
+	readings1, err := forcematrix.GetReadings(context.Background(), actualForceMatrix1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldResemble, []interface{}{matrix})
-	test.That(t, actualForceMatrix1.readingsCount, test.ShouldEqual, 1)
+	test.That(t, readings1, test.ShouldResemble, []interface{}{1, 2, 2, 1})
+
+	result, err := reconfForceMatrix1.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, []interface{}{1, 2, 2, 1})
+
+	actualForceMatrix2 := &mockWithSensor{}
+	reconfForceMatrix2, _ := forcematrix.WrapWithReconfigurable(actualForceMatrix2)
+
+	test.That(t, actualForceMatrix2.readingsCount, test.ShouldEqual, 0)
+	result, err = reconfForceMatrix2.(sensor.Sensor).GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, result, test.ShouldResemble, readings)
+	test.That(t, actualForceMatrix2.readingsCount, test.ShouldEqual, 1)
 }
 
 func TestClose(t *testing.T) {
@@ -191,15 +203,16 @@ func TestClose(t *testing.T) {
 var (
 	matrix = [][]int{{2, 1}}
 	slip   = false
+
+	readings = []interface{}{5.6, 6.4}
 )
 
 type mock struct {
 	forcematrix.ForceMatrix
-	Name          string
-	matrixCount   int
-	slipCount     int
-	readingsCount int
-	reconfCount   int
+	Name        string
+	matrixCount int
+	slipCount   int
+	reconfCount int
 }
 
 // ReadMatrix returns the set value.
@@ -214,9 +227,14 @@ func (m *mock) DetectSlip(ctx context.Context) (bool, error) {
 	return slip, nil
 }
 
-func (m *mock) GetReadings(ctx context.Context) ([]interface{}, error) {
-	m.readingsCount++
-	return []interface{}{matrix}, nil
+func (m *mock) Close() { m.reconfCount++ }
+
+type mockWithSensor struct {
+	mock
+	readingsCount int
 }
 
-func (m *mock) Close() { m.reconfCount++ }
+func (m *mockWithSensor) GetReadings(ctx context.Context) ([]interface{}, error) {
+	m.readingsCount++
+	return readings, nil
+}

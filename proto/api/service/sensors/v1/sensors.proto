@@ -1,0 +1,46 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/sensors/v1";
+option java_package = "com.viam.rdk.proto.api.service.sensors.v1";
+
+package proto.api.service.sensors.v1;
+
+import "google/protobuf/struct.proto";
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A SensorsService services keeps track of all sensors associated with a robot
+service SensorsService {
+  // GetSensors returns the list of all sensors.
+  rpc GetSensors(GetSensorsRequest) returns (GetSensorsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/service/sensors"
+    };
+  }
+
+  // GetReadings returns the list of readings for all sensors specified.
+  rpc GetReadings(GetReadingsRequest) returns (GetReadingsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/service/sensors/readings"
+    };
+  }
+}
+
+message GetSensorsRequest {}
+
+message GetSensorsResponse {
+  repeated common.v1.ResourceName sensor_names = 1;
+}
+
+message GetReadingsRequest {
+  repeated common.v1.ResourceName sensor_names = 1;
+}
+
+message Readings {
+  common.v1.ResourceName name = 1;
+  repeated google.protobuf.Value readings = 2;
+}
+
+message GetReadingsResponse {
+  repeated Readings readings = 1;
+}
+

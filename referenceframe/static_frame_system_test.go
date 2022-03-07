@@ -60,24 +60,23 @@ func TestSimpleFrameSystemFunctions(t *testing.T) {
 	frames = fs.FrameNames()
 	test.That(t, len(frames), test.ShouldEqual, 1)
 
-	e1 := errors.New("parent frame is nil")
 	e2 := errors.New("parent frame with name \"foo\" not in frame system")
 	e3 := errors.New("frame with name \"frame2\" already in frame system")
 	e4 := errors.New("frame with name \"frame1\" not in frame system")
 	if sfs, ok := fs.(*simpleFrameSystem); ok {
-		err = sfs.checkName("foo", nil)
-		test.That(t, err.Error(), test.ShouldEqual, e1.Error())
+		err = sfs.AddFrame(f2, nil)
+		test.That(t, err, test.ShouldBeError, NewParentFrameMissingError())
 
 		fFoo := NewZeroStaticFrame("foo")
 		err = sfs.checkName("bar", fFoo)
-		test.That(t, err.Error(), test.ShouldEqual, e2.Error())
+		test.That(t, err, test.ShouldBeError, e2)
 
 		err = sfs.checkName("frame2", fs.World())
-		test.That(t, err.Error(), test.ShouldEqual, e3.Error())
+		test.That(t, err, test.ShouldBeError, e3)
 	}
 
 	_, err = fs.TracebackFrame(f1)
-	test.That(t, err.Error(), test.ShouldEqual, e4.Error())
+	test.That(t, err, test.ShouldBeError, e4)
 }
 
 // A simple Frame translation from the world frame to a frame right above it at (0, 3, 0)
@@ -96,12 +95,12 @@ func TestSimpleFrameTranslation(t *testing.T) {
 	pointFrame := r3.Vector{1., 0., 0.} // the point from PoV of frame
 
 	// transform point from world to frame
-	transformPoint1, err := fs.TransformPoint(blankPos, pointWorld, fs.World(), fs.GetFrame("frame"))
+	transformPoint1, err := fs.TransformPoint(blankPos, pointWorld, World, "frame")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1, test.ShouldResemble, pointFrame)
 
 	// transform point from frame to world
-	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame(World))
+	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, "frame", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
 }
@@ -123,14 +122,14 @@ func TestSimpleFrameTranslationWithRotation(t *testing.T) {
 	pointFrame := r3.Vector{-1., 0., 0.} // the point from PoV of frame
 
 	// transform point from world to frame
-	transformPoint1, err := fs.TransformPoint(blankPos, pointWorld, fs.World(), fs.GetFrame("frame"))
+	transformPoint1, err := fs.TransformPoint(blankPos, pointWorld, World, "frame")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint1.X, test.ShouldAlmostEqual, pointFrame.X)
 	test.That(t, transformPoint1.Y, test.ShouldAlmostEqual, pointFrame.Y)
 	test.That(t, transformPoint1.Z, test.ShouldAlmostEqual, pointFrame.Z)
 
 	// transform point from frame to world
-	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, fs.GetFrame("frame"), fs.GetFrame(World))
+	transformPoint2, err := fs.TransformPoint(blankPos, pointFrame, "frame", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2, test.ShouldResemble, pointWorld)
 }
@@ -177,7 +176,7 @@ func TestFrameTranslation(t *testing.T) {
 	// do the transformation
 	pointFrame1 := r3.Vector{5., 0., 0.} // the point from PoV of frame 1
 	pointFrame2 := r3.Vector{0., 6., 0.} // the point from PoV of frame 2
-	transformPoint, err := fs.TransformPoint(blankPos, pointFrame1, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
+	transformPoint, err := fs.TransformPoint(blankPos, pointFrame1, "frame1", "frame2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint, test.ShouldResemble, pointFrame2)
 }
@@ -225,7 +224,7 @@ func TestFrameTransform(t *testing.T) {
 	// do the transformation
 	pointFrame1 := r3.Vector{5., 0., 0.} // the point from PoV of frame 1
 	pointFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
-	transformPoint, err := fs.TransformPoint(blankPos, pointFrame1, fs.GetFrame("frame1"), fs.GetFrame("frame2"))
+	transformPoint, err := fs.TransformPoint(blankPos, pointFrame1, "frame1", "frame2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointFrame2.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointFrame2.Y)
@@ -233,7 +232,7 @@ func TestFrameTransform(t *testing.T) {
 }
 
 /*
-This test uses the same setup as the above test, but this time is concede with representing a volume in a difference reference frame
+This test uses the same setup as the above test, but this time is concede with representing a geometry in a difference reference frame
 
 |              |
 |*frame1       |*object
@@ -247,11 +246,11 @@ This test uses the same setup as the above test, but this time is concede with r
 world
 */
 
-// transform the object volume that is in the world frame is at (5, 7, 0) from frame1 to frame2.
+// transform the object geometry that is in the world frame is at (5, 7, 0) from frame1 to frame2.
 // frame1 has its origin at (0, 7, 0) in the world referenceframe. and frame2 has its origin
 // at (5, 1, 0), and orientation 90 degrees around z.
 // frame3 is an intermediate frame at (0, 4, 0) in the world referenceframe.
-func TestVolumesOfFrame(t *testing.T) {
+func TestGeometriesOfFrame(t *testing.T) {
 	// build the system
 	fs := NewEmptySimpleFrameSystem("test")
 	// location of frame3 with respect to world frame
@@ -271,18 +270,18 @@ func TestVolumesOfFrame(t *testing.T) {
 	err = fs.AddFrame(f2, fs.World())
 	test.That(t, err, test.ShouldBeNil)
 	objectFromFrame1 := r3.Vector{5., 0., 0.}
-	vc, err := spatial.NewBox(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	gc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
-	object, err := NewStaticFrameWithVolume("object", spatial.NewPoseFromPoint(objectFromFrame1), vc)
+	object, err := NewStaticFrameWithGeometry("object", spatial.NewPoseFromPoint(objectFromFrame1), gc)
 
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(object, f1)
 	test.That(t, err, test.ShouldBeNil)
 
 	objectFromFrame2 := r3.Vector{6., 0., 0.} // the point from PoV of frame 2
-	vols, _ := fs.VolumesOfFrame(blankPos, fs.GetFrame("object"), fs.GetFrame("frame2"))
-	test.That(t, vols, test.ShouldNotBeNil)
-	test.That(t, spatial.R3VectorAlmostEqual(vols["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
+	geometries, _ := fs.GeometriesOfFrame(blankPos, "object", "frame2")
+	test.That(t, geometries, test.ShouldNotBeNil)
+	test.That(t, spatial.R3VectorAlmostEqual(geometries["object"].Pose().Point(), objectFromFrame2, 1e-8), test.ShouldBeTrue)
 }
 
 func TestComplicatedFrameTransform(t *testing.T) {
@@ -304,7 +303,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	// test out a transform from world to frame
 	pointStart := r3.Vector{1., 7., 0.} // the point from PoV of world
 	pointEnd := r3.Vector{3., 0., 0.}   // the point from PoV of frame 2
-	transformPoint, err := fs.TransformPoint(blankPos, pointStart, fs.World(), fs.GetFrame("frame2"))
+	transformPoint, err := fs.TransformPoint(blankPos, pointStart, World, "frame2")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
@@ -325,7 +324,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
 	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
-	transformPoint, err = fs.TransformPoint(blankPos, pointStart, fs.GetFrame("frame2"), fs.GetFrame("frame4"))
+	transformPoint, err = fs.TransformPoint(blankPos, pointStart, "frame2", "frame4")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
@@ -334,7 +333,7 @@ func TestComplicatedFrameTransform(t *testing.T) {
 	// back to world frame
 	pointStart = r3.Vector{2., 0., 0.} // the point from PoV of frame 4
 	pointEnd = r3.Vector{1., 7., 0.}   // the point from PoV of world
-	transformPoint, err = fs.TransformPoint(blankPos, pointStart, fs.GetFrame("frame4"), fs.World())
+	transformPoint, err = fs.TransformPoint(blankPos, pointStart, "frame4", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
@@ -390,13 +389,13 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 
 	pointStart := r3.Vector{2., 0., 0.} // the point from PoV of frame 4
 	pointEnd := r3.Vector{0., 7., 1.}   // the point from PoV of world (frame3)
-	transformPoint, err := fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs2.World())
+	transformPoint, err := fs2.TransformPoint(blankPos, pointStart, "frame4", World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
 
-	_, err = fs2.TransformPoint(blankPos, pointStart, fs2.GetFrame("frame4"), fs.GetFrame("frame2"))
+	_, err = fs2.TransformPoint(blankPos, pointStart, "frame4", "frame2")
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// Put frame3 back where it was
@@ -412,7 +411,7 @@ func TestSystemSplitAndRejoin(t *testing.T) {
 	// Confirm new combined frame system now works as it did before
 	pointStart = r3.Vector{3., 0., 0.} // the point from PoV of frame 2
 	pointEnd = r3.Vector{2., 0., 0.}   // the point from PoV of frame 4
-	transformPoint, err = fs.TransformPoint(blankPos, pointStart, fs.GetFrame("frame2"), fs.GetFrame("frame4"))
+	transformPoint, err = fs.TransformPoint(blankPos, pointStart, "frame2", "frame4")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)

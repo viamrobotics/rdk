@@ -11,7 +11,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
@@ -140,7 +140,7 @@ type Triggerable interface {
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 	c, ok := r.(Controller)
 	if !ok {
-		return nil, errors.Errorf("expected resource to be Controller but got %T", r)
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", r)
 	}
 	if reconfigurable, ok := c.(*reconfigurableInputController); ok {
 		return reconfigurable, nil
@@ -154,15 +154,16 @@ var (
 )
 
 // FromRobot is a helper for getting the named input controller from the given Robot.
-func FromRobot(r robot.Robot, name string) (Controller, bool) {
-	res, ok := r.ResourceByName(Named(name))
-	if ok {
-		part, ok := res.(Controller)
-		if ok {
-			return part, true
-		}
+func FromRobot(r robot.Robot, name string) (Controller, error) {
+	res, err := r.ResourceByName(Named(name))
+	if err != nil {
+		return nil, err
 	}
-	return nil, false
+	part, ok := res.(Controller)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", res)
+	}
+	return part, nil
 }
 
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.

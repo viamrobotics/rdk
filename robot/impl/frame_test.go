@@ -20,7 +20,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// use impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json")
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -89,27 +89,27 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPt := r3.Vector{1500, 500, 1300}
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
+	transformPoint, err := fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("gps2"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "gps2")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "cameraOver")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, cameraPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, "cameraOver", "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 }
@@ -119,7 +119,7 @@ func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
 	// has disconnected components (gps2 misspelled parent as gripperPiece, rather than pieceGripper)
-	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json")
+	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json", logger)
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
@@ -130,18 +130,18 @@ func TestWrongFrameSystems(t *testing.T) {
 			"pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm "+
 			"pieceGripper_offset pieceGripper]"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig2.json") // no world node
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig2.json", logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
 		err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig3.json") // one of the nodes was given the name world
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig3.json", logger) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig4.json") // the parent field was left empty for a component
+	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig4.json", logger) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))

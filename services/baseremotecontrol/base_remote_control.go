@@ -81,13 +81,13 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	if !ok {
 		return nil, utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
-	base1, ok := base.FromRobot(r, svcConfig.BaseName)
-	if !ok {
-		return nil, errors.Errorf("no base named %q", svcConfig.BaseName)
+	base1, err := base.FromRobot(r, svcConfig.BaseName)
+	if err != nil {
+		return nil, err
 	}
-	controller, ok := input.FromRobot(r, svcConfig.InputControllerName)
-	if !ok {
-		return nil, errors.Errorf("no input controller named %q", svcConfig.InputControllerName)
+	controller, err := input.FromRobot(r, svcConfig.InputControllerName)
+	if err != nil {
+		return nil, err
 	}
 
 	controlMode1 := oneJoyStickControl

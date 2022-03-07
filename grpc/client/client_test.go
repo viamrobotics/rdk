@@ -5,7 +5,6 @@ import (
 	"context"
 	"image"
 	"image/jpeg"
-	"math"
 	"net"
 	"testing"
 	"time"
@@ -20,7 +19,6 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
-	_ "go.viam.com/rdk/component/board/register"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
@@ -32,9 +30,18 @@ import (
 	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	componentpb "go.viam.com/rdk/proto/api/component/v1"
-	metadatapb "go.viam.com/rdk/proto/api/service/v1"
-	pb "go.viam.com/rdk/proto/api/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
+	basepb "go.viam.com/rdk/proto/api/component/base/v1"
+	boardpb "go.viam.com/rdk/proto/api/component/board/v1"
+	camerapb "go.viam.com/rdk/proto/api/component/camera/v1"
+	gripperpb "go.viam.com/rdk/proto/api/component/gripper/v1"
+	inputcontrollerpb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
+	motorpb "go.viam.com/rdk/proto/api/component/motor/v1"
+	sensorpb "go.viam.com/rdk/proto/api/component/sensor/v1"
+	servopb "go.viam.com/rdk/proto/api/component/servo/v1"
+	pb "go.viam.com/rdk/proto/api/robot/v1"
+	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
@@ -43,6 +50,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var emptyStatus = &pb.Status{
@@ -65,23 +73,6 @@ var emptyStatus = &pb.Status{
 	Bases: map[string]bool{
 		"base1": true,
 	},
-	Grippers: map[string]bool{
-		"gripper1": true,
-	},
-	Cameras: map[string]bool{
-		"camera1": true,
-	},
-	Sensors: map[string]*pb.SensorStatus{},
-	Motors: map[string]*pb.MotorStatus{
-		"motor1": {},
-		"motor2": {},
-	},
-	InputControllers: map[string]*pb.InputControllerStatus{
-		"inputController1": {},
-	},
-	Servos: map[string]*pb.ServoStatus{
-		"servo1": {},
-	},
 	Boards: map[string]*commonpb.BoardStatus{
 		"board1": {
 			Analogs: map[string]*commonpb.AnalogStatus{
@@ -92,6 +83,23 @@ var emptyStatus = &pb.Status{
 			},
 		},
 		"board3": {},
+	},
+	Cameras: map[string]bool{
+		"camera1": true,
+	},
+	Grippers: map[string]bool{
+		"gripper1": true,
+	},
+	InputControllers: map[string]*pb.InputControllerStatus{
+		"inputController1": {},
+	},
+	Motors: map[string]*pb.MotorStatus{
+		"motor1": {},
+		"motor2": {},
+	},
+	Sensors: map[string]*pb.SensorStatus{},
+	Servos: map[string]*pb.ServoStatus{
+		"servo1": {},
 	},
 }
 
@@ -139,27 +147,6 @@ var finalStatus = &pb.Status{
 		"base2": true,
 		"base3": true,
 	},
-	Grippers: map[string]bool{
-		"gripper2": true,
-		"gripper3": true,
-	},
-	Cameras: map[string]bool{
-		"camera2": true,
-		"camera3": true,
-	},
-	Sensors: map[string]*pb.SensorStatus{},
-	Servos: map[string]*pb.ServoStatus{
-		"servo2": {},
-		"servo3": {},
-	},
-	Motors: map[string]*pb.MotorStatus{
-		"motor2": {},
-		"motor3": {},
-	},
-	InputControllers: map[string]*pb.InputControllerStatus{
-		"inputController2": {},
-		"inputController3": {},
-	},
 	Boards: map[string]*commonpb.BoardStatus{
 		"board2": {
 			Analogs: map[string]*commonpb.AnalogStatus{
@@ -179,6 +166,27 @@ var finalStatus = &pb.Status{
 				"digital1": {},
 			},
 		},
+	},
+	Cameras: map[string]bool{
+		"camera2": true,
+		"camera3": true,
+	},
+	Grippers: map[string]bool{
+		"gripper2": true,
+		"gripper3": true,
+	},
+	InputControllers: map[string]*pb.InputControllerStatus{
+		"inputController2": {},
+		"inputController3": {},
+	},
+	Motors: map[string]*pb.MotorStatus{
+		"motor2": {},
+		"motor3": {},
+	},
+	Sensors: map[string]*pb.SensorStatus{},
+	Servos: map[string]*pb.ServoStatus{
+		"servo2": {},
+		"servo3": {},
 	},
 }
 
@@ -215,19 +223,12 @@ func TestClient(t *testing.T) {
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return nil, errors.New("whoops")
 	}
-	injectRobot1.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return nil, false
-	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		return nil, false
-	}
-	injectRobot1.MotorByNameFunc = func(name string) (motor.Motor, bool) {
-		return nil, false
+	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return nil, rutils.NewResourceNotFoundError(name)
 	}
 	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
 		return emptyStatus, nil
 	}
-	injectBase := &inject.Base{}
 
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
@@ -237,34 +238,12 @@ func TestClient(t *testing.T) {
 		}
 		return convertedPos, nil
 	}
-	injectGripper := &inject.Gripper{}
-	var gripperOpenCalled bool
-	injectGripper.OpenFunc = func(ctx context.Context) error {
-		gripperOpenCalled = true
-		return nil
-	}
-	var gripperGrabCalled bool
-	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
-		gripperGrabCalled = true
-		return true, nil
-	}
+
 	injectBoard := &inject.Board{}
 	injectBoard.StatusFunc = func(ctx context.Context) (*commonpb.BoardStatus, error) {
 		return nil, errors.New("no status")
 	}
-	injectMotor := &inject.Motor{}
-	injectServo := &inject.Servo{}
-	var capServoAngle uint8
-	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
-		capServoAngle = angle
-		return nil
-	}
-	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-		return 5, nil
-	}
-	injectRobot2.BoardByNameFunc = func(name string) (board.Board, bool) {
-		return injectBoard, true
-	}
+
 	injectCamera := &inject.Camera{}
 	img := image.NewNRGBA(image.Rect(0, 0, 4, 4))
 	var imgBuf bytes.Buffer
@@ -280,74 +259,106 @@ func TestClient(t *testing.T) {
 		return []input.Control{input.AbsoluteX, input.ButtonStart}, nil
 	}
 
+	injectGripper := &inject.Gripper{}
+	var gripperOpenCalled bool
+	injectGripper.OpenFunc = func(ctx context.Context) error {
+		gripperOpenCalled = true
+		return nil
+	}
+	var gripperGrabCalled bool
+	injectGripper.GrabFunc = func(ctx context.Context) (bool, error) {
+		gripperGrabCalled = true
+		return true, nil
+	}
+
+	injectServo := &inject.Servo{}
+	var capServoAngle uint8
+	injectServo.MoveFunc = func(ctx context.Context, angle uint8) error {
+		capServoAngle = angle
+		return nil
+	}
+	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
+		return 5, nil
+	}
+
 	// for these, just need to double check type (main tests should be in the respective grpc client and server files)
-	armSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	armSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
+	armpb.RegisterArmServiceServer(gServer1, arm.NewServer(armSvc1))
 
-	armSvc2, err := subtype.New((map[resource.Name]interface{}{arm.Named("arm1"): injectArm}))
+	armSvc2, err := subtype.New(map[resource.Name]interface{}{arm.Named("arm1"): injectArm})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
+	armpb.RegisterArmServiceServer(gServer2, arm.NewServer(armSvc2))
 
-	baseSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	baseSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
+	basepb.RegisterBaseServiceServer(gServer1, base.NewServer(baseSvc))
 
-	baseSvc2, err := subtype.New((map[resource.Name]interface{}{base.Named("base1"): injectBase}))
+	baseSvc2, err := subtype.New(map[resource.Name]interface{}{base.Named("base1"): &inject.Base{}})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
+	basepb.RegisterBaseServiceServer(gServer2, base.NewServer(baseSvc2))
 
-	boardSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	boardSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
+	boardpb.RegisterBoardServiceServer(gServer1, board.NewServer(boardSvc1))
 
-	boardSvc2, err := subtype.New((map[resource.Name]interface{}{board.Named("board1"): injectBoard}))
+	boardSvc2, err := subtype.New(map[resource.Name]interface{}{board.Named("board1"): injectBoard})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
+	boardpb.RegisterBoardServiceServer(gServer2, board.NewServer(boardSvc2))
 
-	gripperSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	cameraSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
+	camerapb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
 
-	gripperSvc2, err := subtype.New((map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper}))
+	cameraSvc2, err := subtype.New(map[resource.Name]interface{}{camera.Named("camera1"): injectCamera})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
+	camerapb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
 
-	servoSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	gripperSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
+	gripperpb.RegisterGripperServiceServer(gServer1, gripper.NewServer(gripperSvc1))
 
-	servoSvc2, err := subtype.New((map[resource.Name]interface{}{servo.Named("servo1"): injectServo}))
+	gripperSvc2, err := subtype.New(map[resource.Name]interface{}{gripper.Named("gripper1"): injectGripper})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
+	gripperpb.RegisterGripperServiceServer(gServer2, gripper.NewServer(gripperSvc2))
 
-	cameraSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	inputControllerSvc1, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterCameraServiceServer(gServer1, camera.NewServer(cameraSvc1))
+	inputcontrollerpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
 
-	cameraSvc2, err := subtype.New((map[resource.Name]interface{}{camera.Named("camera1"): injectCamera}))
+	inputControllerSvc2, err := subtype.New(map[resource.Name]interface{}{input.Named("inputController1"): injectInputDev})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterCameraServiceServer(gServer2, camera.NewServer(cameraSvc2))
+	inputcontrollerpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
 
-	inputControllerSvc1, err := subtype.New((map[resource.Name]interface{}{}))
+	motorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterInputControllerServiceServer(gServer1, input.NewServer(inputControllerSvc1))
+	motorpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
 
-	inputControllerSvc2, err := subtype.New((map[resource.Name]interface{}{input.Named("inputController1"): injectInputDev}))
+	motorSvc2, err := subtype.New(
+		map[resource.Name]interface{}{motor.Named("motor1"): &inject.Motor{}, motor.Named("motor2"): &inject.Motor{}},
+	)
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterInputControllerServiceServer(gServer2, input.NewServer(inputControllerSvc2))
+	motorpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
 
-	motorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	servoSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterMotorServiceServer(gServer1, motor.NewServer(motorSvc))
+	servopb.RegisterServoServiceServer(gServer1, servo.NewServer(servoSvc))
 
-	motorSvc2, err := subtype.New(map[resource.Name]interface{}{motor.Named("motor1"): injectMotor, motor.Named("motor2"): injectMotor})
+	servoSvc2, err := subtype.New(map[resource.Name]interface{}{servo.Named("servo1"): injectServo})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterMotorServiceServer(gServer2, motor.NewServer(motorSvc2))
+	servopb.RegisterServoServiceServer(gServer2, servo.NewServer(servoSvc2))
 
-	sensorSvc, err := subtype.New((map[resource.Name]interface{}{}))
+	sensorSvc, err := subtype.New(map[resource.Name]interface{}{})
 	test.That(t, err, test.ShouldBeNil)
-	componentpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+	sensorpb.RegisterSensorServiceServer(gServer1, sensor.NewServer(sensorSvc))
+
+	frameSysSvc, err := subtype.New(map[resource.Name]interface{}{})
+	test.That(t, err, test.ShouldBeNil)
+	framepb.RegisterFrameSystemServiceServer(gServer1, framesystem.NewServer(frameSysSvc))
+
+	frameSysSvc2, err := subtype.New(map[resource.Name]interface{}{framesystem.Name: "not a frame system"})
+	test.That(t, err, test.ShouldBeNil)
+	framepb.RegisterFrameSystemServiceServer(gServer2, framesystem.NewServer(frameSysSvc2))
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -391,63 +402,17 @@ func TestClient(t *testing.T) {
 		return &cfg, nil
 	}
 
-	fsConfigs := []*config.FrameSystemPart{
-		{
-			Name: "frame1",
-			FrameConfig: &config.Frame{
-				Parent:      referenceframe.World,
-				Translation: spatialmath.TranslationConfig{1, 2, 3},
-				Orientation: &spatialmath.R4AA{Theta: math.Pi / 2, RZ: 1},
-			},
-		},
-		{
-			Name: "frame2",
-			FrameConfig: &config.Frame{
-				Parent:      "frame1",
-				Translation: spatialmath.TranslationConfig{4, 5, 6},
-			},
-		},
-	}
-	fss := &inject.FrameSystemService{}
-	fss.FrameSystemConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-		return fsConfigs, nil
-	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, bool) {
-		services := make(map[resource.Name]interface{})
-		services[framesystem.Name] = fss
-		service, ok := services[name]
-		return service, ok
-	}
-
-	client, err := New(context.Background(), listener1.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
+	client, err := New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
+
+	_, err = client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	newCfg, err := client.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
-
-	// test robot frame system
-	frameSys, err := client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldBeNil)
-	frame1 := frameSys.GetFrame("frame1")
-	frame1Offset := frameSys.GetFrame("frame1_offset")
-	frame2 := frameSys.GetFrame("frame2")
-	frame2Offset := frameSys.GetFrame("frame2_offset")
-
-	resFrame, err := frameSys.Parent(frame2)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame2Offset)
-	resFrame, err = frameSys.Parent(frame2Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1)
-	resFrame, err = frameSys.Parent(frame1)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frame1Offset)
-	resFrame, err = frameSys.Parent(frame1Offset)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resFrame, test.ShouldResemble, frameSys.World())
 
 	// test status
 	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
@@ -457,11 +422,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
-	_, ok := base.FromRobot(client, "base1")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	arm1, ok := arm.FromRobot(client, "arm1")
-	test.That(t, ok, test.ShouldBeTrue)
+	arm1, err := arm.FromRobot(client, "arm1")
+	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -470,16 +432,34 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
+	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
+	err = arm1.MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	gripper1, ok := gripper.FromRobot(client, "gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base1")
+	test.That(t, err, test.ShouldBeNil)
+
+	board1, err := board.FromRobot(client, "board1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, board1, test.ShouldNotBeNil)
+	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
+
+	_, err = board1.Status(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
+
+	camera1, err := camera.FromRobot(client, "camera1")
+	test.That(t, err, test.ShouldBeNil)
+	_, _, err = camera1.Next(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
+
+	gripper1, err := gripper.FromRobot(client, "gripper1")
+	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
@@ -487,8 +467,23 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no gripper")
 
-	servo1, ok := servo.FromRobot(client, "servo1")
-	test.That(t, ok, test.ShouldBeTrue)
+	motor1, err := motor.FromRobot(client, "motor1")
+	test.That(t, err, test.ShouldBeNil)
+	err = motor1.SetPower(context.Background(), 0)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
+	err = motor1.GoFor(context.Background(), 0, 0)
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
+
+	sensorDevice, err := sensor.FromRobot(client, "sensor1")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = sensorDevice.GetReadings(context.Background())
+	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
+
+	servo1, err := servo.FromRobot(client, "servo1")
+	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 5)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
@@ -496,39 +491,8 @@ func TestClient(t *testing.T) {
 	_, err = servo1.GetPosition(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no servo")
 
-	motor1, ok := client.MotorByName("motor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	err = motor1.Go(context.Background(), 0)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-	err = motor1.GoFor(context.Background(), 0, 0)
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no motor")
-
-	board1, ok := client.BoardByName("board1")
-	test.That(t, ok, test.ShouldBeTrue)
-	test.That(t, board1, test.ShouldNotBeNil)
-
-	test.That(t, board1.ModelAttributes(), test.ShouldResemble, board.ModelAttributes{Remote: true})
-
-	_, err = board1.Status(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no board")
-
-	camera1, ok := camera.FromRobot(client, "camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, _, err = camera1.Next(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
-
-	sensorDevice, ok := sensor.FromRobot(client, "sensor1")
-	test.That(t, ok, test.ShouldBeTrue)
-	_, err = sensorDevice.GetReadings(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "no generic sensor")
-
-	resource1, ok := client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
+	resource1, err := client.ResourceByName(arm.Named("arm1"))
+	test.That(t, err, test.ShouldBeNil)
 	_, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
@@ -537,11 +501,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1})
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &componentpb.ArmJointPositions{Degrees: []float64{1}})
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -549,40 +513,71 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	// working
-	client, err = New(context.Background(), listener2.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
+	client, err = New(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	status, err := client.Status(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
 
-	_, ok = base.FromRobot(client, "base1")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = base.FromRobot(client, "base2")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = base.FromRobot(client, "base3")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = client.FrameSystem(context.Background(), "", "")
+	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 
-	arm1, ok = arm.FromRobot(client, "arm1")
-	test.That(t, ok, test.ShouldBeTrue)
+	arm1, err = arm.FromRobot(client, "arm1")
+	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
 
-	gripper1, ok = gripper.FromRobot(client, "gripper1")
-	test.That(t, ok, test.ShouldBeTrue)
+	_, err = base.FromRobot(client, "base1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = base.FromRobot(client, "base2")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = base.FromRobot(client, "base3")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = board.FromRobot(client, "board1")
+	test.That(t, err, test.ShouldBeNil)
+
+	_, err = board.FromRobot(client, "board3")
+	test.That(t, err, test.ShouldBeNil)
+
+	camera1, err = camera.FromRobot(client, "camera1")
+	test.That(t, err, test.ShouldBeNil)
+	frame, _, err := camera1.Next(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	compVal, _, err := rimage.CompareImages(img, frame)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
+	test.That(t, imageReleased, test.ShouldBeTrue)
+
+	gripper1, err = gripper.FromRobot(client, "gripper1")
+	test.That(t, err, test.ShouldBeNil)
 	err = gripper1.Open(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, gripperOpenCalled, test.ShouldBeTrue)
 	test.That(t, gripperGrabCalled, test.ShouldBeFalse)
-	gripperOpenCalled = false
 
-	servo1, ok = servo.FromRobot(client, "servo1")
-	test.That(t, ok, test.ShouldBeTrue)
+	inputDev, err := input.FromRobot(client, "inputController1")
+	test.That(t, err, test.ShouldBeNil)
+	controlList, err := inputDev.GetControls(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
+
+	motor1, err = motor.FromRobot(client, "motor1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motor1, test.ShouldNotBeNil)
+
+	motor2, err := motor.FromRobot(client, "motor2")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, motor2, test.ShouldNotBeNil)
+
+	servo1, err = servo.FromRobot(client, "servo1")
+	test.That(t, err, test.ShouldBeNil)
 	err = servo1.Move(context.Background(), 4)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, capServoAngle, test.ShouldEqual, 4)
@@ -591,38 +586,8 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, currentVal, test.ShouldEqual, 5)
 
-	motor1, ok = client.MotorByName("motor1")
-	test.That(t, motor1, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	motor2, ok := client.MotorByName("motor2")
-	test.That(t, motor2, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	board1, ok = client.BoardByName("board1")
-	test.That(t, board1, test.ShouldNotBeNil)
-	test.That(t, ok, test.ShouldBeTrue)
-
-	_, ok = client.BoardByName("board3")
-	test.That(t, ok, test.ShouldBeTrue)
-
-	camera1, ok = camera.FromRobot(client, "camera1")
-	test.That(t, ok, test.ShouldBeTrue)
-	frame, _, err := camera1.Next(context.Background())
+	resource1, err = client.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	compVal, _, err := rimage.CompareImages(img, frame)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, compVal, test.ShouldEqual, 0) // exact copy, no color conversion
-	test.That(t, imageReleased, test.ShouldBeTrue)
-
-	inputDev, ok := input.FromRobot(client, "inputController1")
-	test.That(t, ok, test.ShouldBeTrue)
-	controlList, err := inputDev.GetControls(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, controlList, test.ShouldResemble, []input.Control{input.AbsoluteX, input.ButtonStart})
-
-	resource1, ok = client.ResourceByName(arm.Named("arm1"))
-	test.That(t, ok, test.ShouldBeTrue)
 	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
@@ -676,7 +641,6 @@ func TestClientRefresh(t *testing.T) {
 		listener.Addr().String(),
 		logger,
 		WithRefreshEvery(dur),
-		WithDialOptions(rpc.WithInsecure()),
 	)
 	test.That(t, err, test.ShouldBeNil)
 	<-calledEnough
@@ -702,9 +666,14 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(board.NamesFromRobot(client)...),
+		test.ShouldResemble,
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(camera.NamesFromRobot(client)...),
@@ -712,14 +681,14 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(sensor.NamesFromRobot(client)...),
@@ -729,11 +698,6 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(client.MotorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
@@ -761,7 +725,6 @@ func TestClientRefresh(t *testing.T) {
 		listener.Addr().String(),
 		logger,
 		WithRefreshEvery(dur),
-		WithDialOptions(rpc.WithInsecure()),
 	)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -778,9 +741,14 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(board.NamesFromRobot(client)...),
+		test.ShouldResemble,
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(camera.NamesFromRobot(client)...),
@@ -788,15 +756,11 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
-	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
-	)
+
 	test.That(t,
 		utils.NewStringSet(sensor.NamesFromRobot(client)...),
 		test.ShouldBeEmpty,
@@ -836,9 +800,14 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(armNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(gripper.NamesFromRobot(client)...),
+		utils.NewStringSet(base.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+	)
+	test.That(t,
+		utils.NewStringSet(board.NamesFromRobot(client)...),
+		test.ShouldResemble,
+		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(camera.NamesFromRobot(client)...),
@@ -846,14 +815,14 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(testutils.ExtractNames(cameraNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(base.NamesFromRobot(client)...),
+		utils.NewStringSet(gripper.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(baseNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(gripperNames...)...),
 	)
 	test.That(t,
-		utils.NewStringSet(client.BoardNames()...),
+		utils.NewStringSet(motor.NamesFromRobot(client)...),
 		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(boardNames...)...),
+		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
 	test.That(t,
 		utils.NewStringSet(sensor.NamesFromRobot(client)...),
@@ -863,11 +832,6 @@ func TestClientRefresh(t *testing.T) {
 		utils.NewStringSet(servo.NamesFromRobot(client)...),
 		test.ShouldResemble,
 		utils.NewStringSet(testutils.ExtractNames(servoNames...)...),
-	)
-	test.That(t,
-		utils.NewStringSet(client.MotorNames()...),
-		test.ShouldResemble,
-		utils.NewStringSet(testutils.ExtractNames(motorNames...)...),
 	)
 	test.That(t, testutils.NewResourceNameSet(client.ResourceNames()...), test.ShouldResemble, testutils.NewResourceNameSet(
 		testutils.ConcatResourceNames(
@@ -907,11 +871,13 @@ func TestClientDialerOption(t *testing.T) {
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
+	client1, err := New(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	client2, err := New(ctx, listener.Addr().String(), logger, WithDialOptions(rpc.WithInsecure()))
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
+
+	client2, err := New(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, td.DialCalled, test.ShouldEqual, 4)
+	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
 	err = client1.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)

@@ -9,7 +9,7 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/component/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
@@ -72,7 +72,7 @@ func clientFromSvcClient(sc *serviceClient, name string) Arm {
 }
 
 func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
-	resp, err := c.client.GetEndPosition(ctx, &pb.ArmServiceGetEndPositionRequest{
+	resp, err := c.client.GetEndPosition(ctx, &pb.GetEndPositionRequest{
 		Name: c.name,
 	})
 	if err != nil {
@@ -81,16 +81,23 @@ func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return resp.Pose, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
-	_, err := c.client.MoveToPosition(ctx, &pb.ArmServiceMoveToPositionRequest{
+func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
+	}
+	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name: c.name,
-		Pose: pose,
+		To:   pose,
+		WorldState: &commonpb.WorldState{
+			Obstacles: geometriesInFrames,
+		},
 	})
 	return err
 }
 
 func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
-	_, err := c.client.MoveToJointPositions(ctx, &pb.ArmServiceMoveToJointPositionsRequest{
+	_, err := c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:         c.name,
 		PositionDegs: positionDegs,
 	})
@@ -98,7 +105,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJ
 }
 
 func (c *client) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	resp, err := c.client.GetJointPositions(ctx, &pb.ArmServiceGetJointPositionsRequest{
+	resp, err := c.client.GetJointPositions(ctx, &pb.GetJointPositionsRequest{
 		Name: c.name,
 	})
 	if err != nil {
