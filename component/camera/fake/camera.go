@@ -38,21 +38,22 @@ type Camera struct {
 	color string
 }
 
-// Next always returns the same image with a red dot in the center.
+// Next always returns the same image with dot in the top left corner. The dot is colored
+// either red (default), blue, or yellow.
 func (c *Camera) Next(ctx context.Context) (image.Image, func(), error) {
 	img := image.NewNRGBA(image.Rect(0, 0, 1024, 1024))
 	switch c.color {
 	case "blue":
-		setBox(img, rimage.Blue)
+		setDot(img, rimage.Blue)
 	case "yellow":
-		setBox(img, rimage.Yellow)
+		setDot(img, rimage.Yellow)
 	default:
-		setBox(img, rimage.Red)
+		setDot(img, rimage.Red)
 	}
 	return img, func() {}, nil
 }
 
-func setBox(img *image.NRGBA, color color.Color) {
+func setDot(img *image.NRGBA, color color.Color) {
 	img.Set(16, 16, color)
 	img.Set(16, 17, color)
 	img.Set(16, 18, color)
