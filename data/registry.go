@@ -5,13 +5,14 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/resource"
 	"google.golang.org/grpc"
 )
 
 type MethodMetadata struct {
-	// TODO: component? or subtype?
-	ComponentName string
-	MethodName    string
+	// TODO: Subtype or SubType?
+	SubtypeName resource.SubtypeName
+	MethodName  string
 }
 
 type CollectorSchema struct {
@@ -19,7 +20,6 @@ type CollectorSchema struct {
 	Method        func(ctx context.Context, in *any.Any, opts ...grpc.CallOption) (any.Any, error)
 	// TODO: include input/output type literals so those any.Any can be casted.
 	// TODO: minimum capture interval? Though unsure if that exists in code yet.
-	Params []string
 }
 
 var (
@@ -31,7 +31,7 @@ func RegisterCollector(method MethodMetadata, schema CollectorSchema) {
 	_, old := collectorRegistry[method]
 	if old {
 		panic(errors.Errorf("trying to register two of the same method on the same component: "+
-			"component %s, method %s", method.ComponentName, method.MethodName))
+			"component %s, method %s", method.SubtypeName, method.MethodName))
 	}
 	if schema.ServiceClient == nil || schema.Method == nil {
 		panic(errors.Errorf("cannot register a data collector with a nil client or method"))
