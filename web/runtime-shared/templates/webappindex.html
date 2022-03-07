@@ -69,29 +69,21 @@
         }
       }
 
-      function fixArms(old) {
-          var n = [];
-          for (var i=0; i<old.length; i++) {
-              const [armName, armValue] = old[i];
-              var newArm = { name : armName, pieces : [] };
-
-              var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["oX", "OX"], ["oY", "OY"], ["oZ", "OZ"]];
-              for (var j=0; j<fieldSetters.length; j++ ){
-                  let gridField = fieldSetters[j][0].split(".");
-                  let gridValue = armValue.gridPosition[gridField[0]];
-                  for (let k = 1; k < gridField.length; k++) {
-                    gridValue = gridValue[gridField[k]];
-                  }
-                  newArm.pieces.push( { grid : fieldSetters[j],
-                                        joint : j,
-                                        gridValue : gridValue,
-                                        jointValue : armValue.jointPositions.degreesList[j] || 0,
-                                      });
+      function fixArmStatus(old) {
+        var newStatus = { pieces : [] };
+        var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["o_x", "OX"], ["o_y", "OY"], ["o_z", "OZ"]];
+        for (var j=0; j<fieldSetters.length; j++ ){
+            let endPositionField = fieldSetters[j][0];
+            newStatus.pieces.push(
+              { 
+                endPosition : fieldSetters[j],
+                endPositionValue : old["end_position"][endPositionField] || 0,
+                joint : j,
+                jointValue : old["joint_positions"]["degrees"][j] || 0,
               }
-
-              n.push(newArm);
-          }
-          return n;
+            );
+        }
+        return newStatus
       }
 
       function fixBoards(old) {
@@ -137,33 +129,48 @@
         }
         return n;
       }
+
+      function fixRawStatus(name, status) {
+        switch (theApp.resourceNameToSubtypeString(name)){
+          case "rdk:component:arm":
+            status = fixArmStatus(status)
+            break;
+        }
+        return status
+      }
      
-      firstResult = false;
-      async function updateStatus(rawStatus) {
-          const rawStatusObj = rawStatus.toObject();
+      firstResult = true;
+      async function updateStatus(grpcStatus) {
+        var rawStatus = {}
+        var status = {}
 
-          var status = {}
+        grpcStatus.forEach(
+          s => {
+            let nameObj = s.getName().toObject()
+            let statusJs = s.getStatus().toJavaScript()
+            let fixed = fixRawStatus(nameObj, statusJs)
 
-          // make vue friendly
-          status.armsMap = rawStatusObj.armsMap;
-          status.gantriesMap = rawStatusObj.gantriesMap;
-          status.boardsMap = rawStatusObj.boardsMap;
-          status.servosMap = rawStatusObj.servosMap;
-          status.motorsMap = rawStatusObj.motorsMap;
-          status.inputControllersMap = rawStatusObj.inputControllersMap;
-
-          status.armsMap = fixArms(status.armsMap);
-          status.boardsMap = fixBoards(status.boardsMap);
-          status.gantriesMap = fixGantries(status.gantriesMap);
-          status.servosMap = fixServos(status.servosMap);
-
-        if (!firstResult) {
-          console.log(rawStatusObj);
-            console.log(status);
-            firstResult = true;
+            let nameStr = theApp.resourceNameToString(nameObj)
+            rawStatus[nameStr] = statusJs
+            status[nameStr] = fixed
           }
+        )
+        theData.rawStatus = rawStatus;
 
-          theData.status = status;
+        // make vue friendly
+        status.armsMap = [];
+        status.gantriesMap = [];
+        status.boardsMap = [];
+        status.servosMap = [];
+        status.motorsMap = [];
+        status.inputControllersMap = [];
+
+        if (firstResult) {
+          console.log(rawStatus);
+          console.log(status);
+          firstResult = false;
+        }
+        theData.status = status;
       }
 
       async function startup() {
@@ -198,8 +205,11 @@
                       return elem.namespace == namespace && elem.type == type && elem.subtype == subtype
                     })
                   },
+                  resourceNameToSubtypeString : function(name) {
+                    return `${name.namespace}:${name.type}:${name.subtype}`
+                  },
                   resourceNameToString : function(name) {
-                    strName = `${name.namespace}:${name.type}:${name.subtype}`
+                    strName = theApp.resourceNameToSubtypeString(name)
                     if (name.name !== "") {
                       strName += `/${name.name}`
                     }
@@ -211,22 +221,22 @@
                     if (nameParts.length === 2){
                       name = nameParts[1]
                     } else if (nameParts.length === 2) {
-                      console.error("more than one backslash in resource name string")
-                      return {}
+                      throw "more than one backslash in resource name string"
                     }
                     let subtypeParts = nameParts[0].split(":")
                     if (subtypeParts.length > 3) {
-                      console.error("more than 2 colons in resource name string")
-                      return {}
+                      throw "more than 2 colons in resource name string"
                     }
                     if (subtypeParts.length < 3){
-                      console.error("less than 2 colons in resource name string")
-                      return {}
+                     throw "less than 2 colons in resource name string"
                     }
                     return {namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name: name}
                   },
-                  armByName : function(name) {
-                    return theData.status.armsMap.find(elem => elem.name == name) || {}
+                  resourceStatusByName : function(name) {
+                    return theData.status[theApp.resourceNameToString(name)] || {}
+                  },
+                  rawResourceStatusByName : function(name) {
+                    return theData.rawStatus[theApp.resourceNameToString(name)] || {}
                   },
                   boardByName : function(name) {
                     return theData.status.boardsMap.find(elem => elem.name == name) || {}
@@ -247,105 +257,105 @@
                       req.setPositionsMmList(pos);
                       gantryService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
-                  armGridInc : function(name, getterSetter, amount) {
-                      if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
-                          amount /= 100;
-                      }
-                      const arm = theData.rawStatus.getArmsMap().get(name);
-                      var old = arm.getGridPosition();
-                      var newPose = Object.assign(Object.create(commonApi.Pose.prototype), old);
-                      const getter = `get${getterSetter}`;
-                      const setter = `set${getterSetter}`;
-                      newPose[setter](newPose[getter]() + amount);
-                      const req = new armApi.MoveToPositionRequest();
-                      req.setName(name);
-                      req.setPose(newPose);
-                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                  armEndPositionInc : function(name, getterSetter, amount) {
+                    if (getterSetter[0] == 'o' || getterSetter[0] == 'O') {
+                        amount /= 100;
+                    }
+                    const arm = theApp.rawResourceStatusByName(name);
+                    let old = arm["end_position"]
+                    var newPose = new commonApi.Pose()
+                    var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["o_x", "OX"], ["o_y", "OY"], ["o_z", "OZ"]];
+                    for (var j=0; j<fieldSetters.length; j++ ){
+                        let endPositionField = fieldSetters[j][0];
+                        let endPositionValue = old[endPositionField] || 0
+                        const setter = `set${fieldSetters[j][1]}`;
+                        newPose[setter](endPositionValue);
+                    }
+
+                    const getter = `get${getterSetter}`;
+                    const setter = `set${getterSetter}`;
+                    newPose[setter](newPose[getter]() + amount);
+                    const req = new armApi.MoveToPositionRequest();
+                    req.setName(name.name);
+                    req.setTo(newPose);
+                    armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armJointInc : function(name, field, amount) {
-                      const arm = theData.rawStatus.getArmsMap().get(name);
-                      var old = arm.getJointPositions();
-                      var newPositioDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
-                      var newList = newPositioDegs.getDegreesList();
-                      newList[field] += amount;
-                      newPositioDegs.setDegreesList(newList);
-                      const req = new armApi.MoveToJointPositionsRequest();
-                      req.setName(name);
-                      req.setPositionDegs(newPositioDegs);
-                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                    const arm = theApp.rawResourceStatusByName(name);
+                    let old = arm["joint_positions"]
+                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newList = arm["joint_positions"]["degrees"]
+                    newList[field] += amount;
+                    newPositionDegs.setDegreesList(newList);
+                    const req = new armApi.MoveToJointPositionsRequest();
+                    req.setName(name.name);
+                    req.setPositionDegs(newPositionDegs);
+                    armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armHome : function(name) {
-                      const arm = theData.rawStatus.getArmsMap().get(name);
-                      var old = arm.getJointPositions();
-                      var newPositionDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
-                      var newList = newPositionDegs.getDegreesList();
-                      for (var i = 0; i < newList.length; i++) {
-                        newList[i] = 0;
-                      }
-                      newPositionDegs.setDegreesList(newList);
-                      const req = new armApi.MoveToJointPositionsRequest();
-                      req.setName(name);
-                      req.setPositionDegs(newPositionDegs);
-                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                    const arm = theApp.rawResourceStatusByName(name);
+                    let old = arm["joint_positions"]
+                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newList = arm["joint_positions"]["degrees"]
+                    for (var i = 0; i < newList.length; i++) {
+                      newList[i] = 0;
+                    }
+                    newPositionDegs.setDegreesList(newList);
+                    const req = new armApi.MoveToJointPositionsRequest();
+                    req.setName(name.name);
+                    req.setPositionDegs(newPositionDegs);
+                    armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   armModifyAll : function(name) {
-                      const arm = theApp.armByName(name);
-                      var n = { name : name, pieces : [] };
+                    const arm = theApp.resourceStatusByName(name);
+                    var n = { pieces : [] };
 
-                      for ( var i=0; i < arm.pieces.length; i++) {
-                          n.pieces.push( {
-                              grid : arm.pieces[i].grid,
-                              gridValue : roundTo2Decimals(arm.pieces[i].gridValue),
-                              joint : arm.pieces[i].joint,
-                              jointValue : roundTo2Decimals(arm.pieces[i].jointValue),
-                          });
-
-                      }
-
-                      theData.armToggle[name] = n;
+                    for ( var i=0; i < arm.pieces.length; i++) {
+                        n.pieces.push( {
+                            endPosition : arm.pieces[i].endPosition,
+                            endPositionValue : roundTo2Decimals(arm.pieces[i].endPositionValue),
+                            joint : arm.pieces[i].joint,
+                            jointValue : roundTo2Decimals(arm.pieces[i].jointValue),
+                        });
+                    }
+                    theData.armToggle[name.name] = n;
                   },
                   armModifyAllCancel : function(name) {
-                      delete theData.armToggle[name];
+                    delete theData.armToggle[name.name];
                   },
-                  armModifyAllDoGrid : function(name) {
-                      const arm = theData.rawStatus.getArmsMap().get(name);
-                      var old = arm.getGridPosition();
+                  armModifyAllDoEndPosition : function(name) {
+                    const arm = theApp.rawResourceStatusByName(name);
+                    var newPose = new commonApi.Pose()
+                    var newPieces = theData.armToggle[name.name].pieces;
 
-                      var newPose = Object.assign(Object.create(commonApi.Pose.prototype), old);
-                      var newPieces = theData.armToggle[name].pieces;
+                    for (var i=0; i < newPieces.length; i++) {
+                        var getterSetter = newPieces[i].endPosition[1];
+                        const setter = `set${getterSetter}`;
+                        newPose[setter](newPieces[i].endPositionValue);
+                    }
 
-                      for (var i=0; i < newPieces.length; i++) {
-                          var getterSetter = newPieces[i].grid[1];
-                          const getter = `get${getterSetter}`;
-                          const setter = `set${getterSetter}`;
-                          newPose[setter](newPieces[i].gridValue);
-                      }
-
-                      const req = new armApi.MoveToPositionRequest();
-                      req.setName(name);
-                      req.setPose(newPose);
-                      armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
-                      delete theData.armToggle[name];
+                    const req = new armApi.MoveToPositionRequest();
+                    req.setName(name.name);
+                    req.setTo(newPose);
+                    armService.moveToPosition(req, {}, (err, resp) => grpcCallback(err, resp));
+                    delete theData.armToggle[name.name];
                   },
                   armModifyAllDoJoint : function(name) {
-                      const arm = theData.rawStatus.getArmsMap().get(name);
-                      var old = arm.getJointPositions();
+                    const arm = theApp.rawResourceStatusByName(name);
+                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newList = arm["joint_positions"]["degrees"]
 
-                      var newPositionDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
-                      var newList = newPositionDegs.getDegreesList();
+                    var newPieces = theData.armToggle[name.name].pieces;
+                    for (var i=0; i < newPieces.length && i < newList.length; i++) {
+                        newList[newPieces[i].joint] = newPieces[i].jointValue;
+                    }
 
-                      var newPieces = theData.armToggle[name].pieces;
-                      for (var i=0; i < newPieces.length && i < newList.length; i++) {
-                          newList[newPieces[i].joint] = newPieces[i].jointValue;
-                      }
-
-                      newPositionDegs.setDegreesList(newList);
-
-                      const req = new armApi.MoveToJointPositionsRequest();
-                      req.setName(name);
-                      req.setPositionDegs(newPositionDegs);
-                      armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
-                      delete theData.armToggle[name];
+                    newPositionDegs.setDegreesList(newList);
+                    const req = new armApi.MoveToJointPositionsRequest();
+                    req.setName(name.name);
+                    req.setPositionDegs(newPositionDegs);
+                    armService.moveToJointPositions(req, {}, (err, resp) => grpcCallback(err, resp));
+                    delete theData.armToggle[name.name];
                   },
 
                   gripperAction : function(name, action) {
@@ -653,7 +663,7 @@
                   },
                   doPCDGrab : function(){
                       let gripperName = theApp.filterResources("rdk", "component", "gripper")[0].name;
-                      let armName = theData.status.armsMap[0].name;
+                      let armName = theApp.filterResources("rdk", "component", "arm")[0].name;
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
                       let cameraPointY = theData.pcdClick.y;
@@ -982,14 +992,10 @@
             let firstData = true;
             statusStream.on('data', function(response) {
               lastStatusTS = Date.now();
-              updateStatus(response.getStatus());
+              updateStatus(response.getStatusList());
               if (firstData) {
                 firstData = false;
                 checkLastStatus();
-                queryMetadata();
-                if (window.streamService) {
-                  queryStreams();
-                }
               }
             });
             statusStream.on('status', function(status) {
@@ -1569,52 +1575,52 @@
         <h3>Arm ${arm.name}</h3>
         <table v-if="armToggle[arm.name]" border="1">
           <tr>
-            <th colspan="2"><h5>GRID (mms)</h5></th>
+            <th colspan="2"><h5>END POSITION (mms)</h5></th>
             <th colspan="2"><h5>JOINTS (degrees)</h5></th>
           </tr>
           <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
-            <th>${aa.grid[0]}</th>
-            <td><input v-model="aa.gridValue"></td>
+            <th>${aa.endPosition[0]}</th>
+            <td><input v-model="aa.endPositionValue"></td>
 
             <th>Joint ${aa.joint}</th>
             <td><input v-model="aa.jointValue"></td>
           </tr>
           <tr>
             <th colspan="6">
-              <button v-on:click="armModifyAllDoGrid(arm.name)">Go To Grid</button>
-              <button v-on:click="armModifyAllDoJoint(arm.name)">Go To Joints</button>
-              <button v-on:click="armModifyAllCancel(arm.name)">Cancel</button>
+              <button v-on:click="armModifyAllDoEndPosition(arm)">Go To EndPosition</button>
+              <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
+              <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
             </th>
           </tr>
         </table>
         <table border="1" v-else>
           <tr>
-            <th colspan="3"><h5>GRID (mms)</h5></th>
+            <th colspan="3"><h5>END POSITION (mms)</h5></th>
             <th colspan="3"><h5>JOINTS (degrees)</h5></th>
           </tr>
-          <tr v-for="aa in armByName(arm.name).pieces" :key="aa.joint">
-            <th>${aa.grid[0]}</th>
+          <tr v-for="aa in resourceStatusByName(arm).pieces" :key="aa.joint">
+            <th>${aa.endPosition[1]}</th>
             <td>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], -10 )">--</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], -1 )">-</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], 1 )">+</button>
-              <button v-on:click="armGridInc( arm.name, aa.grid[1], 10 )">++</button>
+              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
+              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</button>
+              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</button>
+              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
             </td>
-            <td>${aa.gridValue.toFixed(2)}</td>
+            <td>${aa.endPositionValue.toFixed(2)}</td>
 
             <th>Joint ${aa.joint}</th>
             <td>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -10 )">--</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm.name, aa.joint, 10 )">++</button>
+              <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
+              <button v-on:click="armJointInc( arm, aa.joint, -1 )">-</button>
+              <button v-on:click="armJointInc( arm, aa.joint, 1 )">+</button>
+              <button v-on:click="armJointInc( arm, aa.joint, 10 )">++</button>
             </td>
             <td>${aa.jointValue.toFixed(2)}</td>
           </tr>
           <tr>
             <th colspan="8">
-              <button v-on:click="armHome(arm.name)">Home</button>
-              <button v-on:click="armModifyAll(arm.name)">Modify All</button>
+              <button v-on:click="armHome(arm)">Home</button>
+              <button v-on:click="armModifyAll(arm)">Modify All</button>
             </th>
           </tr>
         </table> <!-- end main table -->
