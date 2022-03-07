@@ -35,9 +35,9 @@ func NewSolvableFrameSystem(fs frame.FrameSystem, logger golog.Logger) *Solvable
 func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
-	solveFrame, goalFrame frame.Frame,
+	solveFrameName, goalFrameName string,
 ) ([]map[string][]frame.Input, error) {
-	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrame, goalFrame, nil)
+	return fss.SolvePoseWithOptions(ctx, seedMap, goal, solveFrameName, goalFrameName, nil)
 }
 
 // SolvePoseWithOptions will take a set of starting positions, a goal frame, a frame to solve for, a pose, and a configurable
@@ -46,10 +46,10 @@ func (fss *SolvableFrameSystem) SolvePose(ctx context.Context,
 func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goal spatial.Pose,
-	solveFrame, goalFrame frame.Frame,
+	solveFrameName, goalFrameName string,
 	opt *PlannerOptions,
 ) ([]map[string][]frame.Input, error) {
-	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrame, goalFrame, []*PlannerOptions{opt})
+	return fss.SolveWaypointsWithOptions(ctx, seedMap, []spatial.Pose{goal}, solveFrameName, goalFrameName, []*PlannerOptions{opt})
 }
 
 // SolveWaypointsWithOptions will take a set of starting positions, a goal frame, a frame to solve for, goal poses, and a configurable
@@ -58,7 +58,7 @@ func (fss *SolvableFrameSystem) SolvePoseWithOptions(ctx context.Context,
 func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	seedMap map[string][]frame.Input,
 	goals []spatial.Pose,
-	solveFrame, goalFrame frame.Frame,
+	solveFrameName, goalFrameName string,
 	opts []*PlannerOptions,
 ) ([]map[string][]frame.Input, error) {
 	if len(opts) == 0 {
@@ -73,9 +73,17 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	steps := make([]map[string][]frame.Input, 0, len(goals)*2)
 
 	// Get parentage of both frames. This will also verify the frames are in the frame system
+	solveFrame := fss.GetFrame(solveFrameName)
+	if solveFrame == nil {
+		return nil, fmt.Errorf("frame with name %s not found in frame system", solveFrameName)
+	}
 	sFrames, err := fss.TracebackFrame(solveFrame)
 	if err != nil {
 		return nil, err
+	}
+	goalFrame := fss.GetFrame(goalFrameName)
+	if goalFrame == nil {
+		return nil, fmt.Errorf("frame with name %s not found in frame system", goalFrameName)
 	}
 	gFrames, err := fss.TracebackFrame(goalFrame)
 	if err != nil {
@@ -84,7 +92,7 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	frames := uniqInPlaceSlice(append(sFrames, gFrames...))
 
 	// Create a frame to solve for, and an IK solver with that frame.
-	sf := &solverFrame{solveFrame.Name() + "_" + goalFrame.Name(), fss, frames, solveFrame, goalFrame}
+	sf := &solverFrame{solveFrameName + "_" + goalFrameName, fss, frames, solveFrame, goalFrame}
 	if len(sf.DoF()) == 0 {
 		return nil, errors.New("solver frame has no degrees of freedom, cannot perform inverse kinematics")
 	}
@@ -231,7 +239,7 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame, sf.goalFrame)
+	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
@@ -245,7 +253,7 @@ func (sf *solverFrame) Geometries(inputs []frame.Input) (map[string]spatial.Geom
 	inputMap := sf.sliceToMap(inputs)
 	sfGeometries := make(map[string]spatial.Geometry)
 	for _, frame := range sf.frames {
-		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame, sf.goalFrame)
+		geometries, err := sf.fss.GeometriesOfFrame(inputMap, frame.Name(), sf.goalFrame.Name())
 		if geometries == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)

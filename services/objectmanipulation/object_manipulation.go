@@ -182,10 +182,10 @@ func (mgs objectMService) moveGripper(
 	}
 	logger.Debugf("frame system inputs: %v", input)
 
-	solvingFrame := solver.World() // TODO(erh): this should really be the parent of rootName
+	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
 
 	// re-evaluate goalPose to be in the frame we're going to move in
-	goalPose, err := solver.TransformPose(input, goal.Pose(), solver.GetFrame(goalFrameName), solvingFrame)
+	goalPose, err := solver.TransformPose(input, goal.Pose(), goalFrameName, solvingFrame)
 	if err != nil {
 		return err
 	}
@@ -193,7 +193,7 @@ func (mgs objectMService) moveGripper(
 	if true { // if we want to keep the orientation of the gripper the same
 		// TODO(erh): this is often desirable, but not necessarily, and many times will be wrong.
 		// update the goal orientation to match the current orientation, keep the point from goalPose
-		armPose, err := solver.TransformFrame(input, solver.GetFrame(gripperName), solvingFrame)
+		armPose, err := solver.TransformFrame(input, gripperName, solvingFrame)
 		if err != nil {
 			return err
 		}
@@ -201,7 +201,7 @@ func (mgs objectMService) moveGripper(
 	}
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, solver.GetFrame(gripperName), solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose, gripperName, solvingFrame)
 	if err != nil {
 		return err
 	}
