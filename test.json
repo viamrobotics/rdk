@@ -1,0 +1,30 @@
+{
+  "components": [
+    {
+      "model": "pi",
+      "name": "local",
+      "type": "board",
+      "attributes": {
+        "i2cs": [
+          {
+            "name": "bus1",
+            "bus": "1"
+          }
+          ]
+      }
+    },
+    {
+      "attributes": {
+        "board": "local",
+        "i2c_address": 103,
+        "bus_name": "bus1"
+      },
+      "model": "i2c",
+      "name": "pump",
+      "type": "motor"
+    }
+  ],
+  "network": {
+    "bind_address": ":8080"
+  }
+}
