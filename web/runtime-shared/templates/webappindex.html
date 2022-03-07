@@ -488,8 +488,9 @@
                         if (err) {
                           return;
                         }
-                        resp.toObject().readingsList.forEach(r => {
-                          theData.sensorReadings[theApp.resourceNameToString(r.name)] = r.readingsList;
+                        resp.getReadingsList().forEach(r => {
+                          let readings = r.getReadingsList().map(v => v.toJavaScript())
+                          theData.sensorReadings[theApp.resourceNameToString(r.getName().toObject())] = readings;
                         });
                       });
                   },
