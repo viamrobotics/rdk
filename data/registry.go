@@ -17,7 +17,7 @@ type MethodMetadata struct {
 
 type CollectorSchema struct {
 	ServiceClient interface{} // TODO: do we need this? Or is just the method sufficient?
-	Method        func(ctx context.Context, in *any.Any, opts ...grpc.CallOption) (any.Any, error)
+	Method        func(client interface{}, ctx context.Context, in *any.Any, opts ...grpc.CallOption) (*any.Any, error)
 	// TODO: include input/output type literals so those any.Any can be casted.
 	// TODO: minimum capture interval? Though unsure if that exists in code yet.
 }
