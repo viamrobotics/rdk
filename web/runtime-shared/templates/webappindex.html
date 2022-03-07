@@ -488,7 +488,7 @@
                         if (err) {
                           return;
                         }
-                        resp.toObject().readingsList.forEach(function(r) {
+                        resp.toObject().readingsList.forEach(r => {
                           theData.sensorReadings[theApp.resourceNameToString(r.name)] = r.readingsList;
                         });
                       });
