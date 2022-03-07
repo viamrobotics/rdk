@@ -70,10 +70,13 @@ type Board interface {
 	// DigitalInterruptByName returns a digital interrupt by name.
 	DigitalInterruptByName(name string) (DigitalInterrupt, bool)
 
-	// SPINames returns the name of all known SPI busses.
+	// GPIOPinByName returns a GPIOPin by name.
+	GPIOPinByName(name string) (GPIOPin, error)
+
+	// SPINames returns the names of all known SPI buses.
 	SPINames() []string
 
-	// I2CNames returns the name of all known I2C busses.
+	// I2CNames returns the names of all known I2C buses.
 	I2CNames() []string
 
 	// AnalogReaderNames returns the name of all known analog readers.
@@ -82,17 +85,8 @@ type Board interface {
 	// DigitalInterruptNames returns the name of all known digital interrupts.
 	DigitalInterruptNames() []string
 
-	// SetGPIO sets the given pin to either low or high.
-	SetGPIO(ctx context.Context, pin string, high bool) error
-
-	// GetGPIO gets the high/low state of the given pin.
-	GetGPIO(ctx context.Context, pin string) (bool, error)
-
-	// SetPWM sets the given pin to the given duty cycle.
-	SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error
-
-	// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-	SetPWMFreq(ctx context.Context, pin string, freqHz uint) error
+	// GPIOPinNames returns the names of all known GPIO pins.
+	GPIOPinNames() []string
 
 	// Status returns the current status of the board. Usually you
 	// should use the CreateStatus helper instead of directly calling
@@ -143,28 +137,6 @@ type SPIHandle interface {
 		mode uint,
 		tx []byte,
 	) ([]byte, error)
-	// Close closes the handle and releases the lock on the bus.
-	Close() error
-}
-
-// I2C represents a shareable I2C bus on the board.
-type I2C interface {
-	// OpenHandle locks returns a handle interface that MUST be closed when done.
-	// you cannot have 2 open for the same addr
-	OpenHandle(addr byte) (I2CHandle, error)
-}
-
-// I2CHandle is similar to an io handle. It MUST be closed to release the bus.
-type I2CHandle interface {
-	Write(ctx context.Context, tx []byte) error
-	Read(ctx context.Context, count int) ([]byte, error)
-
-	ReadByteData(ctx context.Context, register byte) (byte, error)
-	WriteByteData(ctx context.Context, register byte, data byte) error
-
-	ReadWordData(ctx context.Context, register byte) (uint16, error)
-	WriteWordData(ctx context.Context, register byte, data uint16) error
-
 	// Close closes the handle and releases the lock on the bus.
 	Close() error
 }
@@ -246,28 +218,10 @@ func (r *reconfigurableBoard) DigitalInterruptByName(name string) (DigitalInterr
 	return d, ok
 }
 
-func (r *reconfigurableBoard) SetGPIO(ctx context.Context, pin string, high bool) error {
+func (r *reconfigurableBoard) GPIOPinByName(name string) (GPIOPin, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.SetGPIO(ctx, pin, high)
-}
-
-func (r *reconfigurableBoard) GetGPIO(ctx context.Context, pin string) (bool, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.GetGPIO(ctx, pin)
-}
-
-func (r *reconfigurableBoard) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.SetPWM(ctx, pin, dutyCyclePct)
-}
-
-func (r *reconfigurableBoard) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.actual.SetPWMFreq(ctx, pin, freqHz)
+	return r.actual.GPIOPinByName(name)
 }
 
 func (r *reconfigurableBoard) SPINames() []string {
@@ -308,6 +262,12 @@ func (r *reconfigurableBoard) DigitalInterruptNames() []string {
 		names = append(names, k)
 	}
 	return names
+}
+
+func (r *reconfigurableBoard) GPIOPinNames() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GPIOPinNames()
 }
 
 func (r *reconfigurableBoard) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
