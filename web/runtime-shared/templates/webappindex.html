@@ -86,22 +86,15 @@
         return newStatus
       }
 
-      function fixBoards(old) {
-          var n = [];
-          for (var i=0; i<old.length; i++) {
-              const [boardName, boardValue] = old[i];
-              var newBoard = {
-                  name : boardName,
-                  analogsMap : boardValue.analogsMap || [],
-                  digitalInterruptsMap : boardValue.digitalInterruptsMap || [],
-              };
-              n.push(newBoard);
-          }
-          return n;
+      function fixBoardStatus(old) {
+        var newStatus = {
+            analogsMap : old["analogs"] || [],
+            digitalInterruptsMap : old["digital_interrupts"] || [],
+        };
+        return newStatus
       }
 
       function fixGantryStatus(old) {
-        console.log(old)
         var newStatus = { parts: [] };
         if (old["lengths"].length != old["positions"].length) {
             throw "gantry lists different lengths";
@@ -127,6 +120,9 @@
         switch (theApp.resourceNameToSubtypeString(name)){
           case "rdk:component:arm":
             status = fixArmStatus(status)
+            break;
+          case "rdk:component:board":
+            status = fixBoardStatus(status)
             break;
           case "rdk:component:gantry":
             status = fixGantryStatus(status)
@@ -154,7 +150,6 @@
         theData.rawStatus = rawStatus;
 
         // make vue friendly
-        status.boardsMap = [];
         status.servosMap = [];
         status.motorsMap = [];
         status.inputControllersMap = [];
@@ -231,9 +226,6 @@
                   },
                   rawResourceStatusByName : function(name) {
                     return theData.rawStatus[theApp.resourceNameToString(name)] || {}
-                  },
-                  boardByName : function(name) {
-                    return theData.status.boardsMap.find(elem => elem.name == name) || {}
                   },
                   gantryInc : function(name, axis, amount) {
                       var g = theApp.resourceStatusByName(name)
@@ -1683,15 +1675,15 @@
         <table border="1">
 
           <tr><th colspan="2">Analogs</th></tr>
-          <tr v-for="a in boardByName(board.name).analogsMap" :key="a[0]">
-            <th>${a[0]}</th>
-            <td>${a[1].value}</td>
+          <tr v-for="(analog, name) in resourceStatusByName(board).analogsMap" :key="name">
+            <th>${name}</th>
+            <td>${analog.value || 0}</td>
           </tr>
 
           <tr><th colspan="2">DigitalInterrupts</th></tr>
-          <tr v-for="di in boardByName(board.name).digitalInterruptsMap" :key="di[0]">
-            <th>${di[0]}</th>
-            <td>${di[1].value}</td>
+          <tr v-for="(di, name) in resourceStatusByName(board).digitalInterruptsMap" :key="name">
+            <th>${name}</th>
+            <td>${di.value || 0}</td>
           </tr>
 
           <tr><th colspan="2">GPIO</th></tr>
