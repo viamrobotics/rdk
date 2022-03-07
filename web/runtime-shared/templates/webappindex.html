@@ -128,21 +128,18 @@
           return n;
       }
      
-     function fixServos(old) {
-       var n = {};
-       for (var i=0; i<old.length; i++) {
-         var name = old[i][0];
-         var angle = old[i][1].angle;
-         n[name] = angle;
-       }
-       return n;
-     }
+      function fixServos(old) {
+        var n = {};
+        for (var i=0; i<old.length; i++) {
+          var name = old[i][0];
+          var angle = old[i][1].angle;
+          n[name] = angle;
+        }
+        return n;
+      }
      
-     firstResult = false;
-
-     async function updateStatus(rawStatus) {
-          theData.rawStatus = rawStatus;
-          // toObject gives annoying suffixes; see https://github.com/protocolbuffers/protobuf/issues/6773
+      firstResult = false;
+      async function updateStatus(rawStatus) {
           const rawStatusObj = rawStatus.toObject();
 
           var status = {}
