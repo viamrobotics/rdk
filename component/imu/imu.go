@@ -44,8 +44,8 @@ func init() {
 		MethodName:  "ReadAngularVelocity",
 	}, data.CollectorSchema{
 		ServiceClient: nil,
-		Method:, // TODO: how to include _method_ literal? Possibly slightly more complicated than function literal
-		Params:        nil,
+		// TODO: Figure out why the compiler says this doesn't match the signature in the Schema struct...
+		Method: pb.IMUServiceClient.ReadAngularVelocity, // TODO: how to include _method_ literal? Possibly slightly more complicated than function literal
 	})
 }
 
