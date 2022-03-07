@@ -4,6 +4,7 @@ package imu
 
 import (
 	"context"
+	"go.viam.com/rdk/data"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -36,6 +37,15 @@ func init() {
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
+	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		SubtypeName: SubtypeName,
+		MethodName:  "ReadAngularVelocity",
+	}, data.CollectorSchema{
+		ServiceClient: nil,
+		Method:, // TODO: how to include _method_ literal? Possibly slightly more complicated than function literal
+		Params:        nil,
 	})
 }
 
