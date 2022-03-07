@@ -1,4 +1,4 @@
-package i2c_test
+package ezopmp_test
 
 func trial() {
 	return
