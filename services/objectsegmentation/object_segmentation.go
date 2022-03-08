@@ -42,7 +42,8 @@ func init() {
 
 // A Service that defines how to segment 2D and/or 3D images from a given camera into objects.
 type Service interface {
-	GetObjectPointClouds(ctx context.Context, cameraName string, parameters *vision.Parameters3D) ([]*vision.Object, error)
+	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*vision.Object, error)
+	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -86,20 +87,23 @@ type objectSegService struct {
 
 func (seg *objectSegService) GetObjectPointClouds(
 	ctx context.Context,
-	cameraName string,
-	pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
+	cameraName, segmenterName string,
+	params config.AttributeMap) ([]*vision.Object, error) {
 	cam, err := camera.FromRobot(seg.r, cameraName)
 	if err != nil {
 		return nil, err
 	}
-	segmenter, err := segmentation.SegmenterLookup(segmentation.RadiusClusteringSegmenter)
+	segmenter, err := segmentation.SegmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
 	}
-	params := config.AttributeMap{
-		"min_points_in_plane":   pmtrs.MinPtsInPlane,
-		"min_points_in_segment": pmtrs.MinPtsInSegment,
-		"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
+	return segmenter.Segmenter(ctx, cam, params)
+}
+
+func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
+	segmenter, err := segmentation.SegmenterLookup(segmenterName)
+	if err != nil {
+		return nil, err
 	}
-	return segmenter(ctx, cam, params)
+	return segmenter.Parameters, nil
 }
