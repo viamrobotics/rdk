@@ -14,15 +14,21 @@ import (
 // A Segmenter is a function that takes images/pointclouds from an input camera and segments them into objects.
 type Segmenter func(ctx context.Context, c camera.Camera, parameters config.AttributeMap) ([]*vision.Object, error)
 
+// A Registration stores both the Segmenter function and the form of the parameters it takes as an argument.
+type Registration struct {
+	Segmenter
+	Parameters []string
+}
+
 // The segmenter registry.
-var segmenterRegistry = make(map[string]Segmenter)
+var segmenterRegistry = make(map[string]Registration)
 
 // RegisterSegmenter registers a Segmenter type to a registration.
-func RegisterSegmenter(name string, seg Segmenter) {
+func RegisterSegmenter(name string, seg Registration) {
 	if _, old := segmenterRegistry[name]; old {
 		panic(errors.Errorf("trying to register two segmenters with the same name: %s", name))
 	}
-	if seg == nil {
+	if seg.Segmenter == nil {
 		panic(errors.Errorf("cannot register a nil segmenter: %s", name))
 	}
 	segmenterRegistry[name] = seg
@@ -30,19 +36,19 @@ func RegisterSegmenter(name string, seg Segmenter) {
 
 // SegmenterLookup looks up a segmenter registration by name. An error is returned if
 // there is no registration.
-func SegmenterLookup(name string) (Segmenter, error) {
+func SegmenterLookup(name string) (*Registration, error) {
 	registration, ok := RegisteredSegmenters()[name]
 	if ok {
-		return registration, nil
+		return &registration, nil
 	}
 	return nil, errors.Errorf("no Segmenter with name %q", name)
 }
 
 // RegisteredSegmenters returns a copy of the registered segmenters.
-func RegisteredSegmenters() map[string]Segmenter {
+func RegisteredSegmenters() map[string]Registration {
 	copied, err := copystructure.Copy(segmenterRegistry)
 	if err != nil {
 		panic(err)
 	}
-	return copied.(map[string]Segmenter)
+	return copied.(map[string]Registration)
 }
