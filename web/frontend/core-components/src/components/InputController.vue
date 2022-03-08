@@ -24,14 +24,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-
-import { InputControllerStatus } from "proto/api/robot/v1/robot_pb";
+import { Component, Prop, Vue } from "vue-property-decorator"
 
 @Component
 export default class InputController extends Vue {
   @Prop() controllerName!: string;
-  @Prop() controllerStatus!: InputControllerStatus.AsObject;
+  @Prop() controllerStatus!: any;
 
   self = this;
 
@@ -72,7 +70,10 @@ export default class InputController extends Vue {
   }
 
   get connected(): boolean {
-    for (let ev of this.controllerStatus.eventsList) {
+    if (this.controllerStatus.events == undefined) {
+      return false
+    }
+    for (let ev of this.controllerStatus.events) {
       if (ev.event != "Disconnect") {
         return true;
       }
@@ -81,7 +82,10 @@ export default class InputController extends Vue {
   }
 
   getValue(control: string): string {
-    for (const iEvent of this.controllerStatus.eventsList) {
+    if (this.controllerStatus.events == undefined) {
+      return ""
+    }
+    for (const iEvent of this.controllerStatus.events) {
       if (iEvent.control === control) {
         if (control.includes("Absolute")) {
           return iEvent.value.toFixed(4);
