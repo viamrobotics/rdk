@@ -41,10 +41,10 @@ func init() {
 func makeConstraints(attrs *camera.AttrConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 	minWidth := 680
 	maxWidth := 4096
-	idealWidth := 1920
+	idealWidth := 800
 	minHeight := 400
 	maxHeight := 2160
-	idealHeight := 1080
+	idealHeight := 600
 
 	if attrs.Width > 0 {
 		minWidth = 0

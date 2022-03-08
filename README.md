@@ -62,9 +62,16 @@ Let's assume big data is > 10KiB. This kind of data is annoying to slow to pull 
 
 ```
 # get ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS by talking to Eliot or Eric
+# export the path with the json file as an environment variable: 
+export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=/path/to/your/json/credentials
 go install go.viam.com/utils/artifact/cmd/artifact
-# place new artifacts in artifact_data
+# place new artifacts in ./artifact/data
 artifact push
 git add .artifact
 # commit the file at some point
 ```
+
+General workflow:
+1. Add your file of interest to the `.artifact/data` directory, wherever you want. You can even make a new folder for it.
+2. `artifact push` to create an entry for it in `.artfact/tree.json`
+3. `artifact pull` to download all the files that are in the `tree.json` file
