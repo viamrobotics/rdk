@@ -615,8 +615,8 @@ func TestPartsAdd(t *testing.T) {
 	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
 	injectObjectSegmentationService.GetObjectPointCloudsFunc = func(
 		ctx context.Context,
-		cameraName string,
-		parameters *vision.Parameters3D) ([]*vision.Object, error) {
+		cameraName, segmenterName string,
+		parameters config.AttributeMap) ([]*vision.Object, error) {
 		return []*vision.Object{vision.NewEmptyObject()}, nil
 	}
 	objectSegResName := objectsegmentation.Name

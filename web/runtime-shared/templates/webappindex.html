@@ -454,7 +454,7 @@
                           return;
                         }
                         console.log("loading pcd");
-                        theData.fullcloud = resp.getFrame_asB64();
+                        theData.fullcloud = resp.getPointCloud_asB64();
                         pcdLoad(`data:${mimeType};base64,${theData.fullcloud}`);
                       });
 
@@ -672,10 +672,10 @@
                       theData.pcdClick.calculatingSegments = true;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
-                      req.setName(pcdGlobal.cameraName);
-                      req.setMinPointsInPlane(minPointsPlane);
-                      req.setMinPointsInSegment(minPointsSegment);
-                      req.setClusteringRadiusMm(clusteringRadius);
+                      req.setCameraName(pcdGlobal.cameraName);
+                      req.setSegmenterName("radius_clustering");
+                      let params = {"min_points_in_plane": minPointsPlane, "min_points_in_segment": minPointsSegment, "clustering_radius_mm": clusteringRadius};
+                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(params));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
@@ -695,9 +695,9 @@
                   },
                   doSegmentLoad : function(i){
                         var segment = theData.objects[i];
-                        var data = segment.getFrame_asB64();
-                        var center = segment.getCenterCoordinatesMm();
-                        var box = segment.getBoundingBoxMm();
+                        var data = segment.getPointCloud_asB64();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
@@ -707,15 +707,15 @@
                   },
                   doPointLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenterCoordinatesMm();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                         var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         console.log(p);
                         setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
                         var segment = theData.objects[i];
-                        var center = segment.getCenterCoordinatesMm();
-                        var box = segment.getBoundingBoxMm();
+                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
                         var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
                         setBoundingBox(box, centerP);
                   },
