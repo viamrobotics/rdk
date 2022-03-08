@@ -535,7 +535,6 @@
                       canvas3DWidth: canvas3DWidth
                     }
 
-                    // [kat] TODO(https://github.com/viamrobotics/rdk/issues/336): slip detection works locally, but not on app.viam.com
                     // Slip detection stuff
                     let slipCanvas = document.getElementById('slip-id-' + id);
                     var slip_animation_stuff = {
@@ -810,7 +809,7 @@
                   },
               },
             directives: {
-              // TODO(https://github.com/viamrobotics/rdk/issues/406): replace with vue component after naveed work done
+              // TODO(RDK-41): replace with vue component after naveed work done
               mapMounted (el) {
                   if (theData.mapOnce) {
                     return;
@@ -1791,7 +1790,7 @@
       </div>
     </div> <!-- end vue app -->
 
-    <!-- TODO(https://github.com/viamrobotics/rdk/issues/202): remove api key once going into production -->
+    <!-- TODO(RDK-70): remove api key once going into production -->
     <script
       src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBn72TEqFOVWoj06cvua0Dc0pz2uvq90nY&callback=initMap&libraries=&v=weekly"
       async

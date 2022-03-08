@@ -211,7 +211,7 @@ func (s *Server) ResourceRunCommand(
 	ctx context.Context,
 	req *pb.ResourceRunCommandRequest,
 ) (*pb.ResourceRunCommandResponse, error) {
-	// TODO(https://github.com/viamrobotics/rdk/issues/409): support all resources
+	// TODO(RDK-38): support all resources
 	// we know only gps has this right now, so just look at sensors!
 	resource, err := s.r.ResourceByName(gps.Named(req.ResourceName))
 	if err != nil {
@@ -248,7 +248,7 @@ func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionCo
 	for _, result := range execResult.Results {
 		val := result.Interface()
 		if (val == functionvm.Undefined{}) {
-			// TODO(https://github.com/viamrobotics/rdk/issues/518): holdover for now to make my life easier :)
+			// TODO(RDK-16): holdover for now to make my life easier :)
 			val = "<undefined>"
 		}
 		pbVal, err := structpb.NewValue(val)
