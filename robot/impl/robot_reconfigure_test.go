@@ -1177,8 +1177,8 @@ func TestStatusServiceUpdate(t *testing.T) {
 
 	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
 	expected := map[resource.Name]interface{}{
-		gps.Named("gps1"): map[string]interface{}{"exists": true},
-		gps.Named("gps2"): map[string]interface{}{"exists": true},
+		gps.Named("gps1"): status.DefaultStatus{Exists: true},
+		gps.Named("gps2"): status.DefaultStatus{Exists: true},
 	}
 
 	t.Run("empty to not empty", func(t *testing.T) {

@@ -13,8 +13,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -192,83 +190,6 @@ func (rr *remoteRobot) FrameSystem(ctx context.Context, name, prefix string) (re
 		return nil, err
 	}
 	return fs, nil
-}
-
-func (rr *remoteRobot) Status(ctx context.Context) (*pb.Status, error) {
-	status, err := rr.robot.Status(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var rewrittenStatus pb.Status
-
-	if len(status.Arms) != 0 {
-		rewrittenStatus.Arms = make(map[string]*pb.ArmStatus, len(status.Arms))
-		for k, v := range status.Arms {
-			rewrittenStatus.Arms[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Bases) != 0 {
-		rewrittenStatus.Bases = make(map[string]bool, len(status.Bases))
-		for k, v := range status.Bases {
-			rewrittenStatus.Bases[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Grippers) != 0 {
-		rewrittenStatus.Grippers = make(map[string]bool, len(status.Grippers))
-		for k, v := range status.Grippers {
-			rewrittenStatus.Grippers[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Boards) != 0 {
-		rewrittenStatus.Boards = make(map[string]*commonpb.BoardStatus, len(status.Boards))
-		for k, v := range status.Boards {
-			rewrittenStatus.Boards[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Cameras) != 0 {
-		rewrittenStatus.Cameras = make(map[string]bool, len(status.Cameras))
-		for k, v := range status.Cameras {
-			rewrittenStatus.Cameras[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Sensors) != 0 {
-		rewrittenStatus.Sensors = make(map[string]*pb.SensorStatus, len(status.Sensors))
-		for k, v := range status.Sensors {
-			rewrittenStatus.Sensors[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Servos) != 0 {
-		rewrittenStatus.Servos = make(map[string]*pb.ServoStatus, len(status.Servos))
-		for k, v := range status.Servos {
-			rewrittenStatus.Servos[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Motors) != 0 {
-		rewrittenStatus.Motors = make(map[string]*pb.MotorStatus, len(status.Motors))
-		for k, v := range status.Motors {
-			rewrittenStatus.Motors[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.InputControllers) != 0 {
-		rewrittenStatus.InputControllers = make(map[string]*pb.InputControllerStatus, len(status.InputControllers))
-		for k, v := range status.InputControllers {
-			rewrittenStatus.InputControllers[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Services) != 0 {
-		rewrittenStatus.Services = make(map[string]bool, len(status.Services))
-		for k, v := range status.Services {
-			rewrittenStatus.Services[rr.prefixName(k)] = v
-		}
-	}
-	if len(status.Functions) != 0 {
-		rewrittenStatus.Functions = make(map[string]bool, len(status.Functions))
-		for k, v := range status.Functions {
-			rewrittenStatus.Functions[rr.prefixName(k)] = v
-		}
-	}
-
-	return &rewrittenStatus, nil
 }
 
 func (rr *remoteRobot) Logger() golog.Logger {
