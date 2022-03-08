@@ -675,7 +675,7 @@
                       req.setCameraName(pcdGlobal.cameraName);
                       req.setSegmenterName("radius_clustering");
                       let params = {"min_points_in_plane": minPointsPlane, "min_points_in_segment": minPointsSegment, "clustering_radius_mm": clusteringRadius};
-                      req.setParameters(proto.google.protobuf.Struct.fromObject(params));
+                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(params));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
