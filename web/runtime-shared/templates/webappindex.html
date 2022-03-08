@@ -105,6 +105,14 @@
         }
         return newStatus
       }
+
+      function fixMotorStatus(old) {
+        return {
+          on: old["on"] || false,
+          positionSupported: old["position_supported"] || false,
+          position: old["position"] || 0,
+        };
+      }
      
       function fixServoStatus(old) {
         return { position: old["position"] || 0 };
@@ -120,6 +128,9 @@
             break;
           case "rdk:component:gantry":
             status = fixGantryStatus(status)
+            break;
+          case "rdk:component:motor":
+            status = fixMotorStatus(status)
             break;
           case "rdk:component:servo":
             status = fixServoStatus(status)
@@ -144,16 +155,13 @@
             status[nameStr] = fixed
           }
         )
-        theData.rawStatus = rawStatus;
-
-        // make vue friendly
-        status.motorsMap = [];
 
         if (firstResult) {
           console.log(rawStatus);
           console.log(status);
           firstResult = false;
         }
+        theData.rawStatus = rawStatus;
         theData.status = status;
       }
 
@@ -1636,11 +1644,11 @@
 
       <!-- ******* MOTOR *******  -->
       <motor-detail
-        v-for="motor in status.motorsMap"
-        :key="'new-' + motor[0]"
-        v-bind:motor-name="motor[0]"
-        v-bind:motor-status="motor[1]"
-        v-on:execute="motorCommand(motor[0], $event)"
+        v-for="motor in filterResources('rdk', 'component', 'motor')"
+        :key="'new-' + motor.name"
+        v-bind:motor-name="motor.name"
+        v-bind:motor-status="resourceStatusByName(motor)"
+        v-on:execute="motorCommand(motor.name, $event)"
         style="max-width: 1080px;">
       </motor-detail>
 
