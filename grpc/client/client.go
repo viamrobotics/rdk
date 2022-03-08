@@ -121,21 +121,6 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 	}
 }
 
-// status actually gets the latest status from the server.
-func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
-	resp, err := rc.client.Status(ctx, &pb.StatusRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-// Status either gets a cached or latest version of the status of the remote
-// robot.
-func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
-	return rc.status(ctx)
-}
-
 // Config gets the config from the remote robot
 // It is only partial a config, including the pieces relevant to remote robots,
 // And not the pieces relevant to local configuration (pins, security keys, etc...)
