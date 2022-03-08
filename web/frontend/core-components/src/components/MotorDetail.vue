@@ -114,15 +114,11 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
-  MotorStatus,
-} from "proto/api/robot/v1/robot_pb";
-import {
   SetPowerRequest,
   GoForRequest,
   GoToRequest,
 } from "proto/api/component/motor/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
-import { Struct } from "google-protobuf/google/protobuf/struct_pb";
 
 enum MotorCommandType {
   Go = "go",
@@ -237,7 +233,7 @@ class MotorCommand {
 })
 export default class MotorDetail extends Vue {
   @Prop() motorName!: string;
-  @Prop() motorStatus!: MotorStatus.AsObject;
+  @Prop() motorStatus!: any;
 
   motorCommand = new MotorCommand();
 
