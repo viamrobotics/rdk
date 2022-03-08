@@ -2,7 +2,9 @@ package camera
 
 import (
 	"encoding/hex"
+	"regexp"
 
+	"github.com/edaniels/gostream/media"
 	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/rimage/transform"
@@ -56,4 +58,36 @@ func (ac *AttrConfig) DetectColor() ([]uint8, error) {
 		return nil, errors.Errorf("detect_color is ill-formed, expected #RRGGBB, got %v", ac.DetectColorString)
 	}
 	return slice, nil
+}
+
+// GetDriverPath returns the path of the video device driver.
+func (ac *AttrConfig) GetDriverPath() (string, error) {
+	if ac.Path != "" {
+		return ac.Path, nil
+	}
+
+	if ac.PathPattern != "" {
+		pattern, err := regexp.Compile(ac.PathPattern)
+		if err != nil {
+			return "", err
+		}
+
+		labels := media.QueryVideoDeviceLabels()
+		for _, label := range labels {
+			// if debug {
+			//     logger.Debugf("%s", label)
+			// }
+
+			if pattern != nil && !pattern.MatchString(label) {
+				// if debug {
+				//     logger.Debug("\t skipping because of pattern")
+				// }
+				continue
+			}
+
+			return label, nil
+		}
+	}
+
+	return "", errors.New("found no video devices")
 }
