@@ -106,14 +106,8 @@
         return newStatus
       }
      
-      function fixServos(old) {
-        var n = {};
-        for (var i=0; i<old.length; i++) {
-          var name = old[i][0];
-          var angle = old[i][1].angle;
-          n[name] = angle;
-        }
-        return n;
+      function fixServoStatus(old) {
+        return { position: old["position"] || 0 };
       }
 
       function fixRawStatus(name, status) {
@@ -126,6 +120,9 @@
             break;
           case "rdk:component:gantry":
             status = fixGantryStatus(status)
+            break;
+          case "rdk:component:servo":
+            status = fixServoStatus(status)
             break;
         }
         return status
@@ -150,7 +147,6 @@
         theData.rawStatus = rawStatus;
 
         // make vue friendly
-        status.servosMap = [];
         status.motorsMap = [];
         status.inputControllersMap = [];
 
@@ -307,7 +303,6 @@
                     delete theData.armToggle[name.name];
                   },
                   armModifyAllDoEndPosition : function(name) {
-                    const arm = theApp.rawResourceStatusByName(name);
                     var newPose = new commonApi.Pose()
                     var newPieces = theData.armToggle[name.name].pieces;
 
@@ -357,13 +352,13 @@
                       }
                   },
                   servoMove : function(name, amount) {
-                      const servo = theData.rawStatus.getServosMap().get(name);
-                      var oldAngle = servo.getAngle();
-                      let angle = oldAngle + amount;
-                      const req = new servoApi.MoveRequest();
-                      req.setName(name);
-                      req.setAngleDeg(angle);
-                      servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
+                    const servo = theApp.rawResourceStatusByName(name);
+                    var oldAngle = servo.position || 0;
+                    let angle = oldAngle + amount;
+                    const req = new servoApi.MoveRequest();
+                    req.setName(name.name);
+                    req.setAngleDeg(angle);
+                    servoService.move(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
                   motorCommand: function(motor, cmd) {
                     let req = cmd.request;
@@ -1622,14 +1617,14 @@
       <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: .5em;">
         <table border="1">
           <tr><th>Servo</th><td>${servo.name}</td></tr>
-          <tr><td>Angle</td><td>${status.servosMap[servo.name]}</td></tr>
+          <tr><td>Angle</td><td>${resourceStatusByName(servo).position}</td></tr>
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo.name, -10)">-10</button>
-              <button v-on:click="servoMove(servo.name, -1)">-1</button>
-              <button v-on:click="servoMove(servo.name, 1)">1</button>
-              <button v-on:click="servoMove(servo.name, 10)">10</button>
+              <button v-on:click="servoMove(servo, -10)">-10</button>
+              <button v-on:click="servoMove(servo, -1)">-1</button>
+              <button v-on:click="servoMove(servo, 1)">1</button>
+              <button v-on:click="servoMove(servo, 10)">10</button>
             </td>
           </tr>
         </table>
