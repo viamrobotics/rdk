@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
@@ -17,15 +18,24 @@ import (
 const RadiusClusteringVoxelSegmenter = "radius_clustering_voxel"
 
 func init() {
-	RegisterSegmenter(RadiusClusteringVoxelSegmenter, Segmenter(RadiusClusteringFromVoxels))
+	RegisterSegmenter(RadiusClusteringVoxelSegmenter,
+		Registration{
+			Segmenter(RadiusClusteringFromVoxels),
+			utils.JSONTags(RadiusClusteringVoxelConfig{}),
+		})
 }
 
 // RadiusClusteringVoxelConfig specifies the necessary parameters for 3D object finding.
 type RadiusClusteringVoxelConfig struct {
-	VoxelSize float64 `json:"voxel_size"`
-	Lambda    float64 `json:"lambda"` // clustering parameter for making voxel planes
-	*RadiusClusteringConfig
-	*VoxelGridPlaneConfig
+	VoxelSize          float64 `json:"voxel_size"`
+	Lambda             float64 `json:"lambda"` // clustering parameter for making voxel planes
+	MinPtsInPlane      int     `json:"min_points_in_plane"`
+	MinPtsInSegment    int     `json:"min_points_in_segment"`
+	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
+	WeightThresh       float64 `json:"weight_threshold"`
+	AngleThresh        float64 `json:"angle_threshold"` // in degrees
+	CosineThresh       float64 `json:"cosine_threshold"`
+	DistanceThresh     float64 `json:"distance_threshold"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -36,11 +46,13 @@ func (rcc *RadiusClusteringVoxelConfig) CheckValid() error {
 	if rcc.Lambda <= 0 {
 		return errors.Errorf("lambda must be greater than 0, got %v", rcc.Lambda)
 	}
-	err := rcc.RadiusClusteringConfig.CheckValid()
+	radiusClustering := RadiusClusteringConfig{rcc.MinPtsInPlane, rcc.MinPtsInSegment, rcc.ClusteringRadiusMm}
+	err := radiusClustering.CheckValid()
 	if err != nil {
 		return err
 	}
-	err = rcc.VoxelGridPlaneConfig.CheckValid()
+	voxelPlanes := VoxelGridPlaneConfig{rcc.WeightThresh, rcc.AngleThresh, rcc.CosineThresh, rcc.DistanceThresh}
+	err = voxelPlanes.CheckValid()
 	if err != nil {
 		return err
 	}
@@ -53,30 +65,10 @@ func (rcc *RadiusClusteringVoxelConfig) ConvertAttributes(am config.AttributeMap
 	if err != nil {
 		return err
 	}
-	clusteringConf := &RadiusClusteringConfig{}
-	clusterDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: clusteringConf})
-	if err != nil {
-		return err
-	}
-	voxelPlaneConf := &VoxelGridPlaneConfig{}
-	voxelPlaneDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: voxelPlaneConf})
-	if err != nil {
-		return err
-	}
 	err = decoder.Decode(am)
 	if err != nil {
 		return err
 	}
-	err = clusterDecoder.Decode(am)
-	if err != nil {
-		return err
-	}
-	err = voxelPlaneDecoder.Decode(am)
-	if err != nil {
-		return err
-	}
-	rcc.RadiusClusteringConfig = clusteringConf
-	rcc.VoxelGridPlaneConfig = voxelPlaneConf
 	return rcc.CheckValid()
 }
 
