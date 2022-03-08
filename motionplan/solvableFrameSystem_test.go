@@ -60,7 +60,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	solver := makeTestFS(t)
 	positions := frame.StartPositions(solver)
 	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})
-	transformPoint, err := solver.TransformFrame(positions, solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	transformPoint, err := solver.TransformFrame(positions, "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincident(transformPoint, pointXarmGripper), test.ShouldBeTrue)
 
@@ -78,11 +78,11 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal1,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame(frame.World),
+		"xArmVgripper",
+		frame.World,
 	)
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame(frame.World))
+	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal1, 0.01), test.ShouldBeTrue)
 
@@ -100,15 +100,15 @@ func TestFrameSystemSolver(t *testing.T) {
 		context.Background(),
 		positions,
 		goal2,
-		solver.GetFrame("xArmVgripper"),
-		solver.GetFrame("urCamera"),
+		"xArmVgripper",
+		"urCamera",
 	)
 	test.That(t, err, test.ShouldBeNil)
 
 	// Both frames should wind up at the goal relative to one another
-	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("xArmVgripper"), solver.GetFrame("urCamera"))
+	solvedPose, err = solver.TransformFrame(newPos[len(newPos)-1], "xArmVgripper", "urCamera")
 	test.That(t, err, test.ShouldBeNil)
-	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], solver.GetFrame("urCamera"), solver.GetFrame("xArmVgripper"))
+	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], "urCamera", "xArmVgripper")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal2, 0.1), test.ShouldBeTrue)
 	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose2, goal2, 0.1), test.ShouldBeTrue)

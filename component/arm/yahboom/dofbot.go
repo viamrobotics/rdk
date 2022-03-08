@@ -133,7 +133,7 @@ func (a *dofBot) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the given absolute position.
-func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
