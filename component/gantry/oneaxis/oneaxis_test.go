@@ -20,7 +20,9 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var validatedTrue = validatedBool{valBool: true, Set: true}
+var (
+	validatedTrue = validatedBool{valBool: true, Set: true}
+)
 
 func createFakeMotor() *inject.Motor {
 	fakeMotor := &inject.Motor{}
@@ -74,10 +76,6 @@ func createFakeRobot() *inject.Robot {
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
 	err := fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
-
-	fakecfg.Board = "board"
-	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find motor for gantry")
 
 	fakecfg.Motor = "x"
@@ -86,9 +84,17 @@ func TestValidate(t *testing.T) {
 
 	fakecfg.LengthMm = 1.0
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "one limit switch pin")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with encoder")
+
+	fakecfg.LimitSwitchPins = []string{}
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with encoder")
 
 	fakecfg.LimitSwitchPins = []string{"1"}
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
+
+	fakecfg.Board = "board"
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry has one limit switch per axis, needs pulley radius to set position limits")
 
@@ -192,7 +198,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "encoder currently not supported")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "remove board from gantry attribute list")
 
 	fakecfg = config.Component{
 		Name: "gantry",
@@ -229,7 +235,7 @@ func TestNewOneAxis(t *testing.T) {
 	}
 
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "board")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid gantry type")
 
 	injectMotor = &inject.Motor{
 		GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {

@@ -4,8 +4,6 @@ package oneaxis
 import (
 	"context"
 	"encoding/json"
-
-	// for embedding model file.
 	"fmt"
 	"math"
 	"time"
@@ -23,19 +21,18 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	spatial "go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
 const modelname = "oneaxis"
 
+// TODO: (rh) figure out how to add this/where to add this in utils.
 type validatedBool struct {
 	valBool bool
 	Set     bool
 }
 
-// TODO: (rh) figure out how to add this/where to add this
 func (vB *validatedBool) UnmarshalJSON(data []byte) error {
 	vB.Set = true
 
@@ -52,27 +49,44 @@ func (vB *validatedBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type validatedFloat struct {
+	valFloat float64
+	Set      bool
+}
+
+func (vI *validatedFloat) UnmarshalJSON(data []byte) error {
+	vI.Set = true
+
+	if string(data) == "null" {
+		vI.Set = false
+		return nil
+	}
+	var temp float64
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	vI.valFloat = temp
+	return nil
+}
+
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
-	Board              string                    `json:"board"` // used to read limit switch pins and control motor with gpio pins
+	Board              string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
 	Motor              string                    `json:"motor"`
-	LimitSwitchPins    []string                  `json:"limit_pins"`
-	LimitPinEnabled    validatedBool             `json:"limit_pin_enabled_high"`
+	LimitSwitchPins    []string                  `json:"limit_pins,omitempty"`
+	LimitPinEnabled    validatedBool             `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm           float64                   `json:"length_mm"`
-	ReductionRatio     float64                   `json:"reduction_ratio"`
-	GantryRPM          float64                   `json:"gantry_rpm"`
+	ReductionRatio     float64                   `json:"reduction_ratio,omitempty"`
+	GantryRPM          float64                   `json:"gantry_rpm,omitempty"`
 	Axis               spatial.TranslationConfig `json:"axis"`
-	OrientTransform    spatial.OrientationConfig `json:"axis_orientaion_transform"`
-	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform"`
-	StartPosition      float64                   `json:"starting_position"`
+	OrientTransform    spatial.OrientationConfig `json:"axis_orientation_transform,omitempty"`
+	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform,omitempty"`
+	StartPosition      validatedFloat            `json:"starting_position,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
 func (config *AttrConfig) Validate(path string) error {
-	if config.Board == "" {
-		return utils.NewConfigValidationError(path, errors.New("cannot find board for gantry"))
-	}
-
 	if len(config.Motor) == 0 {
 		return utils.NewConfigValidationError(path, errors.New("cannot find motor for gantry"))
 	}
@@ -81,8 +95,12 @@ func (config *AttrConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
 	}
 
-	if len(config.LimitSwitchPins) == 0 {
-		return utils.NewConfigValidationError(path, errors.New("each axis needs at least one limit switch pin"))
+	if len(config.LimitSwitchPins) == 0 && !config.StartPosition.Set {
+		return utils.NewConfigValidationError(path, errors.New("gantry with encoder needs a start position set"))
+	}
+
+	if config.Board == "" && len(config.LimitSwitchPins) > 0 {
+		return utils.NewConfigValidationError(path, errors.New("cannot find board for gantry"))
 	}
 
 	if len(config.LimitSwitchPins) == 1 && config.ReductionRatio == 0 {
@@ -129,9 +147,8 @@ func init() {
 type oneAxis struct {
 	name string
 
-	board       board.Board
-	boardExists bool
-	motor       motor.Motor
+	board board.Board
+	motor motor.Motor
 
 	limitSwitchPins []string
 	limitHigh       bool
@@ -180,7 +197,8 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, conf.Motor)
 	}
 
-	// default no rotation using ParseConfig()
+	// default is no rotation using ParseConfig()
+	// TODO: Check with Test
 	orientOffset, err := conf.OrientTransform.ParseConfig()
 	if err != nil {
 		return nil, err
@@ -200,6 +218,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		axis:                  r3.Vector(conf.Axis),
 		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
 		axisTransaltionOffset: translationOffset,
+		startPosition:         conf.StartPosition.valFloat,
 	}
 
 	switch len(oAx.limitSwitchPins) {
@@ -225,17 +244,12 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		oAx.limitType = switchLimitTypeEncoder
 		_, err := board.FromRobot(r, conf.Board)
 		if err == nil {
-			return nil, errors.New("remove board from gantry attribute list, it shoudl be included in motor attribute list")
-		}
-		if oAx.startPosition == 0 {
-			return nil, errors.New("gantry of type encoder needs a start position set")
+			return nil, errors.New("remove board from gantry attribute list, it should be included in motor attribute list")
 		}
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
 	}
-
-	//if oAx.limitType == switchLimitTypeOnePin || oAx.limitType == switchLimitTypetwoPin
 
 	if err := oAx.Home(ctx); err != nil {
 		return nil, err
@@ -309,7 +323,6 @@ func (g *oneAxis) homeOneLimSwitch(ctx context.Context) error {
 
 // Not yet implemented.
 func (g *oneAxis) homeEncoder(ctx context.Context) error {
-
 	radius := g.reductionRatio
 	stepsPerLength := g.lengthMm / (radius * 2 * math.Pi)
 
@@ -473,7 +486,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 		m := referenceframe.NewSimpleModel()
 
 		f, err := referenceframe.NewStaticFrame(g.name,
-			spatialmath.NewPoseFromOrientationVector(g.axisTransaltionOffset, g.axisOrientationOffset))
+			spatial.NewPoseFromOrientationVector(g.axisTransaltionOffset, g.axisOrientationOffset))
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 
