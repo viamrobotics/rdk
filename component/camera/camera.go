@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
+	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -215,10 +216,15 @@ func (c *reconfigurableCamera) Close(ctx context.Context) error {
 func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resource.Reconfigurable) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	actual, ok := newCamera.(*reconfigurableCamera)
+	newCam, ok := newCamera.(*reconfigurableCamera)
 	if !ok {
 		return utils.NewUnexpectedTypeError(c, newCamera)
 	}
-	c.actual = actual.actual
+	rlog.Logger.Infof("MP: old camera actual: %p", c.actual)
+	rlog.Logger.Infof("MP: new camera actual: %p", newCam.actual)
+	// if err := viamutils.TryClose(ctx, c.actual); err != nil {
+	// 	rlog.Logger.Errorw("error closing old", "error", err)
+	// }
+	c.actual = newCam.actual
 	return nil
 }
