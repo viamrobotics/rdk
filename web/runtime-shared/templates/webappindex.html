@@ -148,7 +148,6 @@
 
         // make vue friendly
         status.motorsMap = [];
-        status.inputControllersMap = [];
 
         if (firstResult) {
           console.log(rawStatus);
@@ -162,7 +161,7 @@
           theData = {
               error : "",
               res : {},
-              rawStatus : null,
+              rawStatus : {},
               status : {},
               pcdClick : {},
               sensorReadings: {},
@@ -376,8 +375,13 @@
                         break;
                     }
                   },
-                  inputControllerByName : function(name) {
-                    return theData.status.inputControllersMap.find(elem => elem[0] == name) || {}
+                  hasWebGamepad : function() {
+                    return theData.resources.some(elem => 
+                      elem.namespace == 'rdk'
+                      && elem.type == 'component'
+                      && elem.subtype == 'input_controller'
+                      && elem.name == 'WebGamepad'
+                    )
                   },
                   filteredInputControllerList : function() {
                     // filters out WebGamepad
@@ -1645,13 +1649,13 @@
         v-for="controller in filteredInputControllerList()"
         :key="'new-' + controller.name"
         v-bind:controller-name="controller.name"
-        v-bind:controller-status="inputControllerByName(controller.name)[1]"
+        v-bind:controller-status="resourceStatusByName(controller)"
         style="max-width: 1080px;">
       </input-controller>
 
       <!-- ******* WEB CONTROLS *******  -->
       <web-gamepad
-        v-if="filterResources('rdk', 'component', 'input_controller').length !== 0 && Object.keys(inputControllerByName('WebGamepad')).length !== 0"
+        v-if="hasWebGamepad()"
         v-on:execute="inputInject($event)"
         style="max-width: 1080px;">
       </web-gamepad>
