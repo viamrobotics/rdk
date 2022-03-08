@@ -672,10 +672,10 @@
                       theData.pcdClick.calculatingSegments = true;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+pcdGlobal.cameraName);
-                      req.setName(pcdGlobal.cameraName);
-                      req.setMinPointsInPlane(minPointsPlane);
-                      req.setMinPointsInSegment(minPointsSegment);
-                      req.setClusteringRadiusMm(clusteringRadius);
+                      req.setCameraName(pcdGlobal.cameraName);
+                      req.setSegmenterName("radius_clustering");
+                      let params = {"min_points_in_plane": minPointsPlane, "min_points_in_segment": minPointsSegment, "clustering_radius_mm": clusteringRadius};
+                      req.setParameters(proto.google.protobuf.Struct.fromObject(params));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
