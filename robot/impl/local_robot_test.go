@@ -19,12 +19,15 @@ import (
 	"go.viam.com/utils/testutils"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -142,77 +145,87 @@ func TestConfigRemote(t *testing.T) {
 		},
 	}
 
-	r2, err := robotimpl.New(context.Background(), remoteConfig, logger)
+	metadataSvc2, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+	r2, err := robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// add equivalent test
-	// status, err := r2.Status(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
+	expected := []resource.Name{
+		resource.NameFromSubtype(service.Subtype, ""),
+		framesystem.Name,
+		sensors.Name,
+		status.Name,
+		web.Name,
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func1"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func2"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "bar.func1"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "bar.func2"),
+		arm.Named("pieceArm"),
+		arm.Named("foo.pieceArm"),
+		arm.Named("bar.pieceArm"),
+		base.Named("foo"),
+		camera.Named("cameraOver"),
+		camera.Named("foo.cameraOver"),
+		camera.Named("bar.cameraOver"),
+		gps.Named("gps1"),
+		gps.Named("foo.gps1"),
+		gps.Named("bar.gps1"),
+		gps.Named("gps2"),
+		gps.Named("foo.gps2"),
+		gps.Named("bar.gps2"),
+		gripper.Named("pieceGripper"),
+		gripper.Named("foo.pieceGripper"),
+		gripper.Named("bar.pieceGripper"),
+	}
+	test.That(
+		t,
+		rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+		test.ShouldResemble,
+		rtestutils.NewResourceNameSet(expected...),
+	)
+	statusSvc, err := status.FromRobot(r2)
+	test.That(t, err, test.ShouldBeNil)
 
-	// expectedStatus := &pb.Status{
-	// 	Arms: map[string]*pb.ArmStatus{
-	// 		"pieceArm": {
-	// 			GridPosition: &pb.Pose{
-	// 				X: 0.0,
-	// 				Y: 0.0,
-	// 				Z: 0.0,
-	// 			},
-	// 			JointPositions: &pb.JointPositions{
-	// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-	// 			},
-	// 		},
-	// 		"foo.pieceArm": {
-	// 			GridPosition: &pb.Pose{
-	// 				X: 0.0,
-	// 				Y: 0.0,
-	// 				Z: 0.0,
-	// 			},
-	// 			JointPositions: &pb.JointPositions{
-	// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-	// 			},
-	// 		},
-	// 		"bar.pieceArm": {
-	// 			GridPosition: &pb.Pose{
-	// 				X: 0.0,
-	// 				Y: 0.0,
-	// 				Z: 0.0,
-	// 			},
-	// 			JointPositions: &pb.JointPositions{
-	// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-	// 			},
-	// 		},
-	// 	},
-	// 	Bases: map[string]bool{
-	// 		"foo": true,
-	// 	},
-	// 	Cameras: map[string]bool{
-	// 		"cameraOver":     true,
-	// 		"foo.cameraOver": true,
-	// 		"bar.cameraOver": true,
-	// 	},
-	// 	Grippers: map[string]bool{
-	// 		"pieceGripper":     true,
-	// 		"foo.pieceGripper": true,
-	// 		"bar.pieceGripper": true,
-	// 	},
-	// 	Sensors: nil,
-	// 	Functions: map[string]bool{
-	// 		"func1":     true,
-	// 		"foo.func1": true,
-	// 		"bar.func1": true,
-	// 		"func2":     true,
-	// 		"foo.func2": true,
-	// 		"bar.func2": true,
-	// 	},
-	// 	Services: map[string]bool{
-	// 		"rdk:service:frame_system": true,
-	// 		"rdk:service:web":          true,
-	// 		"rdk:service:sensors":      true,
-	// 		"rdk:service:status":       true,
-	// 	},
-	// }
+	statuses, err := statusSvc.GetStatus(
+		context.Background(),
+		[]resource.Name{gps.Named("gps1"), gps.Named("foo.gps1"), gps.Named("bar.gps1")},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 3)
+	test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+	test.That(t, statuses[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+	test.That(t, statuses[2].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
 
-	// test.That(t, status, test.ShouldResemble, expectedStatus)
+	statuses, err = statusSvc.GetStatus(
+		context.Background(),
+		[]resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm"), arm.Named("bar.pieceArm")},
+	)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 3)
+	test.That(
+		t,
+		statuses[0].Status,
+		test.ShouldResemble,
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+	)
+	test.That(
+		t,
+		statuses[1].Status,
+		test.ShouldResemble,
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+	)
+	test.That(
+		t,
+		statuses[2].Status,
+		test.ShouldResemble,
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+	)
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -340,6 +353,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			}
 
 			var r2 robot.LocalRobot
+			var metadataSvc2 service.Metadata
 			if tc.Managed {
 				remoteConfig.Remotes[0].Auth.Entity = "wrong"
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
@@ -358,11 +372,14 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
+				metadataSvc2, err = service.New()
+				test.That(t, err, test.ShouldBeNil)
+				ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
 				if tc.EntityName != "" {
 					remoteConfig.Remotes[1].Address = options.FQDN
 				}
-				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
 			} else {
 				_, err = robotimpl.New(context.Background(), remoteConfig, logger)
@@ -375,64 +392,73 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				test.That(t, err, test.ShouldBeNil)
 				test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
+				metadataSvc2, err = service.New()
+				test.That(t, err, test.ShouldBeNil)
+				ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
 				remoteConfig.Remotes[0].Address = options.LocalFQDN
-				r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+				r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 				test.That(t, err, test.ShouldBeNil)
 			}
 
 			test.That(t, r2, test.ShouldNotBeNil)
 
-			// add equivalent test
-			// status, err := r2.Status(context.Background())
-			// test.That(t, err, test.ShouldBeNil)
+			expected := []resource.Name{
+				resource.NameFromSubtype(service.Subtype, ""),
+				framesystem.Name,
+				sensors.Name,
+				status.Name,
+				web.Name,
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func1"),
+				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "foo.func2"),
+				arm.Named("pieceArm"),
+				arm.Named("foo.pieceArm"),
+				camera.Named("cameraOver"),
+				camera.Named("foo.cameraOver"),
+				gps.Named("gps1"),
+				gps.Named("foo.gps1"),
+				gps.Named("gps2"),
+				gps.Named("foo.gps2"),
+				gripper.Named("pieceGripper"),
+				gripper.Named("foo.pieceGripper"),
+			}
+			test.That(
+				t,
+				rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+				test.ShouldResemble,
+				rtestutils.NewResourceNameSet(expected...),
+			)
+			statusSvc, err := status.FromRobot(r2)
+			test.That(t, err, test.ShouldBeNil)
 
-			// expectedStatus := &pb.Status{
-			// 	Arms: map[string]*pb.ArmStatus{
-			// 		"pieceArm": {
-			// 			GridPosition: &pb.Pose{
-			// 				X: 0.0,
-			// 				Y: 0.0,
-			// 				Z: 0.0,
-			// 			},
-			// 			JointPositions: &pb.JointPositions{
-			// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-			// 			},
-			// 		},
-			// 		"foo.pieceArm": {
-			// 			GridPosition: &pb.Pose{
-			// 				X: 0.0,
-			// 				Y: 0.0,
-			// 				Z: 0.0,
-			// 			},
-			// 			JointPositions: &pb.JointPositions{
-			// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-			// 			},
-			// 		},
-			// 	},
-			// 	Cameras: map[string]bool{
-			// 		"cameraOver":     true,
-			// 		"foo.cameraOver": true,
-			// 	},
-			// 	Grippers: map[string]bool{
-			// 		"pieceGripper":     true,
-			// 		"foo.pieceGripper": true,
-			// 	},
-			// 	Sensors: nil,
-			// 	Functions: map[string]bool{
-			// 		"func1":     true,
-			// 		"func2":     true,
-			// 		"foo.func1": true,
-			// 		"foo.func2": true,
-			// 	},
-			// 	Services: map[string]bool{
-			// 		"rdk:service:web":          true,
-			// 		"rdk:service:frame_system": true,
-			// 		"rdk:service:sensors":      true,
-			// 		"rdk:service:status":       true,
-			// 	},
-			// }
+			statuses, err := statusSvc.GetStatus(
+				context.Background(), []resource.Name{gps.Named("gps1"), gps.Named("foo.gps1")},
+			)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(statuses), test.ShouldEqual, 2)
+			test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+			test.That(t, statuses[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
 
-			// test.That(t, status, test.ShouldResemble, expectedStatus)
+			statuses, err = statusSvc.GetStatus(
+				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
+			)
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, len(statuses), test.ShouldEqual, 2)
+			test.That(
+				t,
+				statuses[0].Status,
+				test.ShouldResemble,
+				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+			)
+			test.That(
+				t,
+				statuses[1].Status,
+				test.ShouldResemble,
+				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+			)
 			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 			test.That(t, r.Close(context.Background()), test.ShouldBeNil)
@@ -565,51 +591,56 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 	// use cert with mDNS while signaling present
+	metadataSvc2, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
 	remoteConfig.Remotes[0].Auth.SignalingCreds = &rpc.Credentials{
 		Type:    rutils.CredentialsTypeRobotLocationSecret,
 		Payload: locationSecret + "bad",
 	}
 	remoteConfig.Remotes[0].Address = options.FQDN
-	r2, err = robotimpl.New(context.Background(), remoteConfig, logger)
+	r2, err = robotimpl.New(ctx2, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	// add equivalent test
-	// status, err := r2.Status(context.Background())
-	// test.That(t, err, test.ShouldBeNil)
+	expected := []resource.Name{
+		resource.NameFromSubtype(service.Subtype, ""),
+		framesystem.Name,
+		sensors.Name,
+		status.Name,
+		web.Name,
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
+		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
+		arm.Named("pieceArm"),
+		camera.Named("cameraOver"),
+		gps.Named("gps1"),
+		gps.Named("gps2"),
+		gripper.Named("pieceGripper"),
+	}
+	test.That(
+		t,
+		rtestutils.NewResourceNameSet(metadataSvc2.All()...),
+		test.ShouldResemble,
+		rtestutils.NewResourceNameSet(expected...),
+	)
+	statusSvc, err := status.FromRobot(r2)
+	test.That(t, err, test.ShouldBeNil)
 
-	// expectedStatus := &pb.Status{
-	// 	Arms: map[string]*pb.ArmStatus{
-	// 		"pieceArm": {
-	// 			GridPosition: &pb.Pose{
-	// 				X: 0.0,
-	// 				Y: 0.0,
-	// 				Z: 0.0,
-	// 			},
-	// 			JointPositions: &pb.JointPositions{
-	// 				Degrees: []float64{0, 0, 0, 0, 0, 0},
-	// 			},
-	// 		},
-	// 	},
-	// 	Grippers: map[string]bool{
-	// 		"pieceGripper": true,
-	// 	},
-	// 	Cameras: map[string]bool{
-	// 		"cameraOver": true,
-	// 	},
-	// 	Sensors: nil,
-	// 	Functions: map[string]bool{
-	// 		"func1": true,
-	// 		"func2": true,
-	// 	},
-	// 	Services: map[string]bool{
-	// 		"rdk:service:web":          true,
-	// 		"rdk:service:frame_system": true,
-	// 		"rdk:service:sensors":      true,
-	// 		"rdk:service:status":       true,
-	// 	},
-	// }
+	statuses, err := statusSvc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 1)
+	test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
 
-	// test.That(t, status, test.ShouldResemble, expectedStatus)
+	statuses, err = statusSvc.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(statuses), test.ShouldEqual, 1)
+	test.That(
+		t,
+		statuses[0].Status,
+		test.ShouldResemble,
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+	)
+
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
