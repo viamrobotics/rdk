@@ -16,6 +16,7 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
@@ -33,7 +34,12 @@ import (
 	"go.viam.com/rdk/services/web"
 )
 
-var _ = robot.LocalRobot(&localRobot{})
+var (
+	_ = robot.LocalRobot(&localRobot{})
+
+	// defaultSvc is a list of default robot services
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name}
+)
 
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its parts.
@@ -185,7 +191,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}
 
 	// default services
-	defaultSvc := []resource.Name{sensors.Name, status.Name, web.Name}
 	for _, name := range defaultSvc {
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
 		svc, err := r.newService(ctx, cfg)
@@ -193,6 +198,11 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 			return nil, err
 		}
 		r.parts.addResource(name, svc)
+	}
+
+	// update default services - done here so that all resources have been created and can be addressed.
+	if err := r.updateDefaultServices(ctx); err != nil {
+		return nil, err
 	}
 
 	// if metadata exists, update it
@@ -229,6 +239,32 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 		return newResource, nil
 	}
 	return c.Reconfigurable(newResource)
+}
+
+func (r *localRobot) updateDefaultServices(ctx context.Context) error {
+	// grab all resources
+	resources := map[resource.Name]interface{}{}
+	for _, n := range r.ResourceNames() {
+		// TODO(RDK-119) if not found, could mean a name clash or a remote service
+		res, err := r.ResourceByName(n)
+		if err != nil {
+			r.logger.Debugf("not found while grabbing all resources during default svc refresh: %w", err)
+		}
+		resources[n] = res
+	}
+	for _, name := range defaultSvc {
+		svc, err := r.ResourceByName(name)
+		if err != nil {
+			return utils.NewResourceNotFoundError(name)
+		}
+		updateable, ok := svc.(resource.Updateable)
+		if ok {
+			if err := updateable.Update(ctx, resources); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Refresh does nothing for now.
