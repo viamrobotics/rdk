@@ -19,6 +19,7 @@ To see more examples, check out the [Wiki](https://github.com/viamrobotics/rdk/w
 
 ### First time run
 
+* Run `make build` to compile protocol buffer schemas and create rdk library bundle
 * Try out `go run web/cmd/server/main.go robots/configs/fake.json` and visit http://localhost:8080
 
 ## Development
