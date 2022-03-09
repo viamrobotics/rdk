@@ -436,7 +436,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
+	err = arm1.MoveToJointPositions(context.Background(), &armpb.JointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -505,7 +505,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.ArmJointPositions{Degrees: []float64{1}})
+	err = resource1.(arm.Arm).MoveToJointPositions(context.Background(), &armpb.JointPositions{Degrees: []float64{1}})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
