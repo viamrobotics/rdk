@@ -62,6 +62,7 @@ func TestFromRobot(t *testing.T) {
 		test.That(t, svc, test.ShouldBeNil)
 	})
 }
+
 func TestNew(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	t.Run("no error", func(t *testing.T) {

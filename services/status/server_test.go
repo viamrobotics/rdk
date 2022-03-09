@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/gps"
@@ -195,88 +196,98 @@ func TestServerGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldEqual, err1)
 	})
 
-	// t.Run("StreamStatus", func(t *testing.T) {
-	// 	injectStatus := &inject.StatusService{}
-	// 	sMap := map[resource.Name]interface{}{
-	// 		status.Name: injectStatus,
-	// 	}
-	// 	server, err := newServer(sMap)
-	// 	test.That(t, err, test.ShouldBeNil)
-	// 	iStatus := status.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
-	// 	gStatus := status.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-	// 	aStatus := status.Status{Name: arm.Named("arm"), Status: status.DefaultStatus{Exists: true}}
-	// 	statuses := []status.Status{iStatus, gStatus, aStatus}
-	// 	expected := map[resource.Name]interface{}{
-	// 		iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
-	// 		gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-	// 		aStatus.Name: map[string]interface{}{"exists": true},
-	// 	}
-	// 	injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
-	// 		test.That(
-	// 			t,
-	// 			testutils.NewResourceNameSet(resourceNames...),
-	// 			test.ShouldResemble,
-	// 			testutils.NewResourceNameSet(iStatus.Name, gStatus.Name, aStatus.Name),
-	// 		)
-	// 		return statuses, nil
-	// 	}
-	// 	cancelCtx, cancel := context.WithCancel(context.Background())
-	// 	defer cancel()
-	// 	messageCh := make(chan *pb.StreamStatusResponse)
-	// 	streamServer := &statusStreamServer{
-	// 		ctx:       cancelCtx,
-	// 		messageCh: messageCh,
-	// 	}
+	t.Run("failed StreamStatus server send", func(t *testing.T) {
+		injectStatus := &inject.StatusService{}
+		sMap := map[resource.Name]interface{}{
+			status.Name: injectStatus,
+		}
+		server, err := newServer(sMap)
+		test.That(t, err, test.ShouldBeNil)
+		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
+			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+		}
 
-	// 	err1 := errors.New("whoops")
-	// 	err = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(time.Second)}, streamServer)
-	// 	test.That(t, err, test.ShouldEqual, err1)
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		messageCh := make(chan *pb.StreamStatusResponse)
+		streamServer := &statusStreamServer{
+			ctx:       cancelCtx,
+			messageCh: messageCh,
+			fail:      true,
+		}
+		dur := 100 * time.Millisecond
+		err = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
+	})
 
-	// 	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-	// 		return emptyStatus.Status, nil
-	// 	}
-	// 	streamServer.fail = true
-	// 	dur := 100 * time.Millisecond
-	// 	err = server.StatusStream(&pb.StatusStreamRequest{
-	// 		Every: durationpb.New(dur),
-	// 	}, streamServer)
-	// 	test.That(t, err, test.ShouldNotBeNil)
-	// 	test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
+	t.Run("timed out StreamStatus", func(t *testing.T) {
+		injectStatus := &inject.StatusService{}
+		sMap := map[resource.Name]interface{}{
+			status.Name: injectStatus,
+		}
+		server, err := newServer(sMap)
+		test.That(t, err, test.ShouldBeNil)
+		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
+			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+		}
 
-	// 	streamServer.fail = false
-	// 	var streamErr error
-	// 	start := time.Now()
-	// 	done := make(chan struct{})
-	// 	go func() {
-	// 		streamErr = server.StatusStream(&pb.StatusStreamRequest{
-	// 			Every: durationpb.New(dur),
-	// 		}, streamServer)
-	// 		close(done)
-	// 	}()
-	// 	var messages []*pb.StatusStreamResponse
-	// 	messages = append(messages, <-messageCh)
-	// 	messages = append(messages, <-messageCh)
-	// 	messages = append(messages, <-messageCh)
-	// 	test.That(t, messages, test.ShouldResemble, []*pb.StatusStreamResponse{
-	// 		{Status: emptyStatus.Status},
-	// 		{Status: emptyStatus.Status},
-	// 		{Status: emptyStatus.Status},
-	// 	})
-	// 	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-	// 	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
-	// 	cancel()
-	// 	<-done
-	// 	test.That(t, streamErr, test.ShouldEqual, context.Canceled)
+		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		streamServer := &statusStreamServer{
+			ctx:       timeoutCtx,
+			messageCh: nil,
+		}
+		dur := 100 * time.Millisecond
 
-	// 	timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-	// 	defer cancel()
-	// 	streamServer.ctx = timeoutCtx
-	// 	streamServer.messageCh = nil
-	// 	streamErr = server.StatusStream(&pb.StatusStreamRequest{
-	// 		Every: durationpb.New(dur),
-	// 	}, streamServer)
-	// 	test.That(t, streamErr, test.ShouldResemble, context.DeadlineExceeded)
-	// })
+		streamErr := server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
+		test.That(t, streamErr, test.ShouldResemble, context.DeadlineExceeded)
+	})
+
+	t.Run("working StreamStatus", func(t *testing.T) {
+		injectStatus := &inject.StatusService{}
+		sMap := map[resource.Name]interface{}{
+			status.Name: injectStatus,
+		}
+		server, err := newServer(sMap)
+		test.That(t, err, test.ShouldBeNil)
+		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
+			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+		}
+
+		cancelCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		messageCh := make(chan *pb.StreamStatusResponse)
+		streamServer := &statusStreamServer{
+			ctx:       cancelCtx,
+			messageCh: messageCh,
+			fail:      false,
+		}
+		dur := 100 * time.Millisecond
+		var streamErr error
+		start := time.Now()
+		done := make(chan struct{})
+		go func() {
+			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
+			close(done)
+		}()
+		expectedStatus, err := structpb.NewStruct(map[string]interface{}{"exists": true})
+		test.That(t, err, test.ShouldBeNil)
+		var messages []*pb.StreamStatusResponse
+		messages = append(messages, <-messageCh)
+		messages = append(messages, <-messageCh)
+		messages = append(messages, <-messageCh)
+		test.That(t, messages, test.ShouldResemble, []*pb.StreamStatusResponse{
+			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
+			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
+			{Status: []*pb.Status{{Name: protoutils.ResourceNameToProto(arm.Named("arm")), Status: expectedStatus}}},
+		})
+		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
+		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
+		cancel()
+		<-done
+		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
+	})
 }
 
 type statusStreamServer struct {
