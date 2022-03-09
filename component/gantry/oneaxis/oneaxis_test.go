@@ -20,10 +20,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-var (
-	validatedTrue = validatedBool{valBool: true, Set: true}
-)
-
 func createFakeMotor() *inject.Motor {
 	fakeMotor := &inject.Motor{}
 
@@ -73,6 +69,9 @@ func createFakeRobot() *inject.Robot {
 	return fakerobot
 }
 
+var setTrue = true
+var setFloat = 1.0
+
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
 	err := fakecfg.Validate("path")
@@ -102,7 +101,7 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "limit pin enabled")
 
-	fakecfg.LimitPinEnabled = validatedTrue
+	fakecfg.LimitPinEnabled = &setTrue
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry axis undefined")
 
@@ -144,7 +143,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1", "2"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitPinEnabled: validatedTrue,
+			LimitPinEnabled: &setTrue,
 			GantryRPM:       float64(300),
 		},
 	}
@@ -161,7 +160,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitPinEnabled: validatedTrue,
+			LimitPinEnabled: &setTrue,
 			ReductionRatio:  0.1,
 			GantryRPM:       float64(300),
 		},
@@ -179,7 +178,7 @@ func TestNewOneAxis(t *testing.T) {
 			LimitSwitchPins: []string{"1"},
 			LengthMm:        1.0,
 			Board:           "board",
-			LimitPinEnabled: validatedTrue,
+			LimitPinEnabled: &setTrue,
 			GantryRPM:       float64(300),
 		},
 	}
@@ -195,6 +194,7 @@ func TestNewOneAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           "board",
 			Motor:           gantryMotorName,
+			StartPosition:   &setFloat,
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
@@ -468,7 +468,7 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 
 func TestHomeEncoder(t *testing.T) {
 	fakegantry := &oneAxis{
-		limitType: switchLimitTypeEncoder,
+		limitType: limitEncoder,
 	}
 
 	resetZeroErr := errors.New("failed to set zero")
@@ -536,7 +536,7 @@ func TestGetPosition(t *testing.T) {
 		positionLimits:  []float64{0, 1},
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
-		limitType:       switchLimitTypetwoPin,
+		limitType:       limitTwoPin,
 		logger:          logger,
 	}
 	positions, err := fakegantry.GetPosition(ctx)
@@ -553,7 +553,7 @@ func TestGetPosition(t *testing.T) {
 		board:           createFakeBoard(),
 		limitHigh:       true,
 		limitSwitchPins: []string{"1", "2"},
-		limitType:       switchLimitTypetwoPin,
+		limitType:       limitTwoPin,
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
 	}
@@ -599,7 +599,7 @@ func TestGetPosition(t *testing.T) {
 			},
 		},
 		limitHigh:       true,
-		limitType:       switchLimitTypetwoPin,
+		limitType:       limitTwoPin,
 		limitSwitchPins: []string{"1", "2"},
 		positionLimits:  []float64{0, 1},
 		logger:          logger,
@@ -705,7 +705,7 @@ func TestCurrentInputs(t *testing.T) {
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(200),
 		positionLimits:  []float64{0, 2},
-		limitType:       switchLimitTypeOnePin,
+		limitType:       limitOnePin,
 	}
 
 	input, err = fakegantry.CurrentInputs(ctx)
