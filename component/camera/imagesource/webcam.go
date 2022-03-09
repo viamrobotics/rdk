@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/utils"
 )
 
 func init() {
@@ -28,17 +29,42 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			return NewWebcamSource(config.ConvertedAttributes.(*camera.AttrConfig), logger)
+			attrs, ok := config.ConvertedAttributes.(*WebcamAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			return NewWebcamSource(attrs, logger)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "webcam",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf WebcamAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*WebcamAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
+		}, &WebcamAttrs{})
 }
 
-func makeConstraints(attrs *camera.AttrConfig, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
+// WebcamAttrs is the attribute struct for webcams.
+type WebcamAttrs struct {
+	*camera.AttrConfig
+	Format      string `json:"format"`
+	Path        string `json:"path"`
+	PathPattern string `json:"path_pattern"`
+}
+
+func makeConstraints(attrs *WebcamAttrs, debug bool, logger golog.Logger) mediadevices.MediaStreamConstraints {
 	minWidth := 680
 	maxWidth := 4096
 	idealWidth := 800
@@ -87,7 +113,7 @@ func makeConstraints(attrs *camera.AttrConfig, debug bool, logger golog.Logger) 
 }
 
 // NewWebcamSource returns a new source based on a webcam discovered from the given attributes.
-func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func NewWebcamSource(attrs *WebcamAttrs, logger golog.Logger) (camera.Camera, error) {
 	var err error
 
 	debug := attrs.Debug
@@ -135,10 +161,10 @@ func NewWebcamSource(attrs *camera.AttrConfig, logger golog.Logger) (camera.Came
 	return nil, errors.New("found no webcams")
 }
 
-func tryWebcamOpen(attrs *camera.AttrConfig, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
+func tryWebcamOpen(attrs *WebcamAttrs, path string, constraints mediadevices.MediaStreamConstraints) (camera.Camera, error) {
 	reader, err := media.GetNamedVideoReader(filepath.Base(path), constraints)
 	if err != nil {
 		return nil, err
 	}
-	return camera.New(reader, attrs, nil)
+	return camera.New(reader, attrs.AttrConfig, nil)
 }
