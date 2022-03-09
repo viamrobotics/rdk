@@ -2,10 +2,12 @@ package imu
 
 import (
 	"context"
+	"github.com/golang/protobuf/ptypes/any"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/utils/rpc"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"os"
 	"sync"
 	"time"
@@ -16,8 +18,9 @@ import (
 
 type ReadAngularVelocityCollector struct {
 	client pb.IMUServiceClient
-	queue  chan *pb.ReadAngularVelocityResponse
 
+	// TODO: I think anything that doesn't use client can be shared
+	queue    chan *any.Any
 	Interval time.Duration
 	name     string
 	lock     sync.Mutex
@@ -27,8 +30,8 @@ type ReadAngularVelocityCollector struct {
 
 type ReadOrientationCollector struct {
 	client pb.IMUServiceClient
-	queue  chan *pb.ReadOrientationResponse
 
+	queue    chan *any.Any
 	Interval time.Duration
 	name     string
 	lock     sync.Mutex
@@ -45,7 +48,7 @@ func NewReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, name string, i
 		target:   target,
 		done:     make(chan bool),
 		// TODO: smarter channel buffer size?
-		queue: make(chan *pb.ReadAngularVelocityResponse, 10),
+		queue: make(chan *any.Any, 10),
 	}
 }
 
@@ -58,7 +61,7 @@ func NewReadOrientationCollectorFromConn(conn rpc.ClientConn, name string, inter
 		target:   target,
 		done:     make(chan bool),
 		// TODO: smarter channel buffer size?
-		queue: make(chan *pb.ReadOrientationResponse, 10),
+		queue: make(chan *any.Any, 10),
 	}
 }
 
@@ -90,7 +93,9 @@ func (c *ReadOrientationCollector) GetTarget() *os.File {
 func (c *ReadAngularVelocityCollector) Collect(ctx context.Context) error {
 	errs, ctx := errgroup.WithContext(ctx)
 	errs.Go(c.capture)
-	errs.Go(c.write)
+	errs.Go(func() error {
+		return data.Write(c.queue, c.target)
+	})
 	return errs.Wait()
 }
 
@@ -98,7 +103,9 @@ func (c *ReadAngularVelocityCollector) Collect(ctx context.Context) error {
 func (c *ReadOrientationCollector) Collect(ctx context.Context) error {
 	errs, ctx := errgroup.WithContext(ctx)
 	errs.Go(c.capture)
-	errs.Go(c.write)
+	errs.Go(func() error {
+		return data.Write(c.queue, c.target)
+	})
 	return errs.Wait()
 }
 
@@ -127,24 +134,13 @@ func (c *ReadAngularVelocityCollector) capture() error {
 			if err != nil {
 				return err
 			}
-			c.queue <- resp
+			a, err := anypb.New(resp)
+			if err != nil {
+				return err
+			}
+			c.queue <- a
 		}
 	}
-}
-
-// TODO: length prefix when writing
-func (c *ReadAngularVelocityCollector) write() error {
-	for resp := range c.queue {
-		bytes, err := proto.Marshal(resp)
-		if err != nil {
-			return err
-		}
-		_, err = c.target.Write(bytes)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *ReadOrientationCollector) capture() error {
@@ -160,22 +156,11 @@ func (c *ReadOrientationCollector) capture() error {
 			if err != nil {
 				return err
 			}
-			c.queue <- resp
+			a, err := anypb.New(resp)
+			if err != nil {
+				return err
+			}
+			c.queue <- a
 		}
 	}
-}
-
-// TODO: length prefix when writing
-func (c *ReadOrientationCollector) write() error {
-	for resp := range c.queue {
-		bytes, err := proto.Marshal(resp)
-		if err != nil {
-			return err
-		}
-		_, err = c.target.Write(bytes)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
