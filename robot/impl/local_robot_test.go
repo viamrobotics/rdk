@@ -837,7 +837,7 @@ func TestStatusService(t *testing.T) {
 	svc, err := status.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 
-	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name}
+	resourceNames := []resource.Name{arm.Named("pieceArm"), gps.Named("gps1"), status.Name, web.Name}
 	rArm, err := arm.FromRobot(r, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	armStatus, err := arm.CreateStatus(context.Background(), rArm)
@@ -846,6 +846,7 @@ func TestStatusService(t *testing.T) {
 		arm.Named("pieceArm"): armStatus,
 		gps.Named("gps1"):     status.DefaultStatus{Exists: true},
 		status.Name:           status.DefaultStatus{Exists: true},
+		web.Name:              status.DefaultStatus{Exists: true},
 	}
 
 	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
@@ -856,11 +857,12 @@ func TestStatusService(t *testing.T) {
 
 	statuses, err = svc.GetStatus(context.Background(), resourceNames)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(statuses), test.ShouldEqual, 3)
+	test.That(t, len(statuses), test.ShouldEqual, 4)
 
 	test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
 	test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
 	test.That(t, statuses[2].Status, test.ShouldResemble, expected[statuses[2].Name])
+	test.That(t, statuses[3].Status, test.ShouldResemble, expected[statuses[3].Name])
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 }
