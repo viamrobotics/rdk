@@ -43,7 +43,14 @@ func init() {
 		Subtype:    Subtype,
 		MethodName: "ReadAngularVelocity",
 	}, data.CollectorConstructor{
-		Constructor: data.NewIMUReadAngularVelocityCollectorFromConn,
+		Constructor: NewReadAngularVelocityCollectorFromConn,
+	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    Subtype,
+		MethodName: "ReadOrientation",
+	}, data.CollectorConstructor{
+		Constructor: NewReadOrientationCollectorFromConn,
 	})
 }
 
