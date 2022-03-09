@@ -27,29 +27,6 @@ type MethodMetadata struct {
 	MethodName string
 }
 
-// TODO: rethink what this should be storing. Should have everything needed so some future Data Manager Service can
-// take a CollectionSchema, and:
-// - Call the appropriate proto method
-// - Map string params -> Proto method inputs
-// - Read/deserialize those proto method outputs
-
-/**
-What do we need to call the appropriate proto method?
- - a client or a way to get the client
- - a method literal, or if you can't store those in Go structs, a method name (then reflection...)
-*/
-//type CollectorSchema struct {
-//	// Can use this to look up client
-//	ResourceSubtype resource.Subtype
-//	Method          func(context context.Context) (interface{}, error)
-//	// TODO: include input/output type literals so those any.Any can be casted.
-//	// TODO: minimum capture interval? Though unsure if that exists in code yet.
-//	// TODO: find "parent" type of pb.XSericeClient
-//	RPCClient  registry.CreateRPCClient
-//	InputType  any.Any
-//	OutputType any.Any
-//}
-
 var (
 	collectorRegistry = map[MethodMetadata]CollectorConstructor{}
 )
