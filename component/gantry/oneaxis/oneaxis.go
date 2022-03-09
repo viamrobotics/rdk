@@ -3,7 +3,6 @@ package oneaxis
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -28,61 +27,27 @@ import (
 const modelname = "oneaxis"
 
 // TODO: (rh) figure out how to add this/where to add this in utils.
-type validatedBool struct {
-	valBool bool
-	Set     bool
-}
+// type validatedBool struct {
+// 	Set *bool
+// }
 
-func (vB *validatedBool) UnmarshalJSON(data []byte) error {
-	vB.Set = true
-
-	if string(data) == "null" {
-		vB.Set = false
-		return nil
-	}
-	var temp bool
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	vB.valBool = temp
-	return nil
-}
-
-type validatedFloat struct {
-	valFloat float64
-	Set      bool
-}
-
-func (vI *validatedFloat) UnmarshalJSON(data []byte) error {
-	vI.Set = true
-
-	if string(data) == "null" {
-		vI.Set = false
-		return nil
-	}
-	var temp float64
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	vI.valFloat = temp
-	return nil
-}
+// type validatedFloat struct {
+// 	Set *float64
+// }
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
 	Board              string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
 	Motor              string                    `json:"motor"`
 	LimitSwitchPins    []string                  `json:"limit_pins,omitempty"`
-	LimitPinEnabled    validatedBool             `json:"limit_pin_enabled_high,omitempty"`
+	LimitPinEnabled    *bool                     `json:"limit_pin_enabled_high,omitempty"`
 	LengthMm           float64                   `json:"length_mm"`
 	ReductionRatio     float64                   `json:"reduction_ratio,omitempty"`
 	GantryRPM          float64                   `json:"gantry_rpm,omitempty"`
 	Axis               spatial.TranslationConfig `json:"axis"`
 	OrientTransform    spatial.OrientationConfig `json:"axis_orientation_transform,omitempty"`
 	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform,omitempty"`
-	StartPosition      validatedFloat            `json:"starting_position,omitempty"`
+	StartPosition      *float64                  `json:"starting_position,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
@@ -95,7 +60,7 @@ func (config *AttrConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.New("each axis needs a non-zero and positive length"))
 	}
 
-	if len(config.LimitSwitchPins) == 0 && !config.StartPosition.Set {
+	if len(config.LimitSwitchPins) == 0 && config.StartPosition == nil {
 		return utils.NewConfigValidationError(path, errors.New("gantry with encoder needs a start position set"))
 	}
 
@@ -108,7 +73,7 @@ func (config *AttrConfig) Validate(path string) error {
 			errors.New("gantry has one limit switch per axis, needs pulley radius to set position limits"))
 	}
 
-	if !config.LimitPinEnabled.Set {
+	if config.LimitPinEnabled == nil {
 		return utils.NewConfigValidationError(path, errors.New("limit pin enabled muist be set to true or false"))
 	}
 
@@ -152,7 +117,7 @@ type oneAxis struct {
 
 	limitSwitchPins []string
 	limitHigh       bool
-	limitType       switchLimitType
+	limitType       limitType
 	positionLimits  []float64
 
 	lengthMm       float64
@@ -169,12 +134,12 @@ type oneAxis struct {
 	logger golog.Logger
 }
 
-type switchLimitType string
+type limitType string
 
 const (
-	switchLimitTypeEncoder = switchLimitType("encoder")
-	switchLimitTypeOnePin  = switchLimitType("onePinOneLength")
-	switchLimitTypetwoPin  = switchLimitType("twoPin")
+	limitEncoder = limitType("encoder")
+	limitOnePin  = limitType("onePinOneLength")
+	limitTwoPin  = limitType("twoPin")
 )
 
 // NewOneAxis creates a new one axis gantry.
@@ -211,19 +176,19 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		motor:                 _motor,
 		logger:                logger,
 		limitSwitchPins:       conf.LimitSwitchPins,
-		limitHigh:             conf.LimitPinEnabled.valBool,
 		lengthMm:              conf.LengthMm,
 		reductionRatio:        conf.ReductionRatio,
 		rpm:                   conf.GantryRPM,
 		axis:                  r3.Vector(conf.Axis),
 		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
 		axisTransaltionOffset: translationOffset,
-		startPosition:         conf.StartPosition.valFloat,
+		// limitHigh:             PinEnable,
+		//		startPosition:         StartPos,
 	}
 
 	switch len(oAx.limitSwitchPins) {
 	case 1:
-		oAx.limitType = switchLimitTypeOnePin
+		oAx.limitType = limitOnePin
 		if oAx.reductionRatio <= 0 {
 			return nil, errors.New("gantry with one limit switch per axis needs a reduction ratio defined")
 		}
@@ -233,19 +198,30 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 			return nil, err
 		}
 		oAx.board = board
+
+		var PinEnable = *conf.LimitPinEnabled
+		oAx.limitHigh = PinEnable
+
 	case 2:
-		oAx.limitType = switchLimitTypetwoPin
+		oAx.limitType = limitTwoPin
 		board, err := board.FromRobot(r, conf.Board)
 		if err != nil {
 			return nil, err
 		}
 		oAx.board = board
+
+		var PinEnable = *conf.LimitPinEnabled
+		oAx.limitHigh = PinEnable
+
 	case 0:
-		oAx.limitType = switchLimitTypeEncoder
+		oAx.limitType = limitEncoder
 		_, err := board.FromRobot(r, conf.Board)
 		if err == nil {
 			return nil, errors.New("remove board from gantry attribute list, it should be included in motor attribute list")
 		}
+
+		var StartPos = *conf.StartPosition
+		oAx.startPosition = StartPos
 	default:
 		np := len(oAx.limitSwitchPins)
 		return nil, errors.Errorf("invalid gantry type: need 1, 2 or 0 pins per axis, have %v pins", np)
@@ -262,17 +238,17 @@ func (g *oneAxis) Home(ctx context.Context) error {
 	// Mapping one limit switch motor0->limsw0, motor1 ->limsw1, motor 2 -> limsw2
 	// Mapping two limit switch motor0->limSw0,limSw1; motor1->limSw2,limSw3; motor2->limSw4,limSw5
 	switch g.limitType {
-	case switchLimitTypeOnePin:
+	case limitOnePin:
 		err := g.homeOneLimSwitch(ctx)
 		if err != nil {
 			return err
 		}
-	case switchLimitTypetwoPin:
+	case limitTwoPin:
 		err := g.homeTwoLimSwitch(ctx)
 		if err != nil {
 			return err
 		}
-	case switchLimitTypeEncoder:
+	case limitEncoder:
 		err := g.homeEncoder(ctx)
 		if err != nil {
 			return err
@@ -408,7 +384,7 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 		return nil, err
 	}
 
-	if g.limitType == switchLimitTypetwoPin {
+	if g.limitType == limitTwoPin {
 		limitAtOne, err := g.limitHit(ctx, false)
 		if err != nil {
 			return nil, err
