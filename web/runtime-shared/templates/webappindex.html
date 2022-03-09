@@ -185,6 +185,7 @@
               mapOnce: false,
               value: 0,
               imuData: {},
+              navigationAvailable: false,
           };
           theApp = new Vue({
               el: '#app',
@@ -1371,6 +1372,7 @@
               marker.setMap(null);
               delete knownWaypoints[key];
             }
+            theData.navigationAvailable = true;
             setTimeout(updateWaypoints, 1000);
           });
         }
@@ -1393,6 +1395,7 @@
             }
             locationMarker.setPosition(pos);
             locationMarker.setMap(window.map);
+            theData.navigationAvailable = true;
             setTimeout(updateLocation, 1000);
           });
         }
@@ -1825,7 +1828,7 @@
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
-      <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
+      <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0 && navigationAvailable === true">
         <br />
         <br />
         <button v-on:click="setNavigationMode('manual')">Manual</button>
