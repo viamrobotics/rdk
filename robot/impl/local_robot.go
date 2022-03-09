@@ -16,7 +16,6 @@ import (
 	// registers all components.
 	_ "go.viam.com/rdk/component/register"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/utils"
 
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
@@ -32,12 +31,13 @@ import (
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/utils"
 )
 
 var (
 	_ = robot.LocalRobot(&localRobot{})
 
-	// defaultSvc is a list of default robot services
+	// defaultSvc is a list of default robot services.
 	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name}
 )
 
