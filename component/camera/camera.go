@@ -98,22 +98,12 @@ func New(imgSrc gostream.ImageSource, attrs *AttrConfig, parentSource Camera) (C
 	if camera, ok := parentSource.(WithProjector); ok {
 		return &imageSourceWithProjector{imgSrc, camera.GetProjector()}, nil
 	}
-	var path string
-	var err  error
-	if attrs != nil {
-		path, err = attrs.GetDriverPath()
-		if err != nil {
-			rlog.Logger.Warnw("no valid driver path", "error", err)
-			// swallow and log errors related to path lookup
-		}
-	}
-	return &imageSource{imgSrc, path}, nil
+	return &imageSource{imgSrc}, nil
 }
 
 // ImageSource implements a Camera with a gostream.ImageSource.
 type imageSource struct {
 	gostream.ImageSource
-	path string
 }
 
 // Close closes the underlying ImageSource.
@@ -230,17 +220,11 @@ func (c *reconfigurableCamera) Reconfigure(ctx context.Context, newCamera resour
 	if !ok {
 		return utils.NewUnexpectedTypeError(c, newCamera)
 	}
-
-	// Do not close if new and old camera share the same driver
-	newActual, newOk := newCam.actual.(*imageSource)
-	oldActual, oldOk := c.actual.(*imageSource)
-	if newOk && oldOk && newActual.path != "" && oldActual.path != "" && newActual.path == oldActual.path {
-		rlog.Logger.Infow("reconfigured camera has same path, will not close", "path", newActual.path)
-	} else {
-		if err := viamutils.TryClose(ctx, c.actual); err != nil {
-			rlog.Logger.Errorw("error closing old", "error", err)
-		}
-	}
+	rlog.Logger.Infof("MP: old camera actual: %p", c.actual)
+	rlog.Logger.Infof("MP: new camera actual: %p", newCam.actual)
+	// if err := viamutils.TryClose(ctx, c.actual); err != nil {
+	// 	rlog.Logger.Errorw("error closing old", "error", err)
+	// }
 	c.actual = newCam.actual
 	return nil
 }
