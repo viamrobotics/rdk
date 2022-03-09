@@ -60,6 +60,7 @@ func (c *IMUReadAngularVelocityCollector) Collect(ctx context.Context) error {
 func (c *IMUReadAngularVelocityCollector) Close() {
 	c.done <- true
 	close(c.queue)
+	close(c.done)
 }
 
 func (c *IMUReadAngularVelocityCollector) capture() error {
