@@ -69,7 +69,8 @@ message GetJointPositionsResponse {
 message MoveToPositionRequest {
   // Name of an arm
   string name = 1;
-  common.v1.Pose pose = 2;
+  common.v1.Pose to = 2;
+  optional common.v1.WorldState world_state = 3;
 }
 
 message MoveToPositionResponse {}

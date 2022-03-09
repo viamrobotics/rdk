@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/pointcloud"
@@ -51,20 +52,24 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	server, err = newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake object point clouds error")
-	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+		cameraName string,
+		segmenterName string,
+		params config.AttributeMap) ([]*vision.Object, error) {
 		return nil, passedErr
 	}
+	params, err := structpb.NewStruct(config.AttributeMap{})
+	test.That(t, err, test.ShouldBeNil)
 	req := &pb.GetObjectPointCloudsRequest{
-		Name:               "fakeCamera",
-		MimeType:           utils.MimeTypePCD,
-		MinPointsInPlane:   5,
-		MinPointsInSegment: 5,
-		ClusteringRadiusMm: 5.,
+		CameraName:    "fakeCamera",
+		SegmenterName: segmentation.RadiusClusteringSegmenter,
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
 	}
 	_, err = server.GetObjectPointClouds(context.Background(), req)
 	test.That(t, err, test.ShouldBeError, passedErr)
 
-	// working request
+	// create a working segmenter
 	injCam := &inject.Camera{}
 	injCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pcA := pointcloud.New()
@@ -74,23 +79,56 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		return pcA, nil
 	}
 
-	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
-		params := config.AttributeMap{
-			"min_points_in_plane":   pmtrs.MinPtsInPlane,
-			"min_points_in_segment": pmtrs.MinPtsInSegment,
-			"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
-		}
-		segments, err := segmentation.RadiusClustering(ctx, injCam, params)
+	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+		cameraName string,
+		segmenterName string,
+		params config.AttributeMap) ([]*vision.Object, error) {
+		segmenter, err := segmentation.SegmenterLookup(segmenterName)
 		if err != nil {
 			return nil, err
 		}
-		return segments, nil
+		return segmenter.Segmenter(ctx, injCam, params)
 	}
+	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]string, error) {
+		segmenter, err := segmentation.SegmenterLookup(segmenterName)
+		if err != nil {
+			return nil, err
+		}
+		return segmenter.Parameters, nil
+	}
+
+	// no such segmenter in registry
+	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: "no_such_segmenter",
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	_, err = server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
+		CameraName:    "fakeCamera",
+		SegmenterName: "no_such_segmenter",
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
+	})
+	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
+
+	// successful request
+	paramNamesResp, err := server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{
+		SegmenterName: segmentation.RadiusClusteringSegmenter,
+	})
+	test.That(t, err, test.ShouldBeNil)
+	paramNames := paramNamesResp.Parameters
+
+	params, err = structpb.NewStruct(config.AttributeMap{
+		paramNames[0]: 100, // min points in plane
+		paramNames[1]: 3,   // min points in segment
+		paramNames[2]: 5.,  //  clustering radius
+	})
+	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
-		Name:               "fakeCamera",
-		MinPointsInPlane:   100,
-		MinPointsInSegment: 3,
-		ClusteringRadiusMm: 5.,
+		CameraName:    "fakeCamera",
+		SegmenterName: segmentation.RadiusClusteringSegmenter,
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    params,
 	})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(segs.Objects), test.ShouldEqual, 2)
