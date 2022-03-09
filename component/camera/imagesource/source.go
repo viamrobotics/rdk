@@ -57,7 +57,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.CameraAttrs = cameraAttrs
+			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&ServerAttrs{})
@@ -87,7 +87,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.CameraAttrs = cameraAttrs
+			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&dualServerAttrs{})
@@ -100,7 +100,7 @@ func init() {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.Aligned}
-			return camera.New(imgSrc, attrs.CameraAttrs, nil)
+			return camera.New(imgSrc, attrs.AttrConfig, nil)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
@@ -118,7 +118,7 @@ func init() {
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.CameraAttrs = cameraAttrs
+			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&fileSourceAttrs{})
@@ -143,10 +143,10 @@ type fileSource struct {
 
 // fileSourceAttrs is the attribute struct for fileSource.
 type fileSourceAttrs struct {
-	CameraAttrs *camera.AttrConfig
-	Color       string `json:"color"`
-	Depth       string `json:"depth"`
-	Aligned     bool   `json:"aligned"`
+	*camera.AttrConfig
+	Color   string `json:"color"`
+	Depth   string `json:"depth"`
+	Aligned bool   `json:"aligned"`
 }
 
 // Next returns the image stored in the color and depth files as an ImageWithDepth.
@@ -195,10 +195,10 @@ type dualServerSource struct {
 
 // dualServerAttrs is the attribute struct for dualServerSource.
 type dualServerAttrs struct {
-	CameraAttrs *camera.AttrConfig
-	Color       string `json:"color"`
-	Depth       string `json:"depth"`
-	Aligned     bool   `json:"aligned"`
+	*camera.AttrConfig
+	Color   string `json:"color"`
+	Depth   string `json:"depth"`
+	Aligned bool   `json:"aligned"`
 }
 
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
@@ -211,7 +211,7 @@ func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 		DepthURL:  cfg.Depth,
 		isAligned: cfg.Aligned,
 	}
-	return camera.New(imgSrc, cfg.CameraAttrs, nil)
+	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }
 
 // Next requests the next images from both the color and depth source, and combines them
@@ -265,13 +265,13 @@ type serverSource struct {
 
 // ServerAttrs is the attribute struct for serverSource.
 type ServerAttrs struct {
-	CameraAttrs *camera.AttrConfig
-	Aligned     bool   `json:"aligned"`
-	Host        string `json:"host"`
-	Source      string `json:"source"`
-	Port        int    `json:"port"`
-	Stream      string `json:"stream"`
-	Args        string `json:"args"`
+	*camera.AttrConfig
+	Aligned bool   `json:"aligned"`
+	Host    string `json:"host"`
+	Source  string `json:"source"`
+	Port    int    `json:"port"`
+	Stream  string `json:"stream"`
+	Args    string `json:"args"`
 }
 
 // Close closes the server connection.
@@ -328,5 +328,5 @@ func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, erro
 		stream:    StreamType(cfg.Stream),
 		isAligned: cfg.Aligned,
 	}
-	return camera.New(imgSrc, cfg.CameraAttrs, nil)
+	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }
