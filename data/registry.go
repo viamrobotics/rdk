@@ -1,7 +1,6 @@
 package data
 
 import (
-	"context"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/rdk/resource"
@@ -10,15 +9,8 @@ import (
 	"time"
 )
 
-type Collector interface {
-	Collect(ctx context.Context) error
-	Close()
-	GetTarget() *os.File
-	SetTarget(file *os.File)
-}
-
 type CollectorConstructor struct {
-	Constructor func(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) interface{}
+	Constructor func(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) Collector
 }
 
 type MethodMetadata struct {
