@@ -35,6 +35,23 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
+func (server *subtypeServer) GetSegmenters(
+	ctx context.Context,
+	req *pb.GetSegmentersRequest,
+) (*pb.GetSegmentersResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	names, err := svc.GetSegmenters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetSegmentersResponse{
+		Segmenters: names,
+	}, nil
+}
+
 func (server *subtypeServer) GetSegmenterParameters(
 	ctx context.Context,
 	req *pb.GetSegmenterParametersRequest,
