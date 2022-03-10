@@ -76,7 +76,7 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := arm.Status{
+	status := &pb.Status{
 		EndPosition:    pose,
 		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
@@ -94,7 +94,7 @@ func TestStatusValid(t *testing.T) {
 		},
 	)
 
-	convMap := arm.Status{}
+	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(newStruct.AsMap())
@@ -106,7 +106,7 @@ func TestCreateStatus(t *testing.T) {
 	_, err := arm.CreateStatus(context.Background(), "not an arm")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
 
-	status := arm.Status{
+	status := &pb.Status{
 		EndPosition:    pose,
 		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}

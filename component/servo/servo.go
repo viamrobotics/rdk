@@ -85,23 +85,18 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// Status holds the status of a Servo.
-type Status struct {
-	PositionDeg uint32 `json:"position_deg,omitempty"`
-}
-
 // CreateStatus creates a status from the servo.
-func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	servo, ok := resource.(Servo)
 	if !ok {
-		return Status{}, utils.NewUnimplementedInterfaceError("Servo", resource)
+		return nil, utils.NewUnimplementedInterfaceError("Servo", resource)
 	}
 	position, err := servo.GetPosition(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 
-	return Status{PositionDeg: uint32(position)}, nil
+	return &pb.Status{PositionDeg: uint32(position)}, nil
 }
 
 type reconfigurableServo struct {

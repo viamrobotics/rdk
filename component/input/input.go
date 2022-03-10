@@ -175,20 +175,15 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// Status holds the status of an input controller.
-type Status struct {
-	Events []*pb.Event `json:"events,omitempty"`
-}
-
 // CreateStatus creates a status from the input controller.
-func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	controller, ok := resource.(Controller)
 	if !ok {
-		return Status{}, utils.NewUnimplementedInterfaceError("input.Controller", resource)
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", resource)
 	}
 	eventsIn, err := controller.GetEvents(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 	events := make([]*pb.Event, 0, len(eventsIn))
 	for _, eventIn := range eventsIn {
@@ -200,7 +195,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 		})
 	}
 
-	return Status{Events: events}, nil
+	return &pb.Status{Events: events}, nil
 }
 
 type reconfigurableInputController struct {
