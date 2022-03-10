@@ -87,7 +87,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // Status holds the status of a Servo.
 type Status struct {
-	Position uint32 `json:"position,omitempty"`
+	PositionDeg uint32 `json:"position_deg,omitempty"`
 }
 
 // CreateStatus creates a status from the servo.
@@ -101,7 +101,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 		return Status{}, err
 	}
 
-	return Status{Position: uint32(position)}, nil
+	return Status{PositionDeg: uint32(position)}, nil
 }
 
 type reconfigurableServo struct {

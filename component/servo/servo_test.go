@@ -73,12 +73,12 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := servo.Status{Position: uint32(8)}
+	status := servo.Status{PositionDeg: uint32(8)}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position": 8.0})
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position_deg": 8.0})
 
 	convMap := servo.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -92,11 +92,11 @@ func TestCreateStatus(t *testing.T) {
 	_, err := servo.CreateStatus(context.Background(), "not a servo")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
 
-	status := servo.Status{Position: uint32(8)}
+	status := servo.Status{PositionDeg: uint32(8)}
 
 	injectServo := &inject.Servo{}
 	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {
-		return uint8(status.Position), nil
+		return uint8(status.PositionDeg), nil
 	}
 
 	t.Run("working", func(t *testing.T) {

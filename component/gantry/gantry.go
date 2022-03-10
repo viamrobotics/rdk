@@ -88,8 +88,8 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // Status holds the status of a Gantry.
 type Status struct {
-	Positions []float64 `json:"positions,omitempty"`
-	Lengths   []float64 `json:"lengths,omitempty"`
+	PositionsMm []float64 `json:"positions_mm,omitempty"`
+	LengthsMm   []float64 `json:"lengths_mm,omitempty"`
 }
 
 // CreateStatus creates a status from the gantry.
@@ -108,7 +108,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 		return Status{}, err
 	}
 
-	return Status{Positions: positions, Lengths: lengths}, nil
+	return Status{PositionsMm: positions, LengthsMm: lengths}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
