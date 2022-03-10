@@ -100,6 +100,10 @@ func (seg *objectSegService) GetObjectPointClouds(
 	return segmenter.Segmenter(ctx, cam, params)
 }
 
+func (seg *objectSegService) GetSegmenters(ctx context.Context) []string {
+	return segmentation.SegmenterNames()
+}
+
 func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
 	segmenter, err := segmentation.SegmenterLookup(segmenterName)
 	if err != nil {
