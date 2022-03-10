@@ -74,8 +74,8 @@ func TestNamesFromRobot(t *testing.T) {
 
 func TestStatusValid(t *testing.T) {
 	status := gantry.Status{
-		Positions: []float64{1.1, 2.2, 3.3},
-		Lengths:   []float64{4.4, 5.5, 6.6},
+		PositionsMm: []float64{1.1, 2.2, 3.3},
+		LengthsMm:   []float64{4.4, 5.5, 6.6},
 	}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
@@ -85,7 +85,7 @@ func TestStatusValid(t *testing.T) {
 		t,
 		newStruct.AsMap(),
 		test.ShouldResemble,
-		map[string]interface{}{"lengths": []interface{}{4.4, 5.5, 6.6}, "positions": []interface{}{1.1, 2.2, 3.3}},
+		map[string]interface{}{"lengths_mm": []interface{}{4.4, 5.5, 6.6}, "positions_mm": []interface{}{1.1, 2.2, 3.3}},
 	)
 
 	convMap := gantry.Status{}
@@ -101,16 +101,16 @@ func TestCreateStatus(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 
 	status := gantry.Status{
-		Positions: []float64{1.1, 2.2, 3.3},
-		Lengths:   []float64{4.4, 5.5, 6.6},
+		PositionsMm: []float64{1.1, 2.2, 3.3},
+		LengthsMm:   []float64{4.4, 5.5, 6.6},
 	}
 
 	injectgantry := &inject.Gantry{}
 	injectgantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
-		return status.Positions, nil
+		return status.PositionsMm, nil
 	}
 	injectgantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
-		return status.Lengths, nil
+		return status.LengthsMm, nil
 	}
 
 	t.Run("working", func(t *testing.T) {

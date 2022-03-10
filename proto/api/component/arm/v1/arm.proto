@@ -84,3 +84,8 @@ message MoveToJointPositionsRequest {
 }
 
 message MoveToJointPositionsResponse {}
+
+message Status {
+  common.v1.Pose   end_position = 1;
+  JointPositions joint_positions = 2;
+}

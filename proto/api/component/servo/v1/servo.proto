@@ -42,3 +42,7 @@ message GetPositionResponse {
   // the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180
   uint32 position_deg = 1;
 }
+
+message Status {
+  uint32 position_deg = 1;
+}

@@ -126,8 +126,8 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // Status holds the status of a Motor.
 type Status struct {
-	On                bool    `json:"on,omitempty"`
-	PositionSupported bool    `json:"position_supported,omitempty"`
+	IsOn              bool    `json:"is_on,omitempty"`
+	PositionReporting bool    `json:"position_reporting,omitempty"`
 	Position          float64 `json:"position,omitempty"`
 }
 
@@ -153,8 +153,8 @@ func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
 		}
 	}
 	return Status{
-		On:                on,
-		PositionSupported: features[PositionReporting],
+		IsOn:              on,
+		PositionReporting: features[PositionReporting],
 		Position:          position,
 	}, nil
 }

@@ -73,12 +73,12 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := motor.Status{On: true, PositionSupported: true, Position: 7.7}
+	status := motor.Status{IsOn: true, PositionReporting: true, Position: 7.7}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"on": true, "position_supported": true, "position": 7.7})
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"is_on": true, "position_reporting": true, "position": 7.7})
 
 	convMap := motor.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
@@ -106,14 +106,14 @@ func TestCreateStatus(t *testing.T) {
 	_, err := motor.CreateStatus(context.Background(), "not a motor")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
 
-	status := motor.Status{On: true, PositionSupported: true, Position: 7.7}
+	status := motor.Status{IsOn: true, PositionReporting: true, Position: 7.7}
 
 	injectMotor := &inject.Motor{}
 	injectMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
-		return status.On, nil
+		return status.IsOn, nil
 	}
 	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
-		return map[motor.Feature]bool{motor.PositionReporting: status.PositionSupported}, nil
+		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
 	}
 	injectMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
 		return status.Position, nil
@@ -141,7 +141,7 @@ func TestCreateStatus(t *testing.T) {
 
 		status1, err := motor.CreateStatus(context.Background(), injectMotor)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, status1, test.ShouldResemble, motor.Status{On: true, PositionSupported: false})
+		test.That(t, status1, test.ShouldResemble, motor.Status{IsOn: true, PositionReporting: false})
 	})
 
 	t.Run("fail on GetFeatures", func(t *testing.T) {

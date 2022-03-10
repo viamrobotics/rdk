@@ -103,3 +103,7 @@ message StreamEventsResponse {
   // Event for a controller
   Event event = 1;
 }
+
+message Status {
+  repeated Event events = 1;
+}
