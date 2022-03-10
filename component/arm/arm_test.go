@@ -78,7 +78,7 @@ func TestNamesFromRobot(t *testing.T) {
 func TestStatusValid(t *testing.T) {
 	status := arm.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.ArmJointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
@@ -108,15 +108,15 @@ func TestCreateStatus(t *testing.T) {
 
 	status := arm.Status{
 		EndPosition:    pose,
-		JointPositions: &pb.ArmJointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
 	}
 
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
-		return &pb.ArmJointPositions{Degrees: status.JointPositions.Degrees}, nil
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
@@ -127,7 +127,7 @@ func TestCreateStatus(t *testing.T) {
 
 	t.Run("fail on GetJointPositions", func(t *testing.T) {
 		errFail := errors.New("can't get joint positions")
-		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 			return nil, errFail
 		}
 		_, err = arm.CreateStatus(context.Background(), injectArm)

@@ -14,14 +14,14 @@ service StatusService {
   // GetStatus returns the list of all statuses requested.
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/status"
+      get: "/viam/api/v1/service/status"
     };
   }
 
   // StreamStatus periodically sends the status of all statuses requested.
   rpc StreamStatus(StreamStatusRequest) returns (stream StreamStatusResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/status_stream"
+      get: "/viam/api/v1/service/status_stream"
     };
   }
 }

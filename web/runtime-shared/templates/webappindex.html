@@ -270,7 +270,7 @@
                   armJointInc : function(name, field, amount) {
                     const arm = theApp.rawResourceStatusByName(name);
                     let old = arm["joint_positions"]
-                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newPositionDegs = new armApi.JointPositions()
                     var newList = arm["joint_positions"]["degrees"]
                     newList[field] += amount;
                     newPositionDegs.setDegreesList(newList);
@@ -282,7 +282,7 @@
                   armHome : function(name) {
                     const arm = theApp.rawResourceStatusByName(name);
                     let old = arm["joint_positions"]
-                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newPositionDegs = new armApi.JointPositions()
                     var newList = arm["joint_positions"]["degrees"]
                     for (var i = 0; i < newList.length; i++) {
                       newList[i] = 0;
@@ -328,7 +328,7 @@
                   },
                   armModifyAllDoJoint : function(name) {
                     const arm = theApp.rawResourceStatusByName(name);
-                    var newPositionDegs = new armApi.ArmJointPositions()
+                    var newPositionDegs = new armApi.JointPositions()
                     var newList = arm["joint_positions"]["degrees"]
 
                     var newPieces = theData.armToggle[name.name].pieces;
@@ -1580,7 +1580,7 @@
           </tr>
           <tr>
             <th colspan="6">
-              <button v-on:click="armModifyAllDoEndPosition(arm)">Go To EndPosition</button>
+              <button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</button>
               <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
               <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
             </th>

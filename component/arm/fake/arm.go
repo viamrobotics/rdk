@@ -43,7 +43,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 	return &Arm{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		model:    model,
 	}, nil
 }
@@ -52,7 +52,7 @@ func NewArm(cfg config.Component) (arm.Arm, error) {
 type Arm struct {
 	Name       string
 	position   *commonpb.Pose
-	joints     *pb.ArmJointPositions
+	joints     *pb.JointPositions
 	CloseCount int
 	model      referenceframe.Model
 }
@@ -74,13 +74,13 @@ func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, obstacles []
 }
 
 // MoveToJointPositions sets the joints.
-func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 

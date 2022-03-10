@@ -11,34 +11,34 @@ import "proto/api/common/v1/common.proto";
 service BoardService {
   rpc Status(StatusRequest) returns (StatusResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/board/{name}/status"
+      get: "/viam/api/v1/component/board/{name}/status"
     };
   }
 
   rpc SetGPIO(SetGPIORequest) returns (SetGPIOResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/board/{name}/set_gpio"
+      put: "/viam/api/v1/component/board/{name}/gpio"
     };  
   }
 
   // GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
   rpc GetGPIO(GetGPIORequest) returns (GetGPIOResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/board/{name}/get_gpio"
+      get: "/viam/api/v1/component/board/{name}/gpio"
     };  
   }
 
   // SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
   rpc SetPWM(SetPWMRequest) returns (SetPWMResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/board/{name}/set_pwm"
+      put: "/viam/api/v1/component/board/{name}/pwm"
     };  
   }
 
   // SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
   rpc SetPWMFrequency(SetPWMFrequencyRequest) returns (SetPWMFrequencyResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/board/{name}/set_pwm_freq"
+      put: "/viam/api/v1/component/board/{name}/pwm_freq"
     };  
   }
 
@@ -47,7 +47,7 @@ service BoardService {
   // ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
   rpc ReadAnalogReader(ReadAnalogReaderRequest) returns (ReadAnalogReaderResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"
+      get: "/viam/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"
     };
   }
 
@@ -56,7 +56,7 @@ service BoardService {
   // GetDigitalInterruptValue returns the current value of the interrupt which is based on the type of interrupt.
   rpc GetDigitalInterruptValue(GetDigitalInterruptValueRequest) returns (GetDigitalInterruptValueResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
+      get: "/viam/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"
     };
   }
 }
