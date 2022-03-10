@@ -1823,7 +1823,18 @@
                 <td>
                         <select class="form-control">
                         <option value="" selected disabled>Choose</option>
-                        <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name" :key="camera.name">{{ camera.name }}</option>
+                        <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name">${ camera.name }</option>
+                        </select>
+                </td>
+        </tr>
+        <tr>
+                <td>
+                        Select Segmenter
+                </td>
+                <td>
+                        <select class="form-control">
+                        <option value="" selected disabled>Choose</option>
+                        <option v-for="camera in filterResources('rdk', 'component', 'camera')">${ camera.name }</option>
                         </select>
                 </td>
         </tr>
