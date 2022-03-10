@@ -52,3 +52,12 @@ func RegisteredSegmenters() map[string]Registration {
 	}
 	return copied.(map[string]Registration)
 }
+
+// SegmenterNames returns a slice of all the segmenter names in the registry.
+func SegmenterNames() []string {
+	names := make([]string, 0, len(segmenterRegistry))
+	for name := range segmenterRegistry {
+		names = append(names, name)
+	}
+	return names
+}
