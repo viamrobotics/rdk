@@ -179,6 +179,11 @@
               resources: [],
               sensorNames: [],
               streamNames: [],
+	      segmenterNames: [],
+	      segmenterParameterNames: [],
+	      segmenterParameters: {},
+	      segmentCamera: "",
+	      segmentAlgo: "",
               fullcloud: null,
               objects: null,
               minPtsPlane : 10000,
@@ -196,9 +201,8 @@
               data: theData,
               components: {},
               methods : {
-		  segmenterNames :  function() {
-                      const req = new objectSegmentationApi.GetSegmentersRequest();
-		      objectSegmentationService.GetSegmenters(req)
+		  getSegmenterNames :  function() {
+                      let req = new objectSegmentationApi.GetSegmentersRequest();
                       objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
                         grpcCallback(err, resp, false)
                         if (err) {
@@ -206,7 +210,20 @@
                           console.log(err);
                           return;
                         }
-                        return resp.getSegmentersList();
+                        theData.segmenterNames = resp.getSegmentersList();
+		      });
+		  },
+		  getSegmenterParameters : function(name) {
+                      let req = new objectSegmentationApi.GetSegmenterParametersRequest();
+                      req.setSegmenterName(name);
+                      objectSegmentationService.getSegmenterParameters(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          console.log("error getting segmenter parameters for "+name);
+                          console.log(err);
+                          return;
+                        }
+                        theData.segmenterParameterNames = resp.getParametersList();
 		      });
 		  },
                   filterResources : function(namespace, type, subtype) {
@@ -699,14 +716,13 @@
                           return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
                       })
                   },
-                  findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                  findSegments : function(cameraName, segmenterName, segmenterParams){
                       theData.pcdClick.calculatingSegments = true;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
-                      console.log("camera name: "+pcdGlobal.cameraName);
-                      req.setCameraName(pcdGlobal.cameraName);
-                      req.setSegmenterName("radius_clustering");
-                      let params = {"min_points_in_plane": minPointsPlane, "min_points_in_segment": minPointsSegment, "clustering_radius_mm": clusteringRadius};
-                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(params));
+                      console.log("camera name: "+cameraName);
+                      req.setCameraName(cameraName);
+                      req.setSegmenterName(segmenterName);
+                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
@@ -1834,33 +1850,32 @@
                         Select Camera
                 </td>
                 <td>
-                        <select class="form-control">
+			<select v-model="segmentCamera" @change="getSegmenterNames()">
                         <option value="" selected disabled>Choose</option>
                         <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name">${ camera.name }</option>
                         </select>
                 </td>
+		<td> ${ segmentCamera } </td>
         </tr>
         <tr>
                 <td>
                         Select Segmenter
                 </td>
                 <td>
-                        <select class="form-control">
+                        <select v-model="segmentAlgo" @change="getSegmenterParameters(segmentAlgo)">
                         <option value="" selected disabled>Choose</option>
-                        <option v-for="segmenter in segmenterNames()">${ segmenter }</option>
+                        <option v-for="segmenter in segmenterNames" :value="segmenter">${ segmenter }</option>
                         </select>
                 </td>
+		<td> ${ segmentAlgo } </td>
         </tr>
-        <tr>
-          <td colspan=2>
-              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
-              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
-              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
-          </td>
+        <tr v-for="param in segmenterParameterNames">
+          <td>${param}</td>
+	  <td><input id="param" v-model="segmenterParameters[param]"></td>
         </tr>
         <tr>
             <td>
-                <button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</button>
+                <button v-on:click="findSegments(segmentCamera, segmentAlgo, segmenterParameters)">Find Segments</button>
             </td>
             <td v-if="pcdClick.calculatingSegments">Finding...</td>
         </tr>
