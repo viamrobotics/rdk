@@ -196,6 +196,19 @@
               data: theData,
               components: {},
               methods : {
+		  segmenterNames :  function() {
+                      const req = new objectSegmentationApi.GetSegmentersRequest();
+		      objectSegmentationService.GetSegmenters(req)
+                      objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          console.log("error getting segmenter names");
+                          console.log(err);
+                          return;
+                        }
+                        return resp.getSegmentersList();
+		      });
+		  },
                   filterResources : function(namespace, type, subtype) {
                     return theData.resources.filter(elem => {
                       return elem.namespace == namespace && elem.type == type && elem.subtype == subtype
@@ -1834,7 +1847,7 @@
                 <td>
                         <select class="form-control">
                         <option value="" selected disabled>Choose</option>
-                        <option v-for="camera in filterResources('rdk', 'component', 'camera')">${ camera.name }</option>
+                        <option v-for="segmenter in segmenterNames()">${ segmenter }</option>
                         </select>
                 </td>
         </tr>
