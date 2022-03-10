@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/servo"
+	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -73,14 +74,14 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := servo.Status{PositionDeg: uint32(8)}
+	status := &pb.Status{PositionDeg: uint32(8)}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
 	newStruct, err := structpb.NewStruct(map1)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position_deg": 8.0})
 
-	convMap := servo.Status{}
+	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(newStruct.AsMap())
@@ -92,7 +93,7 @@ func TestCreateStatus(t *testing.T) {
 	_, err := servo.CreateStatus(context.Background(), "not a servo")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Servo", "string"))
 
-	status := servo.Status{PositionDeg: uint32(8)}
+	status := &pb.Status{PositionDeg: uint32(8)}
 
 	injectServo := &inject.Servo{}
 	injectServo.CurrentFunc = func(ctx context.Context) (uint8, error) {

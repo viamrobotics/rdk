@@ -77,7 +77,7 @@ func TestNamesFromRobot(t *testing.T) {
 
 func TestStatusValid(t *testing.T) {
 	timestamp := timestamppb.Now()
-	status := input.Status{
+	status := &pb.Status{
 		Events: []*pb.Event{{Time: timestamp, Event: string(input.PositionChangeAbs), Control: string(input.AbsoluteX), Value: 0.7}},
 	}
 	map1, err := protoutils.InterfaceToMap(status)
@@ -100,7 +100,7 @@ func TestStatusValid(t *testing.T) {
 		},
 	)
 
-	convMap := input.Status{}
+	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(newStruct.AsMap())
@@ -114,7 +114,7 @@ func TestCreateStatus(t *testing.T) {
 
 	timestamp := time.Now()
 	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
-	status := input.Status{
+	status := &pb.Status{
 		Events: []*pb.Event{{Time: timestamppb.New(timestamp), Event: string(event.Event), Control: string(event.Control), Value: event.Value}},
 	}
 	injectInputController := &inject.InputController{}

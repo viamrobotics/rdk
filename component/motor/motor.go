@@ -124,35 +124,28 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// Status holds the status of a Motor.
-type Status struct {
-	IsOn              bool    `json:"is_on,omitempty"`
-	PositionReporting bool    `json:"position_reporting,omitempty"`
-	Position          float64 `json:"position,omitempty"`
-}
-
 // CreateStatus creates a status from the motor.
-func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	motor, ok := resource.(Motor)
 	if !ok {
-		return Status{}, utils.NewUnimplementedInterfaceError("Motor", resource)
+		return nil, utils.NewUnimplementedInterfaceError("Motor", resource)
 	}
 	on, err := motor.IsPowered(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 	features, err := motor.GetFeatures(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 	var position float64
 	if features[PositionReporting] {
 		position, err = motor.GetPosition(ctx)
 		if err != nil {
-			return Status{}, err
+			return nil, err
 		}
 	}
-	return Status{
+	return &pb.Status{
 		IsOn:              on,
 		PositionReporting: features[PositionReporting],
 		Position:          position,

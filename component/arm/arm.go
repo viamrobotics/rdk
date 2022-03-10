@@ -98,28 +98,22 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
-// Status holds the status of an Arm.
-type Status struct {
-	EndPosition    *commonpb.Pose     `json:"end_position"`
-	JointPositions *pb.JointPositions `json:"joint_positions"`
-}
-
 // CreateStatus creates a status from the arm.
-func CreateStatus(ctx context.Context, resource interface{}) (Status, error) {
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
 	arm, ok := resource.(Arm)
 	if !ok {
-		return Status{}, utils.NewUnimplementedInterfaceError("Arm", resource)
+		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
 	}
 	endPosition, err := arm.GetEndPosition(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 	jointPositions, err := arm.GetJointPositions(ctx)
 	if err != nil {
-		return Status{}, err
+		return nil, err
 	}
 
-	return Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
 }
 
 type reconfigurableArm struct {

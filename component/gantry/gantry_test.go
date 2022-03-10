@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/sensor"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -73,7 +74,7 @@ func TestNamesFromRobot(t *testing.T) {
 }
 
 func TestStatusValid(t *testing.T) {
-	status := gantry.Status{
+	status := &pb.Status{
 		PositionsMm: []float64{1.1, 2.2, 3.3},
 		LengthsMm:   []float64{4.4, 5.5, 6.6},
 	}
@@ -88,7 +89,7 @@ func TestStatusValid(t *testing.T) {
 		map[string]interface{}{"lengths_mm": []interface{}{4.4, 5.5, 6.6}, "positions_mm": []interface{}{1.1, 2.2, 3.3}},
 	)
 
-	convMap := gantry.Status{}
+	convMap := &pb.Status{}
 	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
 	test.That(t, err, test.ShouldBeNil)
 	err = decoder.Decode(newStruct.AsMap())
@@ -100,40 +101,40 @@ func TestCreateStatus(t *testing.T) {
 	_, err := gantry.CreateStatus(context.Background(), "not a gantry")
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
 
-	status := gantry.Status{
+	status := &pb.Status{
 		PositionsMm: []float64{1.1, 2.2, 3.3},
 		LengthsMm:   []float64{4.4, 5.5, 6.6},
 	}
 
-	injectgantry := &inject.Gantry{}
-	injectgantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry := &inject.Gantry{}
+	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return status.PositionsMm, nil
 	}
-	injectgantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 		return status.LengthsMm, nil
 	}
 
 	t.Run("working", func(t *testing.T) {
-		status1, err := gantry.CreateStatus(context.Background(), injectgantry)
+		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, status1, test.ShouldResemble, status)
 	})
 
 	t.Run("fail on GetLengths", func(t *testing.T) {
 		errFail := errors.New("can't get lengths")
-		injectgantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
 			return nil, errFail
 		}
-		_, err = gantry.CreateStatus(context.Background(), injectgantry)
+		_, err = gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 
 	t.Run("fail on GetPositions", func(t *testing.T) {
 		errFail := errors.New("can't get positions")
-		injectgantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+		injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 			return nil, errFail
 		}
-		_, err = gantry.CreateStatus(context.Background(), injectgantry)
+		_, err = gantry.CreateStatus(context.Background(), injectGantry)
 		test.That(t, err, test.ShouldBeError, errFail)
 	})
 }

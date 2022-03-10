@@ -211,19 +211,19 @@ func TestConfigRemote(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[1].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[2].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	cfg2, err := r2.Config(context.Background())
@@ -449,13 +449,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				t,
 				statuses[0].Status,
 				test.ShouldResemble,
-				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(
 				t,
 				statuses[1].Status,
 				test.ShouldResemble,
-				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+				&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
@@ -635,7 +635,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		&armpb.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
