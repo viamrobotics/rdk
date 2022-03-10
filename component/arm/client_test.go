@@ -32,16 +32,16 @@ func TestClient(t *testing.T) {
 
 	var (
 		capArmPos      *commonpb.Pose
-		capArmJointPos *componentpb.ArmJointPositions
+		capArmJointPos *componentpb.JointPositions
 	)
 
 	pos1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	jointPos1 := &componentpb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	jointPos1 := &componentpb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos1, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.JointPositions, error) {
 		return jointPos1, nil
 	}
 	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
@@ -49,18 +49,18 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}
 
 	pos2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	jointPos2 := &componentpb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	jointPos2 := &componentpb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
 	injectArm2 := &inject.Arm{}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos2, nil
 	}
-	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*componentpb.JointPositions, error) {
 		return jointPos2, nil
 	}
 	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
@@ -68,7 +68,7 @@ func TestClient(t *testing.T) {
 		return nil
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.ArmJointPositions) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *componentpb.JointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}

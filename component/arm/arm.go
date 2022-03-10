@@ -66,10 +66,10 @@ type Arm interface {
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
+	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -100,8 +100,8 @@ func NamesFromRobot(r robot.Robot) []string {
 
 // Status holds the status of an Arm.
 type Status struct {
-	EndPosition    *commonpb.Pose        `json:"end_position"`
-	JointPositions *pb.ArmJointPositions `json:"joint_positions"`
+	EndPosition    *commonpb.Pose     `json:"end_position"`
+	JointPositions *pb.JointPositions `json:"joint_positions"`
 }
 
 // CreateStatus creates a status from the arm.
@@ -145,13 +145,13 @@ func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.P
 	return r.actual.MoveToPosition(ctx, pose, obstacles)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToJointPositions(ctx, positionDegs)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)
