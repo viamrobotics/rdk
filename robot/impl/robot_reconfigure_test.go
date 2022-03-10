@@ -85,9 +85,7 @@ func TestRobotReconfigure(t *testing.T) {
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
-		test.That(t, len(svc.All()), test.ShouldEqual, 9)
-		rCopy := make([]resource.Name, 9)
-		copy(rCopy, svc.All())
+		test.That(t, len(svc.All()), test.ShouldEqual, 8)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -193,8 +191,6 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-
-		test.That(t, rCopy, test.ShouldResemble, svc.All())
 	})
 
 	t.Run("empty to additive diff", func(t *testing.T) {
@@ -214,7 +210,7 @@ func TestRobotReconfigure(t *testing.T) {
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
-		test.That(t, len(svc.All()), test.ShouldEqual, 4)
+		test.That(t, len(svc.All()), test.ShouldEqual, 3)
 
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -301,7 +297,7 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		test.That(t, svc, test.ShouldResemble, service.ContextService(ctx))
-		test.That(t, len(svc.All()), test.ShouldEqual, 9)
+		test.That(t, len(svc.All()), test.ShouldEqual, 8)
 	})
 
 	t.Run("additive diff", func(t *testing.T) {

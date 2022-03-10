@@ -156,7 +156,6 @@ func TestConfigRemote(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
@@ -212,19 +211,19 @@ func TestConfigRemote(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[1].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 	test.That(
 		t,
 		statuses[2].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	cfg2, err := r2.Config(context.Background())
@@ -407,7 +406,6 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				framesystem.Name,
 				sensors.Name,
 				status.Name,
-				web.Name,
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
@@ -451,13 +449,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				t,
 				statuses[0].Status,
 				test.ShouldResemble,
-				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(
 				t,
 				statuses[1].Status,
 				test.ShouldResemble,
-				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+				arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 			)
 			test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
 
@@ -607,7 +605,6 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
@@ -638,7 +635,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		t,
 		statuses[0].Status,
 		test.ShouldResemble,
-		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.ArmJointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
+		arm.Status{EndPosition: &commonpb.Pose{}, JointPositions: &armpb.JointPositions{Degrees: []float64{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}}},
 	)
 
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
@@ -758,7 +755,6 @@ func TestMetadataUpdate(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
-		web.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
