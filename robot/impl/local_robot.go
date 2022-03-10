@@ -298,6 +298,12 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		resources = append(resources, res)
 	}
 
-	resources = append(resources, r.ResourceNames()...)
+	for _, n := range r.ResourceNames() {
+		// skip web so it doesn't show up over grpc
+		if n == web.Name {
+			continue
+		}
+		resources = append(resources, n)
+	}
 	return svc.Replace(resources)
 }
