@@ -631,6 +631,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		})
 	}
 
+	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
 	mux.Handle(pat.New("/api/*"), addPrefix(rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
