@@ -141,7 +141,7 @@ func TestGetStatus(t *testing.T) {
 	t.Run("many status", func(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			working1: workingStatus,
-			button1:  status.DefaultStatus{Exists: true},
+			button1:  struct{}{},
 		}
 		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
 		test.That(t, err, test.ShouldBeNil)
@@ -173,6 +173,24 @@ func TestGetStatus(t *testing.T) {
 
 		_, err = svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeError, errors.Wrapf(errFailed, "failed to get status from %q", fail1))
+	})
+
+	t.Run("get all status", func(t *testing.T) {
+		workingResourceMap := map[resource.Name]interface{}{working1: "resource", button1: "resource"}
+		expected := map[resource.Name]interface{}{
+			working1: workingStatus,
+			button1:  struct{}{},
+		}
+		svc, err := status.New(context.Background(), &inject.Robot{}, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		err = svc.(resource.Updateable).Update(context.Background(), workingResourceMap)
+		test.That(t, err, test.ShouldBeNil)
+
+		resp, err := svc.GetStatus(context.Background(), []resource.Name{})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resp), test.ShouldEqual, 2)
+		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
+		test.That(t, resp[1].Status, test.ShouldResemble, expected[resp[1].Name])
 	})
 }
 
@@ -208,8 +226,8 @@ func TestUpdate(t *testing.T) {
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-		test.That(t, resp[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+		test.That(t, resp[0].Status, test.ShouldResemble, struct{}{})
+		test.That(t, resp[1].Status, test.ShouldResemble, struct{}{})
 
 		err = svc.(resource.Updateable).Update(context.Background(), map[resource.Name]interface{}{button1: "resource"})
 		test.That(t, err, test.ShouldBeNil)
@@ -232,8 +250,8 @@ func TestUpdate(t *testing.T) {
 		resp, err := svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-		test.That(t, resp[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+		test.That(t, resp[0].Status, test.ShouldResemble, struct{}{})
+		test.That(t, resp[1].Status, test.ShouldResemble, struct{}{})
 
 		err = svc.(resource.Updateable).Update(context.Background(), resourceMap)
 		test.That(t, err, test.ShouldBeNil)
@@ -241,8 +259,8 @@ func TestUpdate(t *testing.T) {
 		resp, err = svc.GetStatus(context.Background(), resourceNames)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 2)
-		test.That(t, resp[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-		test.That(t, resp[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+		test.That(t, resp[0].Status, test.ShouldResemble, struct{}{})
+		test.That(t, resp[1].Status, test.ShouldResemble, struct{}{})
 	})
 
 	t.Run("update with diff resources", func(t *testing.T) {
@@ -262,11 +280,11 @@ func TestUpdate(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Name, test.ShouldResemble, button3)
-		test.That(t, resp[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+		test.That(t, resp[0].Status, test.ShouldResemble, struct{}{})
 	})
 }
 
-var statuses = []status.Status{{Name: button1, Status: status.DefaultStatus{Exists: true}}}
+var statuses = []status.Status{{Name: button1, Status: struct{}{}}}
 
 type mock struct {
 	status.Service

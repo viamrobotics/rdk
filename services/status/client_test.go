@@ -59,7 +59,7 @@ func TestClient(t *testing.T) {
 
 		iStatus := status.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
 		gStatus := status.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-		aStatus := status.Status{Name: arm.Named("arm"), Status: status.DefaultStatus{Exists: true}}
+		aStatus := status.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		statusMap := map[resource.Name]status.Status{
 			iStatus.Name: iStatus,
 			gStatus.Name: gStatus,
@@ -75,14 +75,14 @@ func TestClient(t *testing.T) {
 		expected := map[resource.Name]interface{}{
 			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{"exists": true},
+			aStatus.Name: map[string]interface{}{},
 		}
 		resp, err := client.GetStatus(context.Background(), []resource.Name{aStatus.Name})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp), test.ShouldEqual, 1)
 		test.That(t, resp[0].Status, test.ShouldResemble, expected[resp[0].Name])
 
-		result := status.DefaultStatus{}
+		result := struct{}{}
 		decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &result})
 		test.That(t, err, test.ShouldBeNil)
 		err = decoder.Decode(resp[0].Status)
