@@ -135,12 +135,12 @@ func TestReconfigurableCamera(t *testing.T) {
 	actualCamera2 := &mock{Name: testCameraName2}
 	reconfCamera2, err := camera.WrapWithReconfigurable(actualCamera2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualCamera1.closeCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 
 	err = reconfCamera1.Reconfigure(context.Background(), reconfCamera2)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, reconfCamera1, test.ShouldResemble, reconfCamera2)
-	test.That(t, actualCamera1.closeCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
 
 	test.That(t, actualCamera1.nextCount, test.ShouldEqual, 0)
 	test.That(t, actualCamera2.nextCount, test.ShouldEqual, 0)
@@ -162,18 +162,18 @@ func TestClose(t *testing.T) {
 	reconfCamera1, err := camera.WrapWithReconfigurable(actualCamera1)
 	test.That(t, err, test.ShouldBeNil)
 
-	test.That(t, actualCamera1.closeCount, test.ShouldEqual, 0)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 0)
 	test.That(t, utils.TryClose(context.Background(), reconfCamera1), test.ShouldBeNil)
-	test.That(t, actualCamera1.closeCount, test.ShouldEqual, 1)
+	test.That(t, actualCamera1.reconfCount, test.ShouldEqual, 1)
 }
 
 var img = image.NewNRGBA(image.Rect(0, 0, 4, 4))
 
 type mock struct {
 	camera.Camera
-	Name       string
-	nextCount  int
-	closeCount int
+	Name        string
+	nextCount   int
+	reconfCount int
 }
 
 func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
@@ -181,7 +181,7 @@ func (m *mock) Next(ctx context.Context) (image.Image, func(), error) {
 	return img, nil, nil
 }
 
-func (m *mock) Close() { m.closeCount++ }
+func (m *mock) Close() { m.reconfCount++ }
 
 type simpleSource struct {
 	filePath string
