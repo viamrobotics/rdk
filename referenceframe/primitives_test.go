@@ -18,7 +18,7 @@ func TestJointPositions(t *testing.T) {
 }
 
 func TestBasicConversions(t *testing.T) {
-	jp := &pb.ArmJointPositions{Degrees: []float64{45, 55}}
+	jp := &pb.JointPositions{Degrees: []float64{45, 55}}
 	inputs := JointPosToInputs(jp)
 	test.That(t, jp, test.ShouldResemble, InputsToJointPos(inputs))
 

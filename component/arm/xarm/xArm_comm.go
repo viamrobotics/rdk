@@ -355,7 +355,7 @@ func (x *xArm) Close(ctx context.Context) error {
 }
 
 // MoveToJointPositions moves the arm to the requested joint positions.
-func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
+func (x *xArm) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	to := referenceframe.JointPosToInputs(newPositions)
 	curPos, err := x.GetJointPositions(ctx)
 	if err != nil {
@@ -420,12 +420,12 @@ func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles
 }
 
 // GetJointPositions returns the current positions of all joints.
-func (x *xArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	c := x.newCmd(regMap["JointPos"])
 
 	jData, err := x.send(ctx, c, true)
 	if err != nil {
-		return &pb.ArmJointPositions{}, err
+		return &pb.JointPositions{}, err
 	}
 	var radians []float64
 	for i := 0; i < x.dof; i++ {
