@@ -12,10 +12,11 @@ import (
 // service.
 type ObjectSegmentationService struct {
 	objectsegmentation.Service
-	GetObjectPointCloudsFunc func(ctx context.Context,
+	GetSegmentersFunc          func(ctx context.Context) ([]string, error)
+	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]string, error)
+	GetObjectPointCloudsFunc   func(ctx context.Context,
 		cameraName, segmenterName string,
 		params config.AttributeMap) ([]*vision.Object, error)
-	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]string, error)
 }
 
 // GetObjectPointClouds calls the injected GetObjectPointClouds or the real variant.
@@ -28,6 +29,14 @@ func (seg *ObjectSegmentationService) GetObjectPointClouds(
 		return seg.Service.GetObjectPointClouds(ctx, cameraName, segmenterName, params)
 	}
 	return seg.GetObjectPointCloudsFunc(ctx, cameraName, segmenterName, params)
+}
+
+// GetSegmenters calls the injected GetSegmenters or the real variant.
+func (seg *ObjectSegmentationService) GetSegmenters(ctx context.Context) ([]string, error) {
+	if seg.GetSegmentersFunc == nil {
+		return seg.Service.GetSegmenters(ctx)
+	}
+	return seg.GetSegmentersFunc(ctx)
 }
 
 // GetSegmenterParameters calls the injected GetSegmenterParameters or the real variant.

@@ -56,6 +56,14 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
+func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetSegmenters(ctx, &pb.GetSegmentersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Segmenters, nil
+}
+
 func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
 	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
 		SegmenterName: segmenterName,

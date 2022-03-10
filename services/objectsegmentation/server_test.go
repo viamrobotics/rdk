@@ -29,7 +29,7 @@ func newServer(osMap map[resource.Name]interface{}) (pb.ObjectSegmentationServic
 	return objectsegmentation.NewServer(osSvc), nil
 }
 
-func TestServerGetObjectPointClouds(t *testing.T) {
+func TestServerObjectSegmentation(t *testing.T) {
 	osMap := map[resource.Name]interface{}{}
 	server, err := newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
@@ -51,6 +51,16 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 	}
 	server, err = newServer(osMap)
 	test.That(t, err, test.ShouldBeNil)
+
+	// error GetSegmenters
+	segErr := errors.New("segmenters error")
+	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+		return nil, segErr
+	}
+	segReq := &pb.GetSegmentersRequest{}
+	_, err = server.GetSegmenters(context.Background(), segReq)
+	test.That(t, err, test.ShouldBeError, segErr)
+	// error GetObjectPointClouds
 	passedErr := errors.New("fake object point clouds error")
 	injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
 		cameraName string,
@@ -96,6 +106,14 @@ func TestServerGetObjectPointClouds(t *testing.T) {
 		}
 		return segmenter.Parameters, nil
 	}
+	injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+		return []string{segmentation.RadiusClusteringSegmenter}, nil
+	}
+	// request segmenters
+	segResp, err := server.GetSegmenters(context.Background(), segReq)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segResp.Segmenters, test.ShouldHaveLength, 1)
+	test.That(t, segResp.Segmenters[0], test.ShouldEqual, segmentation.RadiusClusteringSegmenter)
 
 	// no such segmenter in registry
 	_, err = server.GetSegmenterParameters(context.Background(), &pb.GetSegmenterParametersRequest{

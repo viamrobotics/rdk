@@ -25,6 +25,12 @@ service ObjectSegmentationService {
       get: "/viam/api/v1/service/object_segmentation/segmenter_parameters"
     };
   }
+  // GetSegmenters returns the list of segmenters in the registry.
+  rpc GetSegmenters(GetSegmentersRequest) returns (GetSegmentersResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/object_segmentation/segmenters"
+    };
+  }
 }
 
 message GetObjectPointCloudsRequest {
@@ -53,4 +59,10 @@ message GetSegmenterParametersRequest {
 message GetSegmenterParametersResponse {
   // parameter names of the segmenter in the request
   repeated string parameters = 1;
+}
+message GetSegmentersRequest {}
+
+message GetSegmentersResponse {
+  // segmenters in the registry
+  repeated string segmenters = 1;
 }

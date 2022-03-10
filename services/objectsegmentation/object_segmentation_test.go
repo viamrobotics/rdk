@@ -148,6 +148,10 @@ func TestGetObjectPointClouds(t *testing.T) {
 	// from a camera that has a PointCloud func -- apply default
 	obs, err := objectsegmentation.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
+	segmenterNames, err := obs.GetSegmenters(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, segmenterNames, test.ShouldContain, segmentation.RadiusClusteringSegmenter)
+
 	paramNames, err := obs.GetSegmenterParameters(context.Background(), segmentation.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paramNames, test.ShouldHaveLength, 3)
