@@ -55,7 +55,7 @@ func InterfaceToMap(data interface{}) (map[string]interface{}, error) {
 			return nil, err
 		}
 	default:
-		return nil, errors.Errorf("data of type %T not a struct or a map-like object", data)
+		return nil, errors.Errorf("data of type %T and kind %s not a struct or a map-like object", data, t.Kind().String())
 	}
 	return res, nil
 }
