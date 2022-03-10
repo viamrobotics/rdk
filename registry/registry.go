@@ -74,9 +74,9 @@ type (
 	// A CreateReconfigurable makes a reconfigurable resource from a given resource.
 	CreateReconfigurable func(resource interface{}) (resource.Reconfigurable, error)
 
-	// A CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
+	// CreateStatus creates a status from a given resource. The return type is expected to be comprised of string keys
 	// (or it should be possible to decompose it into string keys) and values comprised of primitives, list of primitives,
-	// maps with string keys (or at least can be decomposed into one), or lists of the forementioned type of maps.
+	// maps with string keys (or at least can be decomposed into one), or lists of the aforementioned type of maps.
 	// Results with other types of data are not guaranteed.
 	CreateStatus func(ctx context.Context, resource interface{}) (interface{}, error)
 
