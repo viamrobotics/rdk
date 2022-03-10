@@ -1813,6 +1813,20 @@
       </div> <!-- end pcd wrapper -->
       <!-- get segments -->
       <table v-if="pcdClick.pcdloaded">
+          <tr>
+        <th colspan=2>Object Segmentation</th>
+        </tr>
+        <tr>
+                <td>
+                        Select Camera
+                </td>
+                <td>
+                        <select class="form-control">
+                        <option value="" selected disabled>Choose</option>
+                        <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name" :key="camera.name">{{ camera.name }}</option>
+                        </select>
+                </td>
+        </tr>
         <tr>
           <td colspan=2>
               Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
