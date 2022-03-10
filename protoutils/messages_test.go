@@ -102,10 +102,10 @@ var (
 func TestInterfaceToMap(t *testing.T) {
 	t.Run("not a map or struct", func(t *testing.T) {
 		_, err := InterfaceToMap("1")
-		test.That(t, err, test.ShouldBeError, errors.New("data of type string not a struct or a map-like object"))
+		test.That(t, err, test.ShouldBeError, errors.New("data of type string and kind string not a struct or a map-like object"))
 
 		_, err = InterfaceToMap([]string{"1"})
-		test.That(t, err, test.ShouldBeError, errors.New("data of type []string not a struct or a map-like object"))
+		test.That(t, err, test.ShouldBeError, errors.New("data of type []string and kind slice not a struct or a map-like object"))
 	})
 
 	for _, tc := range mapTests {
