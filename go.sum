@@ -286,6 +286,10 @@ github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e h1:K3N0Zm7JySHjvThq
 github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e/go.mod h1:nsP/KxpaFaTriZlxPlULlPKf7F3LS0J4BgoxZN8QJAU=
 github.com/edaniels/gostream v0.0.0-20220103181712-0bb3c45e3a26 h1:eyvJs8SK4lJLOJe2oSJBIIs8d0GdXBJR9SStEnGUsfM=
 github.com/edaniels/gostream v0.0.0-20220103181712-0bb3c45e3a26/go.mod h1:cb0nmCaifheVVj0SgNWpUQcQ4RZhkhMWnKx0S6sUCew=
+github.com/edaniels/gostream v0.0.0-20220308152757-0e3d45e3db5e h1:Ht9ma4uQq0qVS1gP71qUycfnN35OWeOzgPRi6VE1wI8=
+github.com/edaniels/gostream v0.0.0-20220308152757-0e3d45e3db5e/go.mod h1:cb0nmCaifheVVj0SgNWpUQcQ4RZhkhMWnKx0S6sUCew=
+github.com/edaniels/gostream v0.0.0-20220310230028-c35fb85da565 h1:oS6N/brd8ysXXoUZzgzTI6ZOB4lW2N2IzPZ0BtQQQLo=
+github.com/edaniels/gostream v0.0.0-20220310230028-c35fb85da565/go.mod h1:cb0nmCaifheVVj0SgNWpUQcQ4RZhkhMWnKx0S6sUCew=
 github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801 h1:PDPZc5flK+qvN8kdgMTDgYP3NMW7YF3umJi15Cv+BVc=
 github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801/go.mod h1:u2TnFQgwD7N7iNYadT/mnydpiDt6yI4W7lkp4pcSVyo=
 github.com/edaniels/lidario v0.0.0-20210216165043-81520ca6a2de h1:JuF74jzC/jNopROh0Ay1d9APtx00FWXqMwtvaXhoE+4=
