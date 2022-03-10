@@ -11,17 +11,17 @@ import "proto/api/common/v1/common.proto";
 
 // A StatusService services keeps track of all status associated with a robot
 service StatusService {
-  // GetStatus returns the list of all statuses requested.
+  // GetStatus returns the list of all statuses requested. An empty request signifies all resources.
   rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/status"
     };
   }
 
-  // StreamStatus periodically sends the status of all statuses requested.
+  // StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
   rpc StreamStatus(StreamStatusRequest) returns (stream StreamStatusResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/status_stream"
+      get: "/viam/api/v1/service/status/stream"
     };
   }
 }

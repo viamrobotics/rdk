@@ -88,7 +88,7 @@ func TestServerGetStatus(t *testing.T) {
 			test.ShouldBeError,
 			errors.New(
 				"unable to convert status for \"rdk:component:arm/arm\" to a form acceptable to structpb.NewStruct: "+
-					"data of type int not a struct or a map-like object",
+					"data of type int and kind int not a struct or a map-like object",
 			),
 		)
 	})
@@ -100,10 +100,10 @@ func TestServerGetStatus(t *testing.T) {
 		}
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
-		aStatus := status.Status{Name: arm.Named("arm"), Status: status.DefaultStatus{Exists: true}}
+		aStatus := status.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		readings := []status.Status{aStatus}
 		expected := map[resource.Name]interface{}{
-			aStatus.Name: map[string]interface{}{"exists": true},
+			aStatus.Name: map[string]interface{}{},
 		}
 		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
 			test.That(
@@ -137,12 +137,12 @@ func TestServerGetStatus(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		iStatus := status.Status{Name: imu.Named("imu"), Status: map[string]interface{}{"abc": []float64{1.2, 2.3, 3.4}}}
 		gStatus := status.Status{Name: gps.Named("gps"), Status: map[string]interface{}{"efg": []string{"hello"}}}
-		aStatus := status.Status{Name: arm.Named("arm"), Status: status.DefaultStatus{Exists: true}}
+		aStatus := status.Status{Name: arm.Named("arm"), Status: struct{}{}}
 		statuses := []status.Status{iStatus, gStatus, aStatus}
 		expected := map[resource.Name]interface{}{
 			iStatus.Name: map[string]interface{}{"abc": []interface{}{1.2, 2.3, 3.4}},
 			gStatus.Name: map[string]interface{}{"efg": []interface{}{"hello"}},
-			aStatus.Name: map[string]interface{}{"exists": true},
+			aStatus.Name: map[string]interface{}{},
 		}
 		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
 			test.That(
@@ -204,7 +204,7 @@ func TestServerGetStatus(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
-			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+			return []status.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -229,7 +229,7 @@ func TestServerGetStatus(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
-			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+			return []status.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 
 		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -252,7 +252,7 @@ func TestServerGetStatus(t *testing.T) {
 		server, err := newServer(sMap)
 		test.That(t, err, test.ShouldBeNil)
 		injectStatus.GetStatusFunc = func(ctx context.Context, resourceNames []resource.Name) ([]status.Status, error) {
-			return []status.Status{{arm.Named("arm"), status.DefaultStatus{Exists: true}}}, nil
+			return []status.Status{{arm.Named("arm"), struct{}{}}}, nil
 		}
 
 		cancelCtx, cancel := context.WithCancel(context.Background())
@@ -271,7 +271,7 @@ func TestServerGetStatus(t *testing.T) {
 			streamErr = server.StreamStatus(&pb.StreamStatusRequest{Every: durationpb.New(dur)}, streamServer)
 			close(done)
 		}()
-		expectedStatus, err := structpb.NewStruct(map[string]interface{}{"exists": true})
+		expectedStatus, err := structpb.NewStruct(map[string]interface{}{})
 		test.That(t, err, test.ShouldBeNil)
 		var messages []*pb.StreamStatusResponse
 		messages = append(messages, <-messageCh)

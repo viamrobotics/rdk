@@ -197,9 +197,9 @@ func TestConfigRemote(t *testing.T) {
 	)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 3)
-	test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-	test.That(t, statuses[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-	test.That(t, statuses[2].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
+	test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
+	test.That(t, statuses[2].Status, test.ShouldResemble, struct{}{})
 
 	statuses, err = statusSvc.GetStatus(
 		context.Background(),
@@ -437,8 +437,8 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 			)
 			test.That(t, err, test.ShouldBeNil)
 			test.That(t, len(statuses), test.ShouldEqual, 2)
-			test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
-			test.That(t, statuses[1].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+			test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
+			test.That(t, statuses[1].Status, test.ShouldResemble, struct{}{})
 
 			statuses, err = statusSvc.GetStatus(
 				context.Background(), []resource.Name{arm.Named("pieceArm"), arm.Named("foo.pieceArm")},
@@ -626,7 +626,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 	statuses, err := statusSvc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(statuses), test.ShouldEqual, 1)
-	test.That(t, statuses[0].Status, test.ShouldResemble, status.DefaultStatus{Exists: true})
+	test.That(t, statuses[0].Status, test.ShouldResemble, struct{}{})
 
 	statuses, err = statusSvc.GetStatus(context.Background(), []resource.Name{arm.Named("pieceArm")})
 	test.That(t, err, test.ShouldBeNil)
@@ -840,9 +840,9 @@ func TestStatusService(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	expected := map[resource.Name]interface{}{
 		arm.Named("pieceArm"): armStatus,
-		gps.Named("gps1"):     status.DefaultStatus{Exists: true},
-		status.Name:           status.DefaultStatus{Exists: true},
-		web.Name:              status.DefaultStatus{Exists: true},
+		gps.Named("gps1"):     struct{}{},
+		status.Name:           struct{}{},
+		web.Name:              struct{}{},
 	}
 
 	statuses, err := svc.GetStatus(context.Background(), []resource.Name{gps.Named("gps1")})

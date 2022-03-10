@@ -93,7 +93,7 @@ type statusService struct {
 	logger    golog.Logger
 }
 
-// GetStatus takes a list of resource names and returns their corresponding statuses.
+// GetStatus takes a list of resource names and returns their corresponding statuses. If no names are passed in, return all statuses.
 func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.Name) ([]Status, error) {
 	s.mu.RLock()
 	// make a shallow copy of resources and then unlock
@@ -103,11 +103,21 @@ func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.
 	}
 	s.mu.RUnlock()
 
+	namesToDedupe := resourceNames
+	// if no names, return all
+	if len(namesToDedupe) == 0 {
+		namesToDedupe = make([]resource.Name, 0, len(resources))
+		for n := range resources {
+			namesToDedupe = append(namesToDedupe, n)
+		}
+	}
+
 	// dedupe resourceNames
-	deduped := make(map[resource.Name]struct{}, len(resourceNames))
-	for _, val := range resourceNames {
+	deduped := make(map[resource.Name]struct{}, len(namesToDedupe))
+	for _, val := range namesToDedupe {
 		deduped[val] = struct{}{}
 	}
+
 	statuses := make([]Status, 0, len(deduped))
 	for name := range deduped {
 		resource, ok := resources[name]
@@ -117,7 +127,7 @@ func (s *statusService) GetStatus(ctx context.Context, resourceNames []resource.
 
 		// if resource subtype has an associated CreateStatus method, use that
 		// otherwise return true to indicate resource exists
-		var status interface{} = DefaultStatus{Exists: true}
+		var status interface{} = struct{}{}
 		var err error
 		subtype := registry.ResourceSubtypeLookup(name.Subtype)
 		if subtype != nil && subtype.Status != nil {
@@ -142,9 +152,4 @@ func (s *statusService) Update(ctx context.Context, r map[resource.Name]interfac
 	}
 	s.resources = resources
 	return nil
-}
-
-// DefaultStatus is a default status for resources that don't have a CreateStatus method registered.
-type DefaultStatus struct {
-	Exists bool `json:"exists"`
 }

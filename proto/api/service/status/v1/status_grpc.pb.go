@@ -18,9 +18,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type StatusServiceClient interface {
-	// GetStatus returns the list of all statuses requested.
+	// GetStatus returns the list of all statuses requested. An empty request signifies all resources.
 	GetStatus(ctx context.Context, in *GetStatusRequest, opts ...grpc.CallOption) (*GetStatusResponse, error)
-	// StreamStatus periodically sends the status of all statuses requested.
+	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(ctx context.Context, in *StreamStatusRequest, opts ...grpc.CallOption) (StatusService_StreamStatusClient, error)
 }
 
@@ -77,9 +77,9 @@ func (x *statusServiceStreamStatusClient) Recv() (*StreamStatusResponse, error) 
 // All implementations must embed UnimplementedStatusServiceServer
 // for forward compatibility
 type StatusServiceServer interface {
-	// GetStatus returns the list of all statuses requested.
+	// GetStatus returns the list of all statuses requested. An empty request signifies all resources.
 	GetStatus(context.Context, *GetStatusRequest) (*GetStatusResponse, error)
-	// StreamStatus periodically sends the status of all statuses requested.
+	// StreamStatus periodically sends the status of all statuses requested. An empty request signifies all resources.
 	StreamStatus(*StreamStatusRequest, StatusService_StreamStatusServer) error
 	mustEmbedUnimplementedStatusServiceServer()
 }

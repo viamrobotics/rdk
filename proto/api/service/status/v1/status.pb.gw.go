@@ -196,7 +196,7 @@ func RegisterStatusServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.status.v1.StatusService/StreamStatus", runtime.WithHTTPPathPattern("/viam/api/v1/service/status_stream"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.status.v1.StatusService/StreamStatus", runtime.WithHTTPPathPattern("/viam/api/v1/service/status/stream"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -218,7 +218,7 @@ func RegisterStatusServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 var (
 	pattern_StatusService_GetStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "service", "status"}, ""))
 
-	pattern_StatusService_StreamStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "service", "status_stream"}, ""))
+	pattern_StatusService_StreamStatus_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "status", "stream"}, ""))
 )
 
 var (
