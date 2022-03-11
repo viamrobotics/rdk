@@ -99,7 +99,6 @@ func (c *client) GetObjectPointClouds(ctx context.Context,
 	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
-
 	return protoToObjects(resp.Objects)
 }
 
