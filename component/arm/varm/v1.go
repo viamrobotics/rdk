@@ -256,7 +256,7 @@ func (a *armV1) moveJointToDegrees(ctx context.Context, m motor.Motor, j joint, 
 }
 
 // MoveToJointPositions TODO.
-func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
+func (a *armV1) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
 	if len(pos.Degrees) != 2 {
 		return errors.New("need exactly 2 joints")
 	}
@@ -310,9 +310,9 @@ func jointToDegrees(ctx context.Context, m motor.Motor, j joint) (float64, error
 }
 
 // GetJointPositions TODO.
-func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+func (a *armV1) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
 	var e1, e2 error
-	joints := &componentpb.ArmJointPositions{Degrees: make([]float64, 2)}
+	joints := &componentpb.JointPositions{Degrees: make([]float64, 2)}
 	joints.Degrees[0], e1 = jointToDegrees(ctx, a.j0Motor, a.j0)
 	joints.Degrees[1], e2 = jointToDegrees(ctx, a.j1Motor, a.j1)
 

@@ -85,21 +85,21 @@ func TestRevoluteFrame(t *testing.T) {
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
-	input := JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45}})
+	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45, 55}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{overLimit}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back

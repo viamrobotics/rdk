@@ -253,7 +253,7 @@
                   armJointInc : function(name, field, amount) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPositioDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
+                      var newPositioDegs = Object.assign(Object.create(armApi.JointPositions.prototype), old);
                       var newList = newPositioDegs.getDegreesList();
                       newList[field] += amount;
                       newPositioDegs.setDegreesList(newList);
@@ -265,7 +265,7 @@
                   armHome : function(name) {
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
-                      var newPositionDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
+                      var newPositionDegs = Object.assign(Object.create(armApi.JointPositions.prototype), old);
                       var newList = newPositionDegs.getDegreesList();
                       for (var i = 0; i < newList.length; i++) {
                         newList[i] = 0;
@@ -319,7 +319,7 @@
                       const arm = theData.rawStatus.getArmsMap().get(name);
                       var old = arm.getJointPositions();
 
-                      var newPositionDegs = Object.assign(Object.create(armApi.ArmJointPositions.prototype), old);
+                      var newPositionDegs = Object.assign(Object.create(armApi.JointPositions.prototype), old);
                       var newList = newPositionDegs.getDegreesList();
 
                       var newPieces = theData.armToggle[name].pieces;
