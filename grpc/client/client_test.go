@@ -90,7 +90,7 @@ func TestClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
-	pose1 := &pb.Pose{
+	pose1 := &commonpb.Pose{
 		X:     0.0,
 		Y:     0.0,
 		Z:     0.0,
@@ -101,11 +101,7 @@ func TestClient(t *testing.T) {
 	}
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		pos := pose1
-		convertedPos := &commonpb.Pose{
-			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
-		}
-		return convertedPos, nil
+		return pose1, nil
 	}
 
 	injectBoard := &inject.Board{}
