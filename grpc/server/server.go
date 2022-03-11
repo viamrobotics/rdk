@@ -6,7 +6,6 @@ package server
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -48,15 +47,6 @@ func (s *Server) Close() {
 	s.activeBackgroundWorkers.Wait()
 }
 
-// Status returns the robot's underlying status.
-func (s *Server) Status(ctx context.Context, _ *pb.StatusRequest) (*pb.StatusResponse, error) {
-	status, err := s.r.Status(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &pb.StatusResponse{Status: status}, nil
-}
-
 // Config returns the robot's underlying config.
 func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigResponse, error) {
 	cfg, err := s.r.Config(ctx)
@@ -90,40 +80,6 @@ func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigRes
 	}
 
 	return resp, nil
-}
-
-const defaultStreamInterval = 1 * time.Second
-
-// StatusStream periodically sends the robot's status.
-func (s *Server) StatusStream(
-	req *pb.StatusStreamRequest,
-	server pb.RobotService_StatusStreamServer,
-) error {
-	every := defaultStreamInterval
-	if reqEvery := req.Every.AsDuration(); reqEvery != time.Duration(0) {
-		every = reqEvery
-	}
-	ticker := time.NewTicker(every)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-server.Context().Done():
-			return server.Context().Err()
-		default:
-		}
-		select {
-		case <-server.Context().Done():
-			return server.Context().Err()
-		case <-ticker.C:
-		}
-		status, err := s.r.Status(server.Context())
-		if err != nil {
-			return err
-		}
-		if err := server.Send(&pb.StatusStreamResponse{Status: status}); err != nil {
-			return err
-		}
-	}
 }
 
 // DoAction runs an action on the underlying robot.

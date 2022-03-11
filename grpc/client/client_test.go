@@ -23,7 +23,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/component/motor"
-	_ "go.viam.com/rdk/component/motor/register"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
@@ -50,58 +49,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
-	rutils "go.viam.com/rdk/utils"
 )
-
-var emptyStatus = &pb.Status{
-	Arms: map[string]*pb.ArmStatus{
-		"arm1": {
-			GridPosition: &pb.Pose{
-				X:     0.0,
-				Y:     0.0,
-				Z:     0.0,
-				Theta: 0.0,
-				OX:    1.0,
-				OY:    0.0,
-				OZ:    0.0,
-			},
-			JointPositions: &pb.JointPositions{
-				Degrees: []float64{0, 0, 0, 0, 0, 0},
-			},
-		},
-	},
-	Bases: map[string]bool{
-		"base1": true,
-	},
-	Boards: map[string]*commonpb.BoardStatus{
-		"board1": {
-			Analogs: map[string]*commonpb.AnalogStatus{
-				"analog1": {},
-			},
-			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-				"encoder": {},
-			},
-		},
-		"board3": {},
-	},
-	Cameras: map[string]bool{
-		"camera1": true,
-	},
-	Grippers: map[string]bool{
-		"gripper1": true,
-	},
-	InputControllers: map[string]*pb.InputControllerStatus{
-		"inputController1": {},
-	},
-	Motors: map[string]*pb.MotorStatus{
-		"motor1": {},
-		"motor2": {},
-	},
-	Sensors: map[string]*pb.SensorStatus{},
-	Servos: map[string]*pb.ServoStatus{
-		"servo1": {},
-	},
-}
 
 var emptyResources = []resource.Name{
 	arm.Named("arm1"),
@@ -110,84 +58,6 @@ var emptyResources = []resource.Name{
 	board.Named("board3"),
 	camera.Named("camera1"),
 	gripper.Named("gripper1"),
-}
-
-var finalStatus = &pb.Status{
-	Arms: map[string]*pb.ArmStatus{
-		"arm2": {
-			GridPosition: &pb.Pose{
-				X:     0.0,
-				Y:     0.0,
-				Z:     0.0,
-				Theta: 0.0,
-				OX:    1.0,
-				OY:    0.0,
-				OZ:    0.0,
-			},
-			JointPositions: &pb.JointPositions{
-				Degrees: []float64{0, 0, 0, 0, 0, 0},
-			},
-		},
-		"arm3": {
-			GridPosition: &pb.Pose{
-				X:     0.0,
-				Y:     0.0,
-				Z:     0.0,
-				Theta: 0.0,
-				OX:    1.0,
-				OY:    0.0,
-				OZ:    0.0,
-			},
-			JointPositions: &pb.JointPositions{
-				Degrees: []float64{0, 0, 0, 0, 0, 0},
-			},
-		},
-	},
-	Bases: map[string]bool{
-		"base2": true,
-		"base3": true,
-	},
-	Boards: map[string]*commonpb.BoardStatus{
-		"board2": {
-			Analogs: map[string]*commonpb.AnalogStatus{
-				"analog1": {},
-			},
-			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-				"encoder": {},
-			},
-		},
-		"board3": {
-			Analogs: map[string]*commonpb.AnalogStatus{
-				"analog1": {},
-				"analog2": {},
-			},
-			DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-				"encoder":  {},
-				"digital1": {},
-			},
-		},
-	},
-	Cameras: map[string]bool{
-		"camera2": true,
-		"camera3": true,
-	},
-	Grippers: map[string]bool{
-		"gripper2": true,
-		"gripper3": true,
-	},
-	InputControllers: map[string]*pb.InputControllerStatus{
-		"inputController2": {},
-		"inputController3": {},
-	},
-	Motors: map[string]*pb.MotorStatus{
-		"motor2": {},
-		"motor3": {},
-	},
-	Sensors: map[string]*pb.SensorStatus{},
-	Servos: map[string]*pb.ServoStatus{
-		"servo2": {},
-		"servo3": {},
-	},
 }
 
 var finalResources = []resource.Name{
@@ -220,19 +90,18 @@ func TestClient(t *testing.T) {
 	pb.RegisterRobotServiceServer(gServer1, server.New(injectRobot1))
 	pb.RegisterRobotServiceServer(gServer2, server.New(injectRobot2))
 
-	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return nil, errors.New("whoops")
+	pose1 := &pb.Pose{
+		X:     0.0,
+		Y:     0.0,
+		Z:     0.0,
+		Theta: 0.0,
+		OX:    1.0,
+		OY:    0.0,
+		OZ:    0.0,
 	}
-	injectRobot1.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return nil, rutils.NewResourceNotFoundError(name)
-	}
-	injectRobot2.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return emptyStatus, nil
-	}
-
 	injectArm := &inject.Arm{}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
-		pos := emptyStatus.Arms["arm1"].GridPosition
+		pos := pose1
 		convertedPos := &commonpb.Pose{
 			X: pos.X, Y: pos.Y, Z: pos.Z, OX: pos.OX, OY: pos.OY, OZ: pos.OZ, Theta: pos.Theta,
 		}
@@ -372,15 +241,6 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
-	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return &pb.Status{
-			Boards: map[string]*commonpb.BoardStatus{
-				"board1": {},
-				"board2": {},
-			},
-		}, nil
-	}
-
 	cfg := config.Config{
 		Components: []config.Component{
 			{
@@ -413,14 +273,6 @@ func TestClient(t *testing.T) {
 	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
 	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
 	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
-
-	// test status
-	injectRobot1.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return nil, errors.New("whoops")
-	}
-	_, err = client.Status(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
 
 	arm1, err := arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
@@ -516,10 +368,6 @@ func TestClient(t *testing.T) {
 	client, err = New(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	status, err := client.Status(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status.String(), test.ShouldResemble, emptyStatus.String())
-
 	_, err = client.FrameSystem(context.Background(), "", "")
 	test.That(t, err, test.ShouldNotBeNil)
 
@@ -529,7 +377,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err := arm1.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
+	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
 
 	_, err = base.FromRobot(client, "base1")
 	test.That(t, err, test.ShouldBeNil)
@@ -590,7 +438,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pos, err = resource1.(arm.Arm).GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pos.String(), test.ShouldResemble, emptyStatus.Arms["arm1"].GridPosition.String())
+	test.That(t, pos.String(), test.ShouldResemble, pose1.String())
 
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -611,24 +459,13 @@ func TestClientRefresh(t *testing.T) {
 
 	var callCount int
 	calledEnough := make(chan struct{})
-	var shouldError bool
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		if shouldError {
-			return nil, errors.New("no more for you")
-		}
-		if callCount > 5 {
-			shouldError = true
+
+	injectMetadata.AllFunc = func() []resource.Name {
+		if callCount == 5 {
 			close(calledEnough)
 		}
 		callCount++
-		if callCount > 5 {
-			return finalStatus, nil
-		}
-		return emptyStatus, nil
-	}
-
-	injectMetadata.AllFunc = func() []resource.Name {
-		if callCount > 5 {
+		if callCount >= 5 {
 			return finalResources
 		}
 		return emptyResources
@@ -646,10 +483,6 @@ func TestClientRefresh(t *testing.T) {
 	<-calledEnough
 	test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 5*dur)
 	test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 10*dur)
-
-	status, err := client.Status(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status.String(), test.ShouldResemble, finalStatus.String())
 
 	armNames := []resource.Name{arm.Named("arm2"), arm.Named("arm3")}
 	baseNames := []resource.Name{base.Named("base2"), base.Named("base3")}
@@ -713,10 +546,6 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return emptyStatus, nil
-	}
-
 	injectMetadata.AllFunc = func() []resource.Name {
 		return emptyResources
 	}
@@ -779,9 +608,6 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return finalStatus, nil
-	}
 	injectMetadata.AllFunc = func() []resource.Name {
 		return finalResources
 	}
@@ -853,17 +679,11 @@ func TestClientDialerOption(t *testing.T) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
-	injectRobot := &inject.Robot{}
-	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
 	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
-
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return emptyStatus, nil
-	}
 
 	injectMetadata.AllFunc = func() []resource.Name {
 		return emptyResources
