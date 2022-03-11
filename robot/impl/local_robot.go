@@ -37,49 +37,49 @@ import (
 var _ = robot.LocalRobot(&localRobot{})
 
 // localRobot satisfies robot.LocalRobot and defers most
-// logic to its parts.
+// logic to its manager.
 type localRobot struct {
-	mu     sync.Mutex
-	parts  *robotParts
-	config *config.Config
-	logger golog.Logger
+	mu      sync.Mutex
+	manager *resourceManager
+	config  *config.Config
+	logger  golog.Logger
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
 // nil is returned.
 func (r *localRobot) RemoteByName(name string) (robot.Robot, bool) {
-	return r.parts.RemoteByName(name)
+	return r.manager.RemoteByName(name)
 }
 
 // ResourceByName returns a resource by name. If it does not exist
 // nil is returned.
 func (r *localRobot) ResourceByName(name resource.Name) (interface{}, error) {
-	return r.parts.ResourceByName(name)
+	return r.manager.ResourceByName(name)
 }
 
 // RemoteNames returns the name of all known remote robots.
 func (r *localRobot) RemoteNames() []string {
-	return r.parts.RemoteNames()
+	return r.manager.RemoteNames()
 }
 
 // FunctionNames returns the name of all known functions.
 func (r *localRobot) FunctionNames() []string {
-	return r.parts.FunctionNames()
+	return r.manager.FunctionNames()
 }
 
 // ResourceNames returns the name of all known resources.
 func (r *localRobot) ResourceNames() []resource.Name {
-	return r.parts.ResourceNames()
+	return r.manager.ResourceNames()
 }
 
 // ProcessManager returns the process manager for the robot.
 func (r *localRobot) ProcessManager() pexec.ProcessManager {
-	return r.parts.processManager
+	return r.manager.processManager
 }
 
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
-	return r.parts.Close(ctx)
+	return r.manager.Close(ctx)
 }
 
 // Config returns the config used to construct the robot.
@@ -88,7 +88,7 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
-	for remoteName, remote := range r.parts.remotes {
+	for remoteName, remote := range r.manager.remotes {
 		rc, err := remote.Config(ctx)
 		if err != nil {
 			return nil, err
@@ -139,7 +139,7 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	}
 	logger.Debugf("base frame system %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	// get frame system for each of its remote parts and merge to base
-	for remoteName, remote := range r.parts.remotes {
+	for remoteName, remote := range r.manager.remotes {
 		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
 		if err != nil {
 			return nil, err
@@ -166,8 +166,8 @@ func (r *localRobot) Logger() golog.Logger {
 // New returns a new robot with parts sourced from the given config.
 func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
 	r := &localRobot{
-		parts: newRobotParts(
-			robotPartsOptions{
+		manager: newResourceManager(
+			resourceManagerOptions{
 				debug:              cfg.Debug,
 				fromCommand:        cfg.FromCommand,
 				allowInsecureCreds: cfg.AllowInsecureCreds,
@@ -188,7 +188,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}()
 	r.config = cfg
 
-	if err := r.parts.processConfig(ctx, cfg, r, logger); err != nil {
+	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
 		return nil, err
 	}
 
@@ -200,7 +200,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 		if err != nil {
 			return nil, err
 		}
-		r.parts.addResource(name, svc)
+		r.manager.addResource(name, svc)
 	}
 
 	// if metadata exists, update it
