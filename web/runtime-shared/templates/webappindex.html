@@ -94,20 +94,12 @@
         return newStatus
       }
      
-      function getParameterType(typeName) {
-		  if (typeName == "int" || typeName == "float64") {
-			  return "number";
-		  } else if (typeName == "bool" || typeName == "bool") {
-			  return "text";
-		  }
-		  return "";
-      }
+      function fixGantries(old) {
+          var n = [];
+          for (var i=0; i<old.length; i++) {
+              var o = { name : old[i][0], parts : [] };
 
-      function fixGantryStatus(old) {
-        var newStatus = { parts: [] };
-        if (old["lengths_mm"].length != old["positions_mm"].length) {
-            throw "gantry lists different lengths";
-        }
+              var x = old[i][1];
 
         for ( var i=0; i < old["lengths_mm"].length; i++) {
           newStatus.parts.push({axis: i, pos: old["positions_mm"][i], length: old["lengths_mm"][i]});
@@ -211,7 +203,12 @@
               components: {},
               methods : {
       		  parameterType : function(typeName) {
-			  return getParameterType(typeName)
+			  if (typeName == "int" || typeName == "float64") {
+				  return "number";
+			  } else if (typeName == "bool" || typeName == "bool") {
+				  return "text";
+			  }
+			  return "";
 	          },
 		  getSegmenterNames :  function() {
                       let req = new objectSegmentationApi.GetSegmentersRequest();
@@ -236,15 +233,8 @@
                           return;
                         }
                         theData.segmenterParameterNames = resp.getParametersList();
-			for (let i = 0; i < theData.segmenterParameterNames.length; i++) {
-	                        if (getParameterType(theData.segmenterParameterNames[i].getName()) == "number") {
-	    				theData.segmenterParameters[theData.segmenterParameterNames[i].getName()] = 0	
-	    			} else if (getParameterType(theData.segmenterParameterNames[i].getName()) == "text") {
-	    				theData.segmenterParameters[theData.segmenterParameterNames[i].getName()] = ""	
-	    			}
-	    		}
+			theData.segmenterParameters = {};
 		      });
-	              console.log(theData.segmenterParameters)
 		  },
                   filterResources : function(namespace, type, subtype) {
                     return theData.resources.filter(elem => {
@@ -737,7 +727,8 @@
                       })
                   },
                   findSegments : function(cameraName, segmenterName, segmenterParams){
-	              console.log(segmenterParams)
+	              console.log("parameters for segmenter below:")
+		      console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+cameraName);
@@ -1892,13 +1883,13 @@
         </tr>
         <tr v-for="param in segmenterParameterNames">
           <td>${param.getName()}</td>
-	  <td><input :type="parameterType(param.getType())" id="param.getName()" v-model="segmenterParameters[param.getName()]"></td>
+	  <td><input :type="parameterType(param.getType())" id="param.getName()" v-model.number="segmenterParameters[param.getName()]"></td>
         </tr>
         <tr>
-            <td>
+            <td v-if="!pcdClick.calculatingSegments">
                 <button v-on:click="findSegments(segmentCamera, segmentAlgo, segmenterParameters)">Find Segments</button>
             </td>
-            <td v-if="pcdClick.calculatingSegments">Finding...</td>
+            <td v-else>Finding Objects...</td>
         </tr>
       </table>
       <table v-if="pcdClick.foundSegments">
