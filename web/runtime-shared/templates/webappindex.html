@@ -726,12 +726,11 @@
                       })
                   },
                   findSegments : function(cameraName, segmenterName, segmenterParams){
-	              console.log("parameters for segmenter below:")
-		      console.log(segmenterParams)
+	                  console.log("parameters for segmenter below:")
+		              console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
                       theData.pcdClick.foundSegments = false;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
-                      console.log("camera name: "+cameraName);
                       req.setCameraName(cameraName);
                       req.setSegmenterName(segmenterName);
                       req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
