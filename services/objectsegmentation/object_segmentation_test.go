@@ -156,9 +156,9 @@ func TestGetObjectPointClouds(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, paramNames, test.ShouldHaveLength, 3)
 	cfg := config.AttributeMap{
-		paramNames[0]: 100, // min points in plane
-		paramNames[1]: 3,   // min points in segment
-		paramNames[2]: 5.,  // clustering radius
+		paramNames[0].Name: 100, // min points in plane
+		paramNames[1].Name: 3,   // min points in segment
+		paramNames[2].Name: 5.,  // clustering radius
 	}
 	segs, err := obs.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, cfg)
 	test.That(t, err, test.ShouldBeNil)
@@ -270,11 +270,12 @@ func TestFullClientServerLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	paramNames, err := client.GetSegmenterParameters(context.Background(), segmentation.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, paramNames, test.ShouldHaveLength, 3)
+	expParams := []rdkutils.TypedName{{"min_points_in_plane", "int"}, {"min_points_in_segment", "int"}, {"clustering_radius_mm", "float64"}}
+	test.That(t, paramNames, test.ShouldResemble, expParams)
 	params := config.AttributeMap{
-		paramNames[0]: 100, // min points in plane
-		paramNames[1]: 3,   // min points in segment
-		paramNames[2]: 5.,  // clustering radius
+		paramNames[0].Name: 100, // min points in plane
+		paramNames[1].Name: 3,   // min points in segment
+		paramNames[2].Name: 5.,  // clustering radius
 	}
 	segs, err := client.GetObjectPointClouds(context.Background(), "fakeCamera", segmentation.RadiusClusteringSegmenter, params)
 	test.That(t, err, test.ShouldBeNil)

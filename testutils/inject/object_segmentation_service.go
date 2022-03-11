@@ -5,6 +5,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/services/objectsegmentation"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
@@ -13,7 +14,7 @@ import (
 type ObjectSegmentationService struct {
 	objectsegmentation.Service
 	GetSegmentersFunc          func(ctx context.Context) ([]string, error)
-	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]string, error)
+	GetSegmenterParametersFunc func(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointCloudsFunc   func(ctx context.Context,
 		cameraName, segmenterName string,
 		params config.AttributeMap) ([]*vision.Object, error)
@@ -43,7 +44,7 @@ func (seg *ObjectSegmentationService) GetSegmenters(ctx context.Context) ([]stri
 func (seg *ObjectSegmentationService) GetSegmenterParameters(
 	ctx context.Context,
 	segmenterName string,
-) ([]string, error) {
+) ([]utils.TypedName, error) {
 	if seg.GetSegmenterParametersFunc == nil {
 		return seg.Service.GetSegmenterParameters(ctx, segmenterName)
 	}

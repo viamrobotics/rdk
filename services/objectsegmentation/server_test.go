@@ -99,7 +99,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 		}
 		return segmenter.Segmenter(ctx, injCam, params)
 	}
-	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]string, error) {
+	injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 		segmenter, err := segmentation.SegmenterLookup(segmenterName)
 		if err != nil {
 			return nil, err
@@ -135,11 +135,14 @@ func TestServerObjectSegmentation(t *testing.T) {
 	})
 	test.That(t, err, test.ShouldBeNil)
 	paramNames := paramNamesResp.Parameters
+	test.That(t, paramNames[0].Type, test.ShouldEqual, "int")
+	test.That(t, paramNames[1].Type, test.ShouldEqual, "int")
+	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
 
 	params, err = structpb.NewStruct(config.AttributeMap{
-		paramNames[0]: 100, // min points in plane
-		paramNames[1]: 3,   // min points in segment
-		paramNames[2]: 5.,  //  clustering radius
+		paramNames[0].Name: 100, // min points in plane
+		paramNames[1].Name: 3,   // min points in segment
+		paramNames[2].Name: 5.,  //  clustering radius
 	})
 	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{
