@@ -730,6 +730,7 @@
 	              console.log("parameters for segmenter below:")
 		      console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
+                      theData.pcdClick.foundSegments = false;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+cameraName);
                       req.setCameraName(cameraName);
