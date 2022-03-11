@@ -64,8 +64,12 @@ func (server *subtypeServer) GetSegmenterParameters(
 	if err != nil {
 		return nil, err
 	}
+	typedParams := make([]*pb.TypedParameter, len(params))
+	for i, p := range params {
+		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
+	}
 	return &pb.GetSegmenterParametersResponse{
-		Parameters: params,
+		Parameters: typedParams,
 	}, nil
 }
 

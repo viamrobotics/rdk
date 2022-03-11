@@ -64,14 +64,18 @@ func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
 	return resp.Segmenters, nil
 }
 
-func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
+func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
 		SegmenterName: segmenterName,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Parameters, nil
+	params := make([]utils.TypedName, len(resp.Parameters))
+	for i, p := range resp.Parameters {
+		params[i] = utils.TypedName{p.Name, p.Type}
+	}
+	return params, nil
 }
 
 func (c *client) GetObjectPointClouds(ctx context.Context,
