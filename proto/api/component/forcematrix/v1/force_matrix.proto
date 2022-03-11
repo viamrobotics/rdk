@@ -12,14 +12,14 @@ service ForceMatrixService {
   // ReadMatrix returns the matrix of force readings from the force matrix sensor
   rpc ReadMatrix(ReadMatrixRequest) returns (ReadMatrixResponse) {
     option (google.api.http) = {
-      get : "/api/v1/component/force_matrix/{name}/matrix"
+      get : "/viam/api/v1/component/force_matrix/{name}/matrix"
     };
   }
 
   // DetectSlip returns whether or not slip is occurring
   rpc DetectSlip(DetectSlipRequest) returns (DetectSlipResponse) {
     option (google.api.http) = {
-      get : "/api/v1/component/force_matrix/{name}/slip_detection"
+      get : "/viam/api/v1/component/force_matrix/{name}/slip_detection"
     };
   }
 }

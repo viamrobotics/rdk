@@ -115,7 +115,7 @@ func RegisterObjectSegmentationServiceHandlerServer(ctx context.Context, mux *ru
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/service/object_segmentation/object_point_clouds"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_segmentation/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -138,7 +138,7 @@ func RegisterObjectSegmentationServiceHandlerServer(ctx context.Context, mux *ru
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/api/v1/service/object_segmentation/segmenter_parameters"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_segmentation/segmenter_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -200,7 +200,7 @@ func RegisterObjectSegmentationServiceHandlerClient(ctx context.Context, mux *ru
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/api/v1/service/object_segmentation/object_point_clouds"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetObjectPointClouds", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_segmentation/object_point_clouds"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -220,7 +220,7 @@ func RegisterObjectSegmentationServiceHandlerClient(ctx context.Context, mux *ru
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/api/v1/service/object_segmentation/segmenter_parameters"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenterParameters", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_segmentation/segmenter_parameters"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -240,9 +240,9 @@ func RegisterObjectSegmentationServiceHandlerClient(ctx context.Context, mux *ru
 }
 
 var (
-	pattern_ObjectSegmentationService_GetObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "object_segmentation", "object_point_clouds"}, ""))
+	pattern_ObjectSegmentationService_GetObjectPointClouds_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_segmentation", "object_point_clouds"}, ""))
 
-	pattern_ObjectSegmentationService_GetSegmenterParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "object_segmentation", "segmenter_parameters"}, ""))
+	pattern_ObjectSegmentationService_GetSegmenterParameters_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_segmentation", "segmenter_parameters"}, ""))
 )
 
 var (

@@ -9,7 +9,6 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/utils"
@@ -27,7 +26,7 @@ func TestDepthSource(t *testing.T) {
 }
 
 type depthSourceTestHelper struct {
-	attrs *camera.AttrConfig
+	attrs *alignAttrs
 }
 
 func (h *depthSourceTestHelper) Process(
@@ -91,7 +90,7 @@ func TestDepthSourceGripper(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/gripper1", "*.both.gz", false)
@@ -105,7 +104,7 @@ func TestDepthSourceIntel(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*alignAttrs)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	d := rimage.NewMultipleImageTestDebugger(t, "align/intel515", "*.both.gz", false)

@@ -16,14 +16,14 @@ service RobotService {
   // Status returns the robot's underlying status.
   rpc Status(StatusRequest) returns (StatusResponse) {
       option (google.api.http) = {
-        get: "/api/v1/status"
+        get: "/viam/api/v1/status"
     };
   }
 
   // StatusStream periodically sends the robot's status.
   rpc StatusStream(StatusStreamRequest) returns (stream StatusStreamResponse) {
       option (google.api.http) = {
-        get: "/api/v1/status_stream"
+        get: "/viam/api/v1/status_stream"
     };
   }
 
@@ -32,34 +32,34 @@ service RobotService {
   // And not the pieces relevant to local configuration (pins, security keys, etc...)
   rpc Config(ConfigRequest) returns (ConfigResponse) {
     option (google.api.http) = {
-      get: "/api/v1/config"
+      get: "/viam/api/v1/config"
     };  
   }
 
   // DoAction runs an action on the underlying robot.
   rpc DoAction(DoActionRequest) returns (DoActionResponse) {
     option (google.api.http) = {
-      post: "/api/v1/do_action"
+      post: "/viam/api/v1/do_action"
     };  
   }
 
   // TODO(RDK-40): refactor to functions service
   rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse) {
     option (google.api.http) = {
-      post: "/api/v1/functions/by_name/{name}/execute"
+      post: "/viam/api/v1/functions/by_name/{name}/execute"
     }; 
   }
 
   rpc ExecuteSource(ExecuteSourceRequest) returns (ExecuteSourceResponse) {
     option (google.api.http) = {
-      post: "/api/v1/functions/execute_code"
+      post: "/viam/api/v1/functions/execute_code"
     }; 
   }
 
   // ResourceRunCommand runs an arbitrary command on a resource if it supports it.
   rpc ResourceRunCommand(ResourceRunCommandRequest) returns (ResourceRunCommandResponse) {
     option (google.api.http) = {
-      post: "/api/v1/resource/{resource_name}/run_command"
+      post: "/viam/api/v1/resource/{resource_name}/run_command"
     };
   }
 
