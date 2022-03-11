@@ -12,7 +12,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20220310230028-c35fb85da565
+	github.com/edaniels/gostream v0.0.0-20220103181712-0bb3c45e3a26
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.5.1
@@ -308,6 +308,6 @@ replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
 
-replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v0.0.0-20220206052756-a309f5e4c63c
+replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v1.0.1
 
 replace github.com/pion/ice/v2 => github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801
