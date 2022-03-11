@@ -51,7 +51,7 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	for _, svc := range toUpdate {
 		updateable, ok := svc.(resource.Updateable)
 		if ok {
-			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
+			if err := updateable.Update(ctx, r.manager.resources.Nodes); err != nil {
 				return err
 			}
 		}
@@ -67,13 +67,13 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 type draftRobot struct {
 	original *localRobot
 	diff     *config.Diff
-	parts    *robotParts
+	manager  *resourceManager
 
 	// additions and removals consist of modifications as well since we treat
 	// any modification as a removal to commit and an addition to rollback.
-	additions     *robotParts
-	modifications *robotParts
-	removals      *robotParts
+	additions     *resourceManager
+	modifications *resourceManager
+	removals      *resourceManager
 }
 
 // newDraftRobot returns a new draft of a robot based on the given
@@ -83,10 +83,10 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 	return &draftRobot{
 		original:      r,
 		diff:          diff,
-		parts:         r.parts.Clone(),
-		additions:     newRobotParts(r.parts.opts, r.logger),
-		modifications: newRobotParts(r.parts.opts, r.logger),
-		removals:      newRobotParts(r.parts.opts, r.logger),
+		manager:       r.manager.Clone(),
+		additions:     newResourceManager(r.manager.opts, r.logger),
+		modifications: newResourceManager(r.manager.opts, r.logger),
+		removals:      newResourceManager(r.manager.opts, r.logger),
 	}
 }
 
@@ -125,16 +125,16 @@ func (draft *draftRobot) Commit(ctx context.Context) error {
 	draft.original.mu.Lock()
 	defer draft.original.mu.Unlock()
 
-	addResult, err := draft.parts.MergeAdd(draft.additions)
+	addResult, err := draft.manager.MergeAdd(draft.additions)
 	if err != nil {
 		return err
 	}
-	modifyResult, err := draft.parts.MergeModify(ctx, draft.modifications, draft.diff)
+	modifyResult, err := draft.manager.MergeModify(ctx, draft.modifications, draft.diff)
 	if err != nil {
 		return err
 	}
-	draft.parts.MergeRemove(draft.removals)
-	draft.original.parts = draft.parts
+	draft.manager.MergeRemove(draft.removals)
+	draft.original.manager = draft.manager
 	draft.original.config = draft.diff.Right
 
 	if err := addResult.Process(ctx, draft.removals); err != nil {
@@ -179,7 +179,7 @@ func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
 
 // ProcessRemoveChanges processes only subtractive changes.
 func (draft *draftRobot) ProcessRemoveChanges(ctx context.Context) error {
-	filtered, err := draft.parts.FilterFromConfig(ctx, draft.diff.Removed, draft.original.logger)
+	filtered, err := draft.manager.FilterFromConfig(ctx, draft.diff.Removed, draft.original.logger)
 	if err != nil {
 		return err
 	}

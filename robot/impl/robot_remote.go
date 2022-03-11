@@ -29,23 +29,23 @@ var errUnimplemented = errors.New("unimplemented")
 // so that any future changes are forced to consider un/prefixing
 // of names.
 type remoteRobot struct {
-	mu    sync.Mutex
-	robot robot.Robot
-	conf  config.Remote
-	parts *robotParts
+	mu      sync.Mutex
+	robot   robot.Robot
+	conf    config.Remote
+	manager *resourceManager
 }
 
 // newRemoteRobot returns a new remote robot wrapping a given robot.Robot
 // and its configuration.
 func newRemoteRobot(robot robot.Robot, config config.Remote) *remoteRobot {
-	// We pull the parts out here such that we correctly return nil for
+	// We pull the manager out here such that we correctly return nil for
 	// when parts are accessed. This is because a networked robot client
 	// may just return a non-nil wrapper for a part they may not exist.
-	remoteParts := partsForRemoteRobot(robot)
+	remoteManager := managerForRemoteRobot(robot)
 	return &remoteRobot{
-		robot: robot,
-		conf:  config,
-		parts: remoteParts,
+		robot:   robot,
+		conf:    config,
+		manager: remoteManager,
 	}
 }
 
@@ -59,7 +59,7 @@ func (rr *remoteRobot) Refresh(ctx context.Context) error {
 	if err := refresher.Refresh(ctx); err != nil {
 		return err
 	}
-	rr.parts = partsForRemoteRobot(rr.robot)
+	rr.manager = managerForRemoteRobot(rr.robot)
 	return nil
 }
 
@@ -75,7 +75,7 @@ func (rr *remoteRobot) replace(ctx context.Context, newRobot robot.Robot) {
 		panic(fmt.Errorf("expected new remote to be %T but got %T", actual, newRobot))
 	}
 
-	rr.parts.replaceForRemote(ctx, actual.parts)
+	rr.manager.replaceForRemote(ctx, actual.manager)
 }
 
 func (rr *remoteRobot) prefixName(name string) string {
@@ -130,14 +130,14 @@ func (rr *remoteRobot) RemoteNames() []string {
 func (rr *remoteRobot) FunctionNames() []string {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	return rr.prefixNames(rr.parts.FunctionNames())
+	return rr.prefixNames(rr.manager.FunctionNames())
 }
 
 func (rr *remoteRobot) ResourceNames() []resource.Name {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
-	newNames := make([]resource.Name, 0, len(rr.parts.ResourceNames()))
-	for _, name := range rr.parts.ResourceNames() {
+	newNames := make([]resource.Name, 0, len(rr.manager.ResourceNames()))
+	for _, name := range rr.manager.ResourceNames() {
 		name := rr.prefixResourceName(name)
 		newNames = append(newNames, name)
 	}
@@ -153,7 +153,7 @@ func (rr *remoteRobot) ResourceByName(name resource.Name) (interface{}, error) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 	newName := rr.unprefixResourceName(name)
-	return rr.parts.ResourceByName(newName)
+	return rr.manager.ResourceByName(newName)
 }
 
 func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
@@ -279,14 +279,14 @@ func (rr *remoteRobot) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, rr.robot)
 }
 
-// partsForRemoteRobot integrates all parts from a given robot
+// managerForRemoteRobot integrates all parts from a given robot
 // except for its remotes. This is for a remote robot to integrate
 // which should be unaware of remotes.
-// Be sure to update this function if robotParts grows.
-func partsForRemoteRobot(robot robot.Robot) *robotParts {
-	parts := newRobotParts(robotPartsOptions{}, robot.Logger().Named("parts"))
+// Be sure to update this function if resourceManager grows.
+func managerForRemoteRobot(robot robot.Robot) *resourceManager {
+	manager := newResourceManager(resourceManagerOptions{}, robot.Logger().Named("manager"))
 	for _, name := range robot.FunctionNames() {
-		parts.addFunction(name)
+		manager.addFunction(name)
 	}
 
 	for _, name := range robot.ResourceNames() {
@@ -294,40 +294,40 @@ func partsForRemoteRobot(robot robot.Robot) *robotParts {
 		if err != nil {
 			continue
 		}
-		parts.addResource(name, part)
+		manager.addResource(name, part)
 	}
-	return parts
+	return manager
 }
 
 // replaceForRemote replaces these parts with the given parts coming from a remote.
-func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotParts) {
+func (manager *resourceManager) replaceForRemote(ctx context.Context, newManager *resourceManager) {
 	var oldFunctionNames map[string]struct{}
 	var oldResources *resource.Graph
 
-	if len(parts.functions) != 0 {
-		oldFunctionNames = make(map[string]struct{}, len(parts.functions))
-		for name := range parts.functions {
+	if len(manager.functions) != 0 {
+		oldFunctionNames = make(map[string]struct{}, len(manager.functions))
+		for name := range manager.functions {
 			oldFunctionNames[name] = struct{}{}
 		}
 	}
 
-	if len(parts.resources.Nodes) != 0 {
+	if len(manager.resources.Nodes) != 0 {
 		oldResources = resource.NewGraph()
-		for name := range parts.resources.Nodes {
+		for name := range manager.resources.Nodes {
 			oldResources.AddNode(name, struct{}{})
 		}
 	}
 
-	for name, newPart := range newParts.functions {
-		_, ok := parts.functions[name]
+	for name, newPart := range newManager.functions {
+		_, ok := manager.functions[name]
 		delete(oldFunctionNames, name)
 		if ok {
 			continue
 		}
-		parts.functions[name] = newPart
+		manager.functions[name] = newPart
 	}
-	for name, newR := range newParts.resources.Nodes {
-		old, ok := parts.resources.Nodes[name]
+	for name, newR := range newManager.resources.Nodes {
+		old, ok := manager.resources.Nodes[name]
 		if ok {
 			oldResources.Remove(name)
 			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
@@ -362,13 +362,13 @@ func (parts *robotParts) replaceForRemote(ctx context.Context, newParts *robotPa
 			}
 		}
 
-		parts.resources.Nodes[name] = newR
+		manager.resources.Nodes[name] = newR
 	}
 
 	for name := range oldFunctionNames {
-		delete(parts.functions, name)
+		delete(manager.functions, name)
 	}
 	for name := range oldResources.Nodes {
-		parts.resources.Remove(name)
+		manager.resources.Remove(name)
 	}
 }
