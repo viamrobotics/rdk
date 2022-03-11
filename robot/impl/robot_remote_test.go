@@ -29,8 +29,6 @@ import (
 	"go.viam.com/rdk/component/servo"
 	fakeservo "go.viam.com/rdk/component/servo/fake"
 	"go.viam.com/rdk/config"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	rdktestutils "go.viam.com/rdk/testutils"
@@ -417,85 +415,6 @@ func TestRemoteRobot(t *testing.T) {
 	test.That(t, conf.Components[2].Type, test.ShouldEqual, "gripper")
 	test.That(t, conf.Components[2].Model, test.ShouldEqual, "fake")
 	test.That(t, conf.Components[2].Frame.Parent, test.ShouldEqual, "bar")
-
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return nil, errors.New("whoops")
-	}
-	_, err = robot.Status(context.Background())
-	test.That(t, err, test.ShouldNotBeNil)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "whoops")
-	someStatus := &pb.Status{
-		Arms: map[string]*pb.ArmStatus{
-			"arm1": {},
-			"arm2": {},
-		},
-		Bases: map[string]bool{
-			"base1": true,
-			"base2": true,
-		},
-		Boards: map[string]*commonpb.BoardStatus{
-			"board1": {},
-			"board2": {},
-		},
-		Cameras: map[string]bool{
-			"camera1": true,
-			"camera2": true,
-		},
-		Grippers: map[string]bool{
-			"gripper1": true,
-			"gripper2": true,
-		},
-		Sensors: nil,
-		Servos: map[string]*pb.ServoStatus{
-			"servo1": {},
-			"servo2": {},
-		},
-		Functions: map[string]bool{
-			"func1": true,
-			"func2": true,
-		},
-	}
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-		return someStatus, nil
-	}
-	robot.conf.Prefix = false
-	status, err := robot.Status(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status, test.ShouldResemble, someStatus)
-	robot.conf.Prefix = true
-	status, err = robot.Status(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, status, test.ShouldResemble, &pb.Status{
-		Arms: map[string]*pb.ArmStatus{
-			"one.arm1": {},
-			"one.arm2": {},
-		},
-		Bases: map[string]bool{
-			"one.base1": true,
-			"one.base2": true,
-		},
-		Boards: map[string]*commonpb.BoardStatus{
-			"one.board1": {},
-			"one.board2": {},
-		},
-		Cameras: map[string]bool{
-			"one.camera1": true,
-			"one.camera2": true,
-		},
-		Grippers: map[string]bool{
-			"one.gripper1": true,
-			"one.gripper2": true,
-		},
-		Sensors: nil,
-		Servos: map[string]*pb.ServoStatus{
-			"one.servo1": {},
-			"one.servo2": {},
-		},
-		Functions: map[string]bool{
-			"one.func1": true,
-			"one.func2": true,
-		},
-	})
 
 	robot.conf.Prefix = false
 	_, err = arm.FromRobot(robot, "arm1")

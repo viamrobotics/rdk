@@ -153,7 +153,7 @@ func (a *Arm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles 
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
@@ -171,8 +171,8 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 }
 
 // GetJointPositions returns an empty struct, because the wx250s should use joint angles from kinematics.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
-	return &pb.ArmJointPositions{}, nil
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
+	return &pb.JointPositions{}, nil
 }
 
 // Close will get the arm ready to be turned off.

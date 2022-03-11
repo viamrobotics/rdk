@@ -308,6 +308,6 @@ replace github.com/starship-technologies/gobag => github.com/kkufieta/gobag v0.0
 
 replace github.com/wasmerio/wasmer-go => github.com/meshplus/wasmer-go v0.0.0-20210817103436-19ec68f8bfe2
 
-replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v0.0.0-20220206052756-a309f5e4c63c
+replace github.com/grandcat/zeroconf => github.com/edaniels/zeroconf v1.0.1
 
 replace github.com/pion/ice/v2 => github.com/edaniels/ice/v2 v2.0.0-20220204035239-204e270e6801

@@ -20,6 +20,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -80,6 +83,20 @@ func FromRobot(r robot.Robot, name string) (Servo, error) {
 // NamesFromRobot is a helper for getting all servo names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the servo.
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
+	servo, ok := resource.(Servo)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Servo", resource)
+	}
+	position, err := servo.GetPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Status{PositionDeg: uint32(position)}, nil
 }
 
 type reconfigurableServo struct {

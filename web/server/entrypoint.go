@@ -374,7 +374,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		for idx, remote := range out.Remotes {
 			remoteCopy := remote
 			if in.Cloud == nil {
-				// TODO(https://github.com/viamrobotics/goutils/issues/24):
+				// TODO(GOUT-4):
 				// remove hard coding of signaling server address and
 				// prefer SRV lookup instead.
 				switch {

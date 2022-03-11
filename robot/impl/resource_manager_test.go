@@ -31,11 +31,11 @@ import (
 	"go.viam.com/rdk/vision"
 )
 
-func TestPartsForRemoteRobot(t *testing.T) {
+func TestManagerForRemoteRobot(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
+	manager := managerForRemoteRobot(injectRobot)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	baseNames := []resource.Name{base.Named("base1"), base.Named("base2")}
@@ -46,16 +46,16 @@ func TestPartsForRemoteRobot(t *testing.T) {
 	motorNames := []resource.Name{motor.Named("motor1"), motor.Named("motor2")}
 	servoNames := []resource.Name{servo.Named("servo1"), servo.Named("servo2")}
 
-	test.That(t, parts.RemoteNames(), test.ShouldBeEmpty)
+	test.That(t, manager.RemoteNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
-		utils.NewStringSet(parts.FunctionNames()...),
+		utils.NewStringSet(manager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2"),
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -69,46 +69,46 @@ func TestPartsForRemoteRobot(t *testing.T) {
 		)...),
 	)
 
-	_, err := parts.ResourceByName(arm.Named("arm1"))
+	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm_what"))
+	_, err = manager.ResourceByName(arm.Named("arm_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(base.Named("base1"))
+	_, err = manager.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(base.Named("base1_what"))
+	_, err = manager.ResourceByName(base.Named("base1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(board.Named("board1"))
+	_, err = manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(board.Named("board1_what"))
+	_, err = manager.ResourceByName(board.Named("board1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(camera.Named("camera1"))
+	_, err = manager.ResourceByName(camera.Named("camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(camera.Named("camera1_what"))
+	_, err = manager.ResourceByName(camera.Named("camera1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(gripper.Named("gripper1"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(gripper.Named("gripper1_what"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(motor.Named("motor1"))
+	_, err = manager.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(motor.Named("motor1_what"))
+	_, err = manager.ResourceByName(motor.Named("motor1_what"))
 	test.That(t, err, test.ShouldBeError)
-	_, err = parts.ResourceByName(servo.Named("servo1"))
+	_, err = manager.ResourceByName(servo.Named("servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(servo.Named("servo_what"))
+	_, err = manager.ResourceByName(servo.Named("servo_what"))
 	test.That(t, err, test.ShouldBeError)
 }
 
-func TestPartsMergeNamesWithRemotes(t *testing.T) {
+func TestManagerMergeNamesWithRemotes(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
@@ -132,19 +132,19 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 
 	test.That(
 		t,
-		utils.NewStringSet(parts.RemoteNames()...),
+		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.FunctionNames()...),
+		utils.NewStringSet(manager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -157,97 +157,97 @@ func TestPartsMergeNamesWithRemotes(t *testing.T) {
 			servoNames,
 		)...),
 	)
-	_, err := parts.ResourceByName(arm.Named("arm1"))
+	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm1_r2"))
+	_, err = manager.ResourceByName(arm.Named("arm1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm1_what"))
+	_, err = manager.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(base.Named("base1"))
+	_, err = manager.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(base.Named("base1_r1"))
+	_, err = manager.ResourceByName(base.Named("base1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(base.Named("base1_r2"))
+	_, err = manager.ResourceByName(base.Named("base1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(base.Named("base1_what"))
+	_, err = manager.ResourceByName(base.Named("base1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(board.Named("board1"))
+	_, err = manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(board.Named("board1_r1"))
+	_, err = manager.ResourceByName(board.Named("board1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(board.Named("board1_r2"))
+	_, err = manager.ResourceByName(board.Named("board1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(board.Named("board1_what"))
+	_, err = manager.ResourceByName(board.Named("board1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(camera.Named("camera1"))
+	_, err = manager.ResourceByName(camera.Named("camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(camera.Named("camera1_r1"))
+	_, err = manager.ResourceByName(camera.Named("camera1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(camera.Named("camera1_r2"))
+	_, err = manager.ResourceByName(camera.Named("camera1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(camera.Named("camera1_what"))
+	_, err = manager.ResourceByName(camera.Named("camera1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(gripper.Named("gripper1"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(gripper.Named("gripper1_r1"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(gripper.Named("gripper1_r2"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(gripper.Named("gripper1_what"))
+	_, err = manager.ResourceByName(gripper.Named("gripper1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(motor.Named("motor1"))
+	_, err = manager.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(motor.Named("motor1_r1"))
+	_, err = manager.ResourceByName(motor.Named("motor1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(motor.Named("motor1_r2"))
+	_, err = manager.ResourceByName(motor.Named("motor1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(motor.Named("motor1_what"))
+	_, err = manager.ResourceByName(motor.Named("motor1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = parts.ResourceByName(servo.Named("servo1"))
+	_, err = manager.ResourceByName(servo.Named("servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(servo.Named("servo1_r1"))
+	_, err = manager.ResourceByName(servo.Named("servo1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(servo.Named("servo1_r2"))
+	_, err = manager.ResourceByName(servo.Named("servo1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(servo.Named("servo1_what"))
+	_, err = manager.ResourceByName(servo.Named("servo1_what"))
 	test.That(t, err, test.ShouldBeError)
 }
 
-func TestPartsWithSameNameInRemoteNoPrefix(t *testing.T) {
+func TestManagerWithSameNameInRemoteNoPrefix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote1", Prefix: false}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{Name: "remote2", Prefix: false}),
 		config.Remote{Name: "remote2"},
 	)
 
-	_, err := parts.ResourceByName(arm.Named("arm1"))
+	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeError,
 		errors.Errorf("multiple remote resources with name %q. Change duplicate names to access", arm.Named("arm1_r1")))
 }
 
-func TestPartsWithSameNameInRemoteOneWithPrefix(t *testing.T) {
+func TestManagerWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
@@ -257,29 +257,29 @@ func TestPartsWithSameNameInRemoteOneWithPrefix(t *testing.T) {
 			Prefix: true,
 		},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
 
-	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	_, err := manager.ResourceByName(arm.Named("remote1.arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("remote2.arm1_r1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1_r1")))
-	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	_, err = manager.ResourceByName(arm.Named("remote1.arm1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
-	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("arm1"))
+	_, err = manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestPartsWithSameNameInRemoteBothWithPrefix(t *testing.T) {
+func TestManagerWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote1",
 			Prefix: true,
@@ -289,7 +289,7 @@ func TestPartsWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 			Prefix: true,
 		},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{
 			Name:   "remote2",
 			Prefix: true,
@@ -300,46 +300,46 @@ func TestPartsWithSameNameInRemoteBothWithPrefix(t *testing.T) {
 		},
 	)
 
-	_, err := parts.ResourceByName(arm.Named("remote1.arm1_r1"))
+	_, err := manager.ResourceByName(arm.Named("remote1.arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("remote2.arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("remote2.arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	_, err = manager.ResourceByName(arm.Named("remote1.arm1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
-	_, err = parts.ResourceByName(arm.Named("remote2.arm1"))
+	_, err = manager.ResourceByName(arm.Named("remote2.arm1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote2.arm1")))
-	_, err = parts.ResourceByName(arm.Named("arm1_r1"))
+	_, err = manager.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("arm1_r1")))
-	_, err = parts.ResourceByName(arm.Named("arm1"))
+	_, err = manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestPartsWithSameNameInBaseAndRemote(t *testing.T) {
+func TestManagerWithSameNameInBaseAndRemote(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, ""), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
 
-	_, err := parts.ResourceByName(arm.Named("arm1"))
+	_, err := manager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.ResourceByName(arm.Named("remote1.arm1"))
+	_, err = manager.ResourceByName(arm.Named("remote1.arm1"))
 	test.That(t, err, test.ShouldBeError, errors.Errorf("resource %q not found", arm.Named("remote1.arm1")))
 }
 
-func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
+func TestManagerMergeNamesWithRemotesDedupe(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
@@ -363,19 +363,19 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 
 	test.That(
 		t,
-		utils.NewStringSet(parts.RemoteNames()...),
+		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.FunctionNames()...),
+		utils.NewStringSet(manager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1"),
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -390,40 +390,40 @@ func TestPartsMergeNamesWithRemotesDedupe(t *testing.T) {
 	)
 }
 
-func TestPartsClone(t *testing.T) {
+func TestManagerClone(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	newParts := parts.Clone()
+	newManager := manager.Clone()
 
-	// remove and delete parts to prove clone
-	delete(parts.remotes, "remote1")
-	parts.remotes = nil
-	delete(parts.functions, "func1")
-	parts.functions = nil
-	parts.resources.Remove(arm.Named("arm1"))
-	parts.resources.Remove(camera.Named("camera1"))
-	parts.resources.Remove(gripper.Named("gripper1"))
-	parts.resources.Remove(servo.Named("servo1"))
-	parts.resources = nil
+	// remove and delete manager to prove clone
+	delete(manager.remotes, "remote1")
+	manager.remotes = nil
+	delete(manager.functions, "func1")
+	manager.functions = nil
+	manager.resources.Remove(arm.Named("arm1"))
+	manager.resources.Remove(camera.Named("camera1"))
+	manager.resources.Remove(gripper.Named("gripper1"))
+	manager.resources.Remove(servo.Named("servo1"))
+	manager.resources = nil
 
-	_, ok := parts.processManager.RemoveProcessByID("1")
+	_, ok := manager.processManager.RemoveProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
-	parts.processManager.Stop()
+	manager.processManager.Stop()
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 	armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -444,19 +444,19 @@ func TestPartsClone(t *testing.T) {
 
 	test.That(
 		t,
-		utils.NewStringSet(newParts.RemoteNames()...),
+		utils.NewStringSet(newManager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2"),
 	)
 	test.That(
 		t,
-		utils.NewStringSet(newParts.FunctionNames()...),
+		utils.NewStringSet(newManager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("func1", "func2", "func1_r1", "func2_r1", "func1_r2", "func2_r2"),
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(newParts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(newManager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -471,93 +471,93 @@ func TestPartsClone(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(newParts.processManager.ProcessIDs()...),
+		utils.NewStringSet(newManager.processManager.ProcessIDs()...),
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
 
-	_, err = newParts.ResourceByName(arm.Named("arm1"))
+	_, err = newManager.ResourceByName(arm.Named("arm1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(arm.Named("arm1_r1"))
+	_, err = newManager.ResourceByName(arm.Named("arm1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(arm.Named("arm1_r2"))
+	_, err = newManager.ResourceByName(arm.Named("arm1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(arm.Named("arm1_what"))
+	_, err = newManager.ResourceByName(arm.Named("arm1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(base.Named("base1"))
+	_, err = newManager.ResourceByName(base.Named("base1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(base.Named("base1_r1"))
+	_, err = newManager.ResourceByName(base.Named("base1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(base.Named("base1_r2"))
+	_, err = newManager.ResourceByName(base.Named("base1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(base.Named("base1_what"))
+	_, err = newManager.ResourceByName(base.Named("base1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(board.Named("board1"))
+	_, err = newManager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(board.Named("board1_r1"))
+	_, err = newManager.ResourceByName(board.Named("board1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(board.Named("board1_r2"))
+	_, err = newManager.ResourceByName(board.Named("board1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(board.Named("board1_what"))
+	_, err = newManager.ResourceByName(board.Named("board1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(camera.Named("camera1"))
+	_, err = newManager.ResourceByName(camera.Named("camera1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(camera.Named("camera1_r1"))
+	_, err = newManager.ResourceByName(camera.Named("camera1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(camera.Named("camera1_r2"))
+	_, err = newManager.ResourceByName(camera.Named("camera1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(camera.Named("camera1_what"))
+	_, err = newManager.ResourceByName(camera.Named("camera1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(gripper.Named("gripper1"))
+	_, err = newManager.ResourceByName(gripper.Named("gripper1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(gripper.Named("gripper1_r1"))
+	_, err = newManager.ResourceByName(gripper.Named("gripper1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(gripper.Named("gripper1_r2"))
+	_, err = newManager.ResourceByName(gripper.Named("gripper1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(gripper.Named("gripper1_what"))
+	_, err = newManager.ResourceByName(gripper.Named("gripper1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(motor.Named("motor1"))
+	_, err = newManager.ResourceByName(motor.Named("motor1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(motor.Named("motor1_r1"))
+	_, err = newManager.ResourceByName(motor.Named("motor1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(motor.Named("motor1_r2"))
+	_, err = newManager.ResourceByName(motor.Named("motor1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(motor.Named("motor1_what"))
+	_, err = newManager.ResourceByName(motor.Named("motor1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	_, err = newParts.ResourceByName(servo.Named("servo1"))
+	_, err = newManager.ResourceByName(servo.Named("servo1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(servo.Named("servo1_r1"))
+	_, err = newManager.ResourceByName(servo.Named("servo1_r1"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(servo.Named("servo1_r2"))
+	_, err = newManager.ResourceByName(servo.Named("servo1_r2"))
 	test.That(t, err, test.ShouldBeNil)
-	_, err = newParts.ResourceByName(servo.Named("servo1_what"))
+	_, err = newManager.ResourceByName(servo.Named("servo1_what"))
 	test.That(t, err, test.ShouldBeError)
 
-	proc, ok := newParts.processManager.ProcessByID("1")
+	proc, ok := newManager.processManager.ProcessByID("1")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, proc.ID(), test.ShouldEqual, "1")
-	proc, ok = newParts.processManager.ProcessByID("2")
+	proc, ok = newManager.processManager.ProcessByID("2")
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, proc.ID(), test.ShouldEqual, "2")
-	_, ok = newParts.processManager.ProcessByID("what")
+	_, ok = newManager.processManager.ProcessByID("what")
 	test.That(t, ok, test.ShouldBeFalse)
 }
 
-func TestPartsAdd(t *testing.T) {
+func TestManagerAdd(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	parts := newRobotParts(robotPartsOptions{}, logger)
+	manager := newResourceManager(resourceManagerOptions{}, logger)
 
 	injectArm := &inject.Arm{}
 	cfg := &config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName := cfg.ResourceName()
-	parts.addResource(rName, injectArm)
-	arm1, err := parts.ResourceByName(rName)
+	manager.addResource(rName, injectArm)
+	arm1, err := manager.ResourceByName(rName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, arm1, test.ShouldEqual, injectArm)
 
@@ -589,11 +589,11 @@ func TestPartsAdd(t *testing.T) {
 
 	cfg = &config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
 	rName = cfg.ResourceName()
-	parts.addResource(rName, injectBoard)
-	board1, err := parts.ResourceByName(board.Named("board1"))
+	manager.addResource(rName, injectBoard)
+	board1, err := manager.ResourceByName(board.Named("board1"))
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, board1, test.ShouldEqual, injectBoard)
-	resource1, err := parts.ResourceByName(rName)
+	resource1, err := manager.ResourceByName(rName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
@@ -607,8 +607,8 @@ func TestPartsAdd(t *testing.T) {
 		return false, nil
 	}
 	objectMResName := objectmanipulation.Name
-	parts.addResource(objectMResName, injectObjectManipulationService)
-	objectManipulationService, err := parts.ResourceByName(objectMResName)
+	manager.addResource(objectMResName, injectObjectManipulationService)
+	objectManipulationService, err := manager.ResourceByName(objectMResName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
 
@@ -620,13 +620,13 @@ func TestPartsAdd(t *testing.T) {
 		return []*vision.Object{vision.NewEmptyObject()}, nil
 	}
 	objectSegResName := objectsegmentation.Name
-	parts.addResource(objectSegResName, injectObjectSegmentationService)
-	objectSegmentationService, err := parts.ResourceByName(objectSegResName)
+	manager.addResource(objectSegResName, injectObjectSegmentationService)
+	objectSegmentationService, err := manager.ResourceByName(objectSegResName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, objectSegmentationService, test.ShouldEqual, injectObjectSegmentationService)
 }
 
-func TestPartsNewComponent(t *testing.T) {
+func TestManagerNewComponent(t *testing.T) {
 	cfg := &config.Config{
 		Components: []config.Component{
 			{
@@ -804,40 +804,40 @@ func TestPartsNewComponent(t *testing.T) {
 	}
 	logger := golog.NewTestLogger(t)
 	robotForRemote := &localRobot{
-		parts:  newRobotParts(robotPartsOptions{}, logger),
-		logger: logger,
-		config: cfg,
+		manager: newResourceManager(resourceManagerOptions{}, logger),
+		logger:  logger,
+		config:  cfg,
 	}
-	test.That(t, robotForRemote.parts.newComponents(context.Background(),
+	test.That(t, robotForRemote.manager.newComponents(context.Background(),
 		cfg.Components, robotForRemote), test.ShouldBeNil)
 	robotForRemote.config.Components[8].DependsOn = append(robotForRemote.config.Components[8].DependsOn, "arm3")
-	robotForRemote.parts = newRobotParts(robotPartsOptions{}, logger)
-	err := robotForRemote.parts.newComponents(context.Background(),
+	robotForRemote.manager = newResourceManager(resourceManagerOptions{}, logger)
+	err := robotForRemote.manager.newComponents(context.Background(),
 		robotForRemote.config.Components, robotForRemote)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldEqual,
 		"circular dependency - \"arm3\" already depends on \"board3\"")
 }
 
-func TestPartsMergeAdd(t *testing.T) {
+func TestManagerMergeAdd(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	checkEmpty := func(toCheck *robotParts) {
+	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
@@ -845,7 +845,7 @@ func TestPartsMergeAdd(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 	//nolint:dupl
-	checkSame := func(toCheck *robotParts) {
+	checkSame := func(toCheck *resourceManager) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 		armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -903,21 +903,21 @@ func TestPartsMergeAdd(t *testing.T) {
 			utils.NewStringSet("1", "2"),
 		)
 	}
-	result, err := parts.MergeAdd(newRobotParts(robotPartsOptions{}, logger))
+	result, err := manager.MergeAdd(newResourceManager(resourceManagerOptions{}, logger))
 	test.That(t, err, test.ShouldBeNil)
-	checkSame(parts)
+	checkSame(manager)
 
-	emptyParts := newRobotParts(robotPartsOptions{}, logger)
-	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
-	checkEmpty(emptyParts)
+	emptyManager := newResourceManager(resourceManagerOptions{}, logger)
+	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
+	checkEmpty(emptyManager)
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
-	otherParts := partsForRemoteRobot(otherRobot)
-	otherParts.addRemote(
+	otherManager := managerForRemoteRobot(otherRobot)
+	otherManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
-	result, err = parts.MergeAdd(otherParts)
+	result, err = manager.MergeAdd(otherManager)
 	test.That(t, err, test.ShouldBeNil)
 
 	armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
@@ -955,13 +955,13 @@ func TestPartsMergeAdd(t *testing.T) {
 
 	test.That(
 		t,
-		utils.NewStringSet(parts.RemoteNames()...),
+		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2", "other1"),
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.FunctionNames()...),
+		utils.NewStringSet(manager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(
 			"func1",
@@ -978,7 +978,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -993,41 +993,41 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		utils.NewStringSet(manager.processManager.ProcessIDs()...),
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
 
-	emptyParts = newRobotParts(robotPartsOptions{}, logger)
-	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
-	checkEmpty(emptyParts)
+	emptyManager = newResourceManager(resourceManagerOptions{}, logger)
+	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
+	checkEmpty(emptyManager)
 
-	sameParts := partsForRemoteRobot(injectRobot)
-	sameParts.addRemote(
+	sameManager := managerForRemoteRobot(injectRobot)
+	sameManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	sameParts.addRemote(
+	sameManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	result, err = parts.MergeAdd(sameParts)
+	result, err = manager.MergeAdd(sameManager)
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(
 		t,
-		utils.NewStringSet(parts.RemoteNames()...),
+		utils.NewStringSet(manager.RemoteNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet("remote1", "remote2", "other1"),
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.FunctionNames()...),
+		utils.NewStringSet(manager.FunctionNames()...),
 		test.ShouldResemble,
 		utils.NewStringSet(
 			"func1",
@@ -1044,7 +1044,7 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+		rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 		test.ShouldResemble,
 		rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 			armNames,
@@ -1059,47 +1059,47 @@ func TestPartsMergeAdd(t *testing.T) {
 	)
 	test.That(
 		t,
-		utils.NewStringSet(parts.processManager.ProcessIDs()...),
+		utils.NewStringSet(manager.processManager.ProcessIDs()...),
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
 
-	emptyParts = newRobotParts(robotPartsOptions{}, logger)
-	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
+	emptyManager = newResourceManager(resourceManagerOptions{}, logger)
+	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
+	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
 	test.That(
 		t,
-		utils.NewStringSet(emptyParts.processManager.ProcessIDs()...),
+		utils.NewStringSet(emptyManager.processManager.ProcessIDs()...),
 		test.ShouldResemble,
 		utils.NewStringSet("1", "2"),
 	)
 
-	err = result.Process(context.Background(), parts)
+	err = result.Process(context.Background(), manager)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "unexpected")
 }
 
-func TestPartsMergeModify(t *testing.T) {
+func TestManagerMergeModify(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	checkSame := func(toCheck *robotParts) {
+	checkSame := func(toCheck *resourceManager) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 		armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -1137,7 +1137,7 @@ func TestPartsMergeModify(t *testing.T) {
 		)
 		test.That(
 			t,
-			rdktestutils.NewResourceNameSet(parts.ResourceNames()...),
+			rdktestutils.NewResourceNameSet(manager.ResourceNames()...),
 			test.ShouldResemble,
 			rdktestutils.NewResourceNameSet(rdktestutils.ConcatResourceNames(
 				armNames,
@@ -1190,116 +1190,116 @@ func TestPartsMergeModify(t *testing.T) {
 			utils.NewStringSet("digital1", "digital2"),
 		)
 	}
-	result, err := parts.MergeModify(context.Background(), newRobotParts(robotPartsOptions{}, logger), &config.Diff{})
+	result, err := manager.MergeModify(context.Background(), newResourceManager(resourceManagerOptions{}, logger), &config.Diff{})
 	test.That(t, err, test.ShouldBeNil)
-	checkSame(parts)
+	checkSame(manager)
 
-	emptyParts := newRobotParts(robotPartsOptions{}, logger)
-	test.That(t, result.Process(context.Background(), emptyParts), test.ShouldBeNil)
-	test.That(t, utils.NewStringSet(emptyParts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, emptyParts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(emptyParts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+	emptyManager := newResourceManager(resourceManagerOptions{}, logger)
+	test.That(t, result.Process(context.Background(), emptyManager), test.ShouldBeNil)
+	test.That(t, utils.NewStringSet(emptyManager.RemoteNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyManager.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t, emptyManager.ResourceNames(), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(emptyManager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 
-	test.That(t, result.Process(context.Background(), parts), test.ShouldBeNil)
+	test.That(t, result.Process(context.Background(), manager), test.ShouldBeNil)
 
-	replacementParts := newRobotParts(robotPartsOptions{}, logger)
-	robotForRemote := &localRobot{parts: newRobotParts(robotPartsOptions{}, logger), logger: logger}
+	replacementManager := newResourceManager(resourceManagerOptions{}, logger)
+	robotForRemote := &localRobot{manager: newResourceManager(resourceManagerOptions{}, logger), logger: logger}
 
-	robotForRemote.parts.addFunction("func2_r1")
+	robotForRemote.manager.addFunction("func2_r1")
 
 	cfg := config.Component{Type: config.ComponentTypeArm, Name: "arm2_r1"}
 	rName := cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Arm{})
+	robotForRemote.manager.addResource(rName, &inject.Arm{})
 
 	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Base{})
+	robotForRemote.manager.addResource(rName, &inject.Base{})
 
 	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Board{})
+	robotForRemote.manager.addResource(rName, &inject.Board{})
 
 	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Camera{})
+	robotForRemote.manager.addResource(rName, &inject.Camera{})
 
 	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Gripper{})
+	robotForRemote.manager.addResource(rName, &inject.Gripper{})
 
 	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor2_r1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Motor{})
+	replacementManager.addResource(rName, &inject.Motor{})
 
 	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.Servo{})
+	robotForRemote.manager.addResource(rName, &inject.Servo{})
 
 	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController2_r1"}
 	rName = cfg.ResourceName()
-	robotForRemote.parts.addResource(rName, &inject.InputController{})
+	robotForRemote.manager.addResource(rName, &inject.InputController{})
 
 	remote1Replacemenet := newRemoteRobot(robotForRemote, config.Remote{Name: "remote1"})
-	replacementParts.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
+	replacementManager.addRemote(remote1Replacemenet, config.Remote{Name: "remote1"})
 
 	cfg = config.Component{Type: config.ComponentTypeArm, Name: "arm1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Arm{})
+	replacementManager.addResource(rName, &inject.Arm{})
 
 	cfg = config.Component{Type: config.ComponentTypeBase, Name: "base1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Base{})
+	replacementManager.addResource(rName, &inject.Base{})
 
 	cfg = config.Component{Type: config.ComponentTypeBoard, Name: "board1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Board{})
+	replacementManager.addResource(rName, &inject.Board{})
 
 	cfg = config.Component{Type: config.ComponentTypeCamera, Name: "camera1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Camera{})
+	replacementManager.addResource(rName, &inject.Camera{})
 
 	cfg = config.Component{Type: config.ComponentTypeGripper, Name: "gripper1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Gripper{})
+	replacementManager.addResource(rName, &inject.Gripper{})
 
 	cfg = config.Component{Type: config.ComponentTypeInputController, Name: "inputController1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.InputController{})
+	replacementManager.addResource(rName, &inject.InputController{})
 
 	cfg = config.Component{Type: config.ComponentTypeMotor, Name: "motor1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Motor{})
+	replacementManager.addResource(rName, &inject.Motor{})
 
 	cfg = config.Component{Type: config.ComponentTypeServo, Name: "servo1"}
 	rName = cfg.ResourceName()
-	replacementParts.addResource(rName, &inject.Servo{})
+	replacementManager.addResource(rName, &inject.Servo{})
 
 	fp1 := &fakeProcess{id: "1"}
-	_, err = replacementParts.processManager.AddProcess(context.Background(), fp1, false)
+	_, err = replacementManager.processManager.AddProcess(context.Background(), fp1, false)
 	test.That(t, err, test.ShouldBeNil)
 }
 
-func TestPartsMergeRemove(t *testing.T) {
+func TestManagerMergeRemove(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
 	//nolint:dupl
-	checkSame := func(toCheck *robotParts) {
+	checkSame := func(toCheck *resourceManager) {
 		t.Helper()
 		armNames := []resource.Name{arm.Named("arm1"), arm.Named("arm2")}
 		armNames = append(armNames, rdktestutils.AddSuffixes(armNames, "_r1", "_r2")...)
@@ -1358,59 +1358,59 @@ func TestPartsMergeRemove(t *testing.T) {
 		)
 	}
 
-	parts.MergeRemove(newRobotParts(robotPartsOptions{}, logger))
-	checkSame(parts)
+	manager.MergeRemove(newResourceManager(resourceManagerOptions{}, logger))
+	checkSame(manager)
 
 	otherRobot := setupInjectRobotWithSuffx(logger, "_other")
-	otherParts := partsForRemoteRobot(otherRobot)
-	otherParts.addRemote(
+	otherManager := managerForRemoteRobot(otherRobot)
+	otherManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_other1"), config.Remote{}),
 		config.Remote{Name: "other1"},
 	)
-	parts.MergeRemove(otherParts)
-	checkSame(parts)
+	manager.MergeRemove(otherManager)
+	checkSame(manager)
 
-	sameParts := partsForRemoteRobot(injectRobot)
-	sameParts.addRemote(
+	sameManager := managerForRemoteRobot(injectRobot)
+	sameManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	sameParts.addRemote(
+	sameManager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = sameParts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = sameManager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	parts.MergeRemove(sameParts)
-	checkSame(sameParts)
-	test.That(t, utils.NewStringSet(parts.RemoteNames()...), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.FunctionNames()...), test.ShouldBeEmpty)
-	test.That(t, parts.ResourceNames(), test.ShouldBeEmpty)
-	test.That(t, utils.NewStringSet(parts.processManager.ProcessIDs()...), test.ShouldBeEmpty)
+	manager.MergeRemove(sameManager)
+	checkSame(sameManager)
+	test.That(t, utils.NewStringSet(manager.RemoteNames()...), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(manager.FunctionNames()...), test.ShouldBeEmpty)
+	test.That(t, manager.ResourceNames(), test.ShouldBeEmpty)
+	test.That(t, utils.NewStringSet(manager.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 }
 
-func TestPartsFilterFromConfig(t *testing.T) {
+func TestManagerFilterFromConfig(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	injectRobot := setupInjectRobot(logger)
 
-	parts := partsForRemoteRobot(injectRobot)
-	parts.addRemote(
+	manager := managerForRemoteRobot(injectRobot)
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r1"), config.Remote{}),
 		config.Remote{Name: "remote1"},
 	)
-	parts.addRemote(
+	manager.addRemote(
 		newRemoteRobot(setupInjectRobotWithSuffx(logger, "_r2"), config.Remote{}),
 		config.Remote{Name: "remote2"},
 	)
-	_, err := parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
+	_, err := manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "1"}, false)
 	test.That(t, err, test.ShouldBeNil)
-	_, err = parts.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
+	_, err = manager.processManager.AddProcess(context.Background(), &fakeProcess{id: "2"}, false)
 	test.That(t, err, test.ShouldBeNil)
 
-	checkEmpty := func(toCheck *robotParts) {
+	checkEmpty := func(toCheck *resourceManager) {
 		t.Helper()
 		test.That(t, utils.NewStringSet(toCheck.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(toCheck.FunctionNames()...), test.ShouldBeEmpty)
@@ -1418,11 +1418,11 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		test.That(t, utils.NewStringSet(toCheck.processManager.ProcessIDs()...), test.ShouldBeEmpty)
 	}
 
-	filtered, err := parts.FilterFromConfig(context.Background(), &config.Config{}, logger)
+	filtered, err := manager.FilterFromConfig(context.Background(), &config.Config{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "what",
@@ -1477,7 +1477,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Components: []config.Component{
 			{
 				Name: "what1",
@@ -1488,7 +1488,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	checkEmpty(filtered)
 
-	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Components: []config.Component{
 			{
 				Name: "arm2",
@@ -1580,7 +1580,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote2",
@@ -1709,7 +1709,7 @@ func TestPartsFilterFromConfig(t *testing.T) {
 		utils.NewStringSet("2"),
 	)
 
-	filtered, err = parts.FilterFromConfig(context.Background(), &config.Config{
+	filtered, err = manager.FilterFromConfig(context.Background(), &config.Config{
 		Remotes: []config.Remote{
 			{
 				Name: "remote1",

@@ -519,7 +519,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/Status", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/status"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/Status", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -542,7 +542,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_gpio"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -565,7 +565,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/get_gpio"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetGPIO", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -588,7 +588,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWM", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_pwm"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWM", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/pwm"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -611,7 +611,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWMFrequency", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_pwm_freq"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWMFrequency", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/pwm_freq"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -634,7 +634,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/ReadAnalogReader", runtime.WithHTTPPathPattern("/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/ReadAnalogReader", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -657,7 +657,7 @@ func RegisterBoardServiceHandlerServer(ctx context.Context, mux *runtime.ServeMu
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetDigitalInterruptValue", runtime.WithHTTPPathPattern("/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetDigitalInterruptValue", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -719,7 +719,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/Status", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/status"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/Status", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/status"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -739,7 +739,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_gpio"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetGPIO", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -759,7 +759,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetGPIO", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/get_gpio"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetGPIO", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/gpio"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -779,7 +779,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWM", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_pwm"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWM", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/pwm"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -799,7 +799,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWMFrequency", runtime.WithHTTPPathPattern("/api/v1/component/board/{name}/set_pwm_freq"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/SetPWMFrequency", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{name}/pwm_freq"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -819,7 +819,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/ReadAnalogReader", runtime.WithHTTPPathPattern("/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/ReadAnalogReader", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{board_name}/analog_reader/{analog_reader_name}/read"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -839,7 +839,7 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetDigitalInterruptValue", runtime.WithHTTPPathPattern("/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.board.v1.BoardService/GetDigitalInterruptValue", runtime.WithHTTPPathPattern("/viam/api/v1/component/board/{board_name}/digital_interrupt/{digital_interrupt_name}/value"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -859,19 +859,19 @@ func RegisterBoardServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 }
 
 var (
-	pattern_BoardService_Status_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "status"}, ""))
+	pattern_BoardService_Status_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "board", "name", "status"}, ""))
 
-	pattern_BoardService_SetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "set_gpio"}, ""))
+	pattern_BoardService_SetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "board", "name", "gpio"}, ""))
 
-	pattern_BoardService_GetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "get_gpio"}, ""))
+	pattern_BoardService_GetGPIO_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "board", "name", "gpio"}, ""))
 
-	pattern_BoardService_SetPWM_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "set_pwm"}, ""))
+	pattern_BoardService_SetPWM_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "board", "name", "pwm"}, ""))
 
-	pattern_BoardService_SetPWMFrequency_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "board", "name", "set_pwm_freq"}, ""))
+	pattern_BoardService_SetPWMFrequency_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "board", "name", "pwm_freq"}, ""))
 
-	pattern_BoardService_ReadAnalogReader_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6, 2, 7}, []string{"api", "v1", "component", "board", "board_name", "analog_reader", "analog_reader_name", "read"}, ""))
+	pattern_BoardService_ReadAnalogReader_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6, 1, 0, 4, 1, 5, 7, 2, 8}, []string{"viam", "api", "v1", "component", "board", "board_name", "analog_reader", "analog_reader_name", "read"}, ""))
 
-	pattern_BoardService_GetDigitalInterruptValue_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5, 1, 0, 4, 1, 5, 6, 2, 7}, []string{"api", "v1", "component", "board", "board_name", "digital_interrupt", "digital_interrupt_name", "value"}, ""))
+	pattern_BoardService_GetDigitalInterruptValue_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6, 1, 0, 4, 1, 5, 7, 2, 8}, []string{"viam", "api", "v1", "component", "board", "board_name", "digital_interrupt", "digital_interrupt_name", "value"}, ""))
 )
 
 var (

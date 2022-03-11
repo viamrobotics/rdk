@@ -113,7 +113,7 @@ func RegisterPoseTrackerServiceHandlerServer(ctx context.Context, mux *runtime.S
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.posetracker.v1.PoseTrackerService/GetPoses", runtime.WithHTTPPathPattern("/api/v1/component/pose_tracker/{name}/poses"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.posetracker.v1.PoseTrackerService/GetPoses", runtime.WithHTTPPathPattern("/viam/api/v1/component/pose_tracker/{name}/poses"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -175,7 +175,7 @@ func RegisterPoseTrackerServiceHandlerClient(ctx context.Context, mux *runtime.S
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.posetracker.v1.PoseTrackerService/GetPoses", runtime.WithHTTPPathPattern("/api/v1/component/pose_tracker/{name}/poses"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.posetracker.v1.PoseTrackerService/GetPoses", runtime.WithHTTPPathPattern("/viam/api/v1/component/pose_tracker/{name}/poses"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -195,7 +195,7 @@ func RegisterPoseTrackerServiceHandlerClient(ctx context.Context, mux *runtime.S
 }
 
 var (
-	pattern_PoseTrackerService_GetPoses_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "pose_tracker", "name", "poses"}, ""))
+	pattern_PoseTrackerService_GetPoses_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "pose_tracker", "name", "poses"}, ""))
 )
 
 var (

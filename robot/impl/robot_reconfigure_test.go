@@ -26,6 +26,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/sensors"
+	"go.viam.com/rdk/services/status"
 	"go.viam.com/rdk/services/web"
 	rdktestutils "go.viam.com/rdk/testutils"
 )
@@ -85,14 +86,12 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 		test.That(t, len(svc.All()), test.ShouldEqual, 8)
-		rCopy := make([]resource.Name, 8)
-		copy(rCopy, svc.All())
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -192,15 +191,13 @@ func TestRobotReconfigure(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
-
-		test.That(t, rCopy, test.ShouldResemble, svc.All())
 	})
 
 	t.Run("empty to additive diff", func(t *testing.T) {
 		logger := golog.NewTestLogger(t)
 		emptyConf := ConfigFromFile(t, "data/diff_config_empty.json")
 		conf1 := ConfigFromFile(t, "data/diff_config_1.json")
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 
 		ctx := context.Background()
 		svc, err := service.New()
@@ -317,7 +314,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 
 		test.That(t, robot.Reconfigure(context.Background(), conf1), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
@@ -432,7 +429,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -534,7 +531,7 @@ func TestRobotReconfigure(t *testing.T) {
 		boardNames := []resource.Name{board.Named("board1")}
 		baseNames := []resource.Name{base.Named("base1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -674,7 +671,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -825,7 +822,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
 			t,
@@ -961,7 +958,7 @@ func TestRobotReconfigure(t *testing.T) {
 		baseNames := []resource.Name{base.Named("base1")}
 		boardNames := []resource.Name{board.Named("board1")}
 		mockNames := []resource.Name{mockNamed("mock1"), mockNamed("mock2")}
-		serviceNames := []resource.Name{web.Name, sensors.Name}
+		serviceNames := []resource.Name{web.Name, sensors.Name, status.Name}
 
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(
@@ -1163,6 +1160,93 @@ func TestSensorsServiceUpdate(t *testing.T) {
 		foundSensors, err = svc.GetSensors(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rdktestutils.NewResourceNameSet(foundSensors...), test.ShouldResemble, rdktestutils.NewResourceNameSet(sensorNames...))
+	})
+}
+
+func TestStatusServiceUpdate(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+
+	emptyCfg, err := config.Read(context.Background(), "data/diff_config_empty.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	resourceNames := []resource.Name{gps.Named("gps1"), gps.Named("gps2")}
+	expected := map[resource.Name]interface{}{
+		gps.Named("gps1"): struct{}{},
+		gps.Named("gps2"): struct{}{},
+	}
+
+	t.Run("empty to not empty", func(t *testing.T) {
+		robot, err := New(context.Background(), emptyCfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+	})
+
+	t.Run("not empty to empty", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+
+		err = robot.Reconfigure(context.Background(), emptyCfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		_, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not found")
+	})
+
+	t.Run("no change", func(t *testing.T) {
+		robot, err := New(context.Background(), cfg, logger)
+		test.That(t, err, test.ShouldBeNil)
+		defer func() {
+			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
+		}()
+
+		svc, err := status.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err := svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
+
+		err = robot.Reconfigure(context.Background(), cfg)
+		test.That(t, err, test.ShouldBeNil)
+
+		statuses, err = svc.GetStatus(context.Background(), resourceNames)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(statuses), test.ShouldEqual, 2)
+		test.That(t, statuses[0].Status, test.ShouldResemble, expected[statuses[0].Name])
+		test.That(t, statuses[1].Status, test.ShouldResemble, expected[statuses[1].Name])
 	})
 }
 

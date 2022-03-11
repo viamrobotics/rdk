@@ -199,7 +199,7 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/angular_velocity"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -222,7 +222,7 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/orientation"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -245,7 +245,7 @@ func RegisterIMUServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/acceleration"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -307,7 +307,7 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/angular_velocity"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAngularVelocity", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/angular_velocity"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -327,7 +327,7 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/orientation"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadOrientation", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/orientation"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -347,7 +347,7 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/api/v1/component/imu/{name}/acceleration"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.imu.v1.IMUService/ReadAcceleration", runtime.WithHTTPPathPattern("/viam/api/v1/component/imu/{name}/acceleration"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -367,11 +367,11 @@ func RegisterIMUServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 }
 
 var (
-	pattern_IMUService_ReadAngularVelocity_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "imu", "name", "angular_velocity"}, ""))
+	pattern_IMUService_ReadAngularVelocity_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "imu", "name", "angular_velocity"}, ""))
 
-	pattern_IMUService_ReadOrientation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "imu", "name", "orientation"}, ""))
+	pattern_IMUService_ReadOrientation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "imu", "name", "orientation"}, ""))
 
-	pattern_IMUService_ReadAcceleration_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "imu", "name", "acceleration"}, ""))
+	pattern_IMUService_ReadAcceleration_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "imu", "name", "acceleration"}, ""))
 )
 
 var (
