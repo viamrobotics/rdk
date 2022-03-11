@@ -93,6 +93,15 @@
         };
         return newStatus
       }
+     
+      function getParameterType(typeName) {
+		  if (typeName == "int" || typeName == "float64") {
+			  return "number";
+		  } else if (typeName == "bool" || typeName == "bool") {
+			  return "text";
+		  }
+		  return "";
+      }
 
       function fixGantryStatus(old) {
         var newStatus = { parts: [] };
@@ -201,6 +210,9 @@
               data: theData,
               components: {},
               methods : {
+      		  parameterType : function(typeName) {
+			  return getParameterType(typeName)
+	          },
 		  getSegmenterNames :  function() {
                       let req = new objectSegmentationApi.GetSegmentersRequest();
                       objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
@@ -224,7 +236,15 @@
                           return;
                         }
                         theData.segmenterParameterNames = resp.getParametersList();
+			for (let i = 0; i < theData.segmenterParameterNames.length; i++) {
+	                        if (getParameterType(theData.segmenterParameterNames[i].getName()) == "number") {
+	    				theData.segmenterParameters[theData.segmenterParameterNames[i].getName()] = 0	
+	    			} else if (getParameterType(theData.segmenterParameterNames[i].getName()) == "text") {
+	    				theData.segmenterParameters[theData.segmenterParameterNames[i].getName()] = ""	
+	    			}
+	    		}
 		      });
+	              console.log(theData.segmenterParameters)
 		  },
                   filterResources : function(namespace, type, subtype) {
                     return theData.resources.filter(elem => {
@@ -717,6 +737,7 @@
                       })
                   },
                   findSegments : function(cameraName, segmenterName, segmenterParams){
+	              console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
                       console.log("camera name: "+cameraName);
@@ -1870,8 +1891,8 @@
 		<td> ${ segmentAlgo } </td>
         </tr>
         <tr v-for="param in segmenterParameterNames">
-          <td>${param}</td>
-	  <td><input id="param" v-model="segmenterParameters[param]"></td>
+          <td>${param.getName()}</td>
+	  <td><input :type="parameterType(param.getType())" id="param.getName()" v-model="segmenterParameters[param.getName()]"></td>
         </tr>
         <tr>
             <td>
