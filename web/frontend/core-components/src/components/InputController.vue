@@ -25,11 +25,12 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator"
+import { Status } from "proto/api/component/inputcontroller/v1/input_controller_pb";
 
 @Component
 export default class InputController extends Vue {
   @Prop() controllerName!: string;
-  @Prop() controllerStatus!: any;
+  @Prop() controllerStatus!: Status.AsObject;
 
   self = this;
 
@@ -70,10 +71,7 @@ export default class InputController extends Vue {
   }
 
   get connected(): boolean {
-    if (this.controllerStatus.events == undefined) {
-      return false
-    }
-    for (let ev of this.controllerStatus.events) {
+    for (let ev of this.controllerStatus.eventsList) {
       if (ev.event != "Disconnect") {
         return true;
       }
@@ -82,10 +80,7 @@ export default class InputController extends Vue {
   }
 
   getValue(control: string): string {
-    if (this.controllerStatus.events == undefined) {
-      return ""
-    }
-    for (const iEvent of this.controllerStatus.events) {
+    for (const iEvent of this.controllerStatus.eventsList) {
       if (iEvent.control === control) {
         if (control.includes("Absolute")) {
           return iEvent.value.toFixed(4);

@@ -96,26 +96,30 @@
 
       function fixGantryStatus(old) {
         var newStatus = { parts: [] };
-        if (old["lengths"].length != old["positions"].length) {
+        if (old["lengths_mm"].length != old["positions_mm"].length) {
             throw "gantry lists different lengths";
         }
 
-        for ( var i=0; i < old["lengths"].length; i++) {
-          newStatus.parts.push( { axis : i, pos : old["positions"][i], length : old["lengths"][i] } );
+        for ( var i=0; i < old["lengths_mm"].length; i++) {
+          newStatus.parts.push({axis: i, pos: old["positions_mm"][i], length: old["lengths_mm"][i]});
         }
         return newStatus
       }
 
+      function fixInputStatus(old) {
+        return { eventsList: old["events"] || []}
+      }
+
       function fixMotorStatus(old) {
         return {
-          on: old["on"] || false,
-          positionSupported: old["position_supported"] || false,
+          isOn: old["is_on"] || false,
+          positionReporting: old["position_reporting"] || false,
           position: old["position"] || 0,
         };
       }
      
       function fixServoStatus(old) {
-        return { position: old["position"] || 0 };
+        return { positionDeg: old["position_deg"] || 0 };
       }
 
       function fixRawStatus(name, status) {
@@ -129,6 +133,9 @@
             break;
           case "rdk:component:gantry":
             status = fixGantryStatus(status)
+            break;
+            case "rdk:component:input_controller":
+            status = fixInputStatus(status)
             break;
           case "rdk:component:motor":
             status = fixMotorStatus(status)
@@ -222,10 +229,10 @@
                     return {namespace: subtypeParts[0], type: subtypeParts[1], subtype: subtypeParts[2], name: name}
                   },
                   resourceStatusByName : function(name) {
-                    return theData.status[theApp.resourceNameToString(name)] || {}
+                    return theData.status[theApp.resourceNameToString(name)]
                   },
                   rawResourceStatusByName : function(name) {
-                    return theData.rawStatus[theApp.resourceNameToString(name)] || {}
+                    return theData.rawStatus[theApp.resourceNameToString(name)]
                   },
                   gantryInc : function(name, axis, amount) {
                       var g = theApp.resourceStatusByName(name)
@@ -357,7 +364,7 @@
                   },
                   servoMove : function(name, amount) {
                     const servo = theApp.rawResourceStatusByName(name);
-                    var oldAngle = servo.position || 0;
+                    var oldAngle = servo["position_deg"] || 0;
                     let angle = oldAngle + amount;
                     const req = new servoApi.MoveRequest();
                     req.setName(name.name);
@@ -1498,7 +1505,12 @@
       </div>
 
       <!-- ******* GANTRY *******  -->
-      <div class="gantry" v-for="gantry in filterResources('rdk', 'component', 'gantry')" :key="gantry.name">
+      <div
+        class="gantry"
+        v-for="gantry in filterResources('rdk', 'component', 'gantry')"
+        :key="gantry.name"
+        v-if="resourceStatusByName(gantry)"
+      >
         <h3>Gantry ${gantry.name}</h3>
         <table>
           <tr>
@@ -1584,7 +1596,7 @@
             </th>
           </tr>
         </table>
-        <table border="1" v-else>
+        <table border="1" v-if="resourceStatusByName(arm)">
           <tr>
             <th colspan="3"><h5>END POSITION (mms)</h5></th>
             <th colspan="3"><h5>JOINTS (degrees)</h5></th>
@@ -1627,10 +1639,16 @@
       </div>
 
       <!-- ******* SERVO *******  -->
-      <div class="servo" v-for="servo in filterResources('rdk', 'component', 'servo')" :key="servo.name" style="margin-bottom: .5em;">
+      <div
+        class="servo"
+        v-for="servo in filterResources('rdk', 'component', 'servo')"
+        :key="servo.name"
+        v-if="resourceStatusByName(servo)"
+        style="margin-bottom: .5em;"
+      >
         <table border="1">
           <tr><th>Servo</th><td>${servo.name}</td></tr>
-          <tr><td>Angle</td><td>${resourceStatusByName(servo).position}</td></tr>
+          <tr><td>Angle</td><td>${resourceStatusByName(servo).positionDeg}</td></tr>
           <tr>
             <td></td>
             <td>
@@ -1647,6 +1665,7 @@
       <motor-detail
         v-for="motor in filterResources('rdk', 'component', 'motor')"
         :key="'new-' + motor.name"
+        v-if="resourceStatusByName(motor)"
         v-bind:motor-name="motor.name"
         v-bind:motor-status="resourceStatusByName(motor)"
         v-on:execute="motorCommand(motor.name, $event)"
@@ -1657,6 +1676,7 @@
       <input-controller
         v-for="controller in filteredInputControllerList()"
         :key="'new-' + controller.name"
+        v-if="resourceStatusByName(controller)"
         v-bind:controller-name="controller.name"
         v-bind:controller-status="resourceStatusByName(controller)"
         style="max-width: 1080px;">
@@ -1678,7 +1698,7 @@
       </div>
 
       <!-- ******* BOARD *******  -->
-      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" key="board.name">
+      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" key="board.name">
         <h3>Board ${board.name}</h3>
         <table border="1">
 
