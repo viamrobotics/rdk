@@ -94,12 +94,11 @@
         return newStatus
       }
      
-      function fixGantries(old) {
-          var n = [];
-          for (var i=0; i<old.length; i++) {
-              var o = { name : old[i][0], parts : [] };
-
-              var x = old[i][1];
+      function fixGantryStatus(old) {
+        var newStatus = { parts: [] };
+        if (old["lengths_mm"].length != old["positions_mm"].length) {
+            throw "gantry lists different lengths";
+        }
 
         for ( var i=0; i < old["lengths_mm"].length; i++) {
           newStatus.parts.push({axis: i, pos: old["positions_mm"][i], length: old["lengths_mm"][i]});
