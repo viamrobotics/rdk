@@ -13,7 +13,6 @@ import (
 	"go.viam.com/rdk/vision/objectdetection"
 )
 
-
 // DetectionSegmenter will take an objectdetector.Detector and turn it into a Segementer.
 // The Projector that is used to build the Segmenter must be associated with the camera that will be given to the Segmenter.
 func DetectionSegmenter(detector objectdetection.Detector, proj rimage.Projector, meanK int, sigma float64) (Segmenter, error) {
