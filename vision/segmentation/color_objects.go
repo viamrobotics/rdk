@@ -70,7 +70,6 @@ func (csc *ColorObjectsConfig) ConvertAttributes(am config.AttributeMap) error {
 	return err
 }
 
-
 // ColorObjects is a Segmenter that turns the bounding boxes found by the ColorDetector into 3D objects.
 func ColorObjects(ctx context.Context, cam camera.Camera, params config.AttributeMap) ([]*vision.Object, error) {
 	cfg := &ColorObjectsConfig{}
