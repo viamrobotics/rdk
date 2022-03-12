@@ -85,10 +85,10 @@ func TestConfig3(t *testing.T) {
 	})
 	test.That(t, cfg.Components[2].ConvertedAttributes, test.ShouldResemble, &motor.Config{
 		Pins: motor.PinConfig{
-			Dir: "io17",
-			PWM: "io18",
+			Direction: "io17",
+			PWM:       "io18",
 		},
-		Encoder:          "encoder-steering-b",
+		EncoderA:         "encoder-steering-b",
 		EncoderB:         "encoder-steering-a",
 		TicksPerRotation: 10000,
 		MaxPowerPct:      0.5,
