@@ -38,7 +38,7 @@ type softGripper struct {
 
 	psi board.AnalogReader
 
-	pinOpen, pinClose, pinPower string
+	pinOpen, pinClose, pinPower board.GPIOPin
 
 	logger golog.Logger
 }
@@ -49,21 +49,30 @@ func newGripper(b board.Board, config config.Component, logger golog.Logger) (*s
 	if !ok {
 		return nil, errors.New("failed to find analog reader 'psi'")
 	}
+	pinOpen, err := b.GPIOPinByName(config.Attributes.String("open"))
+	if err != nil {
+		return nil, err
+	}
+	pinClose, err := b.GPIOPinByName(config.Attributes.String("close"))
+	if err != nil {
+		return nil, err
+	}
+	pinPower, err := b.GPIOPinByName(config.Attributes.String("power"))
+	if err != nil {
+		return nil, err
+	}
+
 	theGripper := &softGripper{
 		theBoard: b,
 		psi:      psi,
-		pinOpen:  config.Attributes.String("open"),
-		pinClose: config.Attributes.String("close"),
-		pinPower: config.Attributes.String("power"),
+		pinOpen:  pinOpen,
+		pinClose: pinClose,
+		pinPower: pinPower,
 		logger:   logger,
 	}
 
 	if theGripper.psi == nil {
 		return nil, errors.New("no psi analog reader")
-	}
-
-	if theGripper.pinOpen == "" || theGripper.pinClose == "" || theGripper.pinPower == "" {
-		return nil, errors.New("need pins for open, close, power")
 	}
 
 	return theGripper, nil
@@ -72,17 +81,17 @@ func newGripper(b board.Board, config config.Component, logger golog.Logger) (*s
 // Stop TODO.
 func (g *softGripper) Stop(ctx context.Context) error {
 	return multierr.Combine(
-		g.theBoard.SetGPIO(ctx, g.pinOpen, false),
-		g.theBoard.SetGPIO(ctx, g.pinClose, false),
-		g.theBoard.SetGPIO(ctx, g.pinPower, false),
+		g.pinOpen.Set(ctx, false),
+		g.pinClose.Set(ctx, false),
+		g.pinPower.Set(ctx, false),
 	)
 }
 
 // Open TODO.
 func (g *softGripper) Open(ctx context.Context) error {
 	err := multierr.Combine(
-		g.theBoard.SetGPIO(ctx, g.pinOpen, true),
-		g.theBoard.SetGPIO(ctx, g.pinPower, true),
+		g.pinOpen.Set(ctx, true),
+		g.pinPower.Set(ctx, true),
 	)
 	if err != nil {
 		return err
@@ -113,8 +122,8 @@ func (g *softGripper) Open(ctx context.Context) error {
 // Grab TODO.
 func (g *softGripper) Grab(ctx context.Context) (bool, error) {
 	err := multierr.Combine(
-		g.theBoard.SetGPIO(ctx, g.pinClose, true),
-		g.theBoard.SetGPIO(ctx, g.pinPower, true),
+		g.pinClose.Set(ctx, true),
+		g.pinPower.Set(ctx, true),
 	)
 	if err != nil {
 		return false, err
