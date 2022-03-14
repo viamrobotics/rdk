@@ -13,17 +13,14 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 )
 
-// readAngularVelocityCapturer is used when creating a Collector for an IMU's ReadAngularVelocity method.
 type readAngularVelocityCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// readOrientationCapturer is used when creating a Collector for an IMU's ReadOrientation method.
 type readOrientationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// readAccelerationCapturer is used when creating a Collector for an IMU's ReadAcceleration method.
 type readAccelerationCapturer struct {
 	client pb.IMUServiceClient
 }
