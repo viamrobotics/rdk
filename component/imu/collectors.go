@@ -3,10 +3,10 @@ package imu
 import (
 	"context"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/pkg/errors"
 	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/utils/rpc"
-	"google.golang.org/protobuf/types/known/anypb"
 	"os"
 	"time"
 )
@@ -25,62 +25,55 @@ type ReadAccelerationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-func (c ReadAngularVelocityCapturer) Capture(name string) (*any.Any, error) {
-	req := pb.ReadAngularVelocityRequest{Name: name}
+func (c ReadAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
+	name, ok := params["name"]
+	if !ok {
+		return nil, errors.New("must pass name parameter to ReadAngularVelocity")
+	}
+
+	req := pb.ReadAngularVelocityRequest{
+		Name: name,
+	}
 	// TODO: what should context be here?
-	resp, err := c.client.ReadAngularVelocity(context.TODO(), &req)
-	if err != nil {
-		return nil, err
-	}
-	a, err := anypb.New(resp)
-	if err != nil {
-		return nil, err
-	}
-	return a, nil
+	return data.WrapProtoAll(c.client.ReadAngularVelocity(context.TODO(), &req))
 }
 
-func (c ReadOrientationCapturer) Capture(name string) (*any.Any, error) {
+func (c ReadOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
+	name, ok := params["name"]
+	if !ok {
+		return nil, errors.New("must pass name parameter to ReadOrientation")
+	}
+
 	req := pb.ReadOrientationRequest{Name: name}
 	// TODO: what should context be here?
-	resp, err := c.client.ReadOrientation(context.TODO(), &req)
-	if err != nil {
-		return nil, err
-	}
-	a, err := anypb.New(resp)
-	if err != nil {
-		return nil, err
-	}
-	return a, nil
+	return data.WrapProtoAll(c.client.ReadOrientation(context.TODO(), &req))
 }
 
-func (c ReadAccelerationCapturer) Capture(name string) (*any.Any, error) {
+func (c ReadAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
+	name, ok := params["name"]
+	if !ok {
+		return nil, errors.New("must pass name parameter to ReadAcceleration")
+	}
+
 	req := pb.ReadAccelerationRequest{Name: name}
 	// TODO: what should context be here?
-	resp, err := c.client.ReadAcceleration(context.TODO(), &req)
-	if err != nil {
-		return nil, err
-	}
-	a, err := anypb.New(resp)
-	if err != nil {
-		return nil, err
-	}
-	return a, nil
+	return data.WrapProtoAll(c.client.ReadAcceleration(context.TODO(), &req))
 }
 
-func NewReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) data.Collector {
+func NewReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) data.Collector {
 	c := ReadAngularVelocityCapturer{client: pb.NewIMUServiceClient(conn)}
 
-	return data.NewCollector(c, interval, name, target)
+	return data.NewCollector(c, interval, params, target)
 }
 
-func NewReadOrientationCollectorFromConn(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) data.Collector {
+func NewReadOrientationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) data.Collector {
 	c := ReadOrientationCapturer{client: pb.NewIMUServiceClient(conn)}
 
-	return data.NewCollector(c, interval, name, target)
+	return data.NewCollector(c, interval, params, target)
 }
 
-func NewReadAccelerationCollectorFromConn(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) data.Collector {
+func NewReadAccelerationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) data.Collector {
 	c := ReadAccelerationCapturer{client: pb.NewIMUServiceClient(conn)}
 
-	return data.NewCollector(c, interval, name, target)
+	return data.NewCollector(c, interval, params, target)
 }

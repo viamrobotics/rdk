@@ -5,6 +5,7 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"os"
 	"sync"
 	"time"
@@ -13,14 +14,14 @@ import (
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
 	// TODO: generalize to arbitrary params
-	Capture(name string) (*any.Any, error)
+	Capture(params map[string]string) (*any.Any, error)
 }
 
 // A Collector calls capturer at the specified Interval, and appends the resulting reading to target.
 type Collector struct {
 	queue    chan *any.Any
 	Interval time.Duration
-	name     string
+	params   map[string]string
 	lock     *sync.Mutex
 	target   *os.File
 	done     chan bool
@@ -62,7 +63,7 @@ func (c *Collector) capture() error {
 			return nil
 		case <-ticker.C:
 			// TODO: generalize to arbitraru params
-			a, err := c.capturer.Capture(c.name)
+			a, err := c.capturer.Capture(c.params)
 			if err != nil {
 				return err
 			}
@@ -71,11 +72,11 @@ func (c *Collector) capture() error {
 	}
 }
 
-func NewCollector(capturer Capturer, interval time.Duration, name string, target *os.File) Collector {
+func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File) Collector {
 	return Collector{
 		queue:    make(chan *any.Any, 10),
 		Interval: interval,
-		name:     name,
+		params:   params,
 		lock:     &sync.Mutex{},
 		target:   target,
 		done:     make(chan bool),
@@ -96,4 +97,17 @@ func Write(c chan *any.Any, target *os.File) error {
 		}
 	}
 	return nil
+}
+
+// WrapProtoAll is a convenience function that takes the protobuf, error output of some protobuf method,
+// wraps the protobuf in any.Any, and returns any error if one is encountered.
+func WrapProtoAll(msg proto.Message, err error) (*any.Any, error) {
+	if err != nil {
+		return nil, err
+	}
+	a, err := anypb.New(msg)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
 }
