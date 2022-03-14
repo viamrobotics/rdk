@@ -1,14 +1,18 @@
 package data
 
 import (
-	"github.com/mitchellh/copystructure"
-	"github.com/pkg/errors"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/utils/rpc"
 	"os"
 	"time"
+
+	"github.com/mitchellh/copystructure"
+	"github.com/pkg/errors"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/resource"
 )
 
+// TODO: why did I define this as a struct again? Seems like a func type would do. Revisit.
+// CollectorConstructor contains a function for constructing an instance of a Collector.
 type CollectorConstructor struct {
 	Constructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) Collector
 }
@@ -18,9 +22,7 @@ type MethodMetadata struct {
 	MethodName string
 }
 
-var (
-	collectorRegistry = map[MethodMetadata]CollectorConstructor{}
-)
+var collectorRegistry = map[MethodMetadata]CollectorConstructor{}
 
 // RegisterCollector registers a Collector to its corresponding component subtype.
 func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
@@ -30,7 +32,7 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 			"component %s, method %s", method.Subtype, method.MethodName))
 	}
 	if c.Constructor == nil {
-		panic(errors.Errorf("cannot register a data collector with a nil constructor"))
+		panic(errors.New("cannot register a data collector with a nil constructor"))
 	}
 
 	collectorRegistry[method] = c

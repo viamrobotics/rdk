@@ -2,14 +2,11 @@ package data
 
 import (
 	"context"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/pkg/errors"
-	pb "go.viam.com/rdk/proto/api/component/imu/v1"
-	"go.viam.com/test"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
 )
 
 type dummyCapturer struct {
@@ -119,4 +116,8 @@ func TestSetTarget(t *testing.T) {
 	newSizeTgt2 := getFileSize(target2)
 	test.That(t, newSizeTgt1, test.ShouldEqual, oldSizeTgt1)
 	test.That(t, newSizeTgt2, test.ShouldBeGreaterThan, 0)
+}
+
+// Verifies that Collect returns errors when appropriate.
+func TestPropagatesErrors(t *testing.T) {
 }
