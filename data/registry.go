@@ -10,7 +10,7 @@ import (
 )
 
 type CollectorConstructor struct {
-	Constructor func(conn rpc.ClientConn, name string, interval time.Duration, target *os.File) Collector
+	Constructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) Collector
 }
 
 type MethodMetadata struct {
