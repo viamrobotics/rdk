@@ -4,7 +4,6 @@ package imu
 
 import (
 	"context"
-	"go.viam.com/rdk/data"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -13,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
