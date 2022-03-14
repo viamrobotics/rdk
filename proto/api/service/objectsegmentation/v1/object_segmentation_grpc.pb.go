@@ -24,6 +24,8 @@ type ObjectSegmentationServiceClient interface {
 	GetObjectPointClouds(ctx context.Context, in *GetObjectPointCloudsRequest, opts ...grpc.CallOption) (*GetObjectPointCloudsResponse, error)
 	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
 	GetSegmenterParameters(ctx context.Context, in *GetSegmenterParametersRequest, opts ...grpc.CallOption) (*GetSegmenterParametersResponse, error)
+	// GetSegmenters returns the list of segmenters in the registry.
+	GetSegmenters(ctx context.Context, in *GetSegmentersRequest, opts ...grpc.CallOption) (*GetSegmentersResponse, error)
 }
 
 type objectSegmentationServiceClient struct {
@@ -52,6 +54,15 @@ func (c *objectSegmentationServiceClient) GetSegmenterParameters(ctx context.Con
 	return out, nil
 }
 
+func (c *objectSegmentationServiceClient) GetSegmenters(ctx context.Context, in *GetSegmentersRequest, opts ...grpc.CallOption) (*GetSegmentersResponse, error) {
+	out := new(GetSegmentersResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenters", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ObjectSegmentationServiceServer is the server API for ObjectSegmentationService service.
 // All implementations must embed UnimplementedObjectSegmentationServiceServer
 // for forward compatibility
@@ -62,6 +73,8 @@ type ObjectSegmentationServiceServer interface {
 	GetObjectPointClouds(context.Context, *GetObjectPointCloudsRequest) (*GetObjectPointCloudsResponse, error)
 	// GetSegmenterParameters returns the parameter fields needed for the given segmenter.
 	GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error)
+	// GetSegmenters returns the list of segmenters in the registry.
+	GetSegmenters(context.Context, *GetSegmentersRequest) (*GetSegmentersResponse, error)
 	mustEmbedUnimplementedObjectSegmentationServiceServer()
 }
 
@@ -74,6 +87,9 @@ func (UnimplementedObjectSegmentationServiceServer) GetObjectPointClouds(context
 }
 func (UnimplementedObjectSegmentationServiceServer) GetSegmenterParameters(context.Context, *GetSegmenterParametersRequest) (*GetSegmenterParametersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenterParameters not implemented")
+}
+func (UnimplementedObjectSegmentationServiceServer) GetSegmenters(context.Context, *GetSegmentersRequest) (*GetSegmentersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSegmenters not implemented")
 }
 func (UnimplementedObjectSegmentationServiceServer) mustEmbedUnimplementedObjectSegmentationServiceServer() {
 }
@@ -125,6 +141,24 @@ func _ObjectSegmentationService_GetSegmenterParameters_Handler(srv interface{}, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ObjectSegmentationService_GetSegmenters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSegmentersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObjectSegmentationServiceServer).GetSegmenters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.objectsegmentation.v1.ObjectSegmentationService/GetSegmenters",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObjectSegmentationServiceServer).GetSegmenters(ctx, req.(*GetSegmentersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ObjectSegmentationService_ServiceDesc is the grpc.ServiceDesc for ObjectSegmentationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -139,6 +173,10 @@ var ObjectSegmentationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetSegmenterParameters",
 			Handler:    _ObjectSegmentationService_GetSegmenterParameters_Handler,
+		},
+		{
+			MethodName: "GetSegmenters",
+			Handler:    _ObjectSegmentationService_GetSegmenters_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

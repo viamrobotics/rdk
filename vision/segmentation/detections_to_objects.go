@@ -48,8 +48,8 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 		return nil, err
 	}
 	// project 2D detections to 3D objects
-	objects := make([]*vision.Object, len(dets))
-	for i, d := range dets {
+	objects := make([]*vision.Object, 0, len(dets))
+	for _, d := range dets {
 		bb := d.BoundingBox()
 		pc, err := proj.ImageWithDepthToPointCloud(iwd, *bb)
 		if err != nil {
@@ -59,11 +59,15 @@ func DetectionsToObjects(dets []objectdetection.Detection,
 		if err != nil {
 			return nil, err
 		}
+		// if object was filtered away, skip it
+		if filtered.Size() == 0 {
+			continue
+		}
 		obj, err := vision.NewObject(filtered)
 		if err != nil {
 			return nil, err
 		}
-		objects[i] = obj
+		objects = append(objects, obj)
 	}
 	return objects, nil
 }

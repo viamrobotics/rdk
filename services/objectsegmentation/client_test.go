@@ -67,7 +67,7 @@ func TestClient(t *testing.T) {
 			return pcA, nil
 		}
 
-		injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]string, error) {
+		injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
 			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
 		}
 		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
@@ -80,16 +80,25 @@ func TestClient(t *testing.T) {
 			}
 			return segments, nil
 		}
-
-		paramNames, err := client.GetSegmenterParameters(context.Background(), "")
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, paramNames, test.ShouldHaveLength, 3)
-		params := config.AttributeMap{
-			paramNames[0]: 100,
-			paramNames[1]: 3,
-			paramNames[2]: 5.0,
+		injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+			return []string{segmentation.RadiusClusteringSegmenter}, nil
 		}
-		segs, err := client.GetObjectPointClouds(context.Background(), "", "", params)
+
+		segNames, err := client.GetSegmenters(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldHaveLength, 1)
+		test.That(t, segNames[0], test.ShouldEqual, segmentation.RadiusClusteringSegmenter)
+
+		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
+		test.That(t, err, test.ShouldBeNil)
+		expParams := []rdkutils.TypedName{{"min_points_in_plane", "int"}, {"min_points_in_segment", "int"}, {"clustering_radius_mm", "float64"}}
+		test.That(t, paramNames, test.ShouldResemble, expParams)
+		params := config.AttributeMap{
+			paramNames[0].Name: 100,
+			paramNames[1].Name: 3,
+			paramNames[2].Name: 5.0,
+		}
+		segs, err := client.GetObjectPointClouds(context.Background(), "", segNames[0], params)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 
