@@ -138,7 +138,8 @@ func plannerRunner(ctx context.Context,
 		endpointPreview := make(chan *configuration, 1)
 		solutionChan := make(chan *planReturn, 1)
 		utils.PanicCapturingGo(func() {
-			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, opt, endpointPreview, solutionChan)
+			// TODO(rb) fix me
+			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{}, opt, endpointPreview, solutionChan)
 		})
 		for {
 			select {
