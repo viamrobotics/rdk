@@ -3,6 +3,7 @@
 package utils
 
 import (
+	"encoding/binary"
 	"math"
 	"math/rand"
 	"sort"
@@ -193,4 +194,84 @@ func SampleNIntegersUniform(n int, vMin, vMax float64) []int {
 	}
 
 	return z
+}
+
+// BytesFromFloat64LE converts a float64 to an array of bytes ordered in little-endian.
+func BytesFromFloat64LE(v float64) []byte {
+	var b [8]byte
+	binary.LittleEndian.PutUint64(b[:], math.Float64bits(v))
+	return b[:]
+}
+
+// BytesFromFloat32LE converts a float32 to an array of bytes ordered in little-endian.
+func BytesFromFloat32LE(v float32) []byte {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], math.Float32bits(v))
+	return b[:]
+}
+
+// BytesFromFloat64BE converts a float64 to an array of bytes ordered in big-endian.
+func BytesFromFloat64BE(v float64) []byte {
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], math.Float64bits(v))
+	return b[:]
+}
+
+// BytesFromFloat32BE converts a float32 to an array of bytes ordered in big-endian.
+func BytesFromFloat32BE(v float32) []byte {
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], math.Float32bits(v))
+	return b[:]
+}
+
+// BytesFromUint32LE converts a uint32 to an array of bytes ordered in little-endian.
+func BytesFromUint32LE(v uint32) []byte {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], v)
+	return b[:]
+}
+
+// BytesFromUint32BE converts a uint32 to an array of bytes ordered in big-endian.
+func BytesFromUint32BE(v uint32) []byte {
+	var b [4]byte
+	binary.BigEndian.PutUint32(b[:], v)
+	return b[:]
+}
+
+// Float32FromBytesLE converts an array of byte ordered in little-endian to a float32.
+func Float32FromBytesLE(bytes []byte) float32 {
+	bits := binary.LittleEndian.Uint32(bytes)
+	float := math.Float32frombits(bits)
+	return float
+}
+
+// Float64FromBytesLE converts an array of byte ordered in little-endian to a float64.
+func Float64FromBytesLE(bytes []byte) float64 {
+	bits := binary.LittleEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
+}
+
+// Float32FromBytesBE converts an array of byte ordered in big-endian to a float32.
+func Float32FromBytesBE(bytes []byte) float32 {
+	bits := binary.BigEndian.Uint32(bytes)
+	float := math.Float32frombits(bits)
+	return float
+}
+
+// Float64FromBytesBE converts an array of byte ordered in big-endian to a float64.
+func Float64FromBytesBE(bytes []byte) float64 {
+	bits := binary.BigEndian.Uint64(bytes)
+	float := math.Float64frombits(bits)
+	return float
+}
+
+// Uint32FromBytesLE converts an array of bytes odered in little-endian to a uint32.
+func Uint32FromBytesLE(bytes []byte) uint32 {
+	return binary.LittleEndian.Uint32(bytes)
+}
+
+// Uint32FromBytesBE converts an array of bytes odered in big-endian to a uint32.
+func Uint32FromBytesBE(bytes []byte) uint32 {
+	return binary.BigEndian.Uint32(bytes)
 }

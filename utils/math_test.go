@@ -298,3 +298,66 @@ func TestSampleNIntegersUniform(t *testing.T) {
 		test.That(t, value, test.ShouldBeLessThanOrEqualTo, 65)
 	}
 }
+
+func TestVarToBytes(t *testing.T) {
+	var f32 float32
+	var f64 float64
+	var u32 uint32
+	f32 = -6.2598534e18
+	b := BytesFromFloat32LE(f32)
+	test.That(t, b, test.ShouldResemble, []byte{0xEF, 0xBE, 0xAD, 0xDE})
+	b = BytesFromFloat32BE(f32)
+	test.That(t, b, test.ShouldResemble, []byte{0xDE, 0xAD, 0xBE, 0xEF})
+	f32 = 6.2598534e18
+	b = BytesFromFloat32LE(f32)
+	test.That(t, b, test.ShouldResemble, []byte{0xEF, 0xBE, 0xAD, 0x5E})
+	b = BytesFromFloat32BE(f32)
+	test.That(t, b, test.ShouldResemble, []byte{0x5E, 0xAD, 0xBE, 0xEF})
+
+	f64 = -1.1885958550205170e+148
+	b = BytesFromFloat64LE(f64)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0x01, 0xEE, 0xFF, 0xC0, 0xEF, 0xBE, 0xAD, 0xDE})
+	b = BytesFromFloat64BE(f64)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0xDE, 0xAD, 0xBE, 0xEF, 0xC0, 0xFF, 0xEE, 0x01})
+	f64 = 1.1885958550205170e+148
+	b = BytesFromFloat64LE(f64)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0x01, 0xEE, 0xFF, 0xC0, 0xEF, 0xBE, 0xAD, 0x5E})
+	b = BytesFromFloat64BE(f64)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0x5E, 0xAD, 0xBE, 0xEF, 0xC0, 0xFF, 0xEE, 0x01})
+
+	u32 = 0x12345678
+
+	b = BytesFromUint32BE(u32)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0x12, 0x34, 0x56, 0x78})
+	b = BytesFromUint32LE(u32)
+	test.That(t, b, test.ShouldResemble,
+		[]byte{0x78, 0x56, 0x34, 0x12})
+}
+
+func TestBytesToVar(t *testing.T) {
+	var f32 float32
+	var f64 float64
+	var u32 uint32
+	f32 = -6.2598534e18
+	v := Float32FromBytesLE([]byte{0xEF, 0xBE, 0xAD, 0xDE})
+	test.That(t, v, test.ShouldEqual, f32)
+	v = Float32FromBytesBE([]byte{0xDE, 0xAD, 0xBE, 0xEF})
+	test.That(t, v, test.ShouldEqual, f32)
+
+	f64 = -1.1885958550205170e+148
+	v64 := Float64FromBytesBE([]byte{0xDE, 0xAD, 0xBE, 0xEF, 0xC0, 0xFF, 0xEE, 0x01})
+	test.That(t, v64, test.ShouldEqual, f64)
+	v64 = Float64FromBytesLE([]byte{0x01, 0xEE, 0xFF, 0xC0, 0xEF, 0xBE, 0xAD, 0xDE})
+	test.That(t, v64, test.ShouldEqual, f64)
+
+	u32 = 0x12345678
+	vu32 := Uint32FromBytesLE([]byte{0x78, 0x56, 0x34, 0x12})
+	test.That(t, vu32, test.ShouldEqual, u32)
+	vu32 = Uint32FromBytesBE([]byte{0x12, 0x34, 0x56, 0x78})
+	test.That(t, vu32, test.ShouldEqual, u32)
+}
