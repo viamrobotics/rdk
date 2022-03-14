@@ -22,14 +22,18 @@ func TestSegmenterRegistry(t *testing.T) {
 	}{}
 	fnName := "x"
 	// no segmenter
-	test.That(t, func() { RegisterSegmenter(fnName, Registration{nil, []string{}}) }, test.ShouldPanic)
+	test.That(t, func() { RegisterSegmenter(fnName, Registration{nil, []utils.TypedName{}}) }, test.ShouldPanic)
 	// success
 	RegisterSegmenter(fnName, Registration{fn, utils.JSONTags(params)})
+	// segmenter names
+	names := SegmenterNames()
+	test.That(t, names, test.ShouldNotBeNil)
+	test.That(t, names, test.ShouldContain, fnName)
 	// look up
 	creator, err := SegmenterLookup(fnName)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, creator.Segmenter, test.ShouldEqual, fn)
-	test.That(t, creator.Parameters, test.ShouldResemble, []string{"int_var", "string_var"})
+	test.That(t, creator.Parameters, test.ShouldResemble, []utils.TypedName{{"int_var", "int"}, {"string_var", "string"}})
 	creator, err = SegmenterLookup("z")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no Segmenter with name")
 	test.That(t, creator, test.ShouldBeNil)
