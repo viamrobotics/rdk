@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/protobuf/ptypes/any"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
@@ -25,6 +26,7 @@ type Collector struct {
 	Interval time.Duration
 	params   map[string]string
 	lock     *sync.Mutex
+	logger   golog.Logger
 	target   *os.File
 	done     chan bool
 	capturer Capturer
@@ -52,26 +54,31 @@ func (c *Collector) Close() {
 	close(c.done)
 }
 
+// TODO: Decide on error behavior here. Should receiving a single error from c.capture cause this to return an error?
+//       I think the approach here will be more well informed when we start implementing the Data Manager Service and
+//       actually using Collectors. I'm going to leave the behavior here for then. As is, I'll leave it just logging
+//       errors.
+
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *Collector) Collect(ctx context.Context) error {
 	errs, _ := errgroup.WithContext(ctx)
-	errs.Go(c.capture)
+	go c.capture()
 	errs.Go(func() error {
 		return c.write()
 	})
 	return errs.Wait()
 }
 
-func (c *Collector) capture() error {
+func (c *Collector) capture() {
 	ticker := time.NewTicker(c.Interval)
 	for {
 		select {
 		case <-c.done:
-			return nil
+			return
 		case <-ticker.C:
 			a, err := c.capturer.Capture(c.params)
 			if err != nil {
-				return err
+				c.logger.Errorf("error while capturing data: %s", err)
 			}
 			c.queue <- a
 		}
@@ -79,12 +86,14 @@ func (c *Collector) capture() error {
 }
 
 // NewCollector returns a new Collector with the passed capturer and configuration options.
-func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File) Collector {
+func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
+	logger golog.Logger) Collector {
 	return Collector{
 		queue:    make(chan *any.Any, 10),
 		Interval: interval,
 		params:   params,
 		lock:     &sync.Mutex{},
+		logger:   logger,
 		target:   target,
 		done:     make(chan bool),
 		capturer: capturer,
