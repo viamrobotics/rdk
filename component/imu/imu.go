@@ -40,19 +40,19 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		Subtype:    Subtype.ResourceSubtype,
 		MethodName: "ReadAngularVelocity",
 	}, data.CollectorConstructor{
 		Constructor: NewReadAngularVelocityCollectorFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		Subtype:    Subtype.ResourceSubtype,
 		MethodName: "ReadOrientation",
 	}, data.CollectorConstructor{
 		Constructor: NewReadOrientationCollectorFromConn,
 	})
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype,
+		Subtype:    Subtype.ResourceSubtype,
 		MethodName: "ReadAcceleration",
 	}, data.CollectorConstructor{
 		Constructor: NewReadAccelerationCollectorFromConn,

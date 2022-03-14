@@ -14,8 +14,7 @@ type CollectorConstructor struct {
 }
 
 type MethodMetadata struct {
-	// TODO: Subtype or SubType?
-	Subtype    resource.Subtype
+	Subtype    resource.SubtypeName
 	MethodName string
 }
 
