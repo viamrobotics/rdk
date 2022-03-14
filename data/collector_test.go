@@ -118,9 +118,10 @@ func TestSetTarget(t *testing.T) {
 	test.That(t, oldSizeTgt1, test.ShouldBeGreaterThan, 0)
 	test.That(t, oldSizeTgt2, test.ShouldEqual, 0)
 
-	// Change target.
+	// Change target, let run for a bit.
 	c.SetTarget(target2)
 	time.Sleep(time.Millisecond * 12)
+	c.Close()
 
 	// Assert that file size of target 1 has not changed, and that target2 is now being written to.
 	newSizeTgt1 := getFileSize(target1)
