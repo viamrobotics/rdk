@@ -50,7 +50,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	errs, ctx := errgroup.WithContext(ctx)
 	errs.Go(c.capture)
 	errs.Go(func() error {
-		return Write(c.queue, c.target)
+		return c.write()
 	})
 	return errs.Wait()
 }
@@ -85,13 +85,13 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 }
 
 // TODO: length prefix when writing
-func Write(c chan *any.Any, target *os.File) error {
-	for a := range c {
+func (c *Collector) write() error {
+	for a := range c.queue {
 		bytes, err := proto.Marshal(a)
 		if err != nil {
 			return err
 		}
-		_, err = target.Write(bytes)
+		_, err = c.target.Write(bytes)
 		if err != nil {
 			return err
 		}
