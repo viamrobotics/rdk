@@ -25,7 +25,7 @@ func TestSegmenterRegistry(t *testing.T) {
 	test.That(t, func() { RegisterSegmenter(fnName, Registration{nil, []utils.TypedName{}}) }, test.ShouldPanic)
 	// success
 	RegisterSegmenter(fnName, Registration{fn, utils.JSONTags(params)})
-	// get segmenter names
+	// segmenter names
 	names := SegmenterNames()
 	test.That(t, names, test.ShouldNotBeNil)
 	test.That(t, names, test.ShouldContain, fnName)
