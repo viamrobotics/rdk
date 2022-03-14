@@ -8,7 +8,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 )
@@ -37,11 +36,6 @@ type Robot interface {
 	// Config returns the config used to construct the robot.
 	// This is allowed to be partial or empty.
 	Config(ctx context.Context) (*config.Config, error)
-
-	// Status returns the current status of the robot. Usually you
-	// should use the CreateStatus helper instead of directly calling
-	// this.
-	Status(ctx context.Context) (*pb.Status, error)
 
 	// FrameSystem returns a FrameSystem suitable for doing reference frame lookups
 	// and then computing relative offsets of pieces.

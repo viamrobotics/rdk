@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 
+	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/subtype"
@@ -34,6 +35,44 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
+func (server *subtypeServer) GetSegmenters(
+	ctx context.Context,
+	req *pb.GetSegmentersRequest,
+) (*pb.GetSegmentersResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	names, err := svc.GetSegmenters(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetSegmentersResponse{
+		Segmenters: names,
+	}, nil
+}
+
+func (server *subtypeServer) GetSegmenterParameters(
+	ctx context.Context,
+	req *pb.GetSegmenterParametersRequest,
+) (*pb.GetSegmenterParametersResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+	params, err := svc.GetSegmenterParameters(ctx, req.SegmenterName)
+	if err != nil {
+		return nil, err
+	}
+	typedParams := make([]*pb.TypedParameter, len(params))
+	for i, p := range params {
+		typedParams[i] = &pb.TypedParameter{Name: p.Name, Type: p.Type}
+	}
+	return &pb.GetSegmenterParametersResponse{
+		Parameters: typedParams,
+	}, nil
+}
+
 // GetObjectPointClouds returns an array of objects from the frame from a camera of the underlying robot. A specific MIME type
 // can be requested but may not necessarily be the same one returned. Also returns a Vector3 array of the center points of each object.
 func (server *subtypeServer) GetObjectPointClouds(
@@ -44,16 +83,12 @@ func (server *subtypeServer) GetObjectPointClouds(
 	if err != nil {
 		return nil, err
 	}
-	config := &vision.Parameters3D{
-		MinPtsInPlane:      int(req.MinPointsInPlane),
-		MinPtsInSegment:    int(req.MinPointsInSegment),
-		ClusteringRadiusMm: req.ClusteringRadiusMm,
-	}
-	objects, err := svc.GetObjectPointClouds(ctx, req.Name, config)
+	conf := config.AttributeMap(req.Parameters.AsMap())
+	objects, err := svc.GetObjectPointClouds(ctx, req.CameraName, req.SegmenterName, conf)
 	if err != nil {
 		return nil, err
 	}
-	protoSegments, err := segmentsToProto(req.Name, objects)
+	protoSegments, err := segmentsToProto(req.CameraName, objects)
 	if err != nil {
 		return nil, err
 	}

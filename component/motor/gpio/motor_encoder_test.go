@@ -534,7 +534,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			nil,
-			config.Component{Name: "motor1"}, motor.Config{Encoder: "a"},
+			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a"},
 			fakeMotor,
 			logger,
 		)
@@ -550,7 +550,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			b,
-			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100},
+			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
@@ -562,7 +562,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err = WrapMotorWithEncoder(
 			context.Background(),
 			b,
-			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100},
+			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
@@ -579,7 +579,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err := WrapMotorWithEncoder(
 			context.Background(),
 			b,
-			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", TicksPerRotation: 100, EncoderB: "b"},
+			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", TicksPerRotation: 100, EncoderB: "b"},
 			fakeMotor,
 			logger,
 		)
@@ -590,7 +590,7 @@ func TestWrapMotorWithEncoder(t *testing.T) {
 		m, err = WrapMotorWithEncoder(
 			context.Background(),
 			b,
-			config.Component{Name: "motor1"}, motor.Config{Encoder: "a", EncoderB: "b", TicksPerRotation: 100},
+			config.Component{Name: "motor1"}, motor.Config{EncoderA: "a", EncoderB: "b", TicksPerRotation: 100},
 			fakeMotor,
 			logger,
 		)
