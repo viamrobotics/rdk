@@ -15,7 +15,6 @@ import (
 	"go.viam.com/rdk/component/gps"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -43,41 +42,6 @@ func New(r robot.Robot) pb.RobotServiceServer {
 func (s *Server) Close() {
 	s.cancel()
 	s.activeBackgroundWorkers.Wait()
-}
-
-// Config returns the robot's underlying config.
-func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigResponse, error) {
-	cfg, err := s.r.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &pb.ConfigResponse{}
-	for _, c := range cfg.Components {
-		cc := &pb.ComponentConfig{
-			Name: c.Name,
-			Type: string(c.Type),
-		}
-		if c.Frame != nil {
-			orientation := c.Frame.Orientation
-			if orientation == nil {
-				orientation = spatialmath.NewZeroOrientation()
-			}
-			cc.Parent = c.Frame.Parent
-			cc.Pose = &pb.Pose{
-				X:     c.Frame.Translation.X,
-				Y:     c.Frame.Translation.Y,
-				Z:     c.Frame.Translation.Z,
-				OX:    orientation.OrientationVectorDegrees().OX,
-				OY:    orientation.OrientationVectorDegrees().OY,
-				OZ:    orientation.OrientationVectorDegrees().OZ,
-				Theta: orientation.OrientationVectorDegrees().Theta,
-			}
-		}
-		resp.Components = append(resp.Components, cc)
-	}
-
-	return resp, nil
 }
 
 // DoAction runs an action on the underlying robot.

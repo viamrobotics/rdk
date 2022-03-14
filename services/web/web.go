@@ -173,7 +173,7 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // allSourcesToDisplay returns every possible image source that could be viewed from
 // the robot.
-func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.ImageSource, []string, error) {
+func allSourcesToDisplay(theRobot robot.Robot) ([]gostream.ImageSource, []string) {
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
@@ -188,7 +188,7 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 		names = append(names, name)
 	}
 
-	return sources, names, nil
+	return sources, names
 }
 
 var defaultStreamConfig = x264.DefaultStreamConfig
@@ -284,10 +284,7 @@ func (svc *webService) Close(ctx context.Context) error {
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
-	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
-	if err != nil {
-		return nil, false, err
-	}
+	displaySources, displayNames := allSourcesToDisplay(theRobot)
 	var streams []gostream.Stream
 
 	if len(displaySources) == 0 {
