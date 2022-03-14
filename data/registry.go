@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
@@ -12,7 +13,8 @@ import (
 )
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
-type CollectorConstructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) Collector
+type CollectorConstructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
+	target *os.File, logger golog.Logger) Collector
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {

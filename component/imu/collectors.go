@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/edaniels/golog"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
@@ -64,19 +65,19 @@ func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, e
 }
 
 func newReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
-	target *os.File) data.Collector {
+	target *os.File, logger golog.Logger) data.Collector {
 	c := readAngularVelocityCapturer{client: pb.NewIMUServiceClient(conn)}
-	return data.NewCollector(c, interval, params, target)
+	return data.NewCollector(c, interval, params, target, logger)
 }
 
 func newReadOrientationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
-	target *os.File) data.Collector {
+	target *os.File, logger golog.Logger) data.Collector {
 	c := readOrientationCapturer{client: pb.NewIMUServiceClient(conn)}
-	return data.NewCollector(c, interval, params, target)
+	return data.NewCollector(c, interval, params, target, logger)
 }
 
 func newReadAccelerationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
-	target *os.File) data.Collector {
+	target *os.File, logger golog.Logger) data.Collector {
 	c := readAccelerationCapturer{client: pb.NewIMUServiceClient(conn)}
-	return data.NewCollector(c, interval, params, target)
+	return data.NewCollector(c, interval, params, target, logger)
 }

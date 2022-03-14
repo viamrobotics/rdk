@@ -2,14 +2,18 @@ package data
 
 import (
 	"context"
-	"github.com/golang/protobuf/ptypes/any"
-	"github.com/pkg/errors"
-	pb "go.viam.com/rdk/proto/api/component/imu/v1"
-	"go.viam.com/test"
 	"io/ioutil"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/edaniels/golog"
+	"github.com/golang/protobuf/ptypes/any"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
+	"go.viam.com/test"
+
+	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 )
 
 type dummyCapturer struct {
@@ -37,18 +41,19 @@ func getFileSize(f *os.File) int64 {
 
 // TODO: Don't do any checking on construction. Should we?
 func TestNewCollector(t *testing.T) {
-	c := NewCollector(nil, time.Second, nil, nil)
+	c := NewCollector(nil, time.Second, nil, nil, nil)
 	test.That(t, c, test.ShouldNotBeNil)
 }
 
 // TODO: once prefixed protobuf read/write is implemented, these tests should verify message contents, not just that the
 //       file is being written to.
 func TestSuccessfulWrite(t *testing.T) {
+	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 
 	// Verify that it writes to the file.
-	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1)
+	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 20)
 	size1 := getFileSize(target1)
@@ -62,10 +67,11 @@ func TestSuccessfulWrite(t *testing.T) {
 
 func TestClose(t *testing.T) {
 	// Set up a collector.
+	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1)
+	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 12)
 
@@ -82,10 +88,11 @@ func TestClose(t *testing.T) {
 
 // Test that interval is respected and that capture() is called floor(time_passed/interval) times.
 func TestInterval(t *testing.T) {
+	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1)
+	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 
 	// Give 2ms of leeway so slight changes in execution ordering don't impact the test.
@@ -94,13 +101,14 @@ func TestInterval(t *testing.T) {
 }
 
 func TestSetTarget(t *testing.T) {
+	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever1")
 	target2, _ := ioutil.TempFile("", "whatever2")
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1)
+	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 10)
 
@@ -121,6 +129,29 @@ func TestSetTarget(t *testing.T) {
 	test.That(t, newSizeTgt2, test.ShouldBeGreaterThan, 0)
 }
 
-// Verifies that Collect returns errors when appropriate.
-func TestPropagatesErrors(t *testing.T) {
+// Verifies that Collect does not error if it receives a single error when calling capture.
+func TestSwallowsErrors(t *testing.T) {
+	logger, logs := golog.NewObservedTestLogger(t)
+	target1, _ := ioutil.TempFile("", "whatever")
+	defer os.Remove(target1.Name())
+	dummy := &dummyCapturer{shouldError: true}
+
+	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, logger)
+	errorChannel := make(chan error)
+	defer close(errorChannel)
+	go func() {
+		err := c.Collect(context.TODO())
+		if err != nil {
+			errorChannel <- err
+		}
+	}()
+	time.Sleep(10 * time.Millisecond)
+
+	// Verify that no errors were passed into errorChannel, and that errors were logged.
+	select {
+	case err := <-errorChannel:
+		logger.Fatalf("Collector.Collect propogated error: %s", err)
+	default:
+		test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldBeGreaterThan, 0)
+	}
 }
