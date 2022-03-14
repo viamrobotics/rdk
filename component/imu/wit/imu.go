@@ -50,28 +50,28 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (i *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.angularVelocity, i.lastError
+func (imu *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.angularVelocity, imu.lastError
 }
 
-func (i *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return &i.orientation, i.lastError
+func (imu *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return &imu.orientation, imu.lastError
 }
 
-func (i *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return i.acceleration, i.lastError
+func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.acceleration, imu.lastError
 }
 
-func (i *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	return []interface{}{i.angularVelocity, i.orientation, i.acceleration}, i.lastError
+func (imu *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return []interface{}{imu.angularVelocity, imu.orientation, imu.acceleration}, imu.lastError
 }
 
 // NewWit creates a new Wit IMU.
@@ -135,14 +135,14 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
-func (i *wit) parseWIT(line string) error {
+func (imu *wit) parseWIT(line string) error {
 	if line[0] == 0x52 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu angularVelocity %d %v", len(line), line)
 		}
-		i.angularVelocity.X = scale(line[1], line[2], 2000)
-		i.angularVelocity.Y = scale(line[3], line[4], 2000)
-		i.angularVelocity.Z = scale(line[5], line[6], 2000)
+		imu.angularVelocity.X = scale(line[1], line[2], 2000)
+		imu.angularVelocity.Y = scale(line[3], line[4], 2000)
+		imu.angularVelocity.Z = scale(line[5], line[6], 2000)
 	}
 
 	if line[0] == 0x53 {
@@ -150,9 +150,9 @@ func (i *wit) parseWIT(line string) error {
 			return fmt.Errorf("line is wrong for imu orientation %d %v", len(line), line)
 		}
 
-		i.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
-		i.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
-		i.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
+		imu.orientation.Roll = rutils.DegToRad(scale(line[1], line[2], 180))
+		imu.orientation.Pitch = rutils.DegToRad(scale(line[3], line[4], 180))
+		imu.orientation.Yaw = rutils.DegToRad(scale(line[5], line[6], 180))
 	}
 
 	if line[0] == 0x51 {
@@ -160,15 +160,15 @@ func (i *wit) parseWIT(line string) error {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
 		accScale := 16 * 9806.65
-		i.acceleration.X = scale(line[1], line[2], accScale)
-		i.acceleration.Y = scale(line[3], line[4], accScale)
-		i.acceleration.Z = scale(line[5], line[6], accScale)
+		imu.acceleration.X = scale(line[1], line[2], accScale)
+		imu.acceleration.Y = scale(line[3], line[4], accScale)
+		imu.acceleration.Z = scale(line[5], line[6], accScale)
 	}
 
 	return nil
 }
 
-func (i *wit) Close() {
-	i.cancelFunc()
-	i.activeBackgroundWorkers.Wait()
+func (imu *wit) Close() {
+	imu.cancelFunc()
+	imu.activeBackgroundWorkers.Wait()
 }
