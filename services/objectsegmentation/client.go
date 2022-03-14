@@ -56,14 +56,26 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
+func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetSegmenters(ctx, &pb.GetSegmentersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Segmenters, nil
+}
+
+func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
 		SegmenterName: segmenterName,
 	})
 	if err != nil {
 		return nil, err
 	}
-	return resp.Parameters, nil
+	params := make([]utils.TypedName, len(resp.Parameters))
+	for i, p := range resp.Parameters {
+		params[i] = utils.TypedName{p.Name, p.Type}
+	}
+	return params, nil
 }
 
 func (c *client) GetObjectPointClouds(ctx context.Context,
@@ -87,7 +99,6 @@ func (c *client) GetObjectPointClouds(ctx context.Context,
 	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
-
 	return protoToObjects(resp.Objects)
 }
 

@@ -42,8 +42,9 @@ func init() {
 
 // A Service that defines how to segment 2D and/or 3D images from a given camera into objects.
 type Service interface {
+	GetSegmenters(ctx context.Context) ([]string, error)
+	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error)
 	GetObjectPointClouds(ctx context.Context, cameraName, segmenterName string, params config.AttributeMap) ([]*vision.Object, error)
-	GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -100,7 +101,11 @@ func (seg *objectSegService) GetObjectPointClouds(
 	return segmenter.Segmenter(ctx, cam, params)
 }
 
-func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]string, error) {
+func (seg *objectSegService) GetSegmenters(ctx context.Context) ([]string, error) {
+	return segmentation.SegmenterNames(), nil
+}
+
+func (seg *objectSegService) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
 	segmenter, err := segmentation.SegmenterLookup(segmenterName)
 	if err != nil {
 		return nil, err
