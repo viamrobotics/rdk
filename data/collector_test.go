@@ -110,7 +110,7 @@ func TestSetTarget(t *testing.T) {
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 12)
 
 	// Measure fileSize of tgt1 and tgt2.
 	oldSizeTgt1 := getFileSize(target1)
@@ -120,7 +120,7 @@ func TestSetTarget(t *testing.T) {
 
 	// Change target.
 	c.SetTarget(target2)
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 12)
 
 	// Assert that file size of target 1 has not changed, and that target2 is now being written to.
 	newSizeTgt1 := getFileSize(target1)
