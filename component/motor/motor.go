@@ -258,33 +258,38 @@ func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
 }
 
 // PinConfig defines the mapping of where motor are wired.
+// Standard Configurations:
+// - A/B       [EnablePinHigh/EnablePinLow]
+// - A/B + PWM [EnablePinHigh/EnablePinLow]
+// - Dir + PWM [EnablePinHigh/EnablePinLow].
 type PinConfig struct {
 	A             string `json:"a"`
 	B             string `json:"b"`
-	Dir           string `json:"dir"`
+	Direction     string `json:"dir"`
 	PWM           string `json:"pwm"`
 	EnablePinHigh string `json:"enHigh,omitempty"`
 	EnablePinLow  string `json:"enLow,omitempty"`
-	En            string `json:"en,omitempty"` // deprecated
 	Step          string `json:"step,omitempty"`
 }
 
 // Config describes the configuration of a motor.
 type Config struct {
-	Pins             PinConfig             `json:"pins"`
-	BoardName        string                `json:"board"`              // used to get encoders
-	Encoder          string                `json:"encoder,omitempty"`  // name of the digital interrupt that is the encoder
-	EncoderB         string                `json:"encoderB,omitempty"` // name of the digital interrupt that is hall encoder b
-	TicksPerRotation int                   `json:"ticksPerRotation"`
-	RampRate         float64               `json:"rampRate,omitempty"`         // how fast to ramp power to motor when using rpm control
-	MinPowerPct      float64               `json:"min_power_pct,omitempty"`    // min power percentage to allow for this motor default is 0.0
-	MaxPowerPct      float64               `json:"max_power_pct,omitempty"`    // max power percentage to allow for this motor (0.06 - 1.0)
-	MaxRPM           float64               `json:"max_rpm"`                    // RPM
-	MaxAcceleration  float64               `json:"max_acceleration,omitempty"` // RPM per second
-	PWMFreq          uint                  `json:"pwmFreq,omitempty"`
-	StepperDelay     uint                  `json:"stepperDelay,omitempty"`   // When using stepper motors, the time to remain high
-	DirFlip          bool                  `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
-	ControlLoop      control.ControlConfig `json:"control_config,omitempty"` // Optional control loop
+	Pins          PinConfig             `json:"pins"`
+	BoardName     string                `json:"board"`                   // used to get encoders
+	MinPowerPct   float64               `json:"min_power_pct,omitempty"` // min power percentage to allow for this motor default is 0.0
+	MaxPowerPct   float64               `json:"max_power_pct,omitempty"` // max power percentage to allow for this motor (0.06 - 1.0)
+	PWMFreq       uint                  `json:"pwmFreq,omitempty"`
+	DirectionFlip bool                  `json:"dir_flip,omitempty"`       // Flip the direction of the signal sent if there is a Dir pin
+	StepperDelay  uint                  `json:"stepperDelay,omitempty"`   // When using stepper motors, the time to remain high
+	ControlLoop   control.ControlConfig `json:"control_config,omitempty"` // Optional control loop
+
+	// Encoder Config
+	EncoderA         string  `json:"encoder,omitempty"`          // name of the digital interrupt that is the encoder a
+	EncoderB         string  `json:"encoderB,omitempty"`         // name of the digital interrupt that is hall encoder b
+	RampRate         float64 `json:"rampRate,omitempty"`         // how fast to ramp power to motor when using rpm control
+	MaxRPM           float64 `json:"max_rpm"`                    // RPM
+	MaxAcceleration  float64 `json:"max_acceleration,omitempty"` // RPM per second
+	TicksPerRotation int     `json:"ticksPerRotation"`
 }
 
 // RegisterConfigAttributeConverter registers a Config converter.

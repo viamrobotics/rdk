@@ -4,9 +4,10 @@ package piimpl
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
@@ -142,7 +143,7 @@ func TestPiPigpio(t *testing.T) {
 				B:   "40", // bcom 21
 				PWM: "7",  // bcom 4
 			},
-			Encoder:          "hall-a",
+			EncoderA:         "hall-a",
 			EncoderB:         "hall-b",
 			TicksPerRotation: 200,
 			BoardName:        "test",

@@ -3,6 +3,7 @@ package board
 
 import (
 	"context"
+	"math"
 	"runtime/debug"
 	"sync"
 
@@ -67,6 +68,7 @@ type boardInfo struct {
 	i2cNames              []string
 	analogReaderNames     []string
 	digitalInterruptNames []string
+	gpioPinNames          []string
 }
 
 // NewClient constructs a new client that is served at the given address.
@@ -113,42 +115,12 @@ func (c *client) DigitalInterruptByName(name string) (DigitalInterrupt, bool) {
 	}, true
 }
 
-func (c *client) SetGPIO(ctx context.Context, pin string, high bool) error {
-	_, err := c.client.SetGPIO(ctx, &pb.SetGPIORequest{
-		Name: c.info.name,
-		Pin:  pin,
-		High: high,
-	})
-	return err
-}
-
-func (c *client) GetGPIO(ctx context.Context, pin string) (bool, error) {
-	resp, err := c.client.GetGPIO(ctx, &pb.GetGPIORequest{
-		Name: c.info.name,
-		Pin:  pin,
-	})
-	if err != nil {
-		return false, err
-	}
-	return resp.High, nil
-}
-
-func (c *client) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	_, err := c.client.SetPWM(ctx, &pb.SetPWMRequest{
-		Name:         c.info.name,
-		Pin:          pin,
-		DutyCyclePct: dutyCyclePct,
-	})
-	return err
-}
-
-func (c *client) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	_, err := c.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
-		Name:        c.info.name,
-		Pin:         pin,
-		FrequencyHz: uint64(freqHz),
-	})
-	return err
+func (c *client) GPIOPinByName(name string) (GPIOPin, error) {
+	return &gpioPinClient{
+		serviceClient: c.serviceClient,
+		boardName:     c.info.name,
+		pinName:       name,
+	}, nil
 }
 
 func (c *client) SPINames() []string {
@@ -179,6 +151,13 @@ func (c *client) DigitalInterruptNames() []string {
 	return copyStringSlice(c.info.digitalInterruptNames)
 }
 
+func (c *client) GPIOPinNames() []string {
+	if c.getCachedStatus() == nil {
+		panic("no status")
+	}
+	return copyStringSlice(c.info.gpioPinNames)
+}
+
 // Status uses the cached status or a newly fetched board status to return the state
 // of the board.
 func (c *client) Status(ctx context.Context) (*commonpb.BoardStatus, error) {
@@ -206,6 +185,10 @@ func (c *client) refresh(ctx context.Context) error {
 	c.info.digitalInterruptNames = []string{}
 	for name := range status.DigitalInterrupts {
 		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
+	}
+	c.info.gpioPinNames = []string{}
+	for name := range status.DigitalInterrupts {
+		c.info.gpioPinNames = append(c.info.gpioPinNames, name)
 	}
 
 	return nil
@@ -289,6 +272,74 @@ func (dic *digitalInterruptClient) AddCallback(c chan bool) {
 func (dic *digitalInterruptClient) AddPostProcessor(pp PostProcessor) {
 	debug.PrintStack()
 	panic(errUnimplemented)
+}
+
+// gpioPinClient satisfies a gRPC based board.GPIOPin. Refer to the interface
+// for descriptions of its methods.
+type gpioPinClient struct {
+	*serviceClient
+	boardName string
+	pinName   string
+}
+
+func (gpc *gpioPinClient) Set(ctx context.Context, high bool) error {
+	_, err := gpc.client.SetGPIO(ctx, &pb.SetGPIORequest{
+		Name: gpc.boardName,
+		Pin:  gpc.pinName,
+		High: high,
+	})
+	return err
+}
+
+func (gpc *gpioPinClient) Get(ctx context.Context) (bool, error) {
+	resp, err := gpc.client.GetGPIO(ctx, &pb.GetGPIORequest{
+		Name: gpc.boardName,
+		Pin:  gpc.pinName,
+	})
+	if err != nil {
+		return false, err
+	}
+	return resp.High, nil
+}
+
+func (gpc *gpioPinClient) PWM(ctx context.Context) (float64, error) {
+	resp, err := gpc.client.PWM(ctx, &pb.PWMRequest{
+		Name: gpc.boardName,
+		Pin:  gpc.pinName,
+	})
+	if err != nil {
+		return math.NaN(), err
+	}
+	return resp.DutyCyclePct, nil
+}
+
+func (gpc *gpioPinClient) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+	_, err := gpc.client.SetPWM(ctx, &pb.SetPWMRequest{
+		Name:         gpc.boardName,
+		Pin:          gpc.pinName,
+		DutyCyclePct: dutyCyclePct,
+	})
+	return err
+}
+
+func (gpc *gpioPinClient) PWMFreq(ctx context.Context) (uint, error) {
+	resp, err := gpc.client.PWMFrequency(ctx, &pb.PWMFrequencyRequest{
+		Name: gpc.boardName,
+		Pin:  gpc.pinName,
+	})
+	if err != nil {
+		return 0, err
+	}
+	return uint(resp.FrequencyHz), nil
+}
+
+func (gpc *gpioPinClient) SetPWMFreq(ctx context.Context, freqHz uint) error {
+	_, err := gpc.client.SetPWMFrequency(ctx, &pb.SetPWMFrequencyRequest{
+		Name:        gpc.boardName,
+		Pin:         gpc.pinName,
+		FrequencyHz: uint64(freqHz),
+	})
+	return err
 }
 
 // Close cleanly closes the underlying connections. No methods should be called on the
