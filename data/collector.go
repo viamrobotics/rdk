@@ -1,3 +1,5 @@
+// Package data contains the code involved with Viam's Data Management Platform for automatically collecting component
+// readings from robots.
 package data
 
 import (
@@ -50,8 +52,9 @@ func (c *Collector) Close() {
 	close(c.done)
 }
 
+// Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *Collector) Collect(ctx context.Context) error {
-	errs, ctx := errgroup.WithContext(ctx)
+	errs, _ := errgroup.WithContext(ctx)
 	errs.Go(c.capture)
 	errs.Go(func() error {
 		return c.write()
@@ -75,6 +78,7 @@ func (c *Collector) capture() error {
 	}
 }
 
+// NewCollector returns a new Collector with the passed capturer and configuration options.
 func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File) Collector {
 	return Collector{
 		queue:    make(chan *any.Any, 10),
