@@ -13,7 +13,6 @@ import (
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
-	// TODO: generalize to arbitrary params
 	Capture(params map[string]string) (*any.Any, error)
 }
 
@@ -62,7 +61,6 @@ func (c *Collector) capture() error {
 		case <-c.done:
 			return nil
 		case <-ticker.C:
-			// TODO: generalize to arbitraru params
 			a, err := c.capturer.Capture(c.params)
 			if err != nil {
 				return err
