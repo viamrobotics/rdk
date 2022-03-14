@@ -138,7 +138,7 @@ func (a *myArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -151,7 +151,7 @@ func (a *myArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 }
 
 // MoveToJointPositions takes a list of degrees and sets the corresponding joints to that position.
-func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
+func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	if len(jp.Degrees) > len(a.JointOrder()) {
 		return errors.New("passed in too many positions")
 	}
@@ -169,10 +169,10 @@ func (a *myArm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositio
 }
 
 // GetJointPositions returns an empty struct, because the vx300s should use joint angles from kinematics.
-func (a *myArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (a *myArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	angleMap, err := a.GetAllAngles()
 	if err != nil {
-		return &pb.ArmJointPositions{}, err
+		return &pb.JointPositions{}, err
 	}
 
 	positions := make([]float64, 0, len(a.JointOrder()))
@@ -180,7 +180,7 @@ func (a *myArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, e
 		positions[i] = servoPosToDegrees(angleMap[jointName])
 	}
 
-	return &pb.ArmJointPositions{Degrees: positions}, nil
+	return &pb.JointPositions{Degrees: positions}, nil
 }
 
 // Close will get the arm ready to be turned off.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
@@ -48,7 +49,9 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldNotBeNil)
 
-	result, err := res.(board.LocalBoard).GetGPIO(context.Background(), "")
+	p, err := res.(board.LocalBoard).GPIOPinByName("1")
+	test.That(t, err, test.ShouldBeNil)
+	result, err := p.Get(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
 
@@ -145,13 +148,16 @@ func TestReconfigurableBoard(t *testing.T) {
 		test.That(t, reconfBoard1, test.ShouldResemble, reconfBoard2)
 		test.That(t, actualBoard1.reconfCount, test.ShouldEqual, 1)
 
-		test.That(t, actualBoard1.getGPIOCount, test.ShouldEqual, 0)
-		test.That(t, actualBoard2.getGPIOCount, test.ShouldEqual, 0)
-		result, err := reconfBoard1.(board.Board).GetGPIO(context.Background(), "")
+		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
+		test.That(t, actualBoard2.gpioPin.getCount, test.ShouldEqual, 0)
+
+		p, err := reconfBoard1.(board.Board).GPIOPinByName("1")
+		test.That(t, err, test.ShouldBeNil)
+		result, err := p.Get(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldResemble, mockGPIO)
-		test.That(t, actualBoard1.getGPIOCount, test.ShouldEqual, 0)
-		test.That(t, actualBoard2.getGPIOCount, test.ShouldEqual, 1)
+		test.That(t, actualBoard1.gpioPin.getCount, test.ShouldEqual, 0)
+		test.That(t, actualBoard2.gpioPin.getCount, test.ShouldEqual, 1)
 
 		err = reconfBoard1.Reconfigure(context.Background(), nil)
 		test.That(t, err, test.ShouldNotBeNil)
@@ -163,41 +169,49 @@ func TestSetGPIO(t *testing.T) {
 	actualBoard := newBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.setGPIOCount, test.ShouldEqual, 0)
-	err := reconfBoard.(board.LocalBoard).SetGPIO(context.Background(), "", false)
+	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 0)
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.setGPIOCount, test.ShouldEqual, 1)
+	err = p.Set(context.Background(), false)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.gpioPin.setCount, test.ShouldEqual, 1)
 }
 
 func TestGetGPIO(t *testing.T) {
 	actualBoard := newBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.getGPIOCount, test.ShouldEqual, 0)
-	result, err := reconfBoard.(board.LocalBoard).GetGPIO(context.Background(), "")
+	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 0)
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
+	test.That(t, err, test.ShouldBeNil)
+	result, err := p.Get(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, mockGPIO)
-	test.That(t, actualBoard.getGPIOCount, test.ShouldEqual, 1)
+	test.That(t, actualBoard.gpioPin.getCount, test.ShouldEqual, 1)
 }
 
 func TestSetPWM(t *testing.T) {
 	actualBoard := newBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.setPWMCount, test.ShouldEqual, 0)
-	err := reconfBoard.(board.LocalBoard).SetPWM(context.Background(), "", 0)
+	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 0)
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.setPWMCount, test.ShouldEqual, 1)
+	err = p.SetPWM(context.Background(), 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.gpioPin.setPWMCount, test.ShouldEqual, 1)
 }
 
 func TestSetPWMFreq(t *testing.T) {
 	actualBoard := newBoard(testBoardName)
 	reconfBoard, _ := board.WrapWithReconfigurable(actualBoard)
 
-	test.That(t, actualBoard.setPWMFreqCount, test.ShouldEqual, 0)
-	err := reconfBoard.(board.LocalBoard).SetPWMFreq(context.Background(), "", 0)
+	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 0)
+	p, err := reconfBoard.(board.Board).GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, actualBoard.setPWMFreqCount, test.ShouldEqual, 1)
+	err = p.SetPWMFreq(context.Background(), 0)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, actualBoard.gpioPin.setPWMFreqCount, test.ShouldEqual, 1)
 }
 
 func TestStatus(t *testing.T) {
@@ -284,18 +298,16 @@ type mock struct {
 	i2cs     []string
 	analogs  []string
 	digitals []string
+	gpioPins []string
 
 	spi     *mockSPI
 	i2c     *mockI2C
 	analog  *mockAnalogReader
 	digital *mockDigitalInterrupt
+	gpioPin *mockGPIOPin
 
-	reconfCount     int
-	setGPIOCount    int
-	getGPIOCount    int
-	setPWMCount     int
-	setPWMFreqCount int
-	statusCount     int
+	reconfCount int
+	statusCount int
 }
 
 // Helpers
@@ -307,16 +319,18 @@ func newBoard(name string) *mock {
 		spis:     []string{"spi1"},
 		analogs:  []string{"analog1"},
 		digitals: []string{"digital1"},
+		gpioPins: []string{"1"},
 		i2c:      &mockI2C{},
 		spi:      &mockSPI{},
 		analog:   &mockAnalogReader{},
 		digital:  &mockDigitalInterrupt{},
+		gpioPin:  &mockGPIOPin{},
 	}
 }
 
 // A board without any subcomponents.
 func newBareBoard(name string) *mock {
-	return &mock{Name: name}
+	return &mock{Name: name, gpioPin: &mockGPIOPin{}}
 }
 
 // Interface methods
@@ -365,27 +379,48 @@ func (m *mock) DigitalInterruptByName(name string) (board.DigitalInterrupt, bool
 	return m.digital, true
 }
 
+func (m *mock) GPIOPinByName(name string) (board.GPIOPin, error) {
+	if len(m.gpioPins) == 0 {
+		return nil, errors.New("no pin")
+	}
+	return m.gpioPin, nil
+}
+
 func (m *mock) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{Remote: true}
 }
 
-func (m *mock) SetGPIO(ctx context.Context, pin string, high bool) error {
-	m.setGPIOCount++
+type mockGPIOPin struct {
+	setCount, getCount, pwmCount, setPWMCount, pwmFreqCount, setPWMFreqCount int
+}
+
+func (gp *mockGPIOPin) Set(ctx context.Context, high bool) error {
+	gp.setCount++
 	return nil
 }
 
-func (m *mock) GetGPIO(ctx context.Context, pin string) (bool, error) {
-	m.getGPIOCount++
+func (gp *mockGPIOPin) Get(ctx context.Context) (bool, error) {
+	gp.getCount++
 	return mockGPIO, nil
 }
 
-func (m *mock) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	m.setPWMCount++
+func (gp *mockGPIOPin) PWM(ctx context.Context) (float64, error) {
+	gp.pwmCount++
+	return 23, nil
+}
+
+func (gp *mockGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+	gp.setPWMCount++
 	return nil
 }
 
-func (m *mock) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	m.setPWMFreqCount++
+func (gp *mockGPIOPin) PWMFreq(ctx context.Context) (uint, error) {
+	gp.pwmFreqCount++
+	return 42, nil
+}
+
+func (gp *mockGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+	gp.setPWMFreqCount++
 	return nil
 }
 

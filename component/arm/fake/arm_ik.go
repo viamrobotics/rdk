@@ -53,7 +53,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 	return &ArmIK{
 		Name:     name,
 		position: &commonpb.Pose{},
-		joints:   &pb.ArmJointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
+		joints:   &pb.JointPositions{Degrees: []float64{0, 0, 0, 0, 0, 0}},
 		mp:       mp,
 		model:    model,
 	}, nil
@@ -63,7 +63,7 @@ func NewArmIK(ctx context.Context, cfg config.Component, logger golog.Logger) (a
 type ArmIK struct {
 	Name       string
 	position   *commonpb.Pose
-	joints     *pb.ArmJointPositions
+	joints     *pb.JointPositions
 	mp         motionplan.MotionPlanner
 	CloseCount int
 	model      referenceframe.Model
@@ -84,7 +84,7 @@ func (a *ArmIK) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := a.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -97,13 +97,13 @@ func (a *ArmIK) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 }
 
 // MoveToJointPositions sets the joints.
-func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
+func (a *ArmIK) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	a.joints = joints
 	return nil
 }
 
 // GetJointPositions returns the set joints.
-func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (a *ArmIK) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	return a.joints, nil
 }
 
