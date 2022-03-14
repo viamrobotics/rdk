@@ -284,6 +284,7 @@ type Config struct {
 	ControlLoop   control.ControlConfig `json:"control_config,omitempty"` // Optional control loop
 
 	// Encoder Config
+	EncoderBoard     string  `json:"encoder_board,omitempty"`    // name of the board where encoders are; default is same as 'board'
 	EncoderA         string  `json:"encoder,omitempty"`          // name of the digital interrupt that is the encoder a
 	EncoderB         string  `json:"encoderB,omitempty"`         // name of the digital interrupt that is hall encoder b
 	RampRate         float64 `json:"rampRate,omitempty"`         // how fast to ramp power to motor when using rpm control
