@@ -115,7 +115,7 @@ func (c *Collector) write() error {
 	return nil
 }
 
-// WrapProtoAll is a convenience function that takes the protobuf, error output of some protobuf method,
+// WrapProtoAll is a convenience function that takes the (proto.Message, error) output of some protobuf method,
 // wraps the protobuf in any.Any, and returns any error if one is encountered.
 func WrapProtoAll(msg proto.Message, err error) (*any.Any, error) {
 	if err != nil {
