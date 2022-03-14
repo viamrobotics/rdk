@@ -87,25 +87,12 @@ func (r *localRobot) Close(ctx context.Context) error {
 	return r.manager.Close(ctx)
 }
 
-// Config returns the config used to construct the robot.
+// Config returns the config used to construct the robot. Only local resources are returned.
 // This is allowed to be partial or empty.
 func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	cfgCpy := *r.config
 	cfgCpy.Components = append([]config.Component{}, cfgCpy.Components...)
 
-	for remoteName, remote := range r.manager.remotes {
-		rc, err := remote.Config(ctx)
-		if err != nil {
-			return nil, err
-		}
-		remoteWorldName := remoteName + "." + referenceframe.World
-		for _, c := range rc.Components {
-			if c.Frame != nil && c.Frame.Parent == referenceframe.World {
-				c.Frame.Parent = remoteWorldName
-			}
-			cfgCpy.Components = append(cfgCpy.Components, c)
-		}
-	}
 	return &cfgCpy, nil
 }
 

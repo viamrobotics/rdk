@@ -58,7 +58,11 @@ func NewFrameSystemFromParts(
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {
 	parts := make(map[string]*config.FrameSystemPart)
 	seen := make(map[string]bool)
-	cfg, err := r.Config(ctx) // Eventually there will be another function that gathers the frame system config
+	local, ok := r.(robot.LocalRobot)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
+	}
+	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
 	if err != nil {
 		return nil, err
 	}

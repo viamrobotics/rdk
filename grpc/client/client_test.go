@@ -264,12 +264,6 @@ func TestClient(t *testing.T) {
 	_, err = client.FrameSystem(context.Background(), "", "")
 	test.That(t, err, test.ShouldNotBeNil)
 
-	newCfg, err := client.Config(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, newCfg.Components[0], test.ShouldResemble, cfg.Components[0])
-	test.That(t, newCfg.Components[1], test.ShouldResemble, cfg.Components[1])
-	test.That(t, newCfg.Components[1].Frame, test.ShouldBeNil)
-
 	arm1, err := arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.GetEndPosition(context.Background())

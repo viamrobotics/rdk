@@ -18,10 +18,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RobotServiceClient interface {
-	// Config gets the config from a server
-	// It is only partial a config, including the pieces relevant to remote robots,
-	// And not the pieces relevant to local configuration (pins, security keys, etc...)
-	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
@@ -34,15 +30,6 @@ type robotServiceClient struct {
 
 func NewRobotServiceClient(cc grpc.ClientConnInterface) RobotServiceClient {
 	return &robotServiceClient{cc}
-}
-
-func (c *robotServiceClient) Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
-	out := new(ConfigResponse)
-	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/Config", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *robotServiceClient) DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error) {
@@ -67,10 +54,6 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
 type RobotServiceServer interface {
-	// Config gets the config from a server
-	// It is only partial a config, including the pieces relevant to remote robots,
-	// And not the pieces relevant to local configuration (pins, security keys, etc...)
-	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	// DoAction runs an action on the underlying robot.
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
@@ -82,9 +65,6 @@ type RobotServiceServer interface {
 type UnimplementedRobotServiceServer struct {
 }
 
-func (UnimplementedRobotServiceServer) Config(context.Context, *ConfigRequest) (*ConfigResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Config not implemented")
-}
 func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoAction not implemented")
 }
@@ -102,24 +82,6 @@ type UnsafeRobotServiceServer interface {
 
 func RegisterRobotServiceServer(s grpc.ServiceRegistrar, srv RobotServiceServer) {
 	s.RegisterService(&RobotService_ServiceDesc, srv)
-}
-
-func _RobotService_Config_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ConfigRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RobotServiceServer).Config(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/proto.api.robot.v1.RobotService/Config",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RobotServiceServer).Config(ctx, req.(*ConfigRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _RobotService_DoAction_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -165,10 +127,6 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.api.robot.v1.RobotService",
 	HandlerType: (*RobotServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Config",
-			Handler:    _RobotService_Config_Handler,
-		},
 		{
 			MethodName: "DoAction",
 			Handler:    _RobotService_DoAction_Handler,
