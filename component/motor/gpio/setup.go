@@ -23,12 +23,21 @@ func init() {
 				return nil, err
 			}
 
+			encoderBoard := actualBoard
+			if motorConfig.EncoderBoard != "" {
+				b, err := board.FromRobot(r, motorConfig.EncoderBoard)
+				if err != nil {
+					return nil, err
+				}
+				encoderBoard = b
+			}
+
 			m, err := NewMotor(actualBoard, *motorConfig, logger)
 			if err != nil {
 				return nil, err
 			}
 
-			m, err = WrapMotorWithEncoder(ctx, actualBoard, config, *motorConfig, m, logger)
+			m, err = WrapMotorWithEncoder(ctx, encoderBoard, config, *motorConfig, m, logger)
 			if err != nil {
 				return nil, err
 			}
