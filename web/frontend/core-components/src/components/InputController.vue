@@ -24,14 +24,13 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
-
-import { InputControllerStatus } from "proto/api/robot/v1/robot_pb";
+import { Component, Prop, Vue } from "vue-property-decorator"
+import { Status } from "proto/api/component/inputcontroller/v1/input_controller_pb";
 
 @Component
 export default class InputController extends Vue {
   @Prop() controllerName!: string;
-  @Prop() controllerStatus!: InputControllerStatus.AsObject;
+  @Prop() controllerStatus!: Status.AsObject;
 
   self = this;
 

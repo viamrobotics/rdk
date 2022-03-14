@@ -68,7 +68,7 @@ type Motor struct {
 	bus         board.SPI
 	csPin       string
 	index       int
-	enPin       string
+	enLowPin    board.GPIOPin
 	stepsPerRev int
 	maxRPM      float64
 	maxAcc      float64
@@ -136,13 +136,18 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 		c.CalFactor = 1.0
 	}
 
+	enLowPin, err := b.GPIOPinByName(c.Pins.EnablePinLow)
+	if err != nil {
+		return nil, err
+	}
+
 	m := &Motor{
 		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
 		index:       c.Index,
 		stepsPerRev: c.TicksPerRotation * uSteps,
-		enPin:       c.Pins.En,
+		enLowPin:    enLowPin,
 		maxRPM:      c.MaxRPM,
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
@@ -384,7 +389,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip.
 func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
-	return m.board.SetGPIO(ctx, m.enPin, !turnOn)
+	return m.enLowPin.Set(ctx, !turnOn)
 }
 
 // Stop stops the motor.

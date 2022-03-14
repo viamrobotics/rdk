@@ -5,6 +5,7 @@ option java_package = "com.viam.rdk.proto.api.service.objectsegmentation.v1";
 package proto.api.service.objectsegmentation.v1;
 
 import "google/api/annotations.proto";
+import "google/protobuf/struct.proto";
 import "proto/api/common/v1/common.proto";
 
 // A ObjectSegmentationService declares the gRPC contract for an object segmentation service
@@ -15,22 +16,26 @@ service ObjectSegmentationService {
   // A specific MIME type can be requested but may not necessarily be the same one returned.
   rpc GetObjectPointClouds(GetObjectPointCloudsRequest) returns (GetObjectPointCloudsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/object_segmentation/object_point_clouds"
+      get: "/viam/api/v1/service/object_segmentation/object_point_clouds"
+    };
+  }
+  // GetSegmenterParameters returns the parameter fields needed for the given segmenter.
+  rpc GetSegmenterParameters(GetSegmenterParametersRequest) returns (GetSegmenterParametersResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/object_segmentation/segmenter_parameters"
     };
   }
 }
 
 message GetObjectPointCloudsRequest {
   // Name of a camera
-  string name = 1;
+  string camera_name = 1;
+  // Name of the segmentation algorithm
+  string segmenter_name = 2;
   // Requested MIME type of response
-  string mime_type = 2;
-  // Minimum points in plane
-  int64 min_points_in_plane = 3;
-  // Minimum points in segment
-  int64 min_points_in_segment = 4;
-  // Clustering radius in mm
-  double clustering_radius_mm = 5;
+  string mime_type = 3;
+  // parameters for the chosen segmenter
+  google.protobuf.Struct parameters = 4;
 }
 
 message GetObjectPointCloudsResponse {
@@ -38,4 +43,14 @@ message GetObjectPointCloudsResponse {
   string mime_type = 1;
   // List of objects in the scene
   repeated common.v1.PointCloudObject objects = 2;
+}
+
+message GetSegmenterParametersRequest {
+  // Name of the segmentation algo
+  string segmenter_name = 1;
+}
+
+message GetSegmenterParametersResponse {
+  // parameter names of the segmenter in the request
+  repeated string parameters = 1;
 }

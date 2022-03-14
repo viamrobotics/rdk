@@ -8,15 +8,16 @@ import (
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 )
 
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
 	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, c *commonpb.Pose) error
-	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.ArmJointPositions) error
-	GetJointPositionsFunc    func(ctx context.Context) (*pb.ArmJointPositions, error)
+	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
+	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
+	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
 	CloseFunc                func(ctx context.Context) error
 }
 
@@ -29,15 +30,15 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose) error {
+func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	if a.MoveToPositionFunc == nil {
-		return a.Arm.MoveToPosition(ctx, c)
+		return a.Arm.MoveToPosition(ctx, to, obstacles)
 	}
-	return a.MoveToPositionFunc(ctx, c)
+	return a.MoveToPositionFunc(ctx, to, obstacles)
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.
-func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions) error {
+func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.JointPositions) error {
 	if a.MoveToJointPositionsFunc == nil {
 		return a.Arm.MoveToJointPositions(ctx, jp)
 	}
@@ -45,7 +46,7 @@ func (a *Arm) MoveToJointPositions(ctx context.Context, jp *pb.ArmJointPositions
 }
 
 // GetJointPositions calls the injected GetJointPositions or the real version.
-func (a *Arm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (a *Arm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	if a.GetJointPositionsFunc == nil {
 		return a.Arm.GetJointPositions(ctx)
 	}

@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -611,7 +612,27 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		mux.HandleFunc(pat.New("/debug/pprof/trace"), pprof.Trace)
 	}
 
-	mux.Handle(pat.New("/api/*"), http.StripPrefix("/api", rpcServer.GatewayHandler()))
+	prefix := "/viam"
+	addPrefix := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p := prefix + r.URL.Path
+			rp := prefix + r.URL.RawPath
+			if len(p) > len(r.URL.Path) && (r.URL.RawPath == "" || len(rp) > len(r.URL.RawPath)) {
+				r2 := new(http.Request)
+				*r2 = *r
+				r2.URL = new(url.URL)
+				*r2.URL = *r.URL
+				r2.URL.Path = p
+				r2.URL.RawPath = rp
+				h.ServeHTTP(w, r2)
+			} else {
+				http.NotFound(w, r)
+			}
+		})
+	}
+
+	// for urls with /api, add /viam to the path so that it matches with the paths defined in protobuf.
+	mux.Handle(pat.New("/api/*"), addPrefix(rpcServer.GatewayHandler()))
 	mux.Handle(pat.New("/*"), rpcServer.GRPCHandler())
 
 	httpServer := &http.Server{

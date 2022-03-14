@@ -11,7 +11,7 @@ service BaseService {
   // and a given speed, expressed in millimeters per second 
   rpc MoveStraight(MoveStraightRequest) returns (MoveStraightResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/base/{name}/move_straight"
+      post: "/viam/api/v1/component/base/{name}/move_straight"
     };  
   }
 
@@ -19,7 +19,7 @@ service BaseService {
   // a given speed, expressed in millimeters per second of movement, and a given angle expressed in degrees
   rpc MoveArc(MoveArcRequest) returns (MoveArcResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/base/{name}/move_arc"
+      post: "/viam/api/v1/component/base/{name}/move_arc"
     };  
   }
 
@@ -27,14 +27,14 @@ service BaseService {
   // angular speed, expressed in degrees per second
   rpc Spin(SpinRequest) returns (SpinResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/base/{name}/spin"
+      post: "/viam/api/v1/component/base/{name}/spin"
     };  
   }
 
   // Stop stops a robot's base 
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/base/{name}/stop"
+      post: "/viam/api/v1/component/base/{name}/stop"
     };  
   }
 }

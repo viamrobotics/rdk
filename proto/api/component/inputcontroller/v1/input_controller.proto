@@ -12,21 +12,21 @@ service InputControllerService {
   // GetControls returns a list of GetControls provided by the Controller
   rpc GetControls(GetControlsRequest) returns (GetControlsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/input/{controller}/controls"
+      get: "/viam/api/v1/component/input/{controller}/controls"
     };
   }
 
 	// GetEvents returns a list of events representing the last event on each control of a give Input Controller
   rpc GetEvents(GetEventsRequest) returns (GetEventsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/input/{controller}/events"
+      get: "/viam/api/v1/component/input/{controller}/events"
     };
   }
 
   // StreamEvents starts a stream of InputControllerEvents for the given controls (buttons/axes) on a robot's input controller 
   rpc StreamEvents(StreamEventsRequest) returns (stream StreamEventsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/input/{controller}/event_stream"
+      get: "/viam/api/v1/component/input/{controller}/event_stream"
     };
   }
 
@@ -34,7 +34,7 @@ service InputControllerService {
   // like button presses or axis movements  
   rpc TriggerEvent(TriggerEventRequest) returns (TriggerEventResponse) {
     option (google.api.http) = {
-      post: "/api/v1/component/input/{controller}/event"
+      post: "/viam/api/v1/component/input/{controller}/event"
     };
   }
 }
@@ -102,4 +102,8 @@ message StreamEventsRequest {
 message StreamEventsResponse {
   // Event for a controller
   Event event = 1;
+}
+
+message Status {
+  repeated Event events = 1;
 }

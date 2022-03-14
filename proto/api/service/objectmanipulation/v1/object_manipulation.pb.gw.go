@@ -79,7 +79,7 @@ func RegisterObjectManipulationServiceHandlerServer(ctx context.Context, mux *ru
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/DoGrab", runtime.WithHTTPPathPattern("/api/v1/service/object_manipulation/do_grab"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/DoGrab", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/do_grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -141,7 +141,7 @@ func RegisterObjectManipulationServiceHandlerClient(ctx context.Context, mux *ru
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/DoGrab", runtime.WithHTTPPathPattern("/api/v1/service/object_manipulation/do_grab"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/DoGrab", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/do_grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -161,7 +161,7 @@ func RegisterObjectManipulationServiceHandlerClient(ctx context.Context, mux *ru
 }
 
 var (
-	pattern_ObjectManipulationService_DoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "object_manipulation", "do_grab"}, ""))
+	pattern_ObjectManipulationService_DoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_manipulation", "do_grab"}, ""))
 )
 
 var (

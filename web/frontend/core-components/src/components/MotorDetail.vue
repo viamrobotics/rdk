@@ -4,10 +4,10 @@
       <div class="row" style="margin-right: 0; align-items: center">
         <div class="header">
           <h2>{{ motorName }} Motor</h2>
-          <span v-if="motorStatus.on" class="pill green">Running</span>
+          <span v-if="motorStatus.isOn" class="pill green">Running</span>
           <span v-else class="pill">Idle</span>
         </div>
-        <div class="column" v-if="motorStatus.positionSupported">
+        <div class="column" v-if="motorStatus.positionReporting">
           <h3 style="line-height: 0.65">{{ motorStatus.position }}</h3>
           <p class="subtitle">Position</p>
         </div>
@@ -37,7 +37,7 @@
               :options="['Continuous', 'Discrete']"
               :defaultOption="isContinuous ? 'Continuous' : 'Discrete'"
               :disabledOptions="
-                motorStatus.positionSupported ? [] : ['Discrete']
+                motorStatus.positionReporting ? [] : ['Discrete']
               "
               v-on:selectOption="isContinuous = $event === 'Continuous'"
             />
@@ -98,7 +98,7 @@
                 type="text"
                 v-model="speed"
                 min="0"
-                v-bind:max="motorStatus.positionSupported ? '' : 100"
+                v-bind:max="motorStatus.positionReporting ? '' : 100"
                 v-bind:class="['margin-bottom', errors.speed ? 'error' : '']"
                 style="width: 48px"
               />
@@ -114,15 +114,12 @@
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
 import {
-  MotorStatus,
-} from "proto/api/robot/v1/robot_pb";
-import {
   SetPowerRequest,
   GoForRequest,
   GoToRequest,
+  Status,
 } from "proto/api/component/motor/v1/motor_pb";
 import RadioButtons from "./RadioButtons.vue";
-import { Struct } from "google-protobuf/google/protobuf/struct_pb";
 
 enum MotorCommandType {
   Go = "go",
@@ -237,12 +234,12 @@ class MotorCommand {
 })
 export default class MotorDetail extends Vue {
   @Prop() motorName!: string;
-  @Prop() motorStatus!: MotorStatus.AsObject;
+  @Prop() motorStatus!: Status.AsObject;
 
   motorCommand = new MotorCommand();
 
   mounted(): void {
-    if (this.motorStatus.positionSupported) {
+    if (this.motorStatus.positionReporting) {
       this.motorCommand.type = MotorCommandType.GoFor;
       this.motorCommand.speed = 10;
       this.motorCommand.revolutions = 1;

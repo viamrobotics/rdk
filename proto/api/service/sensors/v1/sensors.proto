@@ -13,14 +13,14 @@ service SensorsService {
   // GetSensors returns the list of all sensors.
   rpc GetSensors(GetSensorsRequest) returns (GetSensorsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/sensors"
+      get: "/viam/api/v1/service/sensors"
     };
   }
 
   // GetReadings returns the list of readings for all sensors specified.
   rpc GetReadings(GetReadingsRequest) returns (GetReadingsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/sensors/readings"
+      get: "/viam/api/v1/service/sensors/readings"
     };
   }
 }

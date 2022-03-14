@@ -13,7 +13,7 @@ service PoseTrackerService {
   // GetPoses returns the current pose of each body tracked by the pose tracker
   rpc GetPoses(GetPosesRequest) returns (GetPosesResponse) {
       option (google.api.http) = {
-          get: "/api/v1/component/pose_tracker/{name}/poses"
+          get: "/viam/api/v1/component/pose_tracker/{name}/poses"
       };
   }
 }

@@ -14,7 +14,7 @@ service MotorService {
   // direction and positive values a forward direction
   rpc SetPower(SetPowerRequest) returns (SetPowerResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/power"
+      put: "/viam/api/v1/component/motor/{name}/power"
     };
   }
 
@@ -23,7 +23,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc GoFor(GoForRequest) returns (GoForResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/go_for"
+      put: "/viam/api/v1/component/motor/{name}/go_for"
     };
   }
 
@@ -32,7 +32,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc GoTo(GoToRequest) returns (GoToResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/go_to"
+      put: "/viam/api/v1/component/motor/{name}/go_to"
     };
   }
 
@@ -40,7 +40,7 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc ResetZeroPosition(ResetZeroPositionRequest) returns (ResetZeroPositionResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/zero"
+      put: "/viam/api/v1/component/motor/{name}/zero"
     };
   }
 
@@ -48,14 +48,14 @@ service MotorService {
   // This method will return an error if position reporting is not supported
   rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/motor/{name}/position"
+      get: "/viam/api/v1/component/motor/{name}/position"
     };
   }
 
   // GetFeatures returns a message of booleans indicating which optional features the robot's motor supports
   rpc GetFeatures(GetFeaturesRequest) returns (GetFeaturesResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/motor/{name}/features"
+      get: "/viam/api/v1/component/motor/{name}/features"
     };
   }
 
@@ -63,7 +63,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc Stop(StopRequest) returns (StopResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/motor/{name}/stop"
+      put: "/viam/api/v1/component/motor/{name}/stop"
     };
   }
 
@@ -71,7 +71,7 @@ service MotorService {
   // To Do (FA): This will be deprecated
   rpc IsPowered(IsPoweredRequest) returns (IsPoweredResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/motor/{name}/powered"
+      get: "/viam/api/v1/component/motor/{name}/powered"
     };
   }
 }
@@ -151,4 +151,13 @@ message GetFeaturesRequest {
 message GetFeaturesResponse {
   // Returns true if the motor supports reporting its position
   bool position_reporting = 1;
+}
+
+message Status {
+  // To D0 (FA): Delete this field
+  bool is_on = 1;
+  // Returns true if the motor has position support
+  bool position_reporting = 2;
+  // Returns current position of the motor relative to its home
+  double position = 3;
 }

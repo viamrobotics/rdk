@@ -61,7 +61,7 @@ func RegisterFrameSystemServiceHandlerServer(ctx context.Context, mux *runtime.S
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.framesystem.v1.FrameSystemService/Config", runtime.WithHTTPPathPattern("/api/v1/service/frame_system/config"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.framesystem.v1.FrameSystemService/Config", runtime.WithHTTPPathPattern("/viam/api/v1/service/frame_system/config"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -123,7 +123,7 @@ func RegisterFrameSystemServiceHandlerClient(ctx context.Context, mux *runtime.S
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.framesystem.v1.FrameSystemService/Config", runtime.WithHTTPPathPattern("/api/v1/service/frame_system/config"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.framesystem.v1.FrameSystemService/Config", runtime.WithHTTPPathPattern("/viam/api/v1/service/frame_system/config"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -143,7 +143,7 @@ func RegisterFrameSystemServiceHandlerClient(ctx context.Context, mux *runtime.S
 }
 
 var (
-	pattern_FrameSystemService_Config_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "frame_system", "config"}, ""))
+	pattern_FrameSystemService_Config_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "frame_system", "config"}, ""))
 )
 
 var (

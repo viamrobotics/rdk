@@ -12,21 +12,21 @@ service GPSService {
   // ReadLocation returns the most recent location from the given GPS.
   rpc ReadLocation(ReadLocationRequest) returns (ReadLocationResponse) {
       option (google.api.http) = {
-      get: "/api/v1/component/gps/{name}/location"
+      get: "/viam/api/v1/component/gps/{name}/location"
     };
   }
 
   // ReadAltitude returns the most recent altitude from the given GPS.
   rpc ReadAltitude(ReadAltitudeRequest) returns (ReadAltitudeResponse) {
       option (google.api.http) = {
-      get: "/api/v1/component/gps/{name}/altitude"
+      get: "/viam/api/v1/component/gps/{name}/altitude"
     };
   }
 
   // ReadSpeed returns the most recent speed from the given GPS.
   rpc ReadSpeed(ReadSpeedRequest) returns (ReadSpeedResponse) {
       option (google.api.http) = {
-      get: "/api/v1/component/gps/{name}/speed"
+      get: "/viam/api/v1/component/gps/{name}/speed"
     };
   }
 }

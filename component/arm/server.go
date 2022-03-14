@@ -8,6 +8,7 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -67,20 +68,25 @@ func (s *subtypeServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
+	convertedPos := &pb.JointPositions{Degrees: pos.Degrees}
 	return &pb.GetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 
 // MoveToPosition returns the position of the arm specified.
-func (s *subtypeServer) MoveToPosition(
-	ctx context.Context,
-	req *pb.MoveToPositionRequest,
-) (*pb.MoveToPositionResponse, error) {
+func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositionRequest) (*pb.MoveToPositionResponse, error) {
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.Pose)
+	obstacles := req.GetWorldState().GetObstacles()
+	geometriesInFrames := make([]*referenceframe.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i], err = referenceframe.ProtobufToGeometriesInFrame(obstacle)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), geometriesInFrames)
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.

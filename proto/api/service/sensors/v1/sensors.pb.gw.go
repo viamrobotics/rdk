@@ -97,7 +97,7 @@ func RegisterSensorsServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetSensors", runtime.WithHTTPPathPattern("/api/v1/service/sensors"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetSensors", runtime.WithHTTPPathPattern("/viam/api/v1/service/sensors"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -120,7 +120,7 @@ func RegisterSensorsServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetReadings", runtime.WithHTTPPathPattern("/api/v1/service/sensors/readings"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetReadings", runtime.WithHTTPPathPattern("/viam/api/v1/service/sensors/readings"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -182,7 +182,7 @@ func RegisterSensorsServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetSensors", runtime.WithHTTPPathPattern("/api/v1/service/sensors"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetSensors", runtime.WithHTTPPathPattern("/viam/api/v1/service/sensors"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -202,7 +202,7 @@ func RegisterSensorsServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetReadings", runtime.WithHTTPPathPattern("/api/v1/service/sensors/readings"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.sensors.v1.SensorsService/GetReadings", runtime.WithHTTPPathPattern("/viam/api/v1/service/sensors/readings"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -222,9 +222,9 @@ func RegisterSensorsServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 }
 
 var (
-	pattern_SensorsService_GetSensors_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "service", "sensors"}, ""))
+	pattern_SensorsService_GetSensors_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"viam", "api", "v1", "service", "sensors"}, ""))
 
-	pattern_SensorsService_GetReadings_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "service", "sensors", "readings"}, ""))
+	pattern_SensorsService_GetReadings_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "sensors", "readings"}, ""))
 )
 
 var (

@@ -3,18 +3,14 @@ package server_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
-	"google.golang.org/grpc"
-	"google.golang.org/protobuf/types/known/durationpb"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/config"
 	grpcserver "go.viam.com/rdk/grpc/server"
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
@@ -25,73 +21,7 @@ func newServer() (pb.RobotServiceServer, *inject.Robot) {
 	return grpcserver.New(injectRobot), injectRobot
 }
 
-var emptyStatus = &pb.StatusResponse{
-	Status: &pb.Status{
-		Arms: map[string]*pb.ArmStatus{
-			"arm1": {
-				GridPosition: &pb.Pose{
-					X:     0.0,
-					Y:     0.0,
-					Z:     0.0,
-					Theta: 0.0,
-					OX:    1.0,
-					OY:    0.0,
-					OZ:    0.0,
-				},
-				JointPositions: &pb.JointPositions{
-					Degrees: []float64{0, 0, 0, 0, 0, 0},
-				},
-			},
-		},
-		Bases: map[string]bool{
-			"base1": true,
-		},
-		Grippers: map[string]bool{
-			"gripper1": true,
-		},
-		Cameras: map[string]bool{
-			"camera1": true,
-		},
-		Servos: map[string]*pb.ServoStatus{
-			"servo1": {},
-		},
-		Motors: map[string]*pb.MotorStatus{
-			"motor1": {},
-		},
-		InputControllers: map[string]*pb.InputControllerStatus{
-			"inputController1": {},
-		},
-		Boards: map[string]*commonpb.BoardStatus{
-			"board1": {
-				Analogs: map[string]*commonpb.AnalogStatus{
-					"analog1": {},
-				},
-				DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
-					"encoder": {},
-				},
-			},
-		},
-	},
-}
-
 func TestServer(t *testing.T) {
-	t.Run("Status", func(t *testing.T) {
-		server, injectRobot := newServer()
-		err1 := errors.New("whoops")
-		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-			return nil, err1
-		}
-		_, err := server.Status(context.Background(), &pb.StatusRequest{})
-		test.That(t, err, test.ShouldEqual, err1)
-
-		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-			return emptyStatus.Status, nil
-		}
-		statusResp, err := server.Status(context.Background(), &pb.StatusRequest{})
-		test.That(t, err, test.ShouldBeNil)
-		test.That(t, statusResp, test.ShouldResemble, emptyStatus)
-	})
-
 	t.Run("Config", func(t *testing.T) {
 		server, injectRobot := newServer()
 		err1 := errors.New("whoops")
@@ -121,70 +51,6 @@ func TestServer(t *testing.T) {
 		test.That(t, statusResp.Components[0].Name, test.ShouldEqual, cfg.Components[0].Name)
 		test.That(t, statusResp.Components[0].Parent, test.ShouldEqual, cfg.Components[0].Frame.Parent)
 		test.That(t, statusResp.Components[0].Type, test.ShouldResemble, string(cfg.Components[0].Type))
-	})
-
-	t.Run("StatusStream", func(t *testing.T) {
-		server, injectRobot := newServer()
-		err1 := errors.New("whoops")
-		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-			return nil, err1
-		}
-		cancelCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		messageCh := make(chan *pb.StatusStreamResponse)
-		streamServer := &robotServiceStatusStreamServer{
-			ctx:       cancelCtx,
-			messageCh: messageCh,
-		}
-		err := server.StatusStream(&pb.StatusStreamRequest{
-			Every: durationpb.New(time.Second),
-		}, streamServer)
-		test.That(t, err, test.ShouldEqual, err1)
-
-		injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) {
-			return emptyStatus.Status, nil
-		}
-		streamServer.fail = true
-		dur := 100 * time.Millisecond
-		err = server.StatusStream(&pb.StatusStreamRequest{
-			Every: durationpb.New(dur),
-		}, streamServer)
-		test.That(t, err, test.ShouldNotBeNil)
-		test.That(t, err.Error(), test.ShouldContainSubstring, "send fail")
-
-		streamServer.fail = false
-		var streamErr error
-		start := time.Now()
-		done := make(chan struct{})
-		go func() {
-			streamErr = server.StatusStream(&pb.StatusStreamRequest{
-				Every: durationpb.New(dur),
-			}, streamServer)
-			close(done)
-		}()
-		var messages []*pb.StatusStreamResponse
-		messages = append(messages, <-messageCh)
-		messages = append(messages, <-messageCh)
-		messages = append(messages, <-messageCh)
-		test.That(t, messages, test.ShouldResemble, []*pb.StatusStreamResponse{
-			{Status: emptyStatus.Status},
-			{Status: emptyStatus.Status},
-			{Status: emptyStatus.Status},
-		})
-		test.That(t, time.Since(start), test.ShouldBeGreaterThanOrEqualTo, 3*dur)
-		test.That(t, time.Since(start), test.ShouldBeLessThanOrEqualTo, 6*dur)
-		cancel()
-		<-done
-		test.That(t, streamErr, test.ShouldEqual, context.Canceled)
-
-		timeoutCtx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		streamServer.ctx = timeoutCtx
-		streamServer.messageCh = nil
-		streamErr = server.StatusStream(&pb.StatusStreamRequest{
-			Every: durationpb.New(dur),
-		}, streamServer)
-		test.That(t, streamErr, test.ShouldResemble, context.DeadlineExceeded)
 	})
 
 	t.Run("DoAction", func(t *testing.T) {
@@ -219,26 +85,4 @@ func TestServer(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, <-called, test.ShouldEqual, injectRobot)
 	})
-}
-
-type robotServiceStatusStreamServer struct {
-	grpc.ServerStream // not set
-	ctx               context.Context
-	messageCh         chan<- *pb.StatusStreamResponse
-	fail              bool
-}
-
-func (x *robotServiceStatusStreamServer) Context() context.Context {
-	return x.ctx
-}
-
-func (x *robotServiceStatusStreamServer) Send(m *pb.StatusStreamResponse) error {
-	if x.fail {
-		return errors.New("send fail")
-	}
-	if x.messageCh == nil {
-		return nil
-	}
-	x.messageCh <- m
-	return nil
 }

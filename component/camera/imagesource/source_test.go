@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
-	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/rimage"
 )
 
@@ -65,7 +64,7 @@ func TestDualServerSource(t *testing.T) {
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := camera.AttrConfig{}
+	attrs := ServerAttrs{}
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
 	attrs.Stream = "both"
