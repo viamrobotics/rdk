@@ -93,7 +93,7 @@
         };
         return newStatus
       }
-
+ 
       function fixGantryStatus(old) {
         var newStatus = { parts: [] };
         if (old["lengths_mm"].length != old["positions_mm"].length) {
@@ -179,6 +179,11 @@
               resources: [],
               sensorNames: [],
               streamNames: [],
+	      segmenterNames: [],
+	      segmenterParameterNames: [],
+	      segmenterParameters: {},
+	      segmentCamera: "",
+	      segmentAlgo: "",
               fullcloud: null,
               objects: null,
               minPtsPlane : 10000,
@@ -196,6 +201,40 @@
               data: theData,
               components: {},
               methods : {
+                  parameterType : function(typeName) {
+                      if (typeName == "int" || typeName == "float64") {
+                          return "number";
+                      } else if (typeName == "bool" || typeName == "bool") {
+                          return "text";
+                      }
+                      return "";
+                  },
+                  getSegmenterNames :  function() {
+                              let req = new objectSegmentationApi.GetSegmentersRequest();
+                              objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
+                                grpcCallback(err, resp, false)
+                                if (err) {
+                                  console.log("error getting segmenter names");
+                                  console.log(err);
+                                  return;
+                                }
+                                theData.segmenterNames = resp.getSegmentersList();
+                      });
+                  },
+                  getSegmenterParameters : function(name) {
+                              let req = new objectSegmentationApi.GetSegmenterParametersRequest();
+                              req.setSegmenterName(name);
+                              objectSegmentationService.getSegmenterParameters(req,  {}, (err, resp) => {
+                                grpcCallback(err, resp, false)
+                                if (err) {
+                                  console.log("error getting segmenter parameters for "+name);
+                                  console.log(err);
+                                  return;
+                                }
+                                theData.segmenterParameterNames = resp.getParametersList();
+                    theData.segmenterParameters = {};
+                      });
+                  },
                   filterResources : function(namespace, type, subtype) {
                     return theData.resources.filter(elem => {
                       return elem.namespace == namespace && elem.type == type && elem.subtype == subtype
@@ -686,14 +725,15 @@
                           return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
                       })
                   },
-                  findSegments : function(minPointsPlane, minPointsSegment, clusteringRadius){
+                  findSegments : function(cameraName, segmenterName, segmenterParams){
+	                  console.log("parameters for segmenter below:")
+		              console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
+                      theData.pcdClick.foundSegments = false;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
-                      console.log("camera name: "+pcdGlobal.cameraName);
-                      req.setCameraName(pcdGlobal.cameraName);
-                      req.setSegmenterName("radius_clustering");
-                      let params = {"min_points_in_plane": minPointsPlane, "min_points_in_segment": minPointsSegment, "clustering_radius_mm": clusteringRadius};
-                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(params));
+                      req.setCameraName(cameraName);
+                      req.setSegmenterName(segmenterName);
+                      req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
                       const mimeType = 'pointcloud/pcd';
                       req.setMimeType(mimeType);
                       console.log("finding object segments...");
@@ -712,34 +752,34 @@
                       });
                   },
                   doSegmentLoad : function(i){
-                        var segment = theData.objects[i];
-                        var data = segment.getPointCloud_asB64();
-                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                        var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
-                        console.log(p);
-                        setPoint(p);
-                        setBoundingBox(box, p);
-                        const mimeType = 'pointcloud/pcd';
-                        pcdLoad(`data:${mimeType};base64,${data}`);
+                      var segment = theData.objects[i];
+                      var data = segment.getPointCloud_asB64();
+                      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                      var box = segment.getGeometries().getGeometriesList()[0].getBox();
+                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      console.log(p);
+                      setPoint(p);
+                      setBoundingBox(box, p);
+                      const mimeType = 'pointcloud/pcd';
+                      pcdLoad(`data:${mimeType};base64,${data}`);
                   },
                   doPointLoad : function(i){
-                        var segment = theData.objects[i];
-                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-                        var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
-                        console.log(p);
-                        setPoint(p);
+                      var segment = theData.objects[i];
+                      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      console.log(p);
+                      setPoint(p);
                   },
                   doBoundingBoxLoad : function(i){
-                        var segment = theData.objects[i];
-                        var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-                        var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                        var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
-                        setBoundingBox(box, centerP);
+                      var segment = theData.objects[i];
+                      var center = segment.getGeometries().getGeometriesList()[0].getCenter();
+                      var box = segment.getGeometries().getGeometriesList()[0].getBox();
+                      var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      setBoundingBox(box, centerP);
                   },
                   doPCDLoad : function(data){
-                        const mimeType = 'pointcloud/pcd';
-                        pcdLoad(`data:${mimeType};base64,${data}`);
+                      const mimeType = 'pointcloud/pcd';
+                      pcdLoad(`data:${mimeType};base64,${data}`);
                   },
                   setNavigationMode : function(mode){
                     let pbMode = navigationApi.Mode.MODE_UNSPECIFIED;
@@ -1813,18 +1853,42 @@
       </div> <!-- end pcd wrapper -->
       <!-- get segments -->
       <table v-if="pcdClick.pcdloaded">
-        <tr>
-          <td colspan=2>
-              Min Pts in Plane: <input type="number" id="minPtsPlane" min="0"  v-model="minPtsPlane"><br>
-              Min Pts in Segment: <input type="number" id="minPtsSegment" min="0" v-model="minPtsSegment"><br>
-              Clustering Radius (mm): <input type="number" id="clusterRad" min="0" v-model="clusterRad"><br>
-          </td>
+          <tr>
+        <th colspan=3>Object Segmentation</th>
         </tr>
         <tr>
-            <td>
-                <button v-on:click="findSegments(minPtsPlane, minPtsSegment, clusterRad)">Find Segments</button>
+                <td>
+                        Select Camera
+                </td>
+                <td>
+			<select v-model="segmentCamera" @change="getSegmenterNames()">
+                        <option value="" selected disabled>Choose</option>
+                        <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name">${ camera.name }</option>
+                        </select>
+                </td>
+		<td> ${ segmentCamera } </td>
+        </tr>
+        <tr>
+                <td>
+                        Select Segmenter
+                </td>
+                <td>
+                        <select v-model="segmentAlgo" @change="getSegmenterParameters(segmentAlgo)">
+                        <option value="" selected disabled>Choose</option>
+                        <option v-for="segmenter in segmenterNames" :value="segmenter">${ segmenter }</option>
+                        </select>
+                </td>
+		<td> ${ segmentAlgo } </td>
+        </tr>
+        <tr v-for="param in segmenterParameterNames">
+          <td>${param.getName()}</td>
+	  <td><input :type="parameterType(param.getType())" id="param.getName()" v-model.number="segmenterParameters[param.getName()]"></td>
+        </tr>
+        <tr>
+            <td v-if="!pcdClick.calculatingSegments">
+                <button v-on:click="findSegments(segmentCamera, segmentAlgo, segmenterParameters)">Find Segments</button>
             </td>
-            <td v-if="pcdClick.calculatingSegments">Finding...</td>
+            <td v-else>Finding Objects In Scene...</td>
         </tr>
       </table>
       <table v-if="pcdClick.foundSegments">
