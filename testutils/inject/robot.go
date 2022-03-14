@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -26,7 +25,6 @@ type Robot struct {
 	ResourceNamesFunc  func() []resource.Name
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
-	StatusFunc         func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc         func() golog.Logger
 	CloseFunc          func(ctx context.Context) error
 	RefreshFunc        func(ctx context.Context) error
@@ -94,14 +92,6 @@ func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
 		return r.Robot.Config(ctx)
 	}
 	return r.ConfigFunc(ctx)
-}
-
-// Status calls the injected Status or the real version.
-func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
-	if r.StatusFunc == nil {
-		return r.Robot.Status(ctx)
-	}
-	return r.StatusFunc(ctx)
 }
 
 // Logger calls the injected Logger or the real version.

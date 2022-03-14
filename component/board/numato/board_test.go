@@ -58,27 +58,32 @@ func TestNumato1(t *testing.T) {
 
 	// For this to work 0 has be plugged into 1
 
-	// set to low
-	err = b.SetGPIO(ctx, "0", false)
+	zeroPin, err := b.GPIOPinByName("0")
+	test.That(t, err, test.ShouldBeNil)
+	onePin, err := b.GPIOPinByName("1")
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err := b.GetGPIO(ctx, "1")
+	// set to low
+	err = zeroPin.Set(context.Background(), false)
+	test.That(t, err, test.ShouldBeNil)
+
+	res, err := onePin.Get(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, false)
 
 	// set to high
-	err = b.SetGPIO(ctx, "0", true)
+	err = zeroPin.Set(context.Background(), true)
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err = b.GetGPIO(ctx, "1")
+	res, err = onePin.Get(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, true)
 
 	// set back to low
-	err = b.SetGPIO(ctx, "0", false)
+	err = zeroPin.Set(context.Background(), false)
 	test.That(t, err, test.ShouldBeNil)
 
-	res, err = b.GetGPIO(ctx, "1")
+	res, err = onePin.Get(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res, test.ShouldEqual, false)
 
@@ -90,14 +95,14 @@ func TestNumato1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeLessThan, 100)
 
-	err = b.SetGPIO(ctx, "0", true)
+	err = zeroPin.Set(context.Background(), true)
 	test.That(t, err, test.ShouldBeNil)
 
 	res2, err = ar.Read(ctx)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, res2, test.ShouldBeGreaterThan, 1000)
 
-	err = b.SetGPIO(ctx, "0", false)
+	err = zeroPin.Set(context.Background(), false)
 	test.That(t, err, test.ShouldBeNil)
 
 	res2, err = ar.Read(ctx)

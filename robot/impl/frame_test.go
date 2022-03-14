@@ -89,27 +89,27 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// There is a point at (1500, 500, 1300) in the world referenceframe. See if it transforms correctly in each referenceframe.
 	worldPt := r3.Vector{1500, 500, 1300}
 	armPt := r3.Vector{0, 0, 500}
-	transformPoint, err := fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceArm"))
+	transformPoint, err := fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceArm")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, armPt)
 
 	sensorPt := r3.Vector{0, 0, 500}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("gps2"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "gps2")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, sensorPt)
 
 	gripperPt := r3.Vector{0, 0, 300}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 
 	cameraPt := r3.Vector{500, 0, 0}
-	transformPoint, err = fs.TransformPoint(blankPos, worldPt, fs.World(), fs.GetFrame("cameraOver"))
+	transformPoint, err = fs.TransformPoint(blankPos, worldPt, referenceframe.World, "cameraOver")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, cameraPt)
 
 	// go from camera point to gripper point
-	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, fs.GetFrame("cameraOver"), fs.GetFrame("pieceGripper"))
+	transformPoint, err = fs.TransformPoint(blankPos, cameraPt, "cameraOver", "pieceGripper")
 	test.That(t, err, test.ShouldBeNil)
 	pointAlmostEqual(t, transformPoint, gripperPt)
 }

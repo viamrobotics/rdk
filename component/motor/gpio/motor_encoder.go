@@ -53,7 +53,7 @@ func WrapMotorWithEncoder(
 	m motor.Motor,
 	logger golog.Logger,
 ) (motor.Motor, error) {
-	if mc.Encoder == "" {
+	if mc.EncoderA == "" {
 		return m, nil
 	}
 
@@ -61,9 +61,9 @@ func WrapMotorWithEncoder(
 		return nil, errors.Errorf("need a TicksPerRotation for motor (%s)", c.Name)
 	}
 
-	i, ok := b.DigitalInterruptByName(mc.Encoder)
+	i, ok := b.DigitalInterruptByName(mc.EncoderA)
 	if !ok {
-		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.Encoder, c.Name)
+		return nil, errors.Errorf("cannot find encoder (%s) for motor (%s)", mc.EncoderA, c.Name)
 	}
 
 	var mm *EncodedMotor

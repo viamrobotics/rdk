@@ -134,15 +134,22 @@ func (fsm *ForceMatrixTraditional) ReadMatrix(ctx context.Context) ([][]int, err
 	}
 	for col := 0; col < len(fsm.columnGpioPins); col++ {
 		// set the correct GPIO to high
-		if err := fsm.board.SetGPIO(ctx, fsm.columnGpioPins[col], true); err != nil {
+		p, err := fsm.board.GPIOPinByName(fsm.columnGpioPins[col])
+		if err != nil {
+			return nil, err
+		}
+		if err := p.Set(ctx, true); err != nil {
 			return nil, err
 		}
 
 		// set all other GPIO pins to low
 		for c, pin := range fsm.columnGpioPins {
 			if c != col {
-				err := fsm.board.SetGPIO(ctx, pin, false)
+				p, err := fsm.board.GPIOPinByName(pin)
 				if err != nil {
+					return nil, err
+				}
+				if err := p.Set(ctx, false); err != nil {
 					return nil, err
 				}
 			}

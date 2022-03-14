@@ -4,11 +4,16 @@ import (
 	"context"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/component/sensor"
+	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -66,6 +71,72 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := gantry.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testGantryName})
+}
+
+func TestStatusValid(t *testing.T) {
+	status := &pb.Status{
+		PositionsMm: []float64{1.1, 2.2, 3.3},
+		LengthsMm:   []float64{4.4, 5.5, 6.6},
+	}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{"lengths_mm": []interface{}{4.4, 5.5, 6.6}, "positions_mm": []interface{}{1.1, 2.2, 3.3}},
+	)
+
+	convMap := &pb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := gantry.CreateStatus(context.Background(), "not a gantry")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Gantry", "string"))
+
+	status := &pb.Status{
+		PositionsMm: []float64{1.1, 2.2, 3.3},
+		LengthsMm:   []float64{4.4, 5.5, 6.6},
+	}
+
+	injectGantry := &inject.Gantry{}
+	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+		return status.PositionsMm, nil
+	}
+	injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+		return status.LengthsMm, nil
+	}
+
+	t.Run("working", func(t *testing.T) {
+		status1, err := gantry.CreateStatus(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("fail on GetLengths", func(t *testing.T) {
+		errFail := errors.New("can't get lengths")
+		injectGantry.GetLengthsFunc = func(ctx context.Context) ([]float64, error) {
+			return nil, errFail
+		}
+		_, err = gantry.CreateStatus(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
+
+	t.Run("fail on GetPositions", func(t *testing.T) {
+		errFail := errors.New("can't get positions")
+		injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
+			return nil, errFail
+		}
+		_, err = gantry.CreateStatus(context.Background(), injectGantry)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
 }
 
 func TestGantryName(t *testing.T) {
