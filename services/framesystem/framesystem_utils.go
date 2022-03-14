@@ -54,7 +54,7 @@ func NewFrameSystemFromParts(
 }
 
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)
-// don't collect remote components, even though the Config lists them.
+// don't collect remote components.
 func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*config.FrameSystemPart, error) {
 	parts := make(map[string]*config.FrameSystemPart)
 	seen := make(map[string]bool)
@@ -67,7 +67,7 @@ func CollectFrameSystemParts(ctx context.Context, r robot.Robot) (map[string]*co
 		return nil, err
 	}
 	for _, c := range cfg.Components {
-		if c.Frame == nil || c.Model == "" { // no Frame means dont include in frame system. No Model means it's a remote part.
+		if c.Frame == nil { // no Frame means dont include in frame system.
 			continue
 		}
 		if _, ok := seen[c.Name]; ok {
