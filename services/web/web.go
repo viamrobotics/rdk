@@ -177,22 +177,11 @@ func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
-	conf, err := theRobot.Config(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	// TODO (RDK-133): allow users to determine what to stream.
 	for _, name := range camera.NamesFromRobot(theRobot) {
 		cam, err := camera.FromRobot(theRobot, name)
 		if err != nil {
 			continue
-		}
-		cmp := conf.FindComponent(name)
-		if cmp != nil {
-			attrs, ok := cmp.ConvertedAttributes.(*camera.AttrConfig)
-			if ok && attrs.Hide {
-				continue
-			}
 		}
 
 		sources = append(sources, cam)
