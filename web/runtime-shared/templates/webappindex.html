@@ -1738,7 +1738,7 @@
       </div>
 
       <!-- ******* BOARD *******  -->
-      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" key="board.name">
+      <div class="board" v-for="board in filterResources('rdk', 'component', 'board')" v-if="resourceStatusByName(board)" :key="board.name">
         <h3>Board ${board.name}</h3>
         <table border="1">
 
