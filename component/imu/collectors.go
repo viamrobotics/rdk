@@ -13,22 +13,23 @@ import (
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 )
 
-// ReadAngularVelocityCapturer is used when creating a Collector for an IMU's ReadAngularVelocity method.
-type ReadAngularVelocityCapturer struct {
+// readAngularVelocityCapturer is used when creating a Collector for an IMU's ReadAngularVelocity method.
+type readAngularVelocityCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// ReadOrientationCapturer is used when creating a Collector for an IMU's ReadOrientation method.
-type ReadOrientationCapturer struct {
+// readOrientationCapturer is used when creating a Collector for an IMU's ReadOrientation method.
+type readOrientationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// ReadAccelerationCapturer is used when creating a Collector for an IMU's ReadAcceleration method.
-type ReadAccelerationCapturer struct {
+// readAccelerationCapturer is used when creating a Collector for an IMU's ReadAcceleration method.
+type readAccelerationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-func (c ReadAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
+// Capture returns an *any.Any containing the response of a single ReadAngularVelocity call on the backing client.
+func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params["name"]
 	if !ok {
 		return nil, errors.New("must pass name parameter to ReadAngularVelocity")
@@ -41,7 +42,8 @@ func (c ReadAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 	return data.WrapProtoAll(c.client.ReadAngularVelocity(context.TODO(), &req))
 }
 
-func (c ReadOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
+// Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
+func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params["name"]
 	if !ok {
 		return nil, errors.New("must pass name parameter to ReadOrientation")
@@ -52,7 +54,8 @@ func (c ReadOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 	return data.WrapProtoAll(c.client.ReadOrientation(context.TODO(), &req))
 }
 
-func (c ReadAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
+// Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
+func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params["name"]
 	if !ok {
 		return nil, errors.New("must pass name parameter to ReadAcceleration")
@@ -63,20 +66,20 @@ func (c ReadAccelerationCapturer) Capture(params map[string]string) (*any.Any, e
 	return data.WrapProtoAll(c.client.ReadAcceleration(context.TODO(), &req))
 }
 
-func NewReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
+func newReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 	target *os.File) data.Collector {
-	c := ReadAngularVelocityCapturer{client: pb.NewIMUServiceClient(conn)}
+	c := readAngularVelocityCapturer{client: pb.NewIMUServiceClient(conn)}
 	return data.NewCollector(c, interval, params, target)
 }
 
-func NewReadOrientationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
+func newReadOrientationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 	target *os.File) data.Collector {
-	c := ReadOrientationCapturer{client: pb.NewIMUServiceClient(conn)}
+	c := readOrientationCapturer{client: pb.NewIMUServiceClient(conn)}
 	return data.NewCollector(c, interval, params, target)
 }
 
-func NewReadAccelerationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
+func newReadAccelerationCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 	target *os.File) data.Collector {
-	c := ReadAccelerationCapturer{client: pb.NewIMUServiceClient(conn)}
+	c := readAccelerationCapturer{client: pb.NewIMUServiceClient(conn)}
 	return data.NewCollector(c, interval, params, target)
 }

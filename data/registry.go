@@ -11,12 +11,10 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// TODO: why did I define this as a struct again? Seems like a func type would do. Revisit.
 // CollectorConstructor contains a function for constructing an instance of a Collector.
-type CollectorConstructor struct {
-	Constructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) Collector
-}
+type CollectorConstructor func(conn rpc.ClientConn, params map[string]string, interval time.Duration, target *os.File) Collector
 
+// MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {
 	Subtype    resource.SubtypeName
 	MethodName string
@@ -31,10 +29,6 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 		panic(errors.Errorf("trying to register two of the same method on the same component: "+
 			"component %s, method %s", method.Subtype, method.MethodName))
 	}
-	if c.Constructor == nil {
-		panic(errors.New("cannot register a data collector with a nil constructor"))
-	}
-
 	collectorRegistry[method] = c
 }
 
