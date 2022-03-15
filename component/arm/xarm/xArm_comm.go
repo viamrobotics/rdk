@@ -15,6 +15,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
+	rutils "go.viam.com/rdk/utils"
 )
 
 var servoErrorMap = map[byte]string{
@@ -125,12 +126,6 @@ func (c *cmd) bytes() []byte {
 	bin = append(bin, c.reg)
 	bin = append(bin, c.params...)
 	return bin
-}
-
-func float64fromByte32(bytes []byte) float64 {
-	bits := binary.LittleEndian.Uint32(bytes)
-	float := math.Float32frombits(bits)
-	return float64(float)
 }
 
 func (x *xArm) newCmd(reg byte) cmd {
@@ -430,7 +425,7 @@ func (x *xArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error
 	var radians []float64
 	for i := 0; i < x.dof; i++ {
 		idx := i*4 + 1
-		radians = append(radians, float64fromByte32(jData.params[idx:idx+4]))
+		radians = append(radians, float64(rutils.Float32FromBytesLE((jData.params[idx : idx+4]))))
 	}
 
 	return referenceframe.JointPositionsFromRadians(radians), nil
