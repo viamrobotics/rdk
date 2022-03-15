@@ -39,8 +39,7 @@ func (c *Collector) SetTarget(file *os.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.target = file
-	err := c.writer.Flush()
-	if err != nil {
+	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorf("failed to flush writer to disk: %s", err)
 	}
 	c.writer = bufio.NewWriter(file)
@@ -59,12 +58,15 @@ func (c *Collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
+	// Must close c.queue before calling c.writer.Flush() to ensure that all captures have made it into the buffer
+	// before it is flushed. Otherwise, some reading might still be queued but not yet written, and would be lost.
 	c.done <- true
+	close(c.queue)
+	close(c.done)
+
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorf("failed to flush writer to disk: %s", err)
 	}
-	close(c.queue)
-	close(c.done)
 }
 
 // TODO: Decide on error behavior here. Should receiving a single error from c.capture cause this to return an error?
