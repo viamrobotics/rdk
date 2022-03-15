@@ -37,7 +37,7 @@ func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 		Name: name,
 	}
 	// TODO: what should context be here?
-	return data.WrapProtoAll(c.client.ReadAngularVelocity(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadAngularVelocity(context.TODO(), &req))
 }
 
 // Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
@@ -49,7 +49,7 @@ func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 
 	req := pb.ReadOrientationRequest{Name: name}
 	// TODO: what should context be here?
-	return data.WrapProtoAll(c.client.ReadOrientation(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadOrientation(context.TODO(), &req))
 }
 
 // Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
@@ -61,7 +61,7 @@ func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, e
 
 	req := pb.ReadAccelerationRequest{Name: name}
 	// TODO: what should context be here?
-	return data.WrapProtoAll(c.client.ReadAcceleration(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadAcceleration(context.TODO(), &req))
 }
 
 func newReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
