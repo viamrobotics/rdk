@@ -76,7 +76,9 @@ func (c *Collector) capture() {
 		case <-c.done:
 			return
 		case <-ticker.C:
+			c.lock.Lock()
 			a, err := c.capturer.Capture(c.params)
+			c.lock.Unlock()
 			if err != nil {
 				c.logger.Errorf("error while capturing data: %s", err)
 			}
