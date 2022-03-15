@@ -107,7 +107,6 @@ func TestSetTarget(t *testing.T) {
 	time.Sleep(time.Millisecond * 25)
 
 	// Verify tgt1 and tgt2 were written to, and that any buffered data was flushed when the target was changed.
-	// Assert that file size of target 1 has not changed, and that target2 is now being written to.
 	c.Close()
 	sizeTgt1 := getFileSize(target1)
 	sizeTgt2 := getFileSize(target2)

@@ -24,7 +24,7 @@ type MethodMetadata struct {
 
 var collectorRegistry = map[MethodMetadata]CollectorConstructor{}
 
-// RegisterCollector registers a Collector to its corresponding component subtype.
+// RegisterCollector registers a Collector to its corresponding MethodMetadata.
 func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 	_, old := collectorRegistry[method]
 	if old {
@@ -34,7 +34,7 @@ func RegisterCollector(method MethodMetadata, c CollectorConstructor) {
 	collectorRegistry[method] = c
 }
 
-// CollectorLookup looks up a Collector by the given subtype. nil is returned if
+// CollectorLookup looks up a Collector by the given MethodMetadata. nil is returned if
 // there is None.
 func CollectorLookup(method MethodMetadata) *CollectorConstructor {
 	if registration, ok := RegisteredCollectors()[method]; ok {
@@ -43,7 +43,7 @@ func CollectorLookup(method MethodMetadata) *CollectorConstructor {
 	return nil
 }
 
-// RegisteredCollectors returns a copy of the registered CollectorSchema.
+// RegisteredCollectors returns a copy of the registry.
 func RegisteredCollectors() map[MethodMetadata]CollectorConstructor {
 	copied, err := copystructure.Copy(collectorRegistry)
 	if err != nil {
