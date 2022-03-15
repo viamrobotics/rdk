@@ -1,13 +1,15 @@
 package data
 
 import (
-	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/edaniels/golog"
+	"go.viam.com/test"
+	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/resource"
 )
 
 var dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
