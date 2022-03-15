@@ -83,7 +83,7 @@ func TestClose(t *testing.T) {
 	// Assert that after closing, capture is no longer being called and the file is not being written to.
 	c.Close()
 	time.Sleep(time.Millisecond * 10)
-	test.That(t, dummy.captureCount, test.ShouldEqual, captureCount)
+	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, captureCount)
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
 }
 
@@ -98,7 +98,7 @@ func TestInterval(t *testing.T) {
 
 	// Give 2ms of leeway so slight changes in execution ordering don't impact the test.
 	time.Sleep(time.Millisecond * 22)
-	test.That(t, dummy.captureCount, test.ShouldEqual, 4)
+	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 4)
 }
 
 func TestSetTarget(t *testing.T) {
