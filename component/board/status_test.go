@@ -15,7 +15,6 @@ func TestStatusValid(t *testing.T) {
 	status := &commonpb.BoardStatus{
 		Analogs:           map[string]*commonpb.AnalogStatus{"analog1": {}},
 		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{"encoder": {}},
-		GpioPins:          map[string]*commonpb.GPIOPinStatus{"gpiopin": {}},
 	}
 	map1, err := protoutils.InterfaceToMap(status)
 	test.That(t, err, test.ShouldBeNil)
@@ -28,7 +27,6 @@ func TestStatusValid(t *testing.T) {
 		map[string]interface{}{
 			"analogs":            map[string]interface{}{"analog1": map[string]interface{}{}},
 			"digital_interrupts": map[string]interface{}{"encoder": map[string]interface{}{}},
-			"gpio_pins":          map[string]interface{}{"gpiopin": map[string]interface{}{}},
 		},
 	)
 

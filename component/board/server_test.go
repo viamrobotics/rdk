@@ -42,9 +42,6 @@ func TestServerStatus(t *testing.T) {
 		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 			"encoder": {},
 		},
-		GpioPins: map[string]*commonpb.GPIOPinStatus{
-			"gpiopin": {},
-		},
 	}
 
 	tests := []struct {
