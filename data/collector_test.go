@@ -54,14 +54,14 @@ func TestSuccessfulWrite(t *testing.T) {
 	defer os.Remove(target1.Name())
 
 	// Verify that it writes to the file.
-	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(&dummyCapturer{}, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
-	time.Sleep(time.Millisecond * 20)
+	time.Sleep(time.Millisecond * 25)
 	size1 := getFileSize(target1)
 	test.That(t, size1, test.ShouldBeGreaterThan, 0)
 
 	// Verify that it continues to write to the file.
-	time.Sleep(time.Millisecond * 20)
+	time.Sleep(time.Millisecond * 25)
 	size2 := getFileSize(target1)
 	test.That(t, size2, test.ShouldBeGreaterThan, size1)
 }
@@ -72,9 +72,9 @@ func TestClose(t *testing.T) {
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
-	time.Sleep(time.Millisecond * 12)
+	time.Sleep(time.Millisecond * 25)
 
 	// Measure captureCount/fileSize.
 	captureCount := atomic.LoadInt64(&dummy.captureCount)
@@ -82,7 +82,7 @@ func TestClose(t *testing.T) {
 
 	// Assert that after closing, capture is no longer being called and the file is not being written to.
 	c.Close()
-	time.Sleep(time.Millisecond * 10)
+	time.Sleep(time.Millisecond * 25)
 	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, captureCount)
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
 }
@@ -93,12 +93,12 @@ func TestInterval(t *testing.T) {
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 
-	// Give 2ms of leeway so slight changes in execution ordering don't impact the test.
-	time.Sleep(time.Millisecond * 22)
-	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 4)
+	// Give 5ms of leeway so slight changes in execution ordering don't impact the test.
+	time.Sleep(time.Millisecond * 45)
+	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 2)
 }
 
 func TestSetTarget(t *testing.T) {
@@ -109,9 +109,9 @@ func TestSetTarget(t *testing.T) {
 	defer os.Remove(target2.Name())
 
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
-	time.Sleep(time.Millisecond * 12)
+	time.Sleep(time.Millisecond * 25)
 
 	// Measure fileSize of tgt1 and tgt2.
 	oldSizeTgt1 := getFileSize(target1)
@@ -121,7 +121,7 @@ func TestSetTarget(t *testing.T) {
 
 	// Change target, let run for a bit.
 	c.SetTarget(target2)
-	time.Sleep(time.Millisecond * 12)
+	time.Sleep(time.Millisecond * 25)
 	c.Close()
 
 	// Assert that file size of target 1 has not changed, and that target2 is now being written to.
@@ -138,7 +138,7 @@ func TestSwallowsErrors(t *testing.T) {
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{shouldError: true}
 
-	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, logger)
+	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, logger)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
@@ -147,7 +147,7 @@ func TestSwallowsErrors(t *testing.T) {
 			errorChannel <- err
 		}
 	}()
-	time.Sleep(10 * time.Millisecond)
+	time.Sleep(25 * time.Millisecond)
 
 	// Verify that no errors were passed into errorChannel, and that errors were logged.
 	select {
