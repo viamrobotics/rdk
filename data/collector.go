@@ -76,9 +76,7 @@ func (c *Collector) capture() {
 		case <-c.done:
 			return
 		case <-ticker.C:
-			c.lock.Lock()
 			a, err := c.capturer.Capture(c.params)
-			c.lock.Unlock()
 			if err != nil {
 				c.logger.Errorf("error while capturing data: %s", err)
 			}
@@ -105,17 +103,24 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 // TODO: length prefix when writing.
 func (c *Collector) write() error {
 	for a := range c.queue {
-		bytes, err := proto.Marshal(a)
-		if err != nil {
+		if err := c.appendMessage(a); err != nil {
 			return err
 		}
-		// TODO: see if this fixes race condition. If it does, move this to it's own func so we can defer the unlock.
-		c.lock.Lock()
-		_, err = c.target.Write(bytes)
-		c.lock.Unlock()
-		if err != nil {
-			return err
-		}
+	}
+	return nil
+}
+
+func (c *Collector) appendMessage(msg *any.Any) error {
+	bytes, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_, err = c.target.Write(bytes)
+	if err != nil {
+		return err
 	}
 	return nil
 }
