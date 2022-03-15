@@ -45,20 +45,5 @@ func CreateStatus(ctx context.Context, b Board) (*commonpb.BoardStatus, error) {
 		}
 	}
 
-	if names := b.GPIOPinNames(); len(names) != 0 {
-		status.GpioPins = make(map[string]*commonpb.GPIOPinStatus, len(names))
-		for _, name := range names {
-			x, err := b.GPIOPinByName(name)
-			if err != nil {
-				return nil, fmt.Errorf("GPIO pin %q not found", name)
-			}
-			high, err := x.Get(ctx)
-			if err != nil {
-				return nil, errors.Wrap(err, "couldn't get GPIO pin status (%s)")
-			}
-			status.GpioPins[name] = &commonpb.GPIOPinStatus{High: high}
-		}
-	}
-
 	return &status, nil
 }
