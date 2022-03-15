@@ -32,6 +32,15 @@ func (c *dummyCapturer) Capture(params map[string]string) (*any.Any, error) {
 	return WrapInAll(&pb.ReadAccelerationRequest{Name: "name"}, nil)
 }
 
+// Convenience method for getting the file size of a given collectors target. It's used because the Collector uses a
+// bufio.Writer, so we need to call Flush() to ensure buffered messages are written to disk.
+func getFileSizeOfTarget(c Collector) int64 {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	_ = c.writer.Flush()
+	return getFileSize(c.target)
+}
+
 func getFileSize(f *os.File) int64 {
 	fileInfo, err := f.Stat()
 	if err != nil {
@@ -56,15 +65,13 @@ func TestSuccessfulWrite(t *testing.T) {
 	c := NewCollector(&dummyCapturer{}, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 25)
-	c.writer.Flush()
-	size1 := getFileSize(target1)
+	size1 := getFileSizeOfTarget(c)
 	test.That(t, size1, test.ShouldBeGreaterThan, 0)
 
-	// Verify that it continues to write to the file.
+	// Verify that it continues to write to the file, and that Close() causes buffered messages to be written.
 	time.Sleep(time.Millisecond * 25)
-	c.writer.Flush()
-	size2 := getFileSize(target1)
-	test.That(t, size2, test.ShouldBeGreaterThan, size1)
+	c.Close()
+	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, size1)
 }
 
 func TestClose(t *testing.T) {
@@ -73,14 +80,13 @@ func TestClose(t *testing.T) {
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.TODO())
+	c := NewCollector(dummy, time.Millisecond*15, map[string]string{"name": "test"}, target1, l)
+	go c.Collect(context.Background())
 	time.Sleep(time.Millisecond * 25)
 
 	// Measure captureCount/fileSize.
 	captureCount := atomic.LoadInt64(&dummy.captureCount)
-	c.writer.Flush()
-	fileSize := getFileSize(target1)
+	fileSize := getFileSizeOfTarget(c)
 
 	// Assert that after closing, capture is no longer being called and the file is not being written to.
 	c.Close()
@@ -95,12 +101,12 @@ func TestInterval(t *testing.T) {
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.TODO())
+	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
+	go c.Collect(context.Background())
 
-	// Give 5ms of leeway so slight changes in execution ordering don't impact the test.
-	time.Sleep(time.Millisecond * 45)
-	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 2)
+	// Give 3ms of leeway so slight changes in execution ordering don't impact the test.
+	time.Sleep(time.Millisecond * 43)
+	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 8)
 }
 
 func TestSetTarget(t *testing.T) {
@@ -112,15 +118,12 @@ func TestSetTarget(t *testing.T) {
 
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.TODO())
+	go c.Collect(context.Background())
 	time.Sleep(time.Millisecond * 25)
 
-	// Measure fileSize of tgt1 and tgt2.
-	c.writer.Flush()
-	oldSizeTgt1 := getFileSize(target1)
-	oldSizeTgt2 := getFileSize(target2)
+	// Verify tgt1 is being written to.
+	oldSizeTgt1 := getFileSizeOfTarget(c)
 	test.That(t, oldSizeTgt1, test.ShouldBeGreaterThan, 0)
-	test.That(t, oldSizeTgt2, test.ShouldEqual, 0)
 
 	// Change target, let run for a bit.
 	c.SetTarget(target2)
@@ -146,7 +149,7 @@ func TestSwallowsErrors(t *testing.T) {
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
-		err := c.Collect(context.TODO())
+		err := c.Collect(context.Background())
 		if err != nil {
 			errorChannel <- err
 		}
