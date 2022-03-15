@@ -173,33 +173,22 @@ func (app *robotWebApp) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // allSourcesToDisplay returns every possible image source that could be viewed from
 // the robot.
-func allSourcesToDisplay(ctx context.Context, theRobot robot.Robot) ([]gostream.ImageSource, []string, error) {
+func allSourcesToDisplay(theRobot robot.Robot) ([]gostream.ImageSource, []string) {
 	sources := []gostream.ImageSource{}
 	names := []string{}
 
-	conf, err := theRobot.Config(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
+	// TODO (RDK-133): allow users to determine what to stream.
 	for _, name := range camera.NamesFromRobot(theRobot) {
 		cam, err := camera.FromRobot(theRobot, name)
 		if err != nil {
 			continue
-		}
-		cmp := conf.FindComponent(name)
-		if cmp != nil {
-			attrs, ok := cmp.ConvertedAttributes.(*camera.AttrConfig)
-			if ok && attrs.Hide {
-				continue
-			}
 		}
 
 		sources = append(sources, cam)
 		names = append(names, name)
 	}
 
-	return sources, names, nil
+	return sources, names
 }
 
 var defaultStreamConfig = x264.DefaultStreamConfig
@@ -295,10 +284,7 @@ func (svc *webService) Close(ctx context.Context) error {
 }
 
 func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robot) (gostream.StreamServer, bool, error) {
-	displaySources, displayNames, err := allSourcesToDisplay(ctx, theRobot)
-	if err != nil {
-		return nil, false, err
-	}
+	displaySources, displayNames := allSourcesToDisplay(theRobot)
 	var streams []gostream.Stream
 
 	if len(displaySources) == 0 {

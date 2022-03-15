@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -26,7 +25,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -119,43 +117,6 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 			rc.Logger().Errorw("failed to refresh status", "error", err)
 		}
 	}
-}
-
-// Config gets the config from the remote robot
-// It is only partial a config, including the pieces relevant to remote robots,
-// And not the pieces relevant to local configuration (pins, security keys, etc...)
-func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
-	remoteConfig, err := rc.client.Config(ctx, &pb.ConfigRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg config.Config
-	for _, c := range remoteConfig.Components {
-		cc := config.Component{
-			Name: c.Name,
-			Type: config.ComponentType(c.Type),
-		}
-		// check if component has frame attribute, leave as nil if it doesn't
-		if c.Parent != "" {
-			cc.Frame = &config.Frame{Parent: c.Parent}
-		}
-		if cc.Frame != nil && c.Pose != nil {
-			cc.Frame.Translation = spatialmath.TranslationConfig{
-				X: c.Pose.X,
-				Y: c.Pose.Y,
-				Z: c.Pose.Z,
-			}
-			cc.Frame.Orientation = &spatialmath.OrientationVectorDegrees{
-				OX:    c.Pose.OX,
-				OY:    c.Pose.OY,
-				OZ:    c.Pose.OZ,
-				Theta: c.Pose.Theta,
-			}
-		}
-		cfg.Components = append(cfg.Components, cc)
-	}
-	return &cfg, nil
 }
 
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
