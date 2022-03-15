@@ -56,6 +56,7 @@ func TestSuccessfulWrite(t *testing.T) {
 	c := NewCollector(&dummyCapturer{}, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 25)
+	c.writer.Flush()
 	size1 := getFileSize(target1)
 	test.That(t, size1, test.ShouldBeGreaterThan, 0)
 
@@ -133,7 +134,8 @@ func TestSetTarget(t *testing.T) {
 	test.That(t, newSizeTgt2, test.ShouldBeGreaterThan, 0)
 }
 
-// Verifies that Collect does not error if it receives a single error when calling capture.
+// Verifies that Collect does not error if it receives a single error when calling capture, and that those errors are
+// logged.
 func TestSwallowsErrors(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")

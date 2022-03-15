@@ -5,7 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -54,7 +53,9 @@ func (c *Collector) GetTarget() *os.File {
 // leaking goroutines.
 func (c *Collector) Close() {
 	c.done <- true
-	c.writer.Flush()
+	if err := c.writer.Flush(); err != nil {
+		c.logger.Errorf("failed to flush writer to disk: %s", err)
+	}
 	close(c.queue)
 	close(c.done)
 }
@@ -124,11 +125,10 @@ func (c *Collector) appendMessage(msg *any.Any) error {
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	n, err := c.writer.Write(bytes)
+	_, err = c.writer.Write(bytes)
 	if err != nil {
 		return err
 	}
-	fmt.Println(n)
 	return nil
 }
 
