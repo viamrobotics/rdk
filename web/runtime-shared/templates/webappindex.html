@@ -204,36 +204,36 @@
                   parameterType : function(typeName) {
                       if (typeName == "int" || typeName == "float64") {
                           return "number";
-                      } else if (typeName == "bool" || typeName == "bool") {
+                      } else if (typeName == "string" || typeName == "char") {
                           return "text";
                       }
                       return "";
                   },
                   getSegmenterNames :  function() {
-                              let req = new objectSegmentationApi.GetSegmentersRequest();
-                              objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
-                                grpcCallback(err, resp, false)
-                                if (err) {
-                                  console.log("error getting segmenter names");
-                                  console.log(err);
-                                  return;
-                                }
-                                theData.segmenterNames = resp.getSegmentersList();
+                      let req = new objectSegmentationApi.GetSegmentersRequest();
+                      objectSegmentationService.getSegmenters(req,  {}, (err, resp) => {
+                        grpcCallback(err, resp, false)
+                        if (err) {
+                          console.log("error getting segmenter names");
+                          console.log(err);
+                          return;
+                        }
+                        theData.segmenterNames = resp.getSegmentersList();
                       });
                   },
                   getSegmenterParameters : function(name) {
-                              let req = new objectSegmentationApi.GetSegmenterParametersRequest();
-                              req.setSegmenterName(name);
-                              objectSegmentationService.getSegmenterParameters(req,  {}, (err, resp) => {
-                                grpcCallback(err, resp, false)
-                                if (err) {
-                                  console.log("error getting segmenter parameters for "+name);
-                                  console.log(err);
-                                  return;
-                                }
-                                theData.segmenterParameterNames = resp.getParametersList();
-                    theData.segmenterParameters = {};
-                      });
+                    let req = new objectSegmentationApi.GetSegmenterParametersRequest();
+                    req.setSegmenterName(name);
+                    objectSegmentationService.getSegmenterParameters(req,  {}, (err, resp) => {
+                      grpcCallback(err, resp, false)
+                      if (err) {
+                        console.log("error getting segmenter parameters for "+name);
+                        console.log(err);
+                        return;
+                      }
+                      theData.segmenterParameterNames = resp.getParametersList();
+                      theData.segmenterParameters = {};
+                    });
                   },
                   filterResources : function(namespace, type, subtype) {
                     return theData.resources.filter(elem => {
