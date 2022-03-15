@@ -39,6 +39,7 @@ func (c *Collector) SetTarget(file *os.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.target = file
+	c.writer.Flush()
 	c.writer = bufio.NewWriter(file)
 }
 
