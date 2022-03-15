@@ -13,7 +13,6 @@ type AttrConfig struct {
 	Width            int                                `json:"width"`
 	Height           int                                `json:"height"`
 	Dump             bool                               `json:"dump"`
-	Hide             bool                               `json:"hide"`
 	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 }
 

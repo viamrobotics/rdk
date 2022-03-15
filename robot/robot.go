@@ -33,10 +33,6 @@ type Robot interface {
 	// ProcessManager returns the process manager for the robot.
 	ProcessManager() pexec.ProcessManager
 
-	// Config returns the config used to construct the robot.
-	// This is allowed to be partial or empty.
-	Config(ctx context.Context) (*config.Config, error)
-
 	// FrameSystem returns a FrameSystem suitable for doing reference frame lookups
 	// and then computing relative offsets of pieces.
 	// The frame system will be given a name, and its parts given a prefix (both optional).
@@ -58,6 +54,10 @@ type Refresher interface {
 // A LocalRobot is a Robot that can have its parts modified.
 type LocalRobot interface {
 	Robot
+
+	// Config returns the local config used to construct the robot.
+	// This is allowed to be partial or empty.
+	Config(ctx context.Context) (*config.Config, error)
 
 	// Reconfigure instructs the robot to safely reconfigure itself based
 	// on the given new config.
