@@ -216,6 +216,7 @@ func TestServerGetGPIO(t *testing.T) {
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
@@ -242,6 +243,7 @@ func TestServerGetGPIO(t *testing.T) {
 	}
 }
 
+//nolint:dupl
 func TestServerPWM(t *testing.T) {
 	type request = pb.PWMRequest
 	type response = pb.PWMResponse
@@ -289,7 +291,6 @@ func TestServerPWM(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
@@ -378,6 +379,7 @@ func TestServerSetPWM(t *testing.T) {
 	}
 }
 
+//nolint:dupl
 func TestServerPWMFrequency(t *testing.T) {
 	type request = pb.PWMFrequencyRequest
 	type response = pb.PWMFrequencyResponse
@@ -425,7 +427,6 @@ func TestServerPWMFrequency(t *testing.T) {
 		},
 	}
 
-	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
