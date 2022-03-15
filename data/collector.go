@@ -107,7 +107,10 @@ func (c *Collector) write() error {
 		if err != nil {
 			return err
 		}
+		// TODO: see if this fixes race condition. If it does, move this to it's own func so we can defer the unlock.
+		c.lock.Lock()
 		_, err = c.target.Write(bytes)
+		c.lock.Unlock()
 		if err != nil {
 			return err
 		}
