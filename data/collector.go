@@ -39,7 +39,10 @@ func (c *Collector) SetTarget(file *os.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.target = file
-	c.writer.Flush()
+	err := c.writer.Flush()
+	if err != nil {
+		c.logger.Errorf("failed to flush writer to disk: %s", err)
+	}
 	c.writer = bufio.NewWriter(file)
 }
 
