@@ -3,7 +3,9 @@
 package data
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -28,6 +30,7 @@ type Collector struct {
 	lock     *sync.Mutex
 	logger   golog.Logger
 	target   *os.File
+	writer   *bufio.Writer
 	done     chan bool
 	capturer Capturer
 }
@@ -37,6 +40,7 @@ func (c *Collector) SetTarget(file *os.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.target = file
+	c.writer = bufio.NewWriter(file)
 }
 
 // GetTarget returns the file being written to by the collector.
@@ -50,6 +54,7 @@ func (c *Collector) GetTarget() *os.File {
 // leaking goroutines.
 func (c *Collector) Close() {
 	c.done <- true
+	c.writer.Flush()
 	close(c.queue)
 	close(c.done)
 }
@@ -95,6 +100,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 		lock:     &sync.Mutex{},
 		logger:   logger,
 		target:   target,
+		writer:   bufio.NewWriter(target),
 		done:     make(chan bool),
 		capturer: capturer,
 	}
@@ -118,16 +124,17 @@ func (c *Collector) appendMessage(msg *any.Any) error {
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	_, err = c.target.Write(bytes)
+	n, err := c.writer.Write(bytes)
 	if err != nil {
 		return err
 	}
+	fmt.Println(n)
 	return nil
 }
 
-// WrapProtoAll is a convenience function that takes the (proto.Message, error) output of some protobuf method,
+// WrapInAll is a convenience function that takes the (proto.Message, error) output of some protobuf method,
 // wraps the protobuf in any.Any, and returns any error if one is encountered.
-func WrapProtoAll(msg proto.Message, err error) (*any.Any, error) {
+func WrapInAll(msg proto.Message, err error) (*any.Any, error) {
 	if err != nil {
 		return nil, err
 	}

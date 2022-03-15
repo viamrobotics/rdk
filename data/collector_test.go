@@ -29,7 +29,7 @@ func (c *dummyCapturer) Capture(params map[string]string) (*any.Any, error) {
 
 	atomic.AddInt64(&c.captureCount, 1)
 	// Using an arbitrary proto message.
-	return WrapProtoAll(&pb.ReadAccelerationRequest{Name: "name"}, nil)
+	return WrapInAll(&pb.ReadAccelerationRequest{Name: "name"}, nil)
 }
 
 func getFileSize(f *os.File) int64 {
@@ -40,7 +40,6 @@ func getFileSize(f *os.File) int64 {
 	return fileInfo.Size()
 }
 
-// TODO: Don't do any checking on construction. Should we?
 func TestNewCollector(t *testing.T) {
 	c := NewCollector(nil, time.Second, nil, nil, nil)
 	test.That(t, c, test.ShouldNotBeNil)
@@ -62,6 +61,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	// Verify that it continues to write to the file.
 	time.Sleep(time.Millisecond * 25)
+	c.writer.Flush()
 	size2 := getFileSize(target1)
 	test.That(t, size2, test.ShouldBeGreaterThan, size1)
 }
@@ -78,6 +78,7 @@ func TestClose(t *testing.T) {
 
 	// Measure captureCount/fileSize.
 	captureCount := atomic.LoadInt64(&dummy.captureCount)
+	c.writer.Flush()
 	fileSize := getFileSize(target1)
 
 	// Assert that after closing, capture is no longer being called and the file is not being written to.
@@ -114,6 +115,7 @@ func TestSetTarget(t *testing.T) {
 	time.Sleep(time.Millisecond * 25)
 
 	// Measure fileSize of tgt1 and tgt2.
+	c.writer.Flush()
 	oldSizeTgt1 := getFileSize(target1)
 	oldSizeTgt2 := getFileSize(target2)
 	test.That(t, oldSizeTgt1, test.ShouldBeGreaterThan, 0)
