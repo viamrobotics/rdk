@@ -10,13 +10,6 @@ import (
 	"time"
 )
 
-/**
-To test:
-- Successful look up
-- Properly returns nil if none exists
-- Panic if try to register two of same thing
-*/
-
 var dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 	target *os.File, logger golog.Logger) Collector {
 	return Collector{}
