@@ -84,22 +84,6 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		sensors: map[resource.Name]sensor.Sensor{},
 		logger:  logger,
 	}
-
-	// trigger an update here
-	resources := map[resource.Name]interface{}{}
-	for _, n := range r.ResourceNames() {
-		if n.ResourceType != resource.ResourceTypeComponent {
-			continue
-		}
-		res, err := r.ResourceByName(n)
-		if err != nil {
-			return nil, err
-		}
-		resources[n] = res
-	}
-	if err := s.Update(ctx, resources); err != nil {
-		return nil, err
-	}
 	return s, nil
 }
 

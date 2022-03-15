@@ -24,6 +24,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -93,6 +96,24 @@ func FromRobot(r robot.Robot, name string) (Arm, error) {
 // NamesFromRobot is a helper for getting all arm names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the arm.
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
+	arm, ok := resource.(Arm)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
+	}
+	endPosition, err := arm.GetEndPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	jointPositions, err := arm.GetJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
 }
 
 type reconfigurableArm struct {

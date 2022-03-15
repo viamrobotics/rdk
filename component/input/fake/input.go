@@ -73,7 +73,7 @@ func (c *InputController) GetEvents(ctx context.Context) (map[input.Control]inpu
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	eventsOut := make(map[input.Control]input.Event)
-	eventsOut[input.AbsoluteX] = input.Event{Time: time.Time{}, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+	eventsOut[input.AbsoluteX] = input.Event{Time: time.Now(), Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
 	return eventsOut, nil
 }
 

@@ -28,10 +28,24 @@ service BoardService {
     };  
   }
 
+  // PWM gets the duty cycle of the given pin of a board of the underlying robot.
+  rpc PWM(PWMRequest) returns (PWMResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/board/{name}/pwm"
+    };  
+  }
+
   // SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
   rpc SetPWM(SetPWMRequest) returns (SetPWMResponse) {
     option (google.api.http) = {
       put: "/viam/api/v1/component/board/{name}/pwm"
+    };  
+  }
+
+  // PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
+  rpc PWMFrequency(PWMFrequencyRequest) returns (PWMFrequencyResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/board/{name}/pwm_freq"
     };  
   }
 
@@ -86,6 +100,15 @@ message GetGPIOResponse {
   bool high = 1;
 }
 
+message PWMRequest {
+  string name = 1;
+  string pin = 2;
+}
+
+message PWMResponse {
+  double duty_cycle_pct = 1; // 0-1
+}
+
 message SetPWMRequest {
   string name = 1;
   string pin = 2;
@@ -94,13 +117,22 @@ message SetPWMRequest {
 
 message SetPWMResponse {}
 
-message SetPWMFrequencyResponse {}
+message PWMFrequencyRequest {
+  string name = 1;
+  string pin = 2;
+}
+
+message PWMFrequencyResponse {
+  uint64 frequency_hz = 1;
+}
 
 message SetPWMFrequencyRequest {
   string name = 1;
   string pin = 2;
   uint64 frequency_hz = 3;
 }
+
+message SetPWMFrequencyResponse {}
 
 // Analog Reader
 
