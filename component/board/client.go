@@ -186,10 +186,6 @@ func (c *client) refresh(ctx context.Context) error {
 	for name := range status.DigitalInterrupts {
 		c.info.digitalInterruptNames = append(c.info.digitalInterruptNames, name)
 	}
-	c.info.gpioPinNames = []string{}
-	for name := range status.DigitalInterrupts {
-		c.info.gpioPinNames = append(c.info.gpioPinNames, name)
-	}
 
 	return nil
 }
