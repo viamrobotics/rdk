@@ -22,7 +22,7 @@ type dummyCapturer struct {
 	captureCount int64
 }
 
-func (c *dummyCapturer) Capture(params map[string]string) (*any.Any, error) {
+func (c *dummyCapturer) Capture(_ map[string]string) (*any.Any, error) {
 	if c.shouldError {
 		return nil, errors.New("error")
 	}
@@ -30,23 +30,6 @@ func (c *dummyCapturer) Capture(params map[string]string) (*any.Any, error) {
 	atomic.AddInt64(&c.captureCount, 1)
 	// Using an arbitrary proto message.
 	return WrapInAll(&pb.ReadAccelerationRequest{Name: "name"}, nil)
-}
-
-// Convenience method for getting the file size of a given collectors target. It's used because the Collector uses a
-// bufio.Writer, so we need to call Flush() to ensure buffered messages are written to disk.
-func getFileSizeOfTarget(c Collector) int64 {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	_ = c.writer.Flush()
-	return getFileSize(c.target)
-}
-
-func getFileSize(f *os.File) int64 {
-	fileInfo, err := f.Stat()
-	if err != nil {
-		return 0
-	}
-	return fileInfo.Size()
 }
 
 func TestNewCollector(t *testing.T) {
@@ -105,6 +88,7 @@ func TestInterval(t *testing.T) {
 	go c.Collect(context.Background())
 
 	// Give 3ms of leeway so slight changes in execution ordering don't impact the test.
+	// floor(43/5) = 8
 	time.Sleep(time.Millisecond * 43)
 	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 8)
 }
@@ -163,4 +147,20 @@ func TestSwallowsErrors(t *testing.T) {
 	default:
 		test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldBeGreaterThan, 0)
 	}
+}
+
+// Convenience method for getting the file size of a given collectors target. It's used because the Collector uses a
+// bufio.Writer, so some data might not be written to disk yet if c.Close() has not been called.
+func getFileSizeOfTarget(c Collector) int64 {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	return getFileSize(c.target) + int64(c.writer.Buffered())
+}
+
+func getFileSize(f *os.File) int64 {
+	fileInfo, err := f.Stat()
+	if err != nil {
+		return 0
+	}
+	return fileInfo.Size()
 }
