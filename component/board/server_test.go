@@ -42,6 +42,9 @@ func TestServerStatus(t *testing.T) {
 		DigitalInterrupts: map[string]*commonpb.DigitalInterruptStatus{
 			"encoder": {},
 		},
+		GpioPins: map[string]*commonpb.GPIOPinStatus{
+			"gpiopin": {},
+		},
 	}
 
 	tests := []struct {
@@ -242,6 +245,79 @@ func TestServerGetGPIO(t *testing.T) {
 	}
 }
 
+func TestServerPWM(t *testing.T) {
+	type request = pb.PWMRequest
+	type response = pb.PWMResponse
+	ctx := context.Background()
+
+	tests := []struct {
+		injectResult float64
+		injectErr    error
+		req          *request
+		expCapArgs   []interface{}
+		expResp      *response
+		expRespErr   error
+	}{
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: missingBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: fakeBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    errFoo,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      nil,
+			expRespErr:   errFoo,
+		},
+		{
+			injectResult: 0.1,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      &response{DutyCyclePct: 0.1},
+			expRespErr:   nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.PWMFunc = func(ctx context.Context) (float64, error) {
+				return tc.injectResult, tc.injectErr
+			}
+
+			resp, err := server.PWM(ctx, tc.req)
+			if tc.expRespErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp, test.ShouldResemble, tc.expResp)
+			} else {
+				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+			}
+			test.That(t, injectGPIOPin.PWMCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
 func TestServerSetPWM(t *testing.T) {
 	type request = pb.SetPWMRequest
 	ctx := context.Background()
@@ -300,6 +376,79 @@ func TestServerSetPWM(t *testing.T) {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
 			test.That(t, injectGPIOPin.SetPWMCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
+func TestServerPWMFrequency(t *testing.T) {
+	type request = pb.PWMFrequencyRequest
+	type response = pb.PWMFrequencyResponse
+	ctx := context.Background()
+
+	tests := []struct {
+		injectResult uint
+		injectErr    error
+		req          *request
+		expCapArgs   []interface{}
+		expResp      *response
+		expRespErr   error
+	}{
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: missingBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: fakeBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    errFoo,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      nil,
+			expRespErr:   errFoo,
+		},
+		{
+			injectResult: 1,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      &response{FrequencyHz: 1},
+			expRespErr:   nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.PWMFreqFunc = func(ctx context.Context) (uint, error) {
+				return tc.injectResult, tc.injectErr
+			}
+
+			resp, err := server.PWMFrequency(ctx, tc.req)
+			if tc.expRespErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp, test.ShouldResemble, tc.expResp)
+			} else {
+				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+			}
+			test.That(t, injectGPIOPin.PWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
