@@ -13,11 +13,8 @@ import (
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gps"
-	functionrobot "go.viam.com/rdk/function/robot"
-	functionvm "go.viam.com/rdk/function/vm"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -47,41 +44,6 @@ func (s *Server) Close() {
 	s.activeBackgroundWorkers.Wait()
 }
 
-// Config returns the robot's underlying config.
-func (s *Server) Config(ctx context.Context, _ *pb.ConfigRequest) (*pb.ConfigResponse, error) {
-	cfg, err := s.r.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp := &pb.ConfigResponse{}
-	for _, c := range cfg.Components {
-		cc := &pb.ComponentConfig{
-			Name: c.Name,
-			Type: string(c.Type),
-		}
-		if c.Frame != nil {
-			orientation := c.Frame.Orientation
-			if orientation == nil {
-				orientation = spatialmath.NewZeroOrientation()
-			}
-			cc.Parent = c.Frame.Parent
-			cc.Pose = &pb.Pose{
-				X:     c.Frame.Translation.X,
-				Y:     c.Frame.Translation.Y,
-				Z:     c.Frame.Translation.Z,
-				OX:    orientation.OrientationVectorDegrees().OX,
-				OY:    orientation.OrientationVectorDegrees().OY,
-				OZ:    orientation.OrientationVectorDegrees().OZ,
-				Theta: orientation.OrientationVectorDegrees().Theta,
-			}
-		}
-		resp.Components = append(resp.Components, cc)
-	}
-
-	return resp, nil
-}
-
 // DoAction runs an action on the underlying robot.
 func (s *Server) DoAction(
 	ctx context.Context,
@@ -97,65 +59,6 @@ func (s *Server) DoAction(
 		act(s.cancelCtx, s.r)
 	})
 	return &pb.DoActionResponse{}, nil
-}
-
-// ExecuteFunction executes the given function with access to the underlying robot.
-func (s *Server) ExecuteFunction(
-	ctx context.Context,
-	req *pb.ExecuteFunctionRequest,
-) (*pb.ExecuteFunctionResponse, error) {
-	conf, err := s.r.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	var funcConfig functionvm.FunctionConfig
-	var found bool
-	for _, conf := range conf.Functions {
-		if conf.Name == req.Name {
-			found = true
-			funcConfig = conf
-		}
-	}
-	if !found {
-		return nil, errors.Errorf("no function with name (%s)", req.Name)
-	}
-	result, err := executeFunctionWithRobotForRPC(ctx, funcConfig, s.r)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ExecuteFunctionResponse{
-		Results: result.Results,
-		StdOut:  result.StdOut,
-		StdErr:  result.StdErr,
-	}, nil
-}
-
-// ExecuteSource executes the given source with access to the underlying robot.
-func (s *Server) ExecuteSource(
-	ctx context.Context,
-	req *pb.ExecuteSourceRequest,
-) (*pb.ExecuteSourceResponse, error) {
-	result, err := executeFunctionWithRobotForRPC(
-		ctx,
-		functionvm.FunctionConfig{
-			Name: "_",
-			AnonymousFunctionConfig: functionvm.AnonymousFunctionConfig{
-				Engine: functionvm.EngineName(req.Engine),
-				Source: req.Source,
-			},
-		},
-		s.r,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ExecuteSourceResponse{
-		Results: result.Results,
-		StdOut:  result.StdOut,
-		StdErr:  result.StdErr,
-	}, nil
 }
 
 type runCommander interface {
@@ -187,36 +90,4 @@ func (s *Server) ResourceRunCommand(
 	}
 
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
-}
-
-type executionResultRPC struct {
-	Results []*structpb.Value
-	StdOut  string
-	StdErr  string
-}
-
-func executeFunctionWithRobotForRPC(ctx context.Context, f functionvm.FunctionConfig, r robot.Robot) (*executionResultRPC, error) {
-	execResult, err := functionrobot.Execute(ctx, f, r)
-	if err != nil {
-		return nil, err
-	}
-	pbResults := make([]*structpb.Value, 0, len(execResult.Results))
-	for _, result := range execResult.Results {
-		val := result.Interface()
-		if (val == functionvm.Undefined{}) {
-			// TODO(RDK-16): holdover for now to make my life easier :)
-			val = "<undefined>"
-		}
-		pbVal, err := structpb.NewValue(val)
-		if err != nil {
-			return nil, err
-		}
-		pbResults = append(pbResults, pbVal)
-	}
-
-	return &executionResultRPC{
-		Results: pbResults,
-		StdOut:  execResult.StdOut,
-		StdErr:  execResult.StdErr,
-	}, nil
 }
