@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,9 +20,12 @@ import (
 type dummyCapturer struct {
 	shouldError  bool
 	captureCount int
+	lock         sync.Mutex
 }
 
 func (c *dummyCapturer) Capture(params map[string]string) (*any.Any, error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if c.shouldError {
 		return nil, errors.New("error")
 	}
@@ -70,7 +74,7 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	dummy := &dummyCapturer{}
+	dummy := &dummyCapturer{lock: sync.Mutex{}}
 	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 12)
@@ -91,7 +95,7 @@ func TestInterval(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	dummy := &dummyCapturer{}
+	dummy := &dummyCapturer{lock: sync.Mutex{}}
 	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 
@@ -107,7 +111,7 @@ func TestSetTarget(t *testing.T) {
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
-	dummy := &dummyCapturer{}
+	dummy := &dummyCapturer{lock: sync.Mutex{}}
 	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.TODO())
 	time.Sleep(time.Millisecond * 12)
@@ -135,7 +139,7 @@ func TestSwallowsErrors(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	dummy := &dummyCapturer{shouldError: true}
+	dummy := &dummyCapturer{lock: sync.Mutex{}, shouldError: true}
 
 	c := NewCollector(dummy, time.Millisecond*5, map[string]string{"name": "test"}, target1, logger)
 	errorChannel := make(chan error)
