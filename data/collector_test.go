@@ -45,16 +45,11 @@ func TestSuccessfulWrite(t *testing.T) {
 	defer os.Remove(target1.Name())
 
 	// Verify that it writes to the file.
-	c := NewCollector(&dummyCapturer{}, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.TODO())
-	time.Sleep(time.Millisecond * 25)
-	size1 := getFileSizeOfTarget(c)
-	test.That(t, size1, test.ShouldBeGreaterThan, 0)
-
-	// Verify that it continues to write to the file, and that Close() causes buffered messages to be written.
-	time.Sleep(time.Millisecond * 25)
+	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
+	go c.Collect(context.Background())
+	time.Sleep(time.Millisecond * 20)
 	c.Close()
-	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, size1)
+	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, 0)
 }
 
 func TestClose(t *testing.T) {
@@ -69,10 +64,10 @@ func TestClose(t *testing.T) {
 
 	// Measure captureCount/fileSize.
 	captureCount := atomic.LoadInt64(&dummy.captureCount)
-	fileSize := getFileSizeOfTarget(c)
-
-	// Assert that after closing, capture is no longer being called and the file is not being written to.
 	c.Close()
+	fileSize := getFileSize(target1)
+
+	// Assert capture is no longer being called and the file is not being written to.
 	time.Sleep(time.Millisecond * 25)
 	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, captureCount)
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
@@ -88,9 +83,9 @@ func TestInterval(t *testing.T) {
 	go c.Collect(context.Background())
 
 	// Give 3ms of leeway so slight changes in execution ordering don't impact the test.
-	// floor(43/5) = 8
-	time.Sleep(time.Millisecond * 43)
-	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 8)
+	// floor(83/5) = 16
+	time.Sleep(time.Millisecond * 83)
+	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 16)
 }
 
 func TestSetTarget(t *testing.T) {
@@ -103,22 +98,21 @@ func TestSetTarget(t *testing.T) {
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
 	go c.Collect(context.Background())
-	time.Sleep(time.Millisecond * 25)
 
-	// Verify tgt1 is being written to.
-	oldSizeTgt1 := getFileSizeOfTarget(c)
-	test.That(t, oldSizeTgt1, test.ShouldBeGreaterThan, 0)
+	// Let it write to tgt1 for a bit.
+	time.Sleep(time.Millisecond * 25)
 
 	// Change target, let run for a bit.
 	c.SetTarget(target2)
 	time.Sleep(time.Millisecond * 25)
-	c.Close()
 
+	// Verify tgt1 and tgt2 were written to, and that any buffered data was flushed when the target was changed.
 	// Assert that file size of target 1 has not changed, and that target2 is now being written to.
-	newSizeTgt1 := getFileSize(target1)
-	newSizeTgt2 := getFileSize(target2)
-	test.That(t, newSizeTgt1, test.ShouldEqual, oldSizeTgt1)
-	test.That(t, newSizeTgt2, test.ShouldBeGreaterThan, 0)
+	c.Close()
+	sizeTgt1 := getFileSize(target1)
+	sizeTgt2 := getFileSize(target2)
+	test.That(t, sizeTgt1, test.ShouldBeGreaterThan, 0)
+	test.That(t, sizeTgt2, test.ShouldBeGreaterThan, 0)
 }
 
 // Verifies that Collect does not error if it receives a single error when calling capture, and that those errors are
@@ -147,14 +141,6 @@ func TestSwallowsErrors(t *testing.T) {
 	default:
 		test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldBeGreaterThan, 0)
 	}
-}
-
-// Convenience method for getting the file size of a given collectors target. It's used because the Collector uses a
-// bufio.Writer, so some data might not be written to disk yet if c.Close() has not been called.
-func getFileSizeOfTarget(c Collector) int64 {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	return getFileSize(c.target) + int64(c.writer.Buffered())
 }
 
 func getFileSize(f *os.File) int64 {
