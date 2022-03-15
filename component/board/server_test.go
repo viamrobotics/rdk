@@ -289,6 +289,7 @@ func TestServerPWM(t *testing.T) {
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
@@ -424,6 +425,7 @@ func TestServerPWMFrequency(t *testing.T) {
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
