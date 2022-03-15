@@ -80,7 +80,9 @@ func TestClose(t *testing.T) {
 	time.Sleep(time.Millisecond * 12)
 
 	// Measure captureCount/fileSize.
+	dummy.lock.Lock()
 	captureCount := dummy.captureCount
+	dummy.lock.Unlock()
 	fileSize := getFileSize(target1)
 
 	// Assert that after closing, capture is no longer being called and the file is not being written to.
