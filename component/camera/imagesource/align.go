@@ -27,7 +27,7 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "align_color_depth",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*alignAttrs)
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -47,9 +47,22 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "align_color_depth",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
-		}, &camera.AttrConfig{})
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf alignAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*alignAttrs)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
+		}, &alignAttrs{})
 
 	config.RegisterComponentAttributeConverter(config.ComponentTypeCamera, "align_color_depth", "warp",
 		func(val interface{}) (interface{}, error) {
@@ -92,7 +105,7 @@ func init() {
 
 var alignCurrentlyWriting = false
 
-func getAligner(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Aligner, error) {
+func getAligner(attrs *alignAttrs, logger golog.Logger) (rimage.Aligner, error) {
 	switch {
 	case attrs.IntrinsicExtrinsic != nil:
 		cam, ok := attrs.IntrinsicExtrinsic.(*transform.DepthColorIntrinsicsExtrinsics)
@@ -125,6 +138,16 @@ func getAligner(attrs *camera.AttrConfig, logger golog.Logger) (rimage.Aligner, 
 	}
 }
 
+// alignAttrs is the attribute struct for aligning.
+type alignAttrs struct {
+	*camera.AttrConfig
+	Color              string      `json:"color"`
+	Depth              string      `json:"depth"`
+	IntrinsicExtrinsic interface{} `json:"intrinsic_extrinsic"`
+	Homography         interface{} `json:"homography"`
+	Warp               interface{} `json:"warp"`
+}
+
 // alignColorDepth takes a color and depth image source and aligns them together.
 type alignColorDepth struct {
 	color, depth    gostream.ImageSource
@@ -134,14 +157,14 @@ type alignColorDepth struct {
 }
 
 // newAlignColorDepth creates a gostream.ImageSource that aligned color and depth channels.
-func newAlignColorDepth(color, depth camera.Camera, attrs *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func newAlignColorDepth(color, depth camera.Camera, attrs *alignAttrs, logger golog.Logger) (camera.Camera, error) {
 	alignCamera, err := getAligner(attrs, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	imgSrc := &alignColorDepth{color, depth, alignCamera, attrs.Debug, logger}
-	return camera.New(imgSrc, attrs, color) // aligns the image to the color camera
+	return camera.New(imgSrc, attrs.AttrConfig, color) // aligns the image to the color camera
 }
 
 // Next aligns the next images from the color and the depth sources.

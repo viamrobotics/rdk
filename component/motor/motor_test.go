@@ -2,13 +2,18 @@ package motor_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/motor"
+	pb "go.viam.com/rdk/proto/api/component/motor/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -66,6 +71,97 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := motor.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testMotorName})
+}
+
+func TestStatusValid(t *testing.T) {
+	status := &pb.Status{IsOn: true, PositionReporting: true, Position: 7.7}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"is_on": true, "position_reporting": true, "position": 7.7})
+
+	convMap := &pb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+
+	status = &pb.Status{Position: 7.7}
+	map1, err = protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err = structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, newStruct.AsMap(), test.ShouldResemble, map[string]interface{}{"position": 7.7})
+
+	convMap = &pb.Status{}
+	decoder, err = mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := motor.CreateStatus(context.Background(), "not a motor")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", "string"))
+
+	status := &pb.Status{IsOn: true, PositionReporting: true, Position: 7.7}
+
+	injectMotor := &inject.Motor{}
+	injectMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
+		return status.IsOn, nil
+	}
+	injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+		return map[motor.Feature]bool{motor.PositionReporting: status.PositionReporting}, nil
+	}
+	injectMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
+		return status.Position, nil
+	}
+
+	t.Run("working", func(t *testing.T) {
+		status1, err := motor.CreateStatus(context.Background(), injectMotor)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("fail on GetPosition", func(t *testing.T) {
+		errFail := errors.New("can't get position")
+		injectMotor.GetPositionFunc = func(ctx context.Context) (float64, error) {
+			return 0, errFail
+		}
+		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
+
+	t.Run("position not supported", func(t *testing.T) {
+		injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+			return map[motor.Feature]bool{motor.PositionReporting: false}, nil
+		}
+
+		status1, err := motor.CreateStatus(context.Background(), injectMotor)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, &pb.Status{IsOn: true, PositionReporting: false})
+	})
+
+	t.Run("fail on GetFeatures", func(t *testing.T) {
+		errFail := errors.New("can't get features")
+		injectMotor.GetFeaturesFunc = func(ctx context.Context) (map[motor.Feature]bool, error) {
+			return nil, errFail
+		}
+		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
+
+	t.Run("fail on IsPowered", func(t *testing.T) {
+		errFail := errors.New("can't get is powered")
+		injectMotor.IsPoweredFunc = func(ctx context.Context) (bool, error) {
+			return false, errFail
+		}
+		_, err = motor.CreateStatus(context.Background(), injectMotor)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
 }
 
 func TestMotorName(t *testing.T) {

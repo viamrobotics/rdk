@@ -256,7 +256,11 @@ func TestMatrixAndSlip(t *testing.T) {
 			fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 				return fakeAR, true
 			}
-			fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 				return nil
 			}
 			fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -301,7 +305,11 @@ func TestMatrixAndSlip(t *testing.T) {
 			fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 				return fakeAR, true
 			}
-			fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 				return nil
 			}
 			fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -346,7 +354,11 @@ func TestMatrixAndSlip(t *testing.T) {
 			fakeBoard.AnalogReaderByNameFunc = func(name string) (board.AnalogReader, bool) {
 				return fakeAR, true
 			}
-			fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 				return nil
 			}
 			fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {

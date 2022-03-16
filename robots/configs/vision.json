@@ -12,7 +12,6 @@
                 "stream": "both",
                 "args": "both?num=0",
                 "path_pattern": "video0",
-                "hide": false,
                 "width": 1280,
                 "height": 720
             }
@@ -27,7 +26,6 @@
                 "port": 8181,
                 "stream": "both",
                 "args": "both?num=0",
-                "hide": false,
                 "format": "Z16",
                 "width": 1024,
                 "height": 768
@@ -39,7 +37,6 @@
             "model": "depth_composed",
             "attributes":
             {
-                "hide": true,
                 "color": "color",
                 "depth": "depth",
                 "make": "intel515",
@@ -121,8 +118,7 @@
             "attributes":
             {
                 "host": "127.0.0.1",
-                "source": "front-composed",
-                "hide": false
+                "source": "front-composed"
             }
         },
         {
@@ -132,8 +128,7 @@
             "attributes":
             {
                 "host": "127.0.0.1",
-                "source": "front-preprocess",
-                "hide": false
+                "source": "front-preprocess"
             }
         },
         {
@@ -143,8 +138,7 @@
             "attributes":
             {
                 "host": "127.0.0.1",
-                "source": "front-preprocess",
-                "hide": false
+                "source": "front-preprocess"
             }
         },
         {
@@ -154,8 +148,7 @@
             "attributes":
             {
                 "host": "127.0.0.1",
-                "source": "depth",
-                "hide": false
+                "source": "depth"
             }
         },
         {

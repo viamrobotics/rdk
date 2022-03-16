@@ -21,6 +21,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -56,7 +59,7 @@ type Gantry interface {
 	GetPosition(ctx context.Context) ([]float64, error)
 
 	// MoveToPosition is in meters
-	MoveToPosition(ctx context.Context, positionsMm []float64) error
+	MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error
 
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
@@ -81,6 +84,25 @@ func FromRobot(r robot.Robot, name string) (Gantry, error) {
 // NamesFromRobot is a helper for getting all gantry names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the gantry.
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
+	gantry, ok := resource.(Gantry)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Gantry", resource)
+	}
+	positions, err := gantry.GetPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	lengths, err := gantry.GetLengths(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Status{PositionsMm: positions, LengthsMm: lengths}, nil
 }
 
 // WrapWithReconfigurable wraps a gantry with a reconfigurable and locking interface.
@@ -121,10 +143,14 @@ func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error
 }
 
 // position is in meters.
-func (g *reconfigurableGantry) MoveToPosition(ctx context.Context, positionsMm []float64) error {
+func (g *reconfigurableGantry) MoveToPosition(
+	ctx context.Context,
+	positionsMm []float64,
+	obstacles []*referenceframe.GeometriesInFrame,
+) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm)
+	return g.actual.MoveToPosition(ctx, positionsMm, obstacles)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {

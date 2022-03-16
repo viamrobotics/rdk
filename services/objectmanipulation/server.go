@@ -4,10 +4,8 @@ package objectmanipulation
 import (
 	"context"
 
-	"github.com/golang/geo/r3"
-
-	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -35,27 +33,22 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) DoGrab(
-	ctx context.Context,
-	req *pb.DoGrabRequest,
-) (*pb.DoGrabResponse, error) {
+func (server *subtypeServer) DoGrab(ctx context.Context, req *pb.DoGrabRequest) (*pb.DoGrabResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	success, err := svc.DoGrab(
-		ctx, req.GetGripperName(), req.GetArmName(), req.GetCameraName(), protoToVector(req.GetCameraPoint()),
-	)
+	obstacles := req.GetWorldState().GetObstacles()
+	geometriesInFrames := make([]*referenceframe.GeometriesInFrame, len(obstacles))
+	for i, geometryInFrame := range obstacles {
+		geometriesInFrames[i], err = referenceframe.ProtobufToGeometriesInFrame(geometryInFrame)
+		if err != nil {
+			return nil, err
+		}
+	}
+	success, err := svc.DoGrab(ctx, req.GetGripperName(), referenceframe.ProtobufToPoseInFrame(req.GetTarget()), geometriesInFrames)
 	if err != nil {
 		return nil, err
 	}
 	return &pb.DoGrabResponse{Success: success}, nil
-}
-
-func protoToVector(p *commonpb.Vector3) *r3.Vector {
-	return &r3.Vector{
-		X: p.X,
-		Y: p.Y,
-		Z: p.Z,
-	}
 }
