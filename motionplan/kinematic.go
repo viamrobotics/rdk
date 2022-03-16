@@ -15,7 +15,7 @@ import (
 
 // ComputePosition takes a model and a protobuf JointPositions in degrees and returns the cartesian position of the
 // end effector as a protobuf ArmPosition. This is performed statelessly without changing any data.
-func ComputePosition(model referenceframe.Frame, joints *pb.ArmJointPositions) (*commonpb.Pose, error) {
+func ComputePosition(model referenceframe.Frame, joints *pb.JointPositions) (*commonpb.Pose, error) {
 	if len(joints.Degrees) != len(model.DoF()) {
 		return nil, errors.Errorf(
 			"incorrect number of joints passed to ComputePosition. Want: %d, got: %d",

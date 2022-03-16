@@ -178,22 +178,49 @@ func NewPigpio(ctx context.Context, cfg *board.Config, logger golog.Logger) (boa
 	return piInstance, nil
 }
 
-// SetGPIO sets the given pin to high or low.
-func (pi *piPigpio) SetGPIO(ctx context.Context, pin string, high bool) error {
-	bcom, have := broadcomPinFromHardwareLabel(pin)
-	if !have {
-		return errors.Errorf("no hw pin for (%s)", pin)
+func (pi *piPigpio) GPIOPinNames() []string {
+	names := make([]string, 0, len(piHWPinToBroadcom))
+	for k := range piHWPinToBroadcom {
+		names = append(names, k)
 	}
-	return pi.SetGPIOBcom(int(bcom), high)
+	return names
 }
 
-// GetGPIO reads the high/low state of the given pin.
-func (pi *piPigpio) GetGPIO(ctx context.Context, pin string) (bool, error) {
+func (pi *piPigpio) GPIOPinByName(pin string) (board.GPIOPin, error) {
 	bcom, have := broadcomPinFromHardwareLabel(pin)
 	if !have {
-		return false, errors.Errorf("no hw pin for (%s)", pin)
+		return nil, errors.Errorf("no hw pin for (%s)", pin)
 	}
-	return pi.GetGPIOBcom(int(bcom))
+	return gpioPin{pi, int(bcom)}, nil
+}
+
+type gpioPin struct {
+	pi   *piPigpio
+	bcom int
+}
+
+func (gp gpioPin) Set(ctx context.Context, high bool) error {
+	return gp.pi.SetGPIOBcom(gp.bcom, high)
+}
+
+func (gp gpioPin) Get(ctx context.Context) (bool, error) {
+	return gp.pi.GetGPIOBcom(gp.bcom)
+}
+
+func (gp gpioPin) PWM(ctx context.Context) (float64, error) {
+	return gp.pi.pwmBcom(gp.bcom)
+}
+
+func (gp gpioPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+	return gp.pi.SetPWMBcom(gp.bcom, dutyCyclePct)
+}
+
+func (gp gpioPin) PWMFreq(ctx context.Context) (uint, error) {
+	return gp.pi.pwmFreqBcom(gp.bcom)
+}
+
+func (gp gpioPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+	return gp.pi.SetPWMFreqBcom(gp.bcom, freqHz)
 }
 
 // GetGPIOBcom gets the level of the given broadcom pin
@@ -238,13 +265,9 @@ func (pi *piPigpio) SetGPIOBcom(bcom int, high bool) error {
 	return nil
 }
 
-// SetPWM sets the given pin to the given PWM duty cycle.
-func (pi *piPigpio) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	bcom, have := broadcomPinFromHardwareLabel(pin)
-	if !have {
-		return errors.Errorf("no hw pin for (%s)", pin)
-	}
-	return pi.SetPWMBcom(int(bcom), dutyCyclePct)
+func (pi *piPigpio) pwmBcom(bcom int) (float64, error) {
+	res := C.gpioGetPWMdutycycle(C.uint(bcom))
+	return float64(res) / 255, nil
 }
 
 // SetPWMBcom sets the given broadcom pin to the given PWM duty cycle.
@@ -257,13 +280,9 @@ func (pi *piPigpio) SetPWMBcom(bcom int, dutyCyclePct float64) error {
 	return nil
 }
 
-// SetPWMFreq sets the given pin to the given PWM frequency.
-func (pi *piPigpio) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	bcom, have := broadcomPinFromHardwareLabel(pin)
-	if !have {
-		return errors.Errorf("no hw pin for (%s)", pin)
-	}
-	return pi.SetPWMFreqBcom(int(bcom), freqHz)
+func (pi *piPigpio) pwmFreqBcom(bcom int) (uint, error) {
+	res := C.gpioGetPWMfrequency(C.uint(bcom))
+	return uint(res), nil
 }
 
 // SetPWMFreqBcom sets the given broadcom pin to the given PWM frequency.
@@ -363,7 +382,11 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 		// We're going to directly control chip select (not using CE0/CE1/CE2 from SPI controller.)
 		// This allows us to use a large number of chips on a single bus.
 		// Per "seen" checks above, cannot be mixed with the native CE0/CE1/CE2
-		err := s.bus.pi.SetGPIO(ctx, chipSelect, false)
+		chipPin, err := s.bus.pi.GPIOPinByName(chipSelect)
+		if err != nil {
+			return nil, err
+		}
+		err = chipPin.Set(ctx, false)
 		if err != nil {
 			return nil, err
 		}
@@ -372,7 +395,11 @@ func (s *piPigpioSPIHandle) Xfer(ctx context.Context, baud uint, chipSelect stri
 	ret := C.spiXfer((C.uint)(handle), (*C.char)(txPtr), (*C.char)(rxPtr), (C.uint)(count))
 
 	if gpioCS {
-		err := s.bus.pi.SetGPIO(ctx, chipSelect, true)
+		chipPin, err := s.bus.pi.GPIOPinByName(chipSelect)
+		if err != nil {
+			return nil, err
+		}
+		err = chipPin.Set(ctx, true)
 		if err != nil {
 			return nil, err
 		}

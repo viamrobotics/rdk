@@ -199,7 +199,7 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -222,7 +222,7 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/altitude"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -245,7 +245,7 @@ func RegisterGPSServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux,
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/speed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -307,7 +307,7 @@ func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/location"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadLocation", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/location"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -327,7 +327,7 @@ func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/altitude"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadAltitude", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/altitude"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -347,7 +347,7 @@ func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/api/v1/component/gps/{name}/speed"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gps.v1.GPSService/ReadSpeed", runtime.WithHTTPPathPattern("/viam/api/v1/component/gps/{name}/speed"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -367,11 +367,11 @@ func RegisterGPSServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux,
 }
 
 var (
-	pattern_GPSService_ReadLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "location"}, ""))
+	pattern_GPSService_ReadLocation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "gps", "name", "location"}, ""))
 
-	pattern_GPSService_ReadAltitude_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "altitude"}, ""))
+	pattern_GPSService_ReadAltitude_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "gps", "name", "altitude"}, ""))
 
-	pattern_GPSService_ReadSpeed_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gps", "name", "speed"}, ""))
+	pattern_GPSService_ReadSpeed_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "gps", "name", "speed"}, ""))
 )
 
 var (

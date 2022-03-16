@@ -8,6 +8,7 @@ import (
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 )
 
@@ -17,7 +18,7 @@ type Segmenter func(ctx context.Context, c camera.Camera, parameters config.Attr
 // A Registration stores both the Segmenter function and the form of the parameters it takes as an argument.
 type Registration struct {
 	Segmenter
-	Parameters []string
+	Parameters []utils.TypedName
 }
 
 // The segmenter registry.
@@ -51,4 +52,13 @@ func RegisteredSegmenters() map[string]Registration {
 		panic(err)
 	}
 	return copied.(map[string]Registration)
+}
+
+// SegmenterNames returns a slice of all the segmenter names in the registry.
+func SegmenterNames() []string {
+	names := make([]string, 0, len(segmenterRegistry))
+	for name := range segmenterRegistry {
+		names = append(names, name)
+	}
+	return names
 }

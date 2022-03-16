@@ -132,23 +132,29 @@ func TestServerSetGPIO(t *testing.T) {
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", High: true},
-			expCapArgs: []interface{}{ctx, "one", true},
+			expCapArgs: []interface{}{ctx, true},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", High: true},
-			expCapArgs: []interface{}{ctx, "one", true},
+			expCapArgs: []interface{}{ctx, true},
 			expRespErr: nil,
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 				return tc.injectErr
 			}
 
@@ -158,7 +164,7 @@ func TestServerSetGPIO(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.SetGPIOCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectGPIOPin.SetCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -196,7 +202,7 @@ func TestServerGetGPIO(t *testing.T) {
 			injectResult: false,
 			injectErr:    errFoo,
 			req:          &request{Name: testBoardName, Pin: "one"},
-			expCapArgs:   []interface{}{ctx, "one"},
+			expCapArgs:   []interface{}{ctx},
 			expResp:      nil,
 			expRespErr:   errFoo,
 		},
@@ -204,18 +210,24 @@ func TestServerGetGPIO(t *testing.T) {
 			injectResult: true,
 			injectErr:    nil,
 			req:          &request{Name: testBoardName, Pin: "one"},
-			expCapArgs:   []interface{}{ctx, "one"},
+			expCapArgs:   []interface{}{ctx},
 			expResp:      &response{High: true},
 			expRespErr:   nil,
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
 				return tc.injectResult, tc.injectErr
 			}
 
@@ -226,7 +238,81 @@ func TestServerGetGPIO(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.GetGPIOCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectGPIOPin.GetCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
+//nolint:dupl
+func TestServerPWM(t *testing.T) {
+	type request = pb.PWMRequest
+	type response = pb.PWMResponse
+	ctx := context.Background()
+
+	tests := []struct {
+		injectResult float64
+		injectErr    error
+		req          *request
+		expCapArgs   []interface{}
+		expResp      *response
+		expRespErr   error
+	}{
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: missingBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: fakeBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    errFoo,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      nil,
+			expRespErr:   errFoo,
+		},
+		{
+			injectResult: 0.1,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      &response{DutyCyclePct: 0.1},
+			expRespErr:   nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.PWMFunc = func(ctx context.Context) (float64, error) {
+				return tc.injectResult, tc.injectErr
+			}
+
+			resp, err := server.PWM(ctx, tc.req)
+			if tc.expRespErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp, test.ShouldResemble, tc.expResp)
+			} else {
+				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+			}
+			test.That(t, injectGPIOPin.PWMCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -256,23 +342,29 @@ func TestServerSetPWM(t *testing.T) {
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
-			expCapArgs: []interface{}{ctx, "one", 0.03},
+			expCapArgs: []interface{}{ctx, 0.03},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", DutyCyclePct: 0.03},
-			expCapArgs: []interface{}{ctx, "one", 0.03},
+			expCapArgs: []interface{}{ctx, 0.03},
 			expRespErr: nil,
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetPWMFunc = func(ctx context.Context, pin string, dutyCyclePct float64) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.SetPWMFunc = func(ctx context.Context, dutyCyclePct float64) error {
 				return tc.injectErr
 			}
 
@@ -282,7 +374,81 @@ func TestServerSetPWM(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.SetPWMCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectGPIOPin.SetPWMCap(), test.ShouldResemble, tc.expCapArgs)
+		})
+	}
+}
+
+//nolint:dupl
+func TestServerPWMFrequency(t *testing.T) {
+	type request = pb.PWMFrequencyRequest
+	type response = pb.PWMFrequencyResponse
+	ctx := context.Background()
+
+	tests := []struct {
+		injectResult uint
+		injectErr    error
+		req          *request
+		expCapArgs   []interface{}
+		expResp      *response
+		expRespErr   error
+	}{
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: missingBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("no board with name (%s)", missingBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    nil,
+			req:          &request{Name: fakeBoardName},
+			expCapArgs:   []interface{}(nil),
+			expResp:      nil,
+			expRespErr:   errors.Errorf("resource with name (%s) is not a board", fakeBoardName),
+		},
+		{
+			injectResult: 0,
+			injectErr:    errFoo,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      nil,
+			expRespErr:   errFoo,
+		},
+		{
+			injectResult: 1,
+			injectErr:    nil,
+			req:          &request{Name: testBoardName, Pin: "one"},
+			expCapArgs:   []interface{}{ctx},
+			expResp:      &response{FrequencyHz: 1},
+			expRespErr:   nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run("", func(t *testing.T) {
+			server, injectBoard, err := newServer()
+			test.That(t, err, test.ShouldBeNil)
+
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.PWMFreqFunc = func(ctx context.Context) (uint, error) {
+				return tc.injectResult, tc.injectErr
+			}
+
+			resp, err := server.PWMFrequency(ctx, tc.req)
+			if tc.expRespErr == nil {
+				test.That(t, err, test.ShouldBeNil)
+				test.That(t, resp, test.ShouldResemble, tc.expResp)
+			} else {
+				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
+			}
+			test.That(t, injectGPIOPin.PWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }
@@ -312,23 +478,29 @@ func TestServerSetPWMFrequency(t *testing.T) {
 		{
 			injectErr:  errFoo,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
-			expCapArgs: []interface{}{ctx, "one", uint(123123)},
+			expCapArgs: []interface{}{ctx, uint(123123)},
 			expRespErr: errFoo,
 		},
 		{
 			injectErr:  nil,
 			req:        &request{Name: testBoardName, Pin: "one", FrequencyHz: 123123},
-			expCapArgs: []interface{}{ctx, "one", uint(123123)},
+			expCapArgs: []interface{}{ctx, uint(123123)},
 			expRespErr: nil,
 		},
 	}
 
+	//nolint:dupl
 	for _, tc := range tests {
 		t.Run("", func(t *testing.T) {
 			server, injectBoard, err := newServer()
 			test.That(t, err, test.ShouldBeNil)
 
-			injectBoard.SetPWMFreqFunc = func(ctx context.Context, pin string, freqHz uint) error {
+			injectGPIOPin := &inject.GPIOPin{}
+			injectBoard.GPIOPinByNameFunc = func(name string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
+			}
+
+			injectGPIOPin.SetPWMFreqFunc = func(ctx context.Context, freqHz uint) error {
 				return tc.injectErr
 			}
 
@@ -338,7 +510,7 @@ func TestServerSetPWMFrequency(t *testing.T) {
 			} else {
 				test.That(t, err.Error(), test.ShouldEqual, tc.expRespErr.Error())
 			}
-			test.That(t, injectBoard.SetPWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
+			test.That(t, injectGPIOPin.SetPWMFreqCap(), test.ShouldResemble, tc.expCapArgs)
 		})
 	}
 }

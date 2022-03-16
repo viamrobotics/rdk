@@ -16,7 +16,7 @@ func Test1(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	logger := golog.NewTestLogger(t)
 
-	b := &fakeboard.Board{}
+	b := &fakeboard.Board{GPIOPins: make(map[string]*fakeboard.GPIOPin)}
 
 	mc := motor.Config{}
 
@@ -32,7 +32,7 @@ func Test1(t *testing.T) {
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
-	mc.Pins = motor.PinConfig{Dir: "b"}
+	mc.Pins = motor.PinConfig{Direction: "b"}
 
 	_, err := newGPIOStepper(ctx, b, mc, logger)
 	test.That(t, err, test.ShouldNotBeNil)

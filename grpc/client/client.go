@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/codes"
 	grpcstatus "google.golang.org/grpc/status"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
@@ -26,7 +25,6 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/framesystem"
-	"go.viam.com/rdk/spatialmath"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -42,16 +40,11 @@ type RobotClient struct {
 	metadataClient *metadataclient.MetadataServiceClient
 
 	namesMu       *sync.RWMutex
-	functionNames []string
 	resourceNames []resource.Name
 
 	activeBackgroundWorkers *sync.WaitGroup
 	cancelBackgroundWorkers func()
 	logger                  golog.Logger
-
-	cachingStatus  bool
-	cachedStatus   *pb.Status
-	cachedStatusMu *sync.Mutex
 
 	closeContext context.Context
 }
@@ -85,7 +78,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		namesMu:                 &sync.RWMutex{},
 		activeBackgroundWorkers: &sync.WaitGroup{},
 		logger:                  logger,
-		cachedStatusMu:          &sync.Mutex{},
 		closeContext:            closeCtx,
 	}
 	// refresh once to hydrate the robot.
@@ -93,7 +85,6 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
 	}
 	if rOpts.refreshEvery != 0 {
-		rc.cachingStatus = true
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
@@ -120,90 +111,12 @@ func (rc *RobotClient) RefreshEvery(ctx context.Context, every time.Duration) {
 		if !utils.SelectContextOrWaitChan(ctx, ticker.C) {
 			return
 		}
-
 		if err := rc.Refresh(ctx); err != nil {
 			// we want to keep refreshing and hopefully the ticker is not
 			// too fast so that we do not thrash.
 			rc.Logger().Errorw("failed to refresh status", "error", err)
 		}
 	}
-}
-
-// storeStatus atomically stores the status response from a robot server if and only
-// if we are automatically refreshing.
-func (rc *RobotClient) storeStatus(status *pb.Status) {
-	if !rc.cachingStatus {
-		return
-	}
-	rc.cachedStatusMu.Lock()
-	rc.cachedStatus = status
-	rc.cachedStatusMu.Unlock()
-}
-
-// storeStatus atomically gets the status response from a robot server if and only
-// if we are automatically refreshing.
-func (rc *RobotClient) getCachedStatus() *pb.Status {
-	if !rc.cachingStatus {
-		return nil
-	}
-	rc.cachedStatusMu.Lock()
-	defer rc.cachedStatusMu.Unlock()
-	return rc.cachedStatus
-}
-
-// status actually gets the latest status from the server.
-func (rc *RobotClient) status(ctx context.Context) (*pb.Status, error) {
-	resp, err := rc.client.Status(ctx, &pb.StatusRequest{})
-	if err != nil {
-		return nil, err
-	}
-	return resp.Status, nil
-}
-
-// Status either gets a cached or latest version of the status of the remote
-// robot.
-func (rc *RobotClient) Status(ctx context.Context) (*pb.Status, error) {
-	if status := rc.getCachedStatus(); status != nil {
-		return status, nil
-	}
-	return rc.status(ctx)
-}
-
-// Config gets the config from the remote robot
-// It is only partial a config, including the pieces relevant to remote robots,
-// And not the pieces relevant to local configuration (pins, security keys, etc...)
-func (rc *RobotClient) Config(ctx context.Context) (*config.Config, error) {
-	remoteConfig, err := rc.client.Config(ctx, &pb.ConfigRequest{})
-	if err != nil {
-		return nil, err
-	}
-
-	var cfg config.Config
-	for _, c := range remoteConfig.Components {
-		cc := config.Component{
-			Name: c.Name,
-			Type: config.ComponentType(c.Type),
-		}
-		// check if component has frame attribute, leave as nil if it doesn't
-		if c.Parent != "" {
-			cc.Frame = &config.Frame{Parent: c.Parent}
-		}
-		if cc.Frame != nil && c.Pose != nil {
-			cc.Frame.Translation = spatialmath.TranslationConfig{
-				X: c.Pose.X,
-				Y: c.Pose.Y,
-				Z: c.Pose.Z,
-			}
-			cc.Frame.Orientation = &spatialmath.OrientationVectorDegrees{
-				OX:    c.Pose.OX,
-				OY:    c.Pose.OY,
-				OZ:    c.Pose.OZ,
-				Theta: c.Pose.Theta,
-			}
-		}
-		cfg.Components = append(cfg.Components, cc)
-	}
-	return &cfg, nil
 }
 
 // RemoteByName returns a remote robot by name. It is assumed to exist on the
@@ -226,21 +139,11 @@ func (rc *RobotClient) ResourceByName(name resource.Name) (interface{}, error) {
 }
 
 // Refresh manually updates the underlying parts of the robot based
-// on a status retrieved from the server.
-// TODO(RDK-117) - do not use status
-// as we plan on making it a more expensive request with more details than
-// needed for the purposes of this method.
+// on its metadata response.
 func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
-	status, err := rc.status(ctx)
-	if err != nil {
-		return errors.Wrap(err, "status call failed")
-	}
-
-	rc.storeStatus(status)
 	rc.namesMu.Lock()
 	defer rc.namesMu.Unlock()
 
-	// TODO: placeholder implementation
 	// call metadata service.
 	names, err := rc.metadataClient.Resources(ctx)
 	// only return if it is not unimplemented - means a bigger error came up
@@ -254,23 +157,7 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 			rc.resourceNames = append(rc.resourceNames, newName)
 		}
 	}
-
-	rc.functionNames = nil
-	if len(status.Functions) != 0 {
-		rc.functionNames = make([]string, 0, len(status.Functions))
-		for name := range status.Functions {
-			rc.functionNames = append(rc.functionNames, name)
-		}
-	}
 	return nil
-}
-
-// copyStringSlice is a helper to simply copy a string slice
-// so that no one mutates it.
-func copyStringSlice(src []string) []string {
-	out := make([]string, len(src))
-	copy(out, src)
-	return out
 }
 
 // RemoteNames returns the names of all known remotes.
@@ -282,7 +169,14 @@ func (rc *RobotClient) RemoteNames() []string {
 func (rc *RobotClient) FunctionNames() []string {
 	rc.namesMu.RLock()
 	defer rc.namesMu.RUnlock()
-	return copyStringSlice(rc.functionNames)
+
+	names := []string{}
+	for _, v := range rc.resourceNames {
+		if v.ResourceType == resource.ResourceTypeFunction {
+			names = append(names, v.Name)
+		}
+	}
+	return names
 }
 
 // ProcessManager returns a useless process manager for the sake of
