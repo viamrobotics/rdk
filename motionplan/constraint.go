@@ -143,12 +143,12 @@ func NewCollisionConstraint(external map[string]spatial.Geometry, reference *Col
 	return f
 }
 
-// CollisionConstraintFromFrame takes a frame and external geometries and will construct a self-collision constraint from them
+// NewCollisionConstraintFromFrame takes a frame and external geometries and will construct a self-collision constraint from them.
 func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacles map[string]spatial.Geometry) Constraint {
 	// Add self-collision check if available
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	dof := len(frame.DoF())
-	zeroInput := make([]referenceframe.Input, 0, dof)
+	zeroInput := make([]referenceframe.Input, dof)
 	for i := 0; i < dof; i++ {
 		zeroInput = append(zeroInput, referenceframe.Input{0})
 	}
