@@ -55,11 +55,11 @@ func init() {
 }
 
 func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.Component, motorConfig *motor.Config) (motor.Motor, error) {
-	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Dir != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
+	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}
 
-	if motorConfig.Encoder == "" || motorConfig.EncoderB == "" {
+	if motorConfig.EncoderA == "" || motorConfig.EncoderB == "" {
 		return nil, errors.New("arduino needs a and b hall encoders")
 	}
 
@@ -76,21 +76,21 @@ func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.
 	if motorConfig.Pins.B == "" {
 		motorConfig.Pins.B = "-1"
 	}
-	if motorConfig.Pins.Dir == "" {
-		motorConfig.Pins.Dir = "-1"
+	if motorConfig.Pins.Direction == "" {
+		motorConfig.Pins.Direction = "-1"
 	}
-	if motorConfig.Pins.En == "" {
-		motorConfig.Pins.En = "-1"
+	if motorConfig.Pins.EnablePinLow == "" {
+		motorConfig.Pins.EnablePinLow = "-1"
 	}
 
 	cmd := fmt.Sprintf("config-motor-dc %s %s %s %s %s %s e %s %s",
 		config.Name,
-		motorConfig.Pins.PWM, // Optional if using A/B inputs (one of them will be PWMed if missing)
-		motorConfig.Pins.A,   // Use either A & B, or DIR inputs, never both
-		motorConfig.Pins.B,   // (A & B [& PWM] ) || (DIR & PWM)
-		motorConfig.Pins.Dir, // PWM is also required when using DIR
-		motorConfig.Pins.En,  // Always optional, inverting input (LOW = ENABLED)
-		motorConfig.Encoder,
+		motorConfig.Pins.PWM,          // Optional if using A/B inputs (one of them will be PWMed if missing)
+		motorConfig.Pins.A,            // Use either A & B, or DIR inputs, never both
+		motorConfig.Pins.B,            // (A & B [& PWM] ) || (DIR & PWM)
+		motorConfig.Pins.Direction,    // PWM is also required when using DIR
+		motorConfig.Pins.EnablePinLow, // Always optional, inverting input (LOW = ENABLED)
+		motorConfig.EncoderA,
 		motorConfig.EncoderB,
 	)
 
