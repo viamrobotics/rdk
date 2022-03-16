@@ -182,7 +182,6 @@
 	      segmenterNames: [],
 	      segmenterParameterNames: [],
 	      segmenterParameters: {},
-	      segmentCamera: "",
 	      segmentAlgo: "",
               fullcloud: null,
               objects: null,
@@ -725,13 +724,13 @@
                           return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
                       })
                   },
-                  findSegments : function(cameraName, segmenterName, segmenterParams){
+                  findSegments : function(segmenterName, segmenterParams){
 	                  console.log("parameters for segmenter below:")
 		              console.log(segmenterParams)
                       theData.pcdClick.calculatingSegments = true;
                       theData.pcdClick.foundSegments = false;
                       let req = new objectSegmentationApi.GetObjectPointCloudsRequest();
-                      req.setCameraName(cameraName);
+                      req.setCameraName(pcdGlobal.cameraName);
                       req.setSegmenterName(segmenterName);
                       req.setParameters(proto.google.protobuf.Struct.fromJavaScript(segmenterParams));
                       const mimeType = 'pointcloud/pcd';
@@ -1793,7 +1792,7 @@
         <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
           <td>${camera.name}</td>
           <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">GO</a></td>
-          <td><button v-on:click="renderPCD(camera.name)">GO</button></td>
+          <td><button v-on:click="renderPCD(camera.name); getSegmenterNames()">GO</button></td>
         </tr>
       </table>
 
@@ -1858,18 +1857,6 @@
         </tr>
         <tr>
                 <td>
-                        Select Camera
-                </td>
-                <td>
-			<select v-model="segmentCamera" @change="getSegmenterNames()">
-                        <option value="" selected disabled>Choose</option>
-                        <option v-for="camera in filterResources('rdk', 'component', 'camera')" :value="camera.name">${ camera.name }</option>
-                        </select>
-                </td>
-		<td> ${ segmentCamera } </td>
-        </tr>
-        <tr>
-                <td>
                         Select Segmenter
                 </td>
                 <td>
@@ -1886,7 +1873,7 @@
         </tr>
         <tr>
             <td v-if="!pcdClick.calculatingSegments">
-                <button v-on:click="findSegments(segmentCamera, segmentAlgo, segmenterParameters)">Find Segments</button>
+                <button v-on:click="findSegments(segmentAlgo, segmenterParameters)">Find Segments</button>
             </td>
             <td v-else>Finding Objects In Scene...</td>
         </tr>
