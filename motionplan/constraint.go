@@ -149,9 +149,6 @@ func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacl
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	dof := len(frame.DoF())
 	zeroInput := make([]referenceframe.Input, dof)
-	for i := 0; i < dof; i++ {
-		zeroInput = append(zeroInput, referenceframe.Input{0})
-	}
 	zeroVols, err := frame.Geometries(zeroInput)
 	if err != nil {
 		// No geometries defined for frame
