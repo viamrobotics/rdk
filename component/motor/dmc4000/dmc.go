@@ -274,7 +274,7 @@ func (m *Motor) configure(c *Config) error {
 
 		// Stepper type, with optional reversing
 		motorType := "2" // string because no trailing zeros
-		if c.DirFlip {
+		if c.DirectionFlip {
 			motorType = "2.5"
 		}
 
