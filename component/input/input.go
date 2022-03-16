@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/registry"
@@ -23,6 +24,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -169,6 +173,29 @@ func FromRobot(r robot.Robot, name string) (Controller, error) {
 // NamesFromRobot is a helper for getting all input controller names from the given Robot.
 func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
+}
+
+// CreateStatus creates a status from the input controller.
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
+	controller, ok := resource.(Controller)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("input.Controller", resource)
+	}
+	eventsIn, err := controller.GetEvents(ctx)
+	if err != nil {
+		return nil, err
+	}
+	events := make([]*pb.Event, 0, len(eventsIn))
+	for _, eventIn := range eventsIn {
+		events = append(events, &pb.Event{
+			Time:    timestamppb.New(eventIn.Time),
+			Event:   string(eventIn.Event),
+			Control: string(eventIn.Control),
+			Value:   eventIn.Value,
+		})
+	}
+
+	return &pb.Status{Events: events}, nil
 }
 
 type reconfigurableInputController struct {

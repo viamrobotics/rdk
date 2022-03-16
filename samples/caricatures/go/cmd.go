@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
@@ -50,7 +51,7 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 		if err != nil {
 			return err
 		}
-		a.MoveToPosition(ctx, pos)
+		a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	}
 	return nil
 }

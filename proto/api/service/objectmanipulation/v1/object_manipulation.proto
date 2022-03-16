@@ -11,16 +11,15 @@ import "proto/api/common/v1/common.proto";
 service ObjectManipulationService {
   rpc DoGrab(DoGrabRequest) returns (DoGrabResponse) {
     option (google.api.http) = {
-      post: "/api/v1/service/object_manipulation/do_grab"
+      post: "/viam/api/v1/service/object_manipulation/do_grab"
     };
   }
 }
 
 message DoGrabRequest {
-  string camera_name = 1;
-  common.v1.Vector3 camera_point = 2;
-  string gripper_name = 3;
-  string arm_name = 4;
+  common.v1.PoseInFrame target = 1;
+  string gripper_name = 2;
+  optional common.v1.WorldState world_state = 3;
 }
 
 message DoGrabResponse {

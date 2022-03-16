@@ -99,10 +99,10 @@ type eva struct {
 	frameJSON []byte
 }
 
-func (e *eva) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (e *eva) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	data, err := e.DataSnapshot(ctx)
 	if err != nil {
-		return &pb.ArmJointPositions{}, err
+		return &pb.JointPositions{}, err
 	}
 	return referenceframe.JointPositionsFromRadians(data.ServosPosition), nil
 }
@@ -117,7 +117,7 @@ func (e *eva) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := e.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -129,7 +129,7 @@ func (e *eva) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 	return arm.GoToWaypoints(ctx, e, solution)
 }
 
-func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.ArmJointPositions) error {
+func (e *eva) MoveToJointPositions(ctx context.Context, newPositions *pb.JointPositions) error {
 	radians := referenceframe.JointPositionsToRadians(newPositions)
 
 	err := e.doMoveJoints(ctx, radians)

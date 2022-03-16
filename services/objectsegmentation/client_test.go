@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
+	rdkutils "go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
 	"go.viam.com/rdk/vision/segmentation"
 )
@@ -66,20 +67,38 @@ func TestClient(t *testing.T) {
 			return pcA, nil
 		}
 
-		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, pmtrs *vision.Parameters3D) ([]*vision.Object, error) {
-			params := config.AttributeMap{
-				"min_points_in_plane":   pmtrs.MinPtsInPlane,
-				"min_points_in_segment": pmtrs.MinPtsInSegment,
-				"clustering_radius_mm":  pmtrs.ClusteringRadiusMm,
-			}
+		injectOSS.GetSegmenterParametersFunc = func(ctx context.Context, segmenterName string) ([]rdkutils.TypedName, error) {
+			return rdkutils.JSONTags(segmentation.RadiusClusteringConfig{}), nil
+		}
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+			cameraName string,
+			segmenterName string,
+			params config.AttributeMap) ([]*vision.Object, error) {
 			segments, err := segmentation.RadiusClustering(ctx, injCam, params)
 			if err != nil {
 				return nil, err
 			}
 			return segments, nil
 		}
+		injectOSS.GetSegmentersFunc = func(ctx context.Context) ([]string, error) {
+			return []string{segmentation.RadiusClusteringSegmenter}, nil
+		}
 
-		segs, err := client.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{100, 3, 5.})
+		segNames, err := client.GetSegmenters(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, segNames, test.ShouldHaveLength, 1)
+		test.That(t, segNames[0], test.ShouldEqual, segmentation.RadiusClusteringSegmenter)
+
+		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
+		test.That(t, err, test.ShouldBeNil)
+		expParams := []rdkutils.TypedName{{"min_points_in_plane", "int"}, {"min_points_in_segment", "int"}, {"clustering_radius_mm", "float64"}}
+		test.That(t, paramNames, test.ShouldResemble, expParams)
+		params := config.AttributeMap{
+			paramNames[0].Name: 100,
+			paramNames[1].Name: 3,
+			paramNames[2].Name: 5.0,
+		}
+		segs, err := client.GetObjectPointClouds(context.Background(), "", segNames[0], params)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(segs), test.ShouldEqual, 2)
 
@@ -102,11 +121,14 @@ func TestClient(t *testing.T) {
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake get objects error")
-		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+		injectOSS.GetObjectPointCloudsFunc = func(ctx context.Context,
+			cameraName string,
+			segmenterName string,
+			params config.AttributeMap) ([]*vision.Object, error) {
 			return nil, passedErr
 		}
 
-		resp, err := client2.GetObjectPointClouds(context.Background(), "", &vision.Parameters3D{})
+		resp, err := client2.GetObjectPointClouds(context.Background(), "", "", config.AttributeMap{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldBeNil)
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)

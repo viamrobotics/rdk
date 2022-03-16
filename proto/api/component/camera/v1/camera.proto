@@ -14,7 +14,7 @@ service CameraService {
   // can be requested but may not necessarily be the same one returned.
   rpc GetFrame(GetFrameRequest) returns (GetFrameResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/frame"
+      get: "/viam/api/v1/component/camera/{name}/frame"
     };
   }
 
@@ -22,7 +22,7 @@ service CameraService {
   // can be requested but may not necessarily be the same one returned.
   rpc RenderFrame(RenderFrameRequest) returns (google.api.HttpBody) {
     option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/render_frame"
+      get: "/viam/api/v1/component/camera/{name}/render_frame"
     };
   }
 
@@ -30,7 +30,7 @@ service CameraService {
   // can be requested but may not necessarily be the same one returned.
   rpc GetPointCloud(GetPointCloudRequest) returns (GetPointCloudResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/camera/{name}/point_cloud"
+      get: "/viam/api/v1/component/camera/{name}/point_cloud"
     };
   }
 

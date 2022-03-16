@@ -212,7 +212,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -234,7 +234,7 @@ func (ua *URArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
+func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	joints, err := ua.GetJointPositions(ctx)
 	if err != nil {
 		return err
@@ -253,7 +253,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose) error {
 }
 
 // MoveToJointPositions TODO.
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 

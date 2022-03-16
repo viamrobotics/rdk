@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/board"
 	fakeboard "go.viam.com/rdk/component/board/fake"
 	"go.viam.com/rdk/component/motor"
 )
@@ -18,23 +19,28 @@ const maxRPM = 100
 // Test the A/B/PWM style IO.
 func TestMotorABPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fakeboard.Board{}
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (A/B/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000}, logger)
+		m, err := NewMotor(b, motor.Config{
+			Pins: motor.PinConfig{A: "1", B: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000,
+		}, logger)
 		test.That(t, m, test.ShouldBeNil)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 
-	m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{A: "1", B: "2", PWM: "3"}, MaxRPM: maxRPM, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{
+		Pins:   motor.PinConfig{A: "1", B: "2", PWM: "3"},
+		MaxRPM: maxRPM, PWMFreq: 4000,
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B/PWM) Off testing", func(t *testing.T) {
 		test.That(t, m.Stop(ctx), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(0))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, byte(0))
 
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -51,27 +57,27 @@ func TestMotorABPWM(t *testing.T) {
 		test.That(t, on, test.ShouldBeTrue)
 
 		test.That(t, m.SetPower(ctx, 0.43), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(109))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .43)
 
 		on, err = m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
 		test.That(t, m.SetPower(ctx, -0.44), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(112))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .44)
 
 		on, err = m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, on, test.ShouldBeTrue)
 
 		test.That(t, m.SetPower(ctx, 0), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["3"], test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").Get(context.Background()), test.ShouldEqual, false)
 
 		on, err = m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -81,29 +87,29 @@ func TestMotorABPWM(t *testing.T) {
 	//nolint:dupl
 	t.Run("motor (A/B/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, 50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 	})
 
 	t.Run("motor (A/B/PWM) Power testing", func(t *testing.T) {
 		test.That(t, m.SetPower(ctx, 0.45), test.ShouldBeNil)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .45)
 	})
 
 	t.Run("motor (A/B/PWM) GetPosition testing", func(t *testing.T) {
@@ -117,41 +123,44 @@ func TestMotorABPWM(t *testing.T) {
 	})
 
 	t.Run("motor (A/B/PWM) Set PWM frequency testing", func(t *testing.T) {
-		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
-		test.That(t, b.SetPWMFreq(ctx, "3", 8000), test.ShouldBeNil)
-		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWMFreq(context.Background()), test.ShouldEqual, 4000)
+		mustGetGPIOPinByName(b, "3").SetPWMFreq(ctx, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWMFreq(context.Background()), test.ShouldEqual, 8000)
 	})
 }
 
 // Test the DIR/PWM style IO.
 func TestMotorDirPWM(t *testing.T) {
 	ctx := context.Background()
-	b := &fakeboard.Board{}
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
 	t.Run("motor (DIR/PWM) initialization errors", func(t *testing.T) {
-		m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{Dir: "1", En: "2", PWM: "3"}, PWMFreq: 4000}, logger)
+		m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, PWMFreq: 4000}, logger)
 
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeError, errors.New("not supported, define max_rpm attribute"))
 
 		_, err = NewMotor(
 			b,
-			motor.Config{Pins: motor.PinConfig{Dir: "1", En: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
+			motor.Config{Pins: motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"}, MaxPowerPct: 100, PWMFreq: 4000},
 			logger,
 		)
 		test.That(t, err, test.ShouldBeError, errors.New("max_power_pct must be between 0.06 and 1.0"))
 	})
 
-	m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{Dir: "1", En: "2", PWM: "3"}, MaxRPM: 100, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{
+		Pins:   motor.PinConfig{Direction: "1", EnablePinLow: "2", PWM: "3"},
+		MaxRPM: 100, PWMFreq: 4000,
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (DIR/PWM) Off testing", func(t *testing.T) {
 		test.That(t, m.Stop(ctx), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["1"], test.ShouldEqual, 0)
-		test.That(t, b.PWM["2"], test.ShouldEqual, 255)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, 0)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, 0)
 
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -160,29 +169,29 @@ func TestMotorDirPWM(t *testing.T) {
 	//nolint:dupl
 	t.Run("motor (DIR/PWM) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, 50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .5)
 	})
 
 	t.Run("motor (DIR/PWM) Power testing", func(t *testing.T) {
 		test.That(t, m.SetPower(ctx, 0.45), test.ShouldBeNil)
-		test.That(t, b.PWM["3"], test.ShouldEqual, byte(114))
+		test.That(t, mustGetGPIOPinByName(b, "3").PWM(context.Background()), test.ShouldEqual, .45)
 
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -200,19 +209,22 @@ func TestMotorDirPWM(t *testing.T) {
 	})
 
 	t.Run("motor (DIR/PWM) Set PWM frequency testing", func(t *testing.T) {
-		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 4000)
-		test.That(t, b.SetPWMFreq(ctx, "3", 8000), test.ShouldBeNil)
-		test.That(t, b.PWMFreq["3"], test.ShouldEqual, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWMFreq(context.Background()), test.ShouldEqual, 4000)
+		mustGetGPIOPinByName(b, "3").SetPWMFreq(ctx, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "3").PWMFreq(context.Background()), test.ShouldEqual, 8000)
 	})
 }
 
 // Test the A/B only style IO.
 func TestMotorAB(t *testing.T) {
 	ctx := context.Background()
-	b := &fakeboard.Board{}
+	b := &fakeboard.Board{GPIOPins: map[string]*fakeboard.GPIOPin{}}
 	logger := golog.NewTestLogger(t)
 
-	m, err := NewMotor(b, motor.Config{Pins: motor.PinConfig{A: "1", B: "2", En: "3"}, MaxRPM: maxRPM, PWMFreq: 4000}, logger)
+	m, err := NewMotor(b, motor.Config{
+		Pins:   motor.PinConfig{A: "1", B: "2", EnablePinLow: "3"},
+		MaxRPM: maxRPM, PWMFreq: 4000,
+	}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("motor (A/B) On testing", func(t *testing.T) {
@@ -223,11 +235,11 @@ func TestMotorAB(t *testing.T) {
 
 	t.Run("motor (A/B) Off testing", func(t *testing.T) {
 		test.That(t, m.Stop(ctx), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["3"], test.ShouldEqual, true)
-		test.That(t, b.PWM["1"], test.ShouldEqual, 0)
-		test.That(t, b.PWM["2"], test.ShouldEqual, 0)
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "3").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, 0)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, 0)
 
 		on, err := m.IsPowered(ctx)
 		test.That(t, err, test.ShouldBeNil)
@@ -236,33 +248,33 @@ func TestMotorAB(t *testing.T) {
 
 	t.Run("motor (A/B) GoFor testing", func(t *testing.T) {
 		test.That(t, m.GoFor(ctx, 50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["1"], test.ShouldEqual, byte(255))
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, 0)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, 10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["1"], test.ShouldEqual, byte(127))
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(255))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, 50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, false)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, true)
-		test.That(t, b.PWM["1"], test.ShouldEqual, byte(127))
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(255))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .5)
 
 		test.That(t, m.GoFor(ctx, -50, -10), test.ShouldBeNil)
-		test.That(t, b.GPIO["1"], test.ShouldEqual, true)
-		test.That(t, b.GPIO["2"], test.ShouldEqual, false)
-		test.That(t, b.PWM["1"], test.ShouldEqual, byte(255))
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(127))
+		test.That(t, mustGetGPIOPinByName(b, "1").Get(context.Background()), test.ShouldEqual, true)
+		test.That(t, mustGetGPIOPinByName(b, "2").Get(context.Background()), test.ShouldEqual, false)
+		test.That(t, mustGetGPIOPinByName(b, "1").PWM(context.Background()), test.ShouldEqual, .5)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .5)
 	})
 
 	t.Run("motor (A/B) Power testing", func(t *testing.T) {
 		test.That(t, m.SetPower(ctx, .45), test.ShouldBeNil)
-		test.That(t, b.PWM["2"], test.ShouldEqual, byte(140))
+		test.That(t, mustGetGPIOPinByName(b, "2").PWM(context.Background()), test.ShouldEqual, .55)
 	})
 
 	t.Run("motor (A/B) GetPosition testing", func(t *testing.T) {
@@ -276,9 +288,9 @@ func TestMotorAB(t *testing.T) {
 	})
 
 	t.Run("motor (A/B) Set PWM frequency testing", func(t *testing.T) {
-		test.That(t, b.PWMFreq["2"], test.ShouldEqual, 4000)
-		test.That(t, b.SetPWMFreq(ctx, "2", 8000), test.ShouldBeNil)
-		test.That(t, b.PWMFreq["2"], test.ShouldEqual, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWMFreq(context.Background()), test.ShouldEqual, 4000)
+		mustGetGPIOPinByName(b, "2").SetPWMFreq(ctx, 8000)
+		test.That(t, mustGetGPIOPinByName(b, "2").PWMFreq(context.Background()), test.ShouldEqual, 8000)
 	})
 }
 
@@ -302,4 +314,59 @@ func TestGoForMath(t *testing.T) {
 	powerPct, waitDur = goForMath(100, 1000, 50)
 	test.That(t, powerPct, test.ShouldEqual, 1)
 	test.That(t, waitDur, test.ShouldEqual, 30*time.Second)
+}
+
+func mustGetGPIOPinByName(b board.Board, name string) mustGPIOPin {
+	pin, err := b.GPIOPinByName(name)
+	if err != nil {
+		panic(err)
+	}
+	return mustGPIOPin{pin}
+}
+
+type mustGPIOPin struct {
+	pin board.GPIOPin
+}
+
+func (m mustGPIOPin) Set(ctx context.Context, high bool) {
+	if err := m.pin.Set(ctx, high); err != nil {
+		panic(err)
+	}
+}
+
+func (m mustGPIOPin) Get(ctx context.Context) bool {
+	ret, err := m.pin.Get(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+func (m mustGPIOPin) PWM(ctx context.Context) float64 {
+	ret, err := m.pin.PWM(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+func (m mustGPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) {
+	if err := m.pin.SetPWM(ctx, dutyCyclePct); err != nil {
+		panic(err)
+	}
+}
+
+func (m mustGPIOPin) PWMFreq(ctx context.Context) uint {
+	ret, err := m.pin.PWMFreq(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return ret
+}
+
+func (m mustGPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) {
+	err := m.pin.SetPWMFreq(ctx, freqHz)
+	if err != nil {
+		panic(err)
+	}
 }

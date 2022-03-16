@@ -37,6 +37,9 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	rf := func(r interface{}) (resource.Reconfigurable, error) {
 		return nil, nil
 	}
+	statf := func(context.Context, interface{}) (interface{}, error) {
+		return map[string]interface{}{}, nil
+	}
 	sf := func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 		return nil
 	}
@@ -45,10 +48,11 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	}
 	test.That(t, func() { RegisterResourceSubtype(acme.Subtype, ResourceSubtype{}) }, test.ShouldPanic)
 
-	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{Reconfigurable: rf, RegisterRPCService: sf})
+	RegisterResourceSubtype(acme.Subtype, ResourceSubtype{Reconfigurable: rf, Status: statf, RegisterRPCService: sf})
 	creator := ResourceSubtypeLookup(acme.Subtype)
 	test.That(t, creator, test.ShouldNotBeNil)
 	test.That(t, creator.Reconfigurable, test.ShouldEqual, rf)
+	test.That(t, creator.Status, test.ShouldEqual, statf)
 	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
 	test.That(t, creator.RPCClient, test.ShouldBeNil)
 
@@ -58,6 +62,7 @@ func TestResourceSubtypeRegistry(t *testing.T) {
 	RegisterResourceSubtype(subtype2, ResourceSubtype{RegisterRPCService: sf, RPCClient: rcf})
 	creator = ResourceSubtypeLookup(subtype2)
 	test.That(t, creator, test.ShouldNotBeNil)
+	test.That(t, creator.Status, test.ShouldBeNil)
 	test.That(t, creator.RegisterRPCService, test.ShouldEqual, sf)
 	test.That(t, creator.RPCClient, test.ShouldEqual, rcf)
 
