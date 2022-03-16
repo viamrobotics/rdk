@@ -125,7 +125,14 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			return
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), obstacles, opt)
+		if len(obstacles) == 0 {
+			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		} else {
+			collisionConst := NewCollisionConstraintFromFrame(mp.Frame(), obstacles)
+			if collisionConst != nil {
+				opt.AddConstraint("self-collision", collisionConst)
+			}
+		}
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)

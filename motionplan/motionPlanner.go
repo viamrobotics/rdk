@@ -73,7 +73,6 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 func DefaultConstraint(
 	from, to spatial.Pose,
 	f frame.Frame,
-	external map[string]spatial.Geometry,
 	opt *PlannerOptions,
 ) *PlannerOptions {
 	pathDist := newDefaultMetric(from, to)
@@ -93,7 +92,7 @@ func DefaultConstraint(
 	opt.AddConstraint(defaultMotionConstraint, validFunc)
 
 	// Add self-collision check if available
-	collisionConst := NewCollisionConstraintFromFrame(f, external)
+	collisionConst := NewCollisionConstraintFromFrame(f, map[string]spatial.Geometry{})
 	if collisionConst != nil {
 		opt.AddConstraint("self-collision", collisionConst)
 	}
