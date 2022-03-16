@@ -14,7 +14,7 @@ import (
 func TestCheckCollisions(t *testing.T) {
 	// case 1: small collection of custom geometries, expecting:
 	//      - a collision between two internal geometries
-	//      - a collision betwen an internal and external geometry
+	//      - a collision between an internal and external geometry
 	//      - no collision between two external geometries
 	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)

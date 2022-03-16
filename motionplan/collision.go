@@ -35,7 +35,10 @@ type geometryNode struct {
 }
 
 // newCollisionGraph is a helper function to instantiate a new CollisionGraph.  Note that since it does not set the
-// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing.
+// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing
+// internal geometires represent geometries that are part of the robot and need to be checked against all geometries
+// external geometries represent obstacles and other objects that are not a part of the robot. Collisions between 2 external
+// geometries are not important and therefore not checked.
 func newCollisionGraph(internal, external map[string]spatial.Geometry) (*CollisionGraph, error) {
 	cg := &CollisionGraph{
 		indices:     make(map[string]int, len(internal)+len(external)),
@@ -48,7 +51,7 @@ func newCollisionGraph(internal, external map[string]spatial.Geometry) (*Collisi
 	addGeometryMap := func(geometries map[string]spatial.Geometry) error {
 		for name, geometry := range geometries {
 			if _, ok := cg.indices[name]; ok {
-				return fmt.Errorf("Error calculating collisions, found geometry with duplicate name: %s", name)
+				return fmt.Errorf("error calculating collisions, found geometry with duplicate name: %s", name)
 			}
 			cg.indices[name] = size
 			cg.nodes[size] = &geometryNode{name, geometry}
