@@ -87,7 +87,7 @@ func draw(ctx context.Context, r robot.Robot, points []spatial.Pose, moveFrameNa
 	done := make(chan struct{})
 	waypoints := make(chan map[string][]referenceframe.Input, 9999)
 
-	validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
+	// validOV := &spatial.OrientationVector{OX: 0, OY: -1, OZ: 0}
 
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
 		curPos, err = fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
