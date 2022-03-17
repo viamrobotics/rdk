@@ -49,7 +49,7 @@ type readAccelerationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// Capture returns an *any.Any containing the response of a single readAngularVelocity call on the backing client.
+// Capture returns an *any.Any containing the response of a single ReadAngularVelocity call on the backing client.
 func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
@@ -63,7 +63,7 @@ func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 	return data.WrapInAll(c.client.ReadAngularVelocity(context.TODO(), &req))
 }
 
-// Capture returns an *any.Any containing the response of a single readOrientation call on the backing client.
+// Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
 func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
@@ -75,7 +75,7 @@ func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 	return data.WrapInAll(c.client.ReadOrientation(context.TODO(), &req))
 }
 
-// Capture returns an *any.Any containing the response of a single readAcceleration call on the backing client.
+// Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
 func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
