@@ -9,7 +9,7 @@ import (
 	"go.viam.com/utils"
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	"go.viam.com/rdk/referenceframe"
+	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 	vutil "go.viam.com/rdk/utils"
 )
@@ -29,14 +29,14 @@ const (
 type MotionPlanner interface {
 	// Plan will take a context, a goal position, and an input start state and return a series of state waypoints which
 	// should be visited in order to arrive at the goal while satisfying all constraints
-	Plan(context.Context, *commonpb.Pose, []referenceframe.Input, *PlannerOptions) ([][]referenceframe.Input, error)
-	Resolution() float64         // Resolution specifies how narrowly to check for constraints
-	Frame() referenceframe.Frame // Frame will return the frame used for planning
+	Plan(context.Context, *commonpb.Pose, []frame.Input, *PlannerOptions) ([][]frame.Input, error)
+	Resolution() float64 // Resolution specifies how narrowly to check for constraints
+	Frame() frame.Frame  // Frame will return the frame used for planning
 }
 
 // needed to wrap slices so we can use them as map keys.
 type configuration struct {
-	inputs []referenceframe.Input
+	inputs []frame.Input
 }
 
 type planReturn struct {
@@ -70,7 +70,11 @@ func NewDefaultPlannerOptions() *PlannerOptions {
 // the start and goal poses.
 // For example- if a user requests a translation, orientation will not change during the movement. If there is an obstacle, deflection
 // from the ideal path is allowed as a function of the length of the ideal path.
-func DefaultConstraint(from, to spatial.Pose, f referenceframe.Frame, opt *PlannerOptions) *PlannerOptions {
+func DefaultConstraint(
+	from, to spatial.Pose,
+	f frame.Frame,
+	opt *PlannerOptions,
+) *PlannerOptions {
 	pathDist := newDefaultMetric(from, to)
 
 	validFunc := func(cInput *ConstraintInput) (bool, float64) {
@@ -88,7 +92,7 @@ func DefaultConstraint(from, to spatial.Pose, f referenceframe.Frame, opt *Plann
 	opt.AddConstraint(defaultMotionConstraint, validFunc)
 
 	// Add self-collision check if available
-	collisionConst := CollisionConstraintFromFrame(f)
+	collisionConst := NewCollisionConstraintFromFrame(f, map[string]spatial.Geometry{})
 	if collisionConst != nil {
 		opt.AddConstraint("self-collision", collisionConst)
 	}
@@ -193,16 +197,16 @@ func getSolutions(ctx context.Context,
 	opt *PlannerOptions,
 	solver InverseKinematics,
 	goal *commonpb.Pose,
-	seed []referenceframe.Input,
-	f referenceframe.Frame,
-) (map[float64][]referenceframe.Input, error) {
+	seed []frame.Input,
+	f frame.Frame,
+) (map[float64][]frame.Input, error) {
 	seedPos, err := f.Transform(seed)
 	if err != nil {
 		return nil, err
 	}
 	goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
 
-	solutionGen := make(chan []referenceframe.Input)
+	solutionGen := make(chan []frame.Input)
 	ikErr := make(chan error, 1)
 	defer func() { <-ikErr }()
 
@@ -215,7 +219,7 @@ func getSolutions(ctx context.Context,
 		ikErr <- solver.Solve(ctxWithCancel, solutionGen, goalPos, seed, opt.metric)
 	})
 
-	solutions := map[float64][]referenceframe.Input{}
+	solutions := map[float64][]frame.Input{}
 
 	// Solve the IK solver. Loop labels are required because `break` etc in a `select` will break only the `select`.
 IK:
@@ -245,7 +249,7 @@ IK:
 
 			if cPass && endPass {
 				if cScore < opt.minScore && opt.minScore > 0 {
-					solutions = map[float64][]referenceframe.Input{}
+					solutions = map[float64][]frame.Input{}
 					solutions[cScore] = step
 					// good solution, stopping early
 					break IK
@@ -277,7 +281,7 @@ IK:
 	return solutions, nil
 }
 
-func inputDist(from, to []referenceframe.Input) float64 {
+func inputDist(from, to []frame.Input) float64 {
 	dist := 0.
 	for i, f := range from {
 		dist += math.Pow(to[i].Value-f.Value, 2)
