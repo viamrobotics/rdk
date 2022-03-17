@@ -2,6 +2,7 @@ package motionplan
 
 import (
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -123,6 +124,8 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 func NewCollisionConstraint(external map[string]spatial.Geometry, reference *CollisionGraph) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
 		internal, err := cInput.Frame.Geometries(cInput.StartInput)
+		box := internal["rover:base"].Pose().Point()
+		fmt.Printf("%f\t%f\t%f\n", box.X, box.Y, box.Z)
 		if err != nil && internal == nil {
 			return false, 0
 		}
@@ -150,7 +153,7 @@ func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacl
 	dof := len(frame.DoF())
 	zeroInput := make([]referenceframe.Input, dof)
 	zeroVols, err := frame.Geometries(zeroInput)
-	if err != nil {
+	if zeroVols == nil && err == nil {
 		// No geometries defined for frame
 		return nil
 	}

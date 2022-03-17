@@ -158,6 +158,9 @@ func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if tf, ok := frame.(*staticFrame); ok {
 		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
+	if tf, ok := frame.(*mobileFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
+	}
 	return &staticFrame{frame.Name(), pose, nil}, nil
 }
 
@@ -360,7 +363,7 @@ type mobileFrame struct {
 
 func NewMobileFrame(name string, limit []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if len(limit) != 2 {
-		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently")
+		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limit))
 	}
 	return &mobileFrame{name: name, limit: limit, geometryCreator: geometryCreator}, nil
 }
@@ -376,7 +379,7 @@ func (mf *mobileFrame) Transform(input []Input) (spatial.Pose, error) {
 	}
 	// We allow out-of-bounds calculations, but will return a non-nil error
 	for i, lim := range mf.limit {
-		if input[i].Value < lim.Min || input[0].Value > lim.Max {
+		if input[i].Value < lim.Min || input[i].Value > lim.Max {
 			multierr.AppendInto(&errAll, fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[i].Value, lim))
 		}
 	}

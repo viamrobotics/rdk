@@ -70,7 +70,7 @@ func (m *SimpleModel) ChangeName(name string) {
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	frames, err := m.jointRadToQuats(inputs, false)
+	frames, err := m.inputsToFrames(inputs, false)
 	if err != nil && frames == nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
-	frames, err := m.jointRadToQuats(inputs, true)
+	frames, err := m.inputsToFrames(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 			return pose, nil
 		}
 	}
-	poses, err := m.jointRadToQuats(inputs, false)
+	poses, err := m.inputsToFrames(inputs, false)
 	if err != nil && poses == nil {
 		return nil, err
 	}
@@ -185,10 +185,11 @@ func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
 	return true
 }
 
-// jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// TODO(rb) better comment
+// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of each of the links up to and including the end effector. This is useful for when conversions
 // between quaternions and OV are not needed.
-func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame, error) {
+func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
 	var err error
 	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
 	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
@@ -208,13 +209,14 @@ func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*stati
 		multierr.AppendInto(&err, errNew)
 		if collectAll {
 			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
-			if pose == nil {
+			if err != nil {
 				return nil, err
 			}
 			poses = append(poses, tf.(*staticFrame))
 		}
 		composedTransformation = spatialmath.Compose(composedTransformation, pose)
 	}
+	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
 	poses = append(poses, &staticFrame{"", composedTransformation, nil})
 	return poses, err
 }
