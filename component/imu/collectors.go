@@ -14,24 +14,24 @@ import (
 )
 
 const (
-	NAME = "name"
+	paramName = "paramName"
 )
 
-type Method int64
+type method int64
 
 const (
-	ReadAngularVelocity Method = iota
-	ReadOrientation
-	ReadAcceleration
+	readAngularVelocity method = iota
+	readOrientation
+	readAcceleration
 )
 
-func (m Method) String() string {
+func (m method) String() string {
 	switch m {
-	case ReadAngularVelocity:
+	case readAngularVelocity:
 		return "ReadAngularVelocity"
-	case ReadOrientation:
+	case readOrientation:
 		return "ReadOrientation"
-	case ReadAcceleration:
+	case readAcceleration:
 		return "ReadAcceleration"
 	}
 	return "Unknown"
@@ -49,11 +49,11 @@ type readAccelerationCapturer struct {
 	client pb.IMUServiceClient
 }
 
-// Capture returns an *any.Any containing the response of a single ReadAngularVelocity call on the backing client.
+// Capture returns an *any.Any containing the response of a single readAngularVelocity call on the backing client.
 func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params[NAME]
+	name, ok := params[paramName]
 	if !ok {
-		return nil, data.MissingParameterErr(NAME, ReadAngularVelocity.String())
+		return nil, data.MissingParameterErr(paramName, readAngularVelocity.String())
 	}
 
 	req := pb.ReadAngularVelocityRequest{
@@ -63,11 +63,11 @@ func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 	return data.WrapInAll(c.client.ReadAngularVelocity(context.TODO(), &req))
 }
 
-// Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
+// Capture returns an *any.Any containing the response of a single readOrientation call on the backing client.
 func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params[NAME]
+	name, ok := params[paramName]
 	if !ok {
-		return nil, data.MissingParameterErr(NAME, ReadOrientation.String())
+		return nil, data.MissingParameterErr(paramName, readOrientation.String())
 	}
 
 	req := pb.ReadOrientationRequest{Name: name}
@@ -75,11 +75,11 @@ func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 	return data.WrapInAll(c.client.ReadOrientation(context.TODO(), &req))
 }
 
-// Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
+// Capture returns an *any.Any containing the response of a single readAcceleration call on the backing client.
 func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params[NAME]
+	name, ok := params[paramName]
 	if !ok {
-		return nil, data.MissingParameterErr(NAME, ReadAcceleration.String())
+		return nil, data.MissingParameterErr(paramName, readAcceleration.String())
 	}
 
 	req := pb.ReadAccelerationRequest{Name: name}
