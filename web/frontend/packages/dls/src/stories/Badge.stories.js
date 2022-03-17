@@ -1,10 +1,9 @@
 import { storiesOf } from "@storybook/vue";
-import { withDesign } from 'storybook-addon-designs'
 
 storiesOf("ViamBadge", module).add("Default ViamBadge", () => ({
   data() {
     return {
-      streamNames: ["test1", "test2"]
+      streamNames: ["test1", "test2"],
     };
   },
   template:
