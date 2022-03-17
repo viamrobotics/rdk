@@ -3,7 +3,7 @@ import Vue from "vue";
 import "./index.css";
 
 import InputController from '../src/components/InputController';
-
+import ViamInput from '../src/components/ViamInput';
 import { library } from '@fortawesome/fontawesome-svg-core';
 import { faCheckSquare } from '@fortawesome/free-regular-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome';
@@ -12,6 +12,7 @@ library.add(faCheckSquare)
 
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
+Vue.component('ViamInput', ViamInput);
 
 const req = require.context('../src/stories', true, /.stories.js$/);
 function loadStories() {
