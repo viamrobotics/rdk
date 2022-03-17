@@ -22,8 +22,12 @@ type BoardServiceClient interface {
 	SetGPIO(ctx context.Context, in *SetGPIORequest, opts ...grpc.CallOption) (*SetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(ctx context.Context, in *GetGPIORequest, opts ...grpc.CallOption) (*GetGPIOResponse, error)
+	// PWM gets the duty cycle of the given pin of a board of the underlying robot.
+	PWM(ctx context.Context, in *PWMRequest, opts ...grpc.CallOption) (*PWMResponse, error)
 	// SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
 	SetPWM(ctx context.Context, in *SetPWMRequest, opts ...grpc.CallOption) (*SetPWMResponse, error)
+	// PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
+	PWMFrequency(ctx context.Context, in *PWMFrequencyRequest, opts ...grpc.CallOption) (*PWMFrequencyResponse, error)
 	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
 	SetPWMFrequency(ctx context.Context, in *SetPWMFrequencyRequest, opts ...grpc.CallOption) (*SetPWMFrequencyResponse, error)
 	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
@@ -67,9 +71,27 @@ func (c *boardServiceClient) GetGPIO(ctx context.Context, in *GetGPIORequest, op
 	return out, nil
 }
 
+func (c *boardServiceClient) PWM(ctx context.Context, in *PWMRequest, opts ...grpc.CallOption) (*PWMResponse, error) {
+	out := new(PWMResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.board.v1.BoardService/PWM", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *boardServiceClient) SetPWM(ctx context.Context, in *SetPWMRequest, opts ...grpc.CallOption) (*SetPWMResponse, error) {
 	out := new(SetPWMResponse)
 	err := c.cc.Invoke(ctx, "/proto.api.component.board.v1.BoardService/SetPWM", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *boardServiceClient) PWMFrequency(ctx context.Context, in *PWMFrequencyRequest, opts ...grpc.CallOption) (*PWMFrequencyResponse, error) {
+	out := new(PWMFrequencyResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.board.v1.BoardService/PWMFrequency", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -111,8 +133,12 @@ type BoardServiceServer interface {
 	SetGPIO(context.Context, *SetGPIORequest) (*SetGPIOResponse, error)
 	// GetGPIO gets the high/low state of the given pin of a board of the underlying robot.
 	GetGPIO(context.Context, *GetGPIORequest) (*GetGPIOResponse, error)
+	// PWM gets the duty cycle of the given pin of a board of the underlying robot.
+	PWM(context.Context, *PWMRequest) (*PWMResponse, error)
 	// SetPWM sets the given pin of a board of the underlying robot to the given duty cycle.
 	SetPWM(context.Context, *SetPWMRequest) (*SetPWMResponse, error)
+	// PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
+	PWMFrequency(context.Context, *PWMFrequencyRequest) (*PWMFrequencyResponse, error)
 	// SetPWMFrequency sets the given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM frequency.
 	SetPWMFrequency(context.Context, *SetPWMFrequencyRequest) (*SetPWMFrequencyResponse, error)
 	// ReadAnalogReader reads off the current value of an analog reader of a board of the underlying robot.
@@ -135,8 +161,14 @@ func (UnimplementedBoardServiceServer) SetGPIO(context.Context, *SetGPIORequest)
 func (UnimplementedBoardServiceServer) GetGPIO(context.Context, *GetGPIORequest) (*GetGPIOResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGPIO not implemented")
 }
+func (UnimplementedBoardServiceServer) PWM(context.Context, *PWMRequest) (*PWMResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PWM not implemented")
+}
 func (UnimplementedBoardServiceServer) SetPWM(context.Context, *SetPWMRequest) (*SetPWMResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPWM not implemented")
+}
+func (UnimplementedBoardServiceServer) PWMFrequency(context.Context, *PWMFrequencyRequest) (*PWMFrequencyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PWMFrequency not implemented")
 }
 func (UnimplementedBoardServiceServer) SetPWMFrequency(context.Context, *SetPWMFrequencyRequest) (*SetPWMFrequencyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetPWMFrequency not implemented")
@@ -214,6 +246,24 @@ func _BoardService_GetGPIO_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BoardService_PWM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PWMRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BoardServiceServer).PWM(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.board.v1.BoardService/PWM",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BoardServiceServer).PWM(ctx, req.(*PWMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BoardService_SetPWM_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(SetPWMRequest)
 	if err := dec(in); err != nil {
@@ -228,6 +278,24 @@ func _BoardService_SetPWM_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(BoardServiceServer).SetPWM(ctx, req.(*SetPWMRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BoardService_PWMFrequency_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PWMFrequencyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BoardServiceServer).PWMFrequency(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.board.v1.BoardService/PWMFrequency",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BoardServiceServer).PWMFrequency(ctx, req.(*PWMFrequencyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -306,8 +374,16 @@ var BoardService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _BoardService_GetGPIO_Handler,
 		},
 		{
+			MethodName: "PWM",
+			Handler:    _BoardService_PWM_Handler,
+		},
+		{
 			MethodName: "SetPWM",
 			Handler:    _BoardService_SetPWM_Handler,
+		},
+		{
+			MethodName: "PWMFrequency",
+			Handler:    _BoardService_PWMFrequency_Handler,
 		},
 		{
 			MethodName: "SetPWMFrequency",

@@ -11,7 +11,7 @@ import "proto/api/common/v1/common.proto";
 service ObjectManipulationService {
   rpc DoGrab(DoGrabRequest) returns (DoGrabResponse) {
     option (google.api.http) = {
-      post: "/api/v1/service/object_manipulation/do_grab"
+      post: "/viam/api/v1/service/object_manipulation/do_grab"
     };
   }
 }

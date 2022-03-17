@@ -12,37 +12,30 @@ service ArmService {
   // GetEndPosition gets the current position the end of the robot's arm expressed as X,Y,Z,ox,oy,oz,theta
   rpc GetEndPosition(GetEndPositionRequest) returns (GetEndPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/arm/{name}/current_position"
+      get: "/viam/api/v1/component/arm/{name}/position"
     };  
   }
 
   // MoveToPosition moves the mount point of the robot's end effector to the requested position.
   rpc MoveToPosition(MoveToPositionRequest) returns (MoveToPositionResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/arm/{name}/move_to_position"
+      put: "/viam/api/v1/component/arm/{name}/position"
     };  
   }
 
   // GetJointPositions lists the joint positions (in degrees) of every joint on a robot
   rpc GetJointPositions(GetJointPositionsRequest) returns (GetJointPositionsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/arm/{name}/current_joint_positions"
+      get: "/viam/api/v1/component/arm/{name}/joint_positions"
     };  
   }
 
   // MoveToJointPositions moves every joint on a robot's arm to specified angles which are expressed in degrees
   rpc MoveToJointPositions(MoveToJointPositionsRequest) returns (MoveToJointPositionsResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/arm/{name}/move_to_joint_positions"
+      put: "/viam/api/v1/component/arm/{name}/joint_positions"
     };  
   }
-}
-
-message ArmJointPositions {
-  // A list of joint positions represented in degrees
-  // The numbers are ordered spatially from the base toward the end effector
-  // This is used in GetJointPositionsResponse and MoveToJointPositionsRequest
-  repeated double degrees = 1;
 }
 
 message GetEndPositionRequest {
@@ -56,14 +49,21 @@ message GetEndPositionResponse {
   common.v1.Pose pose = 1;
 }
 
+message JointPositions {
+  // A list of joint positions represented in degrees
+  // The numbers are ordered spatially from the base toward the end effector
+  // This is used in GetJointPositionsResponse and MoveToJointPositionsRequest
+  repeated double degrees = 1;
+}
+
 message GetJointPositionsRequest {
   // Name of an arm
   string name = 1;
 }
 
 message GetJointPositionsResponse {
-  //a list ArmJointPositions
-  ArmJointPositions position_degs = 1;
+  //a list JointPositions
+  JointPositions position_degs = 1;
 }
 
 message MoveToPositionRequest {
@@ -80,7 +80,12 @@ message MoveToJointPositionsRequest {
   string name = 1;
   // A list of joint positions represented in degrees
   // There should be 1 entry in the list per joint, ordered spatially from the base toward the end effector
-  ArmJointPositions position_degs = 2;
+  JointPositions position_degs = 2;
 }
 
 message MoveToJointPositionsResponse {}
+
+message Status {
+  common.v1.Pose   end_position = 1;
+  JointPositions joint_positions = 2;
+}

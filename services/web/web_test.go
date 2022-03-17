@@ -20,7 +20,6 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/metadata/service"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/testutils/inject"
@@ -495,7 +494,6 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return name, rutils.NewResourceNotFoundError(name)
 	}
-	injectRobot.StatusFunc = func(ctx context.Context) (*pb.Status, error) { return &pb.Status{}, nil }
 
 	injectMetadata := &inject.Metadata{}
 	injectMetadata.AllFunc = func() []resource.Name { return resources }

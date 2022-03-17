@@ -11,14 +11,14 @@ service ServoService {
   // Move requests the servo of the underlying robot to move.
   rpc Move(MoveRequest) returns (MoveResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/servo/{name}/move"
+      put: "/viam/api/v1/component/servo/{name}/move"
     };
   }
 
   // GetPosition returns the current set angle (degrees) of the servo of the underlying robot.
   rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/servo/{name}/position"
+      get: "/viam/api/v1/component/servo/{name}/position"
     };
   }
 }
@@ -40,5 +40,9 @@ message GetPositionRequest {
 
 message GetPositionResponse {
   // the degrees from neutral by which the servo is currently rotated. Values are between 0 and 180
+  uint32 position_deg = 1;
+}
+
+message Status {
   uint32 position_deg = 1;
 }

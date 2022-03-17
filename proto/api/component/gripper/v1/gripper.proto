@@ -11,14 +11,14 @@ service GripperService {
   // Open opens a gripper of the underlying robot.
   rpc Open(OpenRequest) returns (OpenResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/gripper/{name}/open"
+      put: "/viam/api/v1/component/gripper/{name}/open"
     };  
   }
 
   // Grab requests a gripper of the underlying robot to grab.
   rpc Grab(GrabRequest) returns (GrabResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/gripper/{name}/grab"
+      put: "/viam/api/v1/component/gripper/{name}/grab"
     };  
   }
 

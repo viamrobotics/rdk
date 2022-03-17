@@ -11,37 +11,37 @@ import "proto/api/common/v1/common.proto";
 service NavigationService {
   rpc GetMode(GetModeRequest) returns (GetModeResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/navigation/mode"
+      get: "/viam/api/v1/service/navigation/mode"
     };
   }
 
   rpc SetMode(SetModeRequest) returns (SetModeResponse) {
     option (google.api.http) = {
-      put: "/api/v1/service/navigation/mode"
+      put: "/viam/api/v1/service/navigation/mode"
     };
   }
 
   rpc GetLocation(GetLocationRequest) returns (GetLocationResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/navigation/location"
+      get: "/viam/api/v1/service/navigation/location"
     };
   }
 
   rpc GetWaypoints(GetWaypointsRequest) returns (GetWaypointsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/service/navigation/waypoints"
+      get: "/viam/api/v1/service/navigation/waypoints"
     };
   }
 
   rpc AddWaypoint(AddWaypointRequest) returns (AddWaypointResponse) {
     option (google.api.http) = {
-      post: "/api/v1/service/navigation/waypoints"
+      post: "/viam/api/v1/service/navigation/waypoints"
     };
   }
 
   rpc RemoveWaypoint(RemoveWaypointRequest) returns (RemoveWaypointResponse) {
     option (google.api.http) = {
-      delete: "/api/v1/service/navigation/waypoints/{id}"
+      delete: "/viam/api/v1/service/navigation/waypoints/{id}"
     };
   }
 }

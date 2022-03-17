@@ -7,8 +7,7 @@
               "host" : "localhost",
               "port" : 8181,
               "args": "both?num=1",
-              "stream": "both",
-              "hide" : true
+              "stream": "both"
           }
         },
         { "name" : "front",
