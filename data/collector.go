@@ -5,6 +5,7 @@ package data
 import (
 	"bufio"
 	"context"
+	"github.com/pkg/errors"
 	"os"
 	"sync"
 	"time"
@@ -15,6 +16,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+// queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
+// by the queue being written to disk. A default value of 25 was chosen because even with the fastest reasonable capture
+// interval (10ms), this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the
+// size of writes this would be performing.
+const queueSize = 25
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
@@ -40,7 +47,7 @@ func (c *Collector) SetTarget(file *os.File) {
 	defer c.lock.Unlock()
 	c.target = file
 	if err := c.writer.Flush(); err != nil {
-		c.logger.Errorf("failed to flush writer to disk: %s", err)
+		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
 	c.writer = bufio.NewWriter(file)
 }
@@ -53,7 +60,7 @@ func (c *Collector) GetTarget() *os.File {
 }
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
-// leaking goroutines.
+// leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
 func (c *Collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -65,7 +72,7 @@ func (c *Collector) Close() {
 	close(c.done)
 
 	if err := c.writer.Flush(); err != nil {
-		c.logger.Errorf("failed to flush writer to disk: %s", err)
+		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
 }
 
@@ -93,7 +100,7 @@ func (c *Collector) capture() {
 		case <-ticker.C:
 			a, err := c.capturer.Capture(c.params)
 			if err != nil {
-				c.logger.Errorf("error while capturing data: %s", err)
+				c.logger.Errorw("error while capturing data", "error", err)
 			}
 			c.queue <- a
 		}
@@ -104,7 +111,7 @@ func (c *Collector) capture() {
 func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
 	logger golog.Logger) Collector {
 	return Collector{
-		queue:    make(chan *any.Any, 10),
+		queue:    make(chan *any.Any, queueSize),
 		Interval: interval,
 		params:   params,
 		lock:     &sync.Mutex{},
@@ -152,4 +159,8 @@ func WrapInAll(msg proto.Message, err error) (*any.Any, error) {
 		return nil, err
 	}
 	return a, nil
+}
+
+func MissingParameterErr(param string, method string) error {
+	return errors.Errorf("must pass parameter %s to method %s", param, method)
 }
