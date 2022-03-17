@@ -7,12 +7,35 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/protobuf/ptypes/any"
-	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 )
+
+const (
+	NAME = "name"
+)
+
+type Method int64
+
+const (
+	ReadAngularVelocity Method = iota
+	ReadOrientation
+	ReadAcceleration
+)
+
+func (m Method) String() string {
+	switch m {
+	case ReadAngularVelocity:
+		return "ReadAngularVelocity"
+	case ReadOrientation:
+		return "ReadOrientation"
+	case ReadAcceleration:
+		return "ReadAcceleration"
+	}
+	return "Unknown"
+}
 
 type readAngularVelocityCapturer struct {
 	client pb.IMUServiceClient
@@ -28,9 +51,9 @@ type readAccelerationCapturer struct {
 
 // Capture returns an *any.Any containing the response of a single ReadAngularVelocity call on the backing client.
 func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params["name"]
+	name, ok := params[NAME]
 	if !ok {
-		return nil, errors.New("must pass name parameter to ReadAngularVelocity")
+		return nil, data.MissingParameterErr(NAME, ReadAngularVelocity.String())
 	}
 
 	req := pb.ReadAngularVelocityRequest{
@@ -42,9 +65,9 @@ func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 
 // Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
 func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params["name"]
+	name, ok := params[NAME]
 	if !ok {
-		return nil, errors.New("must pass name parameter to ReadOrientation")
+		return nil, data.MissingParameterErr(NAME, ReadOrientation.String())
 	}
 
 	req := pb.ReadOrientationRequest{Name: name}
@@ -54,9 +77,9 @@ func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 
 // Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
 func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
-	name, ok := params["name"]
+	name, ok := params[NAME]
 	if !ok {
-		return nil, errors.New("must pass name parameter to ReadAcceleration")
+		return nil, data.MissingParameterErr(NAME, ReadAcceleration.String())
 	}
 
 	req := pb.ReadAccelerationRequest{Name: name}
