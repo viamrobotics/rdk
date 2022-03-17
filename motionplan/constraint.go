@@ -117,49 +117,16 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 	return true, score
 }
 
-func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
-	iPos, err := cInput.Frame.Transform(referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
-	if err != nil {
-		return false
-	}
-	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
-	metric := NewSquaredNormMetric()
-	dist := metric(iPos, interp)
-	return dist <= epsilon
-}
-
-// CollisionConstraintFromFrame takes a frame and will construct a self-collision constraint from it if available.
-func CollisionConstraintFromFrame(f referenceframe.Frame) Constraint {
-	// Add self-collision check if available
-	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	dof := len(f.DoF())
-	zeroInput := make([]referenceframe.Input, 0, dof)
-	for i := 0; i < dof; i++ {
-		zeroInput = append(zeroInput, referenceframe.Input{0})
-	}
-	zeroVols, err := f.Geometries(zeroInput)
-	if zeroVols == nil && err != nil {
-		// No collision avoidance available
-		return nil
-	}
-	zeroCG, err := CheckCollisions(zeroVols)
-	if zeroCG == nil || err != nil {
-		// No collision avoidance available
-		return nil
-	}
-	return NewCollisionConstraint(zeroCG)
-}
-
 // NewCollisionConstraint creates a constraint function that will decide if the StartInput of a given ConstraintInput
 // is valid. This function will check for collisions between the geometries in the provided input's frame.
 // Collisions present in the provided reference CollisionGraph will not be ignored.
-func NewCollisionConstraint(reference *CollisionGraph) Constraint {
+func NewCollisionConstraint(external map[string]spatial.Geometry, reference *CollisionGraph) Constraint {
 	f := func(cInput *ConstraintInput) (bool, float64) {
-		geometries, err := cInput.Frame.Geometries(cInput.StartInput)
-		if err != nil && geometries == nil {
+		internal, err := cInput.Frame.Geometries(cInput.StartInput)
+		if err != nil && internal == nil {
 			return false, 0
 		}
-		cg, err := CheckUniqueCollisions(geometries, reference)
+		cg, err := CheckUniqueCollisions(internal, external, reference)
 		if err != nil {
 			return false, 0
 		}
@@ -174,6 +141,24 @@ func NewCollisionConstraint(reference *CollisionGraph) Constraint {
 		return true, sum
 	}
 	return f
+}
+
+// NewCollisionConstraintFromFrame takes a frame and external geometries and will construct a self-collision constraint from them.
+func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacles map[string]spatial.Geometry) Constraint {
+	// Add self-collision check if available
+	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
+	dof := len(frame.DoF())
+	zeroInput := make([]referenceframe.Input, dof)
+	zeroVols, err := frame.Geometries(zeroInput)
+	if err != nil {
+		// No geometries defined for frame
+		return nil
+	}
+	zeroCG, err := CheckCollisions(zeroVols, externalObstacles)
+	if err != nil {
+		return nil
+	}
+	return NewCollisionConstraint(externalObstacles, zeroCG)
 }
 
 // NewInterpolatingConstraint creates a constraint function from an arbitrary function that will decide if a given pose is valid.
@@ -408,6 +393,17 @@ func resolveInputsToPositions(ci *ConstraintInput) error {
 		}
 	}
 	return nil
+}
+
+func interpolationCheck(cInput *ConstraintInput, by, epsilon float64) bool {
+	iPos, err := cInput.Frame.Transform(referenceframe.InterpolateInputs(cInput.StartInput, cInput.EndInput, by))
+	if err != nil {
+		return false
+	}
+	interp := spatial.Interpolate(cInput.StartPos, cInput.EndPos, by)
+	metric := NewSquaredNormMetric()
+	dist := metric(iPos, interp)
+	return dist <= epsilon
 }
 
 // Prevents recalculation of startPos. If no startPos has been calculated, just pass nil.
