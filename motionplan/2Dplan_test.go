@@ -41,7 +41,7 @@ func Test2DPlan(t *testing.T) {
 	opt := &PlannerOptions{metric: NewSquaredNormMetric(), pathDist: NewSquaredNormMetric()}
 	constraint := NewCollisionConstraintFromFrame(model, obstacles)
 	test.That(t, err, test.ShouldBeNil)
-	// opt.AddConstraint("collision", constraint)
+	opt.AddConstraint("collision", constraint)
 	waypoints, err := cbert.Plan(context.Background(), goal, start, opt)
 	test.That(t, err, test.ShouldBeNil)
 
@@ -58,6 +58,7 @@ func Test2DPlan(t *testing.T) {
 func buildModel(t *testing.T) frame.Model {
 	t.Helper()
 	model := frame.NewSimpleModel()
+	model.ChangeName("rover")
 	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}

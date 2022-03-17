@@ -78,7 +78,7 @@ func TestModelGeometries(t *testing.T) {
 	geometries, _ := sm.Geometries(inputs)
 
 	test.That(t, geometries, test.ShouldNotBeNil)
-	expected, err := sm.jointRadToQuats(inputs, true)
+	expected, err := sm.inputsToFrames(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	numGeometries := 0
