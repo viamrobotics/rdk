@@ -20,8 +20,7 @@
                 "host": "127.0.0.1",
                 "stream": "both",
                 "args": "both?num=0",
-                "port": 8181,
-                "hide": true
+                "port": 8181
             }
         },
         {
@@ -30,8 +29,7 @@
             "model": "depth_to_pretty",
             "attributes":
             {
-                "source": "depth",
-                "hide": true
+                "source": "depth"
             }
         },
         {
@@ -216,8 +214,7 @@
             "model": "depth_to_pretty",
             "attributes":
             {
-                "source": "combined",
-                "hide": true
+                "source": "combined"
             }
         },
         {

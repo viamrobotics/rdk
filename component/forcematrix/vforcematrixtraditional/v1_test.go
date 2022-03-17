@@ -183,7 +183,11 @@ func TestMatrixAndSlip(t *testing.T) {
 			}
 			return fakeAR, true
 		}
-		fakeBoard.SetGPIOFunc = func(ctx context.Context, pin string, high bool) error {
+		injectGPIOPin := &inject.GPIOPin{}
+		fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
+			return injectGPIOPin, nil
+		}
+		injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
 			return nil
 		}
 		fakeRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
