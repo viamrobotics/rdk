@@ -39,18 +39,17 @@ func init() {
 		},
 	})
 
-	// TODO: Should MethodName be an enum of something? String seems sort of gross.
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype.ResourceSubtype,
-		MethodName: ReadAngularVelocity.String(),
+		MethodName: readAngularVelocity.String(),
 	}, newReadAngularVelocityCollectorFromConn)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype.ResourceSubtype,
-		MethodName: ReadOrientation.String(),
+		MethodName: readOrientation.String(),
 	}, newReadOrientationCollectorFromConn)
 	data.RegisterCollector(data.MethodMetadata{
 		Subtype:    Subtype.ResourceSubtype,
-		MethodName: ReadAcceleration.String(),
+		MethodName: readAcceleration.String(),
 	}, newReadAccelerationCollectorFromConn)
 }
 

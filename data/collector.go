@@ -5,13 +5,13 @@ package data
 import (
 	"bufio"
 	"context"
-	"github.com/pkg/errors"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/protobuf/ptypes/any"
+	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -31,7 +31,7 @@ type Capturer interface {
 // A Collector calls capturer at the specified Interval, and appends the resulting reading to target.
 type Collector struct {
 	queue    chan *any.Any
-	Interval time.Duration
+	interval time.Duration
 	params   map[string]string
 	lock     *sync.Mutex
 	logger   golog.Logger
@@ -92,7 +92,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 }
 
 func (c *Collector) capture() {
-	ticker := time.NewTicker(c.Interval)
+	ticker := time.NewTicker(c.interval)
 	for {
 		select {
 		case <-c.done:
@@ -112,7 +112,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	logger golog.Logger) Collector {
 	return Collector{
 		queue:    make(chan *any.Any, queueSize),
-		Interval: interval,
+		interval: interval,
 		params:   params,
 		lock:     &sync.Mutex{},
 		logger:   logger,
@@ -161,6 +161,7 @@ func WrapInAll(msg proto.Message, err error) (*any.Any, error) {
 	return a, nil
 }
 
+// MissingParameterErr returns an error with a mesage describing what parameter is missing for the given method.
 func MissingParameterErr(param string, method string) error {
 	return errors.Errorf("must pass parameter %s to method %s", param, method)
 }
