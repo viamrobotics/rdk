@@ -6,7 +6,6 @@ module.exports = {
 	entry: {
 		control: "./src/control.js"
 	},
-	devtool: 'inline-source-map',
 	module: {
 		rules: [
 			{
@@ -21,7 +20,7 @@ module.exports = {
 		extensions: [".ts", ".js"]
 	},
 	output: {
-		path: path.resolve(__dirname, '../runtime-shared/static'),
+		path: path.resolve(__dirname, '../../../runtime-shared/static/rdk-api'),
 	},
 	optimization: {
 		minimize: false,
