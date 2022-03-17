@@ -15,15 +15,14 @@ import (
 func Test2DPlan(t *testing.T) {
 	// Test Map:
 	//      - bounds are from (-10, -10) to (10, 10)
-	//      - obstacle from (-4, 0) to (4, 10)
+	//      - obstacle from (-4, 4) to (4, 10)
 	// ------------------------
 	// | *      |    |      + |
 	// |        |    |        |
 	// |        |    |        |
 	// |        |    |        |
-	// |        |    |        |
 	// |        ------        |
-	// |                      |
+	// |          *           |
 	// |                      |
 	// |                      |
 	// |                      |
@@ -38,7 +37,7 @@ func Test2DPlan(t *testing.T) {
 	// plan
 	cbert, err := NewCBiRRTMotionPlanner(model, 1, logger)
 	test.That(t, err, test.ShouldBeNil)
-	opt := &PlannerOptions{metric: NewSquaredNormMetric(), pathDist: NewSquaredNormMetric()}
+	opt := NewDefaultPlannerOptions()
 	constraint := NewCollisionConstraintFromFrame(model, obstacles)
 	test.That(t, err, test.ShouldBeNil)
 	opt.AddConstraint("collision", constraint)
@@ -55,23 +54,20 @@ func Test2DPlan(t *testing.T) {
 	_ = constraint
 }
 
-func buildModel(t *testing.T) frame.Model {
+func buildModel(t *testing.T) frame.Frame {
 	t.Helper()
-	model := frame.NewSimpleModel()
-	model.ChangeName("rover")
 	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
-	modelFrame, err := frame.NewMobileFrame("base", limits, physicalGeometry)
+	modelFrame, err := frame.NewMobileFrame("mobile-base", limits, physicalGeometry)
 	test.That(t, err, test.ShouldBeNil)
-	model.OrdTransforms = append(model.OrdTransforms, modelFrame)
-	return model
+	return modelFrame
 }
 
 func buildObstacles(t *testing.T) map[string]spatial.Geometry {
 	t.Helper()
 	obstacles := map[string]spatial.Geometry{}
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 5, 0}), r3.Vector{8, 10, 1})
+	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}), r3.Vector{8, 8, 1})
 	test.That(t, err, test.ShouldBeNil)
 	obstacles["box"] = box
 	return obstacles

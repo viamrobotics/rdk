@@ -21,8 +21,6 @@ type ModelFramer interface {
 type Model interface {
 	Frame
 	ChangeName(string)
-	GenerateRandomConfiguration(*rand.Rand) []float64
-	IsConfigurationValid([]float64) bool
 }
 
 // SimpleModel TODO
@@ -43,7 +41,7 @@ func NewSimpleModel() *SimpleModel {
 }
 
 // GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func (m *SimpleModel) GenerateRandomConfiguration(randSeed *rand.Rand) []float64 {
+func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
 
@@ -117,7 +115,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 }
 
 // IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
-func (m *SimpleModel) IsConfigurationValid(configuration []float64) bool {
+func IsConfigurationValid(m Model, configuration []float64) bool {
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
 		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
