@@ -17,26 +17,35 @@
   </svg>
 </template>
 
-<script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator";
+<script>
+import Vue from "vue";
 import featherIcons from "feather-icons/dist/icons.json";
+const validator = {
+  size: ["sm", "base", "lg"],
+};
 
-@Component({
-  components: {
-    featherIcons,
+export default Vue.extend({
+  validator,
+  props: {
+    name: {
+      required: true,
+      type: String,
+    },
+    size: {
+      default: "base",
+      type: String,
+      validator: (value) => validator.size.includes(value),
+    },
   },
-})
-export default class ViamButton extends Vue {
-  @Prop() name!: boolean;
-  @Prop({ default: "base" })
-  size!: string;
-
-  icons: featherIcons;
-
-  created(): void {
+  data() {
+    return {
+      icons: featherIcons,
+    };
+  },
+  created() {
     this.icons = { ...featherIcons };
     if (!this.icons[this.name])
       throw new Error(`${this.name} icon is not available.`);
-  }
-}
+  },
+});
 </script>
