@@ -354,6 +354,10 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
 				}
+			} else if name, ok := manager.resources.FindNodeByName(dep); ok {
+				if err := manager.resources.AddChildren(rName, *name); err != nil {
+					return err
+				}
 			} else {
 				return errors.Errorf("componenent %s depends on non-existent component %s",
 					rName.Name, dep)
@@ -509,9 +513,15 @@ func (manager *resourceManager) MergeModify(ctx context.Context, toModify *resou
 				// should not happen
 				continue
 			}
+			if err := manager.resources.ReplaceNodesParents(k, toModify.resources); err != nil {
+				return nil, err
+			}
+			if v == old {
+				// same underlying resource so we can continue
+				continue
+			}
 			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
 			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
-
 			switch {
 			case oldIsReconfigurable != newIsReconfigurable:
 				// this is an indicator of a serious constructor problem
@@ -599,9 +609,8 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		if err := filtered.resources.MergeNode(rName, manager.resources); err != nil {
-			return nil, err
-		}
+		// Assuming dependcies will be addded later
+		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
 	for _, conf := range conf.Services {
@@ -610,9 +619,8 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		if err := filtered.resources.MergeNode(rName, manager.resources); err != nil {
-			return nil, err
-		}
+		// Assuming dependcies will be addded later
+		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
 	for _, conf := range conf.Functions {
