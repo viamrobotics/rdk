@@ -40,7 +40,7 @@ func NewSimpleModel() *SimpleModel {
 	return m
 }
 
-// GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
+// GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
 func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))

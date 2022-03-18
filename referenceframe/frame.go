@@ -158,7 +158,7 @@ func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if tf, ok := frame.(*staticFrame); ok {
 		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
-	if tf, ok := frame.(*mobileFrame); ok {
+	if tf, ok := frame.(*mobile2DFrame); ok {
 		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
 	return &staticFrame{frame.Name(), pose, nil}, nil
@@ -355,24 +355,27 @@ func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 		limitsAlmostEqual(rf.DoF(), other.DoF())
 }
 
-type mobileFrame struct {
+type mobile2DFrame struct {
 	name            string
 	limit           []Limit
 	geometryCreator spatial.GeometryCreator
 }
 
-func NewMobileFrame(name string, limit []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
+// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
+// This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometryCreator
+// defined by the arguments passed into this function
+func NewMobile2DFrame(name string, limit []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
 	if len(limit) != 2 {
 		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limit))
 	}
-	return &mobileFrame{name: name, limit: limit, geometryCreator: geometryCreator}, nil
+	return &mobile2DFrame{name: name, limit: limit, geometryCreator: geometryCreator}, nil
 }
 
-func (mf *mobileFrame) Name() string {
+func (mf *mobile2DFrame) Name() string {
 	return mf.name
 }
 
-func (mf *mobileFrame) Transform(input []Input) (spatial.Pose, error) {
+func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
 	var errAll error
 	if len(input) != len(mf.limit) {
 		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), len(mf.limit))
@@ -386,7 +389,7 @@ func (mf *mobileFrame) Transform(input []Input) (spatial.Pose, error) {
 	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll
 }
 
-func (mf *mobileFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
 	if mf.geometryCreator == nil {
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
 	}
@@ -396,11 +399,11 @@ func (mf *mobileFrame) Geometries(input []Input) (map[string]spatial.Geometry, e
 	return m, err
 }
 
-func (mf *mobileFrame) DoF() []Limit {
+func (mf *mobile2DFrame) DoF() []Limit {
 	return mf.limit
 }
 
-func (mf *mobileFrame) MarshalJSON() ([]byte, error) {
+func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
 	return json.Marshal(FrameMapConfig{
 		"type":  "rotational",
 		"name":  mf.name,
@@ -408,7 +411,7 @@ func (mf *mobileFrame) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func (mf *mobileFrame) AlmostEquals(otherFrame Frame) bool {
+func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*rotationalFrame)
 	return ok && mf.name == other.name && limitsAlmostEqual(mf.DoF(), other.DoF())
 }
