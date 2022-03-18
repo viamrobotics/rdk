@@ -5,83 +5,76 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"log"
-	"math"
 	"strconv"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
 
-	"go.viam.com/rdk/action"
-	"go.viam.com/rdk/component/base"
 	"go.viam.com/rdk/motionplan"
 	frame "go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/robot"
 	spatial "go.viam.com/rdk/spatialmath"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("mobileRobotPlanning")
 
 func main() {
-	utils.ContextualMain(webserver.RunServer, logger)
-}
-
-func init() {
-	action.RegisterAction("plan", func(ctx context.Context, r robot.Robot) {
-		err := mobileRobotPlan(ctx, r)
-		if err != nil {
-			logger.Errorf("error planning: %s", err)
-		}
-	})
-}
-
-type Obstacle struct{ Center, Dims []float64 }
-
-func mobileRobotPlan(ctx context.Context, r robot.Robot) error {
-	names := base.NamesFromRobot(r)
-	if len(names) != 1 {
-		return errors.New("need at least one base")
-	}
-	mobileBase, err := base.FromRobot(r, names[0])
-	if err != nil {
-		return err
-	}
-	_ = mobileBase // TODO: implement functionality for mobilebase to follow plan
-
-	// setup problem parameters
-	start := []float64{-9, 9}
-	goal := []float64{9, 9}
-	robotDims := []float64{1, 1}
-	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
-	obstacles := []Obstacle{
-		{Center: []float64{0, 6}, Dims: []float64{8, 8}},
-		{Center: []float64{-9, -9}, Dims: []float64{2, 2}},
-		{Center: []float64{9, -9}, Dims: []float64{2, 2}},
-	}
-	plan(ctx, start, goal, robotDims, limits, obstacles)
-}
-
-func plan(ctx context.Context, start, goal, robotDims []float64, limits []frame.Limit, obstacles []Obstacle) [][]frame.Input {
-	// parse input
-	startConfiguration := frame.FloatsToInputs(start)
-	goalPose := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: goal[0], Y: goal[1], Z: 0}))
-	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: robotDims[0], Y: robotDims[1], Z: 1}, spatial.NewZeroPose())
+	// read config
+	config, err := parseJSONFile("samples/mobileRobotPlanning/planConfig.json")
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
-	if limits == nil {
-		limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
+
+	// plan
+	waypoints, err := plan(context.Background(), config)
+	if err != nil {
+		logger.Fatal(err.Error())
 	}
+
+	// write output
+	if err := writeJSONFile("samples/mobileRobotPlanning/planOutput.json", waypoints); err != nil {
+		logger.Fatal(err.Error())
+	}
+
+}
+
+type Obstacle struct {
+	Center []float64 `json:"center"`
+	Dims   []float64 `json:"dims"`
+}
+
+type MobileRobotPlanConfig struct {
+	// planning conditions
+	Start []float64 `json:"start"`
+	Goal  []float64 `json:"goal"`
+
+	// robot params
+	RobotDims []float64 `json:"robot-dims"`
+
+	// map definition
+	Xlim      []float64  `json:"xlim"`
+	YLim      []float64  `json:"ylim"`
+	Obstacles []Obstacle `json:"obstacles"`
+}
+
+func plan(ctx context.Context, config *MobileRobotPlanConfig) ([][]frame.Input, error) {
+	// parse input
+	start := frame.FloatsToInputs(config.Start)
+	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
+	robotGeometry, err := spatial.NewBoxCreator(r3.Vector{X: config.RobotDims[0], Y: config.RobotDims[1], Z: 1}, spatial.NewZeroPose())
+	if err != nil {
+		return nil, err
+	}
+	limits := []frame.Limit{{Min: config.Xlim[0], Max: config.Xlim[1]}, {Min: config.YLim[0], Max: config.YLim[1]}}
+	// TODO add possibility for infinite limits
+	//limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
 	obstacleGeometries := map[string]spatial.Geometry{}
-	for i, obstacle := range obstacles {
+	for i, obstacle := range config.Obstacles {
 		box, err := spatial.NewBox(spatial.NewPoseFromPoint(
-			r3.Vector{obstacle.Center[0], obstacle.Center[1], 0}),
-			r3.Vector{obstacle.Dims[0], obstacle.Dims[1], 1})
+			r3.Vector{X: obstacle.Center[0], Y: obstacle.Center[1], Z: 0}),
+			r3.Vector{X: obstacle.Dims[0], Y: obstacle.Dims[1], Z: 1})
 		if err != nil {
-			logger.Fatal(err.Error())
+			return nil, err
 		}
 		obstacleGeometries[strconv.Itoa(i)] = box
 	}
@@ -89,30 +82,75 @@ func plan(ctx context.Context, start, goal, robotDims []float64, limits []frame.
 	// build model
 	model, err := frame.NewMobileFrame("mobile-base", limits, robotGeometry)
 	if err != nil {
-		logger.Fatal(err.Error())
+		return nil, err
 	}
 
 	// setup planner
 	cbert, err := motionplan.NewCBiRRTMotionPlanner(model, 1, logger)
 	if err != nil {
-		logger.Fatal(err.Error())
+		return nil, err
 	}
 	opt := motionplan.NewDefaultPlannerOptions()
 	opt.AddConstraint("collision", motionplan.NewCollisionConstraintFromFrame(model, obstacleGeometries))
 
 	// plan
-	waypoints, err := cbert.Plan(ctx, goalPose, startConfiguration, opt)
+	waypoints, err := cbert.Plan(ctx, goal, start, opt)
 	if err != nil {
-		logger.Fatal(err.Error())
+		return nil, err
 	}
+	return waypoints, nil
 }
 
-func writeToFile(data interface{}) {
+func parseJSONFile(filename string) (*MobileRobotPlanConfig, error) {
+	//nolint:gosec
+	jsonData, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read json file")
+	}
+	config := &MobileRobotPlanConfig{}
+	if len(jsonData) == 0 {
+		return nil, errors.New("no model information")
+	}
+	err = json.Unmarshal(jsonData, config)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal json file")
+	}
+
+	// assert correctness of json
+	wrongDimsError := errors.New("need array of floats to have exactly 2 elements")
+	if len(config.Start) != 2 {
+		return nil, errors.Wrap(wrongDimsError, "config error in start field")
+	}
+	if len(config.Goal) != 2 {
+		return nil, errors.Wrap(wrongDimsError, "config error in start field")
+	}
+	if len(config.Xlim) != 2 {
+		return nil, errors.Wrap(wrongDimsError, "config error in xlim field")
+	}
+	if len(config.Xlim) != 2 {
+		return nil, errors.Wrap(wrongDimsError, "config error in ylim field")
+	}
+	if len(config.RobotDims) != 2 {
+		return nil, errors.Wrap(wrongDimsError, "config error in robot-dims field")
+	}
+	for _, o := range config.Obstacles {
+		if len(o.Center) != 2 {
+			return nil, errors.Wrap(wrongDimsError, "config error in obstacles.center field")
+		}
+		if len(o.Dims) != 2 {
+			return nil, errors.Wrap(wrongDimsError, "config error in obstacles.dims field")
+		}
+	}
+	return config, nil
+}
+
+func writeJSONFile(filename string, data interface{}) error {
 	bytes, err := json.Marshal(data)
 	if err != nil {
-		logger.Fatal(err.Error())
+		return err
 	}
-	if err := ioutil.WriteFile("samples/mobileRobotPlanning/planOutput.json", bytes, 0644); err != nil {
-		log.Fatal(err.Error())
+	if err := ioutil.WriteFile(filename, bytes, 0644); err != nil {
+		return err
 	}
+	return nil
 }
