@@ -148,13 +148,15 @@ func (m *Motor) readReg(ctx context.Context) ([]byte, error) {
 		}
 	}
 
-	if readVal[0] == 1 {
+	switch readVal[0] {
+	case 1:
 		return bytes.Trim(readVal[1:], "\x00"), nil
-	} else if readVal[0] == 2 {
+	case 2:
 		return nil, errors.New("syntax error, code: 2")
-	} else if readVal[0] == 255 {
+	case 255:
 		return nil, errors.New("no data to send, code: 255")
 	}
+
 	return nil, nil
 }
 
