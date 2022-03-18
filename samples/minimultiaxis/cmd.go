@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/utils"
+
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/motionplan"
@@ -12,7 +14,6 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	webserver "go.viam.com/rdk/web/server"
-	"go.viam.com/utils"
 )
 
 var (
@@ -23,9 +24,11 @@ var (
 func main() {
 	utils.ContextualMain(webserver.RunServer, logger)
 }
+
 func init() {
 	action.RegisterAction("home", home)
 }
+
 func home(ctx context.Context, r robot.Robot) {
 	fs, err := r.FrameSystem(ctx, "fs", "")
 	if err != nil {
