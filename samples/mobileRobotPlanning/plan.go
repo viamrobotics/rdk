@@ -145,7 +145,7 @@ func parseJSONFile(filename string) (*MobileRobotPlanConfig, error) {
 }
 
 func writeJSONFile(filename string, data interface{}) error {
-	bytes, err := json.Marshal(data)
+	bytes, err := json.MarshalIndent(data, "", " ")
 	if err != nil {
 		return err
 	}
