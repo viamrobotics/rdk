@@ -14,7 +14,7 @@ import (
 
 var dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 	target *os.File, logger golog.Logger) Collector {
-	return Collector{}
+	return &collector{}
 }
 
 func TestRegister(t *testing.T) {
@@ -24,7 +24,7 @@ func TestRegister(t *testing.T) {
 	}
 	dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
 		target *os.File, logger golog.Logger) Collector {
-		return Collector{}
+		return &collector{}
 	}
 
 	// Return registered collector if one exists.
