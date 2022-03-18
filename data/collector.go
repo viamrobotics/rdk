@@ -33,7 +33,7 @@ type Collector interface {
 	SetTarget(file *os.File)
 	GetTarget() *os.File
 	Close()
-	Collect(ctx context.Context) error
+	Collect() error
 }
 
 type collector struct {
@@ -89,8 +89,8 @@ func (c *collector) Close() {
 //       errors.
 
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
-func (c *collector) Collect(ctx context.Context) error {
-	errs, _ := errgroup.WithContext(ctx)
+func (c *collector) Collect() error {
+	errs, _ := errgroup.WithContext(c.cancelCtx)
 	go c.capture()
 	errs.Go(func() error {
 		return c.write()

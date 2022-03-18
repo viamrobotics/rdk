@@ -46,7 +46,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	// Verify that it writes to the file.
 	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.Background())
+	go c.Collect()
 	time.Sleep(time.Millisecond * 20)
 	c.Close()
 	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, 0)
@@ -59,7 +59,7 @@ func TestClose(t *testing.T) {
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*15, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.Background())
+	go c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
 	// Measure captureCount/fileSize.
@@ -80,7 +80,7 @@ func TestInterval(t *testing.T) {
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.Background())
+	go c.Collect()
 
 	// Give 5ms of leeway so slight changes in execution ordering don't impact the test.
 	// floor(85/10) = 8
@@ -97,7 +97,7 @@ func TestSetTarget(t *testing.T) {
 
 	dummy := &dummyCapturer{}
 	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, l)
-	go c.Collect(context.Background())
+	go c.Collect()
 
 	// Let it write to tgt1 for a bit.
 	time.Sleep(time.Millisecond * 25)
@@ -126,7 +126,7 @@ func TestSwallowsErrors(t *testing.T) {
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
-		err := c.Collect(context.Background())
+		err := c.Collect()
 		if err != nil {
 			errorChannel <- err
 		}
