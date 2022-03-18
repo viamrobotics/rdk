@@ -6,6 +6,7 @@ import (
 	// for boards.
 	_ "go.viam.com/rdk/component/board/arduino"
 	_ "go.viam.com/rdk/component/board/fake"
+	_ "go.viam.com/rdk/component/board/hat/pca9685"
 	_ "go.viam.com/rdk/component/board/jetson"
 	_ "go.viam.com/rdk/component/board/numato"
 	_ "go.viam.com/rdk/component/board/pi"

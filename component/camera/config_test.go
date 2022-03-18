@@ -4,36 +4,26 @@ import (
 	"testing"
 
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/config"
 )
 
-func TestDetectColor(t *testing.T) {
-	// empty string
-	attrs := &AttrConfig{DetectColorString: ""}
-	result, err := attrs.DetectColor()
+func TestCommonCameraAttributes(t *testing.T) {
+	testConfWrong := config.AttributeMap{
+		"source": "TestSource",
+		"width":  5,
+		"height": "7",
+	}
+	_, err := CommonCameraAttributes(testConfWrong)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "'height' expected type 'int', got unconvertible type")
+	testConf := config.AttributeMap{
+		"source": "TestSource",
+		"width":  5,
+		"height": 7,
+	}
+	res, err := CommonCameraAttributes(testConf)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldHaveLength, 0)
-	// not a pound sign
-	attrs = &AttrConfig{DetectColorString: "$121CFF"}
-	_, err = attrs.DetectColor()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "detect_color is ill-formed")
-	// string too long
-	attrs = &AttrConfig{DetectColorString: "#121CFF03"}
-	_, err = attrs.DetectColor()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "detect_color is ill-formed")
-	// string too short
-	attrs = &AttrConfig{DetectColorString: "#121C"}
-	_, err = attrs.DetectColor()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "detect_color is ill-formed")
-	// not a hex string
-	attrs = &AttrConfig{DetectColorString: "#1244GG"}
-	_, err = attrs.DetectColor()
-	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid byte")
-	// success
-	attrs = &AttrConfig{DetectColorString: "#1244FF"}
-	result, err = attrs.DetectColor()
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldHaveLength, 3)
-	test.That(t, result[0], test.ShouldEqual, 18)
-	test.That(t, result[1], test.ShouldEqual, 68)
-	test.That(t, result[2], test.ShouldEqual, 255)
+	test.That(t, res.Source, test.ShouldEqual, "TestSource")
+	test.That(t, res.Width, test.ShouldEqual, 5)
+	test.That(t, res.Height, test.ShouldEqual, 7)
 }
