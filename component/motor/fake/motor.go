@@ -32,7 +32,9 @@ func init() {
 						if err != nil {
 							return nil, err
 						}
-						m.PWM.SetPWMFreq(ctx, mcfg.PWMFreq)
+						if err = m.PWM.SetPWMFreq(ctx, mcfg.PWMFreq); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
