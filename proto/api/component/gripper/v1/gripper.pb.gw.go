@@ -147,7 +147,7 @@ func RegisterGripperServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/api/v1/component/gripper/{name}/open"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -170,7 +170,7 @@ func RegisterGripperServiceHandlerServer(ctx context.Context, mux *runtime.Serve
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/api/v1/component/gripper/{name}/grab"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -232,7 +232,7 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/api/v1/component/gripper/{name}/open"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Open", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/open"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -252,7 +252,7 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/api/v1/component/gripper/{name}/grab"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.gripper.v1.GripperService/Grab", runtime.WithHTTPPathPattern("/viam/api/v1/component/gripper/{name}/grab"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -272,9 +272,9 @@ func RegisterGripperServiceHandlerClient(ctx context.Context, mux *runtime.Serve
 }
 
 var (
-	pattern_GripperService_Open_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gripper", "name", "open"}, ""))
+	pattern_GripperService_Open_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "gripper", "name", "open"}, ""))
 
-	pattern_GripperService_Grab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "gripper", "name", "grab"}, ""))
+	pattern_GripperService_Grab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "gripper", "name", "grab"}, ""))
 )
 
 var (

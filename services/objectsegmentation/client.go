@@ -7,7 +7,9 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils/rpc"
+	"google.golang.org/protobuf/types/known/structpb"
 
+	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
@@ -54,13 +56,41 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, params *vision.Parameters3D) ([]*vision.Object, error) {
+func (c *client) GetSegmenters(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetSegmenters(ctx, &pb.GetSegmentersRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Segmenters, nil
+}
+
+func (c *client) GetSegmenterParameters(ctx context.Context, segmenterName string) ([]utils.TypedName, error) {
+	resp, err := c.client.GetSegmenterParameters(ctx, &pb.GetSegmenterParametersRequest{
+		SegmenterName: segmenterName,
+	})
+	if err != nil {
+		return nil, err
+	}
+	params := make([]utils.TypedName, len(resp.Parameters))
+	for i, p := range resp.Parameters {
+		params[i] = utils.TypedName{p.Name, p.Type}
+	}
+	return params, nil
+}
+
+func (c *client) GetObjectPointClouds(ctx context.Context,
+	cameraName string,
+	segmenterName string,
+	params config.AttributeMap) ([]*vision.Object, error) {
+	conf, err := structpb.NewStruct(params)
+	if err != nil {
+		return nil, err
+	}
 	resp, err := c.client.GetObjectPointClouds(ctx, &pb.GetObjectPointCloudsRequest{
-		Name:               cameraName,
-		MimeType:           utils.MimeTypePCD,
-		MinPointsInPlane:   int64(params.MinPtsInPlane),
-		MinPointsInSegment: int64(params.MinPtsInSegment),
-		ClusteringRadiusMm: params.ClusteringRadiusMm,
+		CameraName:    cameraName,
+		SegmenterName: segmenterName,
+		MimeType:      utils.MimeTypePCD,
+		Parameters:    conf,
 	})
 	if err != nil {
 		return nil, err
@@ -69,7 +99,6 @@ func (c *client) GetObjectPointClouds(ctx context.Context, cameraName string, pa
 	if resp.MimeType != utils.MimeTypePCD {
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
-
 	return protoToObjects(resp.Objects)
 }
 
