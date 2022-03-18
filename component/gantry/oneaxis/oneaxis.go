@@ -192,7 +192,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		}
 		oAx.board = board
 
-		var PinEnable = *conf.LimitPinEnabled
+		PinEnable := *conf.LimitPinEnabled
 		oAx.limitHigh = PinEnable
 
 	case 2:
@@ -203,12 +203,12 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		}
 		oAx.board = board
 
-		var PinEnable = *conf.LimitPinEnabled
+		PinEnable := *conf.LimitPinEnabled
 		oAx.limitHigh = PinEnable
 
 	case 0:
 		oAx.limitType = limitEncoder
-		var StartPos = *conf.StartPosition
+		StartPos := *conf.StartPosition
 		oAx.startPosition = StartPos
 	default:
 		np := len(oAx.limitSwitchPins)
