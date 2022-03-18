@@ -1,4 +1,4 @@
-// Package main allows one to play around with a robotic arm.
+// Package main allows one to play around with planning for a omnidirectional 2D mobile base
 package main
 
 import (
@@ -38,12 +38,12 @@ func main() {
 
 }
 
-type Obstacle struct {
+type obstacle struct {
 	Center []float64 `json:"center"`
 	Dims   []float64 `json:"dims"`
 }
 
-type MobileRobotPlanConfig struct {
+type mobileRobotPlanConfig struct {
 	// planning conditions
 	Start []float64 `json:"start"`
 	Goal  []float64 `json:"goal"`
@@ -54,10 +54,10 @@ type MobileRobotPlanConfig struct {
 	// map definition
 	Xlim      []float64  `json:"xlim"`
 	YLim      []float64  `json:"ylim"`
-	Obstacles []Obstacle `json:"obstacles"`
+	Obstacles []obstacle `json:"obstacles"`
 }
 
-func plan(ctx context.Context, config *MobileRobotPlanConfig) ([][]frame.Input, error) {
+func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, error) {
 	// parse input
 	start := frame.FloatsToInputs(config.Start)
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: config.Goal[0], Y: config.Goal[1], Z: 0}))
@@ -66,13 +66,13 @@ func plan(ctx context.Context, config *MobileRobotPlanConfig) ([][]frame.Input, 
 		return nil, err
 	}
 	limits := []frame.Limit{{Min: config.Xlim[0], Max: config.Xlim[1]}, {Min: config.YLim[0], Max: config.YLim[1]}}
-	// TODO add possibility for infinite limits
-	//limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
+	// TODO(rb) add logic to parse limit input to check for infinite limits
+	// limits = []frame.Limit{{Min: math.Inf(-1), Max: math.Inf(1)}, {Min: math.Inf(-1), Max: math.Inf(1)}}
 	obstacleGeometries := map[string]spatial.Geometry{}
-	for i, obstacle := range config.Obstacles {
+	for i, o := range config.Obstacles {
 		box, err := spatial.NewBox(spatial.NewPoseFromPoint(
-			r3.Vector{X: obstacle.Center[0], Y: obstacle.Center[1], Z: 0}),
-			r3.Vector{X: obstacle.Dims[0], Y: obstacle.Dims[1], Z: 1})
+			r3.Vector{X: o.Center[0], Y: o.Center[1], Z: 0}),
+			r3.Vector{X: o.Dims[0], Y: o.Dims[1], Z: 1})
 		if err != nil {
 			return nil, err
 		}
@@ -80,7 +80,7 @@ func plan(ctx context.Context, config *MobileRobotPlanConfig) ([][]frame.Input, 
 	}
 
 	// build model
-	model, err := frame.NewMobileFrame("mobile-base", limits, robotGeometry)
+	model, err := frame.NewMobile2DFrame("mobile-base", limits, robotGeometry)
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +101,13 @@ func plan(ctx context.Context, config *MobileRobotPlanConfig) ([][]frame.Input, 
 	return waypoints, nil
 }
 
-func parseJSONFile(filename string) (*MobileRobotPlanConfig, error) {
+func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
 	//nolint:gosec
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
 	}
-	config := &MobileRobotPlanConfig{}
+	config := &mobileRobotPlanConfig{}
 	if len(jsonData) == 0 {
 		return nil, errors.New("no model information")
 	}
