@@ -253,7 +253,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -276,7 +276,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/RenderFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/render_frame"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/RenderFrame", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/render_frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -299,7 +299,7 @@ func RegisterCameraServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/point_cloud"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/point_cloud"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -361,7 +361,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/frame"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetFrame", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -381,7 +381,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/RenderFrame", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/render_frame"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/RenderFrame", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/render_frame"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -401,7 +401,7 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/api/v1/component/camera/{name}/point_cloud"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.component.camera.v1.CameraService/GetPointCloud", runtime.WithHTTPPathPattern("/viam/api/v1/component/camera/{name}/point_cloud"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -421,11 +421,11 @@ func RegisterCameraServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_CameraService_GetFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "frame"}, ""))
+	pattern_CameraService_GetFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "frame"}, ""))
 
-	pattern_CameraService_RenderFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "render_frame"}, ""))
+	pattern_CameraService_RenderFrame_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "render_frame"}, ""))
 
-	pattern_CameraService_GetPointCloud_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4, 2, 5}, []string{"api", "v1", "component", "camera", "name", "point_cloud"}, ""))
+	pattern_CameraService_GetPointCloud_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 1, 0, 4, 1, 5, 5, 2, 6}, []string{"viam", "api", "v1", "component", "camera", "name", "point_cloud"}, ""))
 )
 
 var (

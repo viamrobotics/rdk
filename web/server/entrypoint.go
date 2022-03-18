@@ -374,7 +374,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		for idx, remote := range out.Remotes {
 			remoteCopy := remote
 			if in.Cloud == nil {
-				// TODO(https://github.com/viamrobotics/goutils/issues/24):
+				// TODO(GOUT-4):
 				// remove hard coding of signaling server address and
 				// prefer SRV lookup instead.
 				switch {
@@ -468,6 +468,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			// override
 			options.Network.TLSConfig = tlsConfig
 
+			// NOTE(RDK-148):
 			// when we are managed and no explicit bind address is set,
 			// we will listen everywhere on 8080. We assume this to be
 			// secure because TLS will be enabled in addition to

@@ -2,9 +2,11 @@ package imagesource
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -25,7 +27,7 @@ func init() {
 			config config.Component,
 			logger golog.Logger,
 		) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*colorDetectorAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -41,15 +43,56 @@ func init() {
 		config.ComponentTypeCamera,
 		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf colorDetectorAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*colorDetectorAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
 		},
-		camera.AttrConfig{},
+		&colorDetectorAttrs{},
 	)
 }
 
+// colorDetectorAttrs is the attribute struct for color detectors.
+type colorDetectorAttrs struct {
+	*camera.AttrConfig
+	SegmentSize       int      `json:"segment_size"`
+	Tolerance         float64  `json:"tolerance"`
+	ExcludeColors     []string `json:"exclude_color_chans"`
+	DetectColorString string   `json:"detect_color"`
+}
+
+// DetectColor transforms the color hexstring into a slice of uint8.
+func (ac *colorDetectorAttrs) DetectColor() ([]uint8, error) {
+	if ac.DetectColorString == "" {
+		return []uint8{}, nil
+	}
+	pound, color := ac.DetectColorString[0], ac.DetectColorString[1:]
+	if pound != '#' {
+		return nil, errors.Errorf("detect_color is ill-formed, expected #RRGGBB, got %v", ac.DetectColorString)
+	}
+	slice, err := hex.DecodeString(color)
+	if err != nil {
+		return nil, err
+	}
+	if len(slice) != 3 {
+		return nil, errors.Errorf("detect_color is ill-formed, expected #RRGGBB, got %v", ac.DetectColorString)
+	}
+	return slice, nil
+}
+
 // newColorDetector creates a simple color detector from a source camera component in the config and user defined attributes.
-func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
+func newColorDetector(src camera.Camera, attrs *colorDetectorAttrs) (camera.Camera, error) {
 	// define the preprocessor
 	pSlice := make([]objectdetection.Preprocessor, 0, 3)
 	for _, c := range attrs.ExcludeColors {
@@ -95,5 +138,5 @@ func newColorDetector(src camera.Camera, attrs *camera.AttrConfig) (camera.Camer
 	if err != nil {
 		return nil, err
 	}
-	return camera.New(detector, attrs, src)
+	return camera.New(detector, attrs.AttrConfig, src)
 }

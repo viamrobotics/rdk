@@ -96,7 +96,7 @@ func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstac
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:         c.name,
 		PositionDegs: positionDegs,
@@ -104,7 +104,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJ
 	return err
 }
 
-func (c *client) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (c *client) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	resp, err := c.client.GetJointPositions(ctx, &pb.GetJointPositionsRequest{
 		Name: c.name,
 	})
