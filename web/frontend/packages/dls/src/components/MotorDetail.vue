@@ -259,15 +259,11 @@ export default class MotorDetail extends Vue {
   }
 
   get isGoingForward(): boolean {
-    return (
-      this.motorCommand.direction === 1
-    );
+    return this.motorCommand.direction === 1;
   }
 
   set isGoingForward(forward: boolean) {
-    this.motorCommand.direction = forward
-      ? 1
-      : -1;
+    this.motorCommand.direction = forward ? 1 : -1;
   }
 
   get position(): number {
