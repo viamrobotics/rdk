@@ -65,6 +65,7 @@ type Motor struct {
 	maxReadBits int
 	logger      golog.Logger
 	maxPowerPct float64
+	maxFlowRate float64
 }
 
 // avaiable commands
@@ -85,6 +86,7 @@ const (
 	totVolDispensed        = "TV,?"
 	absoluteTotVolDisp     = "ATV,?"
 	clear                  = "clear"
+	maxFlowRate            = "DC,?"
 )
 
 // NewMotor returns a motor with I2C protocol.
@@ -111,6 +113,12 @@ func NewMotor(ctx context.Context, r robot.Robot, c *EZOPMPConfig, logger golog.
 		logger:      logger,
 		maxPowerPct: 1.0,
 	}
+
+	flowRate, err := m.findMaxFlowRate(ctx)
+	if err != nil {
+		return nil, errors.New("can't find max flow rate")
+	}
+	m.maxFlowRate = flowRate
 
 	return m, nil
 }
@@ -150,7 +158,8 @@ func (m *Motor) readReg(ctx context.Context) ([]byte, error) {
 
 	switch readVal[0] {
 	case 1:
-		return bytes.Trim(readVal[1:], "\x00"), nil
+		noF := bytes.Trim(readVal[1:], "\xff")
+		return bytes.Trim(noF, "\x00"), nil
 	case 2:
 		return nil, errors.New("syntax error, code: 2")
 	case 255:
@@ -160,6 +169,23 @@ func (m *Motor) readReg(ctx context.Context) ([]byte, error) {
 	default:
 		return nil, errors.Errorf("error code not understood %b", readVal[0])
 	}
+}
+
+// for this pump, it will return the total volume dispensed
+func (m *Motor) findMaxFlowRate(ctx context.Context) (float64, error) {
+	command := []byte(maxFlowRate)
+	writeErr := m.writeReg(ctx, command)
+	if writeErr != nil {
+		return 0, writeErr
+	}
+	val, err := m.readReg(ctx)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	splitMsg := strings.Split(string(val), ",")
+	flowRate, err := strconv.ParseFloat(splitMsg[1], 64)
+	return flowRate, err
 }
 
 func (m *Motor) writeRegWithCheck(ctx context.Context, command []byte) error {
@@ -178,6 +204,7 @@ func (m *Motor) writeRegWithCheck(ctx context.Context, command []byte) error {
 // Negative power implies a backward directional rotational
 // for this pump, it goes between 0.5ml to 105ml/min
 func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
+	fmt.Println("calling Set Power")
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 	var command []byte
@@ -192,53 +219,51 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	return m.writeRegWithCheck(ctx, command)
 }
 
-// rpm here will actually map onto the mm/s as calculated based on the datasheet of this motor
-// the max rpm: 61, min rpm:1
-// every second is assume to be 1 revolution because the rpm on this pump motor remains the same
-func (m *Motor) GoFor(ctx context.Context, rpm float64, revolutions float64) error {
-	volPerMin := rpm * 9 * math.Pi * 60 / 1000
-	time := revolutions / 60
-	commandString := "DC," + fmt.Sprintf("%f", volPerMin) + "," + fmt.Sprintf("%f", time)
+// Setting a constant flow rate
+// mLPerMin = rpm, mins = revolutions
+func (m *Motor) GoFor(ctx context.Context, mLPerMin float64, mins float64) error {
+	fmt.Println("calling Go For")
+
+	switch speed := math.Abs(mLPerMin); {
+	case speed < 0.5:
+		return errors.New("motor cannot move this slowly")
+	case speed > m.maxFlowRate:
+		return errors.Errorf("max continuous flow rate is: %f", m.maxFlowRate)
+	}
+
+	commandString := "DC," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
+	fmt.Println(commandString)
 	command := []byte(commandString)
 	return m.writeRegWithCheck(ctx, command)
 }
 
 // using the Dose Over Time Command in the EZO-PMP datasheet
-// position = desired mm
-// rpm = desired mm/s
-func (m *Motor) GoTo(ctx context.Context, rpm float64, positionRevolutions float64) error {
-	// if pos is negative, then we have to turn in megative rpm,
-	// we cannot have negative time, that doesn't make any sense
-	mLPerMin := rpm * 9 * math.Pi * 60 / 1000
-	totTimeInMin := math.Abs(positionRevolutions/rpm) / 60
-	if positionRevolutions < 0 {
-		mLPerMin = mLPerMin * -1
+// mLPerMin = rpm, mins = revolutions
+func (m *Motor) GoTo(ctx context.Context, mLPerMin float64, mins float64) error {
+
+	fmt.Println("calling Go To")
+	switch speed := math.Abs(mLPerMin); {
+	case speed < 0.5:
+		return errors.New("motor cannot move this slowly")
+	case speed > 105:
+		return errors.New("motor cannot move this fast")
 	}
-	commandString := "D," + fmt.Sprintf("%f", mLPerMin) + "," + fmt.Sprintf("%f", totTimeInMin)
+
+	commandString := "D," + strconv.FormatFloat(mLPerMin, 'f', -1, 64) + "," + strconv.FormatFloat(mins, 'f', -1, 64)
 	command := []byte(commandString)
 	return m.writeRegWithCheck(ctx, command)
 }
 
 // in this case, we clear the amount of volume that has been dispensed
 func (m *Motor) ResetZeroPosition(ctx context.Context, offset float64) error {
+	fmt.Println("calling Reset")
 	command := []byte(clear)
-	writeErr := m.writeReg(ctx, command)
-	if writeErr != nil {
-		return writeErr
-	}
-	val, err := m.readReg(ctx)
-	if err != nil {
-		fmt.Println(err)
-		return err
-	}
-	fmt.Println(val)
-	return nil
+	return m.writeRegWithCheck(ctx, command)
 }
 
-// for this pump, it will return the volume dispensed
+// for this pump, it will return the total volume dispensed
 func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 	command := []byte(totVolDispensed)
-	//fmt.Println("getting position")
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
 		return 0, writeErr
@@ -284,9 +309,7 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 		return false, err
 	}
 
-	fmt.Println(pumpStatus)
-
-	if pumpStatus == 1 {
+	if pumpStatus == 1 || pumpStatus == -1 {
 		return true, nil
 	}
 	return false, nil
