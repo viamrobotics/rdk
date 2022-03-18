@@ -44,7 +44,7 @@ func TestSimple2DMotion(t *testing.T) {
 	// build model
 	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
-	model, err := frame.NewMobileFrame("mobile-base", limits, physicalGeometry)
+	model, err := frame.NewMobile2DFrame("mobile-base", limits, physicalGeometry)
 	test.That(t, err, test.ShouldBeNil)
 
 	// plan
@@ -68,7 +68,7 @@ func TestSimple2DMotion(t *testing.T) {
 		inWorkspace, err := workspace.CollidesWith(spatial.NewPoint(pt))
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, inWorkspace, test.ShouldBeTrue)
-		logger.Debug("%f\t%f\n", pt.X, pt.Y)
+		logger.Debugf("%f\t%f\n", pt.X, pt.Y)
 	}
 }
 
