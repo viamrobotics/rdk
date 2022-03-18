@@ -58,11 +58,36 @@ func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger 
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,
 		stepperDelay:     mc.StepperDelay,
-		enablePinHigh:    mc.Pins.EnablePinHigh,
-		enablePinLow:     mc.Pins.EnablePinLow,
-		stepPin:          mc.Pins.Step,
-		dirPin:           mc.Pins.Dir,
 		logger:           logger,
+	}
+
+	if mc.Pins.EnablePinHigh != "" {
+		enablePinHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
+		if err != nil {
+			return nil, err
+		}
+		m.enablePinHigh = enablePinHigh
+	}
+	if mc.Pins.EnablePinLow != "" {
+		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
+		if err != nil {
+			return nil, err
+		}
+		m.enablePinLow = enablePinLow
+	}
+	if mc.Pins.Step != "" {
+		stepPin, err := b.GPIOPinByName(mc.Pins.Step)
+		if err != nil {
+			return nil, err
+		}
+		m.stepPin = stepPin
+	}
+	if mc.Pins.Direction != "" {
+		directionPin, err := b.GPIOPinByName(mc.Pins.Direction)
+		if err != nil {
+			return nil, err
+		}
+		m.dirPin = directionPin
 	}
 
 	if err := m.Validate(); err != nil {
@@ -78,8 +103,8 @@ type gpioStepper struct {
 	theBoard                    board.Board
 	stepsPerRotation            int
 	stepperDelay                uint
-	enablePinHigh, enablePinLow string
-	stepPin, dirPin             string
+	enablePinHigh, enablePinLow board.GPIOPin
+	stepPin, dirPin             board.GPIOPin
 	logger                      golog.Logger
 
 	// state
@@ -105,11 +130,11 @@ func (m *gpioStepper) Validate() error {
 		m.stepperDelay = 20
 	}
 
-	if m.stepPin == "" {
+	if m.stepPin == nil {
 		return errors.New("need a 'step' pin for gpioStepper")
 	}
 
-	if m.dirPin == "" {
+	if m.dirPin == nil {
 		return errors.New("need a 'dir' pin for gpioStepper")
 	}
 
@@ -171,8 +196,8 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	err := multierr.Combine(
 		m.enable(ctx, true),
-		m.theBoard.SetGPIO(ctx, m.stepPin, true),
-		m.theBoard.SetGPIO(ctx, m.dirPin, forward),
+		m.stepPin.Set(ctx, true),
+		m.dirPin.Set(ctx, forward),
 	)
 	if err != nil {
 		return err
@@ -185,7 +210,7 @@ func (m *gpioStepper) doStep(ctx context.Context, forward bool) error {
 	} else {
 		m.stepPosition--
 	}
-	return m.theBoard.SetGPIO(ctx, m.stepPin, false)
+	return m.stepPin.Set(ctx, false)
 }
 
 // GoFor instructs the motor to go in a specific direction for a specific amount of
@@ -308,12 +333,12 @@ func (m *gpioStepper) IsPowered(ctx context.Context) (bool, error) {
 }
 
 func (m *gpioStepper) enable(ctx context.Context, on bool) error {
-	if m.enablePinHigh != "" {
-		return m.theBoard.SetGPIO(ctx, m.enablePinHigh, on)
+	if m.enablePinHigh != nil {
+		return m.enablePinHigh.Set(ctx, on)
 	}
 
-	if m.enablePinLow != "" {
-		return m.theBoard.SetGPIO(ctx, m.enablePinLow, !on)
+	if m.enablePinLow != nil {
+		return m.enablePinLow.Set(ctx, !on)
 	}
 
 	return nil

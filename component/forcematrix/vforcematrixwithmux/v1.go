@@ -153,7 +153,11 @@ func (fmsm *ForceMatrixWithMux) setMuxGpioPins(ctx context.Context, ioPin int) e
 	}
 
 	for i, muxGpioPin := range fmsm.muxGpioPins {
-		if err := fmsm.board.SetGPIO(ctx, muxGpioPin, logicTable[i]); err != nil {
+		p, err := fmsm.board.GPIOPinByName(muxGpioPin)
+		if err != nil {
+			return err
+		}
+		if err := p.Set(ctx, logicTable[i]); err != nil {
 			return err
 		}
 	}
@@ -181,15 +185,22 @@ func (fmsm *ForceMatrixWithMux) ReadMatrix(ctx context.Context) ([][]int, error)
 
 	for col := 0; col < numCols; col++ {
 		// set the correct GPIO to high
-		if err := fmsm.board.SetGPIO(ctx, fmsm.columnGpioPins[col], true); err != nil {
+		p, err := fmsm.board.GPIOPinByName(fmsm.columnGpioPins[col])
+		if err != nil {
+			return nil, err
+		}
+		if err := p.Set(ctx, true); err != nil {
 			return nil, err
 		}
 
 		// set all other GPIO pins to low
 		for c, pin := range fmsm.columnGpioPins {
 			if c != col {
-				err := fmsm.board.SetGPIO(ctx, pin, false)
+				p, err := fmsm.board.GPIOPinByName(pin)
 				if err != nil {
+					return nil, err
+				}
+				if err := p.Set(ctx, false); err != nil {
 					return nil, err
 				}
 			}

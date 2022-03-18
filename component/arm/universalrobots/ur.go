@@ -212,7 +212,7 @@ func (ua *URArm) State() (RobotState, error) {
 }
 
 // GetJointPositions TODO.
-func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (ua *URArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	radians := []float64{}
 	state, err := ua.State()
 	if err != nil {
@@ -253,7 +253,7 @@ func (ua *URArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacl
 }
 
 // MoveToJointPositions TODO.
-func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.ArmJointPositions) error {
+func (ua *URArm) MoveToJointPositions(ctx context.Context, joints *pb.JointPositions) error {
 	return ua.MoveToJointPositionRadians(ctx, referenceframe.JointPositionsToRadians(joints))
 }
 
