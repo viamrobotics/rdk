@@ -23,8 +23,9 @@ func New(s service.Metadata) pb.MetadataServiceServer {
 
 // Resources returns the list of resources.
 func (s *MetadataServer) Resources(ctx context.Context, _ *pb.ResourcesRequest) (*pb.ResourcesResponse, error) {
-	rNames := make([]*commonpb.ResourceName, 0, len(s.s.All()))
-	for _, m := range s.s.All() {
+	all := s.s.All()
+	rNames := make([]*commonpb.ResourceName, 0, len(all))
+	for _, m := range all {
 		rNames = append(
 			rNames,
 			protoutils.ResourceNameToProto(m),

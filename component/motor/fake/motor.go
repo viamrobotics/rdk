@@ -46,7 +46,7 @@ func (m *Motor) GetPosition(ctx context.Context) (float64, error) {
 // GetFeatures returns the status of whether the motor supports certain optional features.
 func (m *Motor) GetFeatures(ctx context.Context) (map[motor.Feature]bool, error) {
 	return map[motor.Feature]bool{
-		motor.PositionReporting: m.PositionSupported,
+		motor.PositionReporting: true,
 	}, nil
 }
 

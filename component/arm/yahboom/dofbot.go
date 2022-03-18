@@ -149,7 +149,7 @@ func (a *dofBot) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacl
 }
 
 // MoveToJointPositions moves the arm's joints to the given positions.
-func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.ArmJointPositions) error {
+func (a *dofBot) MoveToJointPositions(ctx context.Context, pos *componentpb.JointPositions) error {
 	a.muMove.Lock()
 	defer a.muMove.Unlock()
 	if len(pos.Degrees) > 5 {
@@ -222,15 +222,15 @@ func (a *dofBot) moveJointInLock(ctx context.Context, joint int, degrees float64
 }
 
 // GetJointPositions returns the current joint positions of the arm.
-func (a *dofBot) GetJointPositions(ctx context.Context) (*componentpb.ArmJointPositions, error) {
+func (a *dofBot) GetJointPositions(ctx context.Context) (*componentpb.JointPositions, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
 	return a.GetJointPositionsInLock(ctx)
 }
 
-func (a *dofBot) GetJointPositionsInLock(ctx context.Context) (*componentpb.ArmJointPositions, error) {
-	pos := componentpb.ArmJointPositions{}
+func (a *dofBot) GetJointPositionsInLock(ctx context.Context) (*componentpb.JointPositions, error) {
+	pos := componentpb.JointPositions{}
 	for i := 1; i <= 5; i++ {
 		x, err := a.readJointInLock(ctx, i)
 		if err != nil {

@@ -3,12 +3,19 @@ package input_test
 import (
 	"context"
 	"testing"
+	"time"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/input"
+	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -66,6 +73,71 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := input.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testInputControllerName})
+}
+
+func TestStatusValid(t *testing.T) {
+	timestamp := timestamppb.Now()
+	status := &pb.Status{
+		Events: []*pb.Event{{Time: timestamp, Event: string(input.PositionChangeAbs), Control: string(input.AbsoluteX), Value: 0.7}},
+	}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{
+			"events": []interface{}{
+				map[string]interface{}{
+					"control": "AbsoluteX",
+					"event":   "PositionChangeAbs",
+					"time":    map[string]interface{}{"nanos": float64(timestamp.Nanos), "seconds": float64(timestamp.Seconds)},
+					"value":   0.7,
+				},
+			},
+		},
+	)
+
+	convMap := &pb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := input.CreateStatus(context.Background(), "not an input")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("input.Controller", "string"))
+
+	timestamp := time.Now()
+	event := input.Event{Time: timestamp, Event: input.PositionChangeAbs, Control: input.AbsoluteX, Value: 0.7}
+	status := &pb.Status{
+		Events: []*pb.Event{{Time: timestamppb.New(timestamp), Event: string(event.Event), Control: string(event.Control), Value: event.Value}},
+	}
+	injectInputController := &inject.InputController{}
+	injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+		eventsOut := make(map[input.Control]input.Event)
+		eventsOut[input.AbsoluteX] = event
+		return eventsOut, nil
+	}
+
+	t.Run("working", func(t *testing.T) {
+		status1, err := input.CreateStatus(context.Background(), injectInputController)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("fail on GetEvents", func(t *testing.T) {
+		errFail := errors.New("can't get events")
+		injectInputController.GetEventsFunc = func(ctx context.Context) (map[input.Control]input.Event, error) {
+			return nil, errFail
+		}
+		_, err = input.CreateStatus(context.Background(), injectInputController)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
 }
 
 func TestInputControllerName(t *testing.T) {
