@@ -6,15 +6,13 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/test"
-	"go.viam.com/utils/rpc"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/test"
 )
 
-var dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
-	target *os.File, logger golog.Logger) Collector {
-	return &collector{}
+var dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
+	target *os.File, logger golog.Logger) (Collector, error) {
+	return &collector{}, nil
 }
 
 func TestRegister(t *testing.T) {
@@ -22,9 +20,9 @@ func TestRegister(t *testing.T) {
 		Subtype:    resource.SubtypeName("type"),
 		MethodName: "method",
 	}
-	dummyCollectorConstructor = func(conn rpc.ClientConn, params map[string]string, interval time.Duration,
-		target *os.File, logger golog.Logger) Collector {
-		return &collector{}
+	dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
+		target *os.File, logger golog.Logger) (Collector, error) {
+		return &collector{}, nil
 	}
 
 	// Return registered collector if one exists.

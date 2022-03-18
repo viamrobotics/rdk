@@ -5,16 +5,17 @@ package data
 import (
 	"bufio"
 	"context"
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
+	"google.golang.org/protobuf/types/known/structpb"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
@@ -25,7 +26,7 @@ const queueSize = 25
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
-	Capture(ctx context.Context, params map[string]string) (*any.Any, error)
+	Capture(ctx context.Context, params map[string]string) (interface{}, error)
 }
 
 // Collector collects data to some target.
@@ -37,7 +38,7 @@ type Collector interface {
 }
 
 type collector struct {
-	queue     chan *any.Any
+	queue     chan *structpb.Struct
 	interval  time.Duration
 	params    map[string]string
 	lock      *sync.Mutex
@@ -75,8 +76,8 @@ func (c *collector) Close() {
 
 	// Must close c.queue before calling c.writer.Flush() to ensure that all captures have made it into the buffer
 	// before it is flushed. Otherwise, some reading might still be queued but not yet written, and would be lost.
-	close(c.queue)
 	c.cancel()
+	close(c.queue)
 
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
@@ -105,16 +106,23 @@ func (c *collector) capture() {
 		case <-c.cancelCtx.Done():
 			return
 		case <-ticker.C:
-			a, err := c.capturer.Capture(c.cancelCtx, c.params)
+			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 			if err != nil {
 				c.logger.Errorw("error while capturing data", "error", err)
+				break
+			}
+			msg, err := InterfaceToStruct(reading)
+			if err != nil {
+				c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
+				break
 			}
 			select {
 			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 			// still work when this happens.
 			case <-c.cancelCtx.Done():
 				return
-			case c.queue <- a:
+			case c.queue <- msg:
+				break
 			}
 		}
 	}
@@ -126,7 +134,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:     make(chan *any.Any, queueSize),
+		queue:     make(chan *structpb.Struct, queueSize),
 		interval:  interval,
 		params:    params,
 		lock:      &sync.Mutex{},
@@ -141,15 +149,15 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 
 // TODO: length prefix when writing.
 func (c *collector) write() error {
-	for a := range c.queue {
-		if err := c.appendMessage(a); err != nil {
+	for msg := range c.queue {
+		if err := c.appendMessage(msg); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *collector) appendMessage(msg *any.Any) error {
+func (c *collector) appendMessage(msg *structpb.Struct) error {
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
 		return err
@@ -164,20 +172,26 @@ func (c *collector) appendMessage(msg *any.Any) error {
 	return nil
 }
 
-// WrapInAll is a convenience function that takes the (proto.Message, error) output of some protobuf method,
-// wraps the protobuf in any.Any, and returns any error if one is encountered.
-func WrapInAll(msg proto.Message, err error) (*any.Any, error) {
+func InterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+	encoded, err := protoutils.InterfaceToMap(i)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to convert interface %v to a form acceptable to structpb.NewStruct", i)
 	}
-	a, err := anypb.New(msg)
+	ret, err := structpb.NewStruct(encoded)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to construct structpb.Struct from map %v", encoded)
+
 	}
-	return a, nil
+	return ret, nil
 }
 
-// MissingParameterErr returns an error with a mesage describing what parameter is missing for the given method.
-func MissingParameterErr(param string, method string) error {
-	return errors.Errorf("must pass parameter %s to method %s", param, method)
+// InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
+// passed into a CollectorConstructor.
+func InvalidInterfaceErr(typeName resource.SubtypeName) error {
+	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
+}
+
+// FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
+func FailedToReadErr(component string, method string) error {
+	return errors.Errorf("failed to get reading of method %s of component %s", method, component)
 }

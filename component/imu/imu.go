@@ -40,17 +40,17 @@ func init() {
 	})
 
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype.ResourceSubtype,
+		Subtype:    SubtypeName,
 		MethodName: readAngularVelocity.String(),
-	}, newReadAngularVelocityCollectorFromConn)
+	}, newReadAngularVelocityCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype.ResourceSubtype,
+		Subtype:    SubtypeName,
 		MethodName: readOrientation.String(),
-	}, newReadOrientationCollectorFromConn)
+	}, newReadOrientationCollector)
 	data.RegisterCollector(data.MethodMetadata{
-		Subtype:    Subtype.ResourceSubtype,
+		Subtype:    SubtypeName,
 		MethodName: readAcceleration.String(),
-	}, newReadAccelerationCollectorFromConn)
+	}, newReadAccelerationCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "imu".
