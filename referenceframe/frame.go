@@ -401,7 +401,11 @@ func (mf *mobileFrame) DoF() []Limit {
 }
 
 func (mf *mobileFrame) MarshalJSON() ([]byte, error) {
-	return nil, fmt.Errorf("marshaling JSON for a mobile frame is not implemented yet")
+	return json.Marshal(FrameMapConfig{
+		"type":  "rotational",
+		"name":  mf.name,
+		"limit": mf.limit,
+	})
 }
 
 func (mf *mobileFrame) AlmostEquals(otherFrame Frame) bool {
