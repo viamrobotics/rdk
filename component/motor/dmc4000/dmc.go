@@ -671,6 +671,14 @@ func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]int
 	switch name {
 	case "home":
 		return nil, m.Home(ctx)
+	case "raw":
+		cmd, ok := args["command"]
+		if !ok {
+			return nil, errors.New("need raw 'cmd' string to send")
+		}
+		retVal, err := m.c.sendCmd(cmd.(string))
+		ret := map[string]interface{}{"return": retVal}
+		return ret, err
 	default:
 		return nil, fmt.Errorf("no such command: %s", name)
 	}
