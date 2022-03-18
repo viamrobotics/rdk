@@ -108,7 +108,7 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
-func Test(t *testing.T) {
+func TestMobileFrame(t *testing.T) {
 	expLimit := []Limit{{-10, 10}, {-10, 10}}
 	frame := &mobileFrame{"test", expLimit, nil}
 	// expected output

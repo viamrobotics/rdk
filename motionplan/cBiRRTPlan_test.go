@@ -11,11 +11,10 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
-	frame "go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/utils"
 )
 
-var interp = frame.FloatsToInputs([]float64{
+var interp = referenceframe.FloatsToInputs([]float64{
 	0.22034293025523666,
 	0.023301860367034785,
 	0.0035938741832804775,
@@ -31,7 +30,7 @@ func TestSimpleLinearMotion(t *testing.T) {
 	inputSteps := []*configuration{}
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := referenceframe.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	ik, err := CreateCombinedIKSolver(m, logger, nCPU)
