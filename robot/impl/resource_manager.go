@@ -610,7 +610,7 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		// Assuming dependcies will be addded later
+		// Assuming dependencies will be added later
 		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
@@ -620,7 +620,7 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		// Assuming dependcies will be addded later
+		// Assuming dependencies will be added later
 		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
