@@ -15,7 +15,6 @@ import (
 	"go.viam.com/utils"
 )
 
-//go:embed draw.json
 var (
 	logger      = golog.NewDevelopmentLogger("minimultiaxis")
 	gantryModel = "minimultiaxis"
@@ -63,5 +62,3 @@ func home(ctx context.Context, r robot.Robot) {
 	logger.Debugf("Output solution: %+v", outputs[len(outputs)-1][gantryModel])
 	mma.GoToInputs(ctx, outputs[len(outputs)-1][gantryModel])
 }
-
-//go:embed draw.json
