@@ -68,7 +68,7 @@ type Motor struct {
 	maxFlowRate float64
 }
 
-// avaiable commands
+// available commands
 const (
 	LEDOn                  = "L,1"
 	LEDOff                 = "L,0"
@@ -89,7 +89,7 @@ const (
 	maxFlowRate            = "DC,?"
 )
 
-// NewMotor returns a motor with I2C protocol.
+// NewMotor returns a motor(Ezopmp) with I2C protocol.
 func NewMotor(ctx context.Context, r robot.Robot, c *EZOPMPConfig, logger golog.Logger) (*Motor, error) {
 	b, err := board.FromRobot(r, c.BoardName)
 	if err != nil {
@@ -121,6 +121,23 @@ func NewMotor(ctx context.Context, r robot.Robot, c *EZOPMPConfig, logger golog.
 	m.maxFlowRate = flowRate
 
 	return m, nil
+}
+
+// for this pump, it will return the total volume dispensed
+func (m *Motor) findMaxFlowRate(ctx context.Context) (float64, error) {
+	command := []byte(maxFlowRate)
+	writeErr := m.writeReg(ctx, command)
+	if writeErr != nil {
+		return 0, writeErr
+	}
+	val, err := m.readReg(ctx)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+	splitMsg := strings.Split(string(val), ",")
+	flowRate, err := strconv.ParseFloat(splitMsg[1], 64)
+	return flowRate, err
 }
 
 func (m *Motor) writeReg(ctx context.Context, command []byte) error {
@@ -171,23 +188,7 @@ func (m *Motor) readReg(ctx context.Context) ([]byte, error) {
 	}
 }
 
-// for this pump, it will return the total volume dispensed
-func (m *Motor) findMaxFlowRate(ctx context.Context) (float64, error) {
-	command := []byte(maxFlowRate)
-	writeErr := m.writeReg(ctx, command)
-	if writeErr != nil {
-		return 0, writeErr
-	}
-	val, err := m.readReg(ctx)
-	if err != nil {
-		fmt.Println(err)
-		return 0, err
-	}
-	splitMsg := strings.Split(string(val), ",")
-	flowRate, err := strconv.ParseFloat(splitMsg[1], 64)
-	return flowRate, err
-}
-
+// helper function to write the command and then read to check if success
 func (m *Motor) writeRegWithCheck(ctx context.Context, command []byte) error {
 	writeErr := m.writeReg(ctx, command)
 	if writeErr != nil {
@@ -207,15 +208,22 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	fmt.Println("calling Set Power")
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
+
 	var command []byte
-	powerVal := (powerPct * 104.5) + 0.5
 	if powerPct == 0 {
 		command = []byte(stop)
 	} else {
-		stringVal := "DC," + fmt.Sprintf("%f", math.Round(powerVal*100)/100) + ",*"
+		var powerVal float64
+		if powerPct < 0 {
+			powerVal = (powerPct * 104.5) - 0.5
+		} else {
+			powerVal = (powerPct * 104.5) + 0.5
+		}
+		stringVal := "DC," + strconv.FormatFloat(powerVal, 'f', -1, 64) + ",*"
 		fmt.Println(stringVal)
 		command = []byte(stringVal)
 	}
+
 	return m.writeRegWithCheck(ctx, command)
 }
 
