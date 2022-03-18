@@ -28,17 +28,15 @@ const modelname = "oneaxis"
 
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
-	Board              string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
-	Motor              string                    `json:"motor"`
-	LimitSwitchPins    []string                  `json:"limit_pins,omitempty"`
-	LimitPinEnabled    *bool                     `json:"limit_pin_enabled_high,omitempty"`
-	LengthMm           float64                   `json:"length_mm"`
-	ReductionRatio     float64                   `json:"reduction_ratio,omitempty"`
-	GantryRPM          float64                   `json:"gantry_rpm,omitempty"`
-	Axis               spatial.TranslationConfig `json:"axis"`
-	OrientTransform    spatial.OrientationConfig `json:"axis_orientation_transform,omitempty"`
-	TranslateTransform spatial.TranslationConfig `json:"axis_translation_transform,omitempty"`
-	StartPosition      *float64                  `json:"starting_position,omitempty"`
+	Board           string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
+	Motor           string                    `json:"motor"`
+	LimitSwitchPins []string                  `json:"limit_pins,omitempty"`
+	LimitPinEnabled *bool                     `json:"limit_pin_enabled_high,omitempty"`
+	LengthMm        float64                   `json:"length_mm"`
+	ReductionRatio  float64                   `json:"reduction_ratio,omitempty"`
+	GantryRPM       float64                   `json:"gantry_rpm,omitempty"`
+	Axis            spatial.TranslationConfig `json:"axis"`
+	StartPosition   *float64                  `json:"starting_position,omitempty"`
 }
 
 // Validate ensures all parts of the config are valid.
