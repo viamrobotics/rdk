@@ -25,9 +25,10 @@ const queueSize = 25
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
-	Capture(params map[string]string) (*any.Any, error)
+	Capture(ctx context.Context, params map[string]string) (*any.Any, error)
 }
 
+// Collector collects data to some target.
 type Collector interface {
 	SetTarget(file *os.File)
 	GetTarget() *os.File
@@ -35,17 +36,17 @@ type Collector interface {
 	Collect(ctx context.Context) error
 }
 
-// A Collector calls capturer at the specified Interval, and appends the resulting reading to target.
 type collector struct {
-	queue    chan *any.Any
-	interval time.Duration
-	params   map[string]string
-	lock     *sync.Mutex
-	logger   golog.Logger
-	target   *os.File
-	writer   *bufio.Writer
-	done     chan bool
-	capturer Capturer
+	queue     chan *any.Any
+	interval  time.Duration
+	params    map[string]string
+	lock      *sync.Mutex
+	logger    golog.Logger
+	target    *os.File
+	writer    *bufio.Writer
+	cancelCtx context.Context
+	cancel    context.CancelFunc
+	capturer  Capturer
 }
 
 // SetTarget updates the file being written to by the collector.
@@ -74,9 +75,8 @@ func (c *collector) Close() {
 
 	// Must close c.queue before calling c.writer.Flush() to ensure that all captures have made it into the buffer
 	// before it is flushed. Otherwise, some reading might still be queued but not yet written, and would be lost.
-	c.done <- true
 	close(c.queue)
-	close(c.done)
+	c.cancel()
 
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
@@ -102,10 +102,10 @@ func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
 	for {
 		select {
-		case <-c.done:
+		case <-c.cancelCtx.Done():
 			return
 		case <-ticker.C:
-			a, err := c.capturer.Capture(c.params)
+			a, err := c.capturer.Capture(c.cancelCtx, c.params)
 			if err != nil {
 				c.logger.Errorw("error while capturing data", "error", err)
 			}
@@ -114,19 +114,22 @@ func (c *collector) capture() {
 	}
 }
 
-// NewCollector returns a new Collector with the passed capturer and configuration options.
+// NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
+// specified Interval, and appends the resulting reading to target.
 func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
 	logger golog.Logger) Collector {
+	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:    make(chan *any.Any, queueSize),
-		interval: interval,
-		params:   params,
-		lock:     &sync.Mutex{},
-		logger:   logger,
-		target:   target,
-		writer:   bufio.NewWriter(target),
-		done:     make(chan bool),
-		capturer: capturer,
+		queue:     make(chan *any.Any, queueSize),
+		interval:  interval,
+		params:    params,
+		lock:      &sync.Mutex{},
+		logger:    logger,
+		target:    target,
+		writer:    bufio.NewWriter(target),
+		cancelCtx: cancelCtx,
+		cancel:    cancelFunc,
+		capturer:  capturer,
 	}
 }
 

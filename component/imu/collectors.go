@@ -50,7 +50,7 @@ type readAccelerationCapturer struct {
 }
 
 // Capture returns an *any.Any containing the response of a single ReadAngularVelocity call on the backing client.
-func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any, error) {
+func (c readAngularVelocityCapturer) Capture(ctx context.Context, params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
 		return nil, data.MissingParameterErr(paramName, readAngularVelocity.String())
@@ -60,11 +60,11 @@ func (c readAngularVelocityCapturer) Capture(params map[string]string) (*any.Any
 		Name: name,
 	}
 	// TODO: what should context be here?
-	return data.WrapInAll(c.client.ReadAngularVelocity(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadAngularVelocity(ctx, &req))
 }
 
 // Capture returns an *any.Any containing the response of a single ReadOrientation call on the backing client.
-func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, error) {
+func (c readOrientationCapturer) Capture(ctx context.Context, params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
 		return nil, data.MissingParameterErr(paramName, readOrientation.String())
@@ -72,11 +72,11 @@ func (c readOrientationCapturer) Capture(params map[string]string) (*any.Any, er
 
 	req := pb.ReadOrientationRequest{Name: name}
 	// TODO: what should context be here?
-	return data.WrapInAll(c.client.ReadOrientation(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadOrientation(ctx, &req))
 }
 
 // Capture returns an *any.Any containing the response of a single ReadAcceleration call on the backing client.
-func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, error) {
+func (c readAccelerationCapturer) Capture(ctx context.Context, params map[string]string) (*any.Any, error) {
 	name, ok := params[paramName]
 	if !ok {
 		return nil, data.MissingParameterErr(paramName, readAcceleration.String())
@@ -84,7 +84,7 @@ func (c readAccelerationCapturer) Capture(params map[string]string) (*any.Any, e
 
 	req := pb.ReadAccelerationRequest{Name: name}
 	// TODO: what should context be here?
-	return data.WrapInAll(c.client.ReadAcceleration(context.TODO(), &req))
+	return data.WrapInAll(c.client.ReadAcceleration(ctx, &req))
 }
 
 func newReadAngularVelocityCollectorFromConn(conn rpc.ClientConn, params map[string]string, interval time.Duration,
