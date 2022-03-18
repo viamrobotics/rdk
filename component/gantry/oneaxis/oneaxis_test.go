@@ -95,14 +95,10 @@ func TestValidate(t *testing.T) {
 	test.That(t, err.Error(), test.ShouldContainSubstring, "non-zero and positive")
 
 	fakecfg.LengthMm = 1.0
-	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with encoder")
-
 	fakecfg.LimitSwitchPins = []string{}
 	err = fakecfg.Validate("path")
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with encoder")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry axis undefined")
 
-	fakecfg.StartPosition = &setFloat
 	fakecfg.Board = "board"
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "assign boards or controllers")
@@ -180,7 +176,7 @@ func TestNewOneAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           "board",
 			LimitPinEnabled: &setTrue,
-			ReductionRatio:  0.1,
+			MmPerRevolution: 0.1,
 			GantryRPM:       float64(300),
 		},
 	}
@@ -204,7 +200,7 @@ func TestNewOneAxis(t *testing.T) {
 	fakegantry, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
 	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a reduction ratio defined")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a mm_per_length ratio defined")
 
 	fakecfg = config.Component{
 		Name: "gantry",
@@ -213,11 +209,8 @@ func TestNewOneAxis(t *testing.T) {
 			LengthMm:        1.0,
 			Board:           "board",
 			Motor:           gantryMotorName,
-			StartPosition:   &setFloat,
 		},
 	}
-	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "does not support Reset")
 
 	fakecfg = config.Component{
 		Name: "gantry",
@@ -451,12 +444,12 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 		rpm:             float64(300),
 		limitSwitchPins: []string{"1"},
 		lengthMm:        float64(1),
-		reductionRatio:  float64(.1),
+		mmPerRevolution: float64(.1),
 	}
 
 	err := fakegantry.homeOneLimSwitch(ctx)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fakegantry.positionLimits, test.ShouldResemble, []float64{1, 2.5915494309189535})
+	test.That(t, fakegantry.positionLimits, test.ShouldResemble, []float64{1, 11})
 
 	getPosErr := errors.New("failed to get position")
 	fakegantry.motor = &inject.Motor{
@@ -512,13 +505,11 @@ func TestHomeEncoder(t *testing.T) {
 	}
 	fakegantry.motor = injMotor
 	ctx := context.Background()
-	err := fakegantry.homeEncoder(ctx)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "set zero")
 
 	getPosErr := errors.New("failed to get position")
 	injMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error { return nil }
 	injMotor.GetPositionFunc = func(ctx context.Context) (float64, error) { return 0, getPosErr }
-	err = fakegantry.homeEncoder(ctx)
+	err := fakegantry.homeEncoder(ctx)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "get position")
 
 	injMotor.GetPositionFunc = func(ctx context.Context) (float64, error) { return 0, nil }
@@ -796,7 +787,7 @@ func TestGoToInputs(t *testing.T) {
 		limitHigh:       true,
 		motor:           createFakeMotor(),
 		lengthMm:        1.0,
-		reductionRatio:  0.1,
+		mmPerRevolution: 0.1,
 		rpm:             10,
 		axis:            r3.Vector{},
 		limitType:       "",
