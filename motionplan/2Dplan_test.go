@@ -2,7 +2,6 @@ package motionplan
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/golang/geo/r3"
@@ -28,11 +27,22 @@ func Test2DPlan(t *testing.T) {
 	// |                      |
 	// ------------------------
 
-	// setup problem
+	// setup problem parameters
 	start := frame.FloatsToInputs([]float64{-9., 9.})
 	goal := spatial.PoseToProtobuf(spatial.NewPoseFromPoint(r3.Vector{X: 9, Y: 9, Z: 0}))
-	obstacles := buildObstacles(t)
-	model := buildModel(t)
+	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
+
+	// build obstacles
+	obstacles := map[string]spatial.Geometry{}
+	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}), r3.Vector{8, 8, 1})
+	test.That(t, err, test.ShouldBeNil)
+	obstacles["box"] = box
+
+	// build model
+	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	model, err := frame.NewMobileFrame("mobile-base", limits, physicalGeometry)
+	test.That(t, err, test.ShouldBeNil)
 
 	// plan
 	cbert, err := NewCBiRRTMotionPlanner(model, 1, logger)
@@ -44,31 +54,23 @@ func Test2DPlan(t *testing.T) {
 	waypoints, err := cbert.Plan(context.Background(), goal, start, opt)
 	test.That(t, err, test.ShouldBeNil)
 
-	// print waypoints for debugging
+	obstacle := obstacles["box"]
+	workspace, err := spatial.NewBox(spatial.NewZeroPose(), r3.Vector{20, 20, 1})
+	test.That(t, err, test.ShouldBeNil)
 	for _, waypoint := range waypoints {
-		for _, dim := range waypoint {
-			fmt.Printf("%f\t", dim.Value)
-		}
-		fmt.Printf("\n")
+		pt := r3.Vector{waypoint[0].Value, waypoint[1].Value, 0}
+		collides, err := obstacle.CollidesWith(spatial.NewPoint(pt))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, collides, test.ShouldBeFalse)
+		inWorkspace, err := workspace.CollidesWith(spatial.NewPoint(pt))
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, inWorkspace, test.ShouldBeTrue)
+		logger.Debug("%f\t%f\n", pt.X, pt.Y)
 	}
-	_ = constraint
 }
 
 func buildModel(t *testing.T) frame.Frame {
 	t.Helper()
-	physicalGeometry, err := spatial.NewBoxCreator(r3.Vector{X: 1, Y: 1, Z: 1}, spatial.NewZeroPose())
-	test.That(t, err, test.ShouldBeNil)
-	limits := []frame.Limit{{Min: -10, Max: 10}, {Min: -10, Max: 10}}
-	modelFrame, err := frame.NewMobileFrame("mobile-base", limits, physicalGeometry)
-	test.That(t, err, test.ShouldBeNil)
-	return modelFrame
-}
 
-func buildObstacles(t *testing.T) map[string]spatial.Geometry {
-	t.Helper()
-	obstacles := map[string]spatial.Geometry{}
-	box, err := spatial.NewBox(spatial.NewPoseFromPoint(r3.Vector{0, 6, 0}), r3.Vector{8, 8, 1})
-	test.That(t, err, test.ShouldBeNil)
-	obstacles["box"] = box
-	return obstacles
+	return modelFrame
 }
