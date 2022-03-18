@@ -123,7 +123,23 @@
             "type": "gantry",
             "depends_on": [
                 "zmotor"
-            ]
+            ],
+            "frame": {
+                "parent": "world",
+                "orientation": {
+                    "type": "euler_angles",
+                    "value": {
+                        "roll": 0,
+                        "pitch": 40,
+                        "yaw": 0
+                    }
+                },
+                "translation": {
+                    "x": 0,
+                    "y": 3,
+                    "z": 0
+                }
+            }
         },
         {
             "attributes": {
