@@ -68,92 +68,6 @@ func Convert2DPointsToHomogeneousPoints(pts []r2.Point) []r3.Vector {
 	return ptsHomogeneous
 }
 
-// GetFundamentalMatrixInliers returns the points in pts1 and pts2 that F accurately transforms
-func GetFundamentalMatrixInliers(pts1, pts2 []r2.Point, F *mat.Dense, threshold float64) ([]r2.Point, []r2.Point, []int) {
-	indices := make([]int, 0, len(pts1))
-	inliers1 := make([]r2.Point, 0, len(pts1))
-	inliers2 := make([]r2.Point, 0, len(pts1))
-	for i := range pts1 {
-
-		d := evaluateFundamentalMatrix(pts1[i], pts2[i], F)
-		//fmt.Println(d)
-		if d < threshold {
-			indices = append(indices, i)
-			inliers1 = append(inliers1, pts1[i])
-			inliers2 = append(inliers2, pts2[i])
-		}
-	}
-	return inliers1, inliers2, indices
-}
-
-// EightPointAlgorithm performs the 8-point algorithm
-func EightPointAlgorithm(pts1, pts2 []r2.Point, normalize bool) (*mat.Dense, error) {
-	if len(pts1) != 8 {
-		return nil, errors.New("sets of points pts1 must have 8 elements")
-	}
-	if len(pts2) != 8 {
-		return nil, errors.New("sets of points pts2 must have 8 elements")
-	}
-	nPoints := len(pts1)
-
-	var points1, points2 []r2.Point
-	var T1, T2 *mat.Dense
-
-	// if normalize, normalize points and get transform
-	if normalize {
-		points1, T1 = normalizePoints(pts1)
-		points2, T2 = normalizePoints(pts2)
-	} else {
-		points1 = make([]r2.Point, nPoints)
-		copy(points1, pts1)
-		points2 = make([]r2.Point, nPoints)
-		copy(points2, pts2)
-		T1 = eye(3)
-		T2 = eye(3)
-	}
-
-	m := mat.NewDense(nPoints, 9, nil)
-	//M := make([]float64, 9*9)
-	//A := mat.NewSymDense(9, nil)
-	for i := range points1 {
-		v1 := points1[i]
-		v2 := points2[i]
-		row := []float64{
-			v2.X * v1.X, v2.X * v1.Y, v2.X,
-			v2.Y * v1.X, v2.Y * v1.Y, v2.Y,
-			v1.X, v1.Y, 1,
-		}
-		m.SetRow(i, row)
-	}
-
-	// perform SVD on m
-	//_, v, _, _ := performSVD(m)
-	//lastColV := v.ColView(7)
-	lastColV := solveLeastSquaresSVD(m)
-
-	// reshape into F
-	//lastColVdata := make([]float64, 9)
-	lastColVdata := lastColV.RawMatrix().Data
-	//for i := range lastColVdata {
-	//	lastColVdata[i] = lastColV.At(i, 0)
-	//}
-	F := mat.NewDense(3, 3, lastColVdata)
-
-	// enforce rank 2 of F
-	U, _, V2T, S := performSVD(F)
-
-	// get refined F
-	F.Mul(U, S)
-	F.Mul(F, V2T)
-	// rescale F: T2^T @ F @ T1
-	F.Mul(F, T1)
-	T2T := transposeDense(T2)
-	F.Mul(T2T, F)
-	F.Scale(1/F.At(2, 2), F)
-
-	return F, nil
-}
-
 // ComputeFundamentalMatrixAllPoints compute the fundamental matrix from all points
 func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*mat.Dense, error) {
 	if len(pts1) != len(pts2) {
@@ -194,11 +108,14 @@ func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*
 	}
 
 	// perform SVD on m
-	lastColV := solveLeastSquaresSVD(m)
+	U, V, _, _ := performSVD(m)
+	lastColV := V.ColView(8)
 
 	// reshape into F
-	lastColVdata := lastColV.RawMatrix().Data
-
+	lastColVdata := make([]float64, 9)
+	for i := range lastColVdata {
+		lastColVdata[i] = lastColV.AtVec(i)
+	}
 	F := mat.NewDense(3, 3, lastColVdata)
 
 	// enforce rank 2 of F
