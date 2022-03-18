@@ -2,27 +2,26 @@ package transform
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/mat"
 )
 
-// CamPose stores the 3x4 pose matrix as well as the 3D Rotation and Translation matrices
+// CamPose stores the 3x4 pose matrix as well as the 3D Rotation and Translation matrices.
 type CamPose struct {
 	Pose        *mat.Dense
 	Rotation    *mat.Dense
 	Translation *mat.Dense
 }
 
-// NewCamPoseFromMat creates a pointer to a Camera pose from a 4x3 pose dense matrix
+// NewCamPoseFromMat creates a pointer to a Camera pose from a 4x3 pose dense matrix.
 func NewCamPoseFromMat(pose *mat.Dense) *CamPose {
 	U3 := pose.ColView(3)
 	t := mat.NewDense(3, 1, []float64{U3.AtVec(0), U3.AtVec(1), U3.AtVec(2)})
 	return &CamPose{
 		Pose:        pose,
-		Rotation:    pose.Slice(0, 2, 0, 2).(*mat.Dense),
+		Rotation:    pose.Slice(0, 3, 0, 3).(*mat.Dense),
 		Translation: t,
 	}
 }
@@ -69,7 +68,7 @@ func GetPossibleCameraPoses(essMat *mat.Dense) ([]mat.Dense, error) {
 	return poses, nil
 }
 
-// getCrossProductMatFromPoint returns the cross product with point p matrix
+// getCrossProductMatFromPoint returns the cross product with point p matrix.
 func getCrossProductMatFromPoint(p r3.Vector) *mat.Dense {
 	cross := mat.NewDense(3, 3, nil)
 	cross.Set(0, 1, -p.Z)
@@ -157,7 +156,7 @@ func GetNumberPositiveDepth(pose *mat.Dense, pts1, pts2 []r3.Vector, useNonLinea
 	return nPositiveDepth, pose
 }
 
-// GetCorrectCameraPose returns the best pose, which is the pose with the most positive depth values
+// GetCorrectCameraPose returns the best pose, which is the pose with the most positive depth values.
 func GetCorrectCameraPose(poses []mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense {
 	maxNumPosDepth := 0
 	correctPose := mat.NewDense(3, 4, nil)
@@ -174,17 +173,17 @@ func GetCorrectCameraPose(poses []mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense 
 // EstimateNewPose estimates the pose of the camera in the second set of points wrt the pose of the camera in the first
 // set of points
 // pts1 and pts2 are matches in 2 images (successive in time or from 2 different cameras of the same scene
-// at the same time)
-func EstimateNewPose(pts1, pts2 []r2.Point, K *mat.Dense) (*CamPose, error) {
+// at the same time).
+func EstimateNewPose(pts1, pts2 []r2.Point, k *mat.Dense) (*CamPose, error) {
 	if len(pts1) != len(pts2) {
-		return nil, errors.New("The 2 sets of points don't have the same number of elements.")
+		return nil, errors.New("the 2 sets of points don't have the same number of elements")
 	}
 	fundamentalMatrix, err := ComputeFundamentalMatrixAllPoints(pts1, pts2, true)
 	if err != nil {
 		return nil, err
 	}
 
-	essentialMatrix, err := GetEssentialMatrixFromFundamental(K, K, fundamentalMatrix)
+	essentialMatrix, err := GetEssentialMatrixFromFundamental(k, k, fundamentalMatrix)
 	if err != nil {
 		return nil, err
 	}
@@ -195,6 +194,5 @@ func EstimateNewPose(pts1, pts2 []r2.Point, K *mat.Dense) (*CamPose, error) {
 	pts1H := Convert2DPointsToHomogeneousPoints(pts1)
 	pts2H := Convert2DPointsToHomogeneousPoints(pts2)
 	pose := GetCorrectCameraPose(poses, pts1H, pts2H)
-	fmt.Println(mat.Formatted(pose))
 	return NewCamPoseFromMat(pose), nil
 }

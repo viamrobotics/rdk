@@ -2,7 +2,6 @@ package transform
 
 import (
 	"errors"
-	"fmt"
 	"math"
 
 	"github.com/golang/geo/r2"
@@ -15,27 +14,26 @@ func GetEssentialMatrixFromFundamental(k1, k2, f *mat.Dense) (*mat.Dense, error)
 	var essMat, tmp mat.Dense
 	tmp.Mul(transposeDense(k2), f)
 	essMat.Mul(&tmp, k1)
-	fmt.Println("E1 : ", mat.Formatted(&essMat))
 	// enforce rank 2
-	U, _, VT, _ := performSVD(&essMat)
+	mats := performSVD(&essMat)
 	S := eye(3)
 	S.Set(2, 2, 0)
 
-	essMat.Mul(U, S)
-	essMat.Mul(&essMat, VT)
+	essMat.Mul(mats.U, S)
+	essMat.Mul(&essMat, mats.VT)
 	return &essMat, nil
 }
 
-// DecomposeEssentialMatrix decomposes the Essential matrix into 2 possible 3D rotations and a 3D translation
+// DecomposeEssentialMatrix decomposes the Essential matrix into 2 possible 3D rotations and a 3D translation.
 func DecomposeEssentialMatrix(essMat *mat.Dense) (*mat.Dense, *mat.Dense, *mat.Dense, error) {
 	// svd
-	U, _, VT, _ := performSVD(essMat)
+	mats := performSVD(essMat)
 	// check determinant sign of U and V
-	if mat.Det(U) < 0 {
-		U.Scale(-1, U)
+	if mat.Det(mats.U) < 0 {
+		mats.U.Scale(-1, mats.U)
 	}
-	if mat.Det(VT) < 0 {
-		VT.Scale(-1, VT)
+	if mat.Det(mats.VT) < 0 {
+		mats.VT.Scale(-1, mats.VT)
 	}
 	// create matrix W
 	W := mat.NewDense(3, 3, nil)
@@ -45,17 +43,17 @@ func DecomposeEssentialMatrix(essMat *mat.Dense) (*mat.Dense, *mat.Dense, *mat.D
 	// compute possible poses
 	var R1, R2 mat.Dense
 	// UWV^T
-	R1.Mul(U, W)
-	R1.Mul(&R1, VT)
-	U3 := U.ColView(2)
+	R1.Mul(mats.U, W)
+	R1.Mul(&R1, mats.VT)
+	U3 := mats.U.ColView(2)
 	t := mat.NewDense(3, 1, []float64{U3.AtVec(0), U3.AtVec(1), U3.AtVec(2)})
 	// UW^TV^T
-	R2.Mul(U, transposeDense(W))
-	R2.Mul(&R2, VT)
+	R2.Mul(mats.U, transposeDense(W))
+	R2.Mul(&R2, mats.VT)
 	return &R1, &R2, t, nil
 }
 
-// Convert2DPointsToHomogeneousPoints converts float64 image coordinates to homogeneous float64 coordinates
+// Convert2DPointsToHomogeneousPoints converts float64 image coordinates to homogeneous float64 coordinates.
 func Convert2DPointsToHomogeneousPoints(pts []r2.Point) []r3.Vector {
 	ptsHomogeneous := make([]r3.Vector, len(pts))
 	for i, pt := range pts {
@@ -68,7 +66,7 @@ func Convert2DPointsToHomogeneousPoints(pts []r2.Point) []r3.Vector {
 	return ptsHomogeneous
 }
 
-// ComputeFundamentalMatrixAllPoints compute the fundamental matrix from all points
+// ComputeFundamentalMatrixAllPoints compute the fundamental matrix from all points.
 func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*mat.Dense, error) {
 	if len(pts1) != len(pts2) {
 		return nil, errors.New("sets of points pts1 and pts2 must have the same number of elements")
@@ -104,11 +102,11 @@ func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*
 			v1.X, v1.Y, 1,
 		}
 		m.SetRow(i, row)
-
 	}
 
 	// perform SVD on m
-	U, V, _, _ := performSVD(m)
+	mats1 := performSVD(m)
+	V := mats1.V
 	lastColV := V.ColView(8)
 
 	// reshape into F
@@ -119,13 +117,14 @@ func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*
 	F := mat.NewDense(3, 3, lastColVdata)
 
 	// enforce rank 2 of F
-	U, _, V2T, S := performSVD(F)
+	mats2 := performSVD(F)
+	S := mats2.S
 	S.Set(2, 2, 0)
 
 	// get refined F: U@S@V2^T
 	Fhat := mat.NewDense(3, 3, nil)
-	Fhat.Mul(U, S)
-	F.Mul(Fhat, V2T)
+	Fhat.Mul(mats2.U, S)
+	F.Mul(Fhat, mats2.VT)
 	// rescale F: T2^T @ F @ T1
 	T2T := transposeDense(T2)
 	F.Mul(T2T, F)
@@ -136,28 +135,8 @@ func ComputeFundamentalMatrixAllPoints(pts1, pts2 []r2.Point, normalize bool) (*
 	return F, nil
 }
 
-// evaluateFundamentalMatrix computes the error made by the estimated fundamental matrix between two points
-// error = (x2^T @ F @ x1)^2 / (norm(F@x1)^2 + norm(F^T@x2)^2)
-func evaluateFundamentalMatrix(p1, p2 r2.Point, F *mat.Dense) float64 {
-	// compute error numerator
-	var res1, res2 mat.Dense
-	v1 := mat.NewDense(3, 1, []float64{p1.X, p1.Y, 1})
-	v2 := mat.NewDense(1, 3, []float64{p2.X, p2.Y, 1})
-	res1.Mul(F, v1)
-	res2.Mul(v2, &res1)
-	num := res2.At(0, 0) * res2.At(0, 0)
-	// compute error denominator
-	u2 := mat.NewDense(3, 1, []float64{p2.X, p2.Y, 1})
-	FT := transposeDense(F)
-	var fx1, ftx2 mat.Dense
-	fx1.Mul(F, v1)
-	ftx2.Mul(FT, u2)
-	denom := mat.Norm(&fx1, 2)*mat.Norm(&fx1, 2) + mat.Norm(&ftx2, 2)*mat.Norm(&ftx2, 2)
-	return num / denom
-}
-
 // helpers
-// normalizePoints normalizes points as described in Multiple View Geometry, Alg 11.1
+// normalizePoints normalizes points as described in Multiple View Geometry, Alg 11.1.
 func normalizePoints(pts []r2.Point) ([]r2.Point, *mat.Dense) {
 	nPoints := len(pts)
 	// computer centroid of points
@@ -190,7 +169,7 @@ func normalizePoints(pts []r2.Point) ([]r2.Point, *mat.Dense) {
 	return pointsTransformed, T
 }
 
-// mat.Dense utils
+// mat.Dense utils.
 func transposeDense(m *mat.Dense) *mat.Dense {
 	nRows, nCols := m.Dims()
 	m2 := mat.NewDense(nCols, nRows, nil)
@@ -199,6 +178,7 @@ func transposeDense(m *mat.Dense) *mat.Dense {
 	return m2
 }
 
+// eye create an identity matrix of size nxn.
 func eye(n int) *mat.Dense {
 	if n <= 0 {
 		return nil
@@ -210,12 +190,20 @@ func eye(n int) *mat.Dense {
 	return m
 }
 
-// performSVD performs SVD on inputMatrix and returns matrices U, Sigma and V from the decomposition
-func performSVD(inputMatrix *mat.Dense) (*mat.Dense, *mat.Dense, *mat.Dense, *mat.Dense) {
+// matsSVD stores the matrices from SVD decomposition.
+type matsSVD struct {
+	U  *mat.Dense
+	V  *mat.Dense
+	VT *mat.Dense
+	S  *mat.Dense
+}
+
+// performSVD performs SVD on inputMatrix and returns matrices U, Sigma and V from the decomposition.
+func performSVD(inputMatrix *mat.Dense) *matsSVD {
 	var svd mat.SVD
 	ok := svd.Factorize(inputMatrix, mat.SVDFull)
 	if !ok {
-		return nil, nil, nil, nil
+		return nil
 	}
 
 	u, v, sigma, vt := &mat.Dense{}, &mat.Dense{}, &mat.Dense{}, &mat.Dense{}
@@ -228,27 +216,5 @@ func performSVD(inputMatrix *mat.Dense) (*mat.Dense, *mat.Dense, *mat.Dense, *ma
 	// firstly create diag matrix. Next fill new sigma matrix with zeros
 	sigma.CloneFrom(mat.NewDiagDense(len(singularValues), singularValues))
 
-	return u, v, vt, sigma
-}
-
-func solveLeastSquaresSVD(inputMatrix *mat.Dense) *mat.Dense {
-	var svd mat.SVD
-	ok := svd.Factorize(inputMatrix, mat.SVDFull)
-	if !ok {
-		return nil
-	}
-	// Determine the rank of the A matrix with a near zero condition threshold.
-	const rcond = 1e-15
-	rank := svd.Rank(rcond)
-	if rank == 0 {
-		return nil
-	}
-	nRows, _ := inputMatrix.Dims()
-
-	b := mat.NewDense(nRows, 1, nil)
-
-	// Find a least-squares solution using the determined parts of the system.
-	var x mat.Dense
-	svd.SolveTo(&x, b, rank)
-	return &x
+	return &matsSVD{u, v, vt, sigma}
 }
