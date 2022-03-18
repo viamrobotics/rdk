@@ -10,24 +10,19 @@ npm install
 npm run serve
 ```
 
-### Compiles and minifies for production
+### Compiles for development
 ```
-npm run build
+npm run build:dev
 ```
 
-### Run your unit tests
+### Compiles and minifies for production
 ```
-npm run test:unit
+npm run build:prod
 ```
 
 ### Lints and fixes files
 ```
 npm run lint
-```
-
-### Storybook
-```
-npm run storybook
 ```
 
 ### Customize configuration

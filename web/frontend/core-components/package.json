@@ -1,0 +1,39 @@
+{
+  "name": "core-components",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve --port 3000",
+    "build:dev": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts",
+    "build:prod": "vue-cli-service build --target lib --name coreComponents --formats umd-min --dest ../../runtime-shared/static/components ./src/lib.ts && rm ../../runtime-shared/static/components/coreComponents.umd.min.js.map",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "chart.js": "^2.9.4",
+    "chartjs-plugin-streaming": "^1.9.0",
+    "core-js": "^3.6.5",
+    "google-protobuf": "^3.18.0",
+    "proto": "file:../../../dist/js/proto",
+    "vue": "^2.6.11",
+    "vue-chartjs": "^3.5.1",
+    "vue-class-component": "^7.2.3",
+    "vue-property-decorator": "^9.1.2"
+  },
+  "devDependencies": {
+    "@types/google-protobuf": "^3.15.5",
+    "@typescript-eslint/eslint-plugin": "^4.18.0",
+    "@typescript-eslint/parser": "^4.18.0",
+    "@vue/cli-plugin-babel": "~4.5.0",
+    "@vue/cli-plugin-eslint": "~4.5.0",
+    "@vue/cli-plugin-typescript": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "@vue/eslint-config-prettier": "^6.0.0",
+    "@vue/eslint-config-typescript": "^7.0.0",
+    "eslint": "^6.7.2",
+    "eslint-plugin-prettier": "^3.3.1",
+    "eslint-plugin-vue": "^6.2.2",
+    "prettier": "^2.2.1",
+    "typescript": "~4.1.5",
+    "vue-template-compiler": "^2.6.11"
+  }
+}
