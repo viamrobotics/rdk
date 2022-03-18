@@ -22,7 +22,7 @@ type dummyCapturer struct {
 	captureCount int64
 }
 
-func (c *dummyCapturer) Capture(_ map[string]string) (*any.Any, error) {
+func (c *dummyCapturer) Capture(_ context.Context, _ map[string]string) (*any.Any, error) {
 	if c.shouldError {
 		return nil, errors.New("error")
 	}
