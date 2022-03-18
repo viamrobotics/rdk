@@ -90,20 +90,22 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
-	frames, err := m.jointRadToQuats(inputs, true)
-	if err != nil && frames == nil {
-		return nil, err
-	}
+	posIdx := 0
 	var errAll error
 	geometryMap := make(map[string]spatialmath.Geometry)
-	for _, frame := range frames {
-		geometry, err := frame.Geometries([]Input{})
+
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		input := inputs[posIdx:dof]
+		posIdx = dof
+		geometry, err := transform.Geometries(input)
+
 		if geometry == nil {
 			// only propagate errors that result in nil geometry
 			multierr.AppendInto(&errAll, err)
 			continue
 		}
-		geometryMap[m.name+":"+frame.Name()] = geometry[frame.Name()]
+		geometryMap[m.name+":"+transform.Name()] = geometry[transform.Name()]
 	}
 	return geometryMap, errAll
 }
@@ -209,6 +211,61 @@ func (m *SimpleModel) MarshalJSON() ([]byte, error) {
 // AlmostEquals returns true if the only difference between this model and another is floating point inprecision.
 func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
 	other, ok := otherFrame.(*SimpleModel)
+	if !ok {
+		return false
+	}
+
+	if m.name != other.name {
+		return false
+	}
+
+	if len(m.OrdTransforms) != len(other.OrdTransforms) {
+		return false
+	}
+
+	for idx, f := range m.OrdTransforms {
+		if !f.AlmostEquals(other.OrdTransforms[idx]) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// NewArmModel constructs a new Arm model.
+func NewArmModel() *ArmModel {
+	return &ArmModel{*NewSimpleModel()}
+}
+
+// ArmModel wraps a SimpleModel and overwrites the Geometries method to make it easier to specify arm volumes.
+// Specifically, it will place the volume for an arm at the origin of a frame, rather than at the end of the transformation.
+type ArmModel struct {
+	SimpleModel
+}
+
+// Geometries returns an object representing the 3D space associeted with the staticFrame.
+func (m *ArmModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
+	frames, err := m.jointRadToQuats(inputs, true)
+	if err != nil && frames == nil {
+		return nil, err
+	}
+	var errAll error
+	geometryMap := make(map[string]spatialmath.Geometry)
+	for _, frame := range frames {
+		geometry, err := frame.Geometries([]Input{})
+		if geometry == nil {
+			// only propagate errors that result in nil geometry
+			multierr.AppendInto(&errAll, err)
+			continue
+		}
+		geometryMap[m.name+":"+frame.Name()] = geometry[frame.Name()]
+	}
+	return geometryMap, errAll
+}
+
+// AlmostEquals returns true if the only difference between this model and another is floating point inprecision.
+func (m *ArmModel) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*ArmModel)
 	if !ok {
 		return false
 	}

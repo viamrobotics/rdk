@@ -16,7 +16,7 @@ func TestModelLoading(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, m.Name(), test.ShouldEqual, "wx250s")
-	simpleM, ok := m.(*SimpleModel)
+	simpleM, ok := m.(*ArmModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
@@ -42,7 +42,7 @@ func TestModelLoading(t *testing.T) {
 func TestTransform(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	simpleM, ok := m.(*SimpleModel)
+	simpleM, ok := m.(*ArmModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	joints := []Frame{}
@@ -71,7 +71,7 @@ func TestTransform(t *testing.T) {
 func TestModelGeometries(t *testing.T) {
 	m, err := ParseModelJSONFile(utils.ResolveFile("component/arm/universalrobots/ur5e.json"), "")
 	test.That(t, err, test.ShouldBeNil)
-	sm, ok := m.(*SimpleModel)
+	sm, ok := m.(*ArmModel)
 	test.That(t, ok, test.ShouldBeTrue)
 
 	inputs := make([]Input, len(sm.DoF()))
@@ -86,7 +86,7 @@ func TestModelGeometries(t *testing.T) {
 		if joint.geometryCreator != nil {
 			numGeometries++
 			var offset r3.Vector
-			for _, tf := range m.(*SimpleModel).OrdTransforms {
+			for _, tf := range m.(*ArmModel).OrdTransforms {
 				if tf.Name() == joint.Name() {
 					geometry, err := tf.Geometries([]Input{})
 					test.That(t, err, test.ShouldBeNil)
