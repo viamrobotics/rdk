@@ -172,6 +172,8 @@ func (c *collector) appendMessage(msg *structpb.Struct) error {
 	return nil
 }
 
+// InterfaceToStruct converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
+// returned proto.
 func InterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	encoded, err := protoutils.InterfaceToMap(i)
 	if err != nil {
