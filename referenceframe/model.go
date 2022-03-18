@@ -23,7 +23,7 @@ type Model interface {
 	ChangeName(string)
 }
 
-// SimpleModel TODO
+// SimpleModel TODO.
 type SimpleModel struct {
 	name string // the name of the model
 	// OrdTransforms is the list of transforms ordered from end effector to base
@@ -130,7 +130,7 @@ func (m *SimpleModel) OperationalDoF() int {
 	return 1
 }
 
-// DoF returns the number of degrees of freedom within a model
+// DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
