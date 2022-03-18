@@ -26,15 +26,6 @@ import (
 
 const modelname = "oneaxis"
 
-// TODO: (rh) figure out how to add this/where to add this in utils.
-// type validatedBool struct {
-// 	Set *bool
-// }
-
-// type validatedFloat struct {
-// 	Set *float64
-// }
-
 // AttrConfig is used for converting oneAxis config attributes.
 type AttrConfig struct {
 	Board              string                    `json:"board,omitempty"` // used to read limit switch pins and control motor with gpio pins
@@ -62,6 +53,10 @@ func (config *AttrConfig) Validate(path string) error {
 
 	if len(config.LimitSwitchPins) == 0 && config.StartPosition == nil {
 		return utils.NewConfigValidationError(path, errors.New("gantry with encoder needs a start position set"))
+	}
+
+	if len(config.LimitSwitchPins) == 0 && config.Board != "" {
+		return utils.NewConfigValidationError(path, errors.New("gantry with encoders have to assign boards or controllers to motors"))
 	}
 
 	if config.Board == "" && len(config.LimitSwitchPins) > 0 {
@@ -127,7 +122,7 @@ type oneAxis struct {
 	model                 referenceframe.Model
 	axis                  r3.Vector
 	axisOrientationOffset *spatial.OrientationVector
-	axisTransaltionOffset r3.Vector
+	axisTranslationOffset r3.Vector
 
 	startPosition float64
 
@@ -181,9 +176,7 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		rpm:                   conf.GantryRPM,
 		axis:                  r3.Vector(conf.Axis),
 		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
-		axisTransaltionOffset: translationOffset,
-		// limitHigh:             PinEnable,
-		//		startPosition:         StartPos,
+		axisTranslationOffset: translationOffset,
 	}
 
 	switch len(oAx.limitSwitchPins) {
@@ -215,11 +208,6 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 
 	case 0:
 		oAx.limitType = limitEncoder
-		_, err := board.FromRobot(r, conf.Board)
-		if err == nil {
-			return nil, errors.New("remove board from gantry attribute list, it should be included in motor attribute list")
-		}
-
 		var StartPos = *conf.StartPosition
 		oAx.startPosition = StartPos
 	default:
@@ -465,7 +453,7 @@ func (g *oneAxis) ModelFrame() referenceframe.Model {
 		m := referenceframe.NewSimpleModel()
 
 		f, err := referenceframe.NewStaticFrame(g.name,
-			spatial.NewPoseFromOrientationVector(g.axisTransaltionOffset, g.axisOrientationOffset))
+			spatial.NewPoseFromOrientationVector(g.axisTranslationOffset, g.axisOrientationOffset))
 		errs = multierr.Combine(errs, err)
 		m.OrdTransforms = append(m.OrdTransforms, f)
 

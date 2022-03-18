@@ -100,6 +100,12 @@ func TestValidate(t *testing.T) {
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with encoder")
 
+	fakecfg.StartPosition = &setFloat
+	fakecfg.Board = "board"
+	err = fakecfg.Validate("path")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "assign boards or controllers")
+
+	fakecfg.Board = ""
 	fakecfg.LimitSwitchPins = []string{"1"}
 	err = fakecfg.Validate("path")
 	test.That(t, err.Error(), test.ShouldContainSubstring, "cannot find board for gantry")
@@ -209,7 +215,7 @@ func TestNewOneAxis(t *testing.T) {
 		},
 	}
 	_, err = newOneAxis(ctx, fakeRobot, fakecfg, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "remove board from gantry attribute list")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "does not support Reset")
 
 	fakecfg = config.Component{
 		Name: "gantry",
