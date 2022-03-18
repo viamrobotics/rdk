@@ -28,8 +28,15 @@ type Capturer interface {
 	Capture(params map[string]string) (*any.Any, error)
 }
 
+type Collector interface {
+	SetTarget(file *os.File)
+	GetTarget() *os.File
+	Close()
+	Collect(ctx context.Context) error
+}
+
 // A Collector calls capturer at the specified Interval, and appends the resulting reading to target.
-type Collector struct {
+type collector struct {
 	queue    chan *any.Any
 	interval time.Duration
 	params   map[string]string
@@ -42,7 +49,7 @@ type Collector struct {
 }
 
 // SetTarget updates the file being written to by the collector.
-func (c *Collector) SetTarget(file *os.File) {
+func (c *collector) SetTarget(file *os.File) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	c.target = file
@@ -53,7 +60,7 @@ func (c *Collector) SetTarget(file *os.File) {
 }
 
 // GetTarget returns the file being written to by the collector.
-func (c *Collector) GetTarget() *os.File {
+func (c *collector) GetTarget() *os.File {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.target
@@ -61,7 +68,7 @@ func (c *Collector) GetTarget() *os.File {
 
 // Close closes the channels backing the Collector. It should always be called before disposing of a Collector to avoid
 // leaking goroutines. Close() can only be called once; attempting to Close an already closed Collector will panic.
-func (c *Collector) Close() {
+func (c *collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
@@ -82,7 +89,7 @@ func (c *Collector) Close() {
 //       errors.
 
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
-func (c *Collector) Collect(ctx context.Context) error {
+func (c *collector) Collect(ctx context.Context) error {
 	errs, _ := errgroup.WithContext(ctx)
 	go c.capture()
 	errs.Go(func() error {
@@ -91,7 +98,7 @@ func (c *Collector) Collect(ctx context.Context) error {
 	return errs.Wait()
 }
 
-func (c *Collector) capture() {
+func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
 	for {
 		select {
@@ -110,7 +117,7 @@ func (c *Collector) capture() {
 // NewCollector returns a new Collector with the passed capturer and configuration options.
 func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
 	logger golog.Logger) Collector {
-	return Collector{
+	return &collector{
 		queue:    make(chan *any.Any, queueSize),
 		interval: interval,
 		params:   params,
@@ -124,7 +131,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 }
 
 // TODO: length prefix when writing.
-func (c *Collector) write() error {
+func (c *collector) write() error {
 	for a := range c.queue {
 		if err := c.appendMessage(a); err != nil {
 			return err
@@ -133,7 +140,7 @@ func (c *Collector) write() error {
 	return nil
 }
 
-func (c *Collector) appendMessage(msg *any.Any) error {
+func (c *collector) appendMessage(msg *any.Any) error {
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
 		return err
