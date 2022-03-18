@@ -155,9 +155,11 @@ func (m *Motor) readReg(ctx context.Context) ([]byte, error) {
 		return nil, errors.New("syntax error, code: 2")
 	case 255:
 		return nil, errors.New("no data to send, code: 255")
+	case 254:
+		return nil, errors.New("data not ready, code: 254")
+	default:
+		return nil, errors.Errorf("error code not understood %b", readVal[0])
 	}
-
-	return nil, nil
 }
 
 func (m *Motor) writeRegWithCheck(ctx context.Context, command []byte) error {
@@ -179,7 +181,6 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 	powerPct = math.Min(powerPct, m.maxPowerPct)
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 	var command []byte
-	fmt.Println("print power")
 	powerVal := (powerPct * 104.5) + 0.5
 	if powerPct == 0 {
 		command = []byte(stop)
