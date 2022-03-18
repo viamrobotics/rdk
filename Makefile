@@ -17,13 +17,14 @@ default: build lint server
 setup:
 	bash etc/setup.sh
 
-build: build-go build-web
+build: build-web build-go
 
 build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web: buf-web
-	cd web/frontend && npm install && npm run prepare && npm install && npm run build
+	cd web/frontend/core-components && npm install && npm run build:prod
+	cd web/frontend && npm install && npx webpack
 
 tool-install:
 	GOBIN=`pwd`/bin go install google.golang.org/protobuf/cmd/protoc-gen-go \

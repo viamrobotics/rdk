@@ -1,5 +1,5 @@
 <template>
-  <div class="home">
+  <div id="app">
     <MotorDetail
       motorName="MOTOR NAME"
       :motorStatus="{
@@ -20,16 +20,22 @@
 
 <script lang="ts">
 import { Component, Vue } from "vue-property-decorator";
-import InputController from "@/components/InputController.vue";
-import MotorDetail from "@/components/MotorDetail.vue";
-import WebGamepad from "@/components/WebGamepad.vue"; // @ is an alias to /src
+import MotorDetail from "./components/MotorDetail.vue";
 
 @Component({
   components: {
-    InputController,
     MotorDetail,
-    WebGamepad,
   },
 })
-export default class Home extends Vue {}
+export default class App extends Vue {}
 </script>
+
+<style>
+@import "./assets/css/styles.css";
+@import "./assets/css/fontawesome.min.css";
+@import "./assets/css/solid.min.css";
+@import "./assets/css/regular.min.css";
+#app {
+  width: 1080px;
+}
+</style>
