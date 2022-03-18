@@ -109,7 +109,13 @@ func (c *collector) capture() {
 			if err != nil {
 				c.logger.Errorw("error while capturing data", "error", err)
 			}
-			c.queue <- a
+			select {
+			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+			// still work when this happens.
+			case <-c.cancelCtx.Done():
+				return
+			case c.queue <- a:
+			}
 		}
 	}
 }
