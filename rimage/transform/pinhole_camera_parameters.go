@@ -174,22 +174,23 @@ func (params *PinholeCameraIntrinsics) DistortionMap() func(u, v float64) (float
 // UndistortImage takes an input image and creates a new image the same size with the same camera parameters
 // as the original image, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
 // interpolation is used to interpolate values inbetween image pixels.
-func (params *PinholeCameraIntrinsics) UndistortImage(img *Image) (*Image, error) {
+func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
 	// Check dimensions, they should be equal between the color image and what the intrinsics expect
-	if params.Width != img.Width() || params.Height != params.Height() {
+	if params.Width != img.Width() || params.Height != img.Height() {
 		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
 			img.Width(), img.Height(), params.Width, params.Height)
 	}
-	undistortedImg := NewImage(params.Width, params.Height)
+	undistortedImg := rimage.NewImage(params.Width, params.Height)
 	distortionMap := params.DistortionMap()
 	for v := 0; v < params.Height; v++ {
 		for u := 0; u < params.Width; u++ {
 			x, y := distortionMap(float64(u), float64(v))
 			c := rimage.BilinearInterpolationColor(r2.Point{x, y}, img)
-			if c == nil {
-				c = &rimage.Color(0)
+			if c != nil {
+				undistortedImg.SetXY(u, v, *c)
+			} else {
+				undistortedImg.SetXY(u, v, rimage.Color(0))
 			}
-			undistortedImg.SetXY(u, v, *c)
 		}
 	}
 	return undistortedImg, nil
@@ -198,22 +199,23 @@ func (params *PinholeCameraIntrinsics) UndistortImage(img *Image) (*Image, error
 // UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
 // as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
 // interpolation is used to interpolate values inbetween depth pixels.
-func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *DepthMap) (*DepthMap, error) {
+func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
 	// Check dimensions, they should be equal between the color image and what the intrinsics expect
 	if params.Width != dm.Width() || params.Height != dm.Height() {
 		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
 			dm.Width(), dm.Height(), params.Width, params.Height)
 	}
-	undistortedDm := NewEmptyDepthMap(params.Width, params.Height)
+	undistortedDm := rimage.NewEmptyDepthMap(params.Width, params.Height)
 	distortionMap := params.DistortionMap()
 	for v := 0; v < params.Height; v++ {
 		for u := 0; u < params.Width; u++ {
 			x, y := distortionMap(float64(u), float64(v))
 			d := rimage.BilinearInterpolationDepth(r2.Point{x, y}, dm)
-			if d == nil {
-				d = &rimage.Depth(0)
+			if d != nil {
+				undistortedDm.Set(u, v, *d)
+			} else {
+				undistortedDm.Set(u, v, rimage.Depth(0))
 			}
-			undistortedDm.Set(u, v, *d)
 		}
 	}
 	return undistortedDm, nil
