@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/disintegration/imaging"
+	"github.com/golang/geo/r2"
 	"github.com/gonum/floats"
 	"github.com/gonum/stat"
 	"github.com/pkg/errors"
@@ -143,6 +144,11 @@ func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold
 	}
 
 	return num
+}
+
+// BilinearInterpolationColor approximates the Color value between pixels according to a bilinear
+// interpolation. A nil return value means the interpolation is out of bounds.
+func BilinearInterpolationColor(pt r2.Point, img *Image) *Color {
 }
 
 // Rotate rotates the image clockwise by a certain amount of degrees.
