@@ -23,7 +23,14 @@
       "model": "fake",
       "name": "m2",
       "type": "motor",
-      "depends_on" : ["arm2"]
+      "depends_on" : ["arm2"],
+      "attributes" : {
+        "board" : "board1",
+        "pins" : {
+          "pwm" : "1"
+        },
+        "pwmfreq" : 1000
+      }
     },
     {
       "model": "fake",

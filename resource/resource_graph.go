@@ -304,6 +304,15 @@ func (g *Graph) TopologicalSort() []Name {
 	return ordered
 }
 
+// ReverseTopologicalSort returns an array of nodes' Name ordered by most edges first.
+func (g *Graph) ReverseTopologicalSort() []Name {
+	ordered := g.TopologicalSort()
+	for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
+		ordered[i], ordered[j] = ordered[j], ordered[i]
+	}
+	return ordered
+}
+
 // FindNodeByName returns a full resource name based on name, note if name is a duplicate the first one found will be returned.
 func (g *Graph) FindNodeByName(name string) (*Name, bool) {
 	for nodeName := range g.Nodes {

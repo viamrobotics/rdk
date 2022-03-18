@@ -505,9 +505,10 @@ func (manager *resourceManager) MergeModify(ctx context.Context, toModify *resou
 			old.replace(ctx, v)
 		}
 	}
-
-	if len(toModify.resources.Nodes) != 0 {
-		for k, v := range toModify.resources.Nodes {
+	orderedModify := toModify.resources.ReverseTopologicalSort()
+	if len(orderedModify) != 0 {
+		for _, k := range orderedModify {
+			v := toModify.resources.Nodes[k]
 			old, ok := manager.resources.Nodes[k]
 			if !ok {
 				// should not happen
