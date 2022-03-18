@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -17,7 +16,7 @@ import (
 
 // Robot is an injected robot.
 type Robot struct {
-	robot.Robot
+	robot.LocalRobot
 	RemoteByNameFunc   func(name string) (robot.Robot, bool)
 	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc    func() []string
@@ -26,7 +25,6 @@ type Robot struct {
 	ResourceNamesFunc  func() []resource.Name
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
-	StatusFunc         func(ctx context.Context) (*pb.Status, error)
 	LoggerFunc         func() golog.Logger
 	CloseFunc          func(ctx context.Context) error
 	RefreshFunc        func(ctx context.Context) error
@@ -35,7 +33,7 @@ type Robot struct {
 // RemoteByName calls the injected RemoteByName or the real version.
 func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 	if r.RemoteByNameFunc == nil {
-		return r.Robot.RemoteByName(name)
+		return r.LocalRobot.RemoteByName(name)
 	}
 	return r.RemoteByNameFunc(name)
 }
@@ -43,7 +41,7 @@ func (r *Robot) RemoteByName(name string) (robot.Robot, bool) {
 // ResourceByName calls the injected ResourceByName or the real version.
 func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
 	if r.ResourceByNameFunc == nil {
-		return r.Robot.ResourceByName(name)
+		return r.LocalRobot.ResourceByName(name)
 	}
 	return r.ResourceByNameFunc(name)
 }
@@ -51,7 +49,7 @@ func (r *Robot) ResourceByName(name resource.Name) (interface{}, error) {
 // RemoteNames calls the injected RemoteNames or the real version.
 func (r *Robot) RemoteNames() []string {
 	if r.RemoteNamesFunc == nil {
-		return r.Robot.RemoteNames()
+		return r.LocalRobot.RemoteNames()
 	}
 	return r.RemoteNamesFunc()
 }
@@ -59,7 +57,7 @@ func (r *Robot) RemoteNames() []string {
 // FunctionNames calls the injected FunctionNames or the real version.
 func (r *Robot) FunctionNames() []string {
 	if r.FunctionNamesFunc == nil {
-		return r.Robot.FunctionNames()
+		return r.LocalRobot.FunctionNames()
 	}
 	return r.FunctionNamesFunc()
 }
@@ -67,7 +65,7 @@ func (r *Robot) FunctionNames() []string {
 // FrameSystem calls the injected FrameSystemFunc or the real version.
 func (r *Robot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
 	if r.FrameSystemFunc == nil {
-		return r.Robot.FrameSystem(ctx, name, prefix)
+		return r.LocalRobot.FrameSystem(ctx, name, prefix)
 	}
 	return r.FrameSystemFunc(ctx, name, prefix)
 }
@@ -75,7 +73,7 @@ func (r *Robot) FrameSystem(ctx context.Context, name, prefix string) (reference
 // ResourceNames calls the injected ResourceNames or the real version.
 func (r *Robot) ResourceNames() []resource.Name {
 	if r.ResourceNamesFunc == nil {
-		return r.Robot.ResourceNames()
+		return r.LocalRobot.ResourceNames()
 	}
 	return r.ResourceNamesFunc()
 }
@@ -83,7 +81,7 @@ func (r *Robot) ResourceNames() []resource.Name {
 // ProcessManager calls the injected ProcessManager or the real version.
 func (r *Robot) ProcessManager() pexec.ProcessManager {
 	if r.ProcessManagerFunc == nil {
-		return r.Robot.ProcessManager()
+		return r.LocalRobot.ProcessManager()
 	}
 	return r.ProcessManagerFunc()
 }
@@ -91,23 +89,15 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 // Config calls the injected Config or the real version.
 func (r *Robot) Config(ctx context.Context) (*config.Config, error) {
 	if r.ConfigFunc == nil {
-		return r.Robot.Config(ctx)
+		return r.LocalRobot.Config(ctx)
 	}
 	return r.ConfigFunc(ctx)
-}
-
-// Status calls the injected Status or the real version.
-func (r *Robot) Status(ctx context.Context) (*pb.Status, error) {
-	if r.StatusFunc == nil {
-		return r.Robot.Status(ctx)
-	}
-	return r.StatusFunc(ctx)
 }
 
 // Logger calls the injected Logger or the real version.
 func (r *Robot) Logger() golog.Logger {
 	if r.LoggerFunc == nil {
-		return r.Robot.Logger()
+		return r.LocalRobot.Logger()
 	}
 	return r.LoggerFunc()
 }
@@ -115,7 +105,7 @@ func (r *Robot) Logger() golog.Logger {
 // Close calls the injected Close or the real version.
 func (r *Robot) Close(ctx context.Context) error {
 	if r.CloseFunc == nil {
-		return utils.TryClose(ctx, r.Robot)
+		return utils.TryClose(ctx, r.LocalRobot)
 	}
 	return r.CloseFunc(ctx)
 }
@@ -123,7 +113,7 @@ func (r *Robot) Close(ctx context.Context) error {
 // Refresh calls the injected Refresh or the real version.
 func (r *Robot) Refresh(ctx context.Context) error {
 	if r.RefreshFunc == nil {
-		if refresher, ok := r.Robot.(robot.Refresher); ok {
+		if refresher, ok := r.LocalRobot.(robot.Refresher); ok {
 			return refresher.Refresh(ctx)
 		}
 		return nil

@@ -206,12 +206,16 @@ func TestNewCamera(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	_, ok := cam1.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeFalse)
+	proj := camera.Projector(cam1)
+	test.That(t, proj, test.ShouldBeNil)
 
 	// camera with camera parameters
 	cam2, err := camera.New(imgSrc, attrs1, cam1)
 	test.That(t, err, test.ShouldBeNil)
 	_, ok = cam2.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
+	proj = camera.Projector(cam2)
+	test.That(t, proj, test.ShouldNotBeNil)
 
 	// camera with camera parameters inherited  from other camera
 	cam3, err := camera.New(imgSrc, nil, cam2)
@@ -219,6 +223,8 @@ func TestNewCamera(t *testing.T) {
 	_, ok = cam3.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, cam3.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam2.(camera.WithProjector).GetProjector())
+	proj = camera.Projector(cam3)
+	test.That(t, proj, test.ShouldNotBeNil)
 
 	// camera with different camera parameters, will not inherit
 	cam4, err := camera.New(imgSrc, attrs2, cam2)
@@ -226,15 +232,20 @@ func TestNewCamera(t *testing.T) {
 	_, ok = cam4.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, cam4.(camera.WithProjector).GetProjector(), test.ShouldNotResemble, cam2.(camera.WithProjector).GetProjector())
+	proj = camera.Projector(cam4)
+	test.That(t, proj, test.ShouldNotBeNil)
 
 	// cam4 wrapped with reconfigurable
-	fakeCamera, err := camera.WrapWithReconfigurable(cam4)
+	reconfig, err := camera.WrapWithReconfigurable(cam4)
 	test.That(t, err, test.ShouldBeNil)
-	cam5, err := camera.New(imgSrc, nil, fakeCamera.(camera.Camera))
+	fakeCamera := reconfig.(camera.Camera)
+	cam5, err := camera.New(imgSrc, nil, fakeCamera)
 	test.That(t, err, test.ShouldBeNil)
 	_, ok = cam5.(camera.WithProjector)
 	test.That(t, ok, test.ShouldBeTrue)
 	test.That(t, cam5.(camera.WithProjector).GetProjector(), test.ShouldResemble, cam4.(camera.WithProjector).GetProjector())
+	proj = camera.Projector(fakeCamera)
+	test.That(t, proj, test.ShouldNotBeNil)
 }
 
 type cloudSource struct {

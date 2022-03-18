@@ -3,8 +3,7 @@ package inject
 import (
 	"context"
 
-	"github.com/golang/geo/r3"
-
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/objectmanipulation"
 )
 
@@ -12,17 +11,23 @@ import (
 // service.
 type ObjectManipulationService struct {
 	objectmanipulation.Service
-	DoGrabFunc func(ctx context.Context, gripperName, armName, cameraName string, cameraPoint *r3.Vector) (bool, error)
+	DoGrabFunc func(
+		ctx context.Context,
+		gripperName string,
+		grabPose *referenceframe.PoseInFrame,
+		obstacles []*referenceframe.GeometriesInFrame,
+	) (bool, error)
 }
 
 // DoGrab calls the injected DoGrab or the real variant.
 func (mgs *ObjectManipulationService) DoGrab(
 	ctx context.Context,
-	gripperName, armName, cameraName string,
-	cameraPoint *r3.Vector,
+	gripperName string,
+	grabPose *referenceframe.PoseInFrame,
+	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
 	if mgs.DoGrabFunc == nil {
-		return mgs.Service.DoGrab(ctx, gripperName, armName, cameraName, cameraPoint)
+		return mgs.Service.DoGrab(ctx, gripperName, grabPose, obstacles)
 	}
-	return mgs.DoGrabFunc(ctx, gripperName, armName, cameraName, cameraPoint)
+	return mgs.DoGrabFunc(ctx, gripperName, grabPose, obstacles)
 }

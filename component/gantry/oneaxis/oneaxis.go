@@ -301,8 +301,11 @@ func (g *oneAxis) limitHit(ctx context.Context, zero bool) (bool, error) {
 	if !zero {
 		offset = 1
 	}
-	pin := g.limitSwitchPins[offset]
-	high, err := g.board.GetGPIO(ctx, pin)
+	pin, err := g.board.GPIOPinByName(g.limitSwitchPins[offset])
+	if err != nil {
+		return false, err
+	}
+	high, err := pin.Get(ctx)
 
 	return high == g.limitHigh, err
 }
@@ -341,7 +344,7 @@ func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64) error {
+func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
 	}
@@ -418,5 +421,5 @@ func (g *oneAxis) CurrentInputs(ctx context.Context) ([]referenceframe.Input, er
 
 // GoToInputs moves the gantry to a goal position in the Gantry frame.
 func (g *oneAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal))
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
 }

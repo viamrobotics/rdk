@@ -12,7 +12,7 @@ service SensorService {
   // GetReadings returns the readings of a sensor of the underlying robot.
   rpc GetReadings(GetReadingsRequest) returns (GetReadingsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/sensor/{name}/readings"
+      get: "/viam/api/v1/component/sensor/{name}/readings"
     };
   }
 }

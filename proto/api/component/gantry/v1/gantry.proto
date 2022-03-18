@@ -5,27 +5,28 @@ option java_package = "com.viam.rdk.proto.api.component.gantry.v1";
 package proto.api.component.gantry.v1;
 
 import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
 
 // An GantryService services all gantries associated with a robot
 service GantryService {
   // GetPosition gets the current position of a gantry of the underlying robot.
   rpc GetPosition(GetPositionRequest) returns (GetPositionResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/gantry/{name}/current_position"
+      get: "/viam/api/v1/component/gantry/{name}/position"
     };
   }
 
   // MoveToPosition moves a gantry of the underlying robot to the requested position.
   rpc MoveToPosition(MoveToPositionRequest) returns (MoveToPositionResponse) {
     option (google.api.http) = {
-      put: "/api/v1/component/gantry/{name}/move_to_position"
+      put: "/viam/api/v1/component/gantry/{name}/position"
     };
   }
 
   // GetLengths gets the lengths of a gantry of the underlying robot.
   rpc GetLengths(GetLengthsRequest) returns (GetLengthsResponse) {
     option (google.api.http) = {
-      get: "/api/v1/component/gantry/{name}/lengths"
+      get: "/viam/api/v1/component/gantry/{name}/lengths"
     };
   }
 }
@@ -41,6 +42,7 @@ message GetPositionResponse {
 message MoveToPositionRequest {
   string name = 1;
   repeated double positions_mm = 2;
+  optional common.v1.WorldState world_state = 3;
 }
 
 message MoveToPositionResponse {}
@@ -51,4 +53,9 @@ message GetLengthsRequest {
 
 message GetLengthsResponse {
   repeated double lengths_mm = 1;
+}
+
+message Status {
+  repeated double positions_mm = 1;
+  repeated double lengths_mm = 2;
 }

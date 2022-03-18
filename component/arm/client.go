@@ -81,15 +81,22 @@ func (c *client) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 	return resp.Pose, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
+func (c *client) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
+	for i, obstacle := range obstacles {
+		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
+	}
 	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name: c.name,
-		Pose: pose,
+		To:   pose,
+		WorldState: &commonpb.WorldState{
+			Obstacles: geometriesInFrames,
+		},
 	})
 	return err
 }
 
-func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
+func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
 	_, err := c.client.MoveToJointPositions(ctx, &pb.MoveToJointPositionsRequest{
 		Name:         c.name,
 		PositionDegs: positionDegs,
@@ -97,7 +104,7 @@ func (c *client) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJ
 	return err
 }
 
-func (c *client) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (c *client) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	resp, err := c.client.GetJointPositions(ctx, &pb.GetJointPositionsRequest{
 		Name: c.name,
 	})

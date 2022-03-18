@@ -1,0 +1,94 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/navigation/v1";
+option java_package = "com.viam.rdk.proto.api.service.navigation.v1";
+
+package proto.api.service.navigation.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A NavigationService declares the gRPC contract for a Navigation service
+service NavigationService {
+  rpc GetMode(GetModeRequest) returns (GetModeResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/navigation/mode"
+    };
+  }
+
+  rpc SetMode(SetModeRequest) returns (SetModeResponse) {
+    option (google.api.http) = {
+      put: "/viam/api/v1/service/navigation/mode"
+    };
+  }
+
+  rpc GetLocation(GetLocationRequest) returns (GetLocationResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/navigation/location"
+    };
+  }
+
+  rpc GetWaypoints(GetWaypointsRequest) returns (GetWaypointsResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/navigation/waypoints"
+    };
+  }
+
+  rpc AddWaypoint(AddWaypointRequest) returns (AddWaypointResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/navigation/waypoints"
+    };
+  }
+
+  rpc RemoveWaypoint(RemoveWaypointRequest) returns (RemoveWaypointResponse) {
+    option (google.api.http) = {
+      delete: "/viam/api/v1/service/navigation/waypoints/{id}"
+    };
+  }
+}
+
+enum Mode {
+  MODE_UNSPECIFIED = 0;
+  MODE_MANUAL = 1;
+  MODE_WAYPOINT = 2;
+}
+
+message GetModeRequest {}
+
+message GetModeResponse {
+  Mode mode = 1;
+}
+
+message SetModeRequest {
+  Mode mode = 1;
+}
+
+message SetModeResponse {}
+
+message Waypoint {
+  string id = 1;
+  common.v1.GeoPoint location = 2;
+}
+
+message GetLocationRequest {}
+
+message GetLocationResponse {
+  common.v1.GeoPoint location = 1;
+}
+
+message GetWaypointsRequest {}
+
+message GetWaypointsResponse {
+  repeated Waypoint waypoints = 1;
+}
+
+message AddWaypointRequest {
+  common.v1.GeoPoint location = 1;
+}
+
+message AddWaypointResponse {}
+
+message RemoveWaypointRequest {
+  string id = 1;
+}
+
+message RemoveWaypointResponse {}

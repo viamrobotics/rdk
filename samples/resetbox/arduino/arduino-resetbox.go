@@ -24,19 +24,19 @@ import (
 
 var (
 	logger         = golog.NewDevelopmentLogger("resetbox1")
-	startPos       = &componentpb.ArmJointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
-	safeDumpPos    = &componentpb.ArmJointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
-	grabReadyPos   = &componentpb.ArmJointPositions{Degrees: []float64{-180, -26.8, -33, 0.2, 51, 0}}
-	cube1grab      = &componentpb.ArmJointPositions{Degrees: []float64{-183, 16.9, -41.1, 2, 26.75, 0}}
-	cube2grab      = &componentpb.ArmJointPositions{Degrees: []float64{-184.8, 20, -30.2, -5.7, -5.7, -0.2}}
-	cube1place     = &componentpb.ArmJointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -23.27, -2.75}}
-	cube1placePost = &componentpb.ArmJointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -32.27, -2.75}}
-	cube2place     = &componentpb.ArmJointPositions{Degrees: []float64{21.4, 41.3, -30.35, -5.7, -53.27, -0.2}}
+	startPos       = &componentpb.JointPositions{Degrees: []float64{0, -13, -42, 0, 45, 0}}
+	safeDumpPos    = &componentpb.JointPositions{Degrees: []float64{0, -43, -71, 0, 98, 0}}
+	grabReadyPos   = &componentpb.JointPositions{Degrees: []float64{-180, -26.8, -33, 0.2, 51, 0}}
+	cube1grab      = &componentpb.JointPositions{Degrees: []float64{-183, 16.9, -41.1, 2, 26.75, 0}}
+	cube2grab      = &componentpb.JointPositions{Degrees: []float64{-184.8, 20, -30.2, -5.7, -5.7, -0.2}}
+	cube1place     = &componentpb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -23.27, -2.75}}
+	cube1placePost = &componentpb.JointPositions{Degrees: []float64{-84.75, 26.5, -29.9, -80.3, -32.27, -2.75}}
+	cube2place     = &componentpb.JointPositions{Degrees: []float64{21.4, 41.3, -30.35, -5.7, -53.27, -0.2}}
 
-	duckgrabFW   = &componentpb.ArmJointPositions{Degrees: []float64{-181.9, 20.45, -53.85, -3.5, 44.4, -0.08}}
-	duckplaceFW  = &componentpb.ArmJointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
-	duckgrabREV  = &componentpb.ArmJointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
-	duckplaceREV = &componentpb.ArmJointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
+	duckgrabFW   = &componentpb.JointPositions{Degrees: []float64{-181.9, 20.45, -53.85, -3.5, 44.4, -0.08}}
+	duckplaceFW  = &componentpb.JointPositions{Degrees: []float64{-3.2, 32.8, -70.65, -9.3, 49, 165.12}}
+	duckgrabREV  = &componentpb.JointPositions{Degrees: []float64{-181.4, 18.15, -40.1, -3.5, 15.5, -0.08}}
+	duckplaceREV = &componentpb.JointPositions{Degrees: []float64{-14.6, 27.3, -24.04, -11.8, -34.35, -9.7}}
 
 	armName     = "xArm6"
 	gripperName = "vg1"
@@ -110,14 +110,18 @@ func toggleTrigger(ctx context.Context, theRobot robot.Robot) error {
 	if err != nil {
 		return err
 	}
-	if err := resetBoard.SetGPIO(ctx, "37", true); err != nil {
+	p, err := resetBoard.GPIOPinByName("37")
+	if err != nil {
+		return err
+	}
+	if err := p.Set(ctx, true); err != nil {
 		return err
 	}
 	select {
 	case <-ctx.Done():
 	case <-time.After(100 * time.Millisecond):
 	}
-	return resetBoard.SetGPIO(ctx, "37", false)
+	return p.Set(ctx, false)
 }
 
 // waitForReady waits for the arduino controlling the reset box to signal it is an item is available (first cubes,
@@ -133,13 +137,17 @@ func waitForReady(ctx context.Context, theRobot robot.Robot) error {
 	if err != nil {
 		return err
 	}
+	p, err := resetBoard.GPIOPinByName("35")
+	if err != nil {
+		return err
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(100 * time.Millisecond):
 		}
-		ready, _ := resetBoard.GetGPIO(ctx, "35")
+		ready, _ := p.Get(ctx)
 		if ready {
 			return nil
 		}
