@@ -1,5 +1,4 @@
 import { storiesOf } from "@storybook/vue";
-import { withDesign } from 'storybook-addon-designs';
 
 storiesOf("InputController", module).add("Default InputController", () => ({
   data() {
