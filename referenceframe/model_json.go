@@ -46,7 +46,7 @@ type ModelConfig struct {
 // ParseConfig converts the ModelConfig struct into a full Model with the name modelName.
 func (config *ModelConfig) ParseConfig(modelName string) (Model, error) {
 	var err error
-	model := NewSimpleModel()
+	model := NewArmModel()
 
 	if modelName == "" {
 		model.ChangeName(config.Name)
