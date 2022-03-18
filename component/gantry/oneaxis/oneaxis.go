@@ -157,26 +157,15 @@ func newOneAxis(ctx context.Context, r robot.Robot, config config.Component, log
 		return nil, motor.NewFeatureUnsupportedError(motor.PositionReporting, conf.Motor)
 	}
 
-	// default is no rotation using ParseConfig()
-	// TODO: Check with Test
-	orientOffset, err := conf.OrientTransform.ParseConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	translationOffset := r3.Vector(conf.TranslateTransform)
-
 	oAx := &oneAxis{
-		name:                  config.Name,
-		motor:                 _motor,
-		logger:                logger,
-		limitSwitchPins:       conf.LimitSwitchPins,
-		lengthMm:              conf.LengthMm,
-		reductionRatio:        conf.ReductionRatio,
-		rpm:                   conf.GantryRPM,
-		axis:                  r3.Vector(conf.Axis),
-		axisOrientationOffset: orientOffset.OrientationVectorDegrees().OrientationVectorRadians(),
-		axisTranslationOffset: translationOffset,
+		name:            config.Name,
+		motor:           _motor,
+		logger:          logger,
+		limitSwitchPins: conf.LimitSwitchPins,
+		lengthMm:        conf.LengthMm,
+		reductionRatio:  conf.ReductionRatio,
+		rpm:             conf.GantryRPM,
+		axis:            r3.Vector(conf.Axis),
 	}
 
 	switch len(oAx.limitSwitchPins) {
