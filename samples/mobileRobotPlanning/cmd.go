@@ -35,7 +35,6 @@ func main() {
 	if err := writeJSONFile("samples/mobileRobotPlanning/planOutput.json", waypoints); err != nil {
 		logger.Fatal(err.Error())
 	}
-
 }
 
 type obstacle struct {
@@ -102,7 +101,7 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 }
 
 func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
-	//nolint:gosec
+	
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")
@@ -149,7 +148,7 @@ func writeJSONFile(filename string, data interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filename, bytes, 0644); err != nil {
+	if err := ioutil.WriteFile(filename, bytes, 0o644); err != nil {
 		return err
 	}
 	return nil
