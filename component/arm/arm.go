@@ -24,6 +24,9 @@ import (
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		Reconfigurable: WrapWithReconfigurable,
+		Status: func(ctx context.Context, resource interface{}) (interface{}, error) {
+			return CreateStatus(ctx, resource)
+		},
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
@@ -60,13 +63,13 @@ type Arm interface {
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
-	MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error
+	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
 
 	// GetJointPositions returns the current joint positions of the arm.
-	GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error)
+	GetJointPositions(ctx context.Context) (*pb.JointPositions, error)
 
 	referenceframe.ModelFramer
 	referenceframe.InputEnabled
@@ -95,6 +98,24 @@ func NamesFromRobot(r robot.Robot) []string {
 	return robot.NamesBySubtype(r, Subtype)
 }
 
+// CreateStatus creates a status from the arm.
+func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error) {
+	arm, ok := resource.(Arm)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("Arm", resource)
+	}
+	endPosition, err := arm.GetEndPosition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	jointPositions, err := arm.GetJointPositions(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.Status{EndPosition: endPosition, JointPositions: jointPositions}, nil
+}
+
 type reconfigurableArm struct {
 	mu     sync.RWMutex
 	actual Arm
@@ -112,19 +133,19 @@ func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose,
 	return r.actual.GetEndPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose)
+	return r.actual.MoveToPosition(ctx, pose, obstacles)
 }
 
-func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.ArmJointPositions) error {
+func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.MoveToJointPositions(ctx, positionDegs)
 }
 
-func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.ArmJointPositions, error) {
+func (r *reconfigurableArm) GetJointPositions(ctx context.Context) (*pb.JointPositions, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetJointPositions(ctx)

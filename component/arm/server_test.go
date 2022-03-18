@@ -10,6 +10,7 @@ import (
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils/inject"
@@ -36,41 +37,41 @@ func TestServer(t *testing.T) {
 
 	var (
 		capArmPos      *commonpb.Pose
-		capArmJointPos *pb.ArmJointPositions
+		capArmJointPos *pb.JointPositions
 	)
 
 	pose1 := &commonpb.Pose{X: 1, Y: 2, Z: 3}
-	positionDegs1 := &pb.ArmJointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
+	positionDegs1 := &pb.JointPositions{Degrees: []float64{1.0, 2.0, 3.0}}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pose1, nil
 	}
-	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return positionDegs1, nil
 	}
-	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return nil
 	}
 
-	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
+	injectArm.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 		capArmJointPos = jp
 		return nil
 	}
 
 	pose2 := &commonpb.Pose{X: 4, Y: 5, Z: 6}
-	positionDegs2 := &pb.ArmJointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
+	positionDegs2 := &pb.JointPositions{Degrees: []float64{4.0, 5.0, 6.0}}
 	injectArm2.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return nil, errors.New("can't get pose")
 	}
-	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.ArmJointPositions, error) {
+	injectArm2.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
 		return nil, errors.New("can't get joint positions")
 	}
-	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose) error {
+	injectArm2.MoveToPositionFunc = func(ctx context.Context, ap *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
 		capArmPos = ap
 		return errors.New("can't move to pose")
 	}
 
-	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.ArmJointPositions) error {
+	injectArm2.MoveToJointPositionsFunc = func(ctx context.Context, jp *pb.JointPositions) error {
 		capArmJointPos = jp
 		return errors.New("can't move to joint positions")
 	}
@@ -95,15 +96,15 @@ func TestServer(t *testing.T) {
 
 	//nolint:dupl
 	t.Run("move to position", func(t *testing.T) {
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, Pose: pose2})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: missingArmName, To: pose2})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, Pose: pose2})
+		_, err := armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: testArmName, To: pose2})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose2.String())
 
-		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, Pose: pose1})
+		_, err = armServer.MoveToPosition(context.Background(), &pb.MoveToPositionRequest{Name: failArmName, To: pose1})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "can't move to pose")
 		test.That(t, capArmPos.String(), test.ShouldResemble, pose1.String())

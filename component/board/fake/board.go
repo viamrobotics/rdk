@@ -15,7 +15,6 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
-	rdkutils "go.viam.com/rdk/utils"
 )
 
 var _ = board.LocalBoard(&Board{})
@@ -53,6 +52,7 @@ func NewBoard(ctx context.Context, config config.Component, logger golog.Logger)
 		SPIs:     map[string]*SPI{},
 		Analogs:  map[string]*Analog{},
 		Digitals: map[string]board.DigitalInterrupt{},
+		GPIOPins: map[string]*GPIOPin{},
 	}
 
 	for _, c := range boardConfig.I2Cs {
@@ -85,10 +85,7 @@ type Board struct {
 	I2Cs     map[string]*I2C
 	Analogs  map[string]*Analog
 	Digitals map[string]board.DigitalInterrupt
-
-	GPIO    map[string]bool
-	PWM     map[string]float64
-	PWMFreq map[string]uint
+	GPIOPins map[string]*GPIOPin
 
 	CloseCount int
 }
@@ -117,50 +114,15 @@ func (b *Board) DigitalInterruptByName(name string) (board.DigitalInterrupt, boo
 	return d, ok
 }
 
-// SetGPIO sets the given pin to either low or high.
-func (b *Board) SetGPIO(ctx context.Context, pin string, high bool) error {
-	if b.GPIO == nil {
-		b.GPIO = map[string]bool{}
+// GPIOPinByName returns the GPIO pin by the given name if it exists.
+func (b *Board) GPIOPinByName(name string) (board.GPIOPin, error) {
+	p, ok := b.GPIOPins[name]
+	if !ok {
+		pin := &GPIOPin{}
+		b.GPIOPins[name] = pin
+		return pin, nil
 	}
-	b.GPIO[pin] = high
-	if high {
-		return b.SetPWM(ctx, pin, 255)
-	}
-	return b.SetPWM(ctx, pin, 0)
-}
-
-// GetGPIO returns whether the given pin is either low or high.
-func (b *Board) GetGPIO(ctx context.Context, pin string) (bool, error) {
-	if b.GPIO == nil {
-		b.GPIO = map[string]bool{}
-	}
-	return b.GPIO[pin], nil
-}
-
-// SetPWM sets the given pin to the given duty cycle.
-func (b *Board) SetPWM(ctx context.Context, pin string, dutyCyclePct float64) error {
-	dutyCycle := float64(rdkutils.ScaleByPct(255, dutyCyclePct))
-	if b.PWM == nil {
-		b.PWM = map[string]float64{}
-	}
-	if b.PWM[pin] != dutyCycle {
-		b.PWM[pin] = dutyCycle
-		if dutyCycle == 255 {
-			return b.SetGPIO(ctx, pin, true)
-		} else if dutyCyclePct == 0 {
-			return b.SetGPIO(ctx, pin, false)
-		}
-	}
-	return nil
-}
-
-// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
-func (b *Board) SetPWMFreq(ctx context.Context, pin string, freqHz uint) error {
-	if b.PWMFreq == nil {
-		b.PWMFreq = map[string]uint{}
-	}
-	b.PWMFreq[pin] = freqHz
-	return nil
+	return p, nil
 }
 
 // SPINames returns the name of all known SPIs.
@@ -194,6 +156,15 @@ func (b *Board) AnalogReaderNames() []string {
 func (b *Board) DigitalInterruptNames() []string {
 	names := []string{}
 	for k := range b.Digitals {
+		names = append(names, k)
+	}
+	return names
+}
+
+// GPIOPinNames returns the name of all known digital interrupts.
+func (b *Board) GPIOPinNames() []string {
+	names := []string{}
+	for k := range b.GPIOPins {
 		names = append(names, k)
 	}
 	return names
@@ -321,4 +292,44 @@ func (a *Analog) Read(context.Context) (int, error) {
 // Close does nothing.
 func (a *Analog) Close() {
 	a.CloseCount++
+}
+
+// A GPIOPin reads back the same set values.
+type GPIOPin struct {
+	high    bool
+	pwm     float64
+	pwmFreq uint
+}
+
+// Set sets the pin to either low or high.
+func (gp *GPIOPin) Set(ctx context.Context, high bool) error {
+	gp.high = high
+	return nil
+}
+
+// Get gets the high/low state of the pin.
+func (gp *GPIOPin) Get(ctx context.Context) (bool, error) {
+	return gp.high, nil
+}
+
+// PWM gets the pin's given duty cycle.
+func (gp *GPIOPin) PWM(ctx context.Context) (float64, error) {
+	return gp.pwm, nil
+}
+
+// SetPWM sets the pin to the given duty cycle.
+func (gp *GPIOPin) SetPWM(ctx context.Context, dutyCyclePct float64) error {
+	gp.pwm = dutyCyclePct
+	return nil
+}
+
+// PWMFreq gets the PWM frequency of the pin.
+func (gp *GPIOPin) PWMFreq(ctx context.Context) (uint, error) {
+	return gp.pwmFreq, nil
+}
+
+// SetPWMFreq sets the given pin to the given PWM frequency. 0 will use the board's default PWM frequency.
+func (gp *GPIOPin) SetPWMFreq(ctx context.Context, freqHz uint) error {
+	gp.pwmFreq = freqHz
+	return nil
 }
