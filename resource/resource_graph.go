@@ -206,7 +206,7 @@ func (g *Graph) Remove(node Name) {
 	g.remove(node)
 }
 
-// MergeRemove remove comons nodes in both graphs.
+// MergeRemove remove commons nodes in both graphs.
 func (g *Graph) MergeRemove(toRemove *Graph) {
 	toRemove.mu.Lock()
 	defer toRemove.mu.Unlock()
