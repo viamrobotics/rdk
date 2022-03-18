@@ -9,27 +9,23 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/golang/protobuf/ptypes/any"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
-
-	pb "go.viam.com/rdk/proto/api/component/imu/v1"
 )
 
 type dummyCapturer struct {
-	shouldError  bool
-	captureCount int64
+	ShouldError  bool
+	CaptureCount int64
 }
 
-func (c *dummyCapturer) Capture(_ context.Context, _ map[string]string) (*any.Any, error) {
-	if c.shouldError {
+func (c *dummyCapturer) Capture(_ context.Context, _ map[string]string) (interface{}, error) {
+	if c.ShouldError {
 		return nil, errors.New("error")
 	}
 
-	atomic.AddInt64(&c.captureCount, 1)
-	// Using an arbitrary proto message.
-	return WrapInAll(&pb.ReadAccelerationRequest{Name: "name"}, nil)
+	atomic.AddInt64(&c.CaptureCount, 1)
+	return c, nil
 }
 
 func TestNewCollector(t *testing.T) {
@@ -62,14 +58,14 @@ func TestClose(t *testing.T) {
 	go c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
-	// Measure captureCount/fileSize.
-	captureCount := atomic.LoadInt64(&dummy.captureCount)
+	// Measure CaptureCount/fileSize.
+	captureCount := atomic.LoadInt64(&dummy.CaptureCount)
 	c.Close()
 	fileSize := getFileSize(target1)
 
 	// Assert capture is no longer being called and the file is not being written to.
 	time.Sleep(time.Millisecond * 25)
-	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, captureCount)
+	test.That(t, atomic.LoadInt64(&dummy.CaptureCount), test.ShouldEqual, captureCount)
 	test.That(t, getFileSize(target1), test.ShouldEqual, fileSize)
 }
 
@@ -85,7 +81,7 @@ func TestInterval(t *testing.T) {
 	// Give 5ms of leeway so slight changes in execution ordering don't impact the test.
 	// floor(85/10) = 8
 	time.Sleep(time.Millisecond * 85)
-	test.That(t, atomic.LoadInt64(&dummy.captureCount), test.ShouldEqual, 8)
+	test.That(t, atomic.LoadInt64(&dummy.CaptureCount), test.ShouldEqual, 8)
 }
 
 func TestSetTarget(t *testing.T) {
@@ -120,7 +116,7 @@ func TestSwallowsErrors(t *testing.T) {
 	logger, logs := golog.NewObservedTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	dummy := &dummyCapturer{shouldError: true}
+	dummy := &dummyCapturer{ShouldError: true}
 
 	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, logger)
 	errorChannel := make(chan error)
