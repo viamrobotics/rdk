@@ -105,6 +105,9 @@ func TestUndistortImage(t *testing.T) {
 			RadialK3:     -6.51379008e-02,
 		},
 	}
+	// nil input
+	_, err := params800.UndistortImage(nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "input image is nil")
 	// wrong size error
 	img1280, err := rimage.NewImageFromFile(artifact.MustPath("transform/undistort/distorted_1280x720.jpg"))
 	test.That(t, err, test.ShouldBeNil)
@@ -145,6 +148,10 @@ func TestUndistortDepthMap(t *testing.T) {
 			RadialK3:     0.,
 		},
 	}
+	// nil input
+	_, err := params.UndistortDepthMap(nil)
+	test.That(t, err.Error(), test.ShouldContainSubstring, "input DepthMap is nil")
+
 	// wrong size error
 	imgWrong, err := rimage.ReadBothFromFile(artifact.MustPath("transform/align-test-1615761793.both.gz"), true)
 	test.That(t, err, test.ShouldBeNil)
