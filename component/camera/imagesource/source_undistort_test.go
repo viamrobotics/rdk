@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/rimage/transform"
 )
 
-// not the real intrinsic parameters of the image, only for testing purposes
+// not the real intrinsic parameters of the image, only for testing purposes.
 var undistortTestParams = &transform.PinholeCameraIntrinsics{
 	Width:  1280,
 	Height: 720,
@@ -79,7 +79,6 @@ func TestUndistortImageWithDepth(t *testing.T) {
 
 	err = us.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestUndistortImage(t *testing.T) {
