@@ -3,10 +3,11 @@ package transform
 import (
 	"testing"
 
-	"go.viam.com/rdk/rimage"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
+
+	"go.viam.com/rdk/rimage"
 )
 
 func TestDepthColorIntrinsicsExtrinsics(t *testing.T) {
@@ -129,7 +130,6 @@ func TestUndistortImage(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	err = rimage.WriteImageToFile(outDir+"/corrected_1280x720.jpg", corrected1280)
 	test.That(t, err, test.ShouldBeNil)
-
 }
 
 func TestUndistortDepthMap(t *testing.T) {

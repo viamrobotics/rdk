@@ -114,7 +114,7 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 }
 
 // AverageColor returns the average of the HSV color. H is angle in degrees.
-// optional weights for the average
+// optional weights for the average.
 func AverageColor(colors []Color, weights ...float64) Color {
 	if len(weights) != 0 && len(colors) != len(weights) {
 		panic(fmt.Sprintf("have %d colors and %d weights, must be equal", len(colors), len(weights)))
@@ -126,8 +126,8 @@ func AverageColor(colors []Color, weights ...float64) Color {
 		}
 	}
 	avgH, avgS, avgV := 0.0, 0.0, 0.0
-	num := float64(len(colors))
-	if num <= 0. {
+
+	if num := float64(len(colors)); num <= 0. {
 		return NewColorFromHSV(avgH, avgS, avgV)
 	}
 	// turn hue into cartestian coordinates to average, then transform back into angle

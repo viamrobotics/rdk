@@ -55,18 +55,17 @@ func init() {
 			return config.TransformAttributeMapToStruct(&conf, attributes)
 		},
 		&camera.AttrConfig{})
-
 }
 
 // undistortSource will undistort the original image according to the Distortion parameters
-// in AttrConfig.CameraParameters
+// in AttrConfig.CameraParameters.
 type undistortSource struct {
 	original     gostream.ImageSource
 	stream       camera.StreamType
 	cameraParams *transform.PinholeCameraIntrinsics
 }
 
-// Next undistorts the original image according to the camera parameters
+// Next undistorts the original image according to the camera parameters.
 func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error) {
 	orig, release, err := us.original.Next(ctx)
 	if err != nil {
@@ -107,7 +106,7 @@ func (us *undistortSource) Next(ctx context.Context) (image.Image, func(), error
 	}
 }
 
-// Close closes the imageSource
+// Close closes the imageSource.
 func (us *undistortSource) Close(ctx context.Context) error {
 	return utils.TryClose(ctx, us.original)
 }

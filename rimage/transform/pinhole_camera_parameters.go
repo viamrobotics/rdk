@@ -173,7 +173,9 @@ func (params *PinholeCameraIntrinsics) DistortionMap() func(u, v float64) (float
 
 // UndistortImage takes an input image and creates a new image the same size with the same camera parameters
 // as the original image, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
-// interpolation is used to interpolate values inbetween image pixels.
+// interpolation is used to interpolate values between image pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
 func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
 	if img == nil {
 		return nil, errors.New("input image is nil")
@@ -201,7 +203,9 @@ func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimag
 
 // UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
 // as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
-// interpolation is used to interpolate values inbetween depth pixels.
+// interpolation is used to interpolate values between depth pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
 func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
 	if dm == nil {
 		return nil, errors.New("input DepthMap is nil")
