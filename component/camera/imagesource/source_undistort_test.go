@@ -131,4 +131,10 @@ func TestUndistortDepthMap(t *testing.T) {
 	us = &undistortSource{source, camera.DepthStream, undistortTestParams}
 	_, _, err = us.Next(context.Background())
 	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
+
+	// can't convert image to depth map
+	source = &StaticSource{rimage.NewImage(10, 10)}
+	us = &undistortSource{source, camera.DepthStream, undistortTestParams}
+	_, _, err = us.Next(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "don't know how to make DepthMap")
 }
