@@ -99,6 +99,12 @@ func TestUndistortImage(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 
 	test.That(t, result, test.ShouldResemble, expected)
+
+	// bad source
+	source = &StaticSource{rimage.NewImage(10, 10)}
+	us = &undistortSource{source, camera.ColorStream, undistortTestParams}
+	_, _, err = us.Next(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 }
 
 func TestUndistortDepthMap(t *testing.T) {
@@ -119,4 +125,10 @@ func TestUndistortDepthMap(t *testing.T) {
 	test.That(t, ok, test.ShouldEqual, true)
 
 	test.That(t, result.Depth, test.ShouldResemble, expected)
+
+	// bad source
+	source = &StaticSource{rimage.NewEmptyDepthMap(10, 10)}
+	us = &undistortSource{source, camera.DepthStream, undistortTestParams}
+	_, _, err = us.Next(context.Background())
+	test.That(t, err.Error(), test.ShouldContainSubstring, "img dimension and intrinsics don't match")
 }
