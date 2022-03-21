@@ -190,7 +190,7 @@ func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimag
 	for v := 0; v < params.Height; v++ {
 		for u := 0; u < params.Width; u++ {
 			x, y := distortionMap(float64(u), float64(v))
-			c := rimage.BilinearInterpolationColor(r2.Point{x, y}, img)
+			c := rimage.NearestNeighborColor(r2.Point{x, y}, img)
 			if c != nil {
 				undistortedImg.SetXY(u, v, *c)
 			} else {
