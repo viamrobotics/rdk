@@ -166,14 +166,17 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 	return inputs, nil
 }
 
-// Next gets the merged point cloud from both cameras, and then uses a parallel projection to turn it into a 2D image.
+// Next gets the merged point cloud from both cameras, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
-	pp := rimage.ParallelProjection{}
+	proj := camera.Projector(jpcs.camTo)
+	if proj == nil { // use a default projector if camera doesn't have one
+		proj = &rimage.ParallelProjection{}
+	}
 	pc, err := jpcs.NextPointCloud(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	iwd, err := pp.PointCloudToImageWithDepth(pc)
+	iwd, err := proj.PointCloudToImageWithDepth(pc)
 	if err != nil {
 		return nil, nil, err
 	}
