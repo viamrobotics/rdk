@@ -115,7 +115,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
-	var inputSteps []*configuration
+	inputSteps := []*configuration{}
 
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
@@ -162,7 +162,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
-	if nSolutions == 1 && endpointPreview != nil {
+	if nSolutions == 1 && endpointPreview != nil && len(inputSteps) != 0 {
 		endpointPreview <- inputSteps[len(inputSteps)-1]
 		endpointPreview = nil
 	}
