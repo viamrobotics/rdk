@@ -65,7 +65,7 @@ type JoinAttrs struct {
 }
 
 // joinPointCloudSource takes two image sources that can produce point clouds and merges them together from
-// the point of view of camTo. needs to have the entire robot available in order to build the correct offsets
+// the point of view of camTo. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
 	camTo, camFrom         camera.Camera
@@ -144,7 +144,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	return pcTo, nil
 }
 
-// get all the input positions for the robot components in order to calculate the frame system offsets.
+// get all the input positions for the robot components in order to calculate the frame system offsets
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
 	fs referenceframe.FrameSystem) (map[string][]referenceframe.Input, error) {
@@ -177,7 +177,7 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 	return inputs, nil
 }
 
-// Next gets the merged point cloud from both cameras, and then uses a parallel projection to turn it into a 3D image.
+// Next gets the merged point cloud from both cameras, and then uses a parallel projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	pp := rimage.ParallelProjection{}
 	pc, err := jpcs.NextPointCloud(ctx)
