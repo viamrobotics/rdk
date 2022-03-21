@@ -31,13 +31,13 @@ func NewGraph() *Graph {
 	}
 }
 
-func (g *Graph) getAllParentsOf(node Name) resourceNode {
+func (g *Graph) getAllChildrenOf(node Name) resourceNode {
 	if _, ok := g.Nodes[node]; !ok {
 		return nil
 	}
 	out := resourceNode{}
-	for k, children := range g.children {
-		if _, ok := children[node]; ok {
+	for k, parents := range g.parents {
+		if _, ok := parents[node]; ok {
 			out[k] = struct{}{}
 		}
 	}
@@ -206,7 +206,7 @@ func (g *Graph) Remove(node Name) {
 	g.remove(node)
 }
 
-// MergeRemove remove comons nodes in both graphs.
+// MergeRemove remove common nodes in both graphs.
 func (g *Graph) MergeRemove(toRemove *Graph) {
 	toRemove.mu.Lock()
 	defer toRemove.mu.Unlock()
@@ -220,18 +220,19 @@ func (g *Graph) MergeRemove(toRemove *Graph) {
 
 // MergeAdd merges two Graphs, if a node exists in both graphs, then it is silently replaced.
 func (g *Graph) MergeAdd(toAdd *Graph) error {
+	sorted := toAdd.TopologicalSort()
 	toAdd.mu.Lock()
 	defer toAdd.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	for node, r := range toAdd.Nodes {
+	for _, node := range sorted {
 		if i, ok := g.Nodes[node]; ok && i != nil {
 			g.remove(node)
 		}
-		g.addNode(node, r)
-		parents := toAdd.getAllParentsOf(node)
+		g.addNode(node, toAdd.Nodes[node])
+		parents := toAdd.getAllChildrenOf(node)
 		for parent := range parents {
-			if err := g.addChildren(node, parent); err != nil {
+			if err := g.addChildren(parent, node); err != nil {
 				return err
 			}
 		}
@@ -239,17 +240,46 @@ func (g *Graph) MergeAdd(toAdd *Graph) error {
 	return nil
 }
 
-// MergeNode adds a Node and copies it's dpendencies from a Graphs to another. The children nodes won't added.
-func (g *Graph) MergeNode(node Name, origin *Graph) error {
+// ReplaceNodesParents replaces all parent of a given node with the parents of the other graph.
+func (g *Graph) ReplaceNodesParents(node Name, other *Graph) error {
+	other.mu.Lock()
+	defer other.mu.Unlock()
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if _, ok := g.Nodes[node]; !ok {
+		return errors.Errorf("cannot copy parents to non existing node %q", node.Name)
+	}
+	for k := range g.parents[node] {
+		g.removeTransitiveClosure(node, k)
+	}
+	for k, vertice := range g.parents {
+		if _, ok := vertice[node]; ok {
+			removeNodeFromNodeMap(g.parents, k, node)
+		}
+	}
+	parents := other.getAllChildrenOf(node)
+	for parent := range parents {
+		if err := g.addChildren(parent, node); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CopyNodeAndChildren adds a Node and it's children from another graph.
+func (g *Graph) CopyNodeAndChildren(node Name, origin *Graph) error {
 	origin.mu.Lock()
 	defer origin.mu.Unlock()
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if r, ok := origin.Nodes[node]; ok {
 		g.addNode(node, r)
-		parents := origin.getAllParentsOf(node)
-		for parent := range parents {
-			if err := g.addChildren(node, parent); err != nil {
+		children := origin.getAllChildrenOf(node)
+		for child := range children {
+			if _, ok := g.Nodes[child]; !ok {
+				g.addNode(child, nil)
+			}
+			if err := g.addChildren(child, node); err != nil {
 				return err
 			}
 		}
@@ -272,4 +302,23 @@ func (g *Graph) TopologicalSort() []Name {
 		}
 	}
 	return ordered
+}
+
+// ReverseTopologicalSort returns an array of nodes' Name ordered by most edges first.
+func (g *Graph) ReverseTopologicalSort() []Name {
+	ordered := g.TopologicalSort()
+	for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
+		ordered[i], ordered[j] = ordered[j], ordered[i]
+	}
+	return ordered
+}
+
+// FindNodeByName returns a full resource name based on name, note if name is a duplicate the first one found will be returned.
+func (g *Graph) FindNodeByName(name string) (*Name, bool) {
+	for nodeName := range g.Nodes {
+		if nodeName.Name == name {
+			return &nodeName, true
+		}
+	}
+	return nil, false
 }
