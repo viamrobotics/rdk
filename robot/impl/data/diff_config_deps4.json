@@ -1,0 +1,45 @@
+{
+  "components":
+  [
+    {
+      "model": "fake",
+      "name": "board2",
+      "type": "board",
+      "attributes":
+      {
+      }
+    },
+    {
+      "model": "fake",
+      "name": "board1",
+      "type": "board",
+      "attributes":
+      {
+      }
+    }
+  ],
+  "processes":
+  [
+    {
+      "id": "1",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world"
+      ],
+      "one_shot": true
+    },
+    {
+      "id": "2",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world",
+        "again"
+      ],
+      "one_shot": true
+    }
+  ]
+}
