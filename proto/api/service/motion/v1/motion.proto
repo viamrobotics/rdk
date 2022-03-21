@@ -1,0 +1,27 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/motion/v1";
+option java_package = "com.viam.rdk.proto.api.service.motion.v1";
+
+package proto.api.service.motion.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A MotionService declares the gRPC contract for a motion service
+service MotionService {
+  rpc DoGrab(DoGrabRequest) returns (DoGrabResponse) {
+    option (google.api.http) = {
+      post: "/viam/api/v1/service/motion/do_grab"
+    };
+  }
+}
+
+message DoGrabRequest {
+  common.v1.PoseInFrame target = 1;
+  string gripper_name = 2;
+  optional common.v1.WorldState world_state = 3;
+}
+
+message DoGrabResponse {
+  bool success = 1;
+}
