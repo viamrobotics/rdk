@@ -68,8 +68,8 @@ type joinPointCloudSource struct {
 	robot         robot.Robot
 }
 
-// newJoinPointCloudSource creates a imageSource that combines two point cloud sources into one source from the
-// reference frame of camTo.
+// newJoinPointCloudSource creates a camera that combines point cloud sources into one point cloud in the
+// reference frame of targetName.
 func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
@@ -92,7 +92,8 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 	return camera.New(joinSource, nil, nil)
 }
 
-// NextPointCloud gets both point clouds from each camera, and puts the points from camFrom in the frame of camTo.
+// NextPointCloud gets all the point clouds from the source cameras,
+// and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pcTo := pointcloud.New()
 	fs, err := jpcs.robot.FrameSystem(ctx, "join_cameras", "")
