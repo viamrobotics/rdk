@@ -5,9 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/resource"
-	"google.golang.org/protobuf/types/known/structpb"
 	"os"
 	"sync"
 	"time"
@@ -16,6 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	"go.viam.com/rdk/protoutils"
+	"go.viam.com/rdk/resource"
 )
 
 // queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
@@ -29,8 +30,10 @@ type Capturer interface {
 	Capture(ctx context.Context, params map[string]string) (interface{}, error)
 }
 
+// CaptureFunc allows the creation of simple Capturers with anonymous functions.
 type CaptureFunc func(ctx context.Context, params map[string]string) (interface{}, error)
 
+// Capture allows any CaptureFunc to conform to the Capturer interface.
 func (cf CaptureFunc) Capture(ctx context.Context, params map[string]string) (interface{}, error) {
 	return cf(ctx, params)
 }
@@ -188,7 +191,6 @@ func InterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	ret, err := structpb.NewStruct(encoded)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to construct structpb.Struct from map %v", encoded)
-
 	}
 	return ret, nil
 }

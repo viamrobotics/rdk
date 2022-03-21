@@ -4,11 +4,12 @@ package imu
 
 import (
 	"context"
+	"sync"
+
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
-	"sync"
 
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/data"
