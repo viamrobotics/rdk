@@ -24,7 +24,7 @@
     "google-protobuf": "^3.18.0",
     "lodash": "^4.17.21",
     "postcss": "^7.0.39",
-    "proto": "file:../../../../dist/js/proto",
+    "proto": "file:../../../dist/js/proto",
     "robot": "^0.3.0",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.17",
     "vue": "^2.6.11",
