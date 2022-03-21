@@ -107,7 +107,7 @@ func TransformAttributeMapToStruct(to interface{}, attributes AttributeMap) (int
 	if toV.Kind() == reflect.Ptr {
 		toV = toV.Elem()
 	}
-	if attrsV := toV.FieldByName("Attributes"); attrsV != (reflect.Value{}) &&
+	if attrsV := toV.FieldByName("Attributes"); attrsV.IsValid() &&
 		attrsV.Kind() == reflect.Map &&
 		attrsV.Type().Key().Kind() == reflect.String {
 		if attrsV.IsNil() {

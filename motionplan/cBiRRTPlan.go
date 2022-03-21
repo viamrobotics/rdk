@@ -89,7 +89,8 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 ) ([][]referenceframe.Input, error) {
 	solutionChan := make(chan *planReturn, 1)
 	utils.PanicCapturingGo(func() {
-		mp.planRunner(ctx, goal, seed, opt, nil, solutionChan)
+		// TODO(rb) fix me
+		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -108,12 +109,13 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
+	obstacles map[string]spatial.Geometry,
 	opt *PlannerOptions,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
 ) {
 	defer close(solutionChan)
-	var inputSteps []*configuration
+	inputSteps := []*configuration{}
 
 	if opt == nil {
 		opt = NewDefaultPlannerOptions()
@@ -123,7 +125,14 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 			return
 		}
 		goalPos := spatial.NewPoseFromProtobuf(fixOvIncrement(goal, spatial.PoseToProtobuf(seedPos)))
-		opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		if len(obstacles) == 0 {
+			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
+		} else {
+			collisionConst := NewCollisionConstraintFromFrame(mp.Frame(), obstacles)
+			if collisionConst != nil {
+				opt.AddConstraint("self-collision", collisionConst)
+			}
+		}
 	}
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
@@ -153,7 +162,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	if len(keys) < nSolutions {
 		nSolutions = len(keys)
 	}
-	if nSolutions == 1 && endpointPreview != nil {
+	if nSolutions == 1 && endpointPreview != nil && len(inputSteps) != 0 {
 		endpointPreview <- inputSteps[len(inputSteps)-1]
 		endpointPreview = nil
 	}

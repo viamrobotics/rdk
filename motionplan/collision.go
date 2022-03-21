@@ -1,6 +1,7 @@
 package motionplan
 
 import (
+	"fmt"
 	"math"
 
 	spatial "go.viam.com/rdk/spatialmath"
@@ -34,32 +35,53 @@ type geometryNode struct {
 }
 
 // newCollisionGraph is a helper function to instantiate a new CollisionGraph.  Note that since it does not set the
-// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing.
-func newCollisionGraph(geometries map[string]spatial.Geometry) *CollisionGraph {
-	cg := &CollisionGraph{}
-	cg.indices = make(map[string]int, len(geometries))
-	cg.nodes = make([]*geometryNode, len(geometries))
+// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing
+// internal geometires represent geometries that are part of the robot and need to be checked against all geometries
+// external geometries represent obstacles and other objects that are not a part of the robot. Collisions between 2 external
+// geometries are not important and therefore not checked.
+func newCollisionGraph(internal, external map[string]spatial.Geometry) (*CollisionGraph, error) {
+	cg := &CollisionGraph{
+		indices:     make(map[string]int, len(internal)+len(external)),
+		nodes:       make([]*geometryNode, len(internal)+len(external)),
+		adjacencies: make([][]float64, len(internal)+len(external)),
+	}
 
+	// add the geometries as nodes into the graph
 	size := 0
-	for name, geometry := range geometries {
-		cg.indices[name] = size
-		cg.nodes[size] = &geometryNode{name, geometry}
-		size++
+	addGeometryMap := func(geometries map[string]spatial.Geometry) error {
+		for name, geometry := range geometries {
+			if _, ok := cg.indices[name]; ok {
+				return fmt.Errorf("error calculating collisions, found geometry with duplicate name: %s", name)
+			}
+			cg.indices[name] = size
+			cg.nodes[size] = &geometryNode{name, geometry}
+			size++
+		}
+		return nil
+	}
+	if err := addGeometryMap(internal); err != nil {
+		return nil, err
+	}
+	if err := addGeometryMap(external); err != nil {
+		return nil, err
 	}
 
-	cg.adjacencies = make([][]float64, size)
+	// initialize the adjacency matrix
 	for i := range cg.adjacencies {
-		cg.adjacencies[i] = make([]float64, size)
+		cg.adjacencies[i] = make([]float64, len(internal))
+		for j := range cg.adjacencies[i] {
+			cg.adjacencies[i][j] = math.NaN()
+		}
 	}
-	return cg
+	return cg, nil
 }
 
 // Collisions returns a list of Collision objects, with each element corresponding to a pair of names of nodes that
 // are in collision within the specified CollisionGraph.
 func (cg *CollisionGraph) Collisions() []Collision {
 	collisions := make([]Collision, 0)
-	for i := 0; i < len(cg.nodes)-1; i++ {
-		for j := i + 1; j < len(cg.nodes); j++ {
+	for i := 1; i < len(cg.nodes); i++ {
+		for j := 0; j < i && j < len(cg.adjacencies[i]); j++ {
 			if cg.adjacencies[i][j] >= 0 {
 				collisions = append(collisions, Collision{cg.nodes[i].name, cg.nodes[j].name, cg.adjacencies[i][j]})
 			}
@@ -70,18 +92,20 @@ func (cg *CollisionGraph) Collisions() []Collision {
 
 // CheckCollisions checks each possible Geometry pair for a collision, and if there is it will be stored as an edge in a
 // newly instantiated CollisionGraph that is returned.
-func CheckCollisions(geometries map[string]spatial.Geometry) (*CollisionGraph, error) {
-	cg := newCollisionGraph(geometries)
+func CheckCollisions(internal, external map[string]spatial.Geometry) (*CollisionGraph, error) {
+	cg, err := newCollisionGraph(internal, external)
+	if err != nil {
+		return nil, err
+	}
 
 	// iterate through all Geometry pairs and store collisions as edges in graph
-	for i := 0; i < len(cg.nodes)-1; i++ {
-		for j := i + 1; j < len(cg.nodes); j++ {
+	for i := 1; i < len(cg.nodes); i++ {
+		for j := 0; j < i && j < len(cg.adjacencies[i]); j++ {
 			distance, err := cg.nodes[i].geometry.DistanceFrom(cg.nodes[j].geometry)
 			if err != nil {
 				return nil, err
 			}
 			cg.adjacencies[i][j] = -distance
-			cg.adjacencies[j][i] = -distance
 		}
 	}
 	return cg, nil
@@ -90,17 +114,22 @@ func CheckCollisions(geometries map[string]spatial.Geometry) (*CollisionGraph, e
 // CheckUniqueCollisions checks each possible Geometry pair for a collision, and if there is it will be stored as an edge
 // in a newly instantiated CollisionGraph that is returned. Edges between geometries that already exist in the passed in
 // "seen" CollisionGraph will not be present in the returned CollisionGraph.
-func CheckUniqueCollisions(geometries map[string]spatial.Geometry, seen *CollisionGraph) (*CollisionGraph, error) {
-	var distance float64
-	var err error
-	cg := newCollisionGraph(geometries)
+func CheckUniqueCollisions(internal, external map[string]spatial.Geometry, seen *CollisionGraph) (*CollisionGraph, error) {
+	cg, err := newCollisionGraph(internal, external)
+	if err != nil {
+		return nil, err
+	}
 
 	// iterate through all Geometry pairs and store new collisions as edges in graph
-	for i := 0; i < len(cg.nodes)-1; i++ {
-		for j := i + 1; j < len(cg.nodes); j++ {
+	var distance float64
+	for i := 1; i < len(cg.nodes); i++ {
+		for j := 0; j < i && j < len(cg.adjacencies[i]); j++ {
 			// check for previously seen collisions and ignore them
 			x, xOk := seen.indices[cg.nodes[i].name]
 			y, yOk := seen.indices[cg.nodes[j].name]
+			if y > x {
+				x, y = y, x
+			}
 			if xOk && yOk && seen.adjacencies[x][y] >= 0 {
 				// represent previously seen collisions as NaNs
 				distance = math.NaN()
@@ -111,7 +140,6 @@ func CheckUniqueCollisions(geometries map[string]spatial.Geometry, seen *Collisi
 				}
 			}
 			cg.adjacencies[i][j] = -distance
-			cg.adjacencies[j][i] = -distance
 		}
 	}
 	return cg, nil

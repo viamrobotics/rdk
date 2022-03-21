@@ -150,7 +150,7 @@ func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*stati
 		multierr.AppendInto(&err, errNew)
 		if collectAll {
 			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
-			if pose == nil {
+			if err != nil {
 				return nil, err
 			}
 			poses = append(poses, tf.(*staticFrame))
