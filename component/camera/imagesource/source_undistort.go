@@ -38,15 +38,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("no source camera for undistort (%s): %w", sourceName, err)
 			}
-			intrinsics := attrs.CameraParameters
-			if intrinsics == nil {
-				intrinsics, ok = camera.Projector(source).(*transform.PinholeCameraIntrinsics)
-				if !ok {
-					return nil, rdkutils.NewUnexpectedTypeError(intrinsics, camera.Projector(source))
-				}
-			}
-			imgSrc := &undistortSource{source, camera.StreamType(attrs.Stream), intrinsics}
-			return camera.New(imgSrc, attrs, source)
+			return newUndistortSource(source, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "undistort",
@@ -63,6 +55,19 @@ type undistortSource struct {
 	original     gostream.ImageSource
 	stream       camera.StreamType
 	cameraParams *transform.PinholeCameraIntrinsics
+}
+
+func newUndistortSource(source camera.Camera, attrs *camera.AttrConfig) (camera.Camera, error) {
+	var ok bool
+	intrinsics := attrs.CameraParameters
+	if intrinsics == nil {
+		intrinsics, ok = camera.Projector(source).(*transform.PinholeCameraIntrinsics)
+		if !ok {
+			return nil, errors.Errorf("expected source camera to have intrinsic parameters, but instead got %T", camera.Projector(source))
+		}
+	}
+	imgSrc := &undistortSource{source, camera.StreamType(attrs.Stream), intrinsics}
+	return camera.New(imgSrc, attrs, source)
 }
 
 // Next undistorts the original image according to the camera parameters.
