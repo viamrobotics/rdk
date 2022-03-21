@@ -22,17 +22,17 @@ func TestModelLoading(t *testing.T) {
 	test.That(t, simpleM.OperationalDoF(), test.ShouldEqual, 1)
 	test.That(t, len(m.DoF()), test.ShouldEqual, 6)
 
-	isValid := simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
+	isValid := IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1})
 	test.That(t, isValid, test.ShouldBeTrue)
-	isValid = simpleM.AreJointPositionsValid([]float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
+	isValid = IsConfigurationValid(simpleM, []float64{0.1, 0.1, 0.1, 0.1, 0.1, 99.1})
 	test.That(t, isValid, test.ShouldBeFalse)
 
 	orig := []float64{0.1, 0.1, 0.1, 0.1, 0.1, 0.1}
 	orig[5] += math.Pi * 2
 	orig[4] -= math.Pi * 4
 
-	randpos := GenerateRandomJointPositions(m, rand.New(rand.NewSource(1)))
-	test.That(t, simpleM.AreJointPositionsValid(randpos), test.ShouldBeTrue)
+	randpos := GenerateRandomConfiguration(m, rand.New(rand.NewSource(1)))
+	test.That(t, IsConfigurationValid(simpleM, randpos), test.ShouldBeTrue)
 
 	m, err = ParseModelJSONFile(utils.ResolveFile("component/arm/wx250s/wx250s_kinematics.json"), "foo")
 	test.That(t, err, test.ShouldBeNil)
@@ -78,7 +78,7 @@ func TestModelGeometries(t *testing.T) {
 	geometries, _ := sm.Geometries(inputs)
 
 	test.That(t, geometries, test.ShouldNotBeNil)
-	expected, err := sm.jointRadToQuats(inputs, true)
+	expected, err := sm.inputsToFrames(inputs, true)
 	test.That(t, err, test.ShouldBeNil)
 
 	numGeometries := 0
