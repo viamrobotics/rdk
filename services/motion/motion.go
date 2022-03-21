@@ -1,5 +1,5 @@
-// Package objectmanipulation implements an object manipulation service.
-package objectmanipulation
+// Package motion implements an motion service.
+package motion
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
-	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -30,9 +30,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.ObjectManipulationService_ServiceDesc,
+				&servicepb.MotionService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterObjectManipulationServiceHandlerFromEndpoint,
+				servicepb.RegisterMotionServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
@@ -57,19 +57,19 @@ type Service interface {
 }
 
 // SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("object_manipulation")
+const SubtypeName = resource.SubtypeName("motion")
 
-// Subtype is a constant that identifies the object manipulation service resource subtype.
+// Subtype is a constant that identifies the motion service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
 	SubtypeName,
 )
 
-// Name is the ObjectManipulationService's typed resource name.
+// Name is the MotionService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// FromRobot retrieves the object manipulation service of a robot.
+// FromRobot retrieves the motion service of a robot.
 func FromRobot(r robot.Robot) (Service, error) {
 	resource, err := r.ResourceByName(Name)
 	if err != nil {
@@ -77,7 +77,7 @@ func FromRobot(r robot.Robot) (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("objectmanipulation.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("motion.Service", resource)
 	}
 	return svc, nil
 }

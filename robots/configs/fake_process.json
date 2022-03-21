@@ -167,7 +167,7 @@
             "type": "object_segmentation"
         },
         {
-            "type": "object_manipulation"
+            "type": "motion"
         },
         {
             "type": "frame_system"

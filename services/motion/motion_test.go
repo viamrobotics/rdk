@@ -1,4 +1,4 @@
-package objectmanipulation_test
+package motion_test
 
 import (
 	"context"
@@ -15,7 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -31,7 +31,7 @@ func TestDoGrabFailures(t *testing.T) {
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 		return nil, rutils.NewResourceNotFoundError(n)
 	}
-	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
+	mgs, err := motion.New(context.Background(), r, cfgService, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
@@ -61,7 +61,7 @@ func TestDoGrabFailures(t *testing.T) {
 		}
 	}
 
-	mgs, _ = objectmanipulation.New(context.Background(), r, cfgService, logger)
+	mgs, _ = motion.New(context.Background(), r, cfgService, logger)
 
 	_, err = mgs.DoGrab(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
@@ -87,7 +87,7 @@ func TestDoGrab(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer myRobot.Close(context.Background())
 
-	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
+	svc, err := motion.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
@@ -106,7 +106,7 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer myRobot.Close(context.Background())
 
-	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
+	svc, err := motion.New(ctx, myRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
@@ -131,7 +131,7 @@ func setupInjectRobot() (*inject.Robot, *mock) {
 func TestFromRobot(t *testing.T) {
 	r, svc1 := setupInjectRobot()
 
-	svc, err := objectmanipulation.FromRobot(r)
+	svc, err := motion.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc, test.ShouldNotBeNil)
 
@@ -142,26 +142,26 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return "not object manipulation", nil
+		return "not motion", nil
 	}
 
-	svc, err = objectmanipulation.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("objectmanipulation.Service", "string"))
+	svc, err = motion.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
 	test.That(t, svc, test.ShouldBeNil)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return nil, rutils.NewResourceNotFoundError(name)
 	}
 
-	svc, err = objectmanipulation.FromRobot(r)
-	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(objectmanipulation.Name))
+	svc, err = motion.FromRobot(r)
+	test.That(t, err, test.ShouldBeError, rutils.NewResourceNotFoundError(motion.Name))
 	test.That(t, svc, test.ShouldBeNil)
 }
 
 const success = false
 
 type mock struct {
-	objectmanipulation.Service
+	motion.Service
 	grabCount int
 }
 

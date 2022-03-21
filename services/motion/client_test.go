@@ -1,4 +1,4 @@
-package objectmanipulation_test
+package motion_test
 
 import (
 	"context"
@@ -13,11 +13,11 @@ import (
 	"google.golang.org/grpc"
 
 	viamgrpc "go.viam.com/rdk/grpc"
-	servicepb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -31,13 +31,13 @@ func TestClient(t *testing.T) {
 	rpcServer, err := rpc.NewServer(logger, rpc.WithUnauthenticated())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectOMS := &inject.ObjectManipulationService{}
+	injectOMS := &inject.MotionService{}
 	omMap := map[resource.Name]interface{}{
-		objectmanipulation.Name: injectOMS,
+		motion.Name: injectOMS,
 	}
 	svc, err := subtype.New(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	resourceSubtype := registry.ResourceSubtypeLookup(objectmanipulation.Subtype)
+	resourceSubtype := registry.ResourceSubtypeLookup(motion.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
 
@@ -48,14 +48,14 @@ func TestClient(t *testing.T) {
 	t.Run("Failing client", func(t *testing.T) {
 		cancelCtx, cancel := context.WithCancel(context.Background())
 		cancel()
-		_, err = objectmanipulation.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
+		_, err = motion.NewClient(cancelCtx, "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 	})
 
 	// working
-	t.Run("object manipulation client 1", func(t *testing.T) {
-		client, err := objectmanipulation.NewClient(context.Background(), "", listener1.Addr().String(), logger)
+	t.Run("motion client 1", func(t *testing.T) {
+		client, err := motion.NewClient(context.Background(), "", listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 
 		success := true
@@ -76,11 +76,11 @@ func TestClient(t *testing.T) {
 	})
 
 	// broken
-	t.Run("object manipulation client 2", func(t *testing.T) {
+	t.Run("motion client 2", func(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		client := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
-		client2, ok := client.(objectmanipulation.Service)
+		client2, ok := client.(motion.Service)
 		test.That(t, ok, test.ShouldBeTrue)
 
 		passedErr := errors.New("fake dograb error")
@@ -106,23 +106,23 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 
-	injectOMS := &inject.ObjectManipulationService{}
+	injectOMS := &inject.MotionService{}
 	omMap := map[resource.Name]interface{}{
-		objectmanipulation.Name: injectOMS,
+		motion.Name: injectOMS,
 	}
 	server, err := newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
-	servicepb.RegisterObjectManipulationServiceServer(gServer, server)
+	servicepb.RegisterMotionServiceServer(gServer, server)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := objectmanipulation.NewClient(ctx, "", listener.Addr().String(), logger)
+	client1, err := motion.NewClient(ctx, "", listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := objectmanipulation.NewClient(ctx, "", listener.Addr().String(), logger)
+	client2, err := motion.NewClient(ctx, "", listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 

@@ -4,13 +4,13 @@ import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/motion"
 )
 
-// ObjectManipulationService represents a fake instance of an object manipulation
+// MotionService represents a fake instance of an motion
 // service.
-type ObjectManipulationService struct {
-	objectmanipulation.Service
+type MotionService struct {
+	motion.Service
 	DoGrabFunc func(
 		ctx context.Context,
 		gripperName string,
@@ -20,7 +20,7 @@ type ObjectManipulationService struct {
 }
 
 // DoGrab calls the injected DoGrab or the real variant.
-func (mgs *ObjectManipulationService) DoGrab(
+func (mgs *MotionService) DoGrab(
 	ctx context.Context,
 	gripperName string,
 	grabPose *referenceframe.PoseInFrame,

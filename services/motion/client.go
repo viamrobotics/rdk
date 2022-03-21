@@ -1,5 +1,5 @@
-// Package objectmanipulation contains a gRPC based object manipulation client
-package objectmanipulation
+// Package motion contains a gRPC based motion client
+package motion
 
 import (
 	"context"
@@ -9,20 +9,20 @@ import (
 
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 )
 
-// client is a client satisfies the object_manipulation.proto contract.
+// client is a client satisfies the motion.proto contract.
 type client struct {
 	conn   rpc.ClientConn
-	client pb.ObjectManipulationServiceClient
+	client pb.MotionServiceClient
 	logger golog.Logger
 }
 
 // newSvcClientFromConn constructs a new serviceClient using the passed in connection.
 func newSvcClientFromConn(conn rpc.ClientConn, logger golog.Logger) *client {
-	grpcClient := pb.NewObjectManipulationServiceClient(conn)
+	grpcClient := pb.NewMotionServiceClient(conn)
 	sc := &client{
 		conn:   conn,
 		client: grpcClient,

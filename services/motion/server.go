@@ -1,23 +1,23 @@
-// Package objectmanipulation contains a gRPC based object manipulation service server
-package objectmanipulation
+// Package motion contains a gRPC based motion service server
+package motion
 
 import (
 	"context"
 
-	pb "go.viam.com/rdk/proto/api/service/objectmanipulation/v1"
+	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
 
-// subtypeServer implements the ObjectManipulationService from object_manipulation.proto.
+// subtypeServer implements the MotionService from motion.proto.
 type subtypeServer struct {
-	pb.UnimplementedObjectManipulationServiceServer
+	pb.UnimplementedMotionServiceServer
 	subtypeSvc subtype.Service
 }
 
-// NewServer constructs a object manipulation gRPC service server.
-func NewServer(s subtype.Service) pb.ObjectManipulationServiceServer {
+// NewServer constructs a motion gRPC service server.
+func NewServer(s subtype.Service) pb.MotionServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
@@ -28,7 +28,7 @@ func (server *subtypeServer) service() (Service, error) {
 	}
 	svc, ok := resource.(Service)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("objectmanipulation.Service", resource)
+		return nil, utils.NewUnimplementedInterfaceError("motion.Service", resource)
 	}
 	return svc, nil
 }
