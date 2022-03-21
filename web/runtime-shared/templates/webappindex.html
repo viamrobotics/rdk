@@ -32,19 +32,18 @@
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
     <script src="/static/rdk/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/rdk/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/rdk/dls/dls.css">
     <script type="module">
-      import "/static/rdk/components/coreComponents.umd.min.js";
+      import "/static/rdk/dls/dls.umd.min.js";
     </script>
     {{ else }}
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/dls/dls.css">
     <script type="module">
-      import "/static/components/coreComponents.umd.min.js";
+      import "/static/dls/dls.umd.min.js";
     </script>
     {{ end }}
-
     <script>
       function roundTo2Decimals(num) {
           num = Math.round(num * 100);
