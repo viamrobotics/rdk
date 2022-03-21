@@ -21,7 +21,7 @@ import (
 	rutils "go.viam.com/rdk/utils"
 )
 
-func TestDoGrabFailures(t *testing.T) {
+func TestMoveFailures(t *testing.T) {
 	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
@@ -35,7 +35,7 @@ func TestDoGrabFailures(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-	_, err = mgs.DoGrab(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = mgs.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	// fails when gripper fails to open
@@ -63,7 +63,7 @@ func TestDoGrabFailures(t *testing.T) {
 
 	mgs, _ = motion.New(context.Background(), r, cfgService, logger)
 
-	_, err = mgs.DoGrab(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = mgs.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	_gripper.OpenFunc = func(ctx context.Context) error {
@@ -72,11 +72,11 @@ func TestDoGrabFailures(t *testing.T) {
 
 	// can't move gripper with respect to gripper
 	badGrabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewZeroPose())
-	_, err = mgs.DoGrab(context.Background(), "fakeGripper", badGrabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = mgs.Move(context.Background(), "fakeGripper", badGrabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
 }
 
-func TestDoGrab(t *testing.T) {
+func TestMove(t *testing.T) {
 	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
@@ -91,7 +91,7 @@ func TestDoGrab(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = svc.DoGrab(ctx, "pieceGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = svc.Move(ctx, "pieceGripper", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -110,7 +110,7 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = svc.DoGrab(ctx, "gr", grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = svc.Move(ctx, "gr", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// remove after this
@@ -136,7 +136,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.DoGrab(context.Background(), "", grabPose, []*referenceframe.GeometriesInFrame{})
+	result, err := svc.Move(context.Background(), "", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, success)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
@@ -165,7 +165,7 @@ type mock struct {
 	grabCount int
 }
 
-func (m *mock) DoGrab(
+func (m *mock) Move(
 	ctx context.Context,
 	gripperName string,
 	grabPose *referenceframe.PoseInFrame,

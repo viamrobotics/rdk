@@ -9,19 +9,19 @@ import "proto/api/common/v1/common.proto";
 
 // A MotionService declares the gRPC contract for a motion service
 service MotionService {
-  rpc DoGrab(DoGrabRequest) returns (DoGrabResponse) {
+  rpc Move(MoveRequest) returns (MoveResponse) {
     option (google.api.http) = {
-      post: "/viam/api/v1/service/motion/do_grab"
+      post: "/viam/api/v1/service/motion/move"
     };
   }
 }
 
-message DoGrabRequest {
+message MoveRequest {
   common.v1.PoseInFrame target = 1;
   string gripper_name = 2;
   optional common.v1.WorldState world_state = 3;
 }
 
-message DoGrabResponse {
+message MoveResponse {
   bool success = 1;
 }

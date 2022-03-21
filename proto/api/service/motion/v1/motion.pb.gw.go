@@ -32,37 +32,37 @@ var _ = utilities.NewDoubleArray
 var _ = metadata.Join
 
 var (
-	filter_MotionService_DoGrab_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+	filter_MotionService_Move_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
 )
 
-func request_MotionService_DoGrab_0(ctx context.Context, marshaler runtime.Marshaler, client MotionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DoGrabRequest
+func request_MotionService_Move_0(ctx context.Context, marshaler runtime.Marshaler, client MotionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MoveRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MotionService_DoGrab_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MotionService_Move_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.DoGrab(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Move(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_MotionService_DoGrab_0(ctx context.Context, marshaler runtime.Marshaler, server MotionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq DoGrabRequest
+func local_request_MotionService_Move_0(ctx context.Context, marshaler runtime.Marshaler, server MotionServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq MoveRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
-	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MotionService_DoGrab_0); err != nil {
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_MotionService_Move_0); err != nil {
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := server.DoGrab(ctx, &protoReq)
+	msg, err := server.Move(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -73,18 +73,18 @@ func local_request_MotionService_DoGrab_0(ctx context.Context, marshaler runtime
 // Note that using this registration option will cause many gRPC library features to stop working. Consider using RegisterMotionServiceHandlerFromEndpoint instead.
 func RegisterMotionServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server MotionServiceServer) error {
 
-	mux.Handle("POST", pattern_MotionService_DoGrab_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_MotionService_Move_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/DoGrab", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/do_grab"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/move"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_MotionService_DoGrab_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_MotionService_Move_0(rctx, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
@@ -92,7 +92,7 @@ func RegisterMotionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 			return
 		}
 
-		forward_MotionService_DoGrab_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_MotionService_Move_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -137,23 +137,23 @@ func RegisterMotionServiceHandler(ctx context.Context, mux *runtime.ServeMux, co
 // "MotionServiceClient" to call the correct interceptors.
 func RegisterMotionServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client MotionServiceClient) error {
 
-	mux.Handle("POST", pattern_MotionService_DoGrab_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_MotionService_Move_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/DoGrab", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/do_grab"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/Move", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/move"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_MotionService_DoGrab_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_MotionService_Move_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_MotionService_DoGrab_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_MotionService_Move_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -161,9 +161,9 @@ func RegisterMotionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_MotionService_DoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "motion", "do_grab"}, ""))
+	pattern_MotionService_Move_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "motion", "move"}, ""))
 )
 
 var (
-	forward_MotionService_DoGrab_0 = runtime.ForwardResponseMessage
+	forward_MotionService_Move_0 = runtime.ForwardResponseMessage
 )

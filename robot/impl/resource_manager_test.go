@@ -598,7 +598,7 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
 	injectMotionService := &inject.MotionService{}
-	injectMotionService.DoGrabFunc = func(
+	injectMotionService.MoveFunc = func(
 		ctx context.Context,
 		gripperName string,
 		grabPose *referenceframe.PoseInFrame,
