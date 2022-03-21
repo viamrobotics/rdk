@@ -101,7 +101,6 @@ func plan(ctx context.Context, config *mobileRobotPlanConfig) ([][]frame.Input, 
 }
 
 func parseJSONFile(filename string) (*mobileRobotPlanConfig, error) {
-	
 	jsonData, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read json file")

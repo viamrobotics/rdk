@@ -114,47 +114,8 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 	return poses[len(poses)-1].transform, err
 }
 
-<<<<<<< HEAD
 // IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
 func IsConfigurationValid(m Model, configuration []float64) bool {
-=======
-// jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
-// between quaternions and OV are not needed.
-func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame, error) {
-	var err error
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	composedTransformation := spatialmath.NewZeroPose()
-	posIdx := 0
-	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms {
-		dof := len(transform.DoF()) + posIdx
-		input := inputs[posIdx:dof]
-		posIdx = dof
-
-		pose, errNew := transform.Transform(input)
-		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil {
-			return nil, err
-		}
-		multierr.AppendInto(&err, errNew)
-		if collectAll {
-			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
-			if err != nil {
-				return nil, err
-			}
-			poses = append(poses, tf.(*staticFrame))
-		}
-		composedTransformation = spatialmath.Compose(composedTransformation, pose)
-	}
-	poses = append(poses, &staticFrame{"", composedTransformation, nil})
-	return poses, err
-}
-
-// AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
-func (m *SimpleModel) AreJointPositionsValid(pos []float64) bool {
->>>>>>> 1e64020301e61c386a36f98f6140865fe6e49079
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
 		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
