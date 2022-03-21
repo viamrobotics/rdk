@@ -29,6 +29,12 @@ type Capturer interface {
 	Capture(ctx context.Context, params map[string]string) (interface{}, error)
 }
 
+type CaptureFunc func(ctx context.Context, params map[string]string) (interface{}, error)
+
+func (cf CaptureFunc) Capture(ctx context.Context, params map[string]string) (interface{}, error) {
+	return cf(ctx, params)
+}
+
 // Collector collects data to some target.
 type Collector interface {
 	SetTarget(file *os.File)
