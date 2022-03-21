@@ -179,6 +179,19 @@ func BilinearInterpolationColor(pt r2.Point, img *Image) *Color {
 	return &result
 }
 
+// NearestNeighborColor takes the value of the closest point to the intermediate pixel.
+func NearestNeighborColor(pt r2.Point, img *Image) *Color {
+	width, height := float64(img.Width()), float64(img.Height())
+	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
+		return nil
+	}
+	x := int(math.Round(pt.X))
+	y := int(math.Round(pt.Y))
+	// get color value
+	result := img.GetXY(x, y)
+	return &result
+}
+
 // Rotate rotates the image clockwise by a certain amount of degrees.
 func (i *Image) Rotate(amount int) *Image {
 	if amount != 180 {
