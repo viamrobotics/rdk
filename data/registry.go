@@ -7,6 +7,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/resource"
 )
 

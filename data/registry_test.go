@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
+
+	"go.viam.com/rdk/resource"
 )
 
 var dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
