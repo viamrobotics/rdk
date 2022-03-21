@@ -1,0 +1,63 @@
+{
+  "components":
+  [
+    {
+      "model": "fake",
+      "name": "arm1",
+      "type": "arm",
+      "depends_on" : ["base1"]
+    },
+    {
+      "model": "fake",
+      "name": "base1",
+      "type": "base",
+      "depends_on" : ["board1"]
+    },
+    {
+      "model": "fake",
+      "name": "board1",
+      "type": "board",
+      "attributes":
+      {
+        "analogs":
+        [
+          {
+            "name": "analog1",
+            "pin": "0"
+          }
+        ],
+        "digitalInterrupts":
+        [
+          {
+            "name": "encoder",
+            "pin": "14"
+          }
+        ]
+      }
+    }
+  ],
+  "processes":
+  [
+    {
+      "id": "1",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world"
+      ],
+      "one_shot": true
+    },
+    {
+      "id": "2",
+      "name": "echo",
+      "args":
+      [
+        "hello",
+        "world",
+        "again"
+      ],
+      "one_shot": true
+    }
+  ]
+}

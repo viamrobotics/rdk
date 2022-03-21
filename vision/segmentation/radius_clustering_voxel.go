@@ -99,13 +99,12 @@ func ApplyRadiusClusteringVoxels(ctx context.Context,
 			return nil, err
 		}
 	}
-	objConfig := RadiusClusteringConfig{cfg.MinPtsInPlane, cfg.MinPtsInSegment, cfg.ClusteringRadiusMm}
 	objVoxGrid := pc.NewVoxelGridFromPointCloud(nonPlane, vg.VoxelSize(), vg.Lambda())
-	objects, err := voxelBasedNearestNeighbors(objVoxGrid, objConfig.ClusteringRadiusMm)
+	objects, err := voxelBasedNearestNeighbors(objVoxGrid, cfg.ClusteringRadiusMm)
 	if err != nil {
 		return nil, err
 	}
-	objects = pc.PrunePointClouds(objects, objConfig.MinPtsInSegment)
+	objects = pc.PrunePointClouds(objects, cfg.MinPtsInSegment)
 	segments, err := NewSegmentsFromSlice(objects)
 	if err != nil {
 		return nil, err
