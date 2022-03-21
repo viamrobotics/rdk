@@ -235,9 +235,6 @@ func (pcps *pointCloudPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.P
 		if planeCloud.Size() <= pcps.minPoints {
 			// this cloud is not valid so revert to last
 			nonPlaneCloud = lastNonPlaneCloud
-			if err != nil {
-				return nil, nil, err
-			}
 			break
 		} else {
 			nonPlaneCloud = smallerNonPlaneCloud
