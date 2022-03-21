@@ -134,7 +134,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	return pcTo, nil
 }
 
-// get all the input positions for the robot components in order to calculate the frame system offsets.
+// initalizeInputs gets all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
 	fs referenceframe.FrameSystem) (map[string][]referenceframe.Input, error) {
@@ -167,7 +167,7 @@ func (jpcs *joinPointCloudSource) initializeInputs(
 	return inputs, nil
 }
 
-// Next gets the merged point cloud from both cameras, and then uses a projection to turn it into a 2D image.
+// Next gets the merged point cloud from all sources, and then uses a projection to turn it into a 2D image.
 func (jpcs *joinPointCloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var proj rimage.Projector
 	if idx, ok := contains(jpcs.sourceNames, jpcs.targetName); ok {
