@@ -33,7 +33,7 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) DoGrab(ctx context.Context, req *pb.DoGrabRequest) (*pb.DoGrabResponse, error) {
+func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
@@ -46,9 +46,9 @@ func (server *subtypeServer) DoGrab(ctx context.Context, req *pb.DoGrabRequest) 
 			return nil, err
 		}
 	}
-	success, err := svc.DoGrab(ctx, req.GetGripperName(), referenceframe.ProtobufToPoseInFrame(req.GetTarget()), geometriesInFrames)
+	success, err := svc.Move(ctx, req.GetGripperName(), referenceframe.ProtobufToPoseInFrame(req.GetTarget()), geometriesInFrames)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.DoGrabResponse{Success: success}, nil
+	return &pb.MoveResponse{Success: success}, nil
 }

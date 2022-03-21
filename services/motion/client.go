@@ -51,7 +51,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) DoGrab(
+func (c *client) Move(
 	ctx context.Context,
 	gripperName string,
 	grabPose *referenceframe.PoseInFrame,
@@ -61,7 +61,7 @@ func (c *client) DoGrab(
 	for i, obstacle := range obstacles {
 		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
 	}
-	resp, err := c.client.DoGrab(ctx, &pb.DoGrabRequest{
+	resp, err := c.client.Move(ctx, &pb.MoveRequest{
 		GripperName: gripperName,
 		Target:      referenceframe.PoseInFrameToProtobuf(grabPose),
 		WorldState: &commonpb.WorldState{

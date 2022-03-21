@@ -48,7 +48,7 @@ func init() {
 
 // A Service controls the flow of manipulating other objects with a robot's gripper.
 type Service interface {
-	DoGrab(
+	Move(
 		ctx context.Context,
 		gripperName string,
 		grabPose *referenceframe.PoseInFrame,
@@ -95,9 +95,9 @@ type objectMService struct {
 	logger golog.Logger
 }
 
-// DoGrab takes a camera point of an object's location and both moves the gripper
+// Move takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object.
-func (mgs objectMService) DoGrab(
+func (mgs objectMService) Move(
 	ctx context.Context,
 	gripperName string,
 	grabPose *referenceframe.PoseInFrame,

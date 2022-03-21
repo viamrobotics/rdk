@@ -11,7 +11,7 @@ import (
 // service.
 type MotionService struct {
 	motion.Service
-	DoGrabFunc func(
+	MoveFunc func(
 		ctx context.Context,
 		gripperName string,
 		grabPose *referenceframe.PoseInFrame,
@@ -19,15 +19,15 @@ type MotionService struct {
 	) (bool, error)
 }
 
-// DoGrab calls the injected DoGrab or the real variant.
-func (mgs *MotionService) DoGrab(
+// Move calls the injected Move or the real variant.
+func (mgs *MotionService) Move(
 	ctx context.Context,
 	gripperName string,
 	grabPose *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
-	if mgs.DoGrabFunc == nil {
-		return mgs.Service.DoGrab(ctx, gripperName, grabPose, obstacles)
+	if mgs.MoveFunc == nil {
+		return mgs.Service.Move(ctx, gripperName, grabPose, obstacles)
 	}
-	return mgs.DoGrabFunc(ctx, gripperName, grabPose, obstacles)
+	return mgs.MoveFunc(ctx, gripperName, grabPose, obstacles)
 }
