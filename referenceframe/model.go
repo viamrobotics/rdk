@@ -20,15 +20,12 @@ type ModelFramer interface {
 // A Model represents a frame that can change its name.
 type Model interface {
 	Frame
-	ChangeName(name string)
+	ChangeName(string)
 }
 
-// SimpleModel TODO
-// Generally speaking, a Joint will attach a Body to a Frame
-// And a Fixed will attach a Frame to a Body
-// Exceptions are the head of the tree where we are just starting the robot from World.
+// SimpleModel TODO.
 type SimpleModel struct {
-	name string // the name of the arm
+	name string // the name of the model
 	// OrdTransforms is the list of transforms ordered from end effector to base
 	OrdTransforms []Frame
 	poseCache     *sync.Map
@@ -43,8 +40,8 @@ func NewSimpleModel() *SimpleModel {
 	return m
 }
 
-// GenerateRandomJointPositions generates a list of radian joint positions that are random but valid for each joint.
-func GenerateRandomJointPositions(m Model, randSeed *rand.Rand) []float64 {
+// GenerateRandomConfiguration generates a list of radian joint positions that are random but valid for each joint.
+func GenerateRandomConfiguration(m Model, randSeed *rand.Rand) []float64 {
 	limits := m.DoF()
 	jointPos := make([]float64, 0, len(limits))
 
@@ -68,20 +65,10 @@ func (m *SimpleModel) ChangeName(name string) {
 	m.name = name
 }
 
-// floatsToString turns a float array into a serializable binary representation
-// This is very fast, about 100ns per call.
-func floatsToString(inputs []Input) string {
-	b := make([]byte, len(inputs)*8)
-	for i, input := range inputs {
-		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input.Value))
-	}
-	return string(b)
-}
-
 // Transform takes a model and a list of joint angles in radians and computes the dual quaternion representing the
 // cartesian position of the end effector. This is useful for when conversions between quaternions and OV are not needed.
 func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
-	frames, err := m.jointRadToQuats(inputs, false)
+	frames, err := m.inputsToFrames(inputs, false)
 	if err != nil && frames == nil {
 		return nil, err
 	}
@@ -90,7 +77,7 @@ func (m *SimpleModel) Transform(inputs []Input) (spatialmath.Pose, error) {
 
 // Geometries returns an object representing the 3D space associeted with the staticFrame.
 func (m *SimpleModel) Geometries(inputs []Input) (map[string]spatialmath.Geometry, error) {
-	frames, err := m.jointRadToQuats(inputs, true)
+	frames, err := m.inputsToFrames(inputs, true)
 	if err != nil && frames == nil {
 		return nil, err
 	}
@@ -118,7 +105,7 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 			return pose, nil
 		}
 	}
-	poses, err := m.jointRadToQuats(inputs, false)
+	poses, err := m.inputsToFrames(inputs, false)
 	if err != nil && poses == nil {
 		return nil, err
 	}
@@ -127,45 +114,11 @@ func (m *SimpleModel) CachedTransform(inputs []Input) (spatialmath.Pose, error) 
 	return poses[len(poses)-1].transform, err
 }
 
-// jointRadToQuats takes a model and a list of joint angles in radians and computes the dual quaternion representing the
-// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
-// between quaternions and OV are not needed.
-func (m *SimpleModel) jointRadToQuats(inputs []Input, collectAll bool) ([]*staticFrame, error) {
-	var err error
-	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
-	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
-	composedTransformation := spatialmath.NewZeroPose()
-	posIdx := 0
-	// get quaternions from the base outwards.
-	for _, transform := range m.OrdTransforms {
-		dof := len(transform.DoF()) + posIdx
-		input := inputs[posIdx:dof]
-		posIdx = dof
-
-		pose, errNew := transform.Transform(input)
-		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil {
-			return nil, err
-		}
-		multierr.AppendInto(&err, errNew)
-		if collectAll {
-			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
-			if err != nil {
-				return nil, err
-			}
-			poses = append(poses, tf.(*staticFrame))
-		}
-		composedTransformation = spatialmath.Compose(composedTransformation, pose)
-	}
-	poses = append(poses, &staticFrame{"", composedTransformation, nil})
-	return poses, err
-}
-
-// AreJointPositionsValid checks whether the given array of joint positions violates any joint limits.
-func (m *SimpleModel) AreJointPositionsValid(pos []float64) bool {
+// IsConfigurationValid checks whether the given array of joint positions violates any joint limits.
+func IsConfigurationValid(m Model, configuration []float64) bool {
 	limits := m.DoF()
 	for i := 0; i < len(limits); i++ {
-		if pos[i] < limits[i].Min || pos[i] > limits[i].Max {
+		if configuration[i] < limits[i].Min || configuration[i] > limits[i].Max {
 			return false
 		}
 	}
@@ -177,7 +130,7 @@ func (m *SimpleModel) OperationalDoF() int {
 	return 1
 }
 
-// DoF returns the number of degrees of freedom within an arm.
+// DoF returns the number of degrees of freedom within a model.
 func (m *SimpleModel) DoF() []Limit {
 	m.lock.RLock()
 	if len(m.limits) > 0 {
@@ -228,4 +181,50 @@ func (m *SimpleModel) AlmostEquals(otherFrame Frame) bool {
 	}
 
 	return true
+}
+
+// TODO(rb) better comment
+// takes a model and a list of joint angles in radians and computes the dual quaternion representing the
+// cartesian position of each of the links up to and including the end effector. This is useful for when conversions
+// between quaternions and OV are not needed.
+func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*staticFrame, error) {
+	var err error
+	poses := make([]*staticFrame, 0, len(m.OrdTransforms))
+	// Start at ((1+0i+0j+0k)+(+0+0i+0j+0k)ϵ)
+	composedTransformation := spatialmath.NewZeroPose()
+	posIdx := 0
+	// get quaternions from the base outwards.
+	for _, transform := range m.OrdTransforms {
+		dof := len(transform.DoF()) + posIdx
+		input := inputs[posIdx:dof]
+		posIdx = dof
+
+		pose, errNew := transform.Transform(input)
+		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
+		if pose == nil {
+			return nil, err
+		}
+		multierr.AppendInto(&err, errNew)
+		if collectAll {
+			tf, err := NewStaticFrameFromFrame(transform, composedTransformation)
+			if err != nil {
+				return nil, err
+			}
+			poses = append(poses, tf.(*staticFrame))
+		}
+		composedTransformation = spatialmath.Compose(composedTransformation, pose)
+	}
+	// TODO(rb) as written this will return one too many frames, no need to return zeroth frame
+	poses = append(poses, &staticFrame{"", composedTransformation, nil})
+	return poses, err
+}
+
+// floatsToString turns a float array into a serializable binary representation
+// This is very fast, about 100ns per call.
+func floatsToString(inputs []Input) string {
+	b := make([]byte, len(inputs)*8)
+	for i, input := range inputs {
+		binary.BigEndian.PutUint64(b[8*i:8*i+8], math.Float64bits(input.Value))
+	}
+	return string(b)
 }
