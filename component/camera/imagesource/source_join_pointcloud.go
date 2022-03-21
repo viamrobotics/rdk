@@ -33,15 +33,11 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
-			return newJoinPointCloudSource(ctx, r, attrs)
+			return newJoinPointCloudSource(r, attrs)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "join_pointclouds",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
-			if err != nil {
-				return nil, err
-			}
 			var conf JoinAttrs
 			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
 			if err != nil {
@@ -51,7 +47,6 @@ func init() {
 			if !ok {
 				return nil, rdkutils.NewUnexpectedTypeError(result, attrs)
 			}
-			result.AttrConfig = cameraAttrs
 			return result, nil
 		},
 		&JoinAttrs{})
@@ -59,62 +54,49 @@ func init() {
 
 // JoinAttrs is the attribute struct for joinPointCloudSource.
 type JoinAttrs struct {
-	*camera.AttrConfig
-	JoinFrom string `json:"join_from"`
-	JoinTo   string `json:"join_to"`
+	JoinTo   string   `json:"join_to"`
+	JoinFrom []string `json:"join_from"`
 }
 
 // joinPointCloudSource takes two image sources that can produce point clouds and merges them together from
 // the point of view of camTo. The model needs to have the entire robot available in order to build the correct offsets
 // between robot components for the frame system transform.
 type joinPointCloudSource struct {
-	camTo, camFrom         camera.Camera
-	camToName, camFromName string
-	robot                  robot.Robot
+	camTo       camera.Camera
+	camFrom     []camera.Camera
+	camToName   string
+	camFromName []string
+	robot       robot.Robot
 }
 
 // newJoinPointCloudSource creates a imageSource that combines two point cloud sources into one source from the
 // reference frame of camTo.
-func newJoinPointCloudSource(ctx context.Context, r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
+func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, error) {
 	joinSource := &joinPointCloudSource{}
 	// frame to merge from
-	joinSource.camFromName = attrs.JoinFrom
-	camFrom, err := camera.FromRobot(r, joinSource.camFromName)
-	if err != nil {
-		return nil, fmt.Errorf("no camera to join from (%s): %w", joinSource.camFromName, err)
+	joinSource.camFrom = make([]camera.Camera, len(attrs.JoinFrom))
+	joinSource.camFromName = make([]string, len(attrs.JoinFrom))
+	for i, source := range attrs.JoinFrom {
+		joinSource.camFromName[i] = source
+		camFrom, err := camera.FromRobot(r, source)
+		if err != nil {
+			return nil, fmt.Errorf("no camera to join from (%s): %w", source, err)
+		}
+		joinSource.camFrom[i] = camFrom
 	}
-	joinSource.camFrom = camFrom
 	// frame to merge to
 	joinSource.camToName = attrs.JoinTo
-	camTo, err := camera.FromRobot(r, joinSource.camToName)
+	camTo, err := camera.FromRobot(r, attrs.JoinTo)
 	if err != nil {
-		return nil, fmt.Errorf("no camera to join to (%s): %w", joinSource.camToName, err)
+		return nil, fmt.Errorf("no camera to join to (%s): %w", attrs.JoinTo, err)
 	}
 	joinSource.camTo = camTo
-	// frame system
-	fs, err := r.FrameSystem(ctx, "join_cameras", "")
-	if err != nil {
-		return nil, fmt.Errorf("cannot join cameras %q and %q: %w", joinSource.camFromName, joinSource.camToName, err)
-	}
-	frame := fs.GetFrame(joinSource.camFromName)
-	if frame == nil {
-		return nil, fmt.Errorf("frame %q does not exist in frame system", joinSource.camFromName)
-	}
-	frame = fs.GetFrame(joinSource.camToName)
-	if frame == nil {
-		return nil, fmt.Errorf("frame %q does not exist in frame system", joinSource.camToName)
-	}
 	joinSource.robot = r
-	return camera.New(joinSource, attrs.AttrConfig, camTo)
+	return camera.New(joinSource, nil, camTo)
 }
 
 // NextPointCloud gets both point clouds from each camera, and puts the points from camFrom in the frame of camTo.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
-	var err error
-	pcFrom, err := jpcs.camFrom.NextPointCloud(ctx)
-	if err != nil {
-		return nil, err
-	}
 	pcTo, err := jpcs.camTo.NextPointCloud(ctx)
 	if err != nil {
 		return nil, err
@@ -127,24 +109,31 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	if err != nil {
 		return nil, err
 	}
-	pcFrom.Iterate(func(p pointcloud.Point) bool {
-		vec := r3.Vector(p.Position())
-		var newVec r3.Vector
-		newVec, err = fs.TransformPoint(inputs, vec, jpcs.camFromName, jpcs.camToName)
+	for i, cam := range jpcs.camFrom {
+		var err error
+		pcFrom, err := cam.NextPointCloud(ctx)
 		if err != nil {
-			return false
+			return nil, err
 		}
-		newPt := p.Clone(pointcloud.Vec3(newVec))
-		err = pcTo.Set(newPt)
-		return err == nil
-	})
-	if err != nil {
-		return nil, err
+		pcFrom.Iterate(func(p pointcloud.Point) bool {
+			vec := r3.Vector(p.Position())
+			var newVec r3.Vector
+			newVec, err = fs.TransformPoint(inputs, vec, jpcs.camFromName[i], jpcs.camToName)
+			if err != nil {
+				return false
+			}
+			newPt := p.Clone(pointcloud.Vec3(newVec))
+			err = pcTo.Set(newPt)
+			return err == nil
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pcTo, nil
 }
 
-// get all the input positions for the robot components in order to calculate the frame system offsets
+// get all the input positions for the robot components in order to calculate the frame system offsets.
 func (jpcs *joinPointCloudSource) initializeInputs(
 	ctx context.Context,
 	fs referenceframe.FrameSystem) (map[string][]referenceframe.Input, error) {
