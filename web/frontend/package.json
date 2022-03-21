@@ -1,20 +1,22 @@
 {
   "name": "rdk-web",
-  "private": true,
   "version": "0.1.0",
   "license": "Apache-2.0",
-  "workspaces": [
-    "packages/*"
-  ],
-  "scripts": {
-    "prepare": "lerna run --stream prepare",
-    "postinstall": "lerna bootstrap",
-    "build": "lerna run build --stream",
-    "build:dls": "lerna run build --stream --scope=dls",
-    "build:api": "lerna run build --stream --scope=rdk-api",
-    "storybook:dls": "lerna run storybook --stream --scope=dls"
+  "dependencies": {
+    "@improbable-eng/grpc-web": "^0.13.0",
+    "@viamrobotics/rpc": "0.1.20",
+    "google-protobuf": "^3.14.0",
+    "three": "^0.137.0"
   },
   "devDependencies": {
-    "lerna": "^4.0.0"
+    "@webpack-cli/serve": "^1.3.1",
+    "ts-loader": "^8.0.14",
+    "typescript": "4.1.3",
+    "webpack": "^5.37.1",
+    "webpack-cli": "^4.7.2"
+  },
+  "scripts": {
+    "prepare": "./etc/prepare.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
   }
 }
