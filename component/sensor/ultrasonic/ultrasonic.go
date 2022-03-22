@@ -60,7 +60,7 @@ func newSensor(ctx context.Context, r robot.Robot, name string, config *AttrConf
 	}
 	g, err := b.GPIOPinByName(config.TriggerPin)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ultrasonic: cannot grap gpio %q", config.TriggerPin)
+		return nil, errors.Wrapf(err, "ultrasonic: cannot grab gpio %q", config.TriggerPin)
 	}
 	s.echoInt = i
 	s.triggerPin = g
@@ -81,13 +81,13 @@ type Sensor struct {
 	intChan    chan bool
 }
 
-// GetReadings returns the calcultated distance.
+// GetReadings returns the calculated distance.
 func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	if err := s.triggerPin.Set(ctx, true); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to high")
 	}
 
-	rdkutils.SelectContextOrWait(ctx, time.Microsecond*15)
+	rdkutils.SelectContextOrWait(ctx, time.Microsecond*20)
 	if err := s.triggerPin.Set(ctx, false); err != nil {
 		return nil, errors.Wrap(err, "ultrasonic cannot set trigger pin to low")
 	}
@@ -96,7 +96,7 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	case <-s.intChan:
 		timeB = time.Now()
 	case <-ctx.Done():
-		return nil, errors.New("ultrasonic: context cancelled")
+		return nil, errors.New("ultrasonic: context canceled")
 	case <-time.After(time.Second * 1):
 		return nil, errors.New("ultrasonic timeout")
 	}
@@ -104,7 +104,7 @@ func (s *Sensor) GetReadings(ctx context.Context) ([]interface{}, error) {
 	case <-s.intChan:
 		timeA = time.Now()
 	case <-ctx.Done():
-		return nil, errors.New("ultrasonic: context cancelled")
+		return nil, errors.New("ultrasonic: context canceled")
 	case <-time.After(time.Second * 1):
 		return nil, errors.New("ultrasonic timeout")
 	}
