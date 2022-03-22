@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/robot"
 )
 
-
-
 // init registers a pi servo based on pigpio.
 func init() {
 	registry.RegisterComponent(
