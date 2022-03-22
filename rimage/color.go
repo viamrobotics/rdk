@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"math"
 
+	"github.com/gonum/floats"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/pkg/errors"
 
@@ -113,26 +114,36 @@ func tobytehsvfloat(h, s, v float64) (uint16, uint8, uint8) {
 }
 
 // AverageColor returns the average of the HSV color. H is angle in degrees.
-func AverageColor(colors []Color) Color {
+// optional weights for the average.
+func AverageColor(colors []Color, weights ...float64) Color {
+	if len(weights) != 0 && len(colors) != len(weights) {
+		panic(fmt.Sprintf("have %d colors and %d weights, must be equal", len(colors), len(weights)))
+	}
+	if len(weights) == 0 {
+		weights = make([]float64, len(colors))
+		for i := range weights {
+			weights[i] = 1.
+		}
+	}
 	avgH, avgS, avgV := 0.0, 0.0, 0.0
-	num := float64(len(colors))
-	if num <= 0. {
+
+	if num := float64(len(colors)); num <= 0. {
 		return NewColorFromHSV(avgH, avgS, avgV)
 	}
 	// turn hue into cartestian coordinates to average, then transform back into angle
 	hueX, hueY := 0.0, 0.0
-	for _, c := range colors {
+	for i, c := range colors {
 		h, s, v := c.HsvNormal()
-		hueX += math.Cos(utils.DegToRad(h))
-		hueY += math.Sin(utils.DegToRad(h))
-		avgS += s
-		avgV += v
+		hueX += math.Cos(utils.DegToRad(h)) * weights[i]
+		hueY += math.Sin(utils.DegToRad(h)) * weights[i]
+		avgS += s * weights[i]
+		avgV += v * weights[i]
 	}
-	hueX /= num
-	hueY /= num
+	hueX /= floats.Sum(weights)
+	hueY /= floats.Sum(weights)
 	avgH = utils.RadToDeg(math.Atan2(hueY, hueX))
-	avgS /= num
-	avgV /= num
+	avgS /= floats.Sum(weights)
+	avgV /= floats.Sum(weights)
 	return NewColorFromHSV(avgH, avgS, avgV)
 }
 

@@ -7,6 +7,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r2"
 	"github.com/lucasb-eyer/go-colorful"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
@@ -191,6 +192,47 @@ func BenchmarkConvertImageYCbCr(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		ConvertImage(&yuvImg)
 	}
+}
+
+func TestColorInterpolation(t *testing.T) {
+	img := NewImage(2, 2)
+	img.SetXY(0, 0, NewColorFromHSV(30, 0, 0))
+	img.SetXY(1, 0, NewColorFromHSV(40, .5, .5))
+	img.SetXY(0, 1, NewColorFromHSV(50, .5, .5))
+	img.SetXY(1, 1, NewColorFromHSV(60, 1.0, 1.0))
+
+	pt := r2.Point{0.5, 0.5}
+	c := BilinearInterpolationColor(pt, img)
+	h, s, v := c.HsvNormal()
+	test.That(t, math.Abs(h-45), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(s-0.5), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(v-0.5), test.ShouldBeLessThan, .01)
+	c = NearestNeighborColor(pt, img)
+	test.That(t, *c, test.ShouldResemble, NewColorFromHSV(60, 1.0, 1.0))
+
+	pt = r2.Point{0.75, 0.25}
+	c = BilinearInterpolationColor(pt, img)
+	h, s, v = c.HsvNormal()
+	test.That(t, math.Abs(h-42.46), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(s-0.5), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(v-0.5), test.ShouldBeLessThan, .01)
+	c = NearestNeighborColor(pt, img)
+	test.That(t, *c, test.ShouldResemble, NewColorFromHSV(40, 0.5, 0.5))
+
+	pt = r2.Point{1.0, 1.0}
+	c = BilinearInterpolationColor(pt, img)
+	h, s, v = c.HsvNormal()
+	test.That(t, math.Abs(h-60), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(s-1.), test.ShouldBeLessThan, .01)
+	test.That(t, math.Abs(v-1.), test.ShouldBeLessThan, .01)
+	c = NearestNeighborColor(pt, img)
+	test.That(t, *c, test.ShouldResemble, NewColorFromHSV(60, 1.0, 1.0))
+
+	pt = r2.Point{1.1, 1.0}
+	c = BilinearInterpolationColor(pt, img)
+	test.That(t, c, test.ShouldBeNil)
+	c = NearestNeighborColor(pt, img)
+	test.That(t, c, test.ShouldBeNil)
 }
 
 func TestCanny(t *testing.T) {
