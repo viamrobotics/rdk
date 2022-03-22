@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -18,7 +19,26 @@ import (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return &Motor{Name: config.Name}, nil
+			m := &Motor{Name: config.Name}
+			if mcfg, ok := config.ConvertedAttributes.(*motor.Config); ok {
+				if mcfg.BoardName != "" {
+					m.Board = mcfg.BoardName
+					b, err := board.FromRobot(r, m.Board)
+					if err != nil {
+						return nil, err
+					}
+					if mcfg.Pins.PWM != "" {
+						m.PWM, err = b.GPIOPinByName(mcfg.Pins.PWM)
+						if err != nil {
+							return nil, err
+						}
+						if err = m.PWM.SetPWMFreq(ctx, mcfg.PWMFreq); err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+			return m, nil
 		},
 	}
 	registry.RegisterComponent(motor.Subtype, "fake", _motor)
@@ -34,6 +54,8 @@ type Motor struct {
 	powerPct          float64
 	DefaultPosition   float64
 	PositionSupported bool
+	Board             string
+	PWM               board.GPIOPin
 }
 
 // GetPosition always returns 0.
