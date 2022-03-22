@@ -53,8 +53,8 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 
 func (c *client) Move(
 	ctx context.Context,
-	gripperName string,
-	grabPose *referenceframe.PoseInFrame,
+	componentName string,
+	destination *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
 	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
@@ -62,8 +62,8 @@ func (c *client) Move(
 		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
 	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
-		GripperName: gripperName,
-		Target:      referenceframe.PoseInFrameToProtobuf(grabPose),
+		ComponentName: componentName,
+		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState: &commonpb.WorldState{
 			Obstacles: geometriesInFrames,
 		},

@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
-	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
 	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
@@ -18,7 +17,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -46,12 +44,12 @@ func init() {
 	})
 }
 
-// A Service controls the flow of manipulating other objects with a robot's gripper.
+// A Service controls the flow of moving components
 type Service interface {
 	Move(
 		ctx context.Context,
-		gripperName string,
-		grabPose *referenceframe.PoseInFrame,
+		componentName string,
+		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
 }
@@ -84,139 +82,110 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	return &objectMService{
+	return &motionService{
 		r:      r,
 		logger: logger,
 	}, nil
 }
 
-type objectMService struct {
+type motionService struct {
 	r      robot.Robot
 	logger golog.Logger
 }
 
 // Move takes a camera point of an object's location and both moves the gripper
 // to that location and commands it to grab the object.
-func (mgs objectMService) Move(
+func (ms motionService) Move(
 	ctx context.Context,
-	gripperName string,
-	grabPose *referenceframe.PoseInFrame,
+	componentName string,
+	destination *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
-	// get gripper component
-	gripper, err := gripper.FromRobot(mgs.r, gripperName)
-	if err != nil {
-		return false, err
-	}
-	// do gripper movement
-	err = gripper.Open(ctx)
-	if err != nil {
-		return false, err
-	}
-	err = mgs.moveGripper(ctx, gripperName, grabPose, obstacles)
-	if err != nil {
-		return false, err
-	}
-	return gripper.Grab(ctx)
-}
+	logger := ms.r.Logger()
 
-// moveGripper needs a robot with exactly one arm and one gripper and will move the gripper position to the
-// goalPose in the reference frame specified by goalFrameName.
-func (mgs objectMService) moveGripper(
-	ctx context.Context,
-	gripperName string,
-	goal *referenceframe.PoseInFrame,
-	obstacles []*referenceframe.GeometriesInFrame,
-) error {
-	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
+	// get specificed component to move
+	componentToMove := robot.AllResourcesByName(ms.r, componentName)
+	if len(componentToMove) != 1 {
+		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(componentToMove), componentName)
+	}
+	logger.Debugf("using component %q", componentName)
 
-	r := mgs.r
-	logger := r.Logger()
-	goalFrameName := goal.FrameName()
+	// get goal frame
+	goalFrameName := destination.FrameName()
+	if goalFrameName == componentName {
+		return false, errors.New("cannot move component with respect to its own frame, will always be at its own origin")
+	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	if goalFrameName == gripperName {
-		return errors.New("cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
-	}
-	logger.Debugf("using gripper %q", gripperName)
-
 	// get the frame system of the robot
-	frameSys, err := r.FrameSystem(ctx, frameSystemName, "")
+	frameSys, err := ms.r.FrameSystem(ctx, frameSystemName, "")
 	if err != nil {
-		return err
+		return false, err
 	}
-	solver := motionplan.NewSolvableFrameSystem(frameSys, r.Logger())
+	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
+
 	// get the initial inputs
 	input := referenceframe.StartPositions(solver)
 
+	// build maps of relevant components and inputs from initial inputs
 	allOriginals := map[string][]referenceframe.Input{}
 	resources := map[string]referenceframe.InputEnabled{}
-
-	for k, original := range input {
-		if strings.HasSuffix(k, "_offset") {
+	for name, original := range input {
+		// determine frames to skip
+		if strings.HasSuffix(name, "_offset") {
 			continue
 		}
 		if len(original) == 0 {
 			continue
 		}
 
-		allOriginals[k] = original
-
-		all := robot.AllResourcesByName(r, k)
-		if len(all) != 1 {
-			return fmt.Errorf("got %d resources instead of 1 for (%s)", len(all), k)
+		// add component to map
+		allOriginals[name] = original
+		components := robot.AllResourcesByName(ms.r, name)
+		if len(components) != 1 {
+			return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
 		}
-
-		ii, ok := all[0].(referenceframe.InputEnabled)
+		component, ok := components[0].(referenceframe.InputEnabled)
 		if !ok {
-			return fmt.Errorf("%v(%T) is not InputEnabled", k, all[0])
+			return false, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
 		}
+		resources[name] = component
 
-		resources[k] = ii
-
-		pos, err := ii.CurrentInputs(ctx)
+		// add input to map
+		pos, err := component.CurrentInputs(ctx)
 		if err != nil {
-			return err
+			return false, err
 		}
-		input[k] = pos
+		input[name] = pos
 	}
 	logger.Debugf("frame system inputs: %v", input)
 
-	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
-
 	// re-evaluate goalPose to be in the frame we're going to move in
-	goalPose, err := solver.TransformPose(input, goal.Pose(), goalFrameName, solvingFrame)
+	solvingFrame := referenceframe.World // TODO(erh): this should really be the parent of rootName
+	goalPose, err := solver.TransformPose(input, destination.Pose(), goalFrameName, solvingFrame)
 	if err != nil {
-		return err
-	}
-
-	if true { // if we want to keep the orientation of the gripper the same
-		// TODO(erh): this is often desirable, but not necessarily, and many times will be wrong.
-		// update the goal orientation to match the current orientation, keep the point from goalPose
-		armPose, err := solver.TransformFrame(input, gripperName, solvingFrame)
-		if err != nil {
-			return err
-		}
-		goalPose = spatialmath.NewPoseFromOrientation(goalPose.Point(), armPose.Orientation())
+		return false, err
 	}
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, gripperName, solvingFrame)
+	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
+	output, err := solver.SolvePose(ctx, input, goalPose, componentName, solvingFrame)
 	if err != nil {
-		return err
+		return false, err
 	}
 
+	// move all the components
 	for _, step := range output {
 		// TODO(erh): what order? parallel?
-		for n, v := range step {
-			if len(v) == 0 {
+		for name, inputs := range step {
+			if len(inputs) == 0 {
 				continue
 			}
-			err := resources[n].GoToInputs(ctx, v)
+			err := resources[name].GoToInputs(ctx, inputs)
 			if err != nil {
-				return err
+				return false, err
 			}
 		}
 	}
-	return nil
+	return true, nil
 }

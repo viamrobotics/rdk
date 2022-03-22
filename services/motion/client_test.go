@@ -61,8 +61,8 @@ func TestClient(t *testing.T) {
 		success := true
 		injectOMS.MoveFunc = func(
 			ctx context.Context,
-			gripperName string,
-			grabPose *referenceframe.PoseInFrame,
+			componentName string,
+			destination *referenceframe.PoseInFrame,
 			obstacles []*referenceframe.GeometriesInFrame,
 		) (bool, error) {
 			return success, nil
@@ -86,7 +86,7 @@ func TestClient(t *testing.T) {
 		passedErr := errors.New("fake move error")
 		injectOMS.MoveFunc = func(
 			ctx context.Context,
-			gripperName string,
+			componentName string,
 			grabPose *referenceframe.PoseInFrame,
 			obstacles []*referenceframe.GeometriesInFrame,
 		) (bool, error) {

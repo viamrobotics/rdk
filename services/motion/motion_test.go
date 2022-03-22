@@ -6,7 +6,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
-	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
@@ -22,58 +21,58 @@ import (
 )
 
 func TestMoveFailures(t *testing.T) {
-	cfgService := config.Service{}
 	logger := golog.NewTestLogger(t)
 
-	// fails on not finding gripper
-
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		return nil, rutils.NewResourceNotFoundError(n)
-	}
-	mgs, err := motion.New(context.Background(), r, cfgService, logger)
-	test.That(t, err, test.ShouldBeNil)
-
-	grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-	_, err = mgs.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
-	test.That(t, err, test.ShouldNotBeNil)
-
-	// fails when gripper fails to open
-	_arm := &inject.Arm{}
-	_gripper := &inject.Gripper{}
-	_gripper.OpenFunc = func(ctx context.Context) error {
-		return errors.New("failure to open")
-	}
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		switch n.Name {
-		case "fakeArm":
-			return _arm, nil
-		case "fakeGripper":
-			return _gripper, nil
-		default:
+	t.Run("fail on not finding gripper", func(t *testing.T) {
+		// setup robot and service
+		r := &inject.Robot{}
+		r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
 			return nil, rutils.NewResourceNotFoundError(n)
 		}
-	}
+		r.LoggerFunc = func() golog.Logger {
+			return logger
+		}
+		r.ResourceNamesFunc = func() []resource.Name {
+			return []resource.Name{}
+		}
+		ms, err := motion.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	mgs, _ = motion.New(context.Background(), r, cfgService, logger)
+		// try move
+		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
+		_, err = ms.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+		test.That(t, err, test.ShouldNotBeNil)
+	})
 
-	_, err = mgs.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
-	test.That(t, err, test.ShouldNotBeNil)
+	t.Run("fail on moving gripper with respect to gripper", func(t *testing.T) {
+		// setup robot and service
+		_arm := &inject.Arm{}
+		_gripper := &inject.Gripper{}
+		r := &inject.Robot{}
+		r.LoggerFunc = func() golog.Logger {
+			return logger
+		}
+		r.ResourceNamesFunc = func() []resource.Name {
+			return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
+		}
+		r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+			switch n.Name {
+			case "fakeArm":
+				return _arm, nil
+			case "fakeGripper":
+				return _gripper, nil
+			default:
+				return nil, rutils.NewResourceNotFoundError(n)
+			}
+		}
+		ms, err := motion.New(context.Background(), r, config.Service{}, logger)
+		test.That(t, err, test.ShouldBeNil)
 
-	_gripper.OpenFunc = func(ctx context.Context) error {
-		return nil
-	}
-
-	// can't move gripper with respect to gripper
-	badGrabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewZeroPose())
-	_, err = mgs.Move(context.Background(), "fakeGripper", badGrabPose, []*referenceframe.GeometriesInFrame{})
-	test.That(t, err, test.ShouldBeError, "cannot move gripper with respect to gripper frame, gripper will always be at its own origin")
+		// try move
+		badGrabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewZeroPose())
+		_, err = ms.Move(context.Background(), "fakeGripper", badGrabPose, []*referenceframe.GeometriesInFrame{})
+		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
+	})
 }
 
 func TestMove(t *testing.T) {
