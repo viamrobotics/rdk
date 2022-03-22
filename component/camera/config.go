@@ -6,14 +6,26 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// StreamType specifies what kind of image stream is coming from the camera.
+type StreamType string
+
+// The allowed types of streams that can come from an ImageSource.
+const (
+	ColorStream = StreamType("color")
+	DepthStream = StreamType("depth")
+	BothStream  = StreamType("both")
+)
+
 // AttrConfig is exported to be used as an attribute map for settings common to all camera types.
 type AttrConfig struct {
+	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 	Source           string                             `json:"source"`
-	Debug            bool                               `json:"debug"`
+	Stream           string                             `json:"stream"`
 	Width            int                                `json:"width"`
 	Height           int                                `json:"height"`
+	Hide             bool                               `json:"hide"`
+	Debug            bool                               `json:"debug"`
 	Dump             bool                               `json:"dump"`
-	CameraParameters *transform.PinholeCameraIntrinsics `json:"camera_parameters"`
 }
 
 // CommonCameraAttributes extracts the common camera attributes.
