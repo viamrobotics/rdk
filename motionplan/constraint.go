@@ -150,7 +150,7 @@ func NewCollisionConstraintFromFrame(frame referenceframe.Frame, externalObstacl
 	dof := len(frame.DoF())
 	zeroInput := make([]referenceframe.Input, dof)
 	zeroVols, err := frame.Geometries(zeroInput)
-	if err != nil {
+	if zeroVols == nil && err != nil {
 		// No geometries defined for frame
 		return nil
 	}
