@@ -111,6 +111,7 @@ type Mapping struct {
 }
 
 func timevaltoTime(timeVal syscall.Timeval) time.Time {
+	//nolint:unconvert
 	return time.Unix(int64(timeVal.Sec), int64(timeVal.Usec*1000))
 }
 
