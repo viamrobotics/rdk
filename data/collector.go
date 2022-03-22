@@ -114,19 +114,24 @@ func (c *collector) capture() {
 			close(c.queue)
 			return
 		case <-ticker.C:
+			timeRequested := timestamppb.New(time.Now().UTC())
 			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
+			timeReceived := timestamppb.New(time.Now().UTC())
 			if err != nil {
 				c.logger.Errorw("error while capturing data", "error", err)
 				break
 			}
-			str, err := InterfaceToStruct(reading)
+			pbReading, err := InterfaceToStruct(reading)
 			if err != nil {
 				c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 				break
 			}
 			msg := v1.SensorData{
-				SensorMetadata: &v1.SensorMetadata{Time: timestamppb.New(time.Now().UTC())},
-				Data:           str,
+				SensorMetadata: &v1.SensorMetadata{
+					TimeRequested: timeRequested,
+					TimeReceived:  timeReceived,
+				},
+				Data: pbReading,
 			}
 			select {
 			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
