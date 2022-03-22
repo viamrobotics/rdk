@@ -81,8 +81,7 @@ func createFakeRobot() *inject.Robot {
 }
 
 var (
-	setTrue  = true
-	setFloat = 1.0
+	setTrue = true
 )
 
 func TestValidate(t *testing.T) {
@@ -201,16 +200,6 @@ func TestNewOneAxis(t *testing.T) {
 	_, ok = fakegantry.(*oneAxis)
 	test.That(t, ok, test.ShouldBeFalse)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "gantry with one limit switch per axis needs a mm_per_length ratio defined")
-
-	fakecfg = config.Component{
-		Name: "gantry",
-		ConvertedAttributes: &AttrConfig{
-			LimitSwitchPins: []string{},
-			LengthMm:        1.0,
-			Board:           "board",
-			Motor:           gantryMotorName,
-		},
-	}
 
 	fakecfg = config.Component{
 		Name: "gantry",

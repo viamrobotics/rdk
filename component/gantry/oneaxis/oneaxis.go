@@ -116,8 +116,6 @@ type oneAxis struct {
 	axisOrientationOffset *spatial.OrientationVector
 	axisTranslationOffset r3.Vector
 
-	startPosition float64
-
 	logger golog.Logger
 }
 
@@ -214,7 +212,7 @@ func (g *oneAxis) Home(ctx context.Context) error {
 		}
 	// An axis with two limit switches will go till it hits the first limit switch, encode that position as the
 	// zero position of the one-axis, then go till it hits the second limit switch, then encode that position as the
-	// at-length positon of the one-axis.
+	// at-length position of the one-axis.
 	case limitTwoPin:
 		err := g.homeTwoLimSwitch(ctx)
 		if err != nil {
