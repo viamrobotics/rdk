@@ -11,6 +11,6 @@ message SensorMetadata {
 }
 
 message SensorData {
-  SensorMetadata sensor_metadata = 1;
+  SensorMetadata metadata = 1;
   google.protobuf.Struct data = 2;
 }
