@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../../runtime-shared/static/dls ./src/lib.ts",
-    "build:dev": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../../runtime-shared/static/dls ./src/lib.ts",
-    "build:prod": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../../runtime-shared/static/dls ./src/lib.ts && rm ../../../runtime-shared/static/dls/dls.umd.min.js.map",
+    "build": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../runtime-shared/static/dls ./src/lib.ts",
+    "build:dev": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../runtime-shared/static/dls ./src/lib.ts",
+    "build:prod": "vue-cli-service build --target lib --name dls --formats umd-min --dest ../../runtime-shared/static/dls ./src/lib.ts && rm ../../runtime-shared/static/dls/dls.umd.min.js.map",
     "test:unit": "vue-cli-service test:unit",
     "lint": "vue-cli-service lint",
     "storybook": "start-storybook -p 9001 -c .storybook"
@@ -25,7 +25,7 @@
     "google-protobuf": "^3.18.0",
     "lodash": "^4.17.21",
     "postcss": "^7.0.39",
-    "proto": "file:../../../../dist/js/proto",
+    "proto": "file:../../../dist/js/proto",
     "robot": "^0.3.0",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.17",
     "vue": "^2.6.11",
