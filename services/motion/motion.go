@@ -21,8 +21,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-const frameSystemName = "move_gripper"
-
 func init() {
 	registry.RegisterResourceSubtype(Subtype, registry.ResourceSubtype{
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
@@ -44,7 +42,7 @@ func init() {
 	})
 }
 
-// A Service controls the flow of moving components
+// A Service controls the flow of moving components.
 type Service interface {
 	Move(
 		ctx context.Context,
@@ -93,8 +91,7 @@ type motionService struct {
 	logger golog.Logger
 }
 
-// Move takes a camera point of an object's location and both moves the gripper
-// to that location and commands it to grab the object.
+// Move takes a goal location and moves a component specified by its name to that destination.
 func (ms motionService) Move(
 	ctx context.Context,
 	componentName string,
@@ -118,7 +115,7 @@ func (ms motionService) Move(
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	// get the frame system of the robot
-	frameSys, err := ms.r.FrameSystem(ctx, frameSystemName, "")
+	frameSys, err := ms.r.FrameSystem(ctx, "", "")
 	if err != nil {
 		return false, err
 	}
@@ -167,7 +164,7 @@ func (ms motionService) Move(
 		return false, err
 	}
 
-	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
+	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
 	output, err := solver.SolvePose(ctx, input, goalPose, componentName, solvingFrame)
 	if err != nil {
