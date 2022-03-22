@@ -2,6 +2,8 @@ package imu
 
 import (
 	"context"
+	"github.com/edaniels/golog"
+	"go.viam.com/rdk/data"
 	"os"
 	"time"
 )
