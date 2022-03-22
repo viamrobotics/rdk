@@ -51,6 +51,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	c := make(chan []byte)
 	b := &fakeboard.Board{}
+	b.GPIOPins = map[string]*fakeboard.GPIOPin{}
 	b.SPIs = map[string]*fakeboard.SPI{}
 	b.SPIs["main"] = &fakeboard.SPI{FIFO: c}
 	r := inject.Robot{}

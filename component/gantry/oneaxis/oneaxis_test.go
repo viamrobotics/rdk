@@ -49,12 +49,16 @@ func createFakeMotor() *inject.Motor {
 }
 
 func createFakeBoard() *inject.Board {
-	fakeboard := &inject.Board{}
+	fakeBoard := &inject.Board{}
 
-	fakeboard.GetGPIOFunc = func(ctx context.Context, pin string) (bool, error) {
+	injectGPIOPin := &inject.GPIOPin{}
+	fakeBoard.GPIOPinByNameFunc = func(pin string) (board.GPIOPin, error) {
+		return injectGPIOPin, nil
+	}
+	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
 		return true, nil
 	}
-	return fakeboard
+	return fakeBoard
 }
 
 func createFakeRobot() *inject.Robot {
@@ -63,8 +67,15 @@ func createFakeRobot() *inject.Robot {
 	fakerobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		switch name.Subtype {
 		case board.Subtype:
-			return &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
+			injectGPIOPin := &inject.GPIOPin{}
+			injectGPIOPin.SetFunc = func(ctx context.Context, high bool) error {
+				return nil
+			}
+			injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
 				return true, nil
+			}
+			return &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
+				return injectGPIOPin, nil
 			}}, nil
 		case motor.Subtype:
 			return &fake.Motor{PositionSupported: true}, nil
@@ -411,20 +422,29 @@ func TestHomeTwoLimitSwitch(t *testing.T) {
 	err = fakegantry.homeTwoLimSwitch(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	injectGPIOPin := &inject.GPIOPin{}
+	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+		return true, errors.New("not supported")
+	}
+	injectGPIOPinGood := &inject.GPIOPin{}
+	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+		return true, nil
+	}
+
 	fakegantry.board = &inject.Board{
-		GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
-			return true, errors.New("not supported")
+		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
+			return injectGPIOPin, nil
 		},
 	}
 	err = fakegantry.homeTwoLimSwitch(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakegantry.board = &inject.Board{
-		GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
+		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
 			if pin == "1" {
-				return true, nil
+				return injectGPIOPinGood, nil
 			}
-			return true, errors.New("not supported")
+			return injectGPIOPin, nil
 		},
 	}
 	err = fakegantry.homeTwoLimSwitch(ctx)
@@ -476,9 +496,14 @@ func TestHomeOneLimitSwitch(t *testing.T) {
 	err = fakegantry.homeOneLimSwitch(ctx)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	injectGPIOPin := &inject.GPIOPin{}
+	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+		return true, errors.New("not supported")
+	}
+
 	fakegantry.board = &inject.Board{
-		GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
-			return true, errors.New("not supported")
+		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
+			return injectGPIOPin, nil
 		},
 	}
 	err = fakegantry.homeOneLimSwitch(ctx)
@@ -561,6 +586,15 @@ func TestGetPosition(t *testing.T) {
 	test.That(t, positions, test.ShouldResemble, []float64{})
 	test.That(t, err, test.ShouldNotBeNil)
 
+	injectGPIOPin := &inject.GPIOPin{}
+	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+		return true, errors.New("not supported")
+	}
+	injectGPIOPinGood := &inject.GPIOPin{}
+	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+		return false, nil
+	}
+
 	fakegantry = &oneAxis{
 		motor: &inject.Motor{
 			GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {
@@ -571,7 +605,7 @@ func TestGetPosition(t *testing.T) {
 			GetPositionFunc: func(ctx context.Context) (float64, error) { return 1, nil },
 		},
 		board: &inject.Board{
-			GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return true, errors.New("not supported") },
+			GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil },
 		},
 		limitHigh:       true,
 		limitSwitchPins: []string{"1"},
@@ -591,11 +625,11 @@ func TestGetPosition(t *testing.T) {
 			GetPositionFunc: func(ctx context.Context) (float64, error) { return 1, nil },
 		},
 		board: &inject.Board{
-			GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) {
+			GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
 				if pin == "1" {
-					return true, nil
+					return injectGPIOPinGood, nil
 				}
-				return true, errors.New("not supported")
+				return injectGPIOPin, nil
 			},
 		},
 		limitHigh:       true,
@@ -648,11 +682,26 @@ func TestMoveToPosition(t *testing.T) {
 	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakegantry.board = &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return false, errors.New("err") }}
+	injectGPIOPin := &inject.GPIOPin{}
+	injectGPIOPin.GetFunc = func(ctx context.Context) (bool, error) {
+		return true, errors.New("err")
+	}
+	injectGPIOPinGood := &inject.GPIOPin{}
+	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
+		return false, nil
+	}
+
+	fakegantry.board = &inject.Board{
+		GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
+			return injectGPIOPin, nil
+		},
+	}
+
+	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil }}
 	err = fakegantry.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
 
-	fakegantry.board = &inject.Board{GetGPIOFunc: func(ctx context.Context, pin string) (bool, error) { return false, nil }}
+	fakegantry.board = &inject.Board{GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPinGood, nil }}
 	fakegantry.motor = &inject.Motor{
 		StopFunc: func(ctx context.Context) error { return nil },
 		GoToFunc: func(ctx context.Context, rpm float64, rotations float64) error { return errors.New("err") },

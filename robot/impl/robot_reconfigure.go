@@ -5,12 +5,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
-	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/sensors"
-	"go.viam.com/rdk/services/web"
 )
 
 // Reconfigure will safely reconfigure a robot based on the given config. It will make
@@ -39,22 +37,8 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 	}
 
 	// update default services
-	sensorSvc, err := sensors.FromRobot(r)
-	if err != nil {
+	if err := r.updateDefaultServices(ctx); err != nil {
 		return err
-	}
-	webSvc, err := web.FromRobot(r)
-	if err != nil {
-		return err
-	}
-	toUpdate := []interface{}{sensorSvc, webSvc}
-	for _, svc := range toUpdate {
-		updateable, ok := svc.(resource.Updateable)
-		if ok {
-			if err := updateable.Update(ctx, r.parts.resources.Nodes); err != nil {
-				return err
-			}
-		}
 	}
 
 	return nil
@@ -67,13 +51,13 @@ func (r *localRobot) Reconfigure(ctx context.Context, newConfig *config.Config) 
 type draftRobot struct {
 	original *localRobot
 	diff     *config.Diff
-	parts    *robotParts
+	manager  *resourceManager
 
 	// additions and removals consist of modifications as well since we treat
 	// any modification as a removal to commit and an addition to rollback.
-	additions     *robotParts
-	modifications *robotParts
-	removals      *robotParts
+	additions     *resourceManager
+	modifications *resourceManager
+	removals      *resourceManager
 }
 
 // newDraftRobot returns a new draft of a robot based on the given
@@ -83,15 +67,24 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 	return &draftRobot{
 		original:      r,
 		diff:          diff,
-		parts:         r.parts.Clone(),
-		additions:     newRobotParts(r.parts.opts, r.logger),
-		modifications: newRobotParts(r.parts.opts, r.logger),
-		removals:      newRobotParts(r.parts.opts, r.logger),
+		manager:       r.manager.Clone(),
+		additions:     newResourceManager(r.manager.opts, r.logger),
+		modifications: newResourceManager(r.manager.opts, r.logger),
+		removals:      newResourceManager(r.manager.opts, r.logger),
 	}
 }
 
 // Rollback rolls back any intermediate changes made.
 func (draft *draftRobot) Rollback(ctx context.Context) error {
+	order := draft.additions.resources.TopologicalSort()
+	for _, k := range order {
+		if _, ok := draft.manager.resources.Nodes[k]; !ok {
+			if err := utils.TryClose(ctx, draft.additions.resources.Nodes[k]); err != nil {
+				return err
+			}
+		}
+		draft.additions.resources.Remove(k)
+	}
 	return draft.additions.Close(ctx)
 }
 
@@ -125,16 +118,16 @@ func (draft *draftRobot) Commit(ctx context.Context) error {
 	draft.original.mu.Lock()
 	defer draft.original.mu.Unlock()
 
-	addResult, err := draft.parts.MergeAdd(draft.additions)
+	addResult, err := draft.manager.MergeAdd(draft.additions)
 	if err != nil {
 		return err
 	}
-	modifyResult, err := draft.parts.MergeModify(ctx, draft.modifications, draft.diff)
+	modifyResult, err := draft.manager.MergeModify(ctx, draft.modifications, draft.diff)
 	if err != nil {
 		return err
 	}
-	draft.parts.MergeRemove(draft.removals)
-	draft.original.parts = draft.parts
+	draft.manager.MergeRemove(draft.removals)
+	draft.original.manager = draft.manager
 	draft.original.config = draft.diff.Right
 
 	if err := addResult.Process(ctx, draft.removals); err != nil {
@@ -155,9 +148,11 @@ func (draft *draftRobot) Process(ctx context.Context) error {
 	// in order to provide the best chance of reconfiguration/compatibility.
 	// This assumes the addition/modification of parts does not cause
 	// any adverse effects before any removals.
+	draft.additions.resources = draft.manager.resources.Clone()
 	if err := draft.ProcessAddChanges(ctx); err != nil {
 		return err
 	}
+	draft.modifications.resources = draft.additions.resources.Clone()
 	if err := draft.ProcessModifyChanges(ctx); err != nil {
 		return err
 	}
@@ -179,7 +174,7 @@ func (draft *draftRobot) ProcessModifyChanges(ctx context.Context) error {
 
 // ProcessRemoveChanges processes only subtractive changes.
 func (draft *draftRobot) ProcessRemoveChanges(ctx context.Context) error {
-	filtered, err := draft.parts.FilterFromConfig(ctx, draft.diff.Removed, draft.original.logger)
+	filtered, err := draft.manager.FilterFromConfig(ctx, draft.diff.Removed, draft.original.logger)
 	if err != nil {
 		return err
 	}

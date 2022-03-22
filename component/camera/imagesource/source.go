@@ -35,7 +35,7 @@ func init() {
 	registry.RegisterComponent(camera.Subtype, "single_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*ServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -44,15 +44,28 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "single_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf ServerAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*ServerAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
 		},
-		&camera.AttrConfig{})
+		&ServerAttrs{})
 
 	registry.RegisterComponent(camera.Subtype, "dual_stream",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*dualServerAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
@@ -61,28 +74,54 @@ func init() {
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "dual_stream",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf dualServerAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*dualServerAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
 		},
-		&camera.AttrConfig{})
+		&dualServerAttrs{})
 
 	registry.RegisterComponent(camera.Subtype, "file",
 		registry.Component{Constructor: func(ctx context.Context, r robot.Robot,
 			config config.Component, logger golog.Logger) (interface{}, error) {
-			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			attrs, ok := config.ConvertedAttributes.(*fileSourceAttrs)
 			if !ok {
 				return nil, utils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
 			}
 			imgSrc := &fileSource{attrs.Color, attrs.Depth, attrs.Aligned}
-			return camera.New(imgSrc, attrs, nil)
+			return camera.New(imgSrc, attrs.AttrConfig, nil)
 		}})
 
 	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "file",
 		func(attributes config.AttributeMap) (interface{}, error) {
-			var conf camera.AttrConfig
-			return config.TransformAttributeMapToStruct(&conf, attributes)
+			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
+			if err != nil {
+				return nil, err
+			}
+			var conf fileSourceAttrs
+			attrs, err := config.TransformAttributeMapToStruct(&conf, attributes)
+			if err != nil {
+				return nil, err
+			}
+			result, ok := attrs.(*fileSourceAttrs)
+			if !ok {
+				return nil, utils.NewUnexpectedTypeError(result, attrs)
+			}
+			result.AttrConfig = cameraAttrs
+			return result, nil
 		},
-		&camera.AttrConfig{})
+		&fileSourceAttrs{})
 }
 
 // StaticSource is a fixed, stored image.
@@ -100,6 +139,14 @@ type fileSource struct {
 	ColorFN   string
 	DepthFN   string
 	isAligned bool // are color and depth image already aligned
+}
+
+// fileSourceAttrs is the attribute struct for fileSource.
+type fileSourceAttrs struct {
+	*camera.AttrConfig
+	Color   string `json:"color"`
+	Depth   string `json:"depth"`
+	Aligned bool   `json:"aligned"`
 }
 
 // Next returns the image stored in the color and depth files as an ImageWithDepth.
@@ -146,8 +193,16 @@ type dualServerSource struct {
 	isAligned bool   // are the color and depth image already aligned
 }
 
+// dualServerAttrs is the attribute struct for dualServerSource.
+type dualServerAttrs struct {
+	*camera.AttrConfig
+	Color   string `json:"color"`
+	Depth   string `json:"depth"`
+	Aligned bool   `json:"aligned"`
+}
+
 // newDualServerSource creates the ImageSource that streams color/depth/both data from two external servers, one for each channel.
-func newDualServerSource(cfg *camera.AttrConfig) (camera.Camera, error) {
+func newDualServerSource(cfg *dualServerAttrs) (camera.Camera, error) {
 	if (cfg.Color == "") || (cfg.Depth == "") {
 		return nil, errors.New("camera 'dual_stream' needs color and depth attributes")
 	}
@@ -156,7 +211,7 @@ func newDualServerSource(cfg *camera.AttrConfig) (camera.Camera, error) {
 		DepthURL:  cfg.Depth,
 		isAligned: cfg.Aligned,
 	}
-	return camera.New(imgSrc, cfg, nil)
+	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }
 
 // Next requests the next images from both the color and depth source, and combines them
@@ -189,23 +244,22 @@ func (ds *dualServerSource) Close() {
 	ds.client.CloseIdleConnections()
 }
 
-// StreamType specifies what kind of image stream is coming from the camera.
-type StreamType string
-
-// The allowed types of streams that can come from an ImageSource.
-const (
-	ColorStream = StreamType("color")
-	DepthStream = StreamType("depth")
-	BothStream  = StreamType("both")
-)
-
 // serverSource streams the color/depth/both camera data from an external server at a given URL.
 type serverSource struct {
 	client    http.Client
 	URL       string
 	host      string
-	stream    StreamType // specifies color, depth, or both stream
-	isAligned bool       // are the color and depth image already aligned
+	stream    camera.StreamType // specifies color, depth, or both stream
+	isAligned bool              // are the color and depth image already aligned
+}
+
+// ServerAttrs is the attribute struct for serverSource.
+type ServerAttrs struct {
+	*camera.AttrConfig
+	Aligned bool   `json:"aligned"`
+	Host    string `json:"host"`
+	Port    int    `json:"port"`
+	Args    string `json:"args"`
 }
 
 // Close closes the server connection.
@@ -224,19 +278,19 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	switch s.stream {
-	case ColorStream:
+	case camera.ColorStream:
 		color, err := decodeColor(allData)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
-	case DepthStream:
+	case camera.DepthStream:
 		depth, err := decodeDepth(allData)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
-	case BothStream:
+	case camera.BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
@@ -249,7 +303,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 // NewServerSource creates the ImageSource that streams color/depth/both data from an external server at a given URL.
-func NewServerSource(cfg *camera.AttrConfig, logger golog.Logger) (camera.Camera, error) {
+func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, error) {
 	if cfg.Stream == "" {
 		return nil, errors.New("camera 'single_stream' needs attribute 'stream' (color, depth, or both)")
 	}
@@ -259,8 +313,8 @@ func NewServerSource(cfg *camera.AttrConfig, logger golog.Logger) (camera.Camera
 	imgSrc := &serverSource{
 		URL:       fmt.Sprintf("http://%s:%d/%s", cfg.Host, cfg.Port, cfg.Args),
 		host:      cfg.Host,
-		stream:    StreamType(cfg.Stream),
+		stream:    camera.StreamType(cfg.Stream),
 		isAligned: cfg.Aligned,
 	}
-	return camera.New(imgSrc, cfg, nil)
+	return camera.New(imgSrc, cfg.AttrConfig, nil)
 }

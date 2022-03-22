@@ -5,12 +5,17 @@ import (
 	"math"
 	"testing"
 
+	"github.com/mitchellh/mapstructure"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/component/sensor"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	pb "go.viam.com/rdk/proto/api/component/arm/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
@@ -68,6 +73,75 @@ func TestNamesFromRobot(t *testing.T) {
 
 	names := arm.NamesFromRobot(r)
 	test.That(t, names, test.ShouldResemble, []string{testArmName})
+}
+
+func TestStatusValid(t *testing.T) {
+	status := &pb.Status{
+		EndPosition:    pose,
+		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+	}
+	map1, err := protoutils.InterfaceToMap(status)
+	test.That(t, err, test.ShouldBeNil)
+	newStruct, err := structpb.NewStruct(map1)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(
+		t,
+		newStruct.AsMap(),
+		test.ShouldResemble,
+		map[string]interface{}{
+			"end_position":    map[string]interface{}{"x": 1.0, "y": 2.0, "z": 3.0},
+			"joint_positions": map[string]interface{}{"degrees": []interface{}{1.1, 2.2, 3.3}},
+		},
+	)
+
+	convMap := &pb.Status{}
+	decoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{TagName: "json", Result: &convMap})
+	test.That(t, err, test.ShouldBeNil)
+	err = decoder.Decode(newStruct.AsMap())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convMap, test.ShouldResemble, status)
+}
+
+func TestCreateStatus(t *testing.T) {
+	_, err := arm.CreateStatus(context.Background(), "not an arm")
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Arm", "string"))
+
+	status := &pb.Status{
+		EndPosition:    pose,
+		JointPositions: &pb.JointPositions{Degrees: []float64{1.1, 2.2, 3.3}},
+	}
+
+	injectArm := &inject.Arm{}
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return pose, nil
+	}
+	injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+		return &pb.JointPositions{Degrees: status.JointPositions.Degrees}, nil
+	}
+
+	t.Run("working", func(t *testing.T) {
+		status1, err := arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, status1, test.ShouldResemble, status)
+	})
+
+	t.Run("fail on GetJointPositions", func(t *testing.T) {
+		errFail := errors.New("can't get joint positions")
+		injectArm.GetJointPositionsFunc = func(ctx context.Context) (*pb.JointPositions, error) {
+			return nil, errFail
+		}
+		_, err = arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
+
+	t.Run("fail on GetEndPosition", func(t *testing.T) {
+		errFail := errors.New("can't get position")
+		injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+			return nil, errFail
+		}
+		_, err = arm.CreateStatus(context.Background(), injectArm)
+		test.That(t, err, test.ShouldBeError, errFail)
+	})
 }
 
 func TestArmName(t *testing.T) {
