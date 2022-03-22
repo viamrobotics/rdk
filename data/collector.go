@@ -109,6 +109,7 @@ func (c *collector) capture() {
 	for {
 		select {
 		case <-c.cancelCtx.Done():
+			close(c.queue)
 			return
 		case <-ticker.C:
 			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
