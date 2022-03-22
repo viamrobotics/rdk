@@ -80,9 +80,7 @@ func createFakeRobot() *inject.Robot {
 	return fakerobot
 }
 
-var (
-	setTrue = true
-)
+var setTrue = true
 
 func TestValidate(t *testing.T) {
 	fakecfg := &AttrConfig{}
