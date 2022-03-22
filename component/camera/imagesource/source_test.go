@@ -65,7 +65,8 @@ func TestDualServerSource(t *testing.T) {
 
 func TestServerSource(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	attrs := camera.AttrConfig{}
+	attrs := ServerAttrs{}
+	attrs.AttrConfig = &camera.AttrConfig{}
 	attrs.Host = "127.0.0.1"
 	attrs.Port = 8181
 	attrs.Stream = "both"

@@ -68,7 +68,7 @@ func (s *subtypeServer) GetJointPositions(
 	if err != nil {
 		return nil, err
 	}
-	convertedPos := &pb.ArmJointPositions{Degrees: pos.Degrees}
+	convertedPos := &pb.JointPositions{Degrees: pos.Degrees}
 	return &pb.GetJointPositionsResponse{PositionDegs: convertedPos}, nil
 }
 

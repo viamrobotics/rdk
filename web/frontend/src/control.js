@@ -34,6 +34,8 @@ window.sensorsApi = require('./gen/proto/api/service/sensors/v1/sensors_pb.js');
 const { SensorsServiceClient } = require('./gen/proto/api/service/sensors/v1/sensors_pb_service.js');
 window.servoApi = require('./gen/proto/api/component/servo/v1/servo_pb.js');
 const { ServoServiceClient } = require('./gen/proto/api/component/servo/v1/servo_pb_service.js');
+window.statusApi = require('./gen/proto/api/service/status/v1/status_pb.js');
+const { StatusServiceClient } = require('./gen/proto/api/service/status/v1/status_pb_service.js');
 window.streamApi = require("./gen/proto/stream/v1/stream_pb.js");
 const { StreamServiceClient } = require('./gen/proto/stream/v1/stream_pb_service.js');
 const { dialDirect, dialWebRTC } = require("@viamrobotics/rpc");
@@ -108,5 +110,6 @@ let connect = async (authEntity, creds) => {
 	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.statusService = new StatusServiceClient(window.webrtcHost, { transport: transportFactory });
 }
 window.connect = connect;

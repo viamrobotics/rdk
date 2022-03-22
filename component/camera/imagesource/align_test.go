@@ -27,7 +27,7 @@ func TestAlignTypeError(t *testing.T) {
 	depthSrc := &StaticSource{ii.Depth}
 	depthCam, err := camera.New(depthSrc, nil, nil)
 	test.That(t, err, test.ShouldBeNil)
-	attrs := &camera.AttrConfig{}
+	attrs := &alignAttrs{}
 	// test Warp error
 	attrs.Warp = []float64{4.5, 6.}
 	_, err = newAlignColorDepth(colorCam, depthCam, attrs, logger)
@@ -55,7 +55,7 @@ func TestAlignIntrinsics(t *testing.T) {
 	c := conf.FindComponent("front")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	attrs := c.ConvertedAttributes.(*alignAttrs)
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.Warp = nil
 	attrs.Homography = nil
@@ -74,7 +74,7 @@ func TestAlignWarp(t *testing.T) {
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	attrs := c.ConvertedAttributes.(*alignAttrs)
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.IntrinsicExtrinsic = nil
 	attrs.Homography = nil
@@ -99,7 +99,7 @@ func TestAlignHomography(t *testing.T) {
 	c := conf.FindComponent("combined")
 	test.That(t, c, test.ShouldNotBeNil)
 
-	attrs := c.ConvertedAttributes.(*camera.AttrConfig)
+	attrs := c.ConvertedAttributes.(*alignAttrs)
 	test.That(t, attrs, test.ShouldNotBeNil)
 	attrs.IntrinsicExtrinsic = nil
 	attrs.Warp = nil
@@ -113,7 +113,7 @@ func TestAlignHomography(t *testing.T) {
 func applyAlignment(
 	t *testing.T,
 	ii *rimage.ImageWithDepth,
-	attrs *camera.AttrConfig,
+	attrs *alignAttrs,
 	logger golog.Logger,
 ) *rimage.ImageWithDepth {
 	t.Helper()
@@ -133,7 +133,7 @@ func applyAlignment(
 }
 
 type alignTestHelper struct {
-	attrs *camera.AttrConfig
+	attrs *alignAttrs
 	name  string
 }
 
@@ -175,7 +175,7 @@ func TestAlignIntelIntrinsics(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/intel.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("front").ConvertedAttributes.(*camera.AttrConfig)
+	c := config.FindComponent("front").ConvertedAttributes.(*alignAttrs)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.Warp = nil
@@ -191,7 +191,7 @@ func TestAlignGripperWarp(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.IntrinsicExtrinsic = nil
@@ -212,7 +212,7 @@ func TestAlignGripperHomography(t *testing.T) {
 	config, err := config.Read(context.Background(), utils.ResolveFile("robots/configs/gripper-cam.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	c := config.FindComponent("combined").ConvertedAttributes.(*camera.AttrConfig)
+	c := config.FindComponent("combined").ConvertedAttributes.(*alignAttrs)
 	test.That(t, c, test.ShouldNotBeNil)
 
 	c.IntrinsicExtrinsic = nil

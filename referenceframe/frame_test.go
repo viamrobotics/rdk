@@ -79,27 +79,26 @@ func TestPrismaticFrame(t *testing.T) {
 }
 
 func TestRevoluteFrame(t *testing.T) {
-	// define a prismatic transform
 	axis := r3.Vector{1, 0, 0}                                                    // axis of rotation is x axis
 	frame := &rotationalFrame{"test", axis, []Limit{{-math.Pi / 2, math.Pi / 2}}} // limits between -90 and 90 degrees
 	// expected output
 	expPose := spatial.NewPoseFromAxisAngle(r3.Vector{0, 0, 0}, r3.Vector{1, 0, 0}, math.Pi/4) // 45 degrees
 	// get expected transform back
-	input := JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45}})
+	input := JointPosToInputs(&pb.JointPositions{Degrees: []float64{45}})
 	pose, err := frame.Transform(input)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pose, test.ShouldResemble, expPose)
 	// if you feed in too many inputs, should get error back
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{45, 55}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{45, 55}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you feed in empty input, should get errr back
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldNotBeNil)
 	// if you try to move beyond set limits, should get an error
 	overLimit := 100.0 // degrees
-	input = JointPosToInputs(&pb.ArmJointPositions{Degrees: []float64{overLimit}})
+	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(input)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
@@ -109,20 +108,43 @@ func TestRevoluteFrame(t *testing.T) {
 	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
 }
 
+func TestMobile2DFrame(t *testing.T) {
+	expLimit := []Limit{{-10, 10}, {-10, 10}}
+	frame := &mobile2DFrame{"test", expLimit, nil}
+	// expected output
+	expPose := spatial.NewPoseFromPoint(r3.Vector{3, 5, 0})
+	// get expected transform back
+	pose, err := frame.Transform(FloatsToInputs([]float64{3, 5}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose, test.ShouldResemble, expPose)
+	// if you feed in too many inputs, should get error back
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you feed in too few inputs, should get errr back
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 5, 10}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// if you try to move beyond set limits, should get an error
+	_, err = frame.Transform(FloatsToInputs([]float64{3, 100}))
+	test.That(t, err, test.ShouldNotBeNil)
+	// gets the correct limits back
+	limit := frame.DoF()
+	test.That(t, limit[0], test.ShouldResemble, expLimit[0])
+}
+
 func TestGeometries(t *testing.T) {
 	bc, err := spatial.NewBoxCreator(r3.Vector{1, 1, 1}, spatial.NewZeroPose())
 	test.That(t, err, test.ShouldBeNil)
 	pose := spatial.NewPoseFromPoint(r3.Vector{0, 10, 0})
 	expectedBox := bc.NewGeometry(pose)
 
-	// test creating a new static frame with a geometry"
+	// test creating a new static frame with a geometry
 	sf, err := NewStaticFrameWithGeometry("", pose, bc)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err := sf.Geometries([]Input{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
 
-	// test creating a new translational frame with a geometry"
+	// test creating a new translational frame with a geometry
 	tf, err := NewTranslationalFrameWithGeometry("", r3.Vector{0, 1, 0}, Limit{Min: -30, Max: 30}, bc)
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = tf.Geometries(FloatsToInputs([]float64{10}))
@@ -130,11 +152,18 @@ func TestGeometries(t *testing.T) {
 	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
 
 	// test erroring correctly from trying to create a geometry for a rotational frame
-	rf, err := NewRotationalFrame("foo", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
+	rf, err := NewRotationalFrame("", spatial.R4AA{3.7, 2.1, 3.1, 4.1}, Limit{5, 6})
 	test.That(t, err, test.ShouldBeNil)
 	geometries, err = rf.Geometries([]Input{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, geometries, test.ShouldBeNil)
+
+	// test creating a new mobile frame with a geometry
+	mf, err := NewMobile2DFrame("", []Limit{{-10, 10}, {-10, 10}}, bc)
+	test.That(t, err, test.ShouldBeNil)
+	geometries, err = mf.Geometries(FloatsToInputs([]float64{0, 10}))
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, expectedBox.AlmostEqual(geometries[""]), test.ShouldBeTrue)
 
 	// test inheriting a geometry creator
 	sf, err = NewStaticFrameFromFrame(tf, pose)

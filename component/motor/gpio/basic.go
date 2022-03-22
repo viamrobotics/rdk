@@ -32,27 +32,58 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	}
 
 	m := &Motor{
-		Board:         b,
-		A:             mc.Pins.A,
-		B:             mc.Pins.B,
-		Dir:           mc.Pins.Dir,
-		PWM:           mc.Pins.PWM,
-		EnablePinHigh: mc.Pins.EnablePinHigh,
-		EnablePinLow:  mc.Pins.EnablePinLow,
-		En:            mc.Pins.En,
-		on:            false,
-		pwmFreq:       mc.PWMFreq,
-		minPowerPct:   mc.MinPowerPct,
-		maxPowerPct:   mc.MaxPowerPct,
-		maxRPM:        mc.MaxRPM,
-		dirFlip:       mc.DirFlip,
-		logger:        logger,
-		cancelMu:      &sync.Mutex{},
+		Board:       b,
+		on:          false,
+		pwmFreq:     mc.PWMFreq,
+		minPowerPct: mc.MinPowerPct,
+		maxPowerPct: mc.MaxPowerPct,
+		maxRPM:      mc.MaxRPM,
+		dirFlip:     mc.DirectionFlip,
+		logger:      logger,
+		cancelMu:    &sync.Mutex{},
 	}
 
-	if m.EnablePinLow == "" {
-		// for backwards compatibility prior ot change on 1/21/22
-		m.EnablePinLow = mc.Pins.En
+	if mc.Pins.A != "" {
+		a, err := b.GPIOPinByName(mc.Pins.A)
+		if err != nil {
+			return nil, err
+		}
+		m.A = a
+	}
+	if mc.Pins.B != "" {
+		b, err := b.GPIOPinByName(mc.Pins.B)
+		if err != nil {
+			return nil, err
+		}
+		m.B = b
+	}
+	if mc.Pins.Direction != "" {
+		direction, err := b.GPIOPinByName(mc.Pins.Direction)
+		if err != nil {
+			return nil, err
+		}
+		m.Direction = direction
+	}
+	if mc.Pins.PWM != "" {
+		pwm, err := b.GPIOPinByName(mc.Pins.PWM)
+		if err != nil {
+			return nil, err
+		}
+		m.PWM = pwm
+	}
+	if mc.Pins.EnablePinHigh != "" {
+		enablePinhHigh, err := b.GPIOPinByName(mc.Pins.EnablePinHigh)
+		if err != nil {
+			return nil, err
+		}
+		m.EnablePinHigh = enablePinhHigh
+	}
+	if mc.Pins.EnablePinLow != "" {
+		enablePinLow, err := b.GPIOPinByName(mc.Pins.EnablePinLow)
+		if err != nil {
+			return nil, err
+		}
+		m.EnablePinLow = enablePinLow
 	}
 
 	return m, nil
@@ -62,16 +93,16 @@ var _ = motor.Motor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {
-	Board              board.Board
-	A, B, Dir, PWM, En string
-	EnablePinLow       string
-	EnablePinHigh      string
-	on                 bool
-	pwmFreq            uint
-	minPowerPct        float64
-	maxPowerPct        float64
-	maxRPM             float64
-	dirFlip            bool
+	Board                    board.Board
+	A, B, Direction, PWM, En board.GPIOPin
+	EnablePinLow             board.GPIOPin
+	EnablePinHigh            board.GPIOPin
+	on                       bool
+	pwmFreq                  uint
+	minPowerPct              float64
+	maxPowerPct              float64
+	maxRPM                   float64
+	dirFlip                  bool
 
 	cancelMu      *sync.Mutex
 	cancelForFunc func()
@@ -98,44 +129,50 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(powerPct, -1*m.maxPowerPct)
 
 	if math.Abs(powerPct) <= 0.001 {
-		if m.EnablePinLow != "" {
-			errs = m.Board.SetGPIO(ctx, m.EnablePinLow, true)
+		if m.EnablePinLow != nil {
+			errs = m.EnablePinLow.Set(ctx, true)
 		}
-		if m.EnablePinHigh != "" {
-			errs = m.Board.SetGPIO(ctx, m.EnablePinHigh, false)
+		if m.EnablePinHigh != nil {
+			errs = m.EnablePinHigh.Set(ctx, false)
 		}
 
-		if m.A != "" && m.B != "" {
+		if m.A != nil && m.B != nil {
 			errs = multierr.Combine(
 				errs,
-				m.Board.SetGPIO(ctx, m.A, false),
-				m.Board.SetGPIO(ctx, m.B, false),
+				m.A.Set(ctx, false),
+				m.B.Set(ctx, false),
 			)
 		}
 
-		if m.PWM != "" {
-			errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.PWM, false))
+		if m.PWM != nil {
+			errs = multierr.Combine(errs, m.PWM.Set(ctx, false))
 		}
 		return errs
 	}
 
 	m.on = true
-	if m.EnablePinLow != "" {
-		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.EnablePinLow, false))
+	if m.EnablePinLow != nil {
+		errs = multierr.Combine(errs, m.EnablePinLow.Set(ctx, false))
 	}
-	if m.EnablePinHigh != "" {
-		errs = multierr.Combine(errs, m.Board.SetGPIO(ctx, m.EnablePinHigh, true))
+	if m.EnablePinHigh != nil {
+		errs = multierr.Combine(errs, m.EnablePinHigh.Set(ctx, true))
 	}
 
-	var pwmPin string
+	var pwmPin board.GPIOPin
 	switch {
-	case m.PWM != "":
+	case m.PWM != nil:
 		pwmPin = m.PWM
 	case powerPct >= 0.001:
 		pwmPin = m.B
+		if m.dirFlip {
+			pwmPin = m.A
+		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	case powerPct <= -0.001:
 		pwmPin = m.A
+		if m.dirFlip {
+			pwmPin = m.B
+		}
 		powerPct = 1.0 - math.Abs(powerPct) // Other pin is always high, so only when PWM is LOW are we driving. Thus, we invert here.
 	default:
 		return errors.New("can't set power when no direction is set")
@@ -144,8 +181,8 @@ func (m *Motor) setPWM(ctx context.Context, powerPct float64) error {
 	powerPct = math.Max(math.Abs(powerPct), m.minPowerPct)
 	return multierr.Combine(
 		errs,
-		m.Board.SetPWMFreq(ctx, pwmPin, m.pwmFreq),
-		m.Board.SetPWM(ctx, pwmPin, powerPct),
+		pwmPin.SetPWMFreq(ctx, m.pwmFreq),
+		pwmPin.SetPWM(ctx, powerPct),
 	)
 }
 
@@ -160,20 +197,26 @@ func (m *Motor) SetPower(ctx context.Context, powerPct float64) error {
 		return m.Stop(ctx)
 	}
 
-	if m.Dir != "" {
+	if m.Direction != nil {
 		x := !math.Signbit(powerPct)
 		if m.dirFlip {
 			x = !x
 		}
 		return multierr.Combine(
-			m.Board.SetGPIO(ctx, m.Dir, x),
+			m.Direction.Set(ctx, x),
 			m.setPWM(ctx, powerPct),
 		)
 	}
-	if m.A != "" && m.B != "" {
+	if m.A != nil && m.B != nil {
+		a := m.A
+		b := m.B
+		if m.dirFlip {
+			a = m.B
+			b = m.A
+		}
 		return multierr.Combine(
-			m.Board.SetGPIO(ctx, m.A, !math.Signbit(powerPct)),
-			m.Board.SetGPIO(ctx, m.B, math.Signbit(powerPct)),
+			a.Set(ctx, !math.Signbit(powerPct)),
+			b.Set(ctx, math.Signbit(powerPct)),
 			m.setPWM(ctx, powerPct), // Must be last for A/B only drivers
 		)
 	}
