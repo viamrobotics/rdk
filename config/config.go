@@ -239,16 +239,17 @@ func (config *Remote) Validate(path string) error {
 // The cloud source could be anything that supports http.
 // URL is constructed as $Path?id=ID and secret is put in a http header.
 type Cloud struct {
-	ID               string        `json:"id"`
-	Secret           string        `json:"secret"`
-	LocationSecret   string        `json:"location_secret"`
-	ManagedBy        string        `json:"managed_by"`
-	FQDN             string        `json:"fqdn"`
-	LocalFQDN        string        `json:"local_fqdn"`
-	SignalingAddress string        `json:"signaling_address"`
-	Path             string        `json:"path"`
-	LogPath          string        `json:"log_path"`
-	RefreshInterval  time.Duration `json:"refresh_interval,omitempty"`
+	ID                string        `json:"id"`
+	Secret            string        `json:"secret"`
+	LocationSecret    string        `json:"location_secret"`
+	ManagedBy         string        `json:"managed_by"`
+	FQDN              string        `json:"fqdn"`
+	LocalFQDN         string        `json:"local_fqdn"`
+	SignalingAddress  string        `json:"signaling_address"`
+	SignalingInsecure bool          `json:"signaling_insecure,omitempty"`
+	Path              string        `json:"path"`
+	LogPath           string        `json:"log_path"`
+	RefreshInterval   time.Duration `json:"refresh_interval,omitempty"`
 
 	// cached by us and fetched from a non-config endpoint.
 	TLSCertificate string `json:"tls_certificate"`
