@@ -127,7 +127,7 @@ func (c *collector) capture() {
 				break
 			}
 			msg := v1.SensorData{
-				SensorMetadata: &v1.SensorMetadata{
+				Metadata: &v1.SensorMetadata{
 					TimeRequested: timeRequested,
 					TimeReceived:  timeReceived,
 				},
