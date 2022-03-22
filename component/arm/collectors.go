@@ -62,9 +62,9 @@ func newGetJointPositionsCollector(resource interface{}, name string, interval t
 }
 
 func assertArm(resource interface{}) (Arm, error) {
-	imu, ok := resource.(Arm)
+	arm, ok := resource.(Arm)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
-	return imu, nil
+	return arm, nil
 }
