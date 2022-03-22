@@ -53,6 +53,11 @@ linters-settings:
       - github.com/wasmerio/wasmer-go
       - github.com/grandcat/zeroconf
       - github.com/pion/ice/v2
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+      - shadow
   lll:
     line-length: 140
 issues:
