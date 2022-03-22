@@ -83,10 +83,7 @@ func (c *collector) Close() {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	// Must close c.queue before calling c.writer.Flush() to ensure that all captures have made it into the buffer
-	// before it is flushed. Otherwise, some reading might still be queued but not yet written, and would be lost.
 	c.cancel()
-
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
