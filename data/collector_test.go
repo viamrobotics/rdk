@@ -75,13 +75,13 @@ func TestInterval(t *testing.T) {
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{}
-	c := NewCollector(dummy, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummy, time.Millisecond*25, map[string]string{"name": "test"}, target1, l)
 	go c.Collect()
 
-	// Give 5ms of leeway so slight changes in execution ordering don't impact the test.
-	// floor(85/10) = 8
-	time.Sleep(time.Millisecond * 85)
-	test.That(t, atomic.LoadInt64(&dummy.CaptureCount), test.ShouldEqual, 8)
+	// Give 20ms of leeway so slight changes in execution ordering don't impact the test.
+	// floor(70/25) = 2
+	time.Sleep(time.Millisecond * 70)
+	test.That(t, atomic.LoadInt64(&dummy.CaptureCount), test.ShouldEqual, 2)
 }
 
 func TestSetTarget(t *testing.T) {
@@ -127,7 +127,7 @@ func TestSwallowsErrors(t *testing.T) {
 			errorChannel <- err
 		}
 	}()
-	time.Sleep(25 * time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
 
 	// Verify that no errors were passed into errorChannel, and that errors were logged.
 	select {
