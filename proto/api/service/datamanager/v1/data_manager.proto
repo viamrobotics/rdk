@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package proto.api.service.datamanager.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+
+
+message SensorMetadata {
+  google.protobuf.Timestamp time = 1;
+}
+
+message SensorData {
+  SensorMetadata sensor_metadata = 1;
+  google.protobuf.Struct data = 2;
+}
