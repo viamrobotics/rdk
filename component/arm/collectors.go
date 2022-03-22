@@ -29,7 +29,7 @@ func (m method) String() string {
 
 func newGetEndPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	arm, err := ensureArm(resource)
+	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func newGetEndPositionCollector(resource interface{}, name string, interval time
 
 func newGetJointPositionsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	arm, err := ensureArm(resource)
+	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func newGetJointPositionsCollector(resource interface{}, name string, interval t
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
 
-func ensureArm(resource interface{}) (Arm, error) {
+func assertArm(resource interface{}) (Arm, error) {
 	imu, ok := resource.(Arm)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
