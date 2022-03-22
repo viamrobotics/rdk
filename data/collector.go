@@ -5,8 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
 	"os"
 	"sync"
 	"time"
@@ -16,7 +14,9 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
