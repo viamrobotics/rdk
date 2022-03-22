@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -23,6 +24,20 @@ type DistortionModel struct {
 	RadialK3     float64 `json:"rk3"`
 	TangentialP1 float64 `json:"tp1"`
 	TangentialP2 float64 `json:"tp2"`
+}
+
+// Transform distorts the input points x,y according to a modified Brown-Conrady model as described by OpenCV
+// https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#ga7dfb72c9cf9780a347fbe3d1c47e5d5a
+func (dm *DistortionModel) Transform(x, y float64) (float64, float64) {
+	r2 := x*x + y*y
+	radDist := (1. + dm.RadialK1*r2 + dm.RadialK2*r2*r2 + dm.RadialK3*r2*r2*r2)
+	radDistX := x * radDist
+	radDistY := y * radDist
+	tanDistX := 2.*dm.TangentialP1*x*y + dm.TangentialP2*(r2+2.*x*x)
+	tanDistY := 2.*dm.TangentialP2*x*y + dm.TangentialP1*(r2+2.*y*y)
+	resX := radDistX + tanDistX
+	resY := radDistY + tanDistY
+	return resX, resY
 }
 
 // PinholeCameraIntrinsics TODO.
@@ -141,6 +156,79 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 		return &intrinsics.DepthCamera, nil
 	}
 	return &intrinsics.ColorCamera, nil
+}
+
+// DistortionMap is a function that transforms the undistorted input points (u,v) to the distorted points (x,y)
+// according to the model in PinholeCameraIntrinsics.Distortion.
+func (params *PinholeCameraIntrinsics) DistortionMap() func(u, v float64) (float64, float64) {
+	return func(u, v float64) (float64, float64) {
+		x := (u - params.Ppx) / params.Fx
+		y := (v - params.Ppy) / params.Fy
+		x, y = params.Distortion.Transform(x, y)
+		x = x*params.Fx + params.Ppx
+		y = y*params.Fy + params.Ppy
+		return x, y
+	}
+}
+
+// UndistortImage takes an input image and creates a new image the same size with the same camera parameters
+// as the original image, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
+// interpolation is used to interpolate values between image pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
+func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
+	if img == nil {
+		return nil, errors.New("input image is nil")
+	}
+	// Check dimensions, they should be equal between the color image and what the intrinsics expect
+	if params.Width != img.Width() || params.Height != img.Height() {
+		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			img.Width(), img.Height(), params.Width, params.Height)
+	}
+	undistortedImg := rimage.NewImage(params.Width, params.Height)
+	distortionMap := params.DistortionMap()
+	for v := 0; v < params.Height; v++ {
+		for u := 0; u < params.Width; u++ {
+			x, y := distortionMap(float64(u), float64(v))
+			c := rimage.NearestNeighborColor(r2.Point{x, y}, img)
+			if c != nil {
+				undistortedImg.SetXY(u, v, *c)
+			} else {
+				undistortedImg.SetXY(u, v, rimage.Color(0))
+			}
+		}
+	}
+	return undistortedImg, nil
+}
+
+// UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
+// as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
+// interpolation is used to interpolate values between depth pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
+func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
+	if dm == nil {
+		return nil, errors.New("input DepthMap is nil")
+	}
+	// Check dimensions, they should be equal between the color image and what the intrinsics expect
+	if params.Width != dm.Width() || params.Height != dm.Height() {
+		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			dm.Width(), dm.Height(), params.Width, params.Height)
+	}
+	undistortedDm := rimage.NewEmptyDepthMap(params.Width, params.Height)
+	distortionMap := params.DistortionMap()
+	for v := 0; v < params.Height; v++ {
+		for u := 0; u < params.Width; u++ {
+			x, y := distortionMap(float64(u), float64(v))
+			d := rimage.BilinearInterpolationDepth(r2.Point{x, y}, dm)
+			if d != nil {
+				undistortedDm.Set(u, v, *d)
+			} else {
+				undistortedDm.Set(u, v, rimage.Depth(0))
+			}
+		}
+	}
+	return undistortedDm, nil
 }
 
 // PixelToPoint transforms a pixel with depth to a 3D point cloud.
