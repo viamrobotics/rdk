@@ -41,9 +41,9 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 }
 
 func assertCamera(resource interface{}) (Camera, error) {
-	imu, ok := resource.(Camera)
+	cam, ok := resource.(Camera)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
-	return imu, nil
+	return cam, nil
 }

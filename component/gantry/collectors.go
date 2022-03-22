@@ -62,9 +62,9 @@ func newGetLengthsCollector(resource interface{}, name string, interval time.Dur
 }
 
 func assertGantry(resource interface{}) (Gantry, error) {
-	imu, ok := resource.(Gantry)
+	gantry, ok := resource.(Gantry)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
 	}
-	return imu, nil
+	return gantry, nil
 }
