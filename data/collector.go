@@ -86,7 +86,6 @@ func (c *collector) Close() {
 	// Must close c.queue before calling c.writer.Flush() to ensure that all captures have made it into the buffer
 	// before it is flushed. Otherwise, some reading might still be queued but not yet written, and would be lost.
 	c.cancel()
-	close(c.queue)
 
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
@@ -129,6 +128,7 @@ func (c *collector) capture() {
 			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 			// still work when this happens.
 			case <-c.cancelCtx.Done():
+				close(c.queue)
 				return
 			case c.queue <- msg:
 				break
