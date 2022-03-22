@@ -118,7 +118,7 @@ func TestSwallowsErrors(t *testing.T) {
 	defer os.Remove(target1.Name())
 	dummy := &dummyCapturer{ShouldError: true}
 
-	c := NewCollector(dummy, time.Millisecond*20, map[string]string{"name": "test"}, target1, logger)
+	c := NewCollector(dummy, time.Millisecond*10, map[string]string{"name": "test"}, target1, logger)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
