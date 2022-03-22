@@ -12,6 +12,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
@@ -38,6 +39,11 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: nextPointCloud.String(),
+	}, newNextPointCloudCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
