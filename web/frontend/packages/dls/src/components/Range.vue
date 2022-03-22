@@ -43,7 +43,7 @@ export default class ViamRange extends Vue {
   @Prop({ default: 0 }) min?: number;
   @Prop({ default: 10 }) step?: number;
   @Prop({ default: null }) name?: string;
-  @Prop({ default: 0 }) percentage?: number | undefined;
+  @Prop({ default: 0 }) percentage?: number | undefined=0;
 
   value: number | undefined = this.percentage;
 }
