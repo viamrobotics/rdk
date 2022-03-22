@@ -244,23 +244,13 @@ func (ds *dualServerSource) Close() {
 	ds.client.CloseIdleConnections()
 }
 
-// StreamType specifies what kind of image stream is coming from the camera.
-type StreamType string
-
-// The allowed types of streams that can come from an ImageSource.
-const (
-	ColorStream = StreamType("color")
-	DepthStream = StreamType("depth")
-	BothStream  = StreamType("both")
-)
-
 // serverSource streams the color/depth/both camera data from an external server at a given URL.
 type serverSource struct {
 	client    http.Client
 	URL       string
 	host      string
-	stream    StreamType // specifies color, depth, or both stream
-	isAligned bool       // are the color and depth image already aligned
+	stream    camera.StreamType // specifies color, depth, or both stream
+	isAligned bool              // are the color and depth image already aligned
 }
 
 // ServerAttrs is the attribute struct for serverSource.
@@ -268,9 +258,7 @@ type ServerAttrs struct {
 	*camera.AttrConfig
 	Aligned bool   `json:"aligned"`
 	Host    string `json:"host"`
-	Source  string `json:"source"`
 	Port    int    `json:"port"`
-	Stream  string `json:"stream"`
 	Args    string `json:"args"`
 }
 
@@ -290,19 +278,19 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	}
 
 	switch s.stream {
-	case ColorStream:
+	case camera.ColorStream:
 		color, err := decodeColor(allData)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
-	case DepthStream:
+	case camera.DepthStream:
 		depth, err := decodeDepth(allData)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
-	case BothStream:
+	case camera.BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {
 			return nil, nil, err
@@ -325,7 +313,7 @@ func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, erro
 	imgSrc := &serverSource{
 		URL:       fmt.Sprintf("http://%s:%d/%s", cfg.Host, cfg.Port, cfg.Args),
 		host:      cfg.Host,
-		stream:    StreamType(cfg.Stream),
+		stream:    camera.StreamType(cfg.Stream),
 		isAligned: cfg.Aligned,
 	}
 	return camera.New(imgSrc, cfg.AttrConfig, nil)
