@@ -27,8 +27,8 @@ func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, err
 
 func TestServerMove(t *testing.T) {
 	grabRequest := &pb.MoveRequest{
-		GripperName: "",
-		Target:      referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
+		ComponentName: "",
+		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 
 	omMap := map[resource.Name]interface{}{}
@@ -54,8 +54,8 @@ func TestServerMove(t *testing.T) {
 	passedErr := errors.New("fake move error")
 	injectOMS.MoveFunc = func(
 		ctx context.Context,
-		gripperName string,
-		grabPose *referenceframe.PoseInFrame,
+		componentName string,
+		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {
 		return false, passedErr
@@ -67,8 +67,8 @@ func TestServerMove(t *testing.T) {
 	// returns response
 	injectOMS.MoveFunc = func(
 		ctx context.Context,
-		gripperName string,
-		grabPose *referenceframe.PoseInFrame,
+		componentName string,
+		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {
 		return true, nil

@@ -46,7 +46,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 			return nil, err
 		}
 	}
-	success, err := svc.Move(ctx, req.GetGripperName(), referenceframe.ProtobufToPoseInFrame(req.GetTarget()), geometriesInFrames)
+	success, err := svc.Move(ctx, req.GetComponentName(), referenceframe.ProtobufToPoseInFrame(req.GetDestination()), geometriesInFrames)
 	if err != nil {
 		return nil, err
 	}
