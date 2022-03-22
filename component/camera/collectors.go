@@ -25,7 +25,7 @@ func (m method) String() string {
 
 func newNextPointCloudCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	camera, err := ensureCamera(resource)
+	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
 
-func ensureCamera(resource interface{}) (Camera, error) {
+func assertCamera(resource interface{}) (Camera, error) {
 	imu, ok := resource.(Camera)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)

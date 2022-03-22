@@ -29,7 +29,7 @@ func (m method) String() string {
 
 func newGetPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	gantry, err := ensureGantry(resource)
+	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func newGetPositionCollector(resource interface{}, name string, interval time.Du
 
 func newGetLengthsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	gantry, err := ensureGantry(resource)
+	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func newGetLengthsCollector(resource interface{}, name string, interval time.Dur
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
 
-func ensureGantry(resource interface{}) (Gantry, error) {
+func assertGantry(resource interface{}) (Gantry, error) {
 	imu, ok := resource.(Gantry)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
