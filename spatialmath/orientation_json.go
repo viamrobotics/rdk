@@ -57,14 +57,14 @@ func (config *OrientationConfig) ParseConfig() (Orientation, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &o, nil
+		return &o, o.IsValid()
 	case OrientationVectorRadiansType:
 		var o OrientationVector
 		err = json.Unmarshal(config.Value, &o)
 		if err != nil {
 			return nil, err
 		}
-		return &o, nil
+		return &o, o.IsValid()
 	case AxisAnglesType:
 		var o R4AA
 		err = json.Unmarshal(config.Value, &o)
