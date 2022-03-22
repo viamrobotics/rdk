@@ -14,16 +14,18 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
+	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
 
 // queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
-// by the queue being written to disk. A default value of 25 was chosen because even with the fastest reasonable capture
-// interval (10ms), this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the
-// size of writes this would be performing.
-const queueSize = 25
+// by the queue being written to disk. A default value of 250 was chosen because even with the fastest reasonable
+// capture interval (1ms), this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient
+// for the size of writes this would be performing.
+const queueSize = 250
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
@@ -47,7 +49,7 @@ type Collector interface {
 }
 
 type collector struct {
-	queue     chan *structpb.Struct
+	queue     chan *v1.SensorData
 	interval  time.Duration
 	params    map[string]string
 	lock      *sync.Mutex
@@ -112,15 +114,24 @@ func (c *collector) capture() {
 			close(c.queue)
 			return
 		case <-ticker.C:
+			timeRequested := timestamppb.New(time.Now().UTC())
 			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
+			timeReceived := timestamppb.New(time.Now().UTC())
 			if err != nil {
 				c.logger.Errorw("error while capturing data", "error", err)
 				break
 			}
-			msg, err := InterfaceToStruct(reading)
+			pbReading, err := InterfaceToStruct(reading)
 			if err != nil {
 				c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 				break
+			}
+			msg := v1.SensorData{
+				Metadata: &v1.SensorMetadata{
+					TimeRequested: timeRequested,
+					TimeReceived:  timeReceived,
+				},
+				Data: pbReading,
 			}
 			select {
 			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
@@ -128,7 +139,7 @@ func (c *collector) capture() {
 			case <-c.cancelCtx.Done():
 				close(c.queue)
 				return
-			case c.queue <- msg:
+			case c.queue <- &msg:
 				break
 			}
 		}
@@ -141,7 +152,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
-		queue:     make(chan *structpb.Struct, queueSize),
+		queue:     make(chan *v1.SensorData, queueSize),
 		interval:  interval,
 		params:    params,
 		lock:      &sync.Mutex{},
@@ -164,7 +175,7 @@ func (c *collector) write() error {
 	return nil
 }
 
-func (c *collector) appendMessage(msg *structpb.Struct) error {
+func (c *collector) appendMessage(msg *v1.SensorData) error {
 	bytes, err := proto.Marshal(msg)
 	if err != nil {
 		return err
