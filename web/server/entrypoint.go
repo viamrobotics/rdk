@@ -506,6 +506,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			cfg.Cloud.ID,
 			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
 		)}
+		if cfg.Cloud.SignalingInsecure {
+			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
+		}
 		if argsParsed.AllowInsecureCreds {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 		}
