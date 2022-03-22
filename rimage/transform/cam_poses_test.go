@@ -35,5 +35,5 @@ func TestGetCorrectCameraPose(t *testing.T) {
 	// test diagonal elements of rotation matrix
 	test.That(t, math.Abs(pose.Rotation.At(0, 0)), test.ShouldBeBetween, 0.98, 1.0)
 	test.That(t, math.Abs(pose.Rotation.At(1, 1)), test.ShouldBeBetween, 0.99, 1.0)
-	test.That(t, math.Abs(pose.Rotation.At(2, 2)), test.ShouldBeBetween, 0.97, 0.98)
+	test.That(t, math.Abs(pose.Rotation.At(2, 2)), test.ShouldBeBetween, 0.98, 1.0)
 }
