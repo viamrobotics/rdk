@@ -181,6 +181,9 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	defer m.lock.Unlock()
 
 	if m.stepPosition == m.targetStepPosition {
+		if err := m.enable(ctx, false); err != nil {
+			return time.Second, err
+		}
 		return 5 * time.Millisecond, nil
 	}
 
@@ -189,7 +192,7 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 		return time.Second, fmt.Errorf("error stepping %w", err)
 	}
 
-	return time.Duration(int64(time.Microsecond*1000*1000) / m.targetStepsPerSecond), nil
+	return time.Duration(int64(time.Microsecond*1000*1000) / int64(math.Abs(float64(m.targetStepsPerSecond)))), nil
 }
 
 // have to be locked to call.
