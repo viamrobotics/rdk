@@ -127,16 +127,16 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	for remoteName, remote := range r.manager.remotes {
 		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		rConf, err := r.getRemoteConfig(remoteName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
 		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 	}
 	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())

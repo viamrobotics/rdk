@@ -86,7 +86,6 @@ func (c *collector) Close() {
 	defer c.lock.Unlock()
 
 	c.cancel()
-
 	if err := c.writer.Flush(); err != nil {
 		c.logger.Errorw("failed to flush writer to disk", "error", err)
 	}
