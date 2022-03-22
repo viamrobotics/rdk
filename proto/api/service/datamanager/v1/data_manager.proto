@@ -5,8 +5,6 @@ package proto.api.service.datamanager.v1;
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
-
-
 message SensorMetadata {
   google.protobuf.Timestamp time = 1;
 }
