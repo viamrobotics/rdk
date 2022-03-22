@@ -12,6 +12,7 @@ import (
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
@@ -157,6 +158,9 @@ func NewStaticFrameFromFrame(frame Frame, pose spatial.Pose) (Frame, error) {
 	if tf, ok := frame.(*staticFrame); ok {
 		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
 	}
+	if tf, ok := frame.(*mobile2DFrame); ok {
+		return &staticFrame{tf.Name(), pose, tf.geometryCreator}, nil
+	}
 	return &staticFrame{frame.Name(), pose, nil}, nil
 }
 
@@ -171,9 +175,9 @@ func (sf *staticFrame) Name() string {
 }
 
 // Transform returns the pose associated with this static referenceframe.
-func (sf *staticFrame) Transform(inp []Input) (spatial.Pose, error) {
-	if len(inp) != 0 {
-		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(inp))
+func (sf *staticFrame) Transform(input []Input) (spatial.Pose, error) {
+	if len(input) != 0 {
+		return nil, fmt.Errorf("given input length %q does not match frame DoF 0", len(input))
 	}
 	return sf.transform, nil
 }
@@ -349,4 +353,65 @@ func (rf *rotationalFrame) AlmostEquals(otherFrame Frame) bool {
 	return ok && rf.name == other.name &&
 		spatial.R3VectorAlmostEqual(rf.rotAxis, other.rotAxis, 1e-8) &&
 		limitsAlmostEqual(rf.DoF(), other.DoF())
+}
+
+type mobile2DFrame struct {
+	name            string
+	limit           []Limit
+	geometryCreator spatial.GeometryCreator
+}
+
+// NewMobile2DFrame instantiates a frame that can translate in the x and y dimensions and will always remain on the plane Z=0
+// This frame will have a name, limits (representing the bounds the frame is allowed to translate within) and a geometryCreator
+// defined by the arguments passed into this function.
+func NewMobile2DFrame(name string, limit []Limit, geometryCreator spatial.GeometryCreator) (Frame, error) {
+	if len(limit) != 2 {
+		return nil, fmt.Errorf("cannot create a %d dof mobile frame, only support 2 dimensions currently", len(limit))
+	}
+	return &mobile2DFrame{name: name, limit: limit, geometryCreator: geometryCreator}, nil
+}
+
+func (mf *mobile2DFrame) Name() string {
+	return mf.name
+}
+
+func (mf *mobile2DFrame) Transform(input []Input) (spatial.Pose, error) {
+	var errAll error
+	if len(input) != len(mf.limit) {
+		return nil, fmt.Errorf("given input length %d does not match frame DoF %d", len(input), len(mf.limit))
+	}
+	// We allow out-of-bounds calculations, but will return a non-nil error
+	for i, lim := range mf.limit {
+		if input[i].Value < lim.Min || input[i].Value > lim.Max {
+			multierr.AppendInto(&errAll, fmt.Errorf("%.5f input out of rev frame bounds %.5f", input[i].Value, lim))
+		}
+	}
+	return spatial.NewPoseFromPoint(r3.Vector{input[0].Value, input[1].Value, 0}), errAll
+}
+
+func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry, error) {
+	if mf.geometryCreator == nil {
+		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
+	}
+	pose, err := mf.Transform(input)
+	m := make(map[string]spatial.Geometry)
+	m[mf.Name()] = mf.geometryCreator.NewGeometry(pose)
+	return m, err
+}
+
+func (mf *mobile2DFrame) DoF() []Limit {
+	return mf.limit
+}
+
+func (mf *mobile2DFrame) MarshalJSON() ([]byte, error) {
+	return json.Marshal(FrameMapConfig{
+		"type":  "rotational",
+		"name":  mf.name,
+		"limit": mf.limit,
+	})
+}
+
+func (mf *mobile2DFrame) AlmostEquals(otherFrame Frame) bool {
+	other, ok := otherFrame.(*rotationalFrame)
+	return ok && mf.name == other.name && limitsAlmostEqual(mf.DoF(), other.DoF())
 }
