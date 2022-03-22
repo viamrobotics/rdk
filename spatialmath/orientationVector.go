@@ -1,6 +1,7 @@
 package spatialmath
 
 import (
+	"errors"
 	"math"
 
 	"github.com/go-gl/mathgl/mgl64"
@@ -39,6 +40,22 @@ func NewOrientationVector() *OrientationVector {
 	return &OrientationVector{Theta: 0, OX: 0, OY: 0, OZ: 1}
 }
 
+// IsValid returns an error if configuration is invalid.
+func (ovd *OrientationVectorDegrees) IsValid() error {
+	if ovd.computeNormal() == 0.0 { // avoid division by zero
+		return errors.New("OrientationVectorDegrees has a normal of 0, probably X, Y, and Z are all 0")
+	}
+	return nil
+}
+
+// IsValid returns an error if configuration is invalid.
+func (ov *OrientationVector) IsValid() error {
+	if ov.computeNormal() == 0.0 { // avoid division by zero
+		return errors.New("OrientationVector has a normal of 0, probably X, Y, and Z are all 0")
+	}
+	return nil
+}
+
 // Degrees converts the OrientationVector to an OrientationVectorDegrees.
 func (ov *OrientationVector) Degrees() *OrientationVectorDegrees {
 	return &OrientationVectorDegrees{Theta: utils.RadToDeg(ov.Theta), OX: ov.OX, OY: ov.OY, OZ: ov.OZ}
@@ -75,9 +92,17 @@ func (ov *OrientationVector) ToQuat() quat.Number {
 	return q
 }
 
+func (ovd *OrientationVectorDegrees) computeNormal() float64 {
+	return math.Sqrt(ovd.OX*ovd.OX + ovd.OY*ovd.OY + ovd.OZ*ovd.OZ)
+}
+
+func (ov *OrientationVector) computeNormal() float64 {
+	return math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
+}
+
 // Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere.
 func (ovd *OrientationVectorDegrees) Normalize() {
-	norm := math.Sqrt(ovd.OX*ovd.OX + ovd.OY*ovd.OY + ovd.OZ*ovd.OZ)
+	norm := ovd.computeNormal()
 	if norm == 0.0 { // avoid division by zero
 		panic("orientation vec has length of 0")
 	}
@@ -88,7 +113,7 @@ func (ovd *OrientationVectorDegrees) Normalize() {
 
 // Normalize scales the x, y, and z components of an Orientation Vector to be on the unit sphere.
 func (ov *OrientationVector) Normalize() {
-	norm := math.Sqrt(ov.OX*ov.OX + ov.OY*ov.OY + ov.OZ*ov.OZ)
+	norm := ov.computeNormal()
 	if norm == 0.0 { // avoid division by zero
 		panic("orientation vec has length of 0")
 	}
