@@ -65,21 +65,58 @@ func TestPCD(t *testing.T) {
 		"0.007000 -0.006000 -0.001000 16711938\n"
 	*/
 
+	testASCIIRoundTrip(t, cloud)
+	testBinaryRoundTrip(t, cloud)
+}
+
+func testPCDOutput(t *testing.T, cloud2 PointCloud) {
+	t.Helper()
+	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
+	test.That(t, cloud2.At(0, 0, 0), test.ShouldBeNil)
+	test.That(t, cloud2.At(-1, -2, 5), test.ShouldNotBeNil)
+}
+
+func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
+	t.Helper()
 	// write to .pcd
 	var buf bytes.Buffer
-	err := cloud.ToPCD(&buf)
+	err := cloud.ToPCD(&buf, PCDAscii)
 	test.That(t, err, test.ShouldBeNil)
 	gotPCD := buf.String()
 	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA ascii")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 0.002000 -0.005000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 -0.012000 -0.000000 16711938\n")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 -0.006000 -0.001000 16711938\n")
 
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
+	testPCDOutput(t, cloud2)
+
+	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
+	test.That(t, err, test.ShouldNotBeNil)
+
+	_, err = ReadPCD(strings.NewReader("VERSION .8\n" + gotPCD[11:]))
+	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
+	t.Helper()
+	// write to .pcd
+	var buf bytes.Buffer
+	err := cloud.ToPCD(&buf, PCDBinary)
+	test.That(t, err, test.ShouldBeNil)
+	gotPCD := buf.String()
+	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA binary")
+
+	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
+	test.That(t, err, test.ShouldBeNil)
+	testPCDOutput(t, cloud2)
 
 	_, err = ReadPCD(strings.NewReader(gotPCD[1:]))
 	test.That(t, err, test.ShouldNotBeNil)
@@ -124,4 +161,69 @@ func TestPCDColor(t *testing.T) {
 	x := _colorToPCDInt(p)
 	c2 := _pcdIntToColor(x)
 	test.That(t, c, test.ShouldResemble, c2)
+}
+
+func newBigPC() PointCloud {
+	cloud := New()
+	for x := 10.0; x <= 50; x++ {
+		for y := 10.0; y <= 50; y++ {
+			for z := 10.0; z <= 50; z++ {
+				if err := cloud.Set(NewColoredPoint(x, y, z, color.NRGBA{255, 1, 2, 255}).SetValue(5)); err != nil {
+					panic(err)
+				}
+			}
+		}
+	}
+	return cloud
+}
+
+func BenchmarkPCDASCIIWrite(b *testing.B) {
+	cloud := newBigPC()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		err := cloud.ToPCD(&buf, PCDAscii)
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+func BenchmarkPCDASCIIRead(b *testing.B) {
+	cloud := newBigPC()
+	var buf bytes.Buffer
+	err := cloud.ToPCD(&buf, PCDAscii)
+	test.That(b, err, test.ShouldBeNil)
+
+	gotPCD := buf.String()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := ReadPCD(strings.NewReader(gotPCD))
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+func BenchmarkPCDBinaryWrite(b *testing.B) {
+	cloud := newBigPC()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var buf bytes.Buffer
+		err := cloud.ToPCD(&buf, PCDBinary)
+		test.That(b, err, test.ShouldBeNil)
+	}
+}
+
+func BenchmarkPCDBinaryRead(b *testing.B) {
+	cloud := newBigPC()
+	var buf bytes.Buffer
+	err := cloud.ToPCD(&buf, PCDBinary)
+	test.That(b, err, test.ShouldBeNil)
+
+	gotPCD := buf.String()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := ReadPCD(strings.NewReader(gotPCD))
+		test.That(b, err, test.ShouldBeNil)
+	}
 }
