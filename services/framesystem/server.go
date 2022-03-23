@@ -75,7 +75,7 @@ func (server *subtypeServer) TransformPose(
 	}
 
 	dst := req.Destination
-	pF := referenceframe.ProtobufToPoseInFrame(req.Query)
+	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
 	transformedPose, err := svc.TransformPose(ctx, pF, dst)
 
 	return &pb.TransformPoseResponse{Pose: spatialmath.PoseToProtobuf(transformedPose)}, err

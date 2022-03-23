@@ -40,11 +40,10 @@ message ConfigResponse {
 }
 
 message TransformPoseRequest {
-  common.v1.PoseInFrame query = 1;
+  common.v1.PoseInFrame source = 1;
   string destination = 2;
 }
 
 message TransformPoseResponse {
   common.v1.Pose pose = 1;
 }
-
