@@ -239,8 +239,8 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 			// Our point clouds are in mm, PCD files expect meters
 			position := pt.Position()
 			width := position.X / 1000.
-			height := -position.Y / 1000.
-			depth := -position.Z / 1000.
+			height := position.Y / 1000.
+			depth := position.Z / 1000.
 
 			_, err = fmt.Fprintf(out, "%f %f %f %d\n",
 				width,
@@ -260,8 +260,8 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 			// Our point clouds are in mm, PCD files expect meters
 			position := pt.Position()
 			width := float32(position.X / 1000.0)
-			height := float32(-position.Y / 1000.)
-			depth := float32(-position.Z / 1000.)
+			height := float32(position.Y / 1000.)
+			depth := float32(position.Z / 1000.)
 
 			binary.LittleEndian.PutUint32(buf, math.Float32bits(width))
 			binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(height))
@@ -387,7 +387,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 				return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
 			}
 
-			err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
+			err = pc.Set(NewColoredPoint(x*1000, y*1000, z*1000, _pcdIntToColor(color)))
 			if err != nil {
 				return nil, err
 			}
@@ -418,7 +418,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 			z := readFloat(binary.LittleEndian.Uint32(buf[8:]))
 			color := int(binary.LittleEndian.Uint32(buf[12:]))
 
-			err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
+			err = pc.Set(NewColoredPoint(x*1000, y*1000, z*1000, _pcdIntToColor(color)))
 			if err != nil {
 				return nil, err
 			}
