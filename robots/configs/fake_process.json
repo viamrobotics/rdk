@@ -154,13 +154,21 @@
     "services":
     [
         {
-            "type": "navigation",
+            "type": "data_manager",
             "attributes": {
-                "store": {
-                    "type": "memory"
-                },
-                "gps": "gps1",
-                "base": "base1"
+                "capture_dir": "/tmp/capture",
+                "component_attributes": {
+                    "imu1": {
+                        "type": "imu",
+                        "method": "ReadAngularVelocity",
+                        "capture_interval_ms": 5000
+                    },
+                    "arm1": {
+                        "type": "arm",
+                        "method": "GetEndPosition",
+                        "capture_interval_ms": 2500
+                    }
+                }
             }
         },
         {
