@@ -86,17 +86,22 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:          r,
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
-		collectors: make(map[ComponentMethodMetadata]data.Collector),
+		collectors: make(map[ComponentMethodMetadata]CollectorAndAttributes),
 	}
 
 	return dataManagerSvc, nil
+}
+
+type CollectorAndAttributes struct {
+	Collector  data.Collector
+	Attributes config.AttributeMap
 }
 
 type DataManagerService struct {
 	r          robot.Robot
 	logger     golog.Logger
 	captureDir string
-	collectors map[ComponentMethodMetadata]data.Collector
+	collectors map[ComponentMethodMetadata]CollectorAndAttributes
 }
 
 type ComponentMethodMetadata struct {
@@ -123,9 +128,22 @@ func createDataCaptureFile(logger golog.Logger, captureDir string, subtypeName s
 	return os.Create(fileName)
 }
 
-func (svc *DataManagerService) initializeCollector(componentName string, attributes config.AttributeMap) error {
-	// Get the resource corresponding to the component subtype and name.
+func (svc *DataManagerService) initializeOrUpdateCollector(componentName string, attributes config.AttributeMap) error {
+	// Create component/method metadata to check if the collector exists.
 	subtypeName := resource.SubtypeName(attributes.String("type"))
+	metadata := data.MethodMetadata{
+		Subtype:    subtypeName,
+		MethodName: attributes.String("method"),
+	}
+	componentMetadata := ComponentMethodMetadata{
+		ComponentName:  componentName,
+		MethodMetadata: metadata,
+	}
+	// if collectorAndAttributes, ok := svc.collectors[componentMetadata]; ok {
+
+	// }
+
+	// Get the resource corresponding to the component subtype and name.
 	subtype := resource.NewSubtype(
 		resource.ResourceNamespaceRDK,
 		resource.ResourceTypeComponent,
@@ -137,10 +155,6 @@ func (svc *DataManagerService) initializeCollector(componentName string, attribu
 	}
 
 	// Get collector constructor for the component subtype and method.
-	metadata := data.MethodMetadata{
-		Subtype:    subtypeName,
-		MethodName: attributes.String("method"),
-	}
 	collectorConstructor := data.CollectorLookup(metadata)
 	if collectorConstructor == nil {
 		return errors.Errorf("failed to find collector for %s", metadata)
@@ -161,11 +175,7 @@ func (svc *DataManagerService) initializeCollector(componentName string, attribu
 	if err != nil {
 		return err
 	}
-	componentMetadata := ComponentMethodMetadata{
-		ComponentName:  componentName,
-		MethodMetadata: metadata,
-	}
-	svc.collectors[componentMetadata] = collector
+	svc.collectors[componentMetadata] = CollectorAndAttributes{collector, attributes}
 
 	// TODO: Handle err from Collect
 	// TODO: Handle updates and deletions. Currently only handling initial instantiation.
@@ -184,7 +194,7 @@ func (svc *DataManagerService) Update(ctx context.Context, config config.Service
 
 	for componentName, attributes := range svcConfig.ComponentAttributes {
 		svc.logger.Info("initializing ", componentName) // TODO: remove before submit
-		if err := svc.initializeCollector(componentName, attributes); err != nil {
+		if err := svc.initializeOrUpdateCollector(componentName, attributes); err != nil {
 			return err
 		}
 	}
