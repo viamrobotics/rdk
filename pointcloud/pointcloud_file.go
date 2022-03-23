@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -206,7 +207,7 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
-func (cloud *basicPointCloud) ToPCD(out io.Writer) error {
+func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 	var err error
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
@@ -217,8 +218,7 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer) error {
 		"WIDTH %d\n"+
 		"HEIGHT %d\n"+
 		"VIEWPOINT 0 0 0 1 0 0 0\n"+
-		"POINTS %d\n"+
-		"DATA ascii\n",
+		"POINTS %d\n",
 		cloud.Size(),
 		1,
 		cloud.Size(),
@@ -228,20 +228,51 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer) error {
 		return err
 	}
 
-	cloud.Iterate(func(pt Point) bool {
-		// Our point clouds are in mm, PCD files expect meters
-		position := pt.Position()
-		width := position.X / 1000.
-		height := -position.Y / 1000.
-		depth := -position.Z / 1000.
+	switch outputType {
+	case PCDAscii:
+		_, err = out.Write([]byte("DATA ascii\n"))
+		if err != nil {
+			return err
+		}
 
-		_, err = fmt.Fprintf(out, "%f %f %f %d\n",
-			width,
-			height,
-			depth,
-			_colorToPCDInt(pt))
-		return err == nil
-	})
+		cloud.Iterate(func(pt Point) bool {
+			// Our point clouds are in mm, PCD files expect meters
+			position := pt.Position()
+			width := position.X / 1000.
+			height := -position.Y / 1000.
+			depth := -position.Z / 1000.
+
+			_, err = fmt.Fprintf(out, "%f %f %f %d\n",
+				width,
+				height,
+				depth,
+				_colorToPCDInt(pt))
+			return err == nil
+		})
+	case PCDBinary:
+		_, err = out.Write([]byte("DATA binary\n"))
+		if err != nil {
+			return err
+		}
+
+		buf := make([]byte, 16)
+		cloud.Iterate(func(pt Point) bool {
+			// Our point clouds are in mm, PCD files expect meters
+			position := pt.Position()
+			width := float32(position.X / 1000.0)
+			height := float32(-position.Y / 1000.)
+			depth := float32(-position.Z / 1000.)
+
+			binary.LittleEndian.PutUint32(buf, math.Float32bits(width))
+			binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(height))
+			binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(depth))
+			binary.LittleEndian.PutUint32(buf[12:], uint32(_colorToPCDInt(pt)))
+			_, err = out.Write(buf)
+			return err == nil
+		})
+	default:
+		return fmt.Errorf("unknown pcd type %d", outputType)
+	}
 
 	if err != nil {
 		return err
@@ -271,6 +302,11 @@ func readPcdHeaderLineCheck(in *bufio.Reader, name string, value string) error {
 		return fmt.Errorf("header (%s) supposed to be %s but is %s", name, value, l)
 	}
 	return nil
+}
+
+func readFloat(n uint32) float64 {
+	f := float64(math.Float32frombits(n))
+	return math.Round(f*10000) / 10000
 }
 
 // ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now.
@@ -322,37 +358,73 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 		return nil, err
 	}
 
-	err = readPcdHeaderLineCheck(in, "DATA", "ascii")
+	outputTypeString, err := readPcdHeaderLine(in, "DATA")
 	if err != nil {
 		return nil, err
 	}
 
 	pc := New()
 
-	for {
-		l, err := in.ReadString('\n')
-		if errors.Is(err, io.EOF) {
-			break
-		}
-		if err != nil {
-			return nil, err
-		}
+	switch outputTypeString {
+	case "ascii":
+		for {
+			l, err := in.ReadString('\n')
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
 
-		var x, y, z float64
-		var color int
+			var x, y, z float64
+			var color int
 
-		n, err := fmt.Sscanf(l, "%f %f %f %d", &x, &y, &z, &color)
-		if err != nil {
-			return nil, err
-		}
-		if n != 4 {
-			return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
-		}
+			n, err := fmt.Sscanf(l, "%f %f %f %d", &x, &y, &z, &color)
+			if err != nil {
+				return nil, err
+			}
+			if n != 4 {
+				return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
+			}
 
-		err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
-		if err != nil {
-			return nil, err
+			err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
+			if err != nil {
+				return nil, err
+			}
 		}
+	case "binary":
+		buf := make([]byte, 16)
+		for {
+			read, err := in.Read(buf)
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			if read < 16 {
+				read2, err := in.Read(buf[read:])
+				if err != nil {
+					return nil, err
+				}
+				read += read2
+			}
+			if read != 16 {
+				return nil, fmt.Errorf("invalid pcd binary, read %d", read)
+			}
+
+			x := readFloat(binary.LittleEndian.Uint32(buf))
+			y := readFloat(binary.LittleEndian.Uint32(buf[4:]))
+			z := readFloat(binary.LittleEndian.Uint32(buf[8:]))
+			color := int(binary.LittleEndian.Uint32(buf[12:]))
+
+			err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
+			if err != nil {
+				return nil, err
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unknown pcd data type: %s", outputTypeString)
 	}
 
 	return pc, nil
