@@ -284,8 +284,10 @@ func (a *dofBot) Open(ctx context.Context) error {
 	return a.moveJointInLock(ctx, 6, 100)
 }
 
-const grabAngle = 240.0
-const minMovement = 5.0
+const (
+	grabAngle   = 240.0
+	minMovement = 5.0
+)
 
 // Grab makes the gripper grab.
 // Approach: Move to close, poll until gripper reaches the closed state
