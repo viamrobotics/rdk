@@ -165,7 +165,6 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	}
 }
 
-// TODO: length prefix when writing.
 func (c *collector) write() error {
 	for msg := range c.queue {
 		if err := c.appendMessage(msg); err != nil {
