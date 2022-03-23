@@ -20,6 +20,16 @@ import (
 // can mutate their own position outside the ownership of the cloud.
 type key Vec3
 
+// PCDType is the format of a pcd file.
+type PCDType int
+
+const (
+	// PCDAscii ascii format for pcd.
+	PCDAscii PCDType = 0
+	// PCDBinary binary format for pcd.
+	PCDBinary PCDType = 1
+)
+
 // PointCloud is a general purpose container of points. It does not
 // dictate whether or not the cloud is sparse or dense. The current
 // basic implementation is sparse however.
@@ -72,7 +82,7 @@ type PointCloud interface {
 
 	// ToPCD writes the point cloud to a PCD backed by the given writer. The
 	// caller is responsible for closing it.
-	ToPCD(out io.Writer) error
+	ToPCD(out io.Writer, outputType PCDType) error
 
 	// DenseZ returns a matrix representing an X,Y plane based off a Z coordinate.
 	DenseZ(zIdx float64) (*mat.Dense, error)
