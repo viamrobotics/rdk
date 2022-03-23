@@ -9,9 +9,31 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
+
+	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
+)
+
+type exampleReading struct {
+	Field1 bool
+}
+
+func (r *exampleReading) toProto() *structpb.Struct {
+	msg, err := InterfaceToStruct(r)
+	if err != nil {
+		return nil
+	}
+	return msg
+}
+
+var (
+	dummyReading      = exampleReading{}
+	dummyReadingProto = dummyReading.toProto()
 )
 
 type dummyCapturer struct {
@@ -25,7 +47,7 @@ func (c *dummyCapturer) Capture(_ context.Context, _ map[string]string) (interfa
 	}
 
 	atomic.AddInt64(&c.CaptureCount, 1)
-	return c, nil
+	return dummyReading, nil
 }
 
 func TestNewCollector(t *testing.T) {
@@ -41,11 +63,22 @@ func TestSuccessfulWrite(t *testing.T) {
 	defer os.Remove(target1.Name())
 
 	// Verify that it writes to the file.
-	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
+	d := &dummyCapturer{}
+	c := NewCollector(d, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 20)
 	c.Close()
-	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, 0)
+	fileSize := getFileSize(target1)
+	test.That(t, fileSize, test.ShouldBeGreaterThan, 0)
+
+	// Verify that the data it wrote matches what we expect.
+	_, _ = target1.Seek(0, 0)
+	read, err := readNextSensorData(target1)
+	if err != nil {
+		t.Fatalf("failed to read SensorData from file: %v", err)
+	}
+
+	test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
 }
 
 func TestClose(t *testing.T) {
@@ -144,4 +177,12 @@ func getFileSize(f *os.File) int64 {
 		return 0
 	}
 	return fileInfo.Size()
+}
+
+func readNextSensorData(f *os.File) (*v1.SensorData, error) {
+	r := &v1.SensorData{}
+	if _, err := pbutil.ReadDelimited(f, r); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
