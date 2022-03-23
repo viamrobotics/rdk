@@ -1,5 +1,5 @@
-// Package jsimpl implements a JavaScript function engine.
-package jsimpl
+// Package javascriptimpl implements a JavaScript function engine.
+package javascriptimpl
 
 import (
 
