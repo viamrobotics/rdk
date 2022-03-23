@@ -69,6 +69,10 @@ func TestSuccessfulWrite(t *testing.T) {
 		}
 		test.That(t, proto.Equal(dummyReadingProto, read.Data), test.ShouldBeTrue)
 	}
+
+	// Next reading should fail; there should only be two readings.
+	_, err := readNextSensorData(target1)
+	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestClose(t *testing.T) {
