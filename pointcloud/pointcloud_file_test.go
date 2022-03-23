@@ -73,6 +73,7 @@ func testPCDOutput(t *testing.T, cloud2 PointCloud) {
 	t.Helper()
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
 	test.That(t, cloud2.At(0, 0, 0), test.ShouldBeNil)
+	test.That(t, cloud2.At(-1, -2, 5), test.ShouldNotBeNil)
 }
 
 func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
