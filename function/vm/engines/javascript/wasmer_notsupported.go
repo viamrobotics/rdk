@@ -8,9 +8,9 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 )
 
-// init registers a failing pi board since this can only be compiled on non-pi systems.
+// init registers a failing function engine since wasmer is not supported on 32-bit systems
 func init() {
 	functionvm.RegisterEngine(functionvm.EngineNameJavaScript, func() (functionvm.Engine, error) {
-		return nil, errors.New("no WASM support on 32-bit")
+		return nil, errors.New("no wasmer support on 32-bit")
 	})
 }
