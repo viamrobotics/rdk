@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -72,7 +73,7 @@ func TestSuccessfulWrite(t *testing.T) {
 
 	// Next reading should fail; there should only be two readings.
 	_, err := readNextSensorData(target1)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldEqual, io.EOF)
 }
 
 func TestClose(t *testing.T) {
