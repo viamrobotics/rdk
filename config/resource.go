@@ -6,9 +6,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"go.viam.com/utils"
-
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 type validator interface {
