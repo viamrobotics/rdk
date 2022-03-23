@@ -304,6 +304,11 @@ func readPcdHeaderLineCheck(in *bufio.Reader, name string, value string) error {
 	return nil
 }
 
+func readFloat(n uint32) float64 {
+	f := float64(math.Float32frombits(n))
+	return math.Round(f*10000) / 10000
+}
+
 // ReadPCD reads a pcd file format and returns a pointcloud. Very restrictive on the format for now.
 func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 	in := bufio.NewReader(inRaw)
@@ -408,9 +413,9 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 				return nil, fmt.Errorf("invalid pcd binary, read %d", read)
 			}
 
-			x := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf)))
-			y := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf[4:])))
-			z := float64(math.Float32frombits(binary.LittleEndian.Uint32(buf[8:])))
+			x := readFloat(binary.LittleEndian.Uint32(buf))
+			y := readFloat(binary.LittleEndian.Uint32(buf[4:]))
+			z := readFloat(binary.LittleEndian.Uint32(buf[8:]))
 			color := int(binary.LittleEndian.Uint32(buf[12:]))
 
 			err = pc.Set(NewColoredPoint(x*1000, y*-1000, z*-1000, _pcdIntToColor(color)))
