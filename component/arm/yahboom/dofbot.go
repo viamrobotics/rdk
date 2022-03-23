@@ -275,7 +275,10 @@ func (a *dofBot) Open(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	gripperPosition, _ := a.readJointInLock(ctx, 6)
+	gripperPosition, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return err
+	}
 	a.logger.Debug("In Open. Starting gripper position: ", gripperPosition)
 
 	return a.moveJointInLock(ctx, 6, 100)
@@ -292,10 +295,13 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	startingGripperPos, _ := a.readJointInLock(ctx, 6)
+	startingGripperPos, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return false, err
+	}
 	a.logger.Debug("In Grab. Starting gripper position: ", startingGripperPos)
 
-	err := a.moveJointInLock(ctx, 6, grabAngle)
+	err = a.moveJointInLock(ctx, 6, grabAngle)
 	if err != nil {
 		return false, err
 	}
@@ -325,7 +331,10 @@ func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 		}
 	}
 
-	gripperPositionEnd, _ := a.readJointInLock(ctx, 6)
+	gripperPositionEnd, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return false, err
+	}
 	a.logger.Debug("In Grab. Ending gripper position: ", gripperPositionEnd)
 
 	return last < grabAngle, a.moveJointInLock(ctx, 6, last+10) // squeeze a tiny bit
