@@ -60,9 +60,9 @@ func TestPCD(t *testing.T) {
 		"VIEWPOINT 0 0 0 1 0 0 0\n" +
 		"POINTS 3\n" +
 		"DATA ascii\n" +
-		"-0.001000 0.002000 -0.005000 16711938\n" +
-		"0.582000 -0.012000 -0.000000 16711938\n" +
-		"0.007000 -0.006000 -0.001000 16711938\n"
+		"-0.001000 0.002000 0.005000 16711938\n" +
+		"0.582000 0.012000 0.000000 16711938\n" +
+		"0.007000 0.006000 0.001000 16711938\n"
 	*/
 
 	testASCIIRoundTrip(t, cloud)
@@ -87,9 +87,9 @@ func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	test.That(t, gotPCD, test.ShouldContainSubstring, "HEIGHT 1")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "POINTS 3")
 	test.That(t, gotPCD, test.ShouldContainSubstring, "DATA ascii")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 0.002000 -0.005000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 -0.012000 -0.000000 16711938\n")
-	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 -0.006000 -0.001000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "-0.001000 -0.002000 0.005000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.582000 0.012000 0.000000 16711938\n")
+	test.That(t, gotPCD, test.ShouldContainSubstring, "0.007000 0.006000 0.001000 16711938\n")
 
 	cloud2, err := ReadPCD(strings.NewReader(gotPCD))
 	test.That(t, err, test.ShouldBeNil)
