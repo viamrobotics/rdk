@@ -181,9 +181,6 @@ func (m *gpioStepper) doCycle(ctx context.Context) (time.Duration, error) {
 	defer m.lock.Unlock()
 
 	if m.stepPosition == m.targetStepPosition {
-		if err := m.enable(ctx, false); err != nil {
-			return time.Second, err
-		}
 		return 5 * time.Millisecond, nil
 	}
 
