@@ -76,7 +76,7 @@ func (c *client) TransformPose(
 ) (spatialmath.Pose, error) {
 	resp, err := c.client.TransformPose(ctx, &pb.TransformPoseRequest{
 		Destination: destination,
-		Source:       referenceframe.PoseInFrameToProtobuf(query),
+		Source:      referenceframe.PoseInFrameToProtobuf(query),
 	})
 	if err != nil {
 		return nil, err
