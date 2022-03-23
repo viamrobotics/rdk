@@ -202,7 +202,7 @@ func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimag
 }
 
 // UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
-// as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
+// as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A nearest neighbor
 // interpolation is used to interpolate values between depth pixels.
 // NOTE(bh): potentially a use case for generics
 //nolint:dupl
@@ -220,7 +220,7 @@ func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*
 	for v := 0; v < params.Height; v++ {
 		for u := 0; u < params.Width; u++ {
 			x, y := distortionMap(float64(u), float64(v))
-			d := rimage.BilinearInterpolationDepth(r2.Point{x, y}, dm)
+			d := rimage.NearestNeighborDepth(r2.Point{x, y}, dm)
 			if d != nil {
 				undistortedDm.Set(u, v, *d)
 			} else {
