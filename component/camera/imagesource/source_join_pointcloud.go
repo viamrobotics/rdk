@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -116,14 +117,17 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				return err == nil
 			})
 		} else {
+			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[i], jpcs.targetName)
+			if err != nil {
+				return nil, err
+			}
+
 			pcSrc.Iterate(func(p pointcloud.Point) bool {
 				vec := r3.Vector(p.Position())
-				var newVec r3.Vector
-				newVec, err = fs.TransformPoint(inputs, vec, jpcs.sourceNames[i], jpcs.targetName)
-				if err != nil {
-					return false
-				}
-				newPt := p.Clone(pointcloud.Vec3(newVec))
+
+				newPose := spatialmath.Compose(theTransform, spatialmath.NewPoseFromPoint(vec))
+
+				newPt := p.Clone(pointcloud.Vec3(newPose.Point()))
 				err = pcTo.Set(newPt)
 				return err == nil
 			})
