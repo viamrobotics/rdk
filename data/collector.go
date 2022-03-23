@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -165,7 +165,6 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 	}
 }
 
-// TODO: length prefix when writing.
 func (c *collector) write() error {
 	for msg := range c.queue {
 		if err := c.appendMessage(msg); err != nil {
@@ -176,14 +175,9 @@ func (c *collector) write() error {
 }
 
 func (c *collector) appendMessage(msg *v1.SensorData) error {
-	bytes, err := proto.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	_, err = c.writer.Write(bytes)
+	_, err := pbutil.WriteDelimited(c.writer, msg)
 	if err != nil {
 		return err
 	}
