@@ -55,16 +55,13 @@ func TestNewCollector(t *testing.T) {
 	test.That(t, c, test.ShouldNotBeNil)
 }
 
-// TODO: once prefixed protobuf read/write is implemented, these tests should verify message contents, not just that the
-//       file is being written to.
 func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
 
 	// Verify that it writes to the file.
-	d := &dummyCapturer{}
-	c := NewCollector(d, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(&dummyCapturer{}, time.Millisecond*10, map[string]string{"name": "test"}, target1, l)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 20)
 	c.Close()
