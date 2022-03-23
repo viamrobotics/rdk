@@ -136,6 +136,7 @@ func TestSwallowsErrors(t *testing.T) {
 		}
 	}()
 	time.Sleep(30 * time.Millisecond)
+	c.Close()
 
 	// Verify that no errors were passed into errorChannel, and that errors were logged.
 	select {
