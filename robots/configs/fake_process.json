@@ -154,6 +154,9 @@
     "services":
     [
         {
+            "type": "frame_system"
+        },
+        {
             "type": "navigation",
             "attributes": {
                 "store": {
@@ -168,9 +171,6 @@
         },
         {
             "type": "object_manipulation"
-        },
-        {
-            "type": "frame_system"
         }
     ]
 }
