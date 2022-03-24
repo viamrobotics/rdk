@@ -400,6 +400,7 @@ func ReadFromCloud(
 	fqdn := cfg.Cloud.FQDN
 	localFQDN := cfg.Cloud.LocalFQDN
 	signalingAddress := cfg.Cloud.SignalingAddress
+	signalingInsecure := cfg.Cloud.SignalingInsecure
 	managedBy := cfg.Cloud.ManagedBy
 	locationSecret := cfg.Cloud.LocationSecret
 
@@ -408,6 +409,7 @@ func ReadFromCloud(
 		to.Cloud.FQDN = fqdn
 		to.Cloud.LocalFQDN = localFQDN
 		to.Cloud.SignalingAddress = signalingAddress
+		to.Cloud.SignalingInsecure = signalingInsecure
 		to.Cloud.ManagedBy = managedBy
 		to.Cloud.LocationSecret = locationSecret
 		to.Cloud.TLSCertificate = tlsCertificate

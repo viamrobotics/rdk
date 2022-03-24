@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/pointcloud"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/objectsegmentation/v1"
 	"go.viam.com/rdk/subtype"
@@ -103,7 +104,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	protoSegs := make([]*commonpb.PointCloudObject, 0, len(segs))
 	for _, seg := range segs {
 		var buf bytes.Buffer
-		err := seg.ToPCD(&buf)
+		err := seg.ToPCD(&buf, pointcloud.PCDBinary)
 		if err != nil {
 			return nil, err
 		}

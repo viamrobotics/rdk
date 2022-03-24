@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -36,6 +37,14 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getPosition.String(),
+	}, newGetPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getLengths.String(),
+	}, newGetLengthsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "gantry".

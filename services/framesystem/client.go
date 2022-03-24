@@ -10,6 +10,8 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
+	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // client is a client satisfies the frame_system.proto contract.
@@ -65,4 +67,19 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		result = append(result, part)
 	}
 	return result, nil
+}
+
+func (c *client) TransformPose(
+	ctx context.Context,
+	query *referenceframe.PoseInFrame,
+	destination string,
+) (spatialmath.Pose, error) {
+	resp, err := c.client.TransformPose(ctx, &pb.TransformPoseRequest{
+		Destination: destination,
+		Source:      referenceframe.PoseInFrameToProtobuf(query),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewPoseFromProtobuf(resp.Pose), nil
 }
