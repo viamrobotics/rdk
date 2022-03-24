@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ObjectManipulationServiceClient interface {
 	DoGrab(ctx context.Context, in *DoGrabRequest, opts ...grpc.CallOption) (*DoGrabResponse, error)
+	GetPose(ctx context.Context, in *GetPoseRequest, opts ...grpc.CallOption) (*GetPoseResponse, error)
 }
 
 type objectManipulationServiceClient struct {
@@ -38,11 +39,21 @@ func (c *objectManipulationServiceClient) DoGrab(ctx context.Context, in *DoGrab
 	return out, nil
 }
 
+func (c *objectManipulationServiceClient) GetPose(ctx context.Context, in *GetPoseRequest, opts ...grpc.CallOption) (*GetPoseResponse, error) {
+	out := new(GetPoseResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/GetPose", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ObjectManipulationServiceServer is the server API for ObjectManipulationService service.
 // All implementations must embed UnimplementedObjectManipulationServiceServer
 // for forward compatibility
 type ObjectManipulationServiceServer interface {
 	DoGrab(context.Context, *DoGrabRequest) (*DoGrabResponse, error)
+	GetPose(context.Context, *GetPoseRequest) (*GetPoseResponse, error)
 	mustEmbedUnimplementedObjectManipulationServiceServer()
 }
 
@@ -52,6 +63,9 @@ type UnimplementedObjectManipulationServiceServer struct {
 
 func (UnimplementedObjectManipulationServiceServer) DoGrab(context.Context, *DoGrabRequest) (*DoGrabResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DoGrab not implemented")
+}
+func (UnimplementedObjectManipulationServiceServer) GetPose(context.Context, *GetPoseRequest) (*GetPoseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPose not implemented")
 }
 func (UnimplementedObjectManipulationServiceServer) mustEmbedUnimplementedObjectManipulationServiceServer() {
 }
@@ -85,6 +99,24 @@ func _ObjectManipulationService_DoGrab_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ObjectManipulationService_GetPose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPoseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ObjectManipulationServiceServer).GetPose(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/GetPose",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ObjectManipulationServiceServer).GetPose(ctx, req.(*GetPoseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ObjectManipulationService_ServiceDesc is the grpc.ServiceDesc for ObjectManipulationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -95,6 +127,10 @@ var ObjectManipulationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DoGrab",
 			Handler:    _ObjectManipulationService_DoGrab_Handler,
+		},
+		{
+			MethodName: "GetPose",
+			Handler:    _ObjectManipulationService_GetPose_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

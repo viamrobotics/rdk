@@ -64,13 +64,13 @@ func Named(name string) resource.Name {
 
 // Gantry is used for controlling gantries of N axis.
 type Gantry interface {
-	// GetPosition returns the position in meters
+	// GetPosition returns the position in millimeters
 	GetPosition(ctx context.Context) ([]float64, error)
 
-	// MoveToPosition is in meters
+	// MoveToPosition is in millimeters
 	MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error
 
-	// GetLengths is the length of gantries in meters
+	// GetLengths is the length of axes of the gantry in millimeters
 	GetLengths(ctx context.Context) ([]float64, error)
 
 	referenceframe.ModelFramer
@@ -137,21 +137,21 @@ func (g *reconfigurableGantry) ProxyFor() interface{} {
 	return g.actual
 }
 
-// GetPosition returns the position in meters.
+// GetPosition returns the position in millimeters.
 func (g *reconfigurableGantry) GetPosition(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.GetPosition(ctx)
 }
 
-// GetLengths returns the position in meters.
+// GetLengths returns the position in millimeters.
 func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	return g.actual.GetLengths(ctx)
 }
 
-// position is in meters.
+// position is in millimeters.
 func (g *reconfigurableGantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
