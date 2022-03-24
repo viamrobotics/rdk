@@ -240,7 +240,11 @@ func (sf *solverFrame) Transform(inputs []frame.Input) (spatial.Pose, error) {
 	if len(inputs) != len(sf.DoF()) {
 		return nil, fmt.Errorf("incorrect number of inputs to Transform got %d want %d", len(inputs), len(sf.DoF()))
 	}
-	return sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
+	tf, err := sf.fss.TransformFrame(sf.sliceToMap(inputs), sf.solveFrame.Name(), sf.goalFrame.Name())
+	if err != nil {
+		return nil, err
+	}
+	return tf.Pose(), nil
 }
 
 // Geometry takes a solverFrame and a list of joint angles in radians and computes the 3D space occupied by each of the
