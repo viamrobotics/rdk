@@ -1,3 +1,4 @@
+// Data manager service contains a service type that can be used to capture data from a robot's components.
 package datamanager
 
 import (
@@ -5,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-
 	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/registry"
@@ -40,8 +41,7 @@ func init() {
 }
 
 // DataManager defines what a Data Manager Service should be able to do.
-type DataManager interface {
-	// TODO: Add synchronize.
+type DataManager interface { // TODO: Add synchronize.
 }
 
 // SubtypeName is the name of the type of service.
@@ -85,6 +85,7 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return dataManagerSvc, nil
 }
 
+// Service initializes and orchestrates data capture collectors for registered component/methods.
 type Service struct {
 	r          robot.Robot
 	logger     golog.Logger
@@ -190,9 +191,15 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	}
 	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
 
-	// TODO: Handle err from Collect
+	// TODO: Handle errors more gracefully.
+	go func() {
+		err := collector.Collect()
+		if err != nil {
+			svc.logger.Error(err.Error())
+		}
+	}()
+
 	// TODO: Handle deletions. Currently only handling initial instantiation and updates.
-	go collector.Collect()
 
 	return nil
 }
