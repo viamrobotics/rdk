@@ -1,5 +1,5 @@
-// Package javascript implements a JavaScript function engine.
-package javascript
+// Package javascriptimpl implements a JavaScript function engine.
+package javascriptimpl
 
 import (
 
