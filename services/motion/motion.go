@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
@@ -16,6 +17,8 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -49,6 +52,11 @@ type Service interface {
 		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
+	GetPose(
+		ctx context.Context,
+		componentName resource.Name,
+		destinationFrame string,
+	) (*referenceframe.PoseInFrame, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -79,19 +87,30 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	fsSvcIfc, err := r.ResourceByName(framesystem.Name)
+	if err != nil {
+		return nil, err
+	}
+	fsSvc, ok := fsSvcIfc.(framesystem.Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("framesystem.Service", fsSvcIfc)
+	}
+
 	return &motionService{
 		r:      r,
+		fsSvc:  fsSvc,
 		logger: logger,
 	}, nil
 }
 
 type motionService struct {
 	r      robot.Robot
+	fsSvc  framesystem.Service
 	logger golog.Logger
 }
 
 // Move takes a goal location and moves a component specified by its name to that destination.
-func (ms motionService) Move(
+func (ms *motionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
@@ -155,7 +174,7 @@ func (ms motionService) Move(
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
-	output, err := solver.SolvePose(ctx, input, goalPose, componentName.Name, solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
 	if err != nil {
 		return false, err
 	}
@@ -174,4 +193,22 @@ func (ms motionService) Move(
 		}
 	}
 	return true, nil
+}
+
+func (ms *motionService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+) (*referenceframe.PoseInFrame, error) {
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
+	}
+	return ms.fsSvc.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(
+			componentName.Name,
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+		),
+		destinationFrame,
+	)
 }

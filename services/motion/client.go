@@ -75,3 +75,18 @@ func (c *client) Move(
 	}
 	return resp.Success, nil
 }
+
+func (c *client) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+) (*referenceframe.PoseInFrame, error) {
+	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
+		ComponentName:    protoutils.ResourceNameToProto(componentName),
+		DestinationFrame: destinationFrame,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}

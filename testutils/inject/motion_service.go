@@ -18,6 +18,11 @@ type MotionService struct {
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
+	GetPoseFunc func(
+		ctx context.Context,
+		componentName resource.Name,
+		destinationFrame string,
+	) (*referenceframe.PoseInFrame, error)
 }
 
 // Move calls the injected Move or the real variant.
@@ -31,4 +36,16 @@ func (mgs *MotionService) Move(
 		return mgs.Service.Move(ctx, componentName, grabPose, obstacles)
 	}
 	return mgs.MoveFunc(ctx, componentName, grabPose, obstacles)
+}
+
+// GetPose calls the injected GetPose or the real variant.
+func (mgs *MotionService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+) (*referenceframe.PoseInFrame, error) {
+	if mgs.GetPoseFunc == nil {
+		return mgs.Service.GetPose(ctx, componentName, destinationFrame)
+	}
+	return mgs.GetPoseFunc(ctx, componentName, destinationFrame)
 }

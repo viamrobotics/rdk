@@ -32,19 +32,18 @@
     {{ if .External }}
     <script src="/static/rdk/control.js"></script>
     <script src="/static/rdk/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/rdk/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/rdk/dls/dls.css">
     <script type="module">
-      import "/static/rdk/components/coreComponents.umd.min.js";
+      import "/static/rdk/dls/dls.umd.min.js";
     </script>
     {{ else }}
     <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
-    <link rel="stylesheet" href="/static/components/coreComponents.css">
+    <link rel="stylesheet" href="/static/dls/dls.css">
     <script type="module">
-      import "/static/components/coreComponents.umd.min.js";
+      import "/static/dls/dls.umd.min.js";
     </script>
     {{ end }}
-
     <script>
       function roundTo2Decimals(num) {
           num = Math.round(num * 100);
@@ -107,7 +106,17 @@
       }
 
       function fixInputStatus(old) {
-        return { eventsList: old["events"] || []}
+        let events = old["events"] || []
+        let eventsList = events.map(
+          e => {
+            return {
+              time: e["time"] || {},
+              event: e["event"] || "",
+              control: e["control"] || "",
+              value: e["value"] || 0.0,
+            }
+          })
+        return { eventsList: eventsList}
       }
 
       function fixMotorStatus(old) {
@@ -1557,10 +1566,10 @@
           <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
             <th>${pp.axis}</th>
             <td>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.1 )">--</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.01 )">-</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .01 )">+</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .1 )">++</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -10 )">--</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -1 )">-</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 1 )">+</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 10 )">++</button>
             </td>
             <td>${pp.pos.toFixed(2)}</td>
             <td>${pp.length}</td>

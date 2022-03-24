@@ -2,8 +2,10 @@ BIN_OUTPUT_PATH = bin/$(shell uname -s)-$(shell uname -m)
 
 # Linux always needs custom_wasmer_runtime for portability in packaging
 ifeq ("$(shell uname -s)", "Linux")
-	CGO_LDFLAGS = -lwasmer
-	TAGS = -tags="custom_wasmer_runtime"
+	ifneq ("$(shell uname -m)", "armv6l")
+		CGO_LDFLAGS = -lwasmer
+		TAGS = -tags="custom_wasmer_runtime"
+	endif
 endif
 
 PATH_WITH_TOOLS="`pwd`/bin:`pwd`/node_modules/.bin:${PATH}"
@@ -23,7 +25,7 @@ build-go: buf-go
 	CGO_LDFLAGS=$(CGO_LDFLAGS) go build $(TAGS) ./...
 
 build-web: buf-web
-	cd web/frontend/core-components && npm install && npm run build:prod
+	cd web/frontend/dls && npm install && npm run build:prod
 	cd web/frontend && npm install && npx webpack
 
 tool-install:

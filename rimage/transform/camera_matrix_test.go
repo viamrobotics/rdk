@@ -10,6 +10,7 @@ import (
 	"go.viam.com/utils/artifact"
 	"go.viam.com/utils/testutils"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 )
@@ -49,7 +50,7 @@ func TestPC1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 
-	pc.ToPCD(file)
+	pc.ToPCD(file, pointcloud.PCDAscii)
 }
 
 func TestPC2(t *testing.T) {
