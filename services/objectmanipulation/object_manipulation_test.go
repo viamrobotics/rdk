@@ -158,6 +158,56 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldBeNil)
 }
 
+func TestGetPose(t *testing.T) {
+	ctx := context.Background()
+	logger := golog.NewTestLogger(t)
+
+	cfg, err := config.Read(ctx, "data/arm_gantry.json", logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer myRobot.Close(context.Background())
+
+	svc, err := objectmanipulation.New(ctx, myRobot, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	pose, err := svc.GetPose(ctx, arm.Named("gantry1"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose.FrameName(), test.ShouldEqual, referenceframe.World)
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 1.2)
+	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
+
+	pose, err = svc.GetPose(ctx, arm.Named("arm1"), "")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose.FrameName(), test.ShouldEqual, referenceframe.World)
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 501.2)
+	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
+
+	pose, err = svc.GetPose(ctx, arm.Named("arm1"), "gantry1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose.FrameName(), test.ShouldEqual, "gantry1")
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 500)
+	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 300)
+
+	pose, err = svc.GetPose(ctx, arm.Named("gantry1"), "gantry1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose.FrameName(), test.ShouldEqual, "gantry1")
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
+
+	pose, err = svc.GetPose(ctx, arm.Named("arm1"), "arm1")
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, pose.FrameName(), test.ShouldEqual, "arm1")
+	test.That(t, pose.Pose().Point().X, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Y, test.ShouldAlmostEqual, 0)
+	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
+}
+
 const success = false
 
 type mock struct {

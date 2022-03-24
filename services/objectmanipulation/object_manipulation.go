@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
@@ -18,6 +19,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -54,6 +56,11 @@ type Service interface {
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
+	GetPose(
+		ctx context.Context,
+		componentName resource.Name,
+		destinationFrame string,
+	) (*referenceframe.PoseInFrame, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -84,15 +91,44 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
+	fsSvcIfc, err := r.ResourceByName(framesystem.Name)
+	if err != nil {
+		return nil, err
+	}
+	fsSvc, ok := fsSvcIfc.(framesystem.Service)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("framesystem.Service", fsSvcIfc)
+	}
+
 	return &objectMService{
 		r:      r,
+		fsSvc:  fsSvc,
 		logger: logger,
 	}, nil
 }
 
 type objectMService struct {
 	r      robot.Robot
+	fsSvc  framesystem.Service
 	logger golog.Logger
+}
+
+func (mgs objectMService) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+) (*referenceframe.PoseInFrame, error) {
+	if destinationFrame == "" {
+		destinationFrame = referenceframe.World
+	}
+	return mgs.fsSvc.TransformPose(
+		ctx,
+		referenceframe.NewPoseInFrame(
+			componentName.Name,
+			spatialmath.NewPoseFromPoint(r3.Vector{0, 0, 0}),
+		),
+		destinationFrame,
+	)
 }
 
 // DoGrab takes a camera point of an object's location and both moves the gripper
@@ -197,11 +233,13 @@ func (mgs objectMService) moveGripper(
 		if err != nil {
 			return err
 		}
-		goalPose = spatialmath.NewPoseFromOrientation(goalPose.Point(), armPose.Orientation())
+		goalPose = referenceframe.NewPoseInFrame(
+			goalPose.FrameName(),
+			spatialmath.NewPoseFromOrientation(goalPose.Pose().Point(), armPose.Pose().Orientation()))
 	}
 
 	// the goal is to move the gripper to goalPose (which is given in coord of frame goalFrameName).
-	output, err := solver.SolvePose(ctx, input, goalPose, gripperName, solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), gripperName, solvingFrame)
 	if err != nil {
 		return err
 	}
