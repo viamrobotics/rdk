@@ -32,6 +32,8 @@ func NewEmptyPlane() Plane {
 func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 	center := r3.Vector{}
 	if cloud == nil {
+		f := -equation[3] / (equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
+		center = r3.Vector{equation[0] * f, equation[1] * f, equation[2] * f}
 		return NewPlaneWithCenter(New(), equation, center)
 	}
 	cloud.Iterate(func(pt Point) bool {
@@ -86,9 +88,7 @@ func (p *pointcloudPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
 	if math.Abs(parallel) < 1e-6 { // the normal and line are perpendicular, will not intersect
 		return nil
 	}
-	f := -p.equation[3] / (p.equation[0]*p.equation[0] + p.equation[1]*p.equation[1] + p.equation[2]*p.equation[2])
-	pointOnPlane := r3.Vector{p.equation[0] * f, p.equation[1] * f, p.equation[2] * f}
-	w := p0.Sub(pointOnPlane)
+	w := p0.Sub(p.center)
 	fac := -w.Dot(p.Normal()) / parallel
 	result := p0.Add(line.Mul(fac))
 	return &result
