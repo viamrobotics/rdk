@@ -49,18 +49,31 @@ func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point,
 }
 
 // Normal is the normal vector of the plane.
-func (p *voxelPlane) Normal() Vec3 {
-	return Vec3(p.normal)
+func (p *voxelPlane) Normal() r3.Vector {
+	return p.normal
 }
 
 // Center is the vector that points to the center of the plane.
-func (p *voxelPlane) Center() Vec3 {
-	return Vec3(p.center)
+func (p *voxelPlane) Center() r3.Vector {
+	return p.center
 }
 
 // Offset is the vector offset of the plane from the origin.
 func (p *voxelPlane) Offset() float64 {
 	return p.offset
+}
+
+// Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.
+func (p *voxelPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
+	line := p1.Sub(p0)
+	parallel := line.Dot(p.Normal())
+	if math.Abs(parallel) < 1e-6 { // the normal and line are perpendicular, will not intersect
+		return nil
+	}
+	w := p0.Sub(p.center)
+	fac := -w.Dot(p.Normal()) / parallel
+	result := p0.Add(line.Mul(fac))
+	return &result
 }
 
 // PointCloud returns the PointCloud of the underlying points of the plane.
@@ -89,8 +102,8 @@ func (p *voxelPlane) Equation() [4]float64 {
 }
 
 // DistToPlane computes the distance between a point a plane with given normal vector and offset.
-func (p *voxelPlane) Distance(pt Vec3) float64 {
-	num := math.Abs(r3.Vector(pt).Dot(p.normal) + p.offset)
+func (p *voxelPlane) Distance(pt r3.Vector) float64 {
+	num := math.Abs(pt.Dot(p.normal) + p.offset)
 	d := 0.
 	if denom := p.normal.Norm(); denom > 0.0001 {
 		d = num / denom

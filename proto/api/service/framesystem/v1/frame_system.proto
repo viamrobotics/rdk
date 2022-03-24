@@ -45,5 +45,5 @@ message TransformPoseRequest {
 }
 
 message TransformPoseResponse {
-  common.v1.Pose pose = 1;
+  common.v1.PoseInFrame pose = 1;
 }

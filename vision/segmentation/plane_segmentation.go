@@ -182,7 +182,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		planeCloudCenter = planeCloudCenter.Mul(1. / float64(planeCloud.Size()))
 	}
 
-	plane := pc.NewPlaneWithCenter(planeCloud, bestEquation, pc.Vec3(planeCloudCenter))
+	plane := pc.NewPlaneWithCenter(planeCloud, bestEquation, planeCloudCenter)
 	return plane, nonPlaneCloud, nil
 }
 
@@ -296,7 +296,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 	aboveCloud, belowCloud := pc.New(), pc.New()
 	var err error
 	cloud.Iterate(func(pt pc.Point) bool {
-		dist := plane.Distance(pt.Position())
+		dist := plane.Distance(r3.Vector(pt.Position()))
 		if plane.Equation()[2] > 0.0 {
 			dist = -dist
 		}
@@ -318,7 +318,7 @@ func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold f
 	thresholdCloud := pc.New()
 	var err error
 	cloud.Iterate(func(pt pc.Point) bool {
-		dist := plane.Distance(pt.Position())
+		dist := plane.Distance(r3.Vector(pt.Position()))
 		if math.Abs(dist) <= threshold {
 			err = thresholdCloud.Set(pt)
 		}

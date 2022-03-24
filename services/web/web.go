@@ -19,13 +19,16 @@ import (
 	"github.com/edaniels/gostream/codec/x264"
 	streampb "github.com/edaniels/gostream/proto/stream/v1"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils"
+	"go.viam.com/utils/perf"
 	echopb "go.viam.com/utils/proto/rpc/examples/echo/v1"
 	"go.viam.com/utils/rpc"
 	echoserver "go.viam.com/utils/rpc/examples/echo/server"
 	"goji.io"
 	"goji.io/pat"
 	"golang.org/x/net/http2/h2c"
+	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/camera"
@@ -430,7 +433,22 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 		}),
 	}
 	if options.Debug {
-		rpcOpts = append(rpcOpts, rpc.WithDebug())
+		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
+
+		rpcOpts = append(rpcOpts,
+			rpc.WithDebug(),
+			rpc.WithUnaryServerInterceptor(func(
+				ctx context.Context,
+				req interface{},
+				info *googlegrpc.UnaryServerInfo,
+				handler googlegrpc.UnaryHandler,
+			) (interface{}, error) {
+				ctx, span := trace.StartSpan(ctx, fmt.Sprintf("%v", req))
+				defer span.End()
+
+				return handler(ctx, req)
+			}),
+		)
 	}
 	if options.Network.TLSConfig != nil {
 		rpcOpts = append(rpcOpts, rpc.WithInternalTLSConfig(options.Network.TLSConfig))
