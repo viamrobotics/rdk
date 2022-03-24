@@ -149,8 +149,6 @@ func (svc *DataManagerService) initializeOrUpdateCollector(componentName string,
 		}
 
 		// Otherwise, close the current collector and instantiate a new one below.
-		// TODO: Handle changed directory but equivalent capture_interval_ms/etc separately,
-		// since this would just be a call to collector.SetTarget().
 		collector.Close()
 	}
 
