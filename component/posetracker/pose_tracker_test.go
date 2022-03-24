@@ -76,7 +76,7 @@ func TestPoseTrackerName(t *testing.T) {
 			"missing name",
 			"",
 			resource.Name{
-				UUID: "064dbb8a-59a8-5d14-9be9-22eee1fab080",
+				UUID: "fc0e1802-b436-5cf8-8f4f-ebe95c57498b",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: posetracker.SubtypeName,
@@ -88,7 +88,7 @@ func TestPoseTrackerName(t *testing.T) {
 			"all fields included",
 			workingPTName,
 			resource.Name{
-				UUID: "d5c66251-4392-541b-a99d-17f535048d36",
+				UUID: "7a38ac42-06fd-5673-a124-d5ef77f504a5",
 				Subtype: resource.Subtype{
 					Type:            resource.Type{Namespace: resource.ResourceNamespaceRDK, ResourceType: resource.ResourceTypeComponent},
 					ResourceSubtype: posetracker.SubtypeName,

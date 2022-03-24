@@ -2,6 +2,7 @@ package framesystem
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -56,6 +58,7 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
+	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (spatialmath.Pose, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -145,4 +148,44 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 		}
 	}
 	return fsConfig, nil
+}
+
+// TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
+func (svc *frameSystemService) TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (spatialmath.Pose, error) {
+	svc.mu.RLock()
+	defer svc.mu.RUnlock()
+
+	fs, err := svc.r.FrameSystem(ctx, "", "")
+	if err != nil {
+		return nil, err
+	}
+	// get the initial inputs
+	input := referenceframe.StartPositions(fs)
+
+	// build maps of relevant components and inputs from initial inputs
+	for name, original := range input {
+		// determine frames to skip
+		if len(original) == 0 {
+			continue
+		}
+
+		// add component to map
+		components := robot.AllResourcesByName(svc.r, name)
+		if len(components) != 1 {
+			return nil, fmt.Errorf("got %d resources instead of 1 for (%s)", len(components), name)
+		}
+		component, ok := components[0].(referenceframe.InputEnabled)
+		if !ok {
+			return nil, fmt.Errorf("%v(%T) is not InputEnabled", name, components[0])
+		}
+
+		// add input to map
+		pos, err := component.CurrentInputs(ctx)
+		if err != nil {
+			return nil, err
+		}
+		input[name] = pos
+	}
+
+	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
