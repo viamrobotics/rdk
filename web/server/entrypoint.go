@@ -468,6 +468,7 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			// override
 			options.Network.TLSConfig = tlsConfig
 
+			// NOTE(RDK-148):
 			// when we are managed and no explicit bind address is set,
 			// we will listen everywhere on 8080. We assume this to be
 			// secure because TLS will be enabled in addition to
@@ -505,6 +506,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			cfg.Cloud.ID,
 			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
 		)}
+		if cfg.Cloud.SignalingInsecure {
+			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
+		}
 		if argsParsed.AllowInsecureCreds {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 		}
