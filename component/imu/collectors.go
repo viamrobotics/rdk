@@ -32,7 +32,7 @@ func (m method) String() string {
 
 func newReadOrientationCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	imu, err := ensureIMU(resource)
+	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func newReadOrientationCollector(resource interface{}, name string, interval tim
 
 func newReadAccelerationCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
-	imu, err := ensureIMU(resource)
+	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func newReadAccelerationCollector(resource interface{}, name string, interval ti
 
 func newReadAngularVelocityCollector(resource interface{}, name string, interval time.Duration,
 	params map[string]string, target *os.File, logger golog.Logger) (data.Collector, error) {
-	imu, err := ensureIMU(resource)
+	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,7 @@ func newReadAngularVelocityCollector(resource interface{}, name string, interval
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
 
-func ensureIMU(resource interface{}) (IMU, error) {
+func assertIMU(resource interface{}) (IMU, error) {
 	imu, ok := resource.(IMU)
 	if !ok {
 		return nil, data.InvalidInterfaceErr(SubtypeName)
