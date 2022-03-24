@@ -20,10 +20,10 @@ import (
 //     ensureMsgCount(msgCount, expCount, MOE)
 
 func TestDataManagerFile(t *testing.T) {
-	subInterval := 10 * time.Second
+	subInterval := 1 * time.Second
 	captureRate := time.Millisecond
 	capturesPerSubInt := float64(subInterval / captureRate)
-	marginOfError := 0.05
+	marginOfError := 0.03
 
 	file, err := os.Open("/tmp/capture/arm/arm1/2022-03-24T11:15:36.783116-04:00")
 	if err != nil {
