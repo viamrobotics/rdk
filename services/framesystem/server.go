@@ -8,7 +8,6 @@ import (
 
 	pb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -78,5 +77,5 @@ func (server *subtypeServer) TransformPose(
 	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
 	transformedPose, err := svc.TransformPose(ctx, pF, dst)
 
-	return &pb.TransformPoseResponse{Pose: spatialmath.PoseToProtobuf(transformedPose)}, err
+	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
