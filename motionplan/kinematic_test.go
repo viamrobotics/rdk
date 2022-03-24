@@ -155,7 +155,7 @@ func TestDeriv(t *testing.T) {
 func TestDynamicFrameSystemXArm(t *testing.T) {
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(model, fs.World())
 
@@ -181,13 +181,13 @@ func TestDynamicFrameSystemXArm(t *testing.T) {
 			[]float64{math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2, math.Pi / 2, -math.Pi / 2})
 	transformPoint2, err :=
 		fs.TransformFrame(positions, "xArm6", frame.World)
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint2.Pose().Point().X, test.ShouldAlmostEqual, pointWorld2.X)
 	test.That(t, transformPoint2.Pose().Point().Y, test.ShouldAlmostEqual, pointWorld2.Y)
 	test.That(t, transformPoint2.Pose().Point().Z, test.ShouldAlmostEqual, pointWorld2.Z)
 
 	transformPoint3, err := fs.TransformFrame(positions, frame.World, "xArm6")
-	test.That(t, err, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	test.That(t, transformPoint3.Pose().Point().X, test.ShouldAlmostEqual, pointXarm.X)
 	test.That(t, transformPoint3.Pose().Point().Y, test.ShouldAlmostEqual, pointXarm.Y)
 	test.That(t, transformPoint3.Pose().Point().Z, test.ShouldAlmostEqual, pointXarm.Z)
@@ -216,7 +216,7 @@ func TestComplicatedDynamicFrameSystem(t *testing.T) {
 	fs.AddFrame(gantryY, gantryX)
 
 	// xarm on gantry
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	fs.AddFrame(modelXarm, gantryY)
 
