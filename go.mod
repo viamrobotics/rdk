@@ -32,6 +32,7 @@ require (
 	github.com/kellydunn/golang-geo v0.7.0
 	github.com/lmittmann/ppm v1.0.0
 	github.com/lucasb-eyer/go-colorful v1.2.0
+	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
@@ -53,10 +54,11 @@ require (
 	go.uber.org/zap v1.21.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.4-0.20220317175033-c39998dca2ce
+	go.viam.com/utils v0.0.4-0.20220323205102-930dc7ff58fc
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.8.2
 	gonum.org/v1/plot v0.8.1
 	google.golang.org/genproto v0.0.0-20220228195345-15d65a4533f7
@@ -188,7 +190,6 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
-	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/dots v0.0.0-20210922191527-e955255bf517 // indirect
 	github.com/mgechev/revive v1.1.2 // indirect
@@ -276,7 +277,6 @@ require (
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 // indirect
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/text v0.3.7 // indirect
