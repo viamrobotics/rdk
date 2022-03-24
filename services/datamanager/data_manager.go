@@ -19,29 +19,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// SubtypeName is the name of the type of service.
-const SubtypeName = resource.SubtypeName("data_manager")
-
-// Subtype is a constant that identifies the data manager service resource subtype.
-var Subtype = resource.NewSubtype(
-	resource.ResourceNamespaceRDK,
-	resource.ResourceTypeService,
-	SubtypeName,
-)
-
-type ComponentAttributes struct {
-	Type              string            `json:"type"`
-	Method            string            `json:"method"`
-	CaptureIntervalMs int               `json:"capture_interval_ms"`
-	AdditionalParams  map[string]string `json:"additional_params"`
-}
-
-// Config describes how to configure the service.
-type Config struct {
-	CaptureDir          string                         `json:"capture_dir"`
-	ComponentAttributes map[string]ComponentAttributes `json:"component_attributes"`
-}
-
 func init() {
 	registry.RegisterService(Subtype, registry.Service{
 		Constructor: func(ctx context.Context, r robot.Robot, c config.Service, logger golog.Logger) (interface{}, error) {
@@ -65,25 +42,30 @@ func init() {
 // DataManager defines what a Data Manager Service should be able to do.
 type DataManager interface{}
 
-// FromRobot retrieves the data manager service of a robot.
-func FromRobot(r robot.Robot) (DataManager, error) {
-	resource, err := r.ResourceByName(Name)
-	if err != nil {
-		return nil, err
-	}
-	svc, ok := resource.(DataManager)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("datamanager.Service", resource)
-	}
-	return svc, nil
-}
+// SubtypeName is the name of the type of service.
+const SubtypeName = resource.SubtypeName("data_manager")
+
+// Subtype is a constant that identifies the data manager service resource subtype.
+var Subtype = resource.NewSubtype(
+	resource.ResourceNamespaceRDK,
+	resource.ResourceTypeService,
+	SubtypeName,
+)
 
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-// Validate ensures all parts of the config are valid.
-func (config *Config) Validate(path string) error {
-	return nil
+type ComponentAttributes struct {
+	Type              string            `json:"type"`
+	Method            string            `json:"method"`
+	CaptureIntervalMs int               `json:"capture_interval_ms"`
+	AdditionalParams  map[string]string `json:"additional_params"`
+}
+
+// Config describes how to configure the service.
+type Config struct {
+	CaptureDir          string                         `json:"capture_dir"`
+	ComponentAttributes map[string]ComponentAttributes `json:"component_attributes"`
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
@@ -100,17 +82,17 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 	return dataManagerSvc, nil
 }
 
-type CollectorParams struct {
-	Collector  data.Collector
-	Attributes ComponentAttributes
-	CaptureDir string
-}
-
 type DataManagerService struct {
 	r          robot.Robot
 	logger     golog.Logger
 	captureDir string
 	collectors map[ComponentMethodMetadata]CollectorParams
+}
+
+type CollectorParams struct {
+	Collector  data.Collector
+	Attributes ComponentAttributes
+	CaptureDir string
 }
 
 type ComponentMethodMetadata struct {
@@ -122,11 +104,13 @@ func getDurationMs(captureIntervalMs int) time.Duration {
 	return time.Duration(int64(time.Millisecond) * int64(captureIntervalMs))
 }
 
+// Create a filename based on the current time.
 func getFileTimestampName() string {
 	// RFC3339Nano is a standard time format e.g. 2006-01-02T15:04:05Z07:00.
 	return time.Now().Format(time.RFC3339Nano)
 }
 
+// Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
 	fileDir := filepath.Join(captureDir, subtypeName, componentName)
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
@@ -136,6 +120,7 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 	return os.Create(fileName)
 }
 
+// Initialize a collector for the component/method or update it if it has previously been created.
 func (svc *DataManagerService) initializeOrUpdateCollector(componentName string, attributes ComponentAttributes, updateCaptureDir bool) error {
 	// Create component/method metadata to check if the collector exists.
 	subtypeName := resource.SubtypeName(attributes.Type)
