@@ -8,6 +8,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -96,6 +97,9 @@ func newJoinPointCloudSource(r robot.Robot, attrs *JoinAttrs) (camera.Camera, er
 // NextPointCloud gets all the point clouds from the source cameras,
 // and puts the points in one point cloud in the frame of targetFrame.
 func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
+	defer span.End()
+
 	pcTo := pointcloud.New()
 	fs, err := jpcs.robot.FrameSystem(ctx, "join_cameras", "")
 	if err != nil {
@@ -106,8 +110,11 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		return nil, err
 	}
 	for i, cam := range jpcs.sourceCameras {
-		var err error
-		pcSrc, err := cam.NextPointCloud(ctx)
+		pcSrc, err := func() (pointcloud.PointCloud, error) {
+			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i]+"-NextPointCloud")
+			defer span.End()
+			return cam.NextPointCloud(ctx)
+		}()
 		if err != nil {
 			return nil, err
 		}
