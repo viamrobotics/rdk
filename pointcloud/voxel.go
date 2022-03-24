@@ -65,15 +65,12 @@ func (p *voxelPlane) Offset() float64 {
 
 // Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.
 func (p *voxelPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
-	equation := p.Equation()
 	line := p1.Sub(p0)
 	parallel := line.Dot(p.Normal())
 	if math.Abs(parallel) < 1e-6 { // the normal and line are perpendicular, will not intersect
 		return nil
 	}
-	f := -equation[3] / (equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
-	pointOnPlane := r3.Vector{equation[0] * f, equation[1] * f, equation[2] * f}
-	w := p0.Sub(pointOnPlane)
+	w := p0.Sub(p.center)
 	fac := -w.Dot(p.Normal()) / parallel
 	result := p0.Add(line.Mul(fac))
 	return &result
