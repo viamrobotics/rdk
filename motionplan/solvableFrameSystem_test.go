@@ -62,7 +62,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	pointXarmGripper := spatial.NewPoseFromPoint(r3.Vector{157., -50, -288})
 	transformPoint, err := solver.TransformFrame(positions, "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincident(transformPoint.Pose(), pointXarmGripper), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincident(transformPoint, pointXarmGripper), test.ShouldBeTrue)
 
 	// Set a goal such that the gantry and arm must both be used to solve
 	goal1 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
@@ -84,7 +84,7 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose, err := solver.TransformFrame(newPos[len(newPos)-1], "xArmVgripper", frame.World)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose.Pose(), goal1, 0.01), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal1, 0.01), test.ShouldBeTrue)
 
 	// Solve such that the ur5 and xArm are pointing at each other, 60mm from gripper to camera
 	goal2 := spatial.NewPoseFromProtobuf(&commonpb.Pose{
@@ -110,8 +110,8 @@ func TestFrameSystemSolver(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	solvedPose2, err := solver.TransformFrame(newPos[len(newPos)-1], "urCamera", "xArmVgripper")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose.Pose(), goal2, 0.1), test.ShouldBeTrue)
-	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose2.Pose(), goal2, 0.1), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose, goal2, 0.1), test.ShouldBeTrue)
+	test.That(t, spatial.PoseAlmostCoincidentEps(solvedPose2, goal2, 0.1), test.ShouldBeTrue)
 }
 
 func TestSliceUniq(t *testing.T) {

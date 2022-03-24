@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/objectmanipulation"
 )
 
@@ -18,11 +17,6 @@ type ObjectManipulationService struct {
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
-	GetPoseFunc func(
-		ctx context.Context,
-		componentName resource.Name,
-		destinationFrame string,
-	) (*referenceframe.PoseInFrame, error)
 }
 
 // DoGrab calls the injected DoGrab or the real variant.
@@ -36,16 +30,4 @@ func (mgs *ObjectManipulationService) DoGrab(
 		return mgs.Service.DoGrab(ctx, gripperName, grabPose, obstacles)
 	}
 	return mgs.DoGrabFunc(ctx, gripperName, grabPose, obstacles)
-}
-
-// GetPose calls the injected GetPose or the real variant.
-func (mgs *ObjectManipulationService) GetPose(
-	ctx context.Context,
-	componentName resource.Name,
-	destinationFrame string,
-) (*referenceframe.PoseInFrame, error) {
-	if mgs.GetPoseFunc == nil {
-		return mgs.Service.GetPose(ctx, componentName, destinationFrame)
-	}
-	return mgs.GetPoseFunc(ctx, componentName, destinationFrame)
 }
