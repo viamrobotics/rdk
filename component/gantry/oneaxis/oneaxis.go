@@ -244,7 +244,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 0.2*g.lengthMm)
+	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 2)
 	if err != nil {
 		return err
 	}
