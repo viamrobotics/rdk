@@ -67,6 +67,42 @@ func local_request_ObjectManipulationService_DoGrab_0(ctx context.Context, marsh
 
 }
 
+var (
+	filter_ObjectManipulationService_GetPose_0 = &utilities.DoubleArray{Encoding: map[string]int{}, Base: []int(nil), Check: []int(nil)}
+)
+
+func request_ObjectManipulationService_GetPose_0(ctx context.Context, marshaler runtime.Marshaler, client ObjectManipulationServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GetPoseRequest
+	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ObjectManipulationService_GetPose_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.GetPose(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+func local_request_ObjectManipulationService_GetPose_0(ctx context.Context, marshaler runtime.Marshaler, server ObjectManipulationServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GetPoseRequest
+	var metadata runtime.ServerMetadata
+
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_ObjectManipulationService_GetPose_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := server.GetPose(ctx, &protoReq)
+	return msg, metadata, err
+
+}
+
 // RegisterObjectManipulationServiceHandlerServer registers the http handlers for service ObjectManipulationService to "mux".
 // UnaryRPC     :call ObjectManipulationServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -93,6 +129,29 @@ func RegisterObjectManipulationServiceHandlerServer(ctx context.Context, mux *ru
 		}
 
 		forward_ObjectManipulationService_DoGrab_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("GET", pattern_ObjectManipulationService_GetPose_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/pose"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_ObjectManipulationService_GetPose_0(rctx, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ObjectManipulationService_GetPose_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -157,13 +216,37 @@ func RegisterObjectManipulationServiceHandlerClient(ctx context.Context, mux *ru
 
 	})
 
+	mux.Handle("GET", pattern_ObjectManipulationService_GetPose_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.objectmanipulation.v1.ObjectManipulationService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/pose"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_ObjectManipulationService_GetPose_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_ObjectManipulationService_GetPose_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	return nil
 }
 
 var (
 	pattern_ObjectManipulationService_DoGrab_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_manipulation", "do_grab"}, ""))
+
+	pattern_ObjectManipulationService_GetPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_manipulation", "pose"}, ""))
 )
 
 var (
 	forward_ObjectManipulationService_DoGrab_0 = runtime.ForwardResponseMessage
+
+	forward_ObjectManipulationService_GetPose_0 = runtime.ForwardResponseMessage
 )

@@ -26,14 +26,14 @@ type FrameSystem interface {
 
 	// TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
 	// is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-	TransformFrame(positions map[string][]Input, src, dst string) (spatial.Pose, error)
+	TransformFrame(positions map[string][]Input, src, dst string) (*PoseInFrame, error)
 	GeometriesOfFrame(positions map[string][]Input, src, dst string) (map[string]spatial.Geometry, error)
 	TransformPoint(positions map[string][]Input, point r3.Vector, src, dst string) (r3.Vector, error)
 
 	// TransformPose takes in a pose with respect to a source Frame, and outputs the pose with respect to the target referenceframe.
 	// Positions is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
 	// We the inputs tells us how to walk back from the input pose to the target pose
-	TransformPose(positions map[string][]Input, pose spatial.Pose, src, dst string) (spatial.Pose, error)
+	TransformPose(positions map[string][]Input, pose spatial.Pose, src, dst string) (*PoseInFrame, error)
 
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
@@ -159,7 +159,7 @@ func (sfs *simpleFrameSystem) AddFrame(frame, parent Frame) error {
 
 // TransformFrame takes in a source and destination frame, and returns the pose from the first to the second. Positions
 // is a map of inputs for any frames with non-zero DOF, with slices of inputs keyed to the frame name.
-func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, src, dst string) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) TransformFrame(positions map[string][]Input, src, dst string) (*PoseInFrame, error) {
 	if !sfs.frameExists(src) {
 		return nil, fmt.Errorf("source frame %s not found in FrameSystem", src)
 	}
@@ -191,10 +191,10 @@ func (sfs *simpleFrameSystem) TransformPoint(positions map[string][]Input, point
 		return r3.Vector{}, err
 	}
 
-	return tf.Point(), nil
+	return tf.Pose().Point(), nil
 }
 
-func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, src, dst string) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose spatial.Pose, src, dst string) (*PoseInFrame, error) {
 	// Turn pose into an anonymous Frame
 	poseFrame, err := NewStaticFrame("", pose)
 	if err != nil {
@@ -365,7 +365,7 @@ func (sfs *simpleFrameSystem) getTargetParentTransform(inputMap map[string][]Inp
 }
 
 // Returns the relative pose between two frames.
-func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (spatial.Pose, error) {
+func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, src, srcParent, dst Frame) (*PoseInFrame, error) {
 	// catch all errors together to for allow hypothetical calculations that result in errors
 	var errAll error
 	toTarget, err := sfs.getTargetParentTransform(inputMap, dst)
@@ -379,7 +379,7 @@ func (sfs *simpleFrameSystem) transformFromParent(inputMap map[string][]Input, s
 	}
 
 	// transform from source to world, world to target
-	return spatial.Compose(spatial.Compose(toTarget, fromParent), pose), errAll
+	return &PoseInFrame{dst.Name(), spatial.Compose(spatial.Compose(toTarget, fromParent), pose)}, errAll
 }
 
 // Returns the relative pose between two frames.
