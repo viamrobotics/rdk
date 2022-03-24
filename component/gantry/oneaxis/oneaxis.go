@@ -244,7 +244,7 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	x := g.rotationalToLinear(ctx, []float64{0.8 * g.lengthMm})
+	x := g.rotationalToLinear(0.8 * g.lengthMm)
 	err = g.motor.GoTo(ctx, g.rpm, x)
 	if err != nil {
 		return err
@@ -281,11 +281,11 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 	return nil
 }
 
-func (g *oneAxis) rotationalToLinear(ctx context.Context, positions []float64) float64 {
+func (g *oneAxis) rotationalToLinear(positions float64) float64 {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
-	x := positions[0] / g.lengthMm
+	x := positions / g.lengthMm
 	x = g.positionLimits[0] + (x * theRange)
-	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions[0], x)
+	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions, x)
 
 	return x
 }
@@ -381,7 +381,6 @@ func (g *oneAxis) GetLengths(ctx context.Context) ([]float64, error) {
 
 // MoveToPosition moves along an axis using inputs in millimeters.
 func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
-
 	if len(positions) != 1 {
 		return fmt.Errorf("oneAxis gantry MoveToPosition needs 1 position, got: %v", len(positions))
 	}
@@ -390,7 +389,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, obsta
 		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.lengthMm)
 	}
 
-	x := g.rotationalToLinear(ctx, positions)
+	x := g.rotationalToLinear(positions[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	hit, err := g.limitHit(ctx, true)
