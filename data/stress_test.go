@@ -20,7 +20,7 @@ import (
 //     ensureMsgCount(msgCount, expCount, MOE)
 
 func TestDataManagerFile(t *testing.T) {
-	subInterval := time.Second
+	subInterval := 10 * time.Second
 	captureRate := time.Millisecond
 	capturesPerSubInt := float64(subInterval / captureRate)
 	marginOfError := 0.05
@@ -52,6 +52,8 @@ func TestDataManagerFile(t *testing.T) {
 				t.Fatalf("msgCount outside of margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
 			}
 			t.Logf("msgCount within margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
+			subIntervalStart = next
+			msgCount = 0
 		}
 	}
 	fmt.Println("yay, passed")
