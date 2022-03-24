@@ -63,3 +63,19 @@ func (server *subtypeServer) Config(
 	}
 	return &pb.ConfigResponse{FrameSystemConfigs: configs}, nil
 }
+
+func (server *subtypeServer) TransformPose(
+	ctx context.Context,
+	req *pb.TransformPoseRequest,
+) (*pb.TransformPoseResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+
+	dst := req.Destination
+	pF := referenceframe.ProtobufToPoseInFrame(req.Source)
+	transformedPose, err := svc.TransformPose(ctx, pF, dst)
+
+	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
+}

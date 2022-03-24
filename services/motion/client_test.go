@@ -6,12 +6,14 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
 	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
+	"go.viam.com/rdk/component/arm"
 	viamgrpc "go.viam.com/rdk/grpc"
 	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -69,10 +71,25 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return success, nil
 		}
+		injectMS.GetPoseFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destinationFrame string,
+		) (*referenceframe.PoseInFrame, error) {
+			return referenceframe.NewPoseInFrame(
+				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
+		}
 
 		result, err := client.Move(context.Background(), resourceName, grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
+
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo")
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
+		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
+		test.That(t, poseResult.Pose().Point().Y, test.ShouldEqual, 2)
+		test.That(t, poseResult.Pose().Point().Z, test.ShouldEqual, 3)
 
 		test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
 	})
@@ -94,10 +111,20 @@ func TestClient(t *testing.T) {
 		) (bool, error) {
 			return false, passedErr
 		}
+		passedErr = errors.New("fake GetPose error")
+		injectMS.GetPoseFunc = func(
+			ctx context.Context,
+			componentName resource.Name,
+			destinationFrame string,
+		) (*referenceframe.PoseInFrame, error) {
+			return nil, passedErr
+		}
 
 		resp, err := client2.Move(context.Background(), resourceName, grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
+		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo")
+		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})
 }

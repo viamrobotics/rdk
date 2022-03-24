@@ -53,3 +53,16 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 	}
 	return &pb.MoveResponse{Success: success}, nil
 }
+
+func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest) (*pb.GetPoseResponse, error) {
+	svc, err := server.service()
+	if err != nil {
+		return nil, err
+	}
+
+	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(pose)}, nil
+}
