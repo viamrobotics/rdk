@@ -84,6 +84,7 @@ func TestInit(t *testing.T) {
 }.
 */
 func TestOneMove(t *testing.T) {
+	t.Skip()
 	logger := golog.NewTestLogger(t)
 	state := boardStateGuesser{}
 
@@ -118,6 +119,7 @@ func TestOneMove(t *testing.T) {
 }
 
 func TestWristDepth1(t *testing.T) {
+	t.Skip()
 	dm, err := rimage.ParseDepthMap(artifact.MustPath("samples/chess/wristdepth1.dat.gz"))
 	test.That(t, err, test.ShouldBeNil)
 
