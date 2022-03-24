@@ -33,6 +33,7 @@ func createFakeMotor() *inject.Motor {
 
 	fakeMotor.ResetZeroPositionFunc = func(ctx context.Context, offset float64) error { return nil }
 
+	fakeMotor.GoToFunc = func(ctx context.Context, rpm float64, position float64) error { return nil }
 	fakeMotor.GoForFunc = func(ctx context.Context, rpm float64, revolutions float64) error { return nil }
 
 	fakeMotor.StopFunc = func(ctx context.Context) error { return nil }

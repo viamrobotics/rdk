@@ -57,7 +57,7 @@ func Named(name string) resource.Name {
 type GPS interface {
 	ReadLocation(ctx context.Context) (*geo.Point, error) // The current latitude and longitude
 	ReadAltitude(ctx context.Context) (float64, error)    // The current altitude in meters
-	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in kph
+	ReadSpeed(ctx context.Context) (float64, error)       // Current ground speed in mm per sec
 }
 
 // A LocalGPS represents a GPS that can report accuracy, satellites and valid measurements.
