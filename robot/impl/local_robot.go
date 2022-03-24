@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
@@ -38,7 +39,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name}
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -228,6 +229,22 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
+// ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
+type ConfigUpdateable interface {
+	// Update updates the resource
+	Update(context.Context, config.Service) error
+}
+
+// Get the config associated with the service resource.
+func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
+	for _, c := range cfg.Services {
+		if c.ResourceName() == name {
+			return c, nil
+		}
+	}
+	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+}
+
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
@@ -244,10 +261,17 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		if err != nil {
 			return utils.NewResourceNotFoundError(name)
 		}
-		updateable, ok := svc.(resource.Updateable)
-		if ok {
+		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
+			}
+		}
+		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+			serviceConfig, err := getServiceConfig(r.config, name)
+			if err == nil {
+				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
+					return err
+				}
 			}
 		}
 	}
