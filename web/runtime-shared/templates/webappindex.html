@@ -768,7 +768,7 @@
                       var data = segment.getPointCloud_asB64();
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                       var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var p = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       console.log(p);
                       setPoint(p);
                       setBoundingBox(box, p);
@@ -778,7 +778,7 @@
                   doPointLoad : function(i){
                       var segment = theData.objects[i];
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var p = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       console.log(p);
                       setPoint(p);
                   },
@@ -786,7 +786,7 @@
                       var segment = theData.objects[i];
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                       var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                      var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var centerP = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       setBoundingBox(box, centerP);
                   },
                   doPCDLoad : function(data){
