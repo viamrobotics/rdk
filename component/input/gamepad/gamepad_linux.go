@@ -111,7 +111,8 @@ type Mapping struct {
 }
 
 func timevaltoTime(timeVal syscall.Timeval) time.Time {
-	return time.Unix(timeVal.Sec, timeVal.Usec*1000)
+	//nolint:unconvert
+	return time.Unix(int64(timeVal.Sec), int64(timeVal.Usec*1000))
 }
 
 func scaleAxis(x int32, inMin int32, inMax int32, outMin float64, outMax float64) float64 {
