@@ -352,7 +352,7 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, 
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
-	pc := pointcloud.New()
+	pc := pointcloud.NewWithPrealloc((endY - startY) * (endX - startX))
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
 			px, py, pz := pci.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
