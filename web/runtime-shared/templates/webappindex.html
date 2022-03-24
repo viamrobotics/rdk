@@ -1566,10 +1566,10 @@
           <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
             <th>${pp.axis}</th>
             <td>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.1 )">--</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.01 )">-</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .01 )">+</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .1 )">++</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -10 )">--</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -1 )">-</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 1 )">+</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 10 )">++</button>
             </td>
             <td>${pp.pos.toFixed(2)}</td>
             <td>${pp.length}</td>
