@@ -257,7 +257,6 @@ func (r *localRobot) updateDefaultServices(ctx context.Context, cfg *config.Conf
 		resources[n] = res
 	}
 	for _, name := range defaultSvc {
-		r.logger.Debugf(name.Name)
 		svc, err := r.ResourceByName(name)
 		if err != nil {
 			return utils.NewResourceNotFoundError(name)
