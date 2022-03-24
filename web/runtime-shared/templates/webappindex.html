@@ -703,7 +703,7 @@
                       }
 
                   },
-                  doPCDGrab : function(){
+                  doPCDMove : function(){
                       let gripperName = theApp.filterResources("rdk", "component", "gripper")[0].name;
                       let armName = theApp.filterResources("rdk", "component", "arm")[0].name;
                       let cameraName = pcdGlobal.cameraName;
@@ -711,7 +711,7 @@
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new objectManipulationApi.DoGrabRequest();
+                      let req = new motionApi.MoveRequest();
                       let cameraPoint = new commonApi.Vector3();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
@@ -721,15 +721,15 @@
                       req.setCameraName(cameraName);
                       req.setCameraPoint(cameraPoint);
                       req.setGripperName(gripperName);
-                      console.log("making grab attempt using " + gripperName);
+                      console.log("making move attempt using " + gripperName);
 
-                      objectManipulationService.doGrab(req, {},
+                      motionService.Move(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
                             return Promise.reject(err);
                           }
-                          return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
+                          return Promise.resolve(resp).then(console.log("move success: "+resp.getSuccess()));
                       })
                   },
                   findSegments : function(segmenterName, segmenterParams){
@@ -1848,7 +1848,7 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    <button v-on:click="doPCDGrab">Grab</button>
+                    <button v-on:click="doPCDMove">Move</button>
                   </td>
                 </tr>
               </table>
