@@ -12,7 +12,7 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
-//MergePointClouds takes a slice of points clouds and adds all their points to one point cloud.
+// MergePointClouds takes a slice of points clouds and adds all their points to one point cloud.
 func MergePointClouds(clouds []PointCloud) (PointCloud, error) {
 	if len(clouds) == 0 {
 		return nil, errors.New("no point clouds to merge")
