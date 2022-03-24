@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -57,7 +58,7 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
-	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
+	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (spatialmath.Pose, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -150,11 +151,7 @@ func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
-func (svc *frameSystemService) TransformPose(
-	ctx context.Context,
-	pose *referenceframe.PoseInFrame,
-	dst string,
-) (*referenceframe.PoseInFrame, error) {
+func (svc *frameSystemService) TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (spatialmath.Pose, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 

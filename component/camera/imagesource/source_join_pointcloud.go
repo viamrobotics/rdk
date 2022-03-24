@@ -132,7 +132,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 			pcSrc.Iterate(func(p pointcloud.Point) bool {
 				vec := r3.Vector(p.Position())
 
-				newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
+				newPose := spatialmath.Compose(theTransform, spatialmath.NewPoseFromPoint(vec))
 
 				newPt := p.Clone(pointcloud.Vec3(newPose.Point()))
 				err = pcTo.Set(newPt)
