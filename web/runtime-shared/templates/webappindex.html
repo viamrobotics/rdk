@@ -106,7 +106,17 @@
       }
 
       function fixInputStatus(old) {
-        return { eventsList: old["events"] || []}
+        let events = old["events"] || []
+        let eventsList = events.map(
+          e => {
+            return {
+              time: e["time"] || {},
+              event: e["event"] || "",
+              control: e["control"] || "",
+              value: e["value"] || 0.0,
+            }
+          })
+        return { eventsList: eventsList}
       }
 
       function fixMotorStatus(old) {
