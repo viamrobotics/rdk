@@ -1,4 +1,4 @@
-// Data manager service contains a service type that can be used to capture data from a robot's components.
+// Package datamanager contains a service type that can be used to capture data from a robot's components.
 package datamanager
 
 import (
