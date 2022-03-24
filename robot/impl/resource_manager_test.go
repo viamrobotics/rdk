@@ -600,7 +600,7 @@ func TestManagerAdd(t *testing.T) {
 	injectMotionService := &inject.MotionService{}
 	injectMotionService.MoveFunc = func(
 		ctx context.Context,
-		gripperName string,
+		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {

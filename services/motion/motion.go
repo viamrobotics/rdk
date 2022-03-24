@@ -99,13 +99,6 @@ func (ms motionService) Move(
 ) (bool, error) {
 	logger := ms.r.Logger()
 
-	// get specificed component to move
-	componentToMove := robot.AllResourcesByName(ms.r, componentName)
-	if len(componentToMove) != 1 {
-		return false, fmt.Errorf("got %d resources instead of 1 for (%s)", len(componentToMove), componentName)
-	}
-	logger.Debugf("using component %q", componentName)
-
 	// get goal frame
 	goalFrameName := destination.FrameName()
 	if goalFrameName == componentName.Name {
@@ -162,7 +155,7 @@ func (ms motionService) Move(
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
 	_ = obstacles // TODO(rb) incorporate obstacles into motion planning
-	output, err := solver.SolvePose(ctx, input, goalPose, componentName, solvingFrame)
+	output, err := solver.SolvePose(ctx, input, goalPose, componentName.Name, solvingFrame)
 	if err != nil {
 		return false, err
 	}
