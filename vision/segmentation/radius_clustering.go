@@ -29,6 +29,7 @@ type RadiusClusteringConfig struct {
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
+	MeanKFiltering     int     `json:"mean_k_filtering"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -41,6 +42,9 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
+	if rcc.MeanKFiltering <= 0 {
+		return errors.Errorf("mean_k_filtering must be greater than 0, got %v", rcc.MeanKFiltering)
 	}
 	return nil
 }
@@ -88,7 +92,7 @@ func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg 
 		return nil, err
 	}
 	// filter out the noise on the point cloud
-	filter, err := pc.StatisticalOutlierFilter(cfg.MinPtsInSegment, 1.25)
+	filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
 	if err != nil {
 		return nil, err
 	}
