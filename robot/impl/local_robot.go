@@ -151,7 +151,6 @@ func (r *localRobot) Logger() golog.Logger {
 
 // New returns a new robot with parts sourced from the given config.
 func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
-	logger.Info("NEW local_robot")
 	r := &localRobot{
 		manager: newResourceManager(
 			resourceManagerOptions{
@@ -206,7 +205,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 
 func (r *localRobot) newService(ctx context.Context, config config.Service) (interface{}, error) {
 	rName := config.ResourceName()
-	fmt.Println("NEW SERVICE ", rName.Subtype.String())
 	f := registry.ServiceLookup(rName.Subtype)
 	if f == nil {
 		return nil, errors.Errorf("unknown service type: %s", rName.Subtype)
