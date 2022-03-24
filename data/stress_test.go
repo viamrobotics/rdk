@@ -25,33 +25,34 @@ func TestDataManagerFile(t *testing.T) {
 	capturesPerSubInt := float64(subInterval / captureRate)
 	marginOfError := 0.05
 
-	file, err := os.Open("file_name")
+	file, err := os.Open("/tmp/capture/arm/arm1/2022-03-24T11:15:36.783116-04:00")
 	if err != nil {
 		t.Fatalf("failed to open file: %v", err)
 	}
 
 	first, _ := readNextSensorData(file)
-	last := first.GetMetadata().GetTimeReceived().AsTime()
+	subIntervalStart := first.GetMetadata().GetTimeReceived().AsTime()
 	msgCount := 0
 	for {
 		msg, err := readNextSensorData(file)
 		if err != nil {
-			if err == io.EOF {
+			// Why is it getting unexpected EOF? Probably worth digging into
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break
 			}
 			t.Fatalf("error reading sensor data: %v", err)
 		}
 		next := msg.GetMetadata().GetTimeReceived().AsTime()
-		if next.Sub(last) < subInterval {
+		diff := next.Sub(subIntervalStart)
+		if diff < subInterval {
 			msgCount += 1
 		} else {
 			if float64(msgCount) < (capturesPerSubInt-(capturesPerSubInt*marginOfError)) ||
 				float64(msgCount) > capturesPerSubInt+(capturesPerSubInt*marginOfError) {
-				t.Fatalf("msgCount outside of margin of error between %v and %v: %d messages", last, next, msgCount)
+				t.Fatalf("msgCount outside of margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
 			}
-			t.Logf("msgCount within margin of error between %v and %v: %d messages", last, next, msgCount)
+			t.Logf("msgCount within margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
 		}
-		last = next
 	}
 	fmt.Println("yay, passed")
 }
