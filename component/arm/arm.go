@@ -10,6 +10,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -39,6 +40,15 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getEndPosition.String(),
+	}, newGetEndPositionCollector)
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: getJointPositions.String(),
+	}, newGetJointPositionsCollector)
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "arm".
