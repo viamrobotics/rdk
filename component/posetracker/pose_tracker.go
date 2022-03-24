@@ -38,7 +38,7 @@ func init() {
 }
 
 // SubtypeName is a constant that identifies the component resource subtype string "posetracker".
-const SubtypeName = resource.SubtypeName("posetracker")
+const SubtypeName = resource.SubtypeName("pose_tracker")
 
 // Subtype is a constant that identifies the component resource subtype.
 var Subtype = resource.NewSubtype(
