@@ -1,4 +1,4 @@
-//go:build linux && arm64
+//go:build linux && (arm64 || arm)
 
 package piimpl
 
@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/board"

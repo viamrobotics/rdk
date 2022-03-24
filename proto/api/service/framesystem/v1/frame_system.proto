@@ -14,6 +14,12 @@ service FrameSystemService {
       get: "/viam/api/v1/service/frame_system/config"
     };
   }
+  
+  rpc TransformPose(TransformPoseRequest) returns (TransformPoseResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/frame_system/transform_pose"
+    };
+  }
 }
 
 message FrameConfig{
@@ -31,4 +37,13 @@ message ConfigRequest {}
 
 message ConfigResponse {
   repeated Config frame_system_configs = 1;
+}
+
+message TransformPoseRequest {
+  common.v1.PoseInFrame source = 1;
+  string destination = 2;
+}
+
+message TransformPoseResponse {
+  common.v1.Pose pose = 1;
 }

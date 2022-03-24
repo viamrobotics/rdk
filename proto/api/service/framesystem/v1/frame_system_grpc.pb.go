@@ -19,6 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type FrameSystemServiceClient interface {
 	Config(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
+	TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error)
 }
 
 type frameSystemServiceClient struct {
@@ -38,11 +39,21 @@ func (c *frameSystemServiceClient) Config(ctx context.Context, in *ConfigRequest
 	return out, nil
 }
 
+func (c *frameSystemServiceClient) TransformPose(ctx context.Context, in *TransformPoseRequest, opts ...grpc.CallOption) (*TransformPoseResponse, error) {
+	out := new(TransformPoseResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.service.framesystem.v1.FrameSystemService/TransformPose", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // FrameSystemServiceServer is the server API for FrameSystemService service.
 // All implementations must embed UnimplementedFrameSystemServiceServer
 // for forward compatibility
 type FrameSystemServiceServer interface {
 	Config(context.Context, *ConfigRequest) (*ConfigResponse, error)
+	TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error)
 	mustEmbedUnimplementedFrameSystemServiceServer()
 }
 
@@ -52,6 +63,9 @@ type UnimplementedFrameSystemServiceServer struct {
 
 func (UnimplementedFrameSystemServiceServer) Config(context.Context, *ConfigRequest) (*ConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Config not implemented")
+}
+func (UnimplementedFrameSystemServiceServer) TransformPose(context.Context, *TransformPoseRequest) (*TransformPoseResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TransformPose not implemented")
 }
 func (UnimplementedFrameSystemServiceServer) mustEmbedUnimplementedFrameSystemServiceServer() {}
 
@@ -84,6 +98,24 @@ func _FrameSystemService_Config_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _FrameSystemService_TransformPose_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransformPoseRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FrameSystemServiceServer).TransformPose(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.service.framesystem.v1.FrameSystemService/TransformPose",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FrameSystemServiceServer).TransformPose(ctx, req.(*TransformPoseRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // FrameSystemService_ServiceDesc is the grpc.ServiceDesc for FrameSystemService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -94,6 +126,10 @@ var FrameSystemService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Config",
 			Handler:    _FrameSystemService_Config_Handler,
+		},
+		{
+			MethodName: "TransformPose",
+			Handler:    _FrameSystemService_TransformPose_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
