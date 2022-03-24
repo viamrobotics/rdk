@@ -1,4 +1,4 @@
-package javascript_test
+package javascriptimpl_test
 
 import (
 	"fmt"
