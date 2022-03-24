@@ -2,6 +2,8 @@
 package register
 
 import (
+	// register subtypes without implementations directly
+	_ "go.viam.com/rdk/component/posetracker"
 
 	// register components.
 	_ "go.viam.com/rdk/component/arm/register"
