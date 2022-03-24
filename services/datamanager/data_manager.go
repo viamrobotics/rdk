@@ -40,7 +40,9 @@ func init() {
 }
 
 // DataManager defines what a Data Manager Service should be able to do.
-type DataManager interface{}
+type DataManager interface {
+	// TODO: Add synchronize.
+}
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("data_manager")
@@ -55,7 +57,8 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
-type ComponentAttributes struct {
+// Attributes to initialize the collector for a component.
+type componentAttributes struct {
 	Type              string            `json:"type"`
 	Method            string            `json:"method"`
 	CaptureIntervalMs int               `json:"capture_interval_ms"`
@@ -65,43 +68,46 @@ type ComponentAttributes struct {
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir          string                         `json:"capture_dir"`
-	ComponentAttributes map[string]ComponentAttributes `json:"component_attributes"`
+	ComponentAttributes map[string]componentAttributes `json:"component_attributes"`
 }
 
 var viamCaptureDotDir = filepath.Join(os.Getenv("HOME"), "capture", ".viam")
 
 // New returns a new data manager service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (DataManager, error) {
-	dataManagerSvc := &DataManagerService{
+	dataManagerSvc := &Service{
 		r:          r,
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
-		collectors: make(map[ComponentMethodMetadata]CollectorParams),
+		collectors: make(map[componentMethodMetadata]collectorParams),
 	}
 
 	return dataManagerSvc, nil
 }
 
-type DataManagerService struct {
+type Service struct {
 	r          robot.Robot
 	logger     golog.Logger
 	captureDir string
-	collectors map[ComponentMethodMetadata]CollectorParams
+	collectors map[componentMethodMetadata]collectorParams
 }
 
-type CollectorParams struct {
+// Parameters stored for each collector.
+type collectorParams struct {
 	Collector  data.Collector
-	Attributes ComponentAttributes
+	Attributes componentAttributes
 	CaptureDir string
 }
 
-type ComponentMethodMetadata struct {
+// Identifier for a particular collector: component name, component type, and method name.
+type componentMethodMetadata struct {
 	ComponentName  string
 	MethodMetadata data.MethodMetadata
 }
 
+// Get time.Duration from milliseconds.
 func getDurationMs(captureIntervalMs int) time.Duration {
-	return time.Duration(int64(time.Millisecond) * int64(captureIntervalMs))
+	return time.Millisecond * time.Duration(captureIntervalMs)
 }
 
 // Create a filename based on the current time.
@@ -113,6 +119,7 @@ func getFileTimestampName() string {
 // Create a timestamped file within the given capture directory.
 func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
 	fileDir := filepath.Join(captureDir, subtypeName, componentName)
+	//
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
@@ -121,20 +128,20 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
-func (svc *DataManagerService) initializeOrUpdateCollector(componentName string, attributes ComponentAttributes, updateCaptureDir bool) error {
+func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) error {
 	// Create component/method metadata to check if the collector exists.
 	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{
 		Subtype:    subtypeName,
 		MethodName: attributes.Method,
 	}
-	componentMetadata := ComponentMethodMetadata{
+	componentMetadata := componentMethodMetadata{
 		ComponentName:  componentName,
 		MethodMetadata: metadata,
 	}
-	if CollectorParams, ok := svc.collectors[componentMetadata]; ok {
-		collector := CollectorParams.Collector
-		previousAttributes := CollectorParams.Attributes
+	if storedCollectorParams, ok := svc.collectors[componentMetadata]; ok {
+		collector := storedCollectorParams.Collector
+		previousAttributes := storedCollectorParams.Attributes
 
 		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
 		if reflect.DeepEqual(previousAttributes, attributes) {
@@ -181,7 +188,7 @@ func (svc *DataManagerService) initializeOrUpdateCollector(componentName string,
 	if err != nil {
 		return err
 	}
-	svc.collectors[componentMetadata] = CollectorParams{collector, attributes, svc.captureDir}
+	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
 
 	// TODO: Handle err from Collect
 	// TODO: Handle deletions. Currently only handling initial instantiation and updates.
@@ -191,7 +198,7 @@ func (svc *DataManagerService) initializeOrUpdateCollector(componentName string,
 }
 
 // Update updates the data manager service when the config has changed.
-func (svc *DataManagerService) Update(ctx context.Context, config config.Service) error {
+func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	svcConfig, ok := config.ConvertedAttributes.(*Config)
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)

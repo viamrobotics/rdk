@@ -189,7 +189,7 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.
-	if err := r.updateDefaultServices(ctx, cfg); err != nil {
+	if err := r.updateDefaultServices(ctx); err != nil {
 		return nil, err
 	}
 
@@ -245,7 +245,7 @@ func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, e
 	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
 }
 
-func (r *localRobot) updateDefaultServices(ctx context.Context, cfg *config.Config) error {
+func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
 	for _, n := range r.ResourceNames() {
@@ -261,19 +261,17 @@ func (r *localRobot) updateDefaultServices(ctx context.Context, cfg *config.Conf
 		if err != nil {
 			return utils.NewResourceNotFoundError(name)
 		}
-		updateable, ok := svc.(resource.Updateable)
-		if ok {
+		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
 			}
 		}
-		config_updateable, ok := svc.(ConfigUpdateable)
-		if ok {
-			serviceConfig, err := getServiceConfig(cfg, name)
+		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+			serviceConfig, err := getServiceConfig(r.config, name)
 			if err != nil {
 				return err
 			}
-			if err := config_updateable.Update(ctx, serviceConfig); err != nil {
+			if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
 				return err
 			}
 		}
