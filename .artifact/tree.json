@@ -50079,6 +50079,16 @@
         "hash": "e09120e237eb6010ec4f9c9248abbbc0",
         "size": 1237456
       }
+    },
+    "undistort": {
+      "distorted_1280x720.jpg": {
+        "hash": "c5f62f28a30b555493c6193d366af3b5",
+        "size": 93138
+      },
+      "distorted_800x600.jpg": {
+        "hash": "427dfee172caf11c23b94cd326649e1a",
+        "size": 45268
+      }
     }
   },
   "transforms": {
