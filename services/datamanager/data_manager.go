@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"time"
 
@@ -28,10 +29,17 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
+type ComponentAttributes struct {
+	Type              string            `json:"type"`
+	Method            string            `json:"method"`
+	CaptureIntervalMs int               `json:"capture_interval_ms"`
+	AdditionalParams  map[string]string `json:"additional_params"`
+}
+
 // Config describes how to configure the service.
 type Config struct {
 	CaptureDir          string                         `json:"capture_dir"`
-	ComponentAttributes map[string]config.AttributeMap `json:"component_attributes"`
+	ComponentAttributes map[string]ComponentAttributes `json:"component_attributes"`
 }
 
 func init() {
@@ -86,22 +94,23 @@ func New(ctx context.Context, r robot.Robot, config config.Service, logger golog
 		r:          r,
 		logger:     logger,
 		captureDir: viamCaptureDotDir,
-		collectors: make(map[ComponentMethodMetadata]CollectorAndAttributes),
+		collectors: make(map[ComponentMethodMetadata]CollectorParams),
 	}
 
 	return dataManagerSvc, nil
 }
 
-type CollectorAndAttributes struct {
+type CollectorParams struct {
 	Collector  data.Collector
-	Attributes config.AttributeMap
+	Attributes ComponentAttributes
+	CaptureDir string
 }
 
 type DataManagerService struct {
 	r          robot.Robot
 	logger     golog.Logger
 	captureDir string
-	collectors map[ComponentMethodMetadata]CollectorAndAttributes
+	collectors map[ComponentMethodMetadata]CollectorParams
 }
 
 type ComponentMethodMetadata struct {
@@ -118,30 +127,47 @@ func getFileTimestampName() string {
 	return time.Now().Format(time.RFC3339Nano)
 }
 
-func createDataCaptureFile(logger golog.Logger, captureDir string, subtypeName string, componentName string) (*os.File, error) {
+func createDataCaptureFile(captureDir string, subtypeName string, componentName string) (*os.File, error) {
 	fileDir := filepath.Join(captureDir, subtypeName, componentName)
 	if err := os.MkdirAll(fileDir, 0o700); err != nil {
 		return nil, err
 	}
 	fileName := filepath.Join(fileDir, getFileTimestampName())
-	logger.Info("Writing to ", fileName) // TODO: remove this and logger param before submit
 	return os.Create(fileName)
 }
 
-func (svc *DataManagerService) initializeOrUpdateCollector(componentName string, attributes config.AttributeMap) error {
+func (svc *DataManagerService) initializeOrUpdateCollector(componentName string, attributes ComponentAttributes, updateCaptureDir bool) error {
 	// Create component/method metadata to check if the collector exists.
-	subtypeName := resource.SubtypeName(attributes.String("type"))
+	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{
 		Subtype:    subtypeName,
-		MethodName: attributes.String("method"),
+		MethodName: attributes.Method,
 	}
 	componentMetadata := ComponentMethodMetadata{
 		ComponentName:  componentName,
 		MethodMetadata: metadata,
 	}
-	// if collectorAndAttributes, ok := svc.collectors[componentMetadata]; ok {
+	if CollectorParams, ok := svc.collectors[componentMetadata]; ok {
+		collector := CollectorParams.Collector
+		previousAttributes := CollectorParams.Attributes
 
-	// }
+		// If the attributes have not changed, keep the current collector and update the target capture file if needed.
+		if reflect.DeepEqual(previousAttributes, attributes) {
+			if updateCaptureDir {
+				targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
+				if err != nil {
+					return err
+				}
+				collector.SetTarget(targetFile)
+			}
+			return nil
+		}
+
+		// Otherwise, close the current collector and instantiate a new one below.
+		// TODO: Handle changed directory but equivalent capture_interval_ms/etc separately,
+		// since this would just be a call to collector.SetTarget().
+		collector.Close()
+	}
 
 	// Get the resource corresponding to the component subtype and name.
 	subtype := resource.NewSubtype(
@@ -161,24 +187,21 @@ func (svc *DataManagerService) initializeOrUpdateCollector(componentName string,
 	}
 
 	// Parameters to initialize collector.
-	interval := getDurationMs(attributes.Int("capture_interval_ms", 0))
-	targetFile, err := createDataCaptureFile(svc.logger, svc.captureDir, attributes.String("type"), componentName)
+	interval := getDurationMs(attributes.CaptureIntervalMs)
+	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
 	if err != nil {
 		return err
 	}
-
-	additionalParams := map[string]string{} // TODO: support method-specific params.
-	logger := svc.logger                    // Or new logger for each?
 
 	// Create a collector for this resource and method.
-	collector, err := (*collectorConstructor)(res, componentName, interval, additionalParams, targetFile, logger)
+	collector, err := (*collectorConstructor)(res, componentName, interval, attributes.AdditionalParams, targetFile, svc.logger)
 	if err != nil {
 		return err
 	}
-	svc.collectors[componentMetadata] = CollectorAndAttributes{collector, attributes}
+	svc.collectors[componentMetadata] = CollectorParams{collector, attributes, svc.captureDir}
 
 	// TODO: Handle err from Collect
-	// TODO: Handle updates and deletions. Currently only handling initial instantiation.
+	// TODO: Handle deletions. Currently only handling initial instantiation and updates.
 	go collector.Collect()
 
 	return nil
@@ -190,11 +213,11 @@ func (svc *DataManagerService) Update(ctx context.Context, config config.Service
 	if !ok {
 		return utils.NewUnexpectedTypeError(svcConfig, config.ConvertedAttributes)
 	}
+	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
 
 	for componentName, attributes := range svcConfig.ComponentAttributes {
-		svc.logger.Info("initializing ", componentName) // TODO: remove before submit
-		if err := svc.initializeOrUpdateCollector(componentName, attributes); err != nil {
+		if err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir); err != nil {
 			return err
 		}
 	}

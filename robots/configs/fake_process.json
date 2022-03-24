@@ -126,16 +126,6 @@
                 "world"
             ],
             "one_shot": true
-        },
-        {
-            "id": "2",
-            "name": "bash",
-            "args":
-            [
-                "-c",
-                "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
-            ],
-            "log": true
         }
     ],
     "functions":
@@ -161,24 +151,15 @@
                     "imu1": {
                         "type": "imu",
                         "method": "ReadAngularVelocity",
-                        "capture_interval_ms": 5000
+                        "capture_interval_ms": 100
                     },
                     "arm1": {
                         "type": "arm",
                         "method": "GetEndPosition",
-                        "capture_interval_ms": 2500
+                        "capture_interval_ms": 200
                     }
                 }
             }
-        },
-        {
-            "type": "object_segmentation"
-        },
-        {
-            "type": "object_manipulation"
-        },
-        {
-            "type": "frame_system"
         }
     ]
 }
