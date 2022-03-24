@@ -15,6 +15,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/objectmanipulation"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
@@ -28,7 +29,15 @@ func TestDoGrabFailures(t *testing.T) {
 	// fails on not finding gripper
 
 	r := &inject.Robot{}
+	r.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
+		return &config.Config{}, nil
+	}
+	fsSvc, err := framesystem.New(context.Background(), r, cfgService, logger)
+	test.That(t, err, test.ShouldBeNil)
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		if n == framesystem.Name {
+			return fsSvc, nil
+		}
 		return nil, rutils.NewResourceNotFoundError(n)
 	}
 	mgs, err := objectmanipulation.New(context.Background(), r, cfgService, logger)
@@ -51,6 +60,9 @@ func TestDoGrabFailures(t *testing.T) {
 		return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
 	}
 	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		if n == framesystem.Name {
+			return fsSvc, nil
+		}
 		switch n.Name {
 		case "fakeArm":
 			return _arm, nil
@@ -61,7 +73,8 @@ func TestDoGrabFailures(t *testing.T) {
 		}
 	}
 
-	mgs, _ = objectmanipulation.New(context.Background(), r, cfgService, logger)
+	mgs, err = objectmanipulation.New(context.Background(), r, cfgService, logger)
+	test.That(t, err, test.ShouldBeNil)
 
 	_, err = mgs.DoGrab(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldNotBeNil)
