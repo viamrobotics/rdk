@@ -45,16 +45,16 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("motion.Service", "string"))
 
 	// error
-	injectOMS := &inject.MotionService{}
+	injectMS := &inject.MotionService{}
 	omMap = map[resource.Name]interface{}{
-		motion.Name: injectOMS,
+		motion.Name: injectMS,
 	}
 	server, err = newServer(omMap)
 	test.That(t, err, test.ShouldBeNil)
 	passedErr := errors.New("fake move error")
-	injectOMS.MoveFunc = func(
+	injectMS.MoveFunc = func(
 		ctx context.Context,
-		componentName string,
+		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {
@@ -65,9 +65,9 @@ func TestServerMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeError, passedErr)
 
 	// returns response
-	injectOMS.MoveFunc = func(
+	injectMS.MoveFunc = func(
 		ctx context.Context,
-		componentName string,
+		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {

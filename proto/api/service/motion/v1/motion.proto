@@ -18,7 +18,7 @@ service MotionService {
 
 message MoveRequest {
   common.v1.PoseInFrame destination = 1;
-  string component_name = 2;
+  common.v1.ResourceName component_name = 2;
   optional common.v1.WorldState world_state = 3;
 }
 

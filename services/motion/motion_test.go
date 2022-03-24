@@ -40,7 +40,9 @@ func TestMoveFailures(t *testing.T) {
 
 		// try move
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		_, err = ms.Move(context.Background(), "fakeGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+		name, err := resource.NewFromString("fakeCamera")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = ms.Move(context.Background(), name, grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
@@ -70,7 +72,9 @@ func TestMoveFailures(t *testing.T) {
 
 		// try move
 		badGrabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewZeroPose())
-		_, err = ms.Move(context.Background(), "fakeGripper", badGrabPose, []*referenceframe.GeometriesInFrame{})
+		name, err := resource.NewFromString("fakeGripper")
+		test.That(t, err, test.ShouldBeNil)
+		_, err = ms.Move(context.Background(), name, badGrabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
 }
@@ -90,7 +94,9 @@ func TestMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = svc.Move(ctx, "pieceGripper", grabPose, []*referenceframe.GeometriesInFrame{})
+	name, err := resource.NewFromString("pieceGripper")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = svc.Move(ctx, name, grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -109,7 +115,9 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = svc.Move(ctx, "gr", grabPose, []*referenceframe.GeometriesInFrame{})
+	name, err := resource.NewFromString("gr")
+	test.That(t, err, test.ShouldBeNil)
+	_, err = svc.Move(ctx, name, grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// remove after this
@@ -135,7 +143,9 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), "", grabPose, []*referenceframe.GeometriesInFrame{})
+	name, err := resource.NewFromString("")
+	test.That(t, err, test.ShouldBeNil)
+	result, err := svc.Move(context.Background(), name, grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, success)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
