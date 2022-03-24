@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -21,60 +22,28 @@ import (
 )
 
 func TestMoveFailures(t *testing.T) {
+	ctx := context.Background()
 	logger := golog.NewTestLogger(t)
 
-	t.Run("fail on not finding gripper", func(t *testing.T) {
-		// setup robot and service
-		r := &inject.Robot{}
-		r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-			return nil, rutils.NewResourceNotFoundError(n)
-		}
-		r.LoggerFunc = func() golog.Logger {
-			return logger
-		}
-		r.ResourceNamesFunc = func() []resource.Name {
-			return []resource.Name{}
-		}
-		ms, err := motion.New(context.Background(), r, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
+	cfg, err := config.Read(ctx, "data/arm_gantry.json", logger)
+	test.That(t, err, test.ShouldBeNil)
 
-		// try move
+	r, err := robotimpl.New(ctx, cfg, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer r.Close(context.Background())
+
+	ms, err := motion.New(context.Background(), r, config.Service{}, logger)
+	test.That(t, err, test.ShouldBeNil)
+
+	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		name, err := resource.NewFromString("fakeCamera")
-		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.Move(context.Background(), name, grabPose, []*referenceframe.GeometriesInFrame{})
+		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 
 	t.Run("fail on moving gripper with respect to gripper", func(t *testing.T) {
-		// setup robot and service
-		_arm := &inject.Arm{}
-		_gripper := &inject.Gripper{}
-		r := &inject.Robot{}
-		r.LoggerFunc = func() golog.Logger {
-			return logger
-		}
-		r.ResourceNamesFunc = func() []resource.Name {
-			return []resource.Name{arm.Named("fakeArm"), gripper.Named("fakeGripper")}
-		}
-		r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-			switch n.Name {
-			case "fakeArm":
-				return _arm, nil
-			case "fakeGripper":
-				return _gripper, nil
-			default:
-				return nil, rutils.NewResourceNotFoundError(n)
-			}
-		}
-		ms, err := motion.New(context.Background(), r, config.Service{}, logger)
-		test.That(t, err, test.ShouldBeNil)
-
-		// try move
-		badGrabPose := referenceframe.NewPoseInFrame("fakeGripper", spatialmath.NewZeroPose())
-		name, err := resource.NewFromString("fakeGripper")
-		test.That(t, err, test.ShouldBeNil)
-		_, err = ms.Move(context.Background(), name, badGrabPose, []*referenceframe.GeometriesInFrame{})
+		badGrabPose := referenceframe.NewPoseInFrame("arm1", spatialmath.NewZeroPose())
+		_, err = ms.Move(context.Background(), gripper.Named("arm1"), badGrabPose, []*referenceframe.GeometriesInFrame{})
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
 }
@@ -94,9 +63,7 @@ func TestMove(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	name, err := resource.NewFromString("pieceGripper")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = svc.Move(ctx, name, grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = svc.Move(ctx, gripper.Named("pieceGripper"), grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -115,24 +82,13 @@ func TestMultiplePieces(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	name, err := resource.NewFromString("gr")
-	test.That(t, err, test.ShouldBeNil)
-	_, err = svc.Move(ctx, name, grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = svc.Move(ctx, gripper.Named("gr"), grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// remove after this
 	theArm, _ := arm.FromRobot(myRobot, "a")
 	temp, _ := theArm.GetJointPositions(ctx)
 	logger.Debugf("end arm position; %v", temp)
-}
-
-func setupInjectRobot() (*inject.Robot, *mock) {
-	svc1 := &mock{}
-	r := &inject.Robot{}
-	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		return svc1, nil
-	}
-	return r, svc1
 }
 
 func TestFromRobot(t *testing.T) {
@@ -143,11 +99,9 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	name, err := resource.NewFromString("")
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, []*referenceframe.GeometriesInFrame{})
 	test.That(t, err, test.ShouldBeNil)
-	result, err := svc.Move(context.Background(), name, grabPose, []*referenceframe.GeometriesInFrame{})
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, result, test.ShouldEqual, success)
+	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)
 
 	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
@@ -217,7 +171,14 @@ func TestGetPose(t *testing.T) {
 	test.That(t, pose.Pose().Point().Z, test.ShouldAlmostEqual, 0)
 }
 
-const success = false
+func setupInjectRobot() (*inject.Robot, *mock) {
+	svc1 := &mock{}
+	r := &inject.Robot{}
+	r.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
+		return svc1, nil
+	}
+	return r, svc1
+}
 
 type mock struct {
 	motion.Service
@@ -226,10 +187,18 @@ type mock struct {
 
 func (m *mock) Move(
 	ctx context.Context,
-	gripperName string,
+	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
 	m.grabCount++
-	return success, nil
+	return false, nil
+}
+
+func (m *mock) GetPose(
+	ctx context.Context,
+	componentName resource.Name,
+	destinationFrame string,
+) (*referenceframe.PoseInFrame, error) {
+	return &referenceframe.PoseInFrame{}, nil
 }
