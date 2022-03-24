@@ -144,7 +144,7 @@ func (vg *VoxelGrid) LabelNonPlanarVoxels(unlabeledVoxels []VoxelCoords, dTh flo
 			for _, nb := range nbVoxels {
 				voxNb := vg.Voxels[nb]
 				if voxNb.Label > 0 {
-					d := plane.Distance(Vec3(pt))
+					d := plane.Distance(pt)
 					if d < dMin {
 						dMin = d
 						outLabel = voxNb.Label
