@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/component/gripper"
 	viamgrpc "go.viam.com/rdk/grpc"
 	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -42,7 +43,7 @@ func TestClient(t *testing.T) {
 	resourceSubtype := registry.ResourceSubtypeLookup(motion.Subtype)
 	resourceSubtype.RegisterRPCService(context.Background(), rpcServer, svc)
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	resourceName, err := resource.NewFromString("")
+	resourceName := gripper.Named("fake")
 	test.That(t, err, test.ShouldBeNil)
 
 	go rpcServer.Serve(listener1)

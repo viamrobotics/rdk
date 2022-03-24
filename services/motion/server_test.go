@@ -7,6 +7,7 @@ import (
 
 	"go.viam.com/test"
 
+	"go.viam.com/rdk/component/gripper"
 	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -27,10 +28,8 @@ func newServer(omMap map[resource.Name]interface{}) (pb.MotionServiceServer, err
 }
 
 func TestServerMove(t *testing.T) {
-	componentName, err := resource.NewFromString("fakeGripper")
-	test.That(t, err, test.ShouldBeNil)
 	grabRequest := &pb.MoveRequest{
-		ComponentName: protoutils.ResourceNameToProto(componentName),
+		ComponentName: protoutils.ResourceNameToProto(gripper.Named("fake")),
 		Destination:   referenceframe.PoseInFrameToProtobuf(referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())),
 	}
 
