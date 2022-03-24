@@ -15,11 +15,6 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
-// key is the map key used within the point cloud implementation. That is
-// we index points by their positions. This is problematic for points that
-// can mutate their own position outside the ownership of the cloud.
-type key Vec3
-
 // PCDType is the format of a pcd file.
 type PCDType int
 
@@ -101,7 +96,7 @@ type PointCloud interface {
 // basicPointCloud is the basic implementation of the PointCloud interface backed by
 // a map of points keyed by position.
 type basicPointCloud struct {
-	points     map[key]Point
+	points     storage
 	hasColor   bool
 	hasValue   bool
 	minX, maxX float64
@@ -116,8 +111,14 @@ func New() PointCloud {
 
 // NewWithPrealloc returns an empty, preallocated PointCloud backed by a basicPointCloud.
 func NewWithPrealloc(size int) PointCloud {
+	var points storage
+	if size <= 0 {
+		points = &mapStorage{map[key]Point{}}
+	} else {
+		points = &arrayStorage{make([]Point, 0, size)}
+	}
 	return &basicPointCloud{
-		points: make(map[key]Point, size),
+		points: points,
 		minX:   math.MaxFloat64,
 		minY:   math.MaxFloat64,
 		minZ:   math.MaxFloat64,
@@ -128,15 +129,11 @@ func NewWithPrealloc(size int) PointCloud {
 }
 
 func (cloud *basicPointCloud) Points() []Point {
-	pts := make([]Point, 0, cloud.Size())
-	for _, v := range cloud.points {
-		pts = append(pts, v)
-	}
-	return pts
+	return cloud.points.Points()
 }
 
 func (cloud *basicPointCloud) Size() int {
-	return len(cloud.points)
+	return cloud.points.Size()
 }
 
 func (cloud *basicPointCloud) HasColor() bool {
@@ -171,8 +168,15 @@ func (cloud *basicPointCloud) MaxZ() float64 {
 	return cloud.maxZ
 }
 
+func (cloud *basicPointCloud) ensureEditable() {
+	if !cloud.points.EditSupported() {
+		cloud.points = convertToMapStorage(cloud.points)
+	}
+}
+
 func (cloud *basicPointCloud) At(x, y, z float64) Point {
-	return cloud.points[key{x, y, z}]
+	cloud.ensureEditable()
+	return cloud.points.At(x, y, z)
 }
 
 // With 64-bit floating point numbers, you get about 16 decimal digits of precision.
@@ -190,7 +194,7 @@ func newOutOfRangeErr(dim string, val float64) error {
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *basicPointCloud) Set(p Point) error {
-	cloud.points[key(p.Position())] = p
+	cloud.points.Set(p)
 	if p.HasColor() {
 		cloud.hasColor = true
 	}
@@ -230,15 +234,12 @@ func (cloud *basicPointCloud) Set(p Point) error {
 }
 
 func (cloud *basicPointCloud) Unset(x, y, z float64) {
-	delete(cloud.points, key{x, y, z})
+	cloud.ensureEditable()
+	cloud.points.Unset(x, y, z)
 }
 
 func (cloud *basicPointCloud) Iterate(fn func(p Point) bool) {
-	for _, p := range cloud.points {
-		if cont := fn(p); !cont {
-			return
-		}
-	}
+	cloud.points.Iterate(fn)
 }
 
 func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense, error) {
