@@ -10,7 +10,9 @@ import (
 	"go.viam.com/rdk/grpc"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/motion/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/resource"
 )
 
 // client is a client satisfies the motion.proto contract.
@@ -53,7 +55,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 
 func (c *client) Move(
 	ctx context.Context,
-	componentName string,
+	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
@@ -62,7 +64,7 @@ func (c *client) Move(
 		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
 	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
-		ComponentName: componentName,
+		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
 		WorldState: &commonpb.WorldState{
 			Obstacles: geometriesInFrames,

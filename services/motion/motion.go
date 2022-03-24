@@ -4,7 +4,6 @@ package motion
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
@@ -46,7 +45,7 @@ func init() {
 type Service interface {
 	Move(
 		ctx context.Context,
-		componentName string,
+		componentName resource.Name,
 		destination *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
@@ -94,7 +93,7 @@ type motionService struct {
 // Move takes a goal location and moves a component specified by its name to that destination.
 func (ms motionService) Move(
 	ctx context.Context,
-	componentName string,
+	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
@@ -109,7 +108,7 @@ func (ms motionService) Move(
 
 	// get goal frame
 	goalFrameName := destination.FrameName()
-	if goalFrameName == componentName {
+	if goalFrameName == componentName.Name {
 		return false, errors.New("cannot move component with respect to its own frame, will always be at its own origin")
 	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
@@ -128,10 +127,7 @@ func (ms motionService) Move(
 	allOriginals := map[string][]referenceframe.Input{}
 	resources := map[string]referenceframe.InputEnabled{}
 	for name, original := range input {
-		// determine frames to skip
-		if strings.HasSuffix(name, "_offset") {
-			continue
-		}
+		// skip frames with no input
 		if len(original) == 0 {
 			continue
 		}

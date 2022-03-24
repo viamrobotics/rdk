@@ -5,6 +5,7 @@ import (
 	"context"
 
 	pb "go.viam.com/rdk/proto/api/service/motion/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
@@ -46,7 +47,7 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 			return nil, err
 		}
 	}
-	success, err := svc.Move(ctx, req.GetComponentName(), referenceframe.ProtobufToPoseInFrame(req.GetDestination()), geometriesInFrames)
+	success, err := svc.Move(ctx, protoutils.ResourceNameFromProto(req.GetComponentName()), referenceframe.ProtobufToPoseInFrame(req.GetDestination()), geometriesInFrames)
 	if err != nil {
 		return nil, err
 	}
