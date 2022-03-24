@@ -235,10 +235,10 @@ type ConfigUpdateable interface {
 	Update(context.Context, config.Service) error
 }
 
-// Get the config associated with the service subtype.
+// Get the config associated with the service resource.
 func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
 	for _, c := range cfg.Services {
-		if c.ResourceName().Subtype.String() == name.Subtype.String() {
+		if c.ResourceName() == name {
 			return c, nil
 		}
 	}
