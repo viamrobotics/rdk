@@ -139,14 +139,15 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	b := c.bytes()
 	_, err := x.conn.Write(b)
 	if err != nil {
+		x.moveLock.Unlock()
 		return cmd{}, err
 	}
 
 	c2, err := x.response(ctx)
+	x.moveLock.Unlock()
 	if err != nil {
 		return cmd{}, err
 	}
-	x.moveLock.Unlock()
 
 	if checkError {
 		state := c2.params[0]
