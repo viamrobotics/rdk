@@ -140,7 +140,6 @@ func (c *collector) getAndPushNextReading() {
 	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
 	// still work when this happens.
 	case <-c.cancelCtx.Done():
-		close(c.queue)
 		return
 	case c.queue <- &msg:
 		return
