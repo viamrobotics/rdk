@@ -106,7 +106,7 @@ let connect = async (authEntity, creds) => {
 	window.inputControllerService = new InputControllerServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.motorService = new MotorServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.navigationService = new NavigationServiceClient(window.webrtcHost, { transport: transportFactory });
-	window.objectManipulationService = new MotionServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.motionService = new MotionServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.objectSegmentationService = new ObjectSegmentationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.sensorsService = new SensorsServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.servoService = new ServoServiceClient(window.webrtcHost, { transport: transportFactory });

@@ -704,26 +704,31 @@
 
                   },
                   doPCDMove : function(){
-                      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0].name;
-                      let armName = theApp.filterResources("rdk", "component", "arm")[0].name;
+                      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0];
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
                       let req = new motionApi.MoveRequest();
-                      let cameraPoint = new commonApi.Vector3();
+                      let cameraPoint = new commonApi.Pose();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
                       cameraPoint.setZ(cameraPointZ);
 
-                      req.setArmName(armName);
-                      req.setCameraName(cameraName);
-                      req.setCameraPoint(cameraPoint);
-                      req.setGripperName(gripperName);
+                      var pose = new commonApi.PoseInFrame()
+                      pose.setReferenceFrame(cameraName)
+                      pose.setPose(cameraPoint)
+                      req.setDestination(pose)
+                      let componentName = new commonApi.ResourceName();
+                      componentName.setNamespace(gripperName.namespace);
+                      componentName.setType(gripperName.type);
+                      componentName.setSubtype(gripperName.subtype);
+                      componentName.setName(gripperName.name);
+                      req.setComponentName(componentName);
                       console.log("making move attempt using " + gripperName);
 
-                      motionService.Move(req, {},
+                      motionService.move(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
