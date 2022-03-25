@@ -223,7 +223,7 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 		newCollectorMetadata[*componentMetadata] = true
 	}
 
-	// If a component/method has been removed from the config, close the collector and remove it from the cached map.
+	// If a component/method has been removed from the config, close the collector and remove it from the map.
 	for componentMetadata, params := range svc.collectors {
 		if _, present := newCollectorMetadata[componentMetadata]; !present {
 			params.Collector.Close()
