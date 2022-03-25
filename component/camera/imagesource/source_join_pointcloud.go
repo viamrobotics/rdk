@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"image"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
@@ -100,7 +102,6 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	pcTo := pointcloud.New()
 	fs, err := jpcs.robot.FrameSystem(ctx, "join_cameras", "")
 	if err != nil {
 		return nil, err
@@ -109,40 +110,77 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	if err != nil {
 		return nil, err
 	}
+
+	finalPoints := make(chan []pointcloud.Point)
+	activeReaders := int32(len(jpcs.sourceCameras))
+	
 	for i, cam := range jpcs.sourceCameras {
-		pcSrc, err := func() (pointcloud.PointCloud, error) {
-			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i]+"-NextPointCloud")
+		fmt.Printf("hi %d\n", i)
+		go func() {
+			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i])
 			defer span.End()
-			return cam.NextPointCloud(ctx)
-		}()
-		if err != nil {
-			return nil, err
-		}
-		if jpcs.sourceNames[i] == jpcs.targetName {
-			pcSrc.Iterate(func(p pointcloud.Point) bool {
-				err = pcTo.Set(p)
-				return err == nil
-			})
-		} else {
-			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[i], jpcs.targetName)
+
+			defer func() {
+				atomic.AddInt32(&activeReaders,-1)
+			}()
+			pcSrc, err := func() (pointcloud.PointCloud, error) {
+				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i]+"-NextPointCloud")
+				defer span.End()
+				return cam.NextPointCloud(ctx)
+			}()
+
 			if err != nil {
-				return nil, err
+				fmt.Println(err)
+				panic(err) // TODO fix
 			}
 
+			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[i], jpcs.targetName)
+			if err != nil {
+				fmt.Println(err)
+				panic(err)
+			}
+
+			const batchSize = 100000
+			batch := make([]pointcloud.Point, 0, batchSize)
 			pcSrc.Iterate(func(p pointcloud.Point) bool {
-				vec := r3.Vector(p.Position())
-
-				newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
-
-				newPt := p.Clone(pointcloud.Vec3(newPose.Point()))
-				err = pcTo.Set(newPt)
-				return err == nil
+				if jpcs.sourceNames[i] != jpcs.targetName {
+					vec := r3.Vector(p.Position())
+					newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
+					p = p.Clone(pointcloud.Vec3(newPose.Point()))
+				}
+				batch = append(batch, p)
+				if len(batch) > batchSize {
+					finalPoints <- batch
+					batch = make([]pointcloud.Point, 0, batchSize)
+				}
+				return true
 			})
-		}
-		if err != nil {
-			return nil, err
-		}
+			finalPoints <- batch
+		}()
 	}
+
+	pcTo := pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
+
+	for atomic.LoadInt32(&activeReaders) > 0 {
+		select {
+		case ps := <-finalPoints:
+			for _, p := range ps {
+				myErr := pcTo.Set(p)
+				if myErr != nil {
+					err = myErr
+				}
+			}
+		case <-time.After(5 * time.Millisecond):
+			continue
+		}
+    }
+
+	fmt.Printf("final size: %v\n", pcTo.Size())
+	
+	if err != nil {
+		return nil, err
+	}
+	
 	return pcTo, nil
 }
 
