@@ -129,7 +129,9 @@ func createDataCaptureFile(captureDir string, subtypeName string, componentName 
 }
 
 // Initialize a collector for the component/method or update it if it has previously been created.
-func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) error {
+// Return the component/method metadata which is used as a key in the collectors map.
+func (svc *Service) initializeOrUpdateCollector(componentName string, attributes componentAttributes, updateCaptureDir bool) (
+	*componentMethodMetadata, error) {
 	// Create component/method metadata to check if the collector exists.
 	subtypeName := resource.SubtypeName(attributes.Type)
 	metadata := data.MethodMetadata{
@@ -149,11 +151,11 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 			if updateCaptureDir {
 				targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
 				if err != nil {
-					return err
+					return nil, err
 				}
 				collector.SetTarget(targetFile)
 			}
-			return nil
+			return &componentMetadata, nil
 		}
 
 		// Otherwise, close the current collector and instantiate a new one below.
@@ -168,26 +170,26 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	)
 	res, err := svc.r.ResourceByName(resource.NameFromSubtype(subtype, componentName))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get collector constructor for the component subtype and method.
 	collectorConstructor := data.CollectorLookup(metadata)
 	if collectorConstructor == nil {
-		return errors.Errorf("failed to find collector for %s", metadata)
+		return nil, errors.Errorf("failed to find collector for %s", metadata)
 	}
 
 	// Parameters to initialize collector.
 	interval := getDurationMs(attributes.CaptureIntervalMs)
 	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create a collector for this resource and method.
 	collector, err := (*collectorConstructor)(res, componentName, interval, attributes.AdditionalParams, targetFile, svc.logger)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	svc.collectors[componentMetadata] = collectorParams{collector, attributes, svc.captureDir}
 
@@ -199,9 +201,7 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		}
 	}()
 
-	// TODO: Handle deletions. Currently only handling initial instantiation and updates.
-
-	return nil
+	return &componentMetadata, nil
 }
 
 // Update updates the data manager service when the config has changed.
@@ -213,9 +213,21 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	updateCaptureDir := svc.captureDir != svcConfig.CaptureDir
 	svc.captureDir = svcConfig.CaptureDir // TODO: Lock
 
+	// Initialize or add a collector based on changes to the config.
+	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for componentName, attributes := range svcConfig.ComponentAttributes {
-		if err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir); err != nil {
+		componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
+		if err != nil {
 			return err
+		}
+		newCollectorMetadata[*componentMetadata] = true
+	}
+
+	// If a component/method has been removed from the config, close the collector and remove it from the map.
+	for componentMetadata, params := range svc.collectors {
+		if _, present := newCollectorMetadata[componentMetadata]; !present {
+			params.Collector.Close()
+			delete(svc.collectors, componentMetadata)
 		}
 	}
 
