@@ -27,6 +27,11 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// PositionWrapper wraps the returned position values.
+type PositionWrapper struct {
+	Position []float64
+}
+
 func newGetPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, logger golog.Logger) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
@@ -39,9 +44,14 @@ func newGetPositionCollector(resource interface{}, name string, interval time.Du
 		if err != nil {
 			return nil, data.FailedToReadErr(name, getPosition.String())
 		}
-		return v, nil
+		return PositionWrapper{Position: v}, nil
 	})
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
+}
+
+// LengthsWrapper wraps the returns lengths values.
+type LengthsWrapper struct {
+	Lengths []float64
 }
 
 func newGetLengthsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
@@ -56,7 +66,7 @@ func newGetLengthsCollector(resource interface{}, name string, interval time.Dur
 		if err != nil {
 			return nil, data.FailedToReadErr(name, getLengths.String())
 		}
-		return v, nil
+		return LengthsWrapper{Lengths: v}, nil
 	})
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
