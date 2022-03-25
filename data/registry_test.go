@@ -12,7 +12,7 @@ import (
 )
 
 var dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (Collector, error) {
+	target *os.File, queueSize int, logger golog.Logger) (Collector, error) {
 	return &collector{}, nil
 }
 
@@ -22,7 +22,7 @@ func TestRegister(t *testing.T) {
 		MethodName: "method",
 	}
 	dummyCollectorConstructor = func(i interface{}, name string, interval time.Duration, params map[string]string,
-		target *os.File, logger golog.Logger) (Collector, error) {
+		target *os.File, queueSize int, logger golog.Logger) (Collector, error) {
 		return &collector{}, nil
 	}
 

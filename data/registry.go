@@ -13,7 +13,7 @@ import (
 
 // CollectorConstructor contains a function for constructing an instance of a Collector.
 type CollectorConstructor func(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (Collector, error)
+	target *os.File, queueSize int, logger golog.Logger) (Collector, error)
 
 // MethodMetadata contains the metadata identifying a component method that we are going to capture and collect.
 type MethodMetadata struct {

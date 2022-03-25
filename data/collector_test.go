@@ -40,7 +40,7 @@ var (
 )
 
 func TestNewCollector(t *testing.T) {
-	c := NewCollector(nil, time.Second, nil, nil, nil)
+	c := NewCollector(nil, time.Second, nil, nil, 250, nil)
 	test.That(t, c, test.ShouldNotBeNil)
 }
 
@@ -50,7 +50,7 @@ func TestSuccessfulWrite(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(dummyCapturer, time.Millisecond*25, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummyCapturer, time.Millisecond*25, map[string]string{"name": "test"}, target1, 250, l)
 	go c.Collect()
 
 	// Verify that it writes to the file at all.
@@ -81,7 +81,7 @@ func TestClose(t *testing.T) {
 	l := golog.NewTestLogger(t)
 	target1, _ := ioutil.TempFile("", "whatever")
 	defer os.Remove(target1.Name())
-	c := NewCollector(dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, 250, l)
 	go c.Collect()
 	time.Sleep(time.Millisecond * 25)
 
@@ -101,9 +101,9 @@ func TestSetTarget(t *testing.T) {
 	defer os.Remove(target1.Name())
 	defer os.Remove(target2.Name())
 
-	c := NewCollector(dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, l)
+	c := NewCollector(dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, 250, l)
 	go c.Collect()
-	time.Sleep(time.Millisecond * 25)
+	time.Sleep(time.Millisecond * 30)
 
 	// Change target, verify that target1 was written to.
 	c.SetTarget(target2)
@@ -111,7 +111,7 @@ func TestSetTarget(t *testing.T) {
 	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, 0)
 
 	// Verify that tgt2 was written to, and that target1 was not written to after the target was changed.
-	time.Sleep(time.Millisecond * 25)
+	time.Sleep(time.Millisecond * 30)
 	c.Close()
 	test.That(t, getFileSize(target1), test.ShouldEqual, sizeTgt1)
 	test.That(t, getFileSize(target2), test.ShouldBeGreaterThan, 0)
@@ -127,7 +127,7 @@ func TestSwallowsErrors(t *testing.T) {
 	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		return nil, errors.New("error")
 	})
-	c := NewCollector(errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, logger)
+	c := NewCollector(errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, 250, logger)
 	errorChannel := make(chan error)
 	defer close(errorChannel)
 	go func() {
