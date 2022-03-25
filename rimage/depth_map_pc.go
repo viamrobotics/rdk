@@ -4,6 +4,7 @@ import (
 	"errors"
 	"image"
 	"io"
+
 	"gonum.org/v1/gonum/mat"
 
 	"go.viam.com/rdk/pointcloud"

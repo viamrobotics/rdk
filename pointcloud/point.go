@@ -41,7 +41,7 @@ type Point interface {
 	Position() Vec3
 
 	// SetPosition sets the vector describing where the point is in the cloud.
-	SetPosition(p Vec3) 
+	SetPosition(p Vec3)
 
 	// Clone copies the point to a new position.
 	Clone(v Vec3) Point
