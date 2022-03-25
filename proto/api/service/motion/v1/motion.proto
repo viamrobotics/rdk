@@ -17,7 +17,7 @@ service MotionService {
 
   rpc GetPose(GetPoseRequest) returns (GetPoseResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/object_manipulation/pose"
+      get: "/viam/api/v1/service/motion/pose"
     };
   }
 }

@@ -138,7 +138,7 @@ func RegisterMotionServiceHandlerServer(ctx context.Context, mux *runtime.ServeM
 		var stream runtime.ServerTransportStream
 		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/pose"))
+		rctx, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/pose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -220,7 +220,7 @@ func RegisterMotionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
-		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/object_manipulation/pose"))
+		rctx, err := runtime.AnnotateContext(ctx, mux, req, "/proto.api.service.motion.v1.MotionService/GetPose", runtime.WithHTTPPathPattern("/viam/api/v1/service/motion/pose"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
@@ -242,7 +242,7 @@ func RegisterMotionServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 var (
 	pattern_MotionService_Move_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "motion", "move"}, ""))
 
-	pattern_MotionService_GetPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "object_manipulation", "pose"}, ""))
+	pattern_MotionService_GetPose_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4, 2, 5}, []string{"viam", "api", "v1", "service", "motion", "pose"}, ""))
 )
 
 var (
