@@ -272,7 +272,12 @@ func TestFullClientServerLoop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	paramNames, err := client.GetSegmenterParameters(context.Background(), segmentation.RadiusClusteringSegmenter)
 	test.That(t, err, test.ShouldBeNil)
-	expParams := []rdkutils.TypedName{{"min_points_in_plane", "int"}, {"min_points_in_segment", "int"}, {"clustering_radius_mm", "float64"}, {"mean_k_filtering", "int"}}
+	expParams := []rdkutils.TypedName{
+		{"min_points_in_plane", "int"},
+		{"min_points_in_segment", "int"},
+		{"clustering_radius_mm", "float64"},
+		{"mean_k_filtering", "int"},
+	}
 	test.That(t, paramNames, test.ShouldResemble, expParams)
 	params := config.AttributeMap{
 		paramNames[0].Name: 100, // min points in plane

@@ -91,7 +91,12 @@ func TestClient(t *testing.T) {
 
 		paramNames, err := client.GetSegmenterParameters(context.Background(), segNames[0])
 		test.That(t, err, test.ShouldBeNil)
-		expParams := []rdkutils.TypedName{{"min_points_in_plane", "int"}, {"min_points_in_segment", "int"}, {"clustering_radius_mm", "float64"}, {"mean_k_filtering", "int"}}
+		expParams := []rdkutils.TypedName{
+			{"min_points_in_plane", "int"},
+			{"min_points_in_segment", "int"},
+			{"clustering_radius_mm", "float64"},
+			{"mean_k_filtering", "int"},
+		}
 		test.That(t, paramNames, test.ShouldResemble, expParams)
 		params := config.AttributeMap{
 			paramNames[0].Name: 100,
