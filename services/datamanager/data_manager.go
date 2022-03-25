@@ -70,7 +70,7 @@ const defaultCaptureBufferSize = 4096
 type componentAttributes struct {
 	Type               string            `json:"type"`
 	Method             string            `json:"method"`
-	CaptureFrequencyHz int               `json:"capture_frequency_hz"`
+	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
 	CaptureQueueSize   int               `json:"capture_queue_size"`
 	CaptureBufferSize  int               `json:"capture_buffer_size"`
 	AdditionalParams   map[string]string `json:"additional_params"`
@@ -118,7 +118,7 @@ type componentMethodMetadata struct {
 }
 
 // Get time.Duration from hz.
-func getDurationFromHz(captureFrequencyHz int) time.Duration {
+func getDurationFromHz(captureFrequencyHz float32) time.Duration {
 	return time.Second / time.Duration(captureFrequencyHz)
 }
 
