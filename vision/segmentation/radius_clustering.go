@@ -29,6 +29,7 @@ type RadiusClusteringConfig struct {
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
+	MeanKFiltering     int     `json:"mean_k_filtering"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -41,6 +42,9 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
+	if rcc.MeanKFiltering <= 0 {
+		return errors.Errorf("mean_k_filtering must be greater than 0, got %v", rcc.MeanKFiltering)
 	}
 	return nil
 }
@@ -82,22 +86,22 @@ func RadiusClustering(ctx context.Context, c camera.Camera, params config.Attrib
 // RadiusClusteringOnPointCloud applies the radius clustering algorithm directly on a given point cloud.
 func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *RadiusClusteringConfig) ([]*vision.Object, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
-	planes, nonPlane, err := ps.FindPlanes(ctx)
+	// if there are found planes, remove them, and keep all the non-plane points
+	_, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
-	if len(planes) > 0 {
-		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
-		if err != nil {
-			return nil, err
-		}
-	}
-	objCloud, err := pc.NewRoundingPointCloudFromPC(nonPlane)
+	// filter out the noise on the point cloud
+	filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentPointCloudObjects(objCloud, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
+	nonPlane, err = filter(nonPlane)
+	if err != nil {
+		return nil, err
+	}
+	// do the segmentation
+	segments, err := segmentPointCloudObjects(nonPlane, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
