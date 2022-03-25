@@ -356,21 +356,6 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMm * ((pos - g.positionLimits[0]) / theRange)
 
-	limitAtZero, err := g.limitHit(ctx, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if g.limitType == limitTwoPin {
-		limitAtOne, err := g.limitHit(ctx, false)
-		if err != nil {
-			return nil, err
-		}
-		g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", g.name, x, limitAtZero, limitAtOne)
-	}
-
-	g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t", g.name, pos, x, limitAtZero)
-
 	return []float64{x}, nil
 }
 
