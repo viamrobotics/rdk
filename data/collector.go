@@ -148,7 +148,7 @@ func (c *collector) getAndPushNextReading() {
 		close(c.queue)
 		return
 	case c.queue <- &msg:
-		break
+		return
 	}
 }
 
