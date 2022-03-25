@@ -104,7 +104,7 @@ func (c *collector) Collect() error {
 func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
-	var wg *sync.WaitGroup
+	var wg sync.WaitGroup
 
 	for {
 		select {
@@ -114,7 +114,7 @@ func (c *collector) capture() {
 			return
 		case <-ticker.C:
 			wg.Add(1)
-			go c.getAndPushNextReading(wg)
+			go c.getAndPushNextReading(&wg)
 		}
 	}
 }
