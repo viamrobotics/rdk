@@ -98,19 +98,24 @@ func (c *collector) Collect() error {
 func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
+	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-c.cancelCtx.Done():
+			wg.Wait()
 			close(c.queue)
 			return
 		case <-ticker.C:
-			go c.getAndPushNextReading()
+			wg.Add(1)
+			go c.getAndPushNextReading(&wg)
 		}
 	}
 }
 
-func (c *collector) getAndPushNextReading() {
+func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
