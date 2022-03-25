@@ -276,9 +276,13 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		return err
 	}
 
-	if argsParsed.Version {
-		fmt.Printf("Viam RDK Version: %s, Hash: %s\n", config.Version, config.GitRevision)
-		return
+	// Always log the version, return early if the '-version' flag was provided
+	{
+		// fmt.Println would be better but fails linting. Good enough.
+		logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
+		if argsParsed.Version {
+			return
+		}
 	}
 
 	if argsParsed.CPUProfile != "" {
