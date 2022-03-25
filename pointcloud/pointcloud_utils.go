@@ -12,6 +12,28 @@ import (
 	"go.viam.com/rdk/spatialmath"
 )
 
+// MergePointClouds takes a slice of points clouds and adds all their points to one point cloud.
+func MergePointClouds(clouds []PointCloud) (PointCloud, error) {
+	if len(clouds) == 0 {
+		return nil, errors.New("no point clouds to merge")
+	}
+	if len(clouds) == 1 {
+		return clouds[0], nil
+	}
+	merged := New()
+	var err error
+	for _, c := range clouds {
+		c.Iterate(func(pt Point) bool {
+			err = merged.Set(pt)
+			return err == nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	return merged, nil
+}
+
 // MergePointCloudsWithColor creates a union of point clouds from the slice of point clouds, giving
 // each element of the slice a unique color.
 func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
