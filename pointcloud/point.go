@@ -40,6 +40,9 @@ type Point interface {
 	// Position is the vector describing where the point is in the cloud.
 	Position() Vec3
 
+	// SetPosition sets the vector describing where the point is in the cloud.
+	SetPosition(p Vec3) 
+
 	// Clone copies the point to a new position.
 	Clone(v Vec3) Point
 
@@ -133,6 +136,10 @@ func (bp *basicPoint) Clone(v Vec3) Point {
 
 func (bp *basicPoint) Position() Vec3 {
 	return bp.position
+}
+
+func (bp *basicPoint) SetPosition(p Vec3) {
+	bp.position = p
 }
 
 // Distance returns the distance between the the current point and the given point.
