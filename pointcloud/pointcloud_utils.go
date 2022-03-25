@@ -20,7 +20,7 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 	colorSegmentation := New()
 	for i, cluster := range clusters {
 		col := color.NRGBAModel.Convert(palette[i])
-		cluster.Iterate(0,0, func(pt Point) bool {
+		cluster.Iterate(0, 0, func(pt Point) bool {
 			v := pt.Position()
 			colorPoint := NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
 			err = colorSegmentation.Set(colorPoint)

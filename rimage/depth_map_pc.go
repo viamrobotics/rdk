@@ -66,7 +66,7 @@ func (dm *dmPointCloudAdapter) At(x, y, z float64) pointcloud.Point {
 
 func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(p pointcloud.Point) bool) {
 	for y := 0; y < dm.dm.height; y++ {
-		if numBatches > 0 && y % numBatches != myBatch {
+		if numBatches > 0 && y%numBatches != myBatch {
 			continue
 		}
 		for x := 0; x < dm.dm.width; x++ {

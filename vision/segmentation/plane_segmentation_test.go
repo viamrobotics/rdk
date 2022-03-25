@@ -155,7 +155,7 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	lowRight := image.Point{w, h}
 
 	img := image.NewGray16(image.Rectangle{upLeft, lowRight})
-	coordinatesRGB.Iterate(func(pt pc.Point) bool {
+	coordinatesRGB.Iterate(0, 0, func(pt pc.Point) bool {
 		if pt.Position().Z > -1.0 {
 			img.Set(int(pt.Position().X), int(pt.Position().Y), color.Gray16{uint16(pt.Position().Z / pixel2meter)})
 		}
