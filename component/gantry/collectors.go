@@ -27,6 +27,7 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// PositionWrapper wraps the returned position values.
 type PositionWrapper struct {
 	Position []float64
 }
@@ -48,6 +49,7 @@ func newGetPositionCollector(resource interface{}, name string, interval time.Du
 	return data.NewCollector(cFunc, interval, params, target, logger), nil
 }
 
+// LengthsWrapper wraps the returns lengths values.
 type LengthsWrapper struct {
 	Lengths []float64
 }
