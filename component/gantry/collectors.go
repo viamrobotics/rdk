@@ -33,7 +33,7 @@ type PositionWrapper struct {
 }
 
 func newGetPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func newGetPositionCollector(resource interface{}, name string, interval time.Du
 		}
 		return PositionWrapper{Position: v}, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, queueSize, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 // LengthsWrapper wraps the returns lengths values.
@@ -55,7 +55,7 @@ type LengthsWrapper struct {
 }
 
 func newGetLengthsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, queueSize int, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func newGetLengthsCollector(resource interface{}, name string, interval time.Dur
 		}
 		return LengthsWrapper{Lengths: v}, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, queueSize, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 func assertGantry(resource interface{}) (Gantry, error) {
