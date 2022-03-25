@@ -33,7 +33,7 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, nextPointCloud.String())
+			return nil, data.FailedToReadErr(name, nextPointCloud.String(), err)
 		}
 		return v, nil
 	})
