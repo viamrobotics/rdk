@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -371,6 +372,11 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 // newServices constructs all services defined.
 func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
 	for _, c := range services {
+		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+		// service that we only want to reconfigure rather than reinstantiate with New().
+		if c.ResourceName() == datamanager.Name {
+			continue
+		}
 		svc, err := r.newService(ctx, c)
 		if err != nil {
 			return err
