@@ -204,6 +204,6 @@ func InvalidInterfaceErr(typeName resource.SubtypeName) error {
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
-func FailedToReadErr(component string, method string) error {
-	return errors.Errorf("failed to get reading of method %s of component %s", method, component)
+func FailedToReadErr(component string, method string, err error) error {
+	return errors.Errorf("failed to get reading of method %s of component %s: %s", method, component, err)
 }
