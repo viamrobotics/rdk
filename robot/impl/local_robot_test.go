@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
@@ -156,6 +157,7 @@ func TestConfigRemote(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
@@ -394,6 +396,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				framesystem.Name,
 				sensors.Name,
 				status.Name,
+				datamanager.Name,
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
@@ -593,6 +596,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
@@ -743,6 +747,7 @@ func TestMetadataUpdate(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
