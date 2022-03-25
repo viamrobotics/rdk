@@ -108,41 +108,47 @@ func (c *collector) Collect() error {
 
 func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-c.cancelCtx.Done():
 			close(c.queue)
 			return
 		case <-ticker.C:
-			timeRequested := timestamppb.New(time.Now().UTC())
-			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
-			timeReceived := timestamppb.New(time.Now().UTC())
-			if err != nil {
-				c.logger.Errorw("error while capturing data", "error", err)
-				break
-			}
-			pbReading, err := InterfaceToStruct(reading)
-			if err != nil {
-				c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
-				break
-			}
-			msg := v1.SensorData{
-				Metadata: &v1.SensorMetadata{
-					TimeRequested: timeRequested,
-					TimeReceived:  timeReceived,
-				},
-				Data: pbReading,
-			}
-			select {
-			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
-			// still work when this happens.
-			case <-c.cancelCtx.Done():
-				close(c.queue)
-				return
-			case c.queue <- &msg:
-				break
-			}
+			go c.getAndPushNextReading()
 		}
+	}
+}
+
+func (c *collector) getAndPushNextReading() {
+	timeRequested := timestamppb.New(time.Now().UTC())
+	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
+	timeReceived := timestamppb.New(time.Now().UTC())
+	if err != nil {
+		c.logger.Errorw("error while capturing data", "error", err)
+		return
+	}
+	pbReading, err := InterfaceToStruct(reading)
+	if err != nil {
+		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
+		return
+	}
+	msg := v1.SensorData{
+		Metadata: &v1.SensorMetadata{
+			TimeRequested: timeRequested,
+			TimeReceived:  timeReceived,
+		},
+		Data: pbReading,
+	}
+	select {
+	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+	// still work when this happens.
+	case <-c.cancelCtx.Done():
+		close(c.queue)
+		return
+	case c.queue <- &msg:
+		break
 	}
 }
 
