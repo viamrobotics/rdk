@@ -217,6 +217,92 @@ func (bp *basicPoint) Intensity() uint16 {
 	return bp.intensity
 }
 
+type justAPoint struct {
+	p Vec3
+}
+
+// NewJustAPoiint returns a point that is solely positionally based.
+func NewJustAPoiint(v Vec3) Point {
+	return &justAPoint{v}
+}
+
+func (j *justAPoint) Clone(v Vec3) Point {
+	return NewJustAPoiint(v)
+}
+
+func (j *justAPoint) Position() Vec3 {
+	return j.p
+}
+
+func (j *justAPoint) SetPosition(p Vec3) {
+	j.p = p
+}
+
+func (j *justAPoint) Distance(p kdtree.Comparable) float64 {
+	pp, ok := p.(Point)
+	if !ok {
+		panic("kdtree.Comparable fed into justAPoint.Distance is not a Point")
+	}
+	v1, v2 := j.Position(), pp.Position()
+	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
+}
+
+func (j *justAPoint) Dims() int { return 3 }
+
+func (j *justAPoint) Compare(p kdtree.Comparable, d kdtree.Dim) float64 {
+	p2, ok := p.(Point)
+	if !ok {
+		panic("kdtree.Comparable fed into justAPoint.Distance is not a Point")
+	}
+	v1, v2 := j.Position(), p2.Position()
+	switch d {
+	case 0:
+		return v1.X - v2.X
+	case 1:
+		return v1.Y - v2.Y
+	case 2:
+		return v1.Z - v2.Z
+	default:
+		panic("illegal dimension fed to justAPoint.Compare")
+	}
+}
+
+func (j *justAPoint) SetColor(c color.NRGBA) Point {
+	panic("no")
+}
+
+func (j *justAPoint) HasColor() bool {
+	return false
+}
+
+func (j *justAPoint) RGB255() (uint8, uint8, uint8) {
+	panic("no")
+}
+
+func (j *justAPoint) Color() color.Color {
+	panic("no")
+}
+
+func (j *justAPoint) SetValue(v int) Point {
+	panic("no")
+}
+
+func (j *justAPoint) HasValue() bool {
+	return false
+}
+
+func (j *justAPoint) Value() int {
+	return 0
+}
+
+func (j *justAPoint) SetIntensity(v uint16) Point {
+	panic("no")
+}
+
+func (j *justAPoint) Intensity() uint16 {
+	return 0
+}
+
 // GetPositions gets the positions of the slice of points.
 func GetPositions(pts []Point) []r3.Vector {
 	positions := make([]r3.Vector, len(pts))

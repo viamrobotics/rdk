@@ -65,13 +65,13 @@ func (dm *dmPointCloudAdapter) At(x, y, z float64) pointcloud.Point {
 }
 
 func (dm *dmPointCloudAdapter) Iterate(fn func(p pointcloud.Point) bool) {
-	for x := 0; x < dm.dm.width; x++ {
-		for y := 0; y < dm.dm.height; y++ {
+	for y := 0; y < dm.dm.height; y++ {
+		for x := 0; x < dm.dm.width; x++ {
 			vec, err := dm.p.ImagePointTo3DPoint(image.Point{x, y}, dm.dm.GetDepth(x, y))
 			if err != nil {
 				panic(err)
 			}
-			if !fn(pointcloud.NewBasicPointFromVec3(pointcloud.Vec3(vec))) {
+			if !fn(pointcloud.NewJustAPoiint(pointcloud.Vec3(vec))) {
 				return
 			}
 		}

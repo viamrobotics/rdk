@@ -116,6 +116,7 @@ func NewWithPrealloc(size int) PointCloud {
 		points = &mapStorage{map[key]Point{}}
 	} else {
 		points = &arrayStorage{make([]Point, 0, size)}
+		//points = &mapStorage{map[key]Point{}}
 	}
 	return &basicPointCloud{
 		points: points,
