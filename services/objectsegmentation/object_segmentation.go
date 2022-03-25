@@ -88,7 +88,8 @@ type objectSegService struct {
 func (seg *objectSegService) GetObjectPointClouds(
 	ctx context.Context,
 	cameraName, segmenterName string,
-	params config.AttributeMap) ([]*vision.Object, error) {
+	params config.AttributeMap,
+) ([]*vision.Object, error) {
 	cam, err := camera.FromRobot(seg.r, cameraName)
 	if err != nil {
 		return nil, err
