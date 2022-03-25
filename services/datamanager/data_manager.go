@@ -63,12 +63,16 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // writes this would be performing.
 const defaultCaptureQueueSize = 250
 
+// Default bufio.Writer buffer size in bytes.
+const defaultCaptureBufferSize = 4096
+
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
 	Type              string            `json:"type"`
 	Method            string            `json:"method"`
 	CaptureIntervalMs int               `json:"capture_interval_ms"`
 	CaptureQueueSize  int               `json:"capture_queue_size"`
+	CaptureBufferSize int               `json:"capture_buffer_size"`
 	AdditionalParams  map[string]string `json:"additional_params"`
 }
 
@@ -198,9 +202,15 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 		captureQueueSize = defaultCaptureQueueSize
 	}
 
+	captureBufferSize := attributes.CaptureBufferSize
+	if captureBufferSize == 0 {
+		captureBufferSize = defaultCaptureBufferSize
+	}
+
 	// Create a collector for this resource and method.
 	collector, err := (*collectorConstructor)(
-		res, componentName, interval, attributes.AdditionalParams, targetFile, captureQueueSize, svc.logger)
+		res, componentName, interval, attributes.AdditionalParams,
+		targetFile, captureQueueSize, captureBufferSize, svc.logger)
 	if err != nil {
 		return nil, err
 	}

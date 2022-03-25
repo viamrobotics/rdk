@@ -143,7 +143,7 @@ func (c *collector) getAndPushNextReading() {
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
 func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File, queueSize int,
-	logger golog.Logger) Collector {
+	bufferSize int, logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:     make(chan *v1.SensorData, queueSize),
@@ -152,7 +152,7 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 		lock:      &sync.Mutex{},
 		logger:    logger,
 		target:    target,
-		writer:    bufio.NewWriter(target),
+		writer:    bufio.NewWriterSize(target, bufferSize),
 		cancelCtx: cancelCtx,
 		cancel:    cancelFunc,
 		capturer:  capturer,
