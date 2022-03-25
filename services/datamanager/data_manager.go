@@ -57,11 +57,18 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
+// written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
+// this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
+// writes this would be performing.
+const defaultCaptureQueueSize = 250
+
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
 	Type              string            `json:"type"`
 	Method            string            `json:"method"`
 	CaptureIntervalMs int               `json:"capture_interval_ms"`
+	CaptureQueueSize  int               `json:"capture_queue_size"`
 	AdditionalParams  map[string]string `json:"additional_params"`
 }
 
@@ -185,9 +192,15 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	if err != nil {
 		return nil, err
 	}
+	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
+	captureQueueSize := attributes.CaptureQueueSize
+	if captureQueueSize == 0 {
+		captureQueueSize = defaultCaptureQueueSize
+	}
 
 	// Create a collector for this resource and method.
-	collector, err := (*collectorConstructor)(res, componentName, interval, attributes.AdditionalParams, targetFile, svc.logger)
+	collector, err := (*collectorConstructor)(
+		res, componentName, interval, attributes.AdditionalParams, targetFile, captureQueueSize, svc.logger)
 	if err != nil {
 		return nil, err
 	}

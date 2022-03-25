@@ -21,12 +21,6 @@ import (
 	"go.viam.com/rdk/resource"
 )
 
-// queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
-// by the queue being written to disk. A default value of 250 was chosen because even with the fastest reasonable
-// capture interval (1ms), this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient
-// for the size of writes this would be performing.
-const queueSize = 250
-
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
 	Capture(ctx context.Context, params map[string]string) (interface{}, error)
@@ -148,7 +142,7 @@ func (c *collector) getAndPushNextReading() {
 
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
-func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
+func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File, queueSize int,
 	logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
