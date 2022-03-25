@@ -146,7 +146,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				if jpcs.sourceNames[i] != jpcs.targetName {
 					vec := r3.Vector(p.Position())
 					newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
-					p = p.Clone(pointcloud.Vec3(newPose.Point()))
+					p.SetPosition(pointcloud.Vec3(newPose.Point()))
 				}
 				batch = append(batch, p)
 				if len(batch) > batchSize {
