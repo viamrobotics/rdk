@@ -68,7 +68,7 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 func (cloud *RoundingPointCloud) Set(p Point) error {
 	pos := p.Position()
 	rp := p.Clone(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
-	cloud.points[key(rp.Position())] = rp
+	cloud.points.Set(rp)
 	if rp.HasColor() {
 		cloud.hasColor = true
 	}
@@ -109,10 +109,12 @@ func (cloud *RoundingPointCloud) Set(p Point) error {
 
 // At returns a point in the cloud, if exist; returns nil otherwise.
 func (cloud *RoundingPointCloud) At(x, y, z float64) Point {
-	return cloud.points[key{math.Round(x), math.Round(y), math.Round(z)}]
+	cloud.ensureEditable()
+	return cloud.points.At(math.Round(x), math.Round(y), math.Round(z))
 }
 
 // Unset removes a point from the cloud; does nothing if it does not exist.
 func (cloud *RoundingPointCloud) Unset(x, y, z float64) {
-	delete(cloud.points, key{math.Round(x), math.Round(y), math.Round(z)})
+	cloud.ensureEditable()
+	cloud.points.Unset(math.Round(x), math.Round(y), math.Round(z))
 }
