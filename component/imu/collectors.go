@@ -31,7 +31,7 @@ func (m method) String() string {
 }
 
 func newReadOrientationCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
@@ -44,11 +44,11 @@ func newReadOrientationCollector(resource interface{}, name string, interval tim
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, bufferSize, logger), nil
 }
 
 func newReadAccelerationCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
@@ -61,11 +61,11 @@ func newReadAccelerationCollector(resource interface{}, name string, interval ti
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, bufferSize, logger), nil
 }
 
 func newReadAngularVelocityCollector(resource interface{}, name string, interval time.Duration,
-	params map[string]string, target *os.File, logger golog.Logger) (data.Collector, error) {
+	params map[string]string, target *os.File, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	imu, err := assertIMU(resource)
 	if err != nil {
 		return nil, err
@@ -78,7 +78,7 @@ func newReadAngularVelocityCollector(resource interface{}, name string, interval
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, bufferSize, logger), nil
 }
 
 func assertIMU(resource interface{}) (IMU, error) {
