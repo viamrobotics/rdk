@@ -199,7 +199,8 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	}
 
 	// Create a collector for this resource and method.
-	collector, err := (*collectorConstructor)(res, componentName, interval, attributes.AdditionalParams, targetFile, captureQueueSize, svc.logger)
+	collector, err := (*collectorConstructor)(
+		res, componentName, interval, attributes.AdditionalParams, targetFile, captureQueueSize, svc.logger)
 	if err != nil {
 		return nil, err
 	}
