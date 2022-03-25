@@ -103,7 +103,7 @@ func TestSetTarget(t *testing.T) {
 
 	c := NewCollector(dummyCapturer, time.Millisecond*15, map[string]string{"name": "test"}, target1, 250, l)
 	go c.Collect()
-	time.Sleep(time.Millisecond * 25)
+	time.Sleep(time.Millisecond * 30)
 
 	// Change target, verify that target1 was written to.
 	c.SetTarget(target2)
@@ -111,7 +111,7 @@ func TestSetTarget(t *testing.T) {
 	test.That(t, getFileSize(target1), test.ShouldBeGreaterThan, 0)
 
 	// Verify that tgt2 was written to, and that target1 was not written to after the target was changed.
-	time.Sleep(time.Millisecond * 25)
+	time.Sleep(time.Millisecond * 30)
 	c.Close()
 	test.That(t, getFileSize(target1), test.ShouldEqual, sizeTgt1)
 	test.That(t, getFileSize(target2), test.ShouldBeGreaterThan, 0)
