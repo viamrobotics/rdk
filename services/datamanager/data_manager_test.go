@@ -18,7 +18,7 @@ func TestNewDataManager(t *testing.T) {
 			"imu1": {
 				Type:               "imu",
 				Method:             "ReadAngularVelocity",
-				CaptureFrequencyHz: 1,
+				CaptureFrequencyHz: 10,
 				AdditionalParams: map[string]string{
 					"param1": "thing",
 					"param2": "thing2",
