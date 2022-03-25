@@ -136,7 +136,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
-			const batchSize = 100000
+			const batchSize = 10000
 			batch := make([]pointcloud.Point, 0, batchSize)
 			pcSrc.Iterate(func(p pointcloud.Point) bool {
 				if jpcs.sourceNames[i] != jpcs.targetName {
