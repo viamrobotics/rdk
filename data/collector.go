@@ -91,11 +91,6 @@ func (c *collector) Close() {
 	}
 }
 
-// TODO: Decide on error behavior here. Should receiving a single error from c.capture cause this to return an error?
-//       I think the approach here will be more well informed when we start implementing the Data Manager Service and
-//       actually using Collectors. I'm going to leave the behavior here for then. As is, I'll leave it just logging
-//       errors.
-
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *collector) Collect() error {
 	errs, _ := errgroup.WithContext(c.cancelCtx)
