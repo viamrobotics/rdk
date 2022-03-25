@@ -90,7 +90,7 @@ func (pp *ParallelProjection) PointCloudToImageWithDepth(cloud pointcloud.PointC
 	height := int(cloud.MaxY() - cloud.MinY())
 	color := NewImage(width, height)
 	depth := NewEmptyDepthMap(width, height)
-	cloud.Iterate(func(pt pointcloud.Point) bool {
+	cloud.Iterate(0, 0, func(pt pointcloud.Point) bool {
 		j := pt.Position().X - cloud.MinX()
 		i := pt.Position().Y - cloud.MinY()
 		x, y := int(math.Round(j)), int(math.Round(i))

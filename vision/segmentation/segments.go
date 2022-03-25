@@ -31,7 +31,7 @@ func NewSegmentsFromSlice(clouds []pc.PointCloud) (*Segments, error) {
 			return nil, err
 		}
 		segments.Objects = append(segments.Objects, seg)
-		cloud.Iterate(func(pt pc.Point) bool {
+		cloud.Iterate(0, 0, func(pt pc.Point) bool {
 			segments.Indices[pt.Position()] = i
 			return true
 		})
@@ -97,7 +97,7 @@ func (c *Segments) MergeClusters(from, to int) error {
 
 	// perform merge
 	var err error
-	c.Objects[from].Iterate(func(pt pc.Point) bool {
+	c.Objects[from].Iterate(0, 0, func(pt pc.Point) bool {
 		v := pt.Position()
 		c.Indices[v] = to
 		err = c.Objects[to].Set(pt)

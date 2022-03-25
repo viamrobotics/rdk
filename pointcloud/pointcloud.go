@@ -70,7 +70,9 @@ type PointCloud interface {
 	// Iterate iterates over all points in the cloud and calls the given
 	// function for each point. If the supplied function returns false,
 	// iteration will stop after the function returns.
-	Iterate(fn func(p Point) bool)
+	// numBatches lets you divide up he work. 0 means don't divide
+	// myBatch is used iff numBatches > 0 and is which batch you want
+	Iterate(numBatches, myBatch int, fn func(p Point) bool)
 
 	// WriteToFile writes the point cloud in LAS format to the given file.
 	WriteToFile(fn string) error
@@ -239,8 +241,8 @@ func (cloud *basicPointCloud) Unset(x, y, z float64) {
 	cloud.points.Unset(x, y, z)
 }
 
-func (cloud *basicPointCloud) Iterate(fn func(p Point) bool) {
-	cloud.points.Iterate(fn)
+func (cloud *basicPointCloud) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
+	cloud.points.Iterate(numBatches, myBatch, fn)
 }
 
 func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense, error) {
@@ -249,7 +251,7 @@ func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense,
 	var data []float64
 	c := 0
 	var err error
-	cloud.Iterate(func(p Point) bool {
+	cloud.Iterate(0,0, func(p Point) bool {
 		v := p.Position()
 		var i, j, k float64
 		switch dim {

@@ -123,7 +123,7 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
 	// TODO(bijan): naive implementation until we get get more points in the warp config
-	cloud.Iterate(func(pt pointcloud.Point) bool {
+	cloud.Iterate(0, 0, func(pt pointcloud.Point) bool {
 		j := pt.Position().X - cloud.MinX()
 		i := pt.Position().Y - cloud.MinY()
 		x, y := int(math.Round(j)), int(math.Round(i))

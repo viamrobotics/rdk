@@ -157,7 +157,7 @@ func DepthMapToPointCloud(
 func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (pointcloud.PointCloud, error) {
 	transformedPoints := pointcloud.New()
 	var err error
-	pts.Iterate(func(pt pointcloud.Point) bool {
+	pts.Iterate(0, 0, func(pt pointcloud.Point) bool {
 		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		var ptTransformed pointcloud.Point
 		switch {
@@ -190,7 +190,7 @@ func ProjectPointCloudToRGBPlane(
 ) (pointcloud.PointCloud, error) {
 	coordinates := pointcloud.New()
 	var err error
-	pts.Iterate(func(pt pointcloud.Point) bool {
+	pts.Iterate(0, 0, func(pt pointcloud.Point) bool {
 		j, i := params.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		j = math.Round(j)
 		i = math.Round(i)

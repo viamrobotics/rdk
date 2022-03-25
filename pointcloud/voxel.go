@@ -459,7 +459,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 
 	defaultResidual := 1.0
 
-	pc.Iterate(func(p Point) bool {
+	pc.Iterate(0, 0, func(p Point) bool {
 		pt := r3.Vector(p.Position())
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]

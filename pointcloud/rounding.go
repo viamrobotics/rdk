@@ -29,7 +29,7 @@ func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, 
 		return nil, errors.Wrap(err, "error creating NewRoundingPointCloudFromFile")
 	}
 	// Round all the points in the pointcloud
-	pc.Iterate(func(pt Point) bool {
+	pc.Iterate(0, 0, func(pt Point) bool {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
@@ -49,7 +49,7 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 	var err error
 	roundingPc := NewRoundingPointCloud()
 	// Round all the points in the pointcloud
-	pc.Iterate(func(pt Point) bool {
+	pc.Iterate(0, 0, func(pt Point) bool {
 		err = roundingPc.Set(pt)
 		if err != nil {
 			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
