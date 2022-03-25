@@ -138,6 +138,9 @@ func TestSwallowsErrors(t *testing.T) {
 	}()
 	time.Sleep(30 * time.Millisecond)
 	c.Close()
+	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
+	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
+	time.Sleep(10 * time.Millisecond)
 
 	// Verify that no errors were passed into errorChannel, and that errors were logged.
 	select {
