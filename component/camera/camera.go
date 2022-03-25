@@ -149,6 +149,12 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	if err != nil {
 		return nil, err
 	}
+
+	dm, ok := img.(*rimage.DepthMap)
+	if ok {
+		return dm.ToPointCloud(iswp.projector), nil
+	}
+
 	defer closer()
 	return iswp.projector.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
 }
