@@ -289,7 +289,7 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
+		return depth, func() {}, nil
 	case camera.BothStream:
 		img, err = decodeBoth(allData, s.isAligned)
 		if err != nil {

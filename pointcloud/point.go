@@ -104,6 +104,11 @@ func NewBasicPoint(x, y, z float64) Point {
 	return &basicPoint{position: Vec3{x, y, z}}
 }
 
+// NewBasicPointFromVec3 returns a point that is solely positionally based.
+func NewBasicPointFromVec3(v Vec3) Point {
+	return &basicPoint{position: v}
+}
+
 // NewColoredPoint returns a point that has both position and color.
 func NewColoredPoint(x, y, z float64, c color.NRGBA) Point {
 	return &basicPoint{position: Vec3{x, y, z}, c: c, hasColor: true}
