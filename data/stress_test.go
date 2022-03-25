@@ -23,9 +23,11 @@ func TestDataManagerFile(t *testing.T) {
 	subInterval := 1 * time.Second
 	captureRate := time.Millisecond
 	capturesPerSubInt := float64(subInterval / captureRate)
-	marginOfError := 0.03
+	marginOfError := 0.3
+	total := 0
+	subintCount := 0
 
-	file, err := os.Open("/tmp/capture/arm/arm1/2022-03-24T11:15:36.783116-04:00")
+	file, err := os.Open("/Users/aaroncasas/2022-03-25T18:17:42.439164936Z")
 	if err != nil {
 		t.Fatalf("failed to open file: %v", err)
 	}
@@ -44,6 +46,8 @@ func TestDataManagerFile(t *testing.T) {
 		}
 		next := msg.GetMetadata().GetTimeReceived().AsTime()
 		diff := next.Sub(subIntervalStart)
+		//fmt.Println(msg.GetMetadata().GetTimeReceived().AsTime().Sub(msg.GetMetadata().GetTimeRequested().AsTime()))
+
 		if diff < subInterval {
 			msgCount += 1
 		} else {
@@ -51,10 +55,13 @@ func TestDataManagerFile(t *testing.T) {
 				float64(msgCount) > capturesPerSubInt+(capturesPerSubInt*marginOfError) {
 				t.Fatalf("msgCount outside of margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
 			}
-			t.Logf("msgCount within margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
+			//t.Logf("msgCount within margin of error between %v and %v: %d messages", subIntervalStart, next, msgCount)
 			subIntervalStart = next
+			subintCount += 1
+			total += msgCount
 			msgCount = 0
 		}
 	}
+	fmt.Printf("Average number of messages per subint: %f\n", float64(total)/float64(subintCount))
 	fmt.Println("yay, passed")
 }
