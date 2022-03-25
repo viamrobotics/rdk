@@ -83,7 +83,7 @@ func (as *arrayStorage) At(x, y, z float64) Point {
 
 func (as *arrayStorage) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
 	for idx, p := range as.points {
-		if numBatches > 0 && idx % numBatches != myBatch {
+		if numBatches > 0 && idx%numBatches != myBatch {
 			continue
 		}
 		if cont := fn(p); !cont {

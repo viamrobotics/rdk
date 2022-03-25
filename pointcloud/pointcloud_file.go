@@ -113,7 +113,7 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 		pVals = make([]int, 0, cloud.Size())
 	}
 	var lastErr error
-	cloud.Iterate(0,0, func(p Point) bool {
+	cloud.Iterate(0, 0, func(p Point) bool {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{

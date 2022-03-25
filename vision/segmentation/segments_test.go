@@ -106,7 +106,7 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 4)
 	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 5)
 	for i := 0; i < 2; i++ {
-		clusters.Objects[i].Iterate(func(pt pc.Point) bool {
+		clusters.Objects[i].Iterate(0, 0, func(pt pc.Point) bool {
 			test.That(t, clusters.Indices[pt.Position()], test.ShouldEqual, i)
 			return true
 		})
@@ -119,7 +119,7 @@ func TestMergeCluster(t *testing.T) {
 	test.That(t, clusters.Objects[0].Size(), test.ShouldEqual, 0)
 	test.That(t, clusters.Objects[1].Size(), test.ShouldEqual, 8)
 	test.That(t, clusters.Objects[2].Size(), test.ShouldEqual, 5)
-	clusters.Objects[1].Iterate(func(pt pc.Point) bool {
+	clusters.Objects[1].Iterate(0, 0, func(pt pc.Point) bool {
 		test.That(t, clusters.Indices[pt.Position()], test.ShouldEqual, 1)
 		return true
 	})

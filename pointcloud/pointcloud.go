@@ -118,7 +118,6 @@ func NewWithPrealloc(size int) PointCloud {
 		points = &mapStorage{map[key]Point{}}
 	} else {
 		points = &arrayStorage{make([]Point, 0, size)}
-		//points = &mapStorage{map[key]Point{}}
 	}
 	return &basicPointCloud{
 		points: points,
@@ -251,7 +250,7 @@ func newDensePivotFromCloud(cloud PointCloud, dim int, idx float64) (*mat.Dense,
 	var data []float64
 	c := 0
 	var err error
-	cloud.Iterate(0,0, func(p Point) bool {
+	cloud.Iterate(0, 0, func(p Point) bool {
 		v := p.Position()
 		var i, j, k float64
 		switch dim {
