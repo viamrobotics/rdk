@@ -5,7 +5,7 @@ type storage interface {
 	Set(p Point)
 	Unset(x, y, z float64)
 	At(x, y, z float64) Point
-	Iterate(fn func(p Point) bool)
+	Iterate(numBatches, myBatch int, fn func(p Point) bool)
 	Points() []Point
 	EditSupported() bool
 }
@@ -35,7 +35,11 @@ func (ms *mapStorage) At(x, y, z float64) Point {
 	return ms.points[key{x, y, z}]
 }
 
-func (ms *mapStorage) Iterate(fn func(p Point) bool) {
+func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
+	if numBatches > 0 && myBatch > 0 {
+		// TODO(erh) finish me
+		return
+	}
 	for _, p := range ms.points {
 		if cont := fn(p); !cont {
 			return
@@ -77,8 +81,11 @@ func (as *arrayStorage) At(x, y, z float64) Point {
 	panic("At not supported in arrayStorage")
 }
 
-func (as *arrayStorage) Iterate(fn func(p Point) bool) {
-	for _, p := range as.points {
+func (as *arrayStorage) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
+	for idx, p := range as.points {
+		if numBatches > 0 && idx % numBatches != myBatch {
+			continue
+		}
 		if cont := fn(p); !cont {
 			return
 		}
@@ -101,7 +108,7 @@ func convertToMapStorage(s storage) *mapStorage {
 
 	ms = &mapStorage{make(map[key]Point, s.Size())}
 
-	s.Iterate(func(p Point) bool {
+	s.Iterate(0, 0, func(p Point) bool {
 		ms.Set(p)
 		return true
 	})

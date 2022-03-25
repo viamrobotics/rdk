@@ -22,7 +22,7 @@ var sortPositions bool
 // GetPointCloudPositions extracts the positions of the points from the pointcloud into a Vec3 slice.
 func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
 	positions := make([]pc.Vec3, 0, cloud.Size())
-	cloud.Iterate(func(pt pc.Point) bool {
+	cloud.Iterate(0, 0, func(pt pc.Point) bool {
 		positions = append(positions, pt.Position())
 		return true
 	})
@@ -43,7 +43,7 @@ func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud
 	nonMapCloud := pc.New()
 	var err error
 	seen := make(map[pc.Vec3]bool)
-	cloud.Iterate(func(pt pc.Point) bool {
+	cloud.Iterate(0, 0, func(pt pc.Point) bool {
 		if _, ok := inMap[pt.Position()]; ok {
 			seen[pt.Position()] = true
 			err = mapCloud.Set(pt)
@@ -295,7 +295,7 @@ func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Pl
 func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud, pc.PointCloud, error) {
 	aboveCloud, belowCloud := pc.New(), pc.New()
 	var err error
-	cloud.Iterate(func(pt pc.Point) bool {
+	cloud.Iterate(0, 0, func(pt pc.Point) bool {
 		dist := plane.Distance(r3.Vector(pt.Position()))
 		if plane.Equation()[2] > 0.0 {
 			dist = -dist
@@ -317,7 +317,7 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold float64) (pc.PointCloud, error) {
 	thresholdCloud := pc.New()
 	var err error
-	cloud.Iterate(func(pt pc.Point) bool {
+	cloud.Iterate(0, 0, func(pt pc.Point) bool {
 		dist := plane.Distance(r3.Vector(pt.Position()))
 		if math.Abs(dist) <= threshold {
 			err = thresholdCloud.Set(pt)
@@ -337,7 +337,7 @@ func PointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments
 	visitedPoints := make(map[pc.Vec3]bool)
 	var err error
 	for i, cloud := range segments {
-		cloud.Iterate(func(pt pc.Point) bool {
+		cloud.Iterate(0, 0, func(pt pc.Point) bool {
 			pos := pt.Position()
 			if seen := visitedPoints[pos]; seen {
 				err = errors.Errorf("point clouds in array must be distinct, have already seen point (%v,%v,%v)", pos.X, pos.Y, pos.Z)

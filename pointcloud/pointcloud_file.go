@@ -113,7 +113,7 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 		pVals = make([]int, 0, cloud.Size())
 	}
 	var lastErr error
-	cloud.Iterate(func(p Point) bool {
+	cloud.Iterate(0,0, func(p Point) bool {
 		pos := p.Position()
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
@@ -235,7 +235,7 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 			return err
 		}
 
-		cloud.Iterate(func(pt Point) bool {
+		cloud.Iterate(0, 0, func(pt Point) bool {
 			// Our point clouds are in mm, PCD files expect meters
 			position := pt.Position()
 			width := position.X / 1000.
@@ -256,7 +256,7 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 		}
 
 		buf := make([]byte, 16)
-		cloud.Iterate(func(pt Point) bool {
+		cloud.Iterate(0, 0, func(pt Point) bool {
 			// Our point clouds are in mm, PCD files expect meters
 			position := pt.Position()
 			width := float32(position.X / 1000.0)

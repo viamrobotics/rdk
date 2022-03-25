@@ -64,8 +64,11 @@ func (dm *dmPointCloudAdapter) At(x, y, z float64) pointcloud.Point {
 	panic(7)
 }
 
-func (dm *dmPointCloudAdapter) Iterate(fn func(p pointcloud.Point) bool) {
+func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(p pointcloud.Point) bool) {
 	for y := 0; y < dm.dm.height; y++ {
+		if numBatches > 0 && y % numBatches != myBatch {
+			continue
+		}
 		for x := 0; x < dm.dm.width; x++ {
 			vec, err := dm.p.ImagePointTo3DPoint(image.Point{x, y}, dm.dm.GetDepth(x, y))
 			if err != nil {

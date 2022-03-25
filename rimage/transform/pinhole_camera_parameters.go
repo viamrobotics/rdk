@@ -316,7 +316,7 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 	width, height := pci.Width, pci.Height
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
-	cloud.Iterate(func(pt pointcloud.Point) bool {
+	cloud.Iterate(0, 0, func(pt pointcloud.Point) bool {
 		j, i := pci.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
 		x, y := int(math.Round(j)), int(math.Round(i))
 		z := int(pt.Position().Z)

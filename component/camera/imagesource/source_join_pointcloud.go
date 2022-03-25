@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"image"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -111,7 +112,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		return nil, err
 	}
 
-	finalPoints := make(chan []pointcloud.Point)
+	finalPoints := make(chan []pointcloud.Point, 50)
 	activeReaders := int32(len(jpcs.sourceCameras))
 
 	for i, cam := range jpcs.sourceCameras {
@@ -136,22 +137,32 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
-			const batchSize = 10000
-			batch := make([]pointcloud.Point, 0, batchSize)
-			pcSrc.Iterate(func(p pointcloud.Point) bool {
-				if jpcs.sourceNames[i] != jpcs.targetName {
-					vec := r3.Vector(p.Position())
-					newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
-					p.SetPosition(pointcloud.Vec3(newPose.Point()))
-				}
-				batch = append(batch, p)
-				if len(batch) > batchSize {
+			var wg sync.WaitGroup
+			const numLoops = 8
+			for loop := 0; loop < numLoops; loop++ {
+				wg.Add(1)
+				f := func(loop int) {
+					defer wg.Done()
+					const batchSize = 500
+					batch := make([]pointcloud.Point, 0, batchSize)
+					pcSrc.Iterate(numLoops, loop, func(p pointcloud.Point) bool {
+						if jpcs.sourceNames[i] != jpcs.targetName {
+							vec := r3.Vector(p.Position())
+							newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
+							p.SetPosition(pointcloud.Vec3(newPose.Point()))
+						}
+						batch = append(batch, p)
+						if len(batch) > batchSize {
+							finalPoints <- batch
+							batch = make([]pointcloud.Point, 0, batchSize)
+						}
+						return true
+					})
 					finalPoints <- batch
-					batch = make([]pointcloud.Point, 0, batchSize)
 				}
-				return true
-			})
-			finalPoints <- batch
+				go f(loop)
+			}
+			wg.Wait()
 		}(i, cam)
 	}
 

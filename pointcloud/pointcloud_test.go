@@ -23,7 +23,7 @@ func TestPointCloudBasic(t *testing.T) {
 	test.That(t, pAt, test.ShouldResemble, p2)
 
 	count := 0
-	pc.Iterate(func(p Point) bool {
+	pc.Iterate(0, 0, func(p Point) bool {
 		switch p.Position().X {
 		case 0:
 			test.That(t, p, test.ShouldResemble, p0)

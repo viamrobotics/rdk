@@ -20,7 +20,7 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 	colorSegmentation := New()
 	for i, cluster := range clusters {
 		col := color.NRGBAModel.Convert(palette[i])
-		cluster.Iterate(func(pt Point) bool {
+		cluster.Iterate(0,0, func(pt Point) bool {
 			v := pt.Position()
 			colorPoint := NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
 			err = colorSegmentation.Set(colorPoint)
@@ -45,7 +45,7 @@ func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	// calculate the spatial average center of a given point cloud
 	x, y, z := 0.0, 0.0, 0.0
 	n := float64(cloud.Size())
-	cloud.Iterate(func(pt Point) bool {
+	cloud.Iterate(0, 0, func(pt Point) bool {
 		v := pt.Position()
 		x += v.X
 		y += v.Y
@@ -89,7 +89,7 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		// get the statistical information
 		avgDistances := make([]float64, 0, kd.Size())
 		points := make([]Point, 0, kd.Size())
-		kd.Iterate(func(pt Point) bool {
+		kd.Iterate(0, 0, func(pt Point) bool {
 			neighbors := kd.KNearestNeighbors(pt, meanK, false)
 			sumDist := 0.0
 			for _, p := range neighbors {

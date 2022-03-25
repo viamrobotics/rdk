@@ -128,7 +128,7 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	var err error
 	clusters := NewSegments()
 	c := 0
-	kdt.Iterate(func(pt pc.Point) bool {
+	kdt.Iterate(0, 0, func(pt pc.Point) bool {
 		v := pt.Position()
 		// skip if point already is assigned cluster
 		if _, ok := clusters.Indices[v]; ok {

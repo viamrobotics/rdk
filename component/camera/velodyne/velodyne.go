@@ -281,7 +281,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	maxX := 0.0
 	maxY := 0.0
 
-	pc.Iterate(func(p pointcloud.Point) bool {
+	pc.Iterate(0, 0, func(p pointcloud.Point) bool {
 		pos := p.Position()
 		minX = math.Min(minX, pos.X)
 		maxX = math.Max(maxX, pos.X)
@@ -305,7 +305,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		img.SetNRGBA(x, y, clr)
 	}
 
-	pc.Iterate(func(p pointcloud.Point) bool {
+	pc.Iterate(0, 0, func(p pointcloud.Point) bool {
 		set(p.Position().X, p.Position().Y, color.NRGBA{255, 0, 0, 255})
 		return true
 	})
