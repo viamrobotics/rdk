@@ -40,7 +40,7 @@ func newReadOrientationCollector(resource interface{}, name string, interval tim
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := imu.ReadOrientation(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, readOrientation.String())
+			return nil, data.FailedToReadErr(name, readOrientation.String(), err)
 		}
 		return v, nil
 	})
@@ -57,7 +57,7 @@ func newReadAccelerationCollector(resource interface{}, name string, interval ti
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := imu.ReadAcceleration(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, readAcceleration.String())
+			return nil, data.FailedToReadErr(name, readAcceleration.String(), err)
 		}
 		return v, nil
 	})
@@ -74,7 +74,7 @@ func newReadAngularVelocityCollector(resource interface{}, name string, interval
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := imu.ReadAngularVelocity(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, readAngularVelocity.String())
+			return nil, data.FailedToReadErr(name, readAngularVelocity.String(), err)
 		}
 		return v, nil
 	})

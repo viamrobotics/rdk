@@ -581,52 +581,6 @@ func TestGetPosition(t *testing.T) {
 	injectGPIOPinGood.GetFunc = func(ctx context.Context) (bool, error) {
 		return false, nil
 	}
-
-	fakegantry = &oneAxis{
-		motor: &inject.Motor{
-			GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: false,
-				}, nil
-			},
-			GetPositionFunc: func(ctx context.Context) (float64, error) { return 1, nil },
-		},
-		board: &inject.Board{
-			GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) { return injectGPIOPin, nil },
-		},
-		limitHigh:       true,
-		limitSwitchPins: []string{"1"},
-		positionLimits:  []float64{0, 1},
-		logger:          logger,
-	}
-	_, err = fakegantry.GetPosition(ctx)
-	test.That(t, err, test.ShouldNotBeNil)
-
-	fakegantry = &oneAxis{
-		motor: &inject.Motor{
-			GetFeaturesFunc: func(ctx context.Context) (map[motor.Feature]bool, error) {
-				return map[motor.Feature]bool{
-					motor.PositionReporting: false,
-				}, nil
-			},
-			GetPositionFunc: func(ctx context.Context) (float64, error) { return 1, nil },
-		},
-		board: &inject.Board{
-			GPIOPinByNameFunc: func(pin string) (board.GPIOPin, error) {
-				if pin == "1" {
-					return injectGPIOPinGood, nil
-				}
-				return injectGPIOPin, nil
-			},
-		},
-		limitHigh:       true,
-		limitType:       limitTwoPin,
-		limitSwitchPins: []string{"1", "2"},
-		positionLimits:  []float64{0, 1},
-		logger:          logger,
-	}
-	_, err = fakegantry.GetPosition(ctx)
-	test.That(t, err, test.ShouldNotBeNil)
 }
 
 func TestGetLengths(t *testing.T) {
