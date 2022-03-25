@@ -113,31 +113,27 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 
 	finalPoints := make(chan []pointcloud.Point)
 	activeReaders := int32(len(jpcs.sourceCameras))
-	
+
 	for i, cam := range jpcs.sourceCameras {
-		fmt.Printf("hi %d\n", i)
-		go func() {
+		go func(i int, cam camera.Camera) {
 			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i])
 			defer span.End()
 
 			defer func() {
-				atomic.AddInt32(&activeReaders,-1)
+				atomic.AddInt32(&activeReaders, -1)
 			}()
 			pcSrc, err := func() (pointcloud.PointCloud, error) {
 				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i]+"-NextPointCloud")
 				defer span.End()
 				return cam.NextPointCloud(ctx)
 			}()
-
 			if err != nil {
-				fmt.Println(err)
-				panic(err) // TODO fix
+				panic(err) // TODO(erh) is there something better to do?
 			}
 
 			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[i], jpcs.targetName)
 			if err != nil {
-				fmt.Println(err)
-				panic(err)
+				panic(err) // TODO(erh) is there something better to do?
 			}
 
 			const batchSize = 100000
@@ -156,7 +152,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				return true
 			})
 			finalPoints <- batch
-		}()
+		}(i, cam)
 	}
 
 	pcTo := pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
@@ -173,14 +169,12 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		case <-time.After(5 * time.Millisecond):
 			continue
 		}
-    }
+	}
 
-	fmt.Printf("final size: %v\n", pcTo.Size())
-	
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return pcTo, nil
 }
 

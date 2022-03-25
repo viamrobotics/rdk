@@ -89,7 +89,7 @@ func (as *arrayStorage) Points() []Point {
 	return as.points
 }
 
-func (ms *arrayStorage) EditSupported() bool {
+func (as *arrayStorage) EditSupported() bool {
 	return false
 }
 
