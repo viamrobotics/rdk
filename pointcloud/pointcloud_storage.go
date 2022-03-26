@@ -2,11 +2,10 @@ package pointcloud
 
 type storage interface {
 	Size() int
-	Set(p Point)
+	Set(p Vec3, d Data) error
 	Unset(x, y, z float64)
-	At(x, y, z float64) Point
-	Iterate(numBatches, myBatch int, fn func(p Point) bool)
-	Points() []Point
+	At(x, y, z float64) (Data, bool)
+	Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) bool)
 	EditSupported() bool
 }
 
@@ -16,102 +15,62 @@ type storage interface {
 type key Vec3
 
 type mapStorage struct {
-	points map[key]Point
+	points map[key]Data
 }
 
 func (ms *mapStorage) Size() int {
 	return len(ms.points)
 }
 
-func (ms *mapStorage) Set(p Point) {
-	ms.points[key(p.Position())] = p
+// With 64-bit floating point numbers, you get about 16 decimal digits of precision.
+// To guarantee at least 6 decimal places of precision past 0, Abs(x) cannot be greater than 2^33 - 1.
+const (
+	maxPreciseFloat64 = float64(8589934591)
+	minPreciseFloat64 = float64(-8589934591)
+)
+
+// newOutOfRangeErr returns an error informing that a value is numerically out of range to
+// be stored precisely.
+func newOutOfRangeErr(dim string, val float64) error {
+	return errors.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
+}
+
+
+func (ms *mapStorage) Set(p Vec3, d Data) error {
+	v := p.Position()
+	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
+		return newOutOfRangeErr("x", v.X)
+	}
+	if v.Y > maxPreciseFloat64 || v.Y < minPreciseFloat64 {
+		return newOutOfRangeErr("y", v.Y)
+	}
+	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
+		return newOutOfRangeErr("z", v.Z)
+	}
+	ms.points[p] = d
 }
 
 func (ms *mapStorage) Unset(x, y, z float64) {
 	delete(ms.points, key{x, y, z})
 }
 
-func (ms *mapStorage) At(x, y, z float64) Point {
+func (ms *mapStorage) At(x, y, z float64) (Data, bool) {
 	return ms.points[key{x, y, z}]
 }
 
-func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
+func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) bool) {
 	if numBatches > 0 && myBatch > 0 {
 		// TODO(erh) finish me
 		return
 	}
-	for _, p := range ms.points {
-		if cont := fn(p); !cont {
+	for p, d := range ms.points {
+		if cont := fn(p, d); !cont {
 			return
 		}
 	}
-}
-
-func (ms *mapStorage) Points() []Point {
-	pts := make([]Point, 0, ms.Size())
-	for _, v := range ms.points {
-		pts = append(pts, v)
-	}
-	return pts
 }
 
 func (ms *mapStorage) EditSupported() bool {
 	return true
 }
 
-// ----
-
-type arrayStorage struct {
-	points []Point
-}
-
-func (as *arrayStorage) Size() int {
-	return len(as.points)
-}
-
-func (as *arrayStorage) Set(p Point) {
-	as.points = append(as.points, p)
-}
-
-func (as *arrayStorage) Unset(x, y, z float64) {
-	panic("Unset not supported in arrayStorage")
-}
-
-func (as *arrayStorage) At(x, y, z float64) Point {
-	panic("At not supported in arrayStorage")
-}
-
-func (as *arrayStorage) Iterate(numBatches, myBatch int, fn func(p Point) bool) {
-	for idx, p := range as.points {
-		if numBatches > 0 && idx%numBatches != myBatch {
-			continue
-		}
-		if cont := fn(p); !cont {
-			return
-		}
-	}
-}
-
-func (as *arrayStorage) Points() []Point {
-	return as.points
-}
-
-func (as *arrayStorage) EditSupported() bool {
-	return false
-}
-
-func convertToMapStorage(s storage) *mapStorage {
-	ms, ok := s.(*mapStorage)
-	if ok {
-		return ms
-	}
-
-	ms = &mapStorage{make(map[key]Point, s.Size())}
-
-	s.Iterate(0, 0, func(p Point) bool {
-		ms.Set(p)
-		return true
-	})
-
-	return ms
-}

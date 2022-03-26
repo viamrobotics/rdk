@@ -2,65 +2,106 @@ package pointcloud
 
 import "gonum.org/v1/gonum/spatial/kdtree"
 
+type kdValue struct {
+	p Vec3
+	d Data
+}
+
+func (v kdValue) Compare(kdtree.Comparable, kdtree.Dim) float64 {
+	panic(1)
+}
+
+func (v kdValue) Dims() int {
+	return 3
+}
+
+func (v kdValue) Distance(kdtree.Comparable) float64 {
+	panic(12)
+}
+
+type kdValues []kdValue
+
+func (vs kdValues) Index(i int) kdtree.Comparable { return vs[i] }
+
+func (vs kdValues) Len() int { return len(vs) }
+
+func (vs kdValues) Slice(start, end int) kdtree.Interface { return vs[start:end] }
+
+func (vs kdValues) Pivot(d kdtree.Dim) int {
+	panic("what")
+}
+
+// ----------
+
 // KDTree extends PointCloud and orders the points in 3D space to implement nearest neighbor algos.
 type KDTree struct {
-	PointCloud
 	tree    *kdtree.Tree
 	rebuild bool
+	toRemove []Vec3
 }
 
 // NewKDTree creates a KDTree from an input PointCloud.
 func NewKDTree(pc PointCloud) *KDTree {
-	if pc.Size() == 0 {
-		return &KDTree{pc, kdtree.New(Points([]Point{}), false), false}
-	}
-	if k, ok := pc.(*KDTree); ok { // rebuild the KDTree from scratch
-		pc = k.PointCloud
-	}
-	points := Points(pc.Points())
-	tree := kdtree.New(points, false)
 
-	return &KDTree{pc, tree, false}
+	t := &KDTree{kdtree.New(kdValues{}, false), false, nil}
+
+	if pc != nil {
+		pc.Iterate(0,0,func(p Vec3, d Data) bool {
+			err := t.Set(p, d)
+			if err != nil {
+				panic(err)
+			}
+			return true
+		})
+	}
+
+	return t
+}
+
+func (kd *KDTree) rebuildIfNeeded() {
+	if !kd.rebuild {
+		return
+	}
+
+	
+	n := kdtree.New(kdValues{}, false)
+	panic(1)
+	// iterate
+	// don't add if in unset
+	kd.toRemove = []Vec3{}
+	kd.rebuild = false
 }
 
 // Set adds a new point to the PointCloud and tree. Does not rebalance the tree.
-func (kd *KDTree) Set(p Point) error {
-	kd.tree.Insert(p, false)
-	return kd.PointCloud.Set(p)
+func (kd *KDTree) Set(p Vec3, d Data) error {
+	kd.tree.Insert(&kdValue{p, d}, false)
+	return nil
 }
 
 // Unset removes the point from the PointCloud and sets a flag to rebuild the tree next time NN is used.
 func (kd *KDTree) Unset(x, y, z float64) {
-	kd.PointCloud.Unset(x, y, z)
+	kd.toRemove = append(kd.toRemove, Vec3{x,y,z})
 	kd.rebuild = true
 }
 
 // NearestNeighbor returns the nearest point and its distance from the input point.
-func (kd *KDTree) NearestNeighbor(p Point) (Point, float64) {
-	if kd.rebuild {
-		points := Points(kd.Points())
-		kd.tree = kdtree.New(points, false)
-		kd.rebuild = false
-	}
-	c, dist := kd.tree.Nearest(p)
+func (kd *KDTree) NearestNeighbor(p Vec3) (Vec3, Data, float64) {
+	kd.rebuildIfNeeded()
+	c, dist := kd.tree.Nearest(&kdValue{p, nil})
 	if c == nil {
-		return nil, 0.0
+		return Vec3{}, nil, 0.0
 	}
-	p2, ok := c.(Point)
+	p2, ok := c.(kdValue)
 	if !ok {
 		panic("kdtree.Comparable is not a Point")
 	}
-	return p2, dist
+	return p2.p, p2.d, dist
 }
 
 // KNearestNeighbors returns the k nearest points ordered by distance. if includeSelf is true and if the point p
 // is in the point cloud, point p will also be returned in the slice as the first element with distance 0.
 func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
-	if kd.rebuild {
-		points := Points(kd.Points())
-		kd.tree = kdtree.New(points, false)
-		kd.rebuild = false
-	}
+	kd.rebuildIfNeeded()
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
 		k++
@@ -87,11 +128,7 @@ func (kd *KDTree) KNearestNeighbors(p Point, k int, includeSelf bool) []Point {
 // If includeSelf is true and if the point p is in the point cloud, point p will also be returned in the slice
 // as the first element with distance 0.
 func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) []Point {
-	if kd.rebuild {
-		points := Points(kd.Points())
-		kd.tree = kdtree.New(points, false)
-		kd.rebuild = false
-	}
+	kd.rebuildIfNeeded()
 	start := 0
 	if kd.At(p.Position().X, p.Position().Y, p.Position().Z) != nil && !includeSelf {
 		start++
@@ -111,53 +148,4 @@ func (kd *KDTree) RadiusNearestNeighbors(p Point, r float64, includeSelf bool) [
 		nearestPoints = append(nearestPoints, p)
 	}
 	return nearestPoints
-}
-
-// Points is a slice type that satisfies kdtree.Interface.
-type Points []Point
-
-// Index returns the point at index i.
-func (ps Points) Index(i int) kdtree.Comparable { return ps[i] }
-
-// Len returns the length of the slice.
-func (ps Points) Len() int { return len(ps) }
-
-// Slice returns the subset of the slice.
-func (ps Points) Slice(start, end int) kdtree.Interface { return ps[start:end] }
-
-// Pivot chooses the median point along an axis to be the pivot element.
-func (ps Points) Pivot(d kdtree.Dim) int {
-	return pointsHelper{Points: ps, Dim: d}.Pivot()
-}
-
-// pointsHelper is required to help Points.
-type pointsHelper struct {
-	kdtree.Dim
-	Points
-}
-
-func (ph pointsHelper) Less(i, j int) bool {
-	switch ph.Dim {
-	case 0:
-		return ph.Points[i].Position().X < ph.Points[j].Position().X
-	case 1:
-		return ph.Points[i].Position().Y < ph.Points[j].Position().Y
-	case 2:
-		return ph.Points[i].Position().Z < ph.Points[j].Position().Z
-	default:
-		panic("illegal dimension")
-	}
-}
-
-func (ph pointsHelper) Pivot() int {
-	return kdtree.Partition(ph, kdtree.MedianOfMedians(ph))
-}
-
-func (ph pointsHelper) Slice(start, end int) kdtree.SortSlicer {
-	ph.Points = ph.Points[start:end]
-	return ph
-}
-
-func (ph pointsHelper) Swap(i, j int) {
-	ph.Points[i], ph.Points[j] = ph.Points[j], ph.Points[i]
 }

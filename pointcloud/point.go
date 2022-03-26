@@ -2,10 +2,8 @@ package pointcloud
 
 import (
 	"image/color"
-	"math"
 
 	"github.com/golang/geo/r3"
-	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
 // Vec3 is a three-dimensional vector.
@@ -36,16 +34,7 @@ func (vs Vec3s) Less(i, j int) bool {
 
 // A Point describes a single point within a PointCloud. It is the
 // collection of these points that forms the cloud.
-type Point interface {
-	// Position is the vector describing where the point is in the cloud.
-	Position() Vec3
-
-	// SetPosition sets the vector describing where the point is in the cloud.
-	SetPosition(p Vec3)
-
-	// Clone copies the point to a new position.
-	Clone(v Vec3) Point
-
+type Data interface {
 	// HasColor returns whether or not this point is colored.
 	HasColor() bool
 
@@ -59,7 +48,7 @@ type Point interface {
 
 	// SetColor sets the given color on the point.
 	// Note(erd): we should try to remove this in favor of immutability.
-	SetColor(c color.NRGBA) Point
+	SetColor(c color.NRGBA) Data
 
 	// HasValue returns whether or not this point has some user data value
 	// associated with it.
@@ -70,29 +59,16 @@ type Point interface {
 
 	// SetValue sets the given user data value on the point.
 	// Note(erd): we should try to remove this in favor of immutability.
-	SetValue(v int) Point
+	SetValue(v int) Data
 
 	// Value returns the intesity value, or 0 if it doesn't exist
 	Intensity() uint16
 
 	// SetIntensity sets the intensity on the point.
-	SetIntensity(v uint16) Point
-
-	// Distance returns the distance between the the current point and the given point.
-	// Used to fulfill kdtree.Comparable.
-	Distance(p kdtree.Comparable) float64
-
-	// Dims returns the dimensions of the point. Used to fulfill kdtree.Comparable.
-	Dims() int
-
-	// Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
-	// Used to fulfill kdtree.Comparable.
-	Compare(p kdtree.Comparable, d kdtree.Dim) float64
+	SetIntensity(v uint16) Data
 }
 
-type basicPoint struct {
-	position Vec3
-
+type basicData struct {
 	hasColor bool
 	c        color.NRGBA
 
@@ -103,211 +79,52 @@ type basicPoint struct {
 }
 
 // NewBasicPoint returns a point that is solely positionally based.
-func NewBasicPoint(x, y, z float64) Point {
-	return &basicPoint{position: Vec3{x, y, z}}
-}
-
-// NewBasicPointFromVec3 returns a point that is solely positionally based.
-func NewBasicPointFromVec3(v Vec3) Point {
-	return &basicPoint{position: v}
+func NewBasicData() Data {
+	return &basicData{}
 }
 
 // NewColoredPoint returns a point that has both position and color.
-func NewColoredPoint(x, y, z float64, c color.NRGBA) Point {
-	return &basicPoint{position: Vec3{x, y, z}, c: c, hasColor: true}
+func NewColoredData(c color.NRGBA) Data {
+	return &basicData{c: c, hasColor: true}
 }
 
 // NewValuePoint returns a point that has both position and a user data value.
-func NewValuePoint(x, y, z float64, v int) Point {
-	return &basicPoint{position: Vec3{x, y, z}, value: v, hasValue: true}
+func NewValueData(v int) Data {
+	return &basicData{value: v, hasValue: true}
 }
 
-// Clone copies the point over with a new position.
-func (bp *basicPoint) Clone(v Vec3) Point {
-	return &basicPoint{
-		position:  v,
-		hasColor:  bp.hasColor,
-		c:         bp.c,
-		hasValue:  bp.hasValue,
-		value:     bp.value,
-		intensity: bp.intensity,
-	}
-}
-
-func (bp *basicPoint) Position() Vec3 {
-	return bp.position
-}
-
-func (bp *basicPoint) SetPosition(p Vec3) {
-	bp.position = p
-}
-
-// Distance returns the distance between the the current point and the given point.
-// Used to fulfill kdtree.Comparable.
-func (bp *basicPoint) Distance(p kdtree.Comparable) float64 {
-	pp, ok := p.(Point)
-	if !ok {
-		panic("kdtree.Comparable fed into basicPoint.Distance is not a Point")
-	}
-	v1, v2 := bp.Position(), pp.Position()
-	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
-}
-
-// Dims returns the dimensions of the point. Used to fulfill kdtree.Comparable.
-func (bp *basicPoint) Dims() int { return 3 }
-
-// Compare returns the signed distance from the plane passing through p and perpendicular to dim d.
-// Used to fulfill kdtree.Comparable.
-func (bp *basicPoint) Compare(p kdtree.Comparable, d kdtree.Dim) float64 {
-	p2, ok := p.(Point)
-	if !ok {
-		panic("kdtree.Comparable fed into basicPoint.Distance is not a Point")
-	}
-	v1, v2 := bp.Position(), p2.Position()
-	switch d {
-	case 0:
-		return v1.X - v2.X
-	case 1:
-		return v1.Y - v2.Y
-	case 2:
-		return v1.Z - v2.Z
-	default:
-		panic("illegal dimension fed to basicPoint.Compare")
-	}
-}
-
-func (bp *basicPoint) SetColor(c color.NRGBA) Point {
-	bp.hasColor = true
-	bp.c = c
-	return bp
-}
-
-func (bp *basicPoint) HasColor() bool {
+func (bp *basicData) HasColor() bool {
 	return bp.hasColor
 }
 
-func (bp *basicPoint) RGB255() (uint8, uint8, uint8) {
+func (bp *basicData) RGB255() (uint8, uint8, uint8) {
 	return bp.c.R, bp.c.G, bp.c.B
 }
 
-func (bp *basicPoint) Color() color.Color {
+func (bp *basicData) Color() color.Color {
 	return &bp.c
 }
 
-func (bp *basicPoint) SetValue(v int) Point {
+func (bp *basicData) SetValue(v int) Data {
 	bp.hasValue = true
 	bp.value = v
 	return bp
 }
 
-func (bp *basicPoint) HasValue() bool {
+func (bp *basicData) HasValue() bool {
 	return bp.hasValue
 }
 
-func (bp *basicPoint) Value() int {
+func (bp *basicData) Value() int {
 	return bp.value
 }
 
-func (bp *basicPoint) SetIntensity(v uint16) Point {
+func (bp *basicData) SetIntensity(v uint16) Data {
 	bp.intensity = v
 	return bp
 }
 
-func (bp *basicPoint) Intensity() uint16 {
+func (bp *basicData) Intensity() uint16 {
 	return bp.intensity
 }
 
-type justAPoint struct {
-	p Vec3
-}
-
-// NewJustAPoiint returns a point that is solely positionally based.
-func NewJustAPoiint(v Vec3) Point {
-	return &justAPoint{v}
-}
-
-func (j *justAPoint) Clone(v Vec3) Point {
-	return NewJustAPoiint(v)
-}
-
-func (j *justAPoint) Position() Vec3 {
-	return j.p
-}
-
-func (j *justAPoint) SetPosition(p Vec3) {
-	j.p = p
-}
-
-func (j *justAPoint) Distance(p kdtree.Comparable) float64 {
-	pp, ok := p.(Point)
-	if !ok {
-		panic("kdtree.Comparable fed into justAPoint.Distance is not a Point")
-	}
-	v1, v2 := j.Position(), pp.Position()
-	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
-}
-
-func (j *justAPoint) Dims() int { return 3 }
-
-func (j *justAPoint) Compare(p kdtree.Comparable, d kdtree.Dim) float64 {
-	p2, ok := p.(Point)
-	if !ok {
-		panic("kdtree.Comparable fed into justAPoint.Distance is not a Point")
-	}
-	v1, v2 := j.Position(), p2.Position()
-	switch d {
-	case 0:
-		return v1.X - v2.X
-	case 1:
-		return v1.Y - v2.Y
-	case 2:
-		return v1.Z - v2.Z
-	default:
-		panic("illegal dimension fed to justAPoint.Compare")
-	}
-}
-
-func (j *justAPoint) SetColor(c color.NRGBA) Point {
-	panic("no")
-}
-
-func (j *justAPoint) HasColor() bool {
-	return false
-}
-
-func (j *justAPoint) RGB255() (uint8, uint8, uint8) {
-	panic("no")
-}
-
-func (j *justAPoint) Color() color.Color {
-	panic("no")
-}
-
-func (j *justAPoint) SetValue(v int) Point {
-	panic("no")
-}
-
-func (j *justAPoint) HasValue() bool {
-	return false
-}
-
-func (j *justAPoint) Value() int {
-	return 0
-}
-
-func (j *justAPoint) SetIntensity(v uint16) Point {
-	panic("no")
-}
-
-func (j *justAPoint) Intensity() uint16 {
-	return 0
-}
-
-// GetPositions gets the positions of the slice of points.
-func GetPositions(pts []Point) []r3.Vector {
-	positions := make([]r3.Vector, len(pts))
-	for i, pt := range pts {
-		positions[i] = r3.Vector(pt.Position())
-	}
-	return positions
-}

@@ -81,22 +81,6 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(p pointc
 	}
 }
 
-func (dm *dmPointCloudAdapter) WriteToFile(fn string) error {
-	return errors.New("dmPointCloudAdapter doesn't support WriteToFile")
-}
-
-func (dm *dmPointCloudAdapter) ToPCD(out io.Writer, outputType pointcloud.PCDType) error {
-	return errors.New("dmPointCloudAdapter doesn't support ToPCD")
-}
-
-func (dm *dmPointCloudAdapter) DenseZ(zIdx float64) (*mat.Dense, error) {
-	return nil, errors.New("dmPointCloudAdapter doesn't support DenseZ")
-}
-
-func (dm *dmPointCloudAdapter) ToVec2Matrix() (*utils.Vec2Matrix, error) {
-	return nil, errors.New("dmPointCloudAdapter doesn't support ToVec2Matrix")
-}
-
 func (dm *dmPointCloudAdapter) Points() []pointcloud.Point {
 	panic(8)
 }

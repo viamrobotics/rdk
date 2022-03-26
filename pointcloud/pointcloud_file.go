@@ -18,6 +18,16 @@ import (
 	"go.viam.com/utils"
 )
 
+// PCDType is the format of a pcd file.
+type PCDType int
+
+const (
+	// PCDAscii ascii format for pcd.
+	PCDAscii PCDType = 0
+	// PCDBinary binary format for pcd.
+	PCDBinary PCDType = 1
+)
+
 // NewFromFile returns a pointcloud read in from the given file.
 func NewFromFile(fn string, logger golog.Logger) (PointCloud, error) {
 	switch filepath.Ext(fn) {
@@ -88,7 +98,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 }
 
 // WriteToFile writes the point cloud out to a LAS file.
-func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
+func WriteToLASFile(pc PointCloud, fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
 		return
@@ -186,7 +196,7 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 	return
 }
 
-func _colorToPCDInt(pt Point) int {
+func _colorToPCDInt(pt Data) int {
 	if !pt.HasColor() {
 		return 255 << 16 // TODO(erh): this doesn't feel great
 	}
@@ -207,7 +217,7 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
-func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
+func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	var err error
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
