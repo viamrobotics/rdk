@@ -145,10 +145,12 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 					defer wg.Done()
 					const batchSize = 500
 					batch := make([]pointcloud.Point, 0, batchSize)
+					savedDualQuat := spatialmath.NewZeroPose()
 					pcSrc.Iterate(numLoops, loop, func(p pointcloud.Point) bool {
 						if jpcs.sourceNames[i] != jpcs.targetName {
 							vec := r3.Vector(p.Position())
-							newPose := spatialmath.Compose(theTransform.Pose(), spatialmath.NewPoseFromPoint(vec))
+							spatialmath.ResetPoseDQTransalation(savedDualQuat, vec)
+							newPose := spatialmath.Compose(theTransform.Pose(), savedDualQuat)
 							p.SetPosition(pointcloud.Vec3(newPose.Point()))
 						}
 						batch = append(batch, p)
