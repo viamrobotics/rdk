@@ -27,13 +27,13 @@ import (
 	"go.viam.com/rdk/vision/segmentation"
 )
 
-var testPointCloud = []pointcloud.Point{
-	pointcloud.NewBasicPoint(5, 5, 5),
-	pointcloud.NewBasicPoint(5, 5, 6),
-	pointcloud.NewBasicPoint(5, 5, 4),
-	pointcloud.NewBasicPoint(-5, -5, 5),
-	pointcloud.NewBasicPoint(-5, -5, 6),
-	pointcloud.NewBasicPoint(-5, -5, 4),
+var testPointCloud = []r3.Vector{
+	pointcloud.NewVector(5, 5, 5),
+	pointcloud.NewVector(5, 5, 6),
+	pointcloud.NewVector(5, 5, 4),
+	pointcloud.NewVector(-5, -5, 5),
+	pointcloud.NewVector(-5, -5, 6),
+	pointcloud.NewVector(-5, -5, 4),
 }
 
 func makeExpectedBoxes(t *testing.T) []spatialmath.Geometry {
@@ -64,7 +64,7 @@ func (c *cloudSource) Next(ctx context.Context) (image.Image, func(), error) {
 func (c *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pcA := pointcloud.New()
 	for _, pt := range testPointCloud {
-		err := pcA.Set(pt)
+		err := pcA.Set(pt, nil)
 		if err != nil {
 			return nil, err
 		}

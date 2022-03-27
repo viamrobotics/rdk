@@ -11,7 +11,7 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// PointCloudMetaData is data about what's stored in the point cloud
+// PointCloudMetaData is data about what's stored in the point cloud.
 type PointCloudMetaData struct {
 	HasColor bool
 	HasValue bool
@@ -92,10 +92,9 @@ func (meta *PointCloudMetaData) Merge(v r3.Vector, data Data) {
 	if v.Z < meta.MinZ {
 		meta.MinZ = v.Z
 	}
-
 }
 
-// CloudContains is a silly helper method
+// CloudContains is a silly helper method.
 func CloudContains(cloud PointCloud, x, y, z float64) bool {
 	_, got := cloud.At(x, y, z)
 	return got

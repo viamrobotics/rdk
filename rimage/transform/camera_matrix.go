@@ -158,7 +158,7 @@ func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (poi
 	var err error
 	pts.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
 		x, y, z := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
-		err = transformedPoints.Set(pointcloud.NewVector(x,y,z), data)
+		err = transformedPoints.Set(pointcloud.NewVector(x, y, z), data)
 		if err != nil {
 			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false

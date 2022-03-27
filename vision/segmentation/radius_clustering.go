@@ -3,11 +3,11 @@ package segmentation
 import (
 	"context"
 
+	
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
-	"github.com/golang/geo/r3"
-	
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
 	pc "go.viam.com/rdk/pointcloud"
