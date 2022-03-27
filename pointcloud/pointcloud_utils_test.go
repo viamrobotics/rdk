@@ -58,6 +58,14 @@ func TestBoundingBoxFromPointCloud(t *testing.T) {
 	}
 }
 
+func TestMergePoints(t *testing.T) {
+	clouds := makeClouds(t)
+	mergedCloud, err := MergePointClouds(clouds)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mergedCloud.At(0, 0, 0), test.ShouldNotBeNil)
+	test.That(t, mergedCloud.At(30, 0, 0), test.ShouldNotBeNil)
+}
+
 func TestMergePointsWithColor(t *testing.T) {
 	clouds := makeClouds(t)
 	mergedCloud, err := MergePointCloudsWithColor(clouds)

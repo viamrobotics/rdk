@@ -5,8 +5,8 @@
 		"type": "frame_system"
     },
     {
-    	"name": "object_manipulation",
-		"type": "object_manipulation"
+    	"name": "motion",
+		"type": "motion"
     }
   ],
   "components": [

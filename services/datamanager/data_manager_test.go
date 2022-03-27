@@ -16,9 +16,9 @@ func TestNewDataManager(t *testing.T) {
 		CaptureDir: "/path/to/capture",
 		ComponentAttributes: map[string]componentAttributes{
 			"imu1": {
-				Type:              "imu",
-				Method:            "ReadAngularVelocity",
-				CaptureIntervalMs: 100,
+				Type:               "imu",
+				Method:             "ReadAngularVelocity",
+				CaptureFrequencyHz: 10,
 				AdditionalParams: map[string]string{
 					"param1": "thing",
 					"param2": "thing2",

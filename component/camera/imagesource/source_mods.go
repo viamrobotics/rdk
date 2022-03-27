@@ -22,6 +22,34 @@ import (
 func init() {
 	registry.RegisterComponent(
 		camera.Subtype,
+		"identity",
+		registry.Component{Constructor: func(
+			ctx context.Context,
+			r robot.Robot,
+			config config.Component,
+			logger golog.Logger,
+		) (interface{}, error) {
+			attrs, ok := config.ConvertedAttributes.(*camera.AttrConfig)
+			if !ok {
+				return nil, rdkutils.NewUnexpectedTypeError(attrs, config.ConvertedAttributes)
+			}
+			sourceName := attrs.Source
+			source, err := camera.FromRobot(r, sourceName)
+			if err != nil {
+				return nil, fmt.Errorf("no source camera for identity (%s): %w", sourceName, err)
+			}
+			return camera.New(source, attrs, source)
+		}})
+
+	config.RegisterComponentAttributeMapConverter(config.ComponentTypeCamera, "identity",
+		func(attributes config.AttributeMap) (interface{}, error) {
+			var conf camera.AttrConfig
+			return config.TransformAttributeMapToStruct(&conf, attributes)
+		},
+		&camera.AttrConfig{})
+
+	registry.RegisterComponent(
+		camera.Subtype,
 		"rotate",
 		registry.Component{Constructor: func(
 			ctx context.Context,
