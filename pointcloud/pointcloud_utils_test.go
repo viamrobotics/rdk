@@ -62,8 +62,8 @@ func TestMergePoints(t *testing.T) {
 	clouds := makeClouds(t)
 	mergedCloud, err := MergePointClouds(clouds)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mergedCloud.At(0, 0, 0), test.ShouldNotBeNil)
-	test.That(t, mergedCloud.At(30, 0, 0), test.ShouldNotBeNil)
+	test.That(t, CloudContains(mergedCloud, 0, 0, 0), test.ShouldBeTrue)
+	test.That(t, CloudContains(mergedCloud, 30, 0, 0), test.ShouldBeTrue)
 }
 
 func TestMergePointsWithColor(t *testing.T) {
