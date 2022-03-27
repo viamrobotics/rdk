@@ -169,7 +169,8 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 
 	pcTo := pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
 
-	for atomic.LoadInt32(&activeReaders) > 0 {
+	dataLastTime := false
+	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		select {
 		case ps := <-finalPoints:
 			for _, p := range ps {
@@ -178,7 +179,9 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 					err = myErr
 				}
 			}
+			dataLastTime = true
 		case <-time.After(5 * time.Millisecond):
+			dataLastTime = false
 			continue
 		}
 	}
