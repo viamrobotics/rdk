@@ -601,7 +601,7 @@ func (dm *DepthMap) InterestingPixels(t float64) *image.Gray {
 
 // ToPointCloud returns a lazy read only pointcloud.
 func (dm *DepthMap) ToPointCloud(p Projector) pointcloud.PointCloud {
-	return &dmPointCloudAdapter{dm, p}
+	return newDMPointCloudAdapter(dm, p)
 }
 
 type dmWarpConnector struct {

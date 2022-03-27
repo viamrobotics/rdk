@@ -9,13 +9,33 @@ import (
 	"go.viam.com/rdk/pointcloud"
 )
 
+func newDMPointCloudAdapter(dm *DepthMap, p Projector) *dmPointCloudAdapter {
+	pc := &dmPointCloudAdapter{
+		dm: dm,
+		p:  p,
+	}
+
+	for x := 0; x < dm.Width(); x++ {
+		for y := 0; y < dm.Height(); y++ {
+			z := dm.GetDepth(x, y)
+			if z == 0 {
+				continue
+			}
+			pc.size++
+		}
+	}
+
+	return pc
+}
+
 type dmPointCloudAdapter struct {
-	dm *DepthMap
-	p  Projector
+	dm   *DepthMap
+	p    Projector
+	size int
 }
 
 func (dm *dmPointCloudAdapter) Size() int {
-	return dm.dm.width * dm.dm.height
+	return dm.size
 }
 
 func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
@@ -40,7 +60,11 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Ve
 			continue
 		}
 		for x := 0; x < dm.dm.width; x++ {
-			vec, err := dm.p.ImagePointTo3DPoint(image.Point{x, y}, dm.dm.GetDepth(x, y))
+			depth := dm.dm.GetDepth(x, y)
+			if depth == 0 {
+				continue
+			}
+			vec, err := dm.p.ImagePointTo3DPoint(image.Point{x, y}, depth)
 			if err != nil {
 				panic(err)
 			}

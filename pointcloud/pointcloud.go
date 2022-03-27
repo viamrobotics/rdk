@@ -19,8 +19,6 @@ type MetaData struct {
 	MinX, MaxX float64
 	MinY, MaxY float64
 	MinZ, MaxZ float64
-
-	inited bool // just to prevent someone creating the wrong way
 }
 
 // PointCloud is a general purpose container of points. It does not
@@ -55,13 +53,12 @@ type PointCloud interface {
 // NewMetaData creates a new MetaData.
 func NewMetaData() MetaData {
 	return MetaData{
-		MinX:   math.MaxFloat64,
-		MinY:   math.MaxFloat64,
-		MinZ:   math.MaxFloat64,
-		MaxX:   -math.MaxFloat64,
-		MaxY:   -math.MaxFloat64,
-		MaxZ:   -math.MaxFloat64,
-		inited: true,
+		MinX: math.MaxFloat64,
+		MinY: math.MaxFloat64,
+		MinZ: math.MaxFloat64,
+		MaxX: -math.MaxFloat64,
+		MaxY: -math.MaxFloat64,
+		MaxZ: -math.MaxFloat64,
 	}
 }
 
