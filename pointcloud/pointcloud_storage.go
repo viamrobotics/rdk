@@ -1,21 +1,22 @@
 package pointcloud
 
+import (
+	"github.com/pkg/errors"
+
+	"github.com/golang/geo/r3"
+)
+
 type storage interface {
 	Size() int
-	Set(p Vec3, d Data) error
+	Set(p r3.Vector, d Data) error
 	Unset(x, y, z float64)
 	At(x, y, z float64) (Data, bool)
-	Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) bool)
+	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
 	EditSupported() bool
 }
 
-// key is the map key used within the point cloud implementation. That is
-// we index points by their positions. This is problematic for points that
-// can mutate their own position outside the ownership of the cloud.
-type key Vec3
-
 type mapStorage struct {
-	points map[key]Data
+	points map[r3.Vector]Data
 }
 
 func (ms *mapStorage) Size() int {
@@ -35,9 +36,7 @@ func newOutOfRangeErr(dim string, val float64) error {
 	return errors.Errorf("%s component (%v) is out of range [%v,%v]", dim, val, minPreciseFloat64, maxPreciseFloat64)
 }
 
-
-func (ms *mapStorage) Set(p Vec3, d Data) error {
-	v := p.Position()
+func (ms *mapStorage) Set(v r3.Vector, d Data) error {
 	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
 		return newOutOfRangeErr("x", v.X)
 	}
@@ -47,18 +46,20 @@ func (ms *mapStorage) Set(p Vec3, d Data) error {
 	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
 		return newOutOfRangeErr("z", v.Z)
 	}
-	ms.points[p] = d
+	ms.points[v] = d
+	return nil
 }
 
 func (ms *mapStorage) Unset(x, y, z float64) {
-	delete(ms.points, key{x, y, z})
+	delete(ms.points, r3.Vector{x, y, z})
 }
 
 func (ms *mapStorage) At(x, y, z float64) (Data, bool) {
-	return ms.points[key{x, y, z}]
+	d, found := ms.points[r3.Vector{x, y, z}]
+	return d, found
 }
 
-func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) bool) {
+func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
 	if numBatches > 0 && myBatch > 0 {
 		// TODO(erh) finish me
 		return
@@ -73,4 +74,3 @@ func (ms *mapStorage) Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) b
 func (ms *mapStorage) EditSupported() bool {
 	return true
 }
-

@@ -2,30 +2,34 @@ package pointcloud
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/golang/geo/r3"
+
+	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
-// Vec3 is a three-dimensional vector.
-type Vec3 r3.Vector
+func NewVector(x, y, z float64) r3.Vector {
+	return r3.Vector{x, y, z}
+}
 
-// Vec3s is a series of three-dimensional vectors.
-type Vec3s []Vec3
+// r3.Vectors is a series of three-dimensional vectors.
+type Vectors []r3.Vector
 
 // Len returns the number of vectors.
-func (vs Vec3s) Len() int {
+func (vs Vectors) Len() int {
 	return len(vs)
 }
 
 // Swap swaps two vectors positionally.
-func (vs Vec3s) Swap(i, j int) {
+func (vs Vectors) Swap(i, j int) {
 	vs[i], vs[j] = vs[j], vs[i]
 }
 
 // Less returns which vector is less than the other based on
 // r3.Vector.Cmp.
-func (vs Vec3s) Less(i, j int) bool {
-	cmp := (r3.Vector)(vs[i]).Cmp((r3.Vector)(vs[j]))
+func (vs Vectors) Less(i, j int) bool {
+	cmp := vs[i].Cmp(vs[j])
 	if cmp == 0 {
 		return false
 	}
@@ -68,6 +72,45 @@ type Data interface {
 	SetIntensity(v uint16) Data
 }
 
+type PointAndData struct {
+	P r3.Vector
+	D Data
+}
+
+func (v PointAndData) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
+	p2 := c.(*PointAndData)
+	v1, v2 := v.P, p2.P
+	switch d {
+	case 0:
+		return v1.X - v2.X
+	case 1:
+		return v1.Y - v2.Y
+	case 2:
+		return v1.Z - v2.Z
+	default:
+		panic("illegal dimension fed to basicPoint.Compare")
+	}
+}
+
+func (v PointAndData) Dims() int {
+	return 3
+}
+
+func (v PointAndData) Distance(c kdtree.Comparable) float64 {
+	p2 := c.(*PointAndData)
+	v1, v2 := v.P, p2.P
+	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
+}
+
+// TODO(bhaney): this is gross, refactor so not needed
+func getPositions(foo []PointAndData) []r3.Vector {
+	v := make([]r3.Vector, len(foo))
+	for idx, x := range foo {
+		v[idx] = x.P
+	}
+	return v
+}
+
 type basicData struct {
 	hasColor bool
 	c        color.NRGBA
@@ -91,6 +134,12 @@ func NewColoredData(c color.NRGBA) Data {
 // NewValuePoint returns a point that has both position and a user data value.
 func NewValueData(v int) Data {
 	return &basicData{value: v, hasValue: true}
+}
+
+func (bp *basicData) SetColor(c color.NRGBA) Data {
+	bp.c = c
+	bp.hasColor = true
+	return bp
 }
 
 func (bp *basicData) HasColor() bool {
@@ -127,4 +176,3 @@ func (bp *basicData) SetIntensity(v uint16) Data {
 func (bp *basicData) Intensity() uint16 {
 	return bp.intensity
 }
-

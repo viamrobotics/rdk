@@ -4,6 +4,8 @@ import (
 	"container/list"
 	"sort"
 
+	"github.com/golang/geo/r3"
+
 	"go.viam.com/rdk/utils"
 )
 
@@ -69,19 +71,18 @@ func (vg *VoxelGrid) GetUnlabeledVoxels() []VoxelCoords {
 
 // GetPlanesFromLabels returns a slice containing all the planes in the point cloud.
 func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
-	pointsByLabel := make(map[int][]Point)
+	pointsByLabel := make(map[int][]PointAndData)
 	keysByLabel := make(map[int][]VoxelCoords)
-	seen := make(map[Vec3]bool)
+	seen := make(map[r3.Vector]bool)
 	for _, vox := range vg.Voxels {
 		// if voxel is entirely included in a plane, add all the points
 		if vox.Label > 0 {
 			keysByLabel[vox.Label] = append(keysByLabel[vox.Label], vox.Key)
 			for _, pt := range vox.Points {
-				p := pt.Position()
-				if _, ok := seen[p]; ok { // already assigned point to another label
+				if _, ok := seen[pt.P]; ok { // already assigned point to another label
 					continue
 				} else {
-					seen[p] = true
+					seen[pt.P] = true
 					pointsByLabel[vox.Label] = append(pointsByLabel[vox.Label], pt)
 				}
 			}
@@ -89,11 +90,10 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 			// voxel has points for either no plane or at least two planes
 			// add point by point
 			for ptIdx, pt := range vox.Points {
-				p := pt.Position()
-				if _, ok := seen[p]; ok { // already assigned point to another label
+				if _, ok := seen[pt.P]; ok { // already assigned point to another label
 					continue
 				} else {
-					seen[p] = true
+					seen[pt.P] = true
 					ptLabel := vox.PointLabels[ptIdx]
 					pointsByLabel[ptLabel] = append(pointsByLabel[ptLabel], pt)
 				}
@@ -106,13 +106,13 @@ func (vg *VoxelGrid) GetPlanesFromLabels() ([]Plane, PointCloud, error) {
 	for label, pts := range pointsByLabel {
 		if label == 0 { // create a point cloud of non-planar points
 			for _, pt := range pts {
-				err := nonPlane.Set(pt)
+				err := nonPlane.Set(pt.P, pt.D)
 				if err != nil {
 					return nil, nil, err
 				}
 			}
 		} else { // create an array of planes
-			positions := GetPositions(pts)
+			positions := getPositions(pts)
 			normalVector := estimatePlaneNormalFromPoints(positions)
 			center := GetVoxelCenter(positions)
 			offset := GetOffset(center, normalVector)
