@@ -167,13 +167,21 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		}(i, cam)
 	}
 
-	pcTo := pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
+	var pcTo pointcloud.PointCloud
 
 	dataLastTime := false
 	for dataLastTime || atomic.LoadInt32(&activeReaders) > 0 {
 		select {
 		case ps := <-finalPoints:
 			for _, p := range ps {
+				if pcTo == nil {
+					if p.D == nil {
+						pcTo = pointcloud.NewAppendOnlyOnlyPointsPointCloud(len(jpcs.sourceNames) * 640 * 800)
+					} else {
+						pcTo = pointcloud.NewWithPrealloc(len(jpcs.sourceNames) * 640 * 800)
+					}
+				}
+
 				myErr := pcTo.Set(p.P, p.D)
 				if myErr != nil {
 					err = myErr
