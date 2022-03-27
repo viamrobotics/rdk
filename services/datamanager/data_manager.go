@@ -57,12 +57,23 @@ var Subtype = resource.NewSubtype(
 // Name is the DataManager's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
+// The Collector's queue should be big enough to ensure that .capture() is never blocked by the queue being
+// written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
+// this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
+// writes this would be performing.
+const defaultCaptureQueueSize = 250
+
+// Default bufio.Writer buffer size in bytes.
+const defaultCaptureBufferSize = 4096
+
 // Attributes to initialize the collector for a component.
 type componentAttributes struct {
-	Type              string            `json:"type"`
-	Method            string            `json:"method"`
-	CaptureIntervalMs int               `json:"capture_interval_ms"`
-	AdditionalParams  map[string]string `json:"additional_params"`
+	Type               string            `json:"type"`
+	Method             string            `json:"method"`
+	CaptureFrequencyHz float32           `json:"capture_frequency_hz"`
+	CaptureQueueSize   int               `json:"capture_queue_size"`
+	CaptureBufferSize  int               `json:"capture_buffer_size"`
+	AdditionalParams   map[string]string `json:"additional_params"`
 }
 
 // Config describes how to configure the service.
@@ -106,9 +117,9 @@ type componentMethodMetadata struct {
 	MethodMetadata data.MethodMetadata
 }
 
-// Get time.Duration from milliseconds.
-func getDurationMs(captureIntervalMs int) time.Duration {
-	return time.Millisecond * time.Duration(captureIntervalMs)
+// Get time.Duration from hz.
+func getDurationFromHz(captureFrequencyHz float32) time.Duration {
+	return time.Second / time.Duration(captureFrequencyHz)
 }
 
 // Create a filename based on the current time.
@@ -180,14 +191,26 @@ func (svc *Service) initializeOrUpdateCollector(componentName string, attributes
 	}
 
 	// Parameters to initialize collector.
-	interval := getDurationMs(attributes.CaptureIntervalMs)
+	interval := getDurationFromHz(attributes.CaptureFrequencyHz)
 	targetFile, err := createDataCaptureFile(svc.captureDir, attributes.Type, componentName)
 	if err != nil {
 		return nil, err
 	}
+	// Set queue size to defaultCaptureQueueSize if it was not set in the config.
+	captureQueueSize := attributes.CaptureQueueSize
+	if captureQueueSize == 0 {
+		captureQueueSize = defaultCaptureQueueSize
+	}
+
+	captureBufferSize := attributes.CaptureBufferSize
+	if captureBufferSize == 0 {
+		captureBufferSize = defaultCaptureBufferSize
+	}
 
 	// Create a collector for this resource and method.
-	collector, err := (*collectorConstructor)(res, componentName, interval, attributes.AdditionalParams, targetFile, svc.logger)
+	collector, err := (*collectorConstructor)(
+		res, componentName, interval, attributes.AdditionalParams,
+		targetFile, captureQueueSize, captureBufferSize, svc.logger)
 	if err != nil {
 		return nil, err
 	}
