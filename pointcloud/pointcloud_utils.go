@@ -23,8 +23,8 @@ func MergePointClouds(clouds []PointCloud) (PointCloud, error) {
 	merged := New()
 	var err error
 	for _, c := range clouds {
-		c.Iterate(func(pt Point) bool {
-			err = merged.Set(pt)
+		c.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
+			err = merged.Set(pt, d)
 			return err == nil
 		})
 		if err != nil {
