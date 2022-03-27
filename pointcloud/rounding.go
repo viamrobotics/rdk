@@ -13,14 +13,14 @@ import (
 // stored because even if the points are only 0.00000000002 apart, they would be considered different locations.
 type roundingPointCloud struct {
 	points storage
-	meta   PointCloudMetaData
+	meta   MetaData
 }
 
 // NewRoundingPointCloud returns a new, empty, rounding PointCloud.
 func NewRoundingPointCloud() PointCloud {
 	return &roundingPointCloud{
 		points: &mapStorage{map[r3.Vector]Data{}},
-		meta:   NewMeta(),
+		meta:   NewMetaData(),
 	}
 }
 
@@ -28,7 +28,7 @@ func (cloud *roundingPointCloud) Size() int {
 	return cloud.points.Size()
 }
 
-func (cloud *roundingPointCloud) MetaData() PointCloudMetaData {
+func (cloud *roundingPointCloud) MetaData() MetaData {
 	return cloud.meta
 }
 
@@ -39,8 +39,7 @@ func (cloud *roundingPointCloud) At(x, y, z float64) (Data, bool) {
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *roundingPointCloud) Set(p r3.Vector, d Data) error {
 	p = r3.Vector{math.Round(p.X), math.Round(p.Y), math.Round(p.Z)}
-	err := cloud.points.Set(p, d)
-	if err != nil {
+	if err := cloud.points.Set(p, d); err != nil {
 		return err
 	}
 	cloud.meta.Merge(p, d)

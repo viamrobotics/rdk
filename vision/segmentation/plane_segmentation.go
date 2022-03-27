@@ -88,7 +88,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
 			utils.SampleRandomIntRange(1, nPoints-1, r),
 			utils.SampleRandomIntRange(1, nPoints-1, r)
-		p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
+		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
 		// get 2 vectors that are going to define the plane
 		v1 := p2.Sub(p1)

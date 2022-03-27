@@ -3,7 +3,6 @@ package segmentation
 import (
 	"fmt"
 
-	
 	"github.com/golang/geo/r3"
 
 	pc "go.viam.com/rdk/pointcloud"

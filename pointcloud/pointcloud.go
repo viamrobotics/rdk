@@ -11,8 +11,8 @@ import (
 	"github.com/golang/geo/r3"
 )
 
-// PointCloudMetaData is data about what's stored in the point cloud.
-type PointCloudMetaData struct {
+// MetaData is data about what's stored in the point cloud.
+type MetaData struct {
 	HasColor bool
 	HasValue bool
 
@@ -31,7 +31,7 @@ type PointCloud interface {
 	Size() int
 
 	// MetaData returns meta data
-	MetaData() PointCloudMetaData
+	MetaData() MetaData
 
 	// Set places the given point in the cloud.
 	Set(p r3.Vector, d Data) error
@@ -52,18 +52,21 @@ type PointCloud interface {
 	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
 }
 
-func NewMeta() PointCloudMetaData {
-	return PointCloudMetaData{
-		MinX: math.MaxFloat64,
-		MinY: math.MaxFloat64,
-		MinZ: math.MaxFloat64,
-		MaxX: -math.MaxFloat64,
-		MaxY: -math.MaxFloat64,
-		MaxZ: -math.MaxFloat64,
+// NewMetaData creates a new MetaData.
+func NewMetaData() MetaData {
+	return MetaData{
+		MinX:   math.MaxFloat64,
+		MinY:   math.MaxFloat64,
+		MinZ:   math.MaxFloat64,
+		MaxX:   -math.MaxFloat64,
+		MaxY:   -math.MaxFloat64,
+		MaxZ:   -math.MaxFloat64,
+		inited: true,
 	}
 }
 
-func (meta *PointCloudMetaData) Merge(v r3.Vector, data Data) {
+// Merge updates the meta data with the new data.
+func (meta *MetaData) Merge(v r3.Vector, data Data) {
 	if data != nil {
 		if data.HasColor() {
 			meta.HasColor = true

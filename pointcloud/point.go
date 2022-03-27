@@ -8,11 +8,12 @@ import (
 	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
+// NewVector convenience method for creating a vector.
 func NewVector(x, y, z float64) r3.Vector {
 	return r3.Vector{x, y, z}
 }
 
-// r3.Vectors is a series of three-dimensional vectors.
+// Vectors is a series of three-dimensional vectors.
 type Vectors []r3.Vector
 
 // Len returns the number of vectors.
@@ -35,8 +36,7 @@ func (vs Vectors) Less(i, j int) bool {
 	return cmp < 0
 }
 
-// A Point describes a single point within a PointCloud. It is the
-// collection of these points that forms the cloud.
+// Data describes data associated single point within a PointCloud.
 type Data interface {
 	// HasColor returns whether or not this point is colored.
 	HasColor() bool
@@ -71,13 +71,18 @@ type Data interface {
 	SetIntensity(v uint16) Data
 }
 
+// PointAndData convenient utility, try not to use too often for performance reasons.
 type PointAndData struct {
 	P r3.Vector
 	D Data
 }
 
+// Compare utility method for kdtree.
 func (v PointAndData) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
-	p2 := c.(*PointAndData)
+	p2, ok := c.(*PointAndData)
+	if !ok {
+		panic("PointAndData Compare got wrong data")
+	}
 	v1, v2 := v.P, p2.P
 	switch d {
 	case 0:
@@ -91,12 +96,17 @@ func (v PointAndData) Compare(c kdtree.Comparable, d kdtree.Dim) float64 {
 	}
 }
 
+// Dims how many dimensions are in the data, in this case always 3.
 func (v PointAndData) Dims() int {
 	return 3
 }
 
+// Distance for kdtree.
 func (v PointAndData) Distance(c kdtree.Comparable) float64 {
-	p2 := c.(*PointAndData)
+	p2, ok := c.(*PointAndData)
+	if !ok {
+		panic("PointAndData Compare got wrong data")
+	}
 	v1, v2 := v.P, p2.P
 	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
 }
@@ -120,17 +130,17 @@ type basicData struct {
 	intensity uint16
 }
 
-// NewBasicPoint returns a point that is solely positionally based.
+// NewBasicData returns a point that is solely positionally based.
 func NewBasicData() Data {
 	return &basicData{}
 }
 
-// NewColoredPoint returns a point that has both position and color.
+// NewColoredData returns a point that has both position and color.
 func NewColoredData(c color.NRGBA) Data {
 	return &basicData{c: c, hasColor: true}
 }
 
-// NewValuePoint returns a point that has both position and a user data value.
+// NewValueData returns a point that has both position and a user data value.
 func NewValueData(v int) Data {
 	return &basicData{value: v, hasValue: true}
 }
