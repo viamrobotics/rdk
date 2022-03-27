@@ -3,12 +3,10 @@ package rimage
 import (
 	"errors"
 	"image"
-	"io"
 
-	"gonum.org/v1/gonum/mat"
-
+	"github.com/golang/geo/r3"
+	
 	"go.viam.com/rdk/pointcloud"
-	"go.viam.com/rdk/utils"
 )
 
 type dmPointCloudAdapter struct {
@@ -20,39 +18,11 @@ func (dm *dmPointCloudAdapter) Size() int {
 	return dm.dm.width * dm.dm.height
 }
 
-func (dm *dmPointCloudAdapter) HasColor() bool {
-	return false
-}
-
-func (dm *dmPointCloudAdapter) HasValue() bool {
-	return false
-}
-
-func (dm *dmPointCloudAdapter) MinX() float64 {
+func (dm *dmPointCloudAdapter) MetaData() pointcloud.PointCloudMetaData {
 	panic(1)
 }
 
-func (dm *dmPointCloudAdapter) MaxX() float64 {
-	panic(2)
-}
-
-func (dm *dmPointCloudAdapter) MinY() float64 {
-	panic(3)
-}
-
-func (dm *dmPointCloudAdapter) MaxY() float64 {
-	panic(4)
-}
-
-func (dm *dmPointCloudAdapter) MinZ() float64 {
-	panic(5)
-}
-
-func (dm *dmPointCloudAdapter) MaxZ() float64 {
-	panic(6)
-}
-
-func (dm *dmPointCloudAdapter) Set(p pointcloud.Point) error {
+func (dm *dmPointCloudAdapter) Set(p r3.Vector, d pointcloud.Data) error {
 	return errors.New("dmPointCloudAdapter doesn't support Set")
 }
 
@@ -60,11 +30,11 @@ func (dm *dmPointCloudAdapter) Unset(x, y, z float64) {
 	panic("dmPointCloudAdapter doesn't support Unset")
 }
 
-func (dm *dmPointCloudAdapter) At(x, y, z float64) pointcloud.Point {
+func (dm *dmPointCloudAdapter) At(x, y, z float64) (pointcloud.Data, bool) {
 	panic(7)
 }
 
-func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(p pointcloud.Point) bool) {
+func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(pt r3.Vector, d pointcloud.Data) bool) {
 	for y := 0; y < dm.dm.height; y++ {
 		if numBatches > 0 && y%numBatches != myBatch {
 			continue
@@ -74,13 +44,10 @@ func (dm *dmPointCloudAdapter) Iterate(numBatches, myBatch int, fn func(p pointc
 			if err != nil {
 				panic(err)
 			}
-			if !fn(pointcloud.NewJustAPoiint(pointcloud.Vec3(vec))) {
+			if !fn(vec, nil) {
 				return
 			}
 		}
 	}
 }
 
-func (dm *dmPointCloudAdapter) Points() []pointcloud.Point {
-	panic(8)
-}

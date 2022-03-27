@@ -68,5 +68,5 @@ func setDot(img *image.NRGBA, color color.Color) {
 // NextPointCloud always returns a pointcloud with a single pixel.
 func (c *Camera) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	pc := pointcloud.New()
-	return pc, pc.Set(pointcloud.NewColoredPoint(16, 16, 16, color.NRGBA{255, 0, 0, 255}))
+	return pc, pc.Set(pointcloud.NewVector(16, 16, 16), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 }
