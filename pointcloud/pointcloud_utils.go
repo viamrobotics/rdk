@@ -19,7 +19,10 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 	palette := colorful.FastWarmPalette(len(clusters))
 	colorSegmentation := New()
 	for i, cluster := range clusters {
-		col := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
+		col, ok := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
+		if !ok {
+			panic("impossible")
+		}
 		cluster.Iterate(0, 0, func(v r3.Vector, d Data) bool {
 			err = colorSegmentation.Set(v, NewColoredData(col))
 			return err == nil

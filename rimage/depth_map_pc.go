@@ -4,7 +4,6 @@ import (
 	"errors"
 	"image"
 
-	
 	"github.com/golang/geo/r3"
 
 	"go.viam.com/rdk/pointcloud"
@@ -19,7 +18,7 @@ func (dm *dmPointCloudAdapter) Size() int {
 	return dm.dm.width * dm.dm.height
 }
 
-func (dm *dmPointCloudAdapter) MetaData() pointcloud.PointCloudMetaData {
+func (dm *dmPointCloudAdapter) MetaData() pointcloud.MetaData {
 	panic(1)
 }
 

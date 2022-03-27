@@ -49,10 +49,12 @@ func NewKDTree(pc PointCloud) *KDTree {
 	return t
 }
 
-func (kd *KDTree) MetaData() PointCloudMetaData {
+// MetaData returns the meta data.
+func (kd *KDTree) MetaData() MetaData {
 	panic(1)
 }
 
+// Size returns the size of the pointcloud.
 func (kd *KDTree) Size() int {
 	return kd.tree.Len()
 }
@@ -119,7 +121,10 @@ func keeperToArray(heap kdtree.Heap, p r3.Vector, includeSelf bool, max int) []*
 		if heap[i].Comparable == nil {
 			continue
 		}
-		pp := heap[i].Comparable.(*PointAndData)
+		pp, ok := heap[i].Comparable.(*PointAndData)
+		if !ok {
+			panic("impossible")
+		}
 		if !includeSelf && p.ApproxEqual(pp.P) {
 			continue
 		}
@@ -158,7 +163,10 @@ func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf boo
 // Iterate iterates over all points in the cloud.
 func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
 	kd.tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
-		x := c.(*PointAndData)
+		x, ok := c.(*PointAndData)
+		if !ok {
+			panic("impossible")
+		}
 		return !fn(x.P, x.D)
 	})
 }

@@ -18,7 +18,7 @@ func TestPointCloudBasic(t *testing.T) {
 	test.That(t, got, test.ShouldBeTrue)
 	test.That(t, d, test.ShouldResemble, d0)
 
-	d, got = pc.At(1, 0, 1)
+	_, got = pc.At(1, 0, 1)
 	test.That(t, got, test.ShouldBeFalse)
 
 	p1 := NewVector(1, 0, 1)

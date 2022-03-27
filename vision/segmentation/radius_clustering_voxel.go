@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"

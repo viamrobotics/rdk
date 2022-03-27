@@ -84,10 +84,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 			r := uint8(p.RgbData().Red / 256)
 			g := uint8(p.RgbData().Green / 256)
 			b := uint8(p.RgbData().Blue / 256)
-			if dd == nil {
-				dd = NewBasicData()
-			}
-			dd.SetColor(color.NRGBA{r, g, b, 255})
+			dd = NewColoredData(color.NRGBA{r, g, b, 255})
 		}
 
 		if hasValue {
@@ -105,7 +102,7 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 	return pc, nil
 }
 
-// WriteToFile writes the point cloud out to a LAS file.
+// WriteToLASFile writes the point cloud out to a LAS file.
 func WriteToLASFile(cloud PointCloud, fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
@@ -230,6 +227,7 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
+// ToPCD Writes a PointCloud in PCD format.
 func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	var err error
 

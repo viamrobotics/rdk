@@ -8,7 +8,7 @@ import (
 // a map of points keyed by position.
 type basicPointCloud struct {
 	points storage
-	meta   PointCloudMetaData
+	meta   MetaData
 }
 
 // New returns an empty PointCloud backed by a basicPointCloud.
@@ -20,7 +20,7 @@ func New() PointCloud {
 func NewWithPrealloc(size int) PointCloud {
 	return &basicPointCloud{
 		points: &mapStorage{map[r3.Vector]Data{}},
-		meta:   NewMeta(),
+		meta:   NewMetaData(),
 	}
 }
 
@@ -28,7 +28,7 @@ func (cloud *basicPointCloud) Size() int {
 	return cloud.points.Size()
 }
 
-func (cloud *basicPointCloud) MetaData() PointCloudMetaData {
+func (cloud *basicPointCloud) MetaData() MetaData {
 	return cloud.meta
 }
 
@@ -38,8 +38,7 @@ func (cloud *basicPointCloud) At(x, y, z float64) (Data, bool) {
 
 // Set validates that the point can be precisely stored before setting it in the cloud.
 func (cloud *basicPointCloud) Set(p r3.Vector, d Data) error {
-	err := cloud.points.Set(p, d)
-	if err != nil {
+	if err := cloud.points.Set(p, d); err != nil {
 		return err
 	}
 	cloud.meta.Merge(p, d)

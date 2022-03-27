@@ -3,7 +3,6 @@ package segmentation
 import (
 	"context"
 
-	
 	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
