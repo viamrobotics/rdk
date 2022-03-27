@@ -175,7 +175,7 @@ func (s *subtypeServer) GetPointCloud(
 	}
 
 	var buf bytes.Buffer
-	err = pc.ToPCD(&buf, pointcloud.PCDBinary)
+	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
 	if err != nil {
 		return nil, err
 	}

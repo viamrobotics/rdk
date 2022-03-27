@@ -112,7 +112,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		return nil, err
 	}
 
-	finalPoints := make(chan []pointcloud.Point, 50)
+	finalPoints := make(chan []pointcloud.PointAndData, 50)
 	activeReaders := int32(len(jpcs.sourceCameras))
 
 	for i, cam := range jpcs.sourceCameras {
@@ -144,19 +144,18 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 				f := func(loop int) {
 					defer wg.Done()
 					const batchSize = 500
-					batch := make([]pointcloud.Point, 0, batchSize)
+					batch := make([]pointcloud.PointAndData, 0, batchSize)
 					savedDualQuat := spatialmath.NewZeroPose()
-					pcSrc.Iterate(numLoops, loop, func(p pointcloud.Point) bool {
+					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
 						if jpcs.sourceNames[i] != jpcs.targetName {
-							vec := r3.Vector(p.Position())
-							spatialmath.ResetPoseDQTransalation(savedDualQuat, vec)
+							spatialmath.ResetPoseDQTransalation(savedDualQuat, p)
 							newPose := spatialmath.Compose(theTransform.Pose(), savedDualQuat)
-							p.SetPosition(pointcloud.Vec3(newPose.Point()))
+							p = newPose.Point()
 						}
-						batch = append(batch, p)
+						batch = append(batch, pointcloud.PointAndData{p, d})
 						if len(batch) > batchSize {
 							finalPoints <- batch
-							batch = make([]pointcloud.Point, 0, batchSize)
+							batch = make([]pointcloud.PointAndData, 0, batchSize)
 						}
 						return true
 					})
@@ -174,7 +173,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 		select {
 		case ps := <-finalPoints:
 			for _, p := range ps {
-				myErr := pcTo.Set(p)
+				myErr := pcTo.Set(p.P, p.D)
 				if myErr != nil {
 					err = myErr
 				}
