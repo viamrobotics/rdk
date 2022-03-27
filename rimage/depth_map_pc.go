@@ -4,8 +4,9 @@ import (
 	"errors"
 	"image"
 
-	"github.com/golang/geo/r3"
 	
+	"github.com/golang/geo/r3"
+
 	"go.viam.com/rdk/pointcloud"
 )
 

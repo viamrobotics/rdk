@@ -5,7 +5,6 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
-
 	"gonum.org/v1/gonum/spatial/kdtree"
 )
 
@@ -102,7 +101,7 @@ func (v PointAndData) Distance(c kdtree.Comparable) float64 {
 	return math.Sqrt(math.Pow(v2.X-v1.X, 2) + math.Pow(v2.Y-v1.Y, 2) + math.Pow(v2.Z-v1.Z, 2))
 }
 
-// TODO(bhaney): this is gross, refactor so not needed
+// TODO(bhaney): this is gross, refactor so not needed.
 func getPositions(foo []PointAndData) []r3.Vector {
 	v := make([]r3.Vector, len(foo))
 	for idx, x := range foo {

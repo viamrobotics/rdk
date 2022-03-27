@@ -66,7 +66,7 @@ func TestPC2(t *testing.T) {
 	pc, err := DepthMapToPointCloud(iwd.Depth, pixel2meter, colorIntrinsics, rimage.Depth(0), rimage.Depth(math.MaxUint16))
 	test.That(t, err, test.ShouldBeNil)
 
-	err = pointcloud.WriteToLASFile(pc, outDir + "/board2.las")
+	err = pointcloud.WriteToLASFile(pc, outDir+"/board2.las")
 	test.That(t, err, test.ShouldBeNil)
 }
 

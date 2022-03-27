@@ -1,9 +1,8 @@
 package pointcloud
 
 import (
-	"github.com/pkg/errors"
-
 	"github.com/golang/geo/r3"
+	"github.com/pkg/errors"
 )
 
 type storage interface {

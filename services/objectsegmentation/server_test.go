@@ -84,7 +84,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pcA := pointcloud.New()
 		for _, pt := range testPointCloud {
-			test.That(t, pcA.Set(pt), test.ShouldBeNil)
+			test.That(t, pcA.Set(pt, nil), test.ShouldBeNil)
 		}
 		return pcA, nil
 	}

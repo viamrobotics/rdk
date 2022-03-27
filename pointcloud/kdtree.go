@@ -30,7 +30,6 @@ type KDTree struct {
 
 // NewKDTree creates a KDTree from an input PointCloud.
 func NewKDTree(pc PointCloud) *KDTree {
-
 	t := &KDTree{
 		tree:     kdtree.New(kdValues{}, false),
 		rebuild:  false,
@@ -156,7 +155,7 @@ func (kd *KDTree) RadiusNearestNeighbors(p r3.Vector, r float64, includeSelf boo
 	return keeperToArray(keep.Heap, p, includeSelf, math.MaxInt)
 }
 
-// Iterate iterates over all points in the cloud
+// Iterate iterates over all points in the cloud.
 func (kd *KDTree) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
 	kd.tree.Do(func(c kdtree.Comparable, b *kdtree.Bounding, depth int) bool {
 		x := c.(*PointAndData)
