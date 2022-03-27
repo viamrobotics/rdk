@@ -25,14 +25,14 @@ func TestEmptyPlane(t *testing.T) {
 func TestNewPlane(t *testing.T) {
 	// make the point cloud, a diamond of slope 1 in x and y
 	pc := New()
-	p0 := NewBasicPoint(0., 0., 0.)
-	test.That(t, pc.Set(p0), test.ShouldBeNil)
-	p1 := NewBasicPoint(0., 2., 2.)
-	test.That(t, pc.Set(p1), test.ShouldBeNil)
-	p2 := NewBasicPoint(2., 0., 2.)
-	test.That(t, pc.Set(p2), test.ShouldBeNil)
-	p3 := NewBasicPoint(2., 2., 4.)
-	test.That(t, pc.Set(p3), test.ShouldBeNil)
+	p0 := NewVector(0., 0., 0.)
+	test.That(t, pc.Set(p0, nil), test.ShouldBeNil)
+	p1 := NewVector(0., 2., 2.)
+	test.That(t, pc.Set(p1, nil), test.ShouldBeNil)
+	p2 := NewVector(2., 0., 2.)
+	test.That(t, pc.Set(p2, nil), test.ShouldBeNil)
+	p3 := NewVector(2., 2., 4.)
+	test.That(t, pc.Set(p3, nil), test.ShouldBeNil)
 	eq := [4]float64{1, 1, -1, 0}
 	// run the tests
 	plane := NewPlane(pc, eq)
@@ -46,19 +46,6 @@ func TestNewPlane(t *testing.T) {
 	test.That(t, cloud.Size(), test.ShouldEqual, 4)
 	pt := r3.Vector{-1, -1, 1}
 	test.That(t, math.Abs(plane.Distance(pt)), test.ShouldAlmostEqual, math.Sqrt(3))
-}
-
-func TestPointPosition(t *testing.T) {
-	p0 := NewBasicPoint(0., 0., 0.)
-	p1 := NewBasicPoint(0., 2., 2.)
-	p2 := NewBasicPoint(2., 0., 2.)
-	p3 := NewBasicPoint(2., 2., 4.)
-	points := []Point{p0, p1, p2, p3}
-	positions := GetPositions(points)
-	test.That(t, positions[0], test.ShouldResemble, r3.Vector{0, 0, 0})
-	test.That(t, positions[1], test.ShouldResemble, r3.Vector{0, 2, 2})
-	test.That(t, positions[2], test.ShouldResemble, r3.Vector{2, 0, 2})
-	test.That(t, positions[3], test.ShouldResemble, r3.Vector{2, 2, 4})
 }
 
 func TestIntersect(t *testing.T) {

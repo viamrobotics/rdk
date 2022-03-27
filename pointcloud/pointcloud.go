@@ -5,6 +5,12 @@
 // considerably.
 package pointcloud
 
+import (
+	"math"
+
+	"github.com/golang/geo/r3"
+)
+
 // PointCloudMetaData is data about what's stored in the point cloud
 type PointCloudMetaData struct {
 	HasColor bool
@@ -28,7 +34,7 @@ type PointCloud interface {
 	MetaData() PointCloudMetaData
 
 	// Set places the given point in the cloud.
-	Set(p Vec3, d Data) error
+	Set(p r3.Vector, d Data) error
 
 	// Unset removes a point from the cloud exists at the given position.
 	// If the point does not exist, this does nothing.
@@ -43,48 +49,54 @@ type PointCloud interface {
 	// iteration will stop after the function returns.
 	// numBatches lets you divide up he work. 0 means don't divide
 	// myBatch is used iff numBatches > 0 and is which batch you want
-	Iterate(numBatches, myBatch int, fn func(p Vec3, d Data) bool)
+	Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool)
 }
 
-func NewMeta() (PointCloudMetaData) {
+func NewMeta() PointCloudMetaData {
 	return PointCloudMetaData{
-		minX:   math.MaxFloat64,
-		minY:   math.MaxFloat64,
-		minZ:   math.MaxFloat64,
-		maxX:   -math.MaxFloat64,
-		maxY:   -math.MaxFloat64,
-		maxZ:   -math.MaxFloat64,
+		MinX: math.MaxFloat64,
+		MinY: math.MaxFloat64,
+		MinZ: math.MaxFloat64,
+		MaxX: -math.MaxFloat64,
+		MaxY: -math.MaxFloat64,
+		MaxZ: -math.MaxFloat64,
 	}
 }
 
-func (meta *PointCloudMetaData) Merge(p Vec3, data Data) {
-	if data.HasColor() {
-		meta.hasColor = true
-	}
-	if data.HasValue() {
-		meta.hasValue = true
-	}
-
-	v := p.Position()
-	
-	if v.X > meta.maxX {
-		meta.maxX = v.X
-	}
-	if v.Y > meta.maxY {
-		meta.maxY = v.Y
-	}
-	if v.Z > meta.maxZ {
-		meta.maxZ = v.Z
+func (meta *PointCloudMetaData) Merge(v r3.Vector, data Data) {
+	if data != nil {
+		if data.HasColor() {
+			meta.HasColor = true
+		}
+		if data.HasValue() {
+			meta.HasValue = true
+		}
 	}
 
-	if v.X < meta.minX {
-		meta.minX = v.X
+	if v.X > meta.MaxX {
+		meta.MaxX = v.X
 	}
-	if v.Y < meta.minY {
-		meta.minY = v.Y
+	if v.Y > meta.MaxY {
+		meta.MaxY = v.Y
 	}
-	if v.Z < meta.minZ {
-		meta.minZ = v.Z
+	if v.Z > meta.MaxZ {
+		meta.MaxZ = v.Z
 	}
 
+	if v.X < meta.MinX {
+		meta.MinX = v.X
+	}
+	if v.Y < meta.MinY {
+		meta.MinY = v.Y
+	}
+	if v.Z < meta.MinZ {
+		meta.MinZ = v.Z
+	}
+
+}
+
+// CloudContains is a silly helper method
+func CloudContains(cloud PointCloud, x, y, z float64) bool {
+	_, got := cloud.At(x, y, z)
+	return got
 }
