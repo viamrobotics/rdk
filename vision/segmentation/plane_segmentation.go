@@ -20,39 +20,38 @@ import (
 var sortPositions bool
 
 // GetPointCloudPositions extracts the positions of the points from the pointcloud into a Vec3 slice.
-func GetPointCloudPositions(cloud pc.PointCloud) []pc.Vec3 {
-	positions := make([]pc.Vec3, 0, cloud.Size())
-	cloud.Iterate(func(pt pc.Point) bool {
-		positions = append(positions, pt.Position())
+func GetPointCloudPositions(cloud pc.PointCloud) []r3.Vector {
+	positions := make(pc.Vectors, 0, cloud.Size())
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+		positions = append(positions, pt)
 		return true
 	})
 	if sortPositions {
-		sort.Sort(pc.Vec3s(positions))
+		sort.Sort(positions)
 	}
 	return positions
 }
 
-func distance(equation [4]float64, pt pc.Vec3) float64 {
+func distance(equation [4]float64, pt r3.Vector) float64 {
 	norm := math.Sqrt(equation[0]*equation[0] + equation[1]*equation[1] + equation[2]*equation[2])
 	return (equation[0]*pt.X + equation[1]*pt.Y + equation[2]*pt.Z + equation[3]) / norm
 }
 
 // pointCloudSplit return two point clouds, one with points found in a map of point positions, and the other with those not in the map.
-func pointCloudSplit(cloud pc.PointCloud, inMap map[pc.Vec3]bool) (pc.PointCloud, pc.PointCloud, error) {
+func pointCloudSplit(cloud pc.PointCloud, inMap map[r3.Vector]bool) (pc.PointCloud, pc.PointCloud, error) {
 	mapCloud := pc.New()
 	nonMapCloud := pc.New()
 	var err error
-	seen := make(map[pc.Vec3]bool)
-	cloud.Iterate(func(pt pc.Point) bool {
-		if _, ok := inMap[pt.Position()]; ok {
-			seen[pt.Position()] = true
-			err = mapCloud.Set(pt)
+	seen := make(map[r3.Vector]bool)
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+		if _, ok := inMap[pt]; ok {
+			seen[pt] = true
+			err = mapCloud.Set(pt, d)
 		} else {
-			err = nonMapCloud.Set(pt)
+			err = nonMapCloud.Set(pt, d)
 		}
 		if err != nil {
-			pos := pt.Position()
-			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pos.X, pos.Y, pos.Z)
+			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pt.X, pt.Y, pt.Z)
 			return false
 		}
 		return true
@@ -89,7 +88,7 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 		n1, n2, n3 := utils.SampleRandomIntRange(1, nPoints-1, r),
 			utils.SampleRandomIntRange(1, nPoints-1, r),
 			utils.SampleRandomIntRange(1, nPoints-1, r)
-		p1, p2, p3 := r3.Vector(pts[n1]), r3.Vector(pts[n2]), r3.Vector(pts[n3])
+		p1, p2, p3 := pts[n1], pts[n2], pts[n3]
 
 		// get 2 vectors that are going to define the plane
 		v1 := p2.Sub(p1)
@@ -163,15 +162,15 @@ func SegmentPlane(ctx context.Context, cloud pc.PointCloud, nIterations int, thr
 	for _, pt := range pts {
 		dist := distance(bestEquation, pt)
 		var err error
-		cpt := cloud.At(pt.X, pt.Y, pt.Z)
-		if cpt == nil {
+		data, got := cloud.At(pt.X, pt.Y, pt.Z)
+		if !got {
 			return nil, nil, errors.Errorf("expected cloud to contain point (%v, %v, %v)", pt.X, pt.Y, pt.Z)
 		}
 		if math.Abs(dist) < threshold {
-			planeCloudCenter = planeCloudCenter.Add(r3.Vector(pt))
-			err = planeCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
+			planeCloudCenter = planeCloudCenter.Add(pt)
+			err = planeCloud.Set(pt, data)
 		} else {
-			err = nonPlaneCloud.Set(cloud.At(pt.X, pt.Y, pt.Z))
+			err = nonPlaneCloud.Set(pt, data)
 		}
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", pt.X, pt.Y, pt.Z)
@@ -295,15 +294,15 @@ func (vgps *voxelGridPlaneSegmentation) FindPlanes(ctx context.Context) ([]pc.Pl
 func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud, pc.PointCloud, error) {
 	aboveCloud, belowCloud := pc.New(), pc.New()
 	var err error
-	cloud.Iterate(func(pt pc.Point) bool {
-		dist := plane.Distance(r3.Vector(pt.Position()))
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+		dist := plane.Distance(pt)
 		if plane.Equation()[2] > 0.0 {
 			dist = -dist
 		}
 		if dist > 0.0 {
-			err = aboveCloud.Set(pt)
+			err = aboveCloud.Set(pt, d)
 		} else if dist < 0.0 {
-			err = belowCloud.Set(pt)
+			err = belowCloud.Set(pt, d)
 		}
 		return err == nil
 	})
@@ -317,10 +316,10 @@ func SplitPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane) (pc.PointCloud,
 func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold float64) (pc.PointCloud, error) {
 	thresholdCloud := pc.New()
 	var err error
-	cloud.Iterate(func(pt pc.Point) bool {
-		dist := plane.Distance(r3.Vector(pt.Position()))
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+		dist := plane.Distance(pt)
 		if math.Abs(dist) <= threshold {
-			err = thresholdCloud.Set(pt)
+			err = thresholdCloud.Set(pt, d)
 		}
 		return err == nil
 	})
@@ -334,11 +333,10 @@ func ThresholdPointCloudByPlane(cloud pc.PointCloud, plane pc.Plane, threshold f
 // each pointcloud down to an image.
 func PointCloudSegmentsToMask(params transform.PinholeCameraIntrinsics, segments []pc.PointCloud) (*SegmentedImage, error) {
 	img := newSegmentedImage(rimage.NewImage(params.Width, params.Height))
-	visitedPoints := make(map[pc.Vec3]bool)
+	visitedPoints := make(map[r3.Vector]bool)
 	var err error
 	for i, cloud := range segments {
-		cloud.Iterate(func(pt pc.Point) bool {
-			pos := pt.Position()
+		cloud.Iterate(0, 0, func(pos r3.Vector, d pc.Data) bool {
 			if seen := visitedPoints[pos]; seen {
 				err = errors.Errorf("point clouds in array must be distinct, have already seen point (%v,%v,%v)", pos.X, pos.Y, pos.Z)
 				return false

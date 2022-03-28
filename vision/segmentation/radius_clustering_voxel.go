@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
@@ -119,7 +120,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 	clusters := NewSegments()
 	c := 0
 	for coord, vox := range vg.Voxels {
-		v := pc.Vec3{float64(coord.I), float64(coord.J), float64(coord.K)}
+		v := r3.Vector{float64(coord.I), float64(coord.J), float64(coord.K)}
 		// skip if point already is assigned cluster
 		if _, ok := clusters.Indices[v]; ok {
 			continue
@@ -144,7 +145,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 			case !ptOk && neighborOk:
 				clusters.Indices[v] = neighborIndex // label the voxel coordinate
 				for _, p := range vox.Points {
-					err = clusters.AssignCluster(p, neighborIndex) // label all points in the voxel
+					err = clusters.AssignCluster(p.P, p.D, neighborIndex) // label all points in the voxel
 					if err != nil {
 						return nil, err
 					}
@@ -152,7 +153,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 			case ptOk && !neighborOk:
 				clusters.Indices[nv] = ptIndex
 				for _, p := range neighborVox.Points {
-					err = clusters.AssignCluster(p, ptIndex)
+					err = clusters.AssignCluster(p.P, p.D, ptIndex)
 					if err != nil {
 						return nil, err
 					}
@@ -163,7 +164,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 		if _, ok := clusters.Indices[v]; !ok {
 			clusters.Indices[v] = c
 			for _, p := range vox.Points {
-				err = clusters.AssignCluster(p, c)
+				err = clusters.AssignCluster(p.P, p.D, c)
 				if err != nil {
 					return nil, err
 				}
@@ -171,7 +172,7 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 			for nv, neighborVox := range nn {
 				clusters.Indices[nv] = c
 				for _, p := range neighborVox.Points {
-					err = clusters.AssignCluster(p, c)
+					err = clusters.AssignCluster(p.P, p.D, c)
 					if err != nil {
 						return nil, err
 					}
@@ -183,11 +184,11 @@ func voxelBasedNearestNeighbors(vg *pc.VoxelGrid, radius float64) ([]pc.PointClo
 	return clusters.PointClouds(), nil
 }
 
-func findVoxelNeighborsInRadius(vg *pc.VoxelGrid, coord pc.VoxelCoords, n uint) map[pc.Vec3]*pc.Voxel {
-	neighbors := make(map[pc.Vec3]*pc.Voxel)
+func findVoxelNeighborsInRadius(vg *pc.VoxelGrid, coord pc.VoxelCoords, n uint) map[r3.Vector]*pc.Voxel {
+	neighbors := make(map[r3.Vector]*pc.Voxel)
 	adjCoords := vg.GetNNearestVoxels(vg.Voxels[coord], n)
 	for _, c := range adjCoords {
-		loc := pc.Vec3{float64(c.I), float64(c.J), float64(c.K)}
+		loc := r3.Vector{float64(c.I), float64(c.J), float64(c.K)}
 		neighbors[loc] = vg.Voxels[c]
 	}
 	return neighbors

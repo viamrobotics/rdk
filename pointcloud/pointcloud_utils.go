@@ -23,8 +23,8 @@ func MergePointClouds(clouds []PointCloud) (PointCloud, error) {
 	merged := New()
 	var err error
 	for _, c := range clouds {
-		c.Iterate(func(pt Point) bool {
-			err = merged.Set(pt)
+		c.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
+			err = merged.Set(pt, d)
 			return err == nil
 		})
 		if err != nil {
@@ -41,11 +41,12 @@ func MergePointCloudsWithColor(clusters []PointCloud) (PointCloud, error) {
 	palette := colorful.FastWarmPalette(len(clusters))
 	colorSegmentation := New()
 	for i, cluster := range clusters {
-		col := color.NRGBAModel.Convert(palette[i])
-		cluster.Iterate(func(pt Point) bool {
-			v := pt.Position()
-			colorPoint := NewColoredPoint(v.X, v.Y, v.Z, col.(color.NRGBA))
-			err = colorSegmentation.Set(colorPoint)
+		col, ok := color.NRGBAModel.Convert(palette[i]).(color.NRGBA)
+		if !ok {
+			panic("impossible")
+		}
+		cluster.Iterate(0, 0, func(v r3.Vector, d Data) bool {
+			err = colorSegmentation.Set(v, NewColoredData(col))
 			return err == nil
 		})
 		if err != nil {
@@ -62,13 +63,13 @@ func BoundingBoxFromPointCloud(cloud PointCloud) (spatialmath.Geometry, error) {
 	}
 
 	// calculate extents of point cloud
-	dims := r3.Vector{math.Abs(cloud.MaxX() - cloud.MinX()), math.Abs(cloud.MaxY() - cloud.MinY()), math.Abs(cloud.MaxZ() - cloud.MinZ())}
+	meta := cloud.MetaData()
+	dims := r3.Vector{math.Abs(meta.MaxX - meta.MinX), math.Abs(meta.MaxY - meta.MinY), math.Abs(meta.MaxZ - meta.MinZ)}
 
 	// calculate the spatial average center of a given point cloud
 	x, y, z := 0.0, 0.0, 0.0
 	n := float64(cloud.Size())
-	cloud.Iterate(func(pt Point) bool {
-		v := pt.Position()
+	cloud.Iterate(0, 0, func(v r3.Vector, d Data) bool {
 		x += v.X
 		y += v.Y
 		z += v.Z
@@ -110,24 +111,25 @@ func StatisticalOutlierFilter(meanK int, stdDevThresh float64) (func(PointCloud)
 		}
 		// get the statistical information
 		avgDistances := make([]float64, 0, kd.Size())
-		points := make([]Point, 0, kd.Size())
-		kd.Iterate(func(pt Point) bool {
-			neighbors := kd.KNearestNeighbors(pt, meanK, false)
+		points := make([]PointAndData, 0, kd.Size())
+		kd.Iterate(0, 0, func(v r3.Vector, d Data) bool {
+			neighbors := kd.KNearestNeighbors(v, meanK, false)
 			sumDist := 0.0
 			for _, p := range neighbors {
-				sumDist += pt.Distance(p)
+				sumDist += v.Distance(p.P)
 			}
 			avgDistances = append(avgDistances, sumDist/float64(len(neighbors)))
-			points = append(points, pt)
+			points = append(points, PointAndData{v, d})
 			return true
 		})
+
 		mean, stddev := stat.MeanStdDev(avgDistances, nil)
 		threshold := mean + stdDevThresh*stddev
 		// filter using the statistical information
 		filteredCloud := New()
-		for i := 0; i < kd.Size(); i++ {
+		for i := 0; i < len(avgDistances); i++ {
 			if avgDistances[i] < threshold {
-				err := filteredCloud.Set(points[i])
+				err := filteredCloud.Set(points[i].P, points[i].D)
 				if err != nil {
 					return nil, err
 				}

@@ -36,8 +36,8 @@ func NewPlane(cloud PointCloud, equation [4]float64) Plane {
 		center = r3.Vector{equation[0] * f, equation[1] * f, equation[2] * f}
 		return NewPlaneWithCenter(New(), equation, center)
 	}
-	cloud.Iterate(func(pt Point) bool {
-		center = center.Add(r3.Vector(pt.Position()))
+	cloud.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
+		center = center.Add(pt)
 		return true
 	})
 	if cloud.Size() != 0 {
