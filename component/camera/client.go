@@ -79,6 +79,8 @@ func clientFromSvcClient(sc *serviceClient, name string) Camera {
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::client::Next")
+	defer span.End()
 	resp, err := c.client.GetFrame(ctx, &pb.GetFrameRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypeViamBest,
@@ -86,6 +88,8 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	ctx, span2 := trace.StartSpan(ctx, "camera::client::Next::AfterDownload")
+	defer span2.End()
 	switch resp.MimeType {
 	case utils.MimeTypeRawRGBA:
 		img := image.NewNRGBA(image.Rect(0, 0, int(resp.WidthPx), int(resp.HeightPx)))

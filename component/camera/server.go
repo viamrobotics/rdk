@@ -51,11 +51,15 @@ func (s *subtypeServer) GetFrame(
 	ctx context.Context,
 	req *pb.GetFrameRequest,
 ) (*pb.GetFrameResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::server::GetFrame")
+	defer span.End()
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
 	}
 
+	ctx, span2 := trace.StartSpan(ctx, "camera::server::GetFrame::Next")
+	defer span2.End()
 	img, release, err := camera.Next(ctx)
 	if err != nil {
 		return nil, err
@@ -83,6 +87,8 @@ func (s *subtypeServer) GetFrame(
 		HeightPx: int64(bounds.Dy()),
 	}
 
+	ctx, span3 := trace.StartSpan(ctx, "camera::server::GetFrame::SwitchMimeTypes")
+	defer span3.End()
 	var buf bytes.Buffer
 	switch req.MimeType {
 	case utils.MimeTypeRawRGBA:
@@ -135,6 +141,8 @@ func (s *subtypeServer) GetFrame(
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
+	ctx, span4 := trace.StartSpan(ctx, "camera::server::GetFrame::GetBytes")
+	defer span4.End()
 	resp.Image = buf.Bytes()
 	return &resp, nil
 }
