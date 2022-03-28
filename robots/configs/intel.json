@@ -7,8 +7,7 @@
             "model": "webcam",
             "attributes":
             {
-                "hide": true,
-                "camera_parameters": {
+                    "camera_parameters": {
                     "height": 720,
                     "width": 1280,
                     "fx": 900.538000,
@@ -36,7 +35,6 @@
             "model": "webcam",
             "attributes":
             {
-                "hide": true,
                 "format": "Z16",
                 "width": 768,
                 "debug": true
@@ -48,7 +46,6 @@
             "model": "align_color_depth",
             "attributes":
             {
-                "hide": true,
                 "color": "front-color",
                 "depth": "front-depth",
                 "make": "intel515",

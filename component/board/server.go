@@ -83,6 +83,25 @@ func (s *subtypeServer) GetGPIO(ctx context.Context, req *pb.GetGPIORequest) (*p
 	return &pb.GetGPIOResponse{High: high}, nil
 }
 
+// PWM gets the duty cycle of the given pin of a board of the underlying robot.
+func (s *subtypeServer) PWM(ctx context.Context, req *pb.PWMRequest) (*pb.PWMResponse, error) {
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := b.GPIOPinByName(req.Pin)
+	if err != nil {
+		return nil, err
+	}
+
+	pwm, err := p.PWM(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PWMResponse{DutyCyclePct: pwm}, nil
+}
+
 // SetPWM sets a given pin of the underlying robot to the given duty cycle.
 func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.SetPWMResponse, error) {
 	b, err := s.getBoard(req.Name)
@@ -96,6 +115,25 @@ func (s *subtypeServer) SetPWM(ctx context.Context, req *pb.SetPWMRequest) (*pb.
 	}
 
 	return &pb.SetPWMResponse{}, p.SetPWM(ctx, req.DutyCyclePct)
+}
+
+// PWMFrequency gets the PWM frequency of the given pin of a board of the underlying robot.
+func (s *subtypeServer) PWMFrequency(ctx context.Context, req *pb.PWMFrequencyRequest) (*pb.PWMFrequencyResponse, error) {
+	b, err := s.getBoard(req.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	p, err := b.GPIOPinByName(req.Pin)
+	if err != nil {
+		return nil, err
+	}
+
+	freq, err := p.PWMFreq(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.PWMFrequencyResponse{FrequencyHz: uint64(freq)}, nil
 }
 
 // SetPWMFrequency sets a given pin of a board of the underlying robot to the given PWM frequency. 0 will use the board's default PWM

@@ -3,6 +3,8 @@ package segmentation
 import (
 	"fmt"
 
+	"github.com/golang/geo/r3"
+
 	pc "go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision"
@@ -12,13 +14,13 @@ import (
 // Objects is a slice of all the objects, and Indices is a map that assigns each point to the object index it is a part of.
 type Segments struct {
 	Objects []*vision.Object
-	Indices map[pc.Vec3]int
+	Indices map[r3.Vector]int
 }
 
 // NewSegments creates an empty new Segments struct.
 func NewSegments() *Segments {
 	segments := make([]*vision.Object, 0)
-	indices := make(map[pc.Vec3]int)
+	indices := make(map[r3.Vector]int)
 	return &Segments{segments, indices}
 }
 
@@ -31,8 +33,8 @@ func NewSegmentsFromSlice(clouds []pc.PointCloud) (*Segments, error) {
 			return nil, err
 		}
 		segments.Objects = append(segments.Objects, seg)
-		cloud.Iterate(func(pt pc.Point) bool {
-			segments.Indices[pt.Position()] = i
+		cloud.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+			segments.Indices[pt] = i
 			return true
 		})
 	}
@@ -55,7 +57,7 @@ func (c *Segments) PointClouds() []pc.PointCloud {
 
 // SelectPointCloudFromPoint takes a 3D point as input and outputs the point cloud of the segment that the point belongs to.
 func (c *Segments) SelectPointCloudFromPoint(x, y, z float64) (pc.PointCloud, error) {
-	v := pc.Vec3{x, y, z}
+	v := r3.Vector{x, y, z}
 	if segIndex, ok := c.Indices[v]; ok {
 		return c.Objects[segIndex], nil
 	}
@@ -63,12 +65,12 @@ func (c *Segments) SelectPointCloudFromPoint(x, y, z float64) (pc.PointCloud, er
 }
 
 // AssignCluster assigns the given point to the cluster with the given index.
-func (c *Segments) AssignCluster(point pc.Point, index int) error {
+func (c *Segments) AssignCluster(point r3.Vector, data pc.Data, index int) error {
 	for index >= len(c.Objects) {
 		c.Objects = append(c.Objects, vision.NewEmptyObject())
 	}
-	c.Indices[point.Position()] = index
-	err := c.Objects[index].Set(point)
+	c.Indices[point] = index
+	err := c.Objects[index].Set(point, data)
 	if err != nil {
 		return err
 	}
@@ -97,10 +99,9 @@ func (c *Segments) MergeClusters(from, to int) error {
 
 	// perform merge
 	var err error
-	c.Objects[from].Iterate(func(pt pc.Point) bool {
-		v := pt.Position()
+	c.Objects[from].Iterate(0, 0, func(v r3.Vector, d pc.Data) bool {
 		c.Indices[v] = to
-		err = c.Objects[to].Set(pt)
+		err = c.Objects[to].Set(v, d)
 		c.Objects[from].Unset(v.X, v.Y, v.Z)
 		return err == nil
 	})

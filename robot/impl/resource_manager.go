@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -354,6 +355,10 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 				if err := manager.resources.AddChildren(rName, comp.ResourceName()); err != nil {
 					return err
 				}
+			} else if name, ok := manager.resources.FindNodeByName(dep); ok {
+				if err := manager.resources.AddChildren(rName, *name); err != nil {
+					return err
+				}
 			} else {
 				return errors.Errorf("componenent %s depends on non-existent component %s",
 					rName.Name, dep)
@@ -367,6 +372,11 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 // newServices constructs all services defined.
 func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
 	for _, c := range services {
+		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+		// service that we only want to reconfigure rather than reinstantiate with New().
+		if c.ResourceName() == datamanager.Name {
+			continue
+		}
 		svc, err := r.newService(ctx, c)
 		if err != nil {
 			return err
@@ -501,17 +511,24 @@ func (manager *resourceManager) MergeModify(ctx context.Context, toModify *resou
 			old.replace(ctx, v)
 		}
 	}
-
-	if len(toModify.resources.Nodes) != 0 {
-		for k, v := range toModify.resources.Nodes {
+	orderedModify := toModify.resources.ReverseTopologicalSort()
+	if len(orderedModify) != 0 {
+		for _, k := range orderedModify {
+			v := toModify.resources.Nodes[k]
 			old, ok := manager.resources.Nodes[k]
 			if !ok {
 				// should not happen
 				continue
 			}
+			if err := manager.resources.ReplaceNodesParents(k, toModify.resources); err != nil {
+				return nil, err
+			}
+			if v == old {
+				// same underlying resource so we can continue
+				continue
+			}
 			oldPart, oldIsReconfigurable := old.(resource.Reconfigurable)
 			newPart, newIsReconfigurable := v.(resource.Reconfigurable)
-
 			switch {
 			case oldIsReconfigurable != newIsReconfigurable:
 				// this is an indicator of a serious constructor problem
@@ -599,9 +616,8 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		if err := filtered.resources.MergeNode(rName, manager.resources); err != nil {
-			return nil, err
-		}
+		// Assuming dependencies will be added later
+		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
 	for _, conf := range conf.Services {
@@ -610,9 +626,8 @@ func (manager *resourceManager) FilterFromConfig(ctx context.Context, conf *conf
 		if err != nil {
 			continue
 		}
-		if err := filtered.resources.MergeNode(rName, manager.resources); err != nil {
-			return nil, err
-		}
+		// Assuming dependencies will be added later
+		filtered.resources.AddNode(rName, manager.resources.Nodes[rName])
 	}
 
 	for _, conf := range conf.Functions {

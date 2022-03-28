@@ -29,7 +29,7 @@ func TestUR5eForwardKinementsSVAvsDH(t *testing.T) {
 
 	seed := rand.New(rand.NewSource(23))
 	for i := 0; i < numTests; i++ {
-		joints := referenceframe.JointPositionsFromRadians(referenceframe.GenerateRandomJointPositions(mSVA, seed))
+		joints := referenceframe.JointPositionsFromRadians(referenceframe.GenerateRandomConfiguration(mSVA, seed))
 
 		posSVA, err := motionplan.ComputePosition(mSVA, joints)
 		test.That(t, err, test.ShouldBeNil)

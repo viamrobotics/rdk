@@ -7,6 +7,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	"go.viam.com/utils/artifact"
 
@@ -155,9 +156,9 @@ func TestProjectPlane3dPointsToRGBPlane(t *testing.T) {
 	lowRight := image.Point{w, h}
 
 	img := image.NewGray16(image.Rectangle{upLeft, lowRight})
-	coordinatesRGB.Iterate(func(pt pc.Point) bool {
-		if pt.Position().Z > -1.0 {
-			img.Set(int(pt.Position().X), int(pt.Position().Y), color.Gray16{uint16(pt.Position().Z / pixel2meter)})
+	coordinatesRGB.Iterate(0, 0, func(pt r3.Vector, d pc.Data) bool {
+		if pt.Z > -1.0 {
+			img.Set(int(pt.X), int(pt.Y), color.Gray16{uint16(pt.Z / pixel2meter)})
 		}
 		return true
 	})
@@ -194,16 +195,16 @@ func TestPointCloudSplit(t *testing.T) {
 	// make a simple point cloud
 	cloud := pc.New()
 	var err error
-	err = cloud.Set(pc.NewColoredPoint(1, 1, 1, color.NRGBA{255, 0, 0, 255}))
+	err = cloud.Set(pc.NewVector(1, 1, 1), pc.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(1, 0, -1, color.NRGBA{0, 255, 0, 255}))
+	err = cloud.Set(pc.NewVector(1, 0, -1), pc.NewColoredData(color.NRGBA{0, 255, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(-1, -2, -1, color.NRGBA{0, 0, 255, 255}))
+	err = cloud.Set(pc.NewVector(-1, -2, -1), pc.NewColoredData(color.NRGBA{0, 0, 255, 255}))
 	test.That(t, err, test.ShouldBeNil)
-	err = cloud.Set(pc.NewColoredPoint(0, 0, 0, color.NRGBA{0, 0, 0, 255}))
+	err = cloud.Set(pc.NewVector(0, 0, 0), pc.NewColoredData(color.NRGBA{0, 0, 0, 255}))
 	test.That(t, err, test.ShouldBeNil)
 	// 2-2 split map
-	map1 := map[pc.Vec3]bool{
+	map1 := map[r3.Vector]bool{
 		{1, 1, 1}: true,
 		{0, 0, 0}: true,
 	}
@@ -212,7 +213,7 @@ func TestPointCloudSplit(t *testing.T) {
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 2)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 2)
 	// map of all points
-	map2 := map[pc.Vec3]bool{
+	map2 := map[r3.Vector]bool{
 		{1, 1, 1}:    true,
 		{0, 0, 0}:    true,
 		{-1, -2, -1}: true,
@@ -223,13 +224,13 @@ func TestPointCloudSplit(t *testing.T) {
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 4)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 0)
 	// empty map
-	map3 := map[pc.Vec3]bool{}
+	map3 := map[r3.Vector]bool{}
 	mapCloud, nonMapCloud, err = pointCloudSplit(cloud, map3)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, mapCloud.Size(), test.ShouldEqual, 0)
 	test.That(t, nonMapCloud.Size(), test.ShouldEqual, 4)
 	// map with invalid points
-	map4 := map[pc.Vec3]bool{
+	map4 := map[r3.Vector]bool{
 		{1, 1, 1}: true,
 		{0, 2, 0}: true,
 	}
