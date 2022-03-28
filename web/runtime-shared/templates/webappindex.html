@@ -37,7 +37,7 @@
       import "/static/rdk/dls/dls.umd.min.js";
     </script>
     {{ else }}
-    <script src="/static/rdk-api/control.js"></script>
+    <script src="/static/control.js"></script>
     <script src="/static/third-party/vue.js"></script>
     <link rel="stylesheet" href="/static/dls/dls.css">
     <script type="module">
@@ -106,7 +106,17 @@
       }
 
       function fixInputStatus(old) {
-        return { eventsList: old["events"] || []}
+        let events = old["events"] || []
+        let eventsList = events.map(
+          e => {
+            return {
+              time: e["time"] || {},
+              event: e["event"] || "",
+              control: e["control"] || "",
+              value: e["value"] || 0.0,
+            }
+          })
+        return { eventsList: eventsList}
       }
 
       function fixMotorStatus(old) {
@@ -190,8 +200,7 @@
               armToggle : {},
               mapOnce: false,
               value: 0,
-              imuData: {},
-              navigationAvailable: false,
+              imuData: {}
           };
           theApp = new Vue({
               el: '#app',
@@ -694,33 +703,38 @@
                       }
 
                   },
-                  doPCDGrab : function(){
-                      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0].name;
-                      let armName = theApp.filterResources("rdk", "component", "arm")[0].name;
+                  doPCDMove : function(){
+                      let gripperName = theApp.filterResources("rdk", "component", "gripper")[0];
                       let cameraName = pcdGlobal.cameraName;
                       let cameraPointX = theData.pcdClick.x;
                       let cameraPointY = theData.pcdClick.y;
                       let cameraPointZ = theData.pcdClick.z;
 
-                      let req = new objectManipulationApi.DoGrabRequest();
-                      let cameraPoint = new commonApi.Vector3();
+                      let req = new motionApi.MoveRequest();
+                      let cameraPoint = new commonApi.Pose();
                       cameraPoint.setX(cameraPointX);
                       cameraPoint.setY(cameraPointY);
                       cameraPoint.setZ(cameraPointZ);
 
-                      req.setArmName(armName);
-                      req.setCameraName(cameraName);
-                      req.setCameraPoint(cameraPoint);
-                      req.setGripperName(gripperName);
-                      console.log("making grab attempt using " + gripperName);
+                      var pose = new commonApi.PoseInFrame()
+                      pose.setReferenceFrame(cameraName)
+                      pose.setPose(cameraPoint)
+                      req.setDestination(pose)
+                      let componentName = new commonApi.ResourceName();
+                      componentName.setNamespace(gripperName.namespace);
+                      componentName.setType(gripperName.type);
+                      componentName.setSubtype(gripperName.subtype);
+                      componentName.setName(gripperName.name);
+                      req.setComponentName(componentName);
+                      console.log("making move attempt using " + gripperName);
 
-                      objectManipulationService.doGrab(req, {},
+                      motionService.move(req, {},
                         (err, resp) => {
                           grpcCallback(err, resp);
                           if (err) {
                             return Promise.reject(err);
                           }
-                          return Promise.resolve(resp).then(console.log("grab success: "+resp.getSuccess()));
+                          return Promise.resolve(resp).then(console.log("move success: "+resp.getSuccess()));
                       })
                   },
                   findSegments : function(segmenterName, segmenterParams){
@@ -754,7 +768,7 @@
                       var data = segment.getPointCloud_asB64();
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                       var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var p = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       console.log(p);
                       setPoint(p);
                       setBoundingBox(box, p);
@@ -764,7 +778,7 @@
                   doPointLoad : function(i){
                       var segment = theData.objects[i];
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
-                      var p = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var p = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       console.log(p);
                       setPoint(p);
                   },
@@ -772,7 +786,7 @@
                       var segment = theData.objects[i];
                       var center = segment.getGeometries().getGeometriesList()[0].getCenter();
                       var box = segment.getGeometries().getGeometriesList()[0].getBox();
-                      var centerP = {x: center.getX()/1000., y: -center.getY()/1000., z: -center.getZ()/1000.};
+                      var centerP = {x: center.getX()/1000., y: center.getY()/1000., z: center.getZ()/1000.};
                       setBoundingBox(box, centerP);
                   },
                   doPCDLoad : function(data){
@@ -1415,7 +1429,6 @@
               marker.setMap(null);
               delete knownWaypoints[key];
             }
-            theData.navigationAvailable = true;
             setTimeout(updateWaypoints, 1000);
           });
         }
@@ -1438,7 +1451,6 @@
             }
             locationMarker.setPosition(pos);
             locationMarker.setMap(window.map);
-            theData.navigationAvailable = true;
             setTimeout(updateLocation, 1000);
           });
         }
@@ -1559,10 +1571,10 @@
           <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
             <th>${pp.axis}</th>
             <td>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.1 )">--</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, -.01 )">-</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .01 )">+</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, .1 )">++</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -10 )">--</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, -1 )">-</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 1 )">+</button>
+              <button v-on:click="gantryInc( gantry, pp.axis, 10 )">++</button>
             </td>
             <td>${pp.pos.toFixed(2)}</td>
             <td>${pp.length}</td>
@@ -1841,7 +1853,7 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    <button v-on:click="doPCDGrab">Grab</button>
+                    <button v-on:click="doPCDMove">Move</button>
                   </td>
                 </tr>
               </table>
@@ -1896,7 +1908,7 @@
             <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
         </tr>
       </table>
-      <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0 && navigationAvailable === true">
+      <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
         <br />
         <br />
         <button v-on:click="setNavigationMode('manual')">Manual</button>

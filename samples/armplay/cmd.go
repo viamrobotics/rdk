@@ -249,7 +249,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	goToGoal := func(seedMap map[string][]referenceframe.Input, goal spatial.Pose) map[string][]referenceframe.Input {
 		curPos, err = fs.TransformFrame(seedMap, moveFrameName, referenceframe.World)
 
-		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Point(), goal.Point(), validOV, pathO, pathD)
+		validFunc, gradFunc := motionplan.NewLineConstraint(curPos.Pose().Point(), goal.Point(), validOV, pathO, pathD)
 		destGrad := motionplan.NewPoseFlexOVMetric(goal, destO)
 
 		// update constraints
