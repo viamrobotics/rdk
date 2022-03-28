@@ -175,6 +175,7 @@ func (s *subtypeServer) GetPointCloud(
 	}
 
 	var buf bytes.Buffer
+	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
 	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
 	if err != nil {
 		return nil, err
