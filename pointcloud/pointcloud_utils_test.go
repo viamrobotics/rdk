@@ -13,26 +13,26 @@ func makeClouds(t *testing.T) []PointCloud {
 	t.Helper()
 	// create cloud 0
 	cloud0 := New()
-	p00 := NewBasicPoint(0, 0, 0)
-	test.That(t, cloud0.Set(p00), test.ShouldBeNil)
-	p01 := NewBasicPoint(0, 0, 1)
-	test.That(t, cloud0.Set(p01), test.ShouldBeNil)
-	p02 := NewBasicPoint(0, 1, 0)
-	test.That(t, cloud0.Set(p02), test.ShouldBeNil)
-	p03 := NewBasicPoint(0, 1, 1)
-	test.That(t, cloud0.Set(p03), test.ShouldBeNil)
+	p00 := NewVector(0, 0, 0)
+	test.That(t, cloud0.Set(p00, nil), test.ShouldBeNil)
+	p01 := NewVector(0, 0, 1)
+	test.That(t, cloud0.Set(p01, nil), test.ShouldBeNil)
+	p02 := NewVector(0, 1, 0)
+	test.That(t, cloud0.Set(p02, nil), test.ShouldBeNil)
+	p03 := NewVector(0, 1, 1)
+	test.That(t, cloud0.Set(p03, nil), test.ShouldBeNil)
 	// create cloud 1
 	cloud1 := New()
-	p10 := NewBasicPoint(30, 0, 0)
-	test.That(t, cloud1.Set(p10), test.ShouldBeNil)
-	p11 := NewBasicPoint(30, 0, 1)
-	test.That(t, cloud1.Set(p11), test.ShouldBeNil)
-	p12 := NewBasicPoint(30, 1, 0)
-	test.That(t, cloud1.Set(p12), test.ShouldBeNil)
-	p13 := NewBasicPoint(30, 1, 1)
-	test.That(t, cloud1.Set(p13), test.ShouldBeNil)
-	p14 := NewBasicPoint(28, 0.5, 0.5)
-	test.That(t, cloud1.Set(p14), test.ShouldBeNil)
+	p10 := NewVector(30, 0, 0)
+	test.That(t, cloud1.Set(p10, nil), test.ShouldBeNil)
+	p11 := NewVector(30, 0, 1)
+	test.That(t, cloud1.Set(p11, nil), test.ShouldBeNil)
+	p12 := NewVector(30, 1, 0)
+	test.That(t, cloud1.Set(p12, nil), test.ShouldBeNil)
+	p13 := NewVector(30, 1, 1)
+	test.That(t, cloud1.Set(p13, nil), test.ShouldBeNil)
+	p14 := NewVector(28, 0.5, 0.5)
+	test.That(t, cloud1.Set(p14, nil), test.ShouldBeNil)
 
 	return []PointCloud{cloud0, cloud1}
 }
@@ -62,16 +62,27 @@ func TestMergePoints(t *testing.T) {
 	clouds := makeClouds(t)
 	mergedCloud, err := MergePointClouds(clouds)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mergedCloud.At(0, 0, 0), test.ShouldNotBeNil)
-	test.That(t, mergedCloud.At(30, 0, 0), test.ShouldNotBeNil)
+	test.That(t, CloudContains(mergedCloud, 0, 0, 0), test.ShouldBeTrue)
+	test.That(t, CloudContains(mergedCloud, 30, 0, 0), test.ShouldBeTrue)
 }
 
 func TestMergePointsWithColor(t *testing.T) {
 	clouds := makeClouds(t)
 	mergedCloud, err := MergePointCloudsWithColor(clouds)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, mergedCloud.At(0, 0, 0).Color(), test.ShouldResemble, mergedCloud.At(0, 0, 1).Color())
-	test.That(t, mergedCloud.At(0, 0, 0).Color(), test.ShouldNotResemble, mergedCloud.At(30, 0, 0).Color())
+	test.That(t, mergedCloud.Size(), test.ShouldResemble, 9)
+
+	a, got := mergedCloud.At(0, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+
+	b, got := mergedCloud.At(0, 0, 1)
+	test.That(t, got, test.ShouldBeTrue)
+
+	c, got := mergedCloud.At(30, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+
+	test.That(t, a.Color(), test.ShouldResemble, b.Color())
+	test.That(t, a.Color(), test.ShouldNotResemble, c.Color())
 }
 
 func TestPrune(t *testing.T) {
