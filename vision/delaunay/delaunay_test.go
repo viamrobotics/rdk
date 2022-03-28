@@ -171,6 +171,16 @@ func TestCircle(t *testing.T) {
 	test.That(t, len(tri.ConvexHull), test.ShouldEqual, 10000)
 }
 
+func TestGetTriangleIdsMap(t *testing.T) {
+	points := circle(10000)
+	tri, err := Triangulate(points)
+	test.That(t, err, test.ShouldBeNil)
+	triangles := tri.Triangles
+	test.That(t, len(triangles)%3, test.ShouldEqual, 0)
+	idMap := tri.GetTranglesPointsMap()
+	test.That(t, len(idMap), test.ShouldEqual, len(triangles)/3)
+}
+
 func BenchmarkUniform(b *testing.B) {
 	rnd := rand.New(rand.NewSource(99))
 	points := uniform(b.N, rnd)

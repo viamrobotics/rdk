@@ -68,3 +68,19 @@ func (t *Triangulation) Validate() error {
 
 	return nil
 }
+
+// GetTranglesPointsMap returns a map that had triangle ID as key, and points IDs as value
+func (t *Triangulation) GetTranglesPointsMap() map[int][]int {
+	triangles := make(map[int][]int)
+	ts := t.Triangles
+	currentTriangleId := 0
+	for i := 0; i < len(t.Triangles); i += 3 {
+		id0 := ts[i]
+		id1 := ts[i+1]
+		id2 := ts[i+2]
+		triangles[currentTriangleId] = []int{id0, id1, id2}
+		// update current triangle ID
+		currentTriangleId++
+	}
+	return triangles
+}
