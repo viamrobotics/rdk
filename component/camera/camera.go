@@ -12,6 +12,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/registry"
@@ -38,6 +39,11 @@ func init() {
 			return NewClientFromConn(ctx, conn, name, logger)
 		},
 	})
+
+	data.RegisterCollector(data.MethodMetadata{
+		Subtype:    SubtypeName,
+		MethodName: nextPointCloud.String(),
+	}, newNextPointCloudCollector)
 }
 
 // SubtypeName is a constant that identifies the camera resource subtype string.
@@ -64,7 +70,6 @@ type Camera interface {
 // WithProjector is a camera with the capability to project images to 3D.
 type WithProjector interface {
 	Camera
-	rimage.Projector
 	GetProjector() rimage.Projector
 }
 
@@ -122,7 +127,7 @@ func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointClou
 // ImageSourceWithProjector implements a CameraWithProjector with a gostream.ImageSource and Projector.
 type imageSourceWithProjector struct {
 	gostream.ImageSource
-	rimage.Projector
+	projector rimage.Projector
 }
 
 // Close closes the underlying ImageSource.
@@ -132,7 +137,7 @@ func (iswp *imageSourceWithProjector) Close(ctx context.Context) error {
 
 // Projector returns the camera's Projector.
 func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
-	return iswp.Projector
+	return iswp.projector
 }
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
@@ -144,8 +149,14 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	if err != nil {
 		return nil, err
 	}
+
+	dm, ok := img.(*rimage.DepthMap)
+	if ok {
+		return dm.ToPointCloud(iswp.projector), nil
+	}
+
 	defer closer()
-	return iswp.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+	return iswp.projector.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.

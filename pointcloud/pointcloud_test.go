@@ -3,28 +3,43 @@ package pointcloud
 import (
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 )
 
 func TestPointCloudBasic(t *testing.T) {
 	pc := New()
-	p0 := NewBasicPoint(0, 0, 0)
-	test.That(t, pc.Set(p0), test.ShouldBeNil)
-	pAt := pc.At(0, 0, 0)
-	test.That(t, pAt, test.ShouldResemble, p0)
-	p1 := NewBasicPoint(1, 0, 1)
-	test.That(t, pc.Set(p1), test.ShouldBeNil)
-	pAt = pc.At(1, 0, 1)
-	test.That(t, pAt, test.ShouldResemble, p1)
-	test.That(t, pAt, test.ShouldNotResemble, p0)
-	p2 := NewBasicPoint(-1, -2, 1)
-	test.That(t, pc.Set(p2), test.ShouldBeNil)
-	pAt = pc.At(-1, -2, 1)
-	test.That(t, pAt, test.ShouldResemble, p2)
+
+	p0 := NewVector(0, 0, 0)
+	d0 := NewValueData(5)
+
+	test.That(t, pc.Set(p0, d0), test.ShouldBeNil)
+	d, got := pc.At(0, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, d, test.ShouldResemble, d0)
+
+	_, got = pc.At(1, 0, 1)
+	test.That(t, got, test.ShouldBeFalse)
+
+	p1 := NewVector(1, 0, 1)
+	d1 := NewValueData(17)
+	test.That(t, pc.Set(p1, d1), test.ShouldBeNil)
+
+	d, got = pc.At(1, 0, 1)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, d, test.ShouldResemble, d1)
+	test.That(t, d, test.ShouldNotResemble, d0)
+
+	p2 := NewVector(-1, -2, 1)
+	d2 := NewValueData(81)
+	test.That(t, pc.Set(p2, d2), test.ShouldBeNil)
+	d, got = pc.At(-1, -2, 1)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, d, test.ShouldResemble, d2)
 
 	count := 0
-	pc.Iterate(func(p Point) bool {
-		switch p.Position().X {
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		switch p.X {
 		case 0:
 			test.That(t, p, test.ShouldResemble, p0)
 		case 1:
@@ -37,23 +52,23 @@ func TestPointCloudBasic(t *testing.T) {
 	})
 	test.That(t, count, test.ShouldEqual, 3)
 
-	test.That(t, pc.At(1, 1, 1), test.ShouldBeNil)
+	test.That(t, CloudContains(pc, 1, 1, 1), test.ShouldBeFalse)
 
-	pMax := NewBasicPoint(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64)
-	test.That(t, pc.Set(pMax), test.ShouldBeNil)
+	pMax := NewVector(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64)
+	test.That(t, pc.Set(pMax, nil), test.ShouldBeNil)
 
-	pBad := NewBasicPoint(minPreciseFloat64-1, maxPreciseFloat64, minPreciseFloat64)
-	err := pc.Set(pBad)
+	pBad := NewVector(minPreciseFloat64-1, maxPreciseFloat64, minPreciseFloat64)
+	err := pc.Set(pBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "x component")
 
-	pBad = NewBasicPoint(minPreciseFloat64, maxPreciseFloat64+1, minPreciseFloat64)
-	err = pc.Set(pBad)
+	pBad = NewVector(minPreciseFloat64, maxPreciseFloat64+1, minPreciseFloat64)
+	err = pc.Set(pBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "y component")
 
-	pBad = NewBasicPoint(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64-1)
-	err = pc.Set(pBad)
+	pBad = NewVector(minPreciseFloat64, maxPreciseFloat64, minPreciseFloat64-1)
+	err = pc.Set(pBad, nil)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "z component")
 }

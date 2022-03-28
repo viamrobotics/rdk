@@ -13,6 +13,7 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -164,11 +165,7 @@ func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
 	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 }
 
-func decodeBoth(bothData []byte, aligned bool) (*rimage.ImageWithDepth, error) {
-	return rimage.ReadBothFromBytes(bothData, aligned)
-}
-
-func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
+func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -177,11 +174,19 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	if err != nil {
 		return nil, err
 	}
+	return resp.Body, nil
+}
+
+func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
+	body, err := prepReadFromURL(ctx, client, url)
+	if err != nil {
+		return nil, err
+	}
 
 	defer func() {
-		viamutils.UncheckedError(resp.Body.Close())
+		viamutils.UncheckedError(body.Close())
 	}()
-	return ioutil.ReadAll(resp.Body)
+	return ioutil.ReadAll(body)
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
@@ -244,23 +249,13 @@ func (ds *dualServerSource) Close() {
 	ds.client.CloseIdleConnections()
 }
 
-// StreamType specifies what kind of image stream is coming from the camera.
-type StreamType string
-
-// The allowed types of streams that can come from an ImageSource.
-const (
-	ColorStream = StreamType("color")
-	DepthStream = StreamType("depth")
-	BothStream  = StreamType("both")
-)
-
 // serverSource streams the color/depth/both camera data from an external server at a given URL.
 type serverSource struct {
 	client    http.Client
 	URL       string
 	host      string
-	stream    StreamType // specifies color, depth, or both stream
-	isAligned bool       // are the color and depth image already aligned
+	stream    camera.StreamType // specifies color, depth, or both stream
+	isAligned bool              // are the color and depth image already aligned
 }
 
 // ServerAttrs is the attribute struct for serverSource.
@@ -268,9 +263,7 @@ type ServerAttrs struct {
 	*camera.AttrConfig
 	Aligned bool   `json:"aligned"`
 	Host    string `json:"host"`
-	Source  string `json:"source"`
 	Port    int    `json:"port"`
-	Stream  string `json:"stream"`
 	Args    string `json:"args"`
 }
 
@@ -284,26 +277,29 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var img *rimage.ImageWithDepth
 	var err error
 
-	allData, err := readyBytesFromURL(ctx, s.client, s.URL)
+	in, err := prepReadFromURL(ctx, s.client, s.URL)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
 	}
+	defer func() {
+		viamutils.UncheckedError(in.Close())
+	}()
 
 	switch s.stream {
-	case ColorStream:
-		color, err := decodeColor(allData)
+	case camera.ColorStream:
+		color, _, err := image.Decode(in)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
-	case DepthStream:
-		depth, err := decodeDepth(allData)
+	case camera.DepthStream:
+		depth, err := rimage.ReadDepthMap(bufio.NewReader(in))
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
-	case BothStream:
-		img, err = decodeBoth(allData, s.isAligned)
+		return depth, func() {}, nil
+	case camera.BothStream:
+		img, err = rimage.ReadBothFromReader(bufio.NewReader(in), s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -325,7 +321,7 @@ func NewServerSource(cfg *ServerAttrs, logger golog.Logger) (camera.Camera, erro
 	imgSrc := &serverSource{
 		URL:       fmt.Sprintf("http://%s:%d/%s", cfg.Host, cfg.Port, cfg.Args),
 		host:      cfg.Host,
-		stream:    StreamType(cfg.Stream),
+		stream:    camera.StreamType(cfg.Stream),
 		isAligned: cfg.Aligned,
 	}
 	return camera.New(imgSrc, cfg.AttrConfig, nil)

@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
@@ -23,6 +24,20 @@ type DistortionModel struct {
 	RadialK3     float64 `json:"rk3"`
 	TangentialP1 float64 `json:"tp1"`
 	TangentialP2 float64 `json:"tp2"`
+}
+
+// Transform distorts the input points x,y according to a modified Brown-Conrady model as described by OpenCV
+// https://docs.opencv.org/3.4/da/d54/group__imgproc__transform.html#ga7dfb72c9cf9780a347fbe3d1c47e5d5a
+func (dm *DistortionModel) Transform(x, y float64) (float64, float64) {
+	r2 := x*x + y*y
+	radDist := (1. + dm.RadialK1*r2 + dm.RadialK2*r2*r2 + dm.RadialK3*r2*r2*r2)
+	radDistX := x * radDist
+	radDistY := y * radDist
+	tanDistX := 2.*dm.TangentialP1*x*y + dm.TangentialP2*(r2+2.*x*x)
+	tanDistY := 2.*dm.TangentialP2*x*y + dm.TangentialP1*(r2+2.*y*y)
+	resX := radDistX + tanDistX
+	resY := radDistY + tanDistY
+	return resX, resY
 }
 
 // PinholeCameraIntrinsics TODO.
@@ -143,6 +158,79 @@ func NewPinholeCameraIntrinsicsFromJSONFile(jsonPath, cameraName string) (*Pinho
 	return &intrinsics.ColorCamera, nil
 }
 
+// DistortionMap is a function that transforms the undistorted input points (u,v) to the distorted points (x,y)
+// according to the model in PinholeCameraIntrinsics.Distortion.
+func (params *PinholeCameraIntrinsics) DistortionMap() func(u, v float64) (float64, float64) {
+	return func(u, v float64) (float64, float64) {
+		x := (u - params.Ppx) / params.Fx
+		y := (v - params.Ppy) / params.Fy
+		x, y = params.Distortion.Transform(x, y)
+		x = x*params.Fx + params.Ppx
+		y = y*params.Fy + params.Ppy
+		return x, y
+	}
+}
+
+// UndistortImage takes an input image and creates a new image the same size with the same camera parameters
+// as the original image, but undistorted according to the distortion model in PinholeCameraIntrinsics. A bilinear
+// interpolation is used to interpolate values between image pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
+func (params *PinholeCameraIntrinsics) UndistortImage(img *rimage.Image) (*rimage.Image, error) {
+	if img == nil {
+		return nil, errors.New("input image is nil")
+	}
+	// Check dimensions, they should be equal between the color image and what the intrinsics expect
+	if params.Width != img.Width() || params.Height != img.Height() {
+		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			img.Width(), img.Height(), params.Width, params.Height)
+	}
+	undistortedImg := rimage.NewImage(params.Width, params.Height)
+	distortionMap := params.DistortionMap()
+	for v := 0; v < params.Height; v++ {
+		for u := 0; u < params.Width; u++ {
+			x, y := distortionMap(float64(u), float64(v))
+			c := rimage.NearestNeighborColor(r2.Point{x, y}, img)
+			if c != nil {
+				undistortedImg.SetXY(u, v, *c)
+			} else {
+				undistortedImg.SetXY(u, v, rimage.Color(0))
+			}
+		}
+	}
+	return undistortedImg, nil
+}
+
+// UndistortDepthMap takes an input depth map and creates a new depth map the same size with the same camera parameters
+// as the original depth map, but undistorted according to the distortion model in PinholeCameraIntrinsics. A nearest neighbor
+// interpolation is used to interpolate values between depth pixels.
+// NOTE(bh): potentially a use case for generics
+//nolint:dupl
+func (params *PinholeCameraIntrinsics) UndistortDepthMap(dm *rimage.DepthMap) (*rimage.DepthMap, error) {
+	if dm == nil {
+		return nil, errors.New("input DepthMap is nil")
+	}
+	// Check dimensions, they should be equal between the color image and what the intrinsics expect
+	if params.Width != dm.Width() || params.Height != dm.Height() {
+		return nil, errors.Errorf("img dimension and intrinsics don't match Image(%d,%d) != Intrinsics(%d,%d)",
+			dm.Width(), dm.Height(), params.Width, params.Height)
+	}
+	undistortedDm := rimage.NewEmptyDepthMap(params.Width, params.Height)
+	distortionMap := params.DistortionMap()
+	for v := 0; v < params.Height; v++ {
+		for u := 0; u < params.Width; u++ {
+			x, y := distortionMap(float64(u), float64(v))
+			d := rimage.NearestNeighborDepth(r2.Point{x, y}, dm)
+			if d != nil {
+				undistortedDm.Set(u, v, *d)
+			} else {
+				undistortedDm.Set(u, v, rimage.Depth(0))
+			}
+		}
+	}
+	return undistortedDm, nil
+}
+
 // PixelToPoint transforms a pixel with depth to a 3D point cloud.
 // The intrinsics parameters should be the ones of the sensor used to obtain the image that
 // contains the pixel.
@@ -219,7 +307,7 @@ func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntr
 // intrinsics3DTo2D uses the camera's intrinsic matrix to project the 3D pointcloud to a 2D image with depth.
 func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
-	if !cloud.HasColor() {
+	if !cloud.MetaData().HasColor {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the camera specified by PinholeCameraIntrinsics.
@@ -228,13 +316,13 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 	width, height := pci.Width, pci.Height
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
-	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j, i := pci.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
+		j, i := pci.PointToPixel(pt.X, pt.Y, pt.Z)
 		x, y := int(math.Round(j)), int(math.Round(i))
-		z := int(pt.Position().Z)
+		z := int(pt.Z)
 		// if point has color and is inside the image bounds, add it to the images
-		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
-			r, g, b := pt.RGB255()
+		if x >= 0 && x < width && y >= 0 && y < height && d != nil && d.HasColor() {
+			r, g, b := d.RGB255()
 			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
 			depth.Set(x, y, rimage.Depth(z))
 		}
@@ -264,12 +352,13 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, 
 		startX, startY = newBounds.Min.X, newBounds.Min.Y
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
-	pc := pointcloud.New()
+	pc := pointcloud.NewWithPrealloc((endY - startY) * (endX - startX))
+
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
 			px, py, pz := pci.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
 			r, g, b := iwd.Color.GetXY(x, y).RGB255()
-			err := pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewVector(px, py, pz), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}

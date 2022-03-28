@@ -24,7 +24,7 @@ import (
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/motion"
 	"go.viam.com/rdk/services/objectsegmentation"
 	rdktestutils "go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
@@ -597,20 +597,20 @@ func TestManagerAdd(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource1, test.ShouldEqual, injectBoard)
 
-	injectObjectManipulationService := &inject.ObjectManipulationService{}
-	injectObjectManipulationService.DoGrabFunc = func(
+	injectMotionService := &inject.MotionService{}
+	injectMotionService.MoveFunc = func(
 		ctx context.Context,
-		gripperName string,
+		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error) {
 		return false, nil
 	}
-	objectMResName := objectmanipulation.Name
-	manager.addResource(objectMResName, injectObjectManipulationService)
-	objectManipulationService, err := manager.ResourceByName(objectMResName)
+	objectMResName := motion.Name
+	manager.addResource(objectMResName, injectMotionService)
+	motionService, err := manager.ResourceByName(objectMResName)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, objectManipulationService, test.ShouldEqual, injectObjectManipulationService)
+	test.That(t, motionService, test.ShouldEqual, injectMotionService)
 
 	injectObjectSegmentationService := &inject.ObjectSegmentationService{}
 	injectObjectSegmentationService.GetObjectPointCloudsFunc = func(

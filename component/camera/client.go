@@ -10,6 +10,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
@@ -103,6 +104,9 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera-client::NextPointCloud")
+	defer span.End()
+
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
@@ -115,7 +119,12 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		return nil, fmt.Errorf("unknown pc mime type %s", resp.MimeType)
 	}
 
-	return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+	return func() (pointcloud.PointCloud, error) {
+		_, span := trace.StartSpan(ctx, "camera-client::NextPointCloud::ReadPCD")
+		defer span.End()
+
+		return pointcloud.ReadPCD(bytes.NewReader(resp.PointCloud))
+	}()
 }
 
 // Close cleanly closes the underlying connections.

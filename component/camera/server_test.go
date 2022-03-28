@@ -45,7 +45,7 @@ func TestServer(t *testing.T) {
 	test.That(t, jpeg.Encode(&imgBufJpeg, img, nil), test.ShouldBeNil)
 
 	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	var imageReleased bool
@@ -144,7 +144,7 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no camera")
 
 		pcA := pointcloud.New()
-		err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+		err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 		test.That(t, err, test.ShouldBeNil)
 
 		injectCamera.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
