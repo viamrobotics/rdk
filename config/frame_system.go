@@ -34,7 +34,10 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
 		OZ:    pose.OZ,
 		Theta: pose.Theta,
 	}
-	frameConfig := &pb.FrameConfig{Parent: part.FrameConfig.Parent, Pose: convertedPose}
+	poseInFrame := &commonpb.PoseInFrame{
+		ReferenceFrame: part.FrameConfig.Parent,
+		Pose:           convertedPose,
+	}
 	var modelJSON []byte
 	var err error
 	if part.ModelFrame != nil {
@@ -44,28 +47,29 @@ func (part *FrameSystemPart) ToProtobuf() (*pb.Config, error) {
 		}
 	}
 	return &pb.Config{
-		Name:        part.Name,
-		FrameConfig: frameConfig,
-		ModelJson:   modelJSON,
+		Name:              part.Name,
+		PoseInParentFrame: poseInFrame,
+		ModelJson:         modelJSON,
 	}, nil
 }
 
 // ProtobufToFrameSystemPart takes a protobuf object and transforms it into a FrameSystemPart.
 func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
+	poseMsg := fsc.PoseInParentFrame.Pose
 	convertedPose := &commonpb.Pose{
-		X:     fsc.FrameConfig.Pose.X,
-		Y:     fsc.FrameConfig.Pose.Y,
-		Z:     fsc.FrameConfig.Pose.Z,
-		OX:    fsc.FrameConfig.Pose.OX,
-		OY:    fsc.FrameConfig.Pose.OY,
-		OZ:    fsc.FrameConfig.Pose.OZ,
-		Theta: fsc.FrameConfig.Pose.Theta,
+		X:     poseMsg.X,
+		Y:     poseMsg.Y,
+		Z:     poseMsg.Z,
+		OX:    poseMsg.OX,
+		OY:    poseMsg.OY,
+		OZ:    poseMsg.OZ,
+		Theta: poseMsg.Theta,
 	}
 	pose := spatialmath.NewPoseFromProtobuf(convertedPose)
 	point := pose.Point()
 	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
 	frameConfig := &Frame{
-		Parent:      fsc.FrameConfig.Parent,
+		Parent:      fsc.PoseInParentFrame.ReferenceFrame,
 		Translation: translation,
 		Orientation: pose.Orientation(),
 	}
