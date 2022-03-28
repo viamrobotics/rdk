@@ -24,6 +24,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
@@ -38,7 +39,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name}
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -127,16 +128,16 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	for remoteName, remote := range r.manager.remotes {
 		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		rConf, err := r.getRemoteConfig(remoteName)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
 		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 	}
 	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
@@ -228,6 +229,22 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
+// ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
+type ConfigUpdateable interface {
+	// Update updates the resource
+	Update(context.Context, config.Service) error
+}
+
+// Get the config associated with the service resource.
+func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
+	for _, c := range cfg.Services {
+		if c.ResourceName() == name {
+			return c, nil
+		}
+	}
+	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+}
+
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
@@ -244,10 +261,17 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		if err != nil {
 			return utils.NewResourceNotFoundError(name)
 		}
-		updateable, ok := svc.(resource.Updateable)
-		if ok {
+		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
+			}
+		}
+		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+			serviceConfig, err := getServiceConfig(r.config, name)
+			if err == nil {
+				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
+					return err
+				}
 			}
 		}
 	}

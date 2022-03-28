@@ -264,9 +264,6 @@ func (v *vectornav) getReadings(ctx context.Context) error {
 	v.dV.Z = float64(rutils.Float32FromBytesLE(dv[24:28])) - v.bdVZ
 	// unit s
 	v.dt = rutils.Float32FromBytesLE(dv[0:4])
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

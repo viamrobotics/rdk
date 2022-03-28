@@ -37,6 +37,7 @@ docs/
 # Test data
 coverage.txt
 coverage2.txt
+profile*.pdf
 
 *~
 *#
@@ -64,5 +65,3 @@ bin/
 
 # exclude files from `ag` search
 .ignore
-/web/runtime-shared/static/dls/
-/web/runtime-shared/static/rdk-api/
