@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/disintegration/imaging"
+	"github.com/golang/geo/r2"
 	"github.com/gonum/floats"
 	"github.com/gonum/stat"
 	"github.com/pkg/errors"
@@ -143,6 +144,52 @@ func CountBrightSpots(img *image.Gray, center image.Point, radius int, threshold
 	}
 
 	return num
+}
+
+// BilinearInterpolationColor approximates the Color value between pixels according to a bilinear
+// interpolation. A nil return value means the interpolation is out of bounds.
+func BilinearInterpolationColor(pt r2.Point, img *Image) *Color {
+	width, height := float64(img.Width()), float64(img.Height())
+	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
+		return nil
+	}
+	xmin := int(math.Floor(pt.X))
+	xmax := int(math.Ceil(pt.X))
+	ymin := int(math.Floor(pt.Y))
+	ymax := int(math.Ceil(pt.Y))
+	// get color values
+	c00 := img.GetXY(xmin, ymin)
+	c10 := img.GetXY(xmax, ymin)
+	c01 := img.GetXY(xmin, ymax)
+	c11 := img.GetXY(xmax, ymax)
+	// calculate weights
+	area := float64((xmax - xmin) * (ymax - ymin))
+	if area == 0.0 { // exactly on a pixel
+		result := img.GetXY(int(pt.X), int(pt.Y))
+		return &result
+	}
+	w00 := ((float64(xmax) - pt.X) * (float64(ymax) - pt.Y)) / area
+	w10 := ((pt.X - float64(xmin)) * (float64(ymax) - pt.Y)) / area
+	w01 := ((float64(xmax) - pt.X) * (pt.Y - float64(ymin))) / area
+	w11 := ((pt.X - float64(xmin)) * (pt.Y - float64(ymin))) / area
+
+	colors := []Color{c00, c01, c10, c11}
+	weights := []float64{w00, w01, w10, w11}
+	result := AverageColor(colors, weights...)
+	return &result
+}
+
+// NearestNeighborColor takes the value of the closest point to the intermediate pixel.
+func NearestNeighborColor(pt r2.Point, img *Image) *Color {
+	width, height := float64(img.Width()), float64(img.Height())
+	if pt.X < 0 || pt.Y < 0 || pt.X > width-1 || pt.Y > height-1 { // point out of bounds - skip it
+		return nil
+	}
+	x := int(math.Round(pt.X))
+	y := int(math.Round(pt.Y))
+	// get color value
+	result := img.GetXY(x, y)
+	return &result
 }
 
 // Rotate rotates the image clockwise by a certain amount of degrees.
