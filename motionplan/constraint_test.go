@@ -3,6 +3,7 @@ package motionplan
 import (
 	"context"
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
@@ -49,7 +50,7 @@ func TestConstraintPath(t *testing.T) {
 	homePos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 0})
 	toPos := frame.FloatsToInputs([]float64{0, 0, 0, 0, 0, 1})
 
-	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	modelXarm, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 
 	test.That(t, err, test.ShouldBeNil)
 	ci := &ConstraintInput{StartInput: homePos, EndInput: toPos, Frame: modelXarm}
@@ -123,7 +124,7 @@ func TestLineFollow(t *testing.T) {
 
 	fs := frame.NewEmptySimpleFrameSystem("test")
 
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	err = fs.AddFrame(m, fs.World())
@@ -169,19 +170,27 @@ func TestCollisionConstraint(t *testing.T) {
 		expected bool
 	}{
 		{zeroInput, true},
-		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 0, 0}), true},
-		{frame.FloatsToInputs([]float64{1, 0, 0, 0, 2, 0}), false},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 0, 0}), true},
+		{frame.FloatsToInputs([]float64{math.Pi, 0, 0, 0, 0, 0}), false},
+		{frame.FloatsToInputs([]float64{math.Pi / 2, 0, 0, 0, 2, 0}), false},
 	}
 
+	// define external obstacles
+	bc, err := spatial.NewBoxCreator(r3.Vector{2, 2, 2}, spatial.NewZeroPose())
+	test.That(t, err, test.ShouldBeNil)
+	obstacles := make(map[string]spatial.Geometry)
+	obstacles["obstacle1"] = bc.NewGeometry(spatial.NewZeroPose())
+	obstacles["obstacle2"] = bc.NewGeometry(spatial.NewPoseFromPoint(r3.Vector{-130, 0, 300}))
+
 	// setup zero position as reference CollisionGraph and use it in handler
-	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm6_kinematics.json"), "")
+	model, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm6_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 	zeroVols, _ := model.Geometries(zeroInput)
 	test.That(t, zeroVols, test.ShouldNotBeNil)
-	zeroCG, err := CheckCollisions(zeroVols)
+	zeroCG, err := CheckCollisions(zeroVols, obstacles)
 	test.That(t, err, test.ShouldBeNil)
 	handler := &constraintHandler{}
-	handler.AddConstraint("self-collision", NewCollisionConstraint(zeroCG))
+	handler.AddConstraint("collision", NewCollisionConstraint(obstacles, zeroCG))
 
 	// loop through cases and check constraint handler processes them correctly
 	for i, c := range cases {

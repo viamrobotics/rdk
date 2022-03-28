@@ -264,9 +264,6 @@ func (imu *vectornav) getReadings(ctx context.Context) error {
 	imu.dV.Z = float64(rutils.Float32FromBytesLE(dv[24:28])) - imu.bdVZ
 	// unit s
 	imu.dt = rutils.Float32FromBytesLE(dv[0:4])
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

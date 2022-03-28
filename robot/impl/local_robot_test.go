@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
@@ -156,6 +157,7 @@ func TestConfigRemote(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
@@ -228,19 +230,7 @@ func TestConfigRemote(t *testing.T) {
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, 16, test.ShouldEqual, len(cfg2.Components))
-
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Parent, test.ShouldEqual, "squee.world")
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
-	test.That(t, cfg2.FindComponent("pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
-
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Parent, test.ShouldEqual, "foo.world")
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
-	test.That(t, cfg2.FindComponent("foo.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
-
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Parent, test.ShouldEqual, "bar.world")
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Translation, test.ShouldResemble, spatialmath.TranslationConfig{500, 500, 1000})
-	test.That(t, cfg2.FindComponent("bar.pieceArm").Frame.Orientation.AxisAngles(), test.ShouldResemble, &spatialmath.R4AA{0, 0, 0, 1})
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 1)
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
@@ -406,6 +396,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				framesystem.Name,
 				sensors.Name,
 				status.Name,
+				datamanager.Name,
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
@@ -605,6 +596,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
@@ -755,6 +747,7 @@ func TestMetadataUpdate(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{

@@ -158,27 +158,6 @@ func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-func (rr *remoteRobot) Config(ctx context.Context) (*config.Config, error) {
-	cfgReal, err := rr.robot.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := config.Config{
-		Components: make([]config.Component, len(cfgReal.Components)),
-	}
-
-	for idx, c := range cfgReal.Components {
-		c.Name = rr.prefixName(c.Name)
-		if c.Frame != nil {
-			c.Frame.Parent = rr.prefixName(c.Frame.Parent)
-		}
-		cfg.Components[idx] = c
-	}
-
-	return &cfg, nil
-}
-
 // FrameSystem will return the frame system from the remote robot's server
 // remoteRobot may add on its own prefix if specified by the config file.
 func (rr *remoteRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
@@ -213,6 +192,7 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	for _, name := range robot.ResourceNames() {
 		part, err := robot.ResourceByName(name)
 		if err != nil {
+			robot.Logger().Debugf("error on getting %s: %w", name, err)
 			continue
 		}
 		manager.addResource(name, part)

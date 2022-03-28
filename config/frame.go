@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 
 	ref "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -53,7 +54,7 @@ func (f *Frame) UnmarshalJSON(b []byte) error {
 	}
 	orientation, err := temp.Orientation.ParseConfig()
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot unmarshal %s because of %w", string(b), err)
 	}
 	f.Parent = temp.Parent
 	f.Translation = temp.Translation

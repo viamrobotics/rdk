@@ -19,13 +19,13 @@ func TestObjectCreation(t *testing.T) {
 
 	// create from point cloud
 	pc := pointcloud.New()
-	err = pc.Set(pointcloud.NewBasicPoint(0, 0, 0))
+	err = pc.Set(pointcloud.NewVector(0, 0, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
-	err = pc.Set(pointcloud.NewBasicPoint(0, 1, 0))
+	err = pc.Set(pointcloud.NewVector(0, 1, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
-	err = pc.Set(pointcloud.NewBasicPoint(1, 0, 0))
+	err = pc.Set(pointcloud.NewVector(1, 0, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
-	err = pc.Set(pointcloud.NewBasicPoint(1, 1, 0))
+	err = pc.Set(pointcloud.NewVector(1, 1, 0), nil)
 	test.That(t, err, test.ShouldBeNil)
 	obj, err = NewObject(pc)
 	test.That(t, err, test.ShouldBeNil)

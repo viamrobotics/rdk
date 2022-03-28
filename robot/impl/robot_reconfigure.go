@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
@@ -75,6 +76,15 @@ func newDraftRobot(r *localRobot, diff *config.Diff) *draftRobot {
 
 // Rollback rolls back any intermediate changes made.
 func (draft *draftRobot) Rollback(ctx context.Context) error {
+	order := draft.additions.resources.TopologicalSort()
+	for _, k := range order {
+		if _, ok := draft.manager.resources.Nodes[k]; !ok {
+			if err := utils.TryClose(ctx, draft.additions.resources.Nodes[k]); err != nil {
+				return err
+			}
+		}
+		draft.additions.resources.Remove(k)
+	}
 	return draft.additions.Close(ctx)
 }
 
@@ -138,9 +148,11 @@ func (draft *draftRobot) Process(ctx context.Context) error {
 	// in order to provide the best chance of reconfiguration/compatibility.
 	// This assumes the addition/modification of parts does not cause
 	// any adverse effects before any removals.
+	draft.additions.resources = draft.manager.resources.Clone()
 	if err := draft.ProcessAddChanges(ctx); err != nil {
 		return err
 	}
+	draft.modifications.resources = draft.additions.resources.Clone()
 	if err := draft.ProcessModifyChanges(ctx); err != nil {
 		return err
 	}
