@@ -21,7 +21,7 @@ func TestGetCorrectCameraPose(t *testing.T) {
 	pose, err := EstimateNewPose(pts1, pts2, K)
 	test.That(t, err, test.ShouldBeNil)
 	// test dimensions of pose matrix: 3x4
-	nRows, nCols := pose.Pose.Dims()
+	nRows, nCols := pose.PoseMat.Dims()
 	test.That(t, nRows, test.ShouldEqual, 3)
 	test.That(t, nCols, test.ShouldEqual, 4)
 	// test dimensions of rotation matrix: 3x3
@@ -35,5 +35,5 @@ func TestGetCorrectCameraPose(t *testing.T) {
 	// test diagonal elements of rotation matrix
 	test.That(t, math.Abs(pose.Rotation.At(0, 0)), test.ShouldBeBetween, 0.98, 1.0)
 	test.That(t, math.Abs(pose.Rotation.At(1, 1)), test.ShouldBeBetween, 0.99, 1.0)
-	test.That(t, math.Abs(pose.Rotation.At(2, 2)), test.ShouldBeBetween, 0.98, 1.0)
+	test.That(t, math.Abs(pose.Rotation.At(2, 2)), test.ShouldBeBetween, 0.97, 1.0)
 }
