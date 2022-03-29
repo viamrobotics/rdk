@@ -4,12 +4,17 @@ ifeq ("aarch64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
 	DOCKER_NATIVE_TAG = arm64
 	DOCKER_NATIVE_TAG_CACHE = arm64-cache
+else ifeq ("arm64", "$(shell uname -m)")
+	DOCKER_NATIVE_PLATFORM = --platform linux/arm64
+	DOCKER_NATIVE_TAG = arm64
+	DOCKER_NATIVE_TAG_CACHE = arm64-cache
 else ifeq ("x86_64", "$(shell uname -m)")
 	DOCKER_NATIVE_PLATFORM = --platform linux/amd64
 	DOCKER_NATIVE_TAG = amd64
 	DOCKER_NATIVE_TAG_CACHE = amd64-cache
 else
 	DOCKER_NATIVE_TAG = latest
+	DOCKER_NATIVE_TAG_CACHE = latest
 endif
 
 DOCKER_PLATFORM = $(DOCKER_NATIVE_PLATFORM)
