@@ -38,10 +38,10 @@ type xArm struct {
 	model    referenceframe.Model
 }
 
-//go:embed xArm6_kinematics.json
+//go:embed xarm6_kinematics.json
 var xArm6modeljson []byte
 
-//go:embed xArm7_kinematics.json
+//go:embed xarm7_kinematics.json
 var xArm7modeljson []byte
 
 func init() {

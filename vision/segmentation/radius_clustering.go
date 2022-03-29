@@ -3,6 +3,7 @@ package segmentation
 import (
 	"context"
 
+	"github.com/golang/geo/r3"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
 
@@ -29,6 +30,7 @@ type RadiusClusteringConfig struct {
 	MinPtsInPlane      int     `json:"min_points_in_plane"`
 	MinPtsInSegment    int     `json:"min_points_in_segment"`
 	ClusteringRadiusMm float64 `json:"clustering_radius_mm"`
+	MeanKFiltering     int     `json:"mean_k_filtering"`
 }
 
 // CheckValid checks to see in the input values are valid.
@@ -41,6 +43,9 @@ func (rcc *RadiusClusteringConfig) CheckValid() error {
 	}
 	if rcc.ClusteringRadiusMm <= 0 {
 		return errors.Errorf("clustering_radius_mm must be greater than 0, got %v", rcc.ClusteringRadiusMm)
+	}
+	if rcc.MeanKFiltering <= 0 {
+		return errors.Errorf("mean_k_filtering must be greater than 0, got %v", rcc.MeanKFiltering)
 	}
 	return nil
 }
@@ -82,22 +87,22 @@ func RadiusClustering(ctx context.Context, c camera.Camera, params config.Attrib
 // RadiusClusteringOnPointCloud applies the radius clustering algorithm directly on a given point cloud.
 func RadiusClusteringOnPointCloud(ctx context.Context, cloud pc.PointCloud, cfg *RadiusClusteringConfig) ([]*vision.Object, error) {
 	ps := NewPointCloudPlaneSegmentation(cloud, 10, cfg.MinPtsInPlane)
-	planes, nonPlane, err := ps.FindPlanes(ctx)
+	// if there are found planes, remove them, and keep all the non-plane points
+	_, nonPlane, err := ps.FindPlanes(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// if there is a found plane in the scene, take the biggest plane, and only save the non-plane points above it
-	if len(planes) > 0 {
-		nonPlane, _, err = SplitPointCloudByPlane(nonPlane, planes[0])
-		if err != nil {
-			return nil, err
-		}
-	}
-	objCloud, err := pc.NewRoundingPointCloudFromPC(nonPlane)
+	// filter out the noise on the point cloud
+	filter, err := pc.StatisticalOutlierFilter(cfg.MeanKFiltering, 1.25)
 	if err != nil {
 		return nil, err
 	}
-	segments, err := segmentPointCloudObjects(objCloud, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
+	nonPlane, err = filter(nonPlane)
+	if err != nil {
+		return nil, err
+	}
+	// do the segmentation
+	segments, err := segmentPointCloudObjects(nonPlane, cfg.ClusteringRadiusMm, cfg.MinPtsInSegment)
 	if err != nil {
 		return nil, err
 	}
@@ -128,16 +133,15 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 	var err error
 	clusters := NewSegments()
 	c := 0
-	kdt.Iterate(func(pt pc.Point) bool {
-		v := pt.Position()
+	kdt.Iterate(0, 0, func(v r3.Vector, d pc.Data) bool {
 		// skip if point already is assigned cluster
 		if _, ok := clusters.Indices[v]; ok {
 			return true
 		}
 		// if not assigned, see if any of its neighbors are assigned a cluster
-		nn := kdt.RadiusNearestNeighbors(pt, radius, false)
+		nn := kdt.RadiusNearestNeighbors(v, radius, false)
 		for _, neighbor := range nn {
-			nv := neighbor.Position()
+			nv := neighbor.P
 			ptIndex, ptOk := clusters.Indices[v]
 			neighborIndex, neighborOk := clusters.Indices[nv]
 			switch {
@@ -146,9 +150,9 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 					err = clusters.MergeClusters(ptIndex, neighborIndex)
 				}
 			case !ptOk && neighborOk:
-				err = clusters.AssignCluster(pt, neighborIndex)
+				err = clusters.AssignCluster(v, d, neighborIndex)
 			case ptOk && !neighborOk:
-				err = clusters.AssignCluster(neighbor, ptIndex)
+				err = clusters.AssignCluster(neighbor.P, neighbor.D, ptIndex)
 			}
 			if err != nil {
 				return false
@@ -156,12 +160,12 @@ func radiusBasedNearestNeighbors(cloud pc.PointCloud, radius float64) ([]pc.Poin
 		}
 		// if none of the neighbors were assigned a cluster, create a new cluster and assign all neighbors to it
 		if _, ok := clusters.Indices[v]; !ok {
-			err = clusters.AssignCluster(pt, c)
+			err = clusters.AssignCluster(v, d, c)
 			if err != nil {
 				return false
 			}
 			for _, neighbor := range nn {
-				err = clusters.AssignCluster(neighbor, c)
+				err = clusters.AssignCluster(neighbor.P, neighbor.D, c)
 				if err != nil {
 					return false
 				}
