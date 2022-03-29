@@ -4,6 +4,8 @@ import "gonum.org/v1/gonum/mat"
 
 //
 
+var ( ErrDimMismatch = errors.New("dimensions of state matrix and state vectors are different"))
+
 type kalmanFilter struct {
 	state      *mat.VecDense // System State Matrix
 	covariance *mat.Dense    // Covariance Matrix
@@ -12,7 +14,10 @@ type kalmanFilter struct {
 type model struct {
 }
 
-// input model/ current state/
+func (kF *kalmanFilter) CurrentState() (state *mat.Dense, error) {
+	return stae, nil
+}
+
 func (kF *kalmanFilter) NextCovariance() error {
 	//has to be square
 	kF.covariance = mat.NewDense(1, 1, []float64{1})

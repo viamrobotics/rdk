@@ -73,6 +73,7 @@ type IMU interface {
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
 	ReadAcceleration(ctx context.Context) (r3.Vector, error)
+	ReadMagnetometer(ctx context.Context) (r3.Vector, error)
 }
 
 var (
@@ -114,7 +115,11 @@ func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []interface{}{vel.X, vel.Y, vel.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}, nil
+	return []interface{}{
+		vel.X, vel.Y, vel.Z,
+		ea.Roll, ea.Pitch, ea.Yaw,
+		ac.X, ac.Y, ac.Z,
+	}, nil
 }
 
 type reconfigurableIMU struct {
@@ -150,6 +155,12 @@ func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, er
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadAcceleration(ctx)
+}
+
+func (r *reconfigurableIMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.ReadMagnetometer(ctx)
 }
 
 // GetReadings will use the default IMU GetReadings if not provided.

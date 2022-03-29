@@ -230,6 +230,12 @@ func (imu *vectornav) ReadOrientation(ctx context.Context) (spatialmath.Orientat
 	return &imu.orientation, nil
 }
 
+func (imu *vectornav) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+	imu.mu.Lock()
+	defer imu.mu.Unlock()
+	return imu.magnetometer, nil
+}
+
 func (imu *vectornav) getReadings(ctx context.Context) error {
 	out, err := imu.readRegisterSPI(ctx, yawPitchRollMagAccGyro, 48)
 	if err != nil {
@@ -265,25 +271,6 @@ func (imu *vectornav) getReadings(ctx context.Context) error {
 	// unit s
 	imu.dt = rutils.Float32FromBytesLE(dv[0:4])
 	return nil
-}
-
-func (imu *vectornav) GetReadings(ctx context.Context) ([]interface{}, error) {
-	imu.mu.Lock()
-	defer imu.mu.Unlock()
-	if imu.polling == 0 {
-		err := imu.getReadings(ctx)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return []interface{}{
-		imu.angularVelocity,
-		imu.orientation,
-		imu.acceleration,
-		imu.dV,
-		imu.dt,
-		imu.dTheta,
-	}, nil
 }
 
 func (imu *vectornav) readRegisterSPI(ctx context.Context, reg vectornavRegister, readLen uint) ([]byte, error) {

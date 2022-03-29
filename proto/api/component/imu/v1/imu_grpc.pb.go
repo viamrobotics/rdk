@@ -24,6 +24,8 @@ type IMUServiceClient interface {
 	ReadOrientation(ctx context.Context, in *ReadOrientationRequest, opts ...grpc.CallOption) (*ReadOrientationResponse, error)
 	// ReadAcceleration returns the most recent acceleration reading from the given IMU.
 	ReadAcceleration(ctx context.Context, in *ReadAccelerationRequest, opts ...grpc.CallOption) (*ReadAccelerationResponse, error)
+	// ReadMagnetometer returns the most recent magnetometer reading from the given IMU, if avaiable
+	ReadMagnetometer(ctx context.Context, in *ReadMagnetometerRequest, opts ...grpc.CallOption) (*ReadMagnetometerResponse, error)
 }
 
 type iMUServiceClient struct {
@@ -61,6 +63,15 @@ func (c *iMUServiceClient) ReadAcceleration(ctx context.Context, in *ReadAcceler
 	return out, nil
 }
 
+func (c *iMUServiceClient) ReadMagnetometer(ctx context.Context, in *ReadMagnetometerRequest, opts ...grpc.CallOption) (*ReadMagnetometerResponse, error) {
+	out := new(ReadMagnetometerResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.imu.v1.IMUService/ReadMagnetometer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IMUServiceServer is the server API for IMUService service.
 // All implementations must embed UnimplementedIMUServiceServer
 // for forward compatibility
@@ -71,6 +82,8 @@ type IMUServiceServer interface {
 	ReadOrientation(context.Context, *ReadOrientationRequest) (*ReadOrientationResponse, error)
 	// ReadAcceleration returns the most recent acceleration reading from the given IMU.
 	ReadAcceleration(context.Context, *ReadAccelerationRequest) (*ReadAccelerationResponse, error)
+	// ReadMagnetometer returns the most recent magnetometer reading from the given IMU, if avaiable
+	ReadMagnetometer(context.Context, *ReadMagnetometerRequest) (*ReadMagnetometerResponse, error)
 	mustEmbedUnimplementedIMUServiceServer()
 }
 
@@ -86,6 +99,9 @@ func (UnimplementedIMUServiceServer) ReadOrientation(context.Context, *ReadOrien
 }
 func (UnimplementedIMUServiceServer) ReadAcceleration(context.Context, *ReadAccelerationRequest) (*ReadAccelerationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReadAcceleration not implemented")
+}
+func (UnimplementedIMUServiceServer) ReadMagnetometer(context.Context, *ReadMagnetometerRequest) (*ReadMagnetometerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadMagnetometer not implemented")
 }
 func (UnimplementedIMUServiceServer) mustEmbedUnimplementedIMUServiceServer() {}
 
@@ -154,6 +170,24 @@ func _IMUService_ReadAcceleration_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IMUService_ReadMagnetometer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadMagnetometerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IMUServiceServer).ReadMagnetometer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.imu.v1.IMUService/ReadMagnetometer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IMUServiceServer).ReadMagnetometer(ctx, req.(*ReadMagnetometerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // IMUService_ServiceDesc is the grpc.ServiceDesc for IMUService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -172,6 +206,10 @@ var IMUService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReadAcceleration",
 			Handler:    _IMUService_ReadAcceleration_Handler,
+		},
+		{
+			MethodName: "ReadMagnetometer",
+			Handler:    _IMUService_ReadMagnetometer_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
