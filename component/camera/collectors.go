@@ -24,7 +24,7 @@ func (m method) String() string {
 }
 
 func newNextPointCloudCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	camera, err := assertCamera(resource)
 	if err != nil {
 		return nil, err
@@ -33,11 +33,11 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, nextPointCloud.String())
+			return nil, data.FailedToReadErr(name, nextPointCloud.String(), err)
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 func assertCamera(resource interface{}) (Camera, error) {

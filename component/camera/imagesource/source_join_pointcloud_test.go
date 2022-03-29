@@ -26,17 +26,17 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	cam1 := &inject.Camera{}
 	cam1.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewColoredPoint(1, 0, 0, color.NRGBA{255, 0, 0, 255}))
+		return pc, pc.Set(pointcloud.NewVector(1, 0, 0), pointcloud.NewColoredData(color.NRGBA{255, 0, 0, 255}))
 	}
 	cam2 := &inject.Camera{}
 	cam2.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewColoredPoint(0, 1, 0, color.NRGBA{0, 255, 0, 255}))
+		return pc, pc.Set(pointcloud.NewVector(0, 1, 0), pointcloud.NewColoredData(color.NRGBA{0, 255, 0, 255}))
 	}
 	cam3 := &inject.Camera{}
 	cam3.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pc := pointcloud.New()
-		return pc, pc.Set(pointcloud.NewColoredPoint(0, 0, 1, color.NRGBA{0, 0, 255, 255}))
+		return pc, pc.Set(pointcloud.NewVector(0, 0, 1), pointcloud.NewColoredData(color.NRGBA{0, 0, 255, 255}))
 	}
 	base1 := &inject.Base{}
 
@@ -96,9 +96,18 @@ func TestJoinPointCloud(t *testing.T) {
 	pc, err := joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
-	test.That(t, pc.At(101, 0, 0).Color(), test.ShouldResemble, &color.NRGBA{255, 0, 0, 255})
-	test.That(t, pc.At(100, 1, 100).Color(), test.ShouldResemble, &color.NRGBA{0, 255, 0, 255})
-	test.That(t, pc.At(100, 100, 101).Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
+
+	data, got := pc.At(101, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{255, 0, 0, 255})
+
+	data, got = pc.At(100, 1, 100)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 255, 0, 255})
+
+	data, got = pc.At(100, 100, 101)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
 	img, _, err := joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -114,9 +123,18 @@ func TestJoinPointCloud(t *testing.T) {
 	pc, err = joinedCam.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc.Size(), test.ShouldEqual, 3)
-	test.That(t, pc.At(1, 0, 0).Color(), test.ShouldResemble, &color.NRGBA{255, 0, 0, 255})
-	test.That(t, pc.At(0, 1, 100).Color(), test.ShouldResemble, &color.NRGBA{0, 255, 0, 255})
-	test.That(t, pc.At(0, 100, 101).Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
+
+	data, got = pc.At(1, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{255, 0, 0, 255})
+
+	data, got = pc.At(0, 1, 100)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 255, 0, 255})
+
+	data, got = pc.At(0, 100, 101)
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, data.Color(), test.ShouldResemble, &color.NRGBA{0, 0, 255, 255})
 
 	img, _, err = joinedCam.Next(context.Background())
 	test.That(t, err, test.ShouldBeNil)

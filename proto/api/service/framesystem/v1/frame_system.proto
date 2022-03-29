@@ -14,16 +14,17 @@ service FrameSystemService {
       get: "/viam/api/v1/service/frame_system/config"
     };
   }
-}
-
-message FrameConfig{
-  string parent = 1;
-  common.v1.Pose pose = 2;
+  
+  rpc TransformPose(TransformPoseRequest) returns (TransformPoseResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/frame_system/transform_pose"
+    };
+  }
 }
 
 message Config {
   string name = 1;
-  FrameConfig frame_config = 2;
+  common.v1.PoseInFrame pose_in_parent_frame = 2;
   bytes model_json = 3; 
 }
 
@@ -31,4 +32,13 @@ message ConfigRequest {}
 
 message ConfigResponse {
   repeated Config frame_system_configs = 1;
+}
+
+message TransformPoseRequest {
+  common.v1.PoseInFrame source = 1;
+  string destination = 2;
+}
+
+message TransformPoseResponse {
+  common.v1.PoseInFrame pose = 1;
 }
