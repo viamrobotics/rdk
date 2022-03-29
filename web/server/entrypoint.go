@@ -18,12 +18,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/utils"
-	"go.viam.com/utils/perf"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -257,14 +255,15 @@ func addCloudLogger(logger golog.Logger, cfg *config.Cloud) (golog.Logger, func(
 
 // Arguments for the command.
 type Arguments struct {
+	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 	ConfigFile         string `flag:"0,required,usage=robot config file"`
 	CPUProfile         string `flag:"cpuprofile,usage=write cpu profile to file"`
-	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
+	Debug              bool   `flag:"debug"`
 	LogURL             string `flag:"logurl,usage=url to log messages to"`
 	SharedDir          string `flag:"shareddir,usage=web resource directory"`
-	Debug              bool   `flag:"debug"`
+	Version            bool   `flag:"version,usage=print version"`
+	WebProfile         bool   `flag:"webprofile,usage=include profiler in http server"`
 	WebRTC             bool   `flag:"webrtc,usage=force webrtc connections instead of direct"`
-	AllowInsecureCreds bool   `flag:"allow-insecure-creds,usage=allow connections to send credentials over plaintext"`
 }
 
 // RunServer is an entry point to starting the web server that can be called by main in a code
@@ -273,6 +272,13 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 	var argsParsed Arguments
 	if err := utils.ParseFlags(args, &argsParsed); err != nil {
 		return err
+	}
+
+	// Always log the version, return early if the '-version' flag was provided
+	// fmt.Println would be better but fails linting. Good enough.
+	logger.Infof("Viam RDK Version: %s, Hash: %s", config.Version, config.GitRevision)
+	if argsParsed.Version {
+		return
 	}
 
 	if argsParsed.CPUProfile != "" {
@@ -286,10 +292,6 @@ func RunServer(ctx context.Context, args []string, logger golog.Logger) (err err
 		}
 		defer pprof.StopCPUProfile()
 	}
-
-	exp := perf.NewNiceLoggingSpanExporter()
-	trace.RegisterExporter(exp)
-	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 	initialReadCtx, cancel := context.WithTimeout(ctx, time.Second*5)
 	cfg, err := config.Read(initialReadCtx, argsParsed.ConfigFile, logger)
@@ -506,6 +508,9 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 			cfg.Cloud.ID,
 			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
 		)}
+		if cfg.Cloud.SignalingInsecure {
+			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
+		}
 		if argsParsed.AllowInsecureCreds {
 			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 		}

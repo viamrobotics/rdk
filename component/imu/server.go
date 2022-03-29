@@ -26,16 +26,16 @@ func NewServer(s subtype.Service) pb.IMUServiceServer {
 func (s *subtypeServer) getIMU(name string) (IMU, error) {
 	resource := s.s.Resource(name)
 	if resource == nil {
-		return nil, errors.Errorf("no IMU with name (%s)", name)
+		return nil, errors.Errorf("no IMU with paramName (%s)", name)
 	}
 	imu, ok := resource.(IMU)
 	if !ok {
-		return nil, errors.Errorf("resource with name (%s) is not an IMU", name)
+		return nil, errors.Errorf("resource with paramName (%s) is not an IMU", name)
 	}
 	return imu, nil
 }
 
-// ReadAngularVelocity returns the most recent angular velocity reading from the given IMU.
+// readAngularVelocity returns the most recent angular velocity reading from the given IMU.
 func (s *subtypeServer) ReadAngularVelocity(
 	ctx context.Context,
 	req *pb.ReadAngularVelocityRequest,

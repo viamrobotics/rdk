@@ -56,6 +56,7 @@ func (h *segmentObjectTestHelper) Process(
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
+		"mean_k_filtering":      50,
 	}
 
 	// Do object segmentation with point clouds
@@ -129,6 +130,7 @@ func (h *gripperSegmentTestHelper) Process(
 		"min_points_in_plane":   15000,
 		"min_points_in_segment": 100,
 		"clustering_radius_mm":  10.0,
+		"mean_k_filtering":      10,
 	}
 
 	// Do object segmentation with point clouds
