@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
+	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/subtype"
@@ -174,7 +175,8 @@ func (s *subtypeServer) GetPointCloud(
 	}
 
 	var buf bytes.Buffer
-	err = pc.ToPCD(&buf)
+	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
+	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
 	if err != nil {
 		return nil, err
 	}

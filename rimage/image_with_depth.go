@@ -276,6 +276,8 @@ func ConvertToImageWithDepth(img image.Image) *ImageWithDepth {
 	switch x := img.(type) {
 	case *ImageWithDepth:
 		return x
+	case *DepthMap:
+		return &ImageWithDepth{ConvertImage(x), x, true}
 	case *Image:
 		return &ImageWithDepth{x, nil, false}
 	default:

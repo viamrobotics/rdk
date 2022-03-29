@@ -1,4 +1,4 @@
-//go:build linux && arm64
+//go:build linux && (arm64 || arm)
 
 package piimpl
 
@@ -20,8 +20,6 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
 )
-
-
 
 // init registers a pi servo based on pigpio.
 func init() {

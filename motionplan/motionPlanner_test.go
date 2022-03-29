@@ -80,7 +80,7 @@ var (
 // This should test a simple linear motion for Arms.
 func TestSimpleArmMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
@@ -101,7 +101,7 @@ func TestSimpleArmMotion(t *testing.T) {
 // This should test a simple linear motion on a longer path, with a no-spill constraint.
 func TestComplexArmMotion(t *testing.T) {
 	logger := golog.NewTestLogger(t)
-	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xArm7_kinematics.json"), "")
+	m, err := frame.ParseModelJSONFile(utils.ResolveFile("component/arm/xarm/xarm7_kinematics.json"), "")
 	test.That(t, err, test.ShouldBeNil)
 
 	mp, err := NewCBiRRTMotionPlanner(m, nCPU/4, logger)
