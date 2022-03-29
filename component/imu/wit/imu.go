@@ -42,6 +42,7 @@ type wit struct {
 	angularVelocity spatialmath.AngularVelocity
 	orientation     spatialmath.EulerAngles
 	acceleration    r3.Vector
+	magnetometer    r3.Vector
 	lastError       error
 
 	mu sync.Mutex
@@ -68,10 +69,10 @@ func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	return imu.acceleration, imu.lastError
 }
 
-func (imu *wit) GetReadings(ctx context.Context) ([]interface{}, error) {
+func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
-	return []interface{}{imu.angularVelocity, imu.orientation, imu.acceleration}, imu.lastError
+	return imu.magnetometer, imu.lastError
 }
 
 // NewWit creates a new Wit IMU.
@@ -163,6 +164,15 @@ func (imu *wit) parseWIT(line string) error {
 		imu.acceleration.X = scale(line[1], line[2], accScale)
 		imu.acceleration.Y = scale(line[3], line[4], accScale)
 		imu.acceleration.Z = scale(line[5], line[6], accScale)
+	}
+
+	if line[0] == 0x54 {
+		if len(line) < 7 {
+			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
+		}
+		imu.magnetometer.X = scale(line[1], line[2], 32768.0)
+		imu.magnetometer.Y = scale(line[3], line[4], 32768.0)
+		imu.magnetometer.Z = scale(line[5], line[6], 32768.0)
 	}
 
 	return nil
