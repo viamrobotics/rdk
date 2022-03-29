@@ -21,9 +21,15 @@ type CamPose struct {
 func NewCamPoseFromMat(pose *mat.Dense) *CamPose {
 	U3 := pose.ColView(3)
 	t := mat.NewDense(3, 1, []float64{U3.AtVec(0), U3.AtVec(1), U3.AtVec(2)})
+	rot := mat.NewDense(3, 3, nil)
+	for i := 0; i < 3; i++ {
+		for j := 0; j < 3; j++ {
+			rot.Set(i, j, pose.At(i, j))
+		}
+	}
 	return &CamPose{
 		PoseMat:     pose,
-		Rotation:    pose.Slice(0, 3, 0, 3).(*mat.Dense),
+		Rotation:    rot,
 		Translation: t,
 	}
 }

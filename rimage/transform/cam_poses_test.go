@@ -36,4 +36,14 @@ func TestGetCorrectCameraPose(t *testing.T) {
 	test.That(t, math.Abs(pose.Rotation.At(0, 0)), test.ShouldBeBetween, 0.98, 1.0)
 	test.That(t, math.Abs(pose.Rotation.At(1, 1)), test.ShouldBeBetween, 0.99, 1.0)
 	test.That(t, math.Abs(pose.Rotation.At(2, 2)), test.ShouldBeBetween, 0.97, 1.0)
+
+	// test Pose function
+	poseSpatialMath, err := pose.Pose()
+	test.That(t, err, test.ShouldBeNil)
+	t1 := poseSpatialMath.Point()
+	test.That(t, math.Abs(t1.X-pose.Translation.At(0, 0)), test.ShouldBeLessThan, 0.0000001)
+	test.That(t, math.Abs(t1.Y-pose.Translation.At(1, 0)), test.ShouldBeLessThan, 0.0000001)
+	test.That(t, math.Abs(t1.Z-pose.Translation.At(2, 0)), test.ShouldBeLessThan, 0.0000001)
+	rot := poseSpatialMath.Orientation().RotationMatrix()
+	test.That(t, math.Abs(rot.At(0, 0)-pose.Rotation.At(0, 0)), test.ShouldBeLessThan, 0.0000001)
 }
