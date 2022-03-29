@@ -88,7 +88,7 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	ctx, span2 := trace.StartSpan(ctx, "camera::client::Next::AfterDownload")
+	ctx, span2 := trace.StartSpan(ctx, "camera::client::Next::Decode::"+req.MimeType)
 	defer span2.End()
 	switch resp.MimeType {
 	case utils.MimeTypeRawRGBA:
