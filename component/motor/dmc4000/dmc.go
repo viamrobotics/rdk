@@ -17,8 +17,8 @@ import (
 	"github.com/jacobsa/go-serial/serial"
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils"
+	"go.viam.com/utils/usb"
 
-	// "go.viam.com/utils/usb".
 	"go.viam.com/rdk/component/motor"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/registry"
@@ -33,6 +33,7 @@ const (
 var (
 	globalMu    sync.Mutex
 	controllers map[string]*controller
+	usbFilter   = usb.SearchFilter{}
 )
 
 // controller is common across all DMC4000 motor instances sharing a controller.
@@ -102,8 +103,18 @@ func init() {
 // NewMotor returns a DMC4000 driven motor.
 func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger) (motor.Motor, error) {
 	if c.SerialDevice == "" {
-		// TODO Search routine
-		return nil, errors.New("couldn't find DMC4000 serial connection")
+		devs := usb.Search(usbFilter, func(vendorID, productID int) bool {
+			if vendorID == 0x403 && productID == 0x6001 {
+				return true
+			}
+			return false
+		})
+
+		if len(devs) > 0 {
+			c.SerialDevice = devs[0].Path
+		} else {
+			return nil, errors.New("couldn't find DMC4000 serial connection")
+		}
 	}
 
 	globalMu.Lock()
@@ -667,6 +678,7 @@ func (m *Motor) doPosition() (float64, error) {
 }
 
 // RunCommand executes additional commands beyond the Motor{} interface.
+// TODO (@James) this should be replaced by Do()/Doer{} once implemented.
 func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]interface{}) (map[string]interface{}, error) {
 	switch name {
 	case "home":
