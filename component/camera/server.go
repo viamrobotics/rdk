@@ -87,7 +87,7 @@ func (s *subtypeServer) GetFrame(
 		HeightPx: int64(bounds.Dy()),
 	}
 
-	ctx, span3 := trace.StartSpan(ctx, "camera::server::GetFrame::SwitchMimeTypes")
+	ctx, span3 := trace.StartSpan(ctx, "camera::server::GetFrame::Encode::"+req.MimeType)
 	defer span3.End()
 	var buf bytes.Buffer
 	switch req.MimeType {
