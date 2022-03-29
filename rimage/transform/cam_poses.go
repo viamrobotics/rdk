@@ -40,7 +40,7 @@ func adjustPoseSign(pose *mat.Dense) *mat.Dense {
 }
 
 // GetPossibleCameraPoses computes all 4 possible poses from the essential matrix.
-func GetPossibleCameraPoses(essMat *mat.Dense) ([]mat.Dense, error) {
+func GetPossibleCameraPoses(essMat *mat.Dense) ([]*mat.Dense, error) {
 	R1, R2, t, err := DecomposeEssentialMatrix(essMat)
 	if err != nil {
 		return nil, err
@@ -60,12 +60,13 @@ func GetPossibleCameraPoses(essMat *mat.Dense) ([]mat.Dense, error) {
 	poses[1].Augment(R1, &tOpp)
 	poses[2].Augment(R2, t)
 	poses[3].Augment(R2, &tOpp)
+	posesOut := make([]*mat.Dense, 4)
 	// adjust sign of poses
 	for i, pose := range poses {
-		poses[i] = *adjustPoseSign(&pose)
+		posesOut[i] = adjustPoseSign(&pose)
 	}
 
-	return poses, nil
+	return posesOut, nil
 }
 
 // getCrossProductMatFromPoint returns the cross product with point p matrix.
@@ -157,11 +158,11 @@ func GetNumberPositiveDepth(pose *mat.Dense, pts1, pts2 []r3.Vector, useNonLinea
 }
 
 // GetCorrectCameraPose returns the best pose, which is the pose with the most positive depth values.
-func GetCorrectCameraPose(poses []mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense {
+func GetCorrectCameraPose(poses []*mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense {
 	maxNumPosDepth := 0
 	correctPose := mat.NewDense(3, 4, nil)
 	for _, pose := range poses {
-		nPosDepth, betterPoseApprox := GetNumberPositiveDepth(&pose, pts1, pts2, false)
+		nPosDepth, betterPoseApprox := GetNumberPositiveDepth(pose, pts1, pts2, false)
 		if nPosDepth > maxNumPosDepth {
 			maxNumPosDepth = nPosDepth
 			correctPose.Copy(betterPoseApprox)
