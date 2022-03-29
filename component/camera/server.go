@@ -153,6 +153,8 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::server::RenderFrame")
+	defer span.End()
 	if req.MimeType == "" {
 		req.MimeType = utils.MimeTypeJPEG // default rendering
 	}
@@ -175,7 +177,6 @@ func (s *subtypeServer) GetPointCloud(
 ) (*pb.GetPointCloudResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "camera-server::NextPointCloud")
 	defer span.End()
-
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
