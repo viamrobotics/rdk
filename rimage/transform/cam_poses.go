@@ -6,11 +6,13 @@ import (
 	"github.com/golang/geo/r2"
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/mat"
+
+	"go.viam.com/rdk/spatialmath"
 )
 
 // CamPose stores the 3x4 pose matrix as well as the 3D Rotation and Translation matrices.
 type CamPose struct {
-	Pose        *mat.Dense
+	PoseMat     *mat.Dense
 	Rotation    *mat.Dense
 	Translation *mat.Dense
 }
@@ -20,18 +22,27 @@ func NewCamPoseFromMat(pose *mat.Dense) *CamPose {
 	U3 := pose.ColView(3)
 	t := mat.NewDense(3, 1, []float64{U3.AtVec(0), U3.AtVec(1), U3.AtVec(2)})
 	return &CamPose{
-		Pose:        pose,
+		PoseMat:     pose,
 		Rotation:    pose.Slice(0, 3, 0, 3).(*mat.Dense),
 		Translation: t,
 	}
+}
+
+// Pose creates a spatialmath.Pose from a CamPose.
+func (cp *CamPose) Pose() (spatialmath.Pose, error) {
+	translation := r3.Vector{cp.Translation.At(0, 0), cp.Translation.At(1, 0), cp.Translation.At(2, 0)}
+	rotation, err := spatialmath.NewRotationMatrix(cp.Rotation.RawMatrix().Data)
+	if err != nil {
+		return nil, err
+	}
+	return spatialmath.NewPoseFromOrientation(translation, rotation), err
 }
 
 // adjustPoseSign adjusts the sign of a pose.
 func adjustPoseSign(pose *mat.Dense) *mat.Dense {
 	// take 3x3 sub-matrix
 	subPose := pose.Slice(0, 3, 0, 3)
-	m := mat.NewDense(3, 3, nil)
-	m.Copy(subPose)
+	m := mat.DenseCopyOf(subPose)
 	// if determinant is negative, scale by -1
 	if mat.Det(m) < 0 {
 		pose.Scale(-1, pose)
@@ -60,10 +71,10 @@ func GetPossibleCameraPoses(essMat *mat.Dense) ([]*mat.Dense, error) {
 	poses[1].Augment(R1, &tOpp)
 	poses[2].Augment(R2, t)
 	poses[3].Augment(R2, &tOpp)
-	posesOut := make([]*mat.Dense, 4)
 	// adjust sign of poses
+	posesOut := make([]*mat.Dense, 4)
 	for i, pose := range poses {
-		posesOut[i] = adjustPoseSign(&pose)
+		posesOut[i] = mat.DenseCopyOf(adjustPoseSign(&pose))
 	}
 
 	return posesOut, nil
@@ -160,12 +171,12 @@ func GetNumberPositiveDepth(pose *mat.Dense, pts1, pts2 []r3.Vector, useNonLinea
 // GetCorrectCameraPose returns the best pose, which is the pose with the most positive depth values.
 func GetCorrectCameraPose(poses []*mat.Dense, pts1, pts2 []r3.Vector) *mat.Dense {
 	maxNumPosDepth := 0
-	correctPose := mat.NewDense(3, 4, nil)
+	correctPose := poses[0]
 	for _, pose := range poses {
 		nPosDepth, betterPoseApprox := GetNumberPositiveDepth(pose, pts1, pts2, false)
 		if nPosDepth > maxNumPosDepth {
 			maxNumPosDepth = nPosDepth
-			correctPose.Copy(betterPoseApprox)
+			correctPose = mat.DenseCopyOf(betterPoseApprox)
 		}
 	}
 	return correctPose
