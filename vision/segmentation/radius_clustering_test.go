@@ -28,8 +28,13 @@ func TestRadiusClusteringValidate(t *testing.T) {
 	cfg.MinPtsInSegment = 5
 	err = cfg.CheckValid()
 	test.That(t, err.Error(), test.ShouldContainSubstring, "clustering_radius_mm must be greater than 0")
-	// valid
+	// invalid mean k
 	cfg.ClusteringRadiusMm = 5
+	err = cfg.CheckValid()
+	test.That(t, err.Error(), test.ShouldContainSubstring, "mean_k_filtering must be greater than 0")
+
+	// valid
+	cfg.MeanKFiltering = 5
 	err = cfg.CheckValid()
 	test.That(t, err, test.ShouldBeNil)
 }
@@ -46,6 +51,7 @@ func TestPixelSegmentation(t *testing.T) {
 		"min_points_in_plane":   50000,
 		"min_points_in_segment": 500,
 		"clustering_radius_mm":  10.0,
+		"mean_k_filtering":      50.0,
 		"extra_uneeded_param":   4444,
 		"another_extra_one":     "hey",
 	}

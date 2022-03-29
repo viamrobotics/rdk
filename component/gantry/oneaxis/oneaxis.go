@@ -244,7 +244,8 @@ func (g *oneAxis) homeTwoLimSwitch(ctx context.Context) error {
 	g.positionLimits = []float64{positionA, positionB}
 
 	// Go backwards so limit stops are not hit.
-	err = g.motor.GoFor(ctx, float64(-1)*g.rpm, 0.2*g.lengthMm)
+	x := g.rotationalToLinear(0.8 * g.lengthMm)
+	err = g.motor.GoTo(ctx, g.rpm, x)
 	if err != nil {
 		return err
 	}
@@ -278,6 +279,15 @@ func (g *oneAxis) homeEncoder(ctx context.Context) error {
 
 	g.positionLimits = []float64{positionA, positionB}
 	return nil
+}
+
+func (g *oneAxis) rotationalToLinear(positions float64) float64 {
+	theRange := g.positionLimits[1] - g.positionLimits[0]
+	x := positions / g.lengthMm
+	x = g.positionLimits[0] + (x * theRange)
+	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions, x)
+
+	return x
 }
 
 func (g *oneAxis) testLimit(ctx context.Context, zero bool) (float64, error) {
@@ -346,21 +356,6 @@ func (g *oneAxis) GetPosition(ctx context.Context) ([]float64, error) {
 	theRange := g.positionLimits[1] - g.positionLimits[0]
 	x := g.lengthMm * ((pos - g.positionLimits[0]) / theRange)
 
-	limitAtZero, err := g.limitHit(ctx, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if g.limitType == limitTwoPin {
-		limitAtOne, err := g.limitHit(ctx, false)
-		if err != nil {
-			return nil, err
-		}
-		g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t, limSwitch2: %t", g.name, x, limitAtZero, limitAtOne)
-	}
-
-	g.logger.Debugf("%s CurrentPosition %.02f -> %.02f. limSwitch1: %t", g.name, pos, x, limitAtZero)
-
 	return []float64{x}, nil
 }
 
@@ -379,13 +374,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, obsta
 		return fmt.Errorf("oneAxis gantry position out of range, got %.02f max is %.02f", positions[0], g.lengthMm)
 	}
 
-	theRange := g.positionLimits[1] - g.positionLimits[0]
-
-	x := positions[0] / g.lengthMm
-	x = g.positionLimits[0] + (x * theRange)
-
-	g.logger.Debugf("oneAxis SetPosition %.2f -> %.2f", positions[0], x)
-
+	x := g.rotationalToLinear(positions[0])
 	// Limit switch errors that stop the motors.
 	// Currently needs to be moved by underlying gantry motor.
 	hit, err := g.limitHit(ctx, true)
@@ -410,7 +399,7 @@ func (g *oneAxis) MoveToPosition(ctx context.Context, positions []float64, obsta
 	if hit {
 		if x > g.positionLimits[1] {
 			dir := float64(-1)
-			return g.motor.GoFor(ctx, dir*g.rpm, 0.2*g.lengthMm)
+			return g.motor.GoFor(ctx, dir*g.rpm, 2)
 		}
 		return g.motor.Stop(ctx)
 	}

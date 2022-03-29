@@ -66,7 +66,7 @@ func GetOffset(center, normal r3.Vector) float64 {
 func GetResidual(points []r3.Vector, plane Plane) float64 {
 	dist := 0.
 	for _, pt := range points {
-		d := plane.Distance(Vec3(pt))
+		d := plane.Distance(pt)
 		dist += d * d
 	}
 	dist /= float64(len(points))

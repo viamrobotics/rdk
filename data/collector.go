@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -20,12 +20,6 @@ import (
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 )
-
-// queueSize defines the size of Collector's queue. It should be big enough to ensure that .capture() is never blocked
-// by the queue being written to disk. A default value of 250 was chosen because even with the fastest reasonable
-// capture interval (1ms), this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient
-// for the size of writes this would be performing.
-const queueSize = 250
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
 type Capturer interface {
@@ -91,11 +85,6 @@ func (c *collector) Close() {
 	}
 }
 
-// TODO: Decide on error behavior here. Should receiving a single error from c.capture cause this to return an error?
-//       I think the approach here will be more well informed when we start implementing the Data Manager Service and
-//       actually using Collectors. I'm going to leave the behavior here for then. As is, I'll leave it just logging
-//       errors.
-
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *collector) Collect() error {
 	errs, _ := errgroup.WithContext(c.cancelCtx)
@@ -108,48 +97,58 @@ func (c *collector) Collect() error {
 
 func (c *collector) capture() {
 	ticker := time.NewTicker(c.interval)
+	defer ticker.Stop()
+	var wg sync.WaitGroup
+
 	for {
 		select {
 		case <-c.cancelCtx.Done():
+			wg.Wait()
 			close(c.queue)
 			return
 		case <-ticker.C:
-			timeRequested := timestamppb.New(time.Now().UTC())
-			reading, err := c.capturer.Capture(c.cancelCtx, c.params)
-			timeReceived := timestamppb.New(time.Now().UTC())
-			if err != nil {
-				c.logger.Errorw("error while capturing data", "error", err)
-				break
-			}
-			pbReading, err := InterfaceToStruct(reading)
-			if err != nil {
-				c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
-				break
-			}
-			msg := v1.SensorData{
-				Metadata: &v1.SensorMetadata{
-					TimeRequested: timeRequested,
-					TimeReceived:  timeReceived,
-				},
-				Data: pbReading,
-			}
-			select {
-			// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
-			// still work when this happens.
-			case <-c.cancelCtx.Done():
-				close(c.queue)
-				return
-			case c.queue <- &msg:
-				break
-			}
+			wg.Add(1)
+			go c.getAndPushNextReading(&wg)
 		}
+	}
+}
+
+func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	timeRequested := timestamppb.New(time.Now().UTC())
+	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
+	timeReceived := timestamppb.New(time.Now().UTC())
+	if err != nil {
+		c.logger.Errorw("error while capturing data", "error", err)
+		return
+	}
+	pbReading, err := InterfaceToStruct(reading)
+	if err != nil {
+		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
+		return
+	}
+	msg := v1.SensorData{
+		Metadata: &v1.SensorMetadata{
+			TimeRequested: timeRequested,
+			TimeReceived:  timeReceived,
+		},
+		Data: pbReading,
+	}
+	select {
+	// If c.queue is full, c.queue <- a can block indefinitely. This additional select block allows cancel to
+	// still work when this happens.
+	case <-c.cancelCtx.Done():
+		return
+	case c.queue <- &msg:
+		return
 	}
 }
 
 // NewCollector returns a new Collector with the passed capturer and configuration options. It calls capturer at the
 // specified Interval, and appends the resulting reading to target.
-func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File,
-	logger golog.Logger) Collector {
+func NewCollector(capturer Capturer, interval time.Duration, params map[string]string, target *os.File, queueSize int,
+	bufferSize int, logger golog.Logger) Collector {
 	cancelCtx, cancelFunc := context.WithCancel(context.Background())
 	return &collector{
 		queue:     make(chan *v1.SensorData, queueSize),
@@ -158,14 +157,13 @@ func NewCollector(capturer Capturer, interval time.Duration, params map[string]s
 		lock:      &sync.Mutex{},
 		logger:    logger,
 		target:    target,
-		writer:    bufio.NewWriter(target),
+		writer:    bufio.NewWriterSize(target, bufferSize),
 		cancelCtx: cancelCtx,
 		cancel:    cancelFunc,
 		capturer:  capturer,
 	}
 }
 
-// TODO: length prefix when writing.
 func (c *collector) write() error {
 	for msg := range c.queue {
 		if err := c.appendMessage(msg); err != nil {
@@ -176,14 +174,9 @@ func (c *collector) write() error {
 }
 
 func (c *collector) appendMessage(msg *v1.SensorData) error {
-	bytes, err := proto.Marshal(msg)
-	if err != nil {
-		return err
-	}
-
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	_, err = c.writer.Write(bytes)
+	_, err := pbutil.WriteDelimited(c.writer, msg)
 	if err != nil {
 		return err
 	}
@@ -211,6 +204,6 @@ func InvalidInterfaceErr(typeName resource.SubtypeName) error {
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
-func FailedToReadErr(component string, method string) error {
-	return errors.Errorf("failed to get reading of method %s of component %s", method, component)
+func FailedToReadErr(component string, method string, err error) error {
+	return errors.Errorf("failed to get reading of method %s of component %s: %s", method, component, err)
 }
