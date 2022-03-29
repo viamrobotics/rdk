@@ -839,18 +839,79 @@ func (x *GeoPoint) GetLongitude() float64 {
 	return 0
 }
 
+type Transform struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// the name of a given reference frame
+	ReferenceFrame string `protobuf:"bytes,1,opt,name=reference_frame,json=referenceFrame,proto3" json:"reference_frame,omitempty"`
+	// the pose of the above reference frame with respect
+	// to a different observer reference frame
+	PoseInObserverFrame *PoseInFrame `protobuf:"bytes,2,opt,name=pose_in_observer_frame,json=poseInObserverFrame,proto3" json:"pose_in_observer_frame,omitempty"`
+}
+
+func (x *Transform) Reset() {
+	*x = Transform{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[13]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *Transform) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Transform) ProtoMessage() {}
+
+func (x *Transform) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[13]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Transform.ProtoReflect.Descriptor instead.
+func (*Transform) Descriptor() ([]byte, []int) {
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *Transform) GetReferenceFrame() string {
+	if x != nil {
+		return x.ReferenceFrame
+	}
+	return ""
+}
+
+func (x *Transform) GetPoseInObserverFrame() *PoseInFrame {
+	if x != nil {
+		return x.PoseInObserverFrame
+	}
+	return nil
+}
+
 type WorldState struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	Obstacles []*GeometriesInFrame `protobuf:"bytes,1,rep,name=obstacles,proto3" json:"obstacles,omitempty"`
+	// a list of Transforms needed to transform a pose
+	// from one reference frame to another; this field is optional
+	Transforms []*Transform `protobuf:"bytes,2,rep,name=transforms,proto3" json:"transforms,omitempty"`
 }
 
 func (x *WorldState) Reset() {
 	*x = WorldState{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_proto_api_common_v1_common_proto_msgTypes[13]
+		mi := &file_proto_api_common_v1_common_proto_msgTypes[14]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -863,7 +924,7 @@ func (x *WorldState) String() string {
 func (*WorldState) ProtoMessage() {}
 
 func (x *WorldState) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_api_common_v1_common_proto_msgTypes[13]
+	mi := &file_proto_api_common_v1_common_proto_msgTypes[14]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -876,12 +937,19 @@ func (x *WorldState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorldState.ProtoReflect.Descriptor instead.
 func (*WorldState) Descriptor() ([]byte, []int) {
-	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{13}
+	return file_proto_api_common_v1_common_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *WorldState) GetObstacles() []*GeometriesInFrame {
 	if x != nil {
 		return x.Obstacles
+	}
+	return nil
+}
+
+func (x *WorldState) GetTransforms() []*Transform {
+	if x != nil {
+		return x.Transforms
 	}
 	return nil
 }
@@ -989,18 +1057,31 @@ var file_proto_api_common_v1_common_proto_rawDesc = []byte{
 	0x69, 0x6e, 0x74, 0x12, 0x1a, 0x0a, 0x08, 0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x18,
 	0x01, 0x20, 0x01, 0x28, 0x01, 0x52, 0x08, 0x6c, 0x61, 0x74, 0x69, 0x74, 0x75, 0x64, 0x65, 0x12,
 	0x1c, 0x0a, 0x09, 0x6c, 0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x18, 0x02, 0x20, 0x01,
-	0x28, 0x01, 0x52, 0x09, 0x6c, 0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x22, 0x52, 0x0a,
-	0x0a, 0x57, 0x6f, 0x72, 0x6c, 0x64, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x44, 0x0a, 0x09, 0x6f,
-	0x62, 0x73, 0x74, 0x61, 0x63, 0x6c, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x26,
+	0x28, 0x01, 0x52, 0x09, 0x6c, 0x6f, 0x6e, 0x67, 0x69, 0x74, 0x75, 0x64, 0x65, 0x22, 0x8b, 0x01,
+	0x0a, 0x09, 0x54, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x12, 0x27, 0x0a, 0x0f, 0x72,
+	0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x5f, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x09, 0x52, 0x0e, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x46,
+	0x72, 0x61, 0x6d, 0x65, 0x12, 0x55, 0x0a, 0x16, 0x70, 0x6f, 0x73, 0x65, 0x5f, 0x69, 0x6e, 0x5f,
+	0x6f, 0x62, 0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x5f, 0x66, 0x72, 0x61, 0x6d, 0x65, 0x18, 0x02,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x20, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x50, 0x6f, 0x73, 0x65, 0x49,
+	0x6e, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x52, 0x13, 0x70, 0x6f, 0x73, 0x65, 0x49, 0x6e, 0x4f, 0x62,
+	0x73, 0x65, 0x72, 0x76, 0x65, 0x72, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x22, 0x92, 0x01, 0x0a, 0x0a,
+	0x57, 0x6f, 0x72, 0x6c, 0x64, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x44, 0x0a, 0x09, 0x6f, 0x62,
+	0x73, 0x74, 0x61, 0x63, 0x6c, 0x65, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x26, 0x2e,
+	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e,
+	0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73, 0x49, 0x6e,
+	0x46, 0x72, 0x61, 0x6d, 0x65, 0x52, 0x09, 0x6f, 0x62, 0x73, 0x74, 0x61, 0x63, 0x6c, 0x65, 0x73,
+	0x12, 0x3e, 0x0a, 0x0a, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x73, 0x18, 0x02,
+	0x20, 0x03, 0x28, 0x0b, 0x32, 0x1e, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69,
+	0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x54, 0x72, 0x61, 0x6e, 0x73,
+	0x66, 0x6f, 0x72, 0x6d, 0x52, 0x0a, 0x74, 0x72, 0x61, 0x6e, 0x73, 0x66, 0x6f, 0x72, 0x6d, 0x73,
+	0x42, 0x47, 0x0a, 0x20, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x72, 0x64, 0x6b,
 	0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d, 0x6f,
-	0x6e, 0x2e, 0x76, 0x31, 0x2e, 0x47, 0x65, 0x6f, 0x6d, 0x65, 0x74, 0x72, 0x69, 0x65, 0x73, 0x49,
-	0x6e, 0x46, 0x72, 0x61, 0x6d, 0x65, 0x52, 0x09, 0x6f, 0x62, 0x73, 0x74, 0x61, 0x63, 0x6c, 0x65,
-	0x73, 0x42, 0x47, 0x0a, 0x20, 0x63, 0x6f, 0x6d, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x72, 0x64,
-	0x6b, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2e, 0x61, 0x70, 0x69, 0x2e, 0x63, 0x6f, 0x6d, 0x6d,
-	0x6f, 0x6e, 0x2e, 0x76, 0x31, 0x5a, 0x23, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63,
-	0x6f, 0x6d, 0x2f, 0x72, 0x64, 0x6b, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69,
-	0x2f, 0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x6e, 0x2e, 0x76, 0x31, 0x5a, 0x23, 0x67, 0x6f, 0x2e, 0x76, 0x69, 0x61, 0x6d, 0x2e, 0x63, 0x6f,
+	0x6d, 0x2f, 0x72, 0x64, 0x6b, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x2f, 0x61, 0x70, 0x69, 0x2f,
+	0x63, 0x6f, 0x6d, 0x6d, 0x6f, 0x6e, 0x2f, 0x76, 0x31, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f,
+	0x33,
 }
 
 var (
@@ -1015,7 +1096,7 @@ func file_proto_api_common_v1_common_proto_rawDescGZIP() []byte {
 	return file_proto_api_common_v1_common_proto_rawDescData
 }
 
-var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_proto_api_common_v1_common_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*ResourceName)(nil),           // 0: proto.api.common.v1.ResourceName
 	(*BoardStatus)(nil),            // 1: proto.api.common.v1.BoardStatus
@@ -1030,27 +1111,30 @@ var file_proto_api_common_v1_common_proto_goTypes = []interface{}{
 	(*GeometriesInFrame)(nil),      // 10: proto.api.common.v1.GeometriesInFrame
 	(*PointCloudObject)(nil),       // 11: proto.api.common.v1.PointCloudObject
 	(*GeoPoint)(nil),               // 12: proto.api.common.v1.GeoPoint
-	(*WorldState)(nil),             // 13: proto.api.common.v1.WorldState
-	nil,                            // 14: proto.api.common.v1.BoardStatus.AnalogsEntry
-	nil,                            // 15: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	(*Transform)(nil),              // 13: proto.api.common.v1.Transform
+	(*WorldState)(nil),             // 14: proto.api.common.v1.WorldState
+	nil,                            // 15: proto.api.common.v1.BoardStatus.AnalogsEntry
+	nil,                            // 16: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 }
 var file_proto_api_common_v1_common_proto_depIdxs = []int32{
-	14, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
-	15, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
+	15, // 0: proto.api.common.v1.BoardStatus.analogs:type_name -> proto.api.common.v1.BoardStatus.AnalogsEntry
+	16, // 1: proto.api.common.v1.BoardStatus.digital_interrupts:type_name -> proto.api.common.v1.BoardStatus.DigitalInterruptsEntry
 	4,  // 2: proto.api.common.v1.PoseInFrame.pose:type_name -> proto.api.common.v1.Pose
 	4,  // 3: proto.api.common.v1.Geometry.center:type_name -> proto.api.common.v1.Pose
 	7,  // 4: proto.api.common.v1.Geometry.sphere:type_name -> proto.api.common.v1.Sphere
 	8,  // 5: proto.api.common.v1.Geometry.box:type_name -> proto.api.common.v1.RectangularPrism
 	9,  // 6: proto.api.common.v1.GeometriesInFrame.geometries:type_name -> proto.api.common.v1.Geometry
 	10, // 7: proto.api.common.v1.PointCloudObject.geometries:type_name -> proto.api.common.v1.GeometriesInFrame
-	10, // 8: proto.api.common.v1.WorldState.obstacles:type_name -> proto.api.common.v1.GeometriesInFrame
-	2,  // 9: proto.api.common.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.common.v1.AnalogStatus
-	3,  // 10: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.common.v1.DigitalInterruptStatus
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	5,  // 8: proto.api.common.v1.Transform.pose_in_observer_frame:type_name -> proto.api.common.v1.PoseInFrame
+	10, // 9: proto.api.common.v1.WorldState.obstacles:type_name -> proto.api.common.v1.GeometriesInFrame
+	13, // 10: proto.api.common.v1.WorldState.transforms:type_name -> proto.api.common.v1.Transform
+	2,  // 11: proto.api.common.v1.BoardStatus.AnalogsEntry.value:type_name -> proto.api.common.v1.AnalogStatus
+	3,  // 12: proto.api.common.v1.BoardStatus.DigitalInterruptsEntry.value:type_name -> proto.api.common.v1.DigitalInterruptStatus
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_proto_api_common_v1_common_proto_init() }
@@ -1216,6 +1300,18 @@ func file_proto_api_common_v1_common_proto_init() {
 			}
 		}
 		file_proto_api_common_v1_common_proto_msgTypes[13].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Transform); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_proto_api_common_v1_common_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*WorldState); i {
 			case 0:
 				return &v.state
@@ -1238,7 +1334,7 @@ func file_proto_api_common_v1_common_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_proto_api_common_v1_common_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
