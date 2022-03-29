@@ -178,7 +178,12 @@ func TestGetTriangleIdsMap(t *testing.T) {
 	triangles := tri.Triangles
 	test.That(t, len(triangles)%3, test.ShouldEqual, 0)
 	idMap := tri.GetTranglesPointsMap()
+	// test number of triangles
 	test.That(t, len(idMap), test.ShouldEqual, len(triangles)/3)
+	// test that every triangle has 3 and only 3 points
+	for _, v := range idMap {
+		test.That(t, len(v), test.ShouldEqual, 3)
+	}
 }
 
 func BenchmarkUniform(b *testing.B) {
