@@ -7,6 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"gonum.org/v1/gonum/num/quat"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -40,6 +41,15 @@ func (q *quaternion) EulerAngles() *EulerAngles {
 // RotationMatrix returns the orientation in rotation matrix representation.
 func (q *quaternion) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(q.Quaternion())
+}
+
+func NewQuaternionFromProtobuf(quatMsg *commonpb.Quaternion) *quaternion {
+	return &quaternion{
+		Real: quatMsg.Real,
+		Imag: quatMsg.I,
+		Jmag: quatMsg.J,
+		Kmag: quatMsg.J,
+	}
 }
 
 // QuatToEulerAngles converts a quaternion to the euler angle representation. Algorithm from Wikipedia.

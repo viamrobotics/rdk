@@ -25,14 +25,23 @@ type dualQuaternion struct {
 	dualquat.Number
 }
 
-// newDualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
+// newZeroDualQuaternion returns a pointer to a new dualQuaternion object whose Quaternion is an identity Quaternion.
 // Since the real part of a qual quaternion should be a unit quaternion, not all zeroes, this should be used
 // instead of &dualQuaternion{}.
-func newDualQuaternion() *dualQuaternion {
+func newZeroDualQuaternion() *dualQuaternion {
 	return &dualQuaternion{dualquat.Number{
 		Real: quat.Number{Real: 1},
 		Dual: quat.Number{},
 	}}
+}
+
+func newDualQuaternion(translation r3.Vector, orient Orientation) *dualQuaternion {
+	dualQ := &dualQuaternion{dualquat.Number{
+		Real: orient.Quaternion(),
+		Dual: quat.Number{},
+	}}
+	dualQ.SetTranslation(translation)
+	return dualQ
 }
 
 // newDualQuaternionFromRotation returns a pointer to a new dualQuaternion object whose rotation
@@ -62,7 +71,7 @@ func newDualQuaternionFromDH(a, d, alpha float64) *dualQuaternion {
 	m.Set(2, 2, math.Cos(alpha))
 
 	qRot := mgl64.Mat4ToQuat(m)
-	q := newDualQuaternion()
+	q := newZeroDualQuaternion()
 	q.Real = quat.Number{qRot.W, qRot.X(), qRot.Y(), qRot.Z()}
 	q.SetTranslation(r3.Vector{a, 0, d})
 	return q
@@ -98,8 +107,8 @@ func dualQuaternionFromPose(p Pose) *dualQuaternion {
 	return q
 }
 
-// ToProtobuf converts a dualQuaternion to a protobuf pose.
-func (q *dualQuaternion) ToProtobuf() *commonpb.Pose {
+// ToPoseMessage converts a dualQuaternion to a protobuf pose.
+func (q *dualQuaternion) ToPoseMessage() *commonpb.Pose {
 	final := &commonpb.Pose{}
 	cartQuat := dualquat.Mul(q.Number, dualquat.Conj(q.Number))
 	final.X = cartQuat.Dual.Imag
@@ -128,9 +137,17 @@ func (q *dualQuaternion) Point() r3.Vector {
 	return r3.Vector{tQuat.Imag, tQuat.Jmag, tQuat.Kmag}
 }
 
+func (q *dualQuaternion) TranslationalVelocity() r3.Vector {
+	return q.Point()
+}
+
 // Orientation returns the rotation quaternion as an Orientation.
 func (q *dualQuaternion) Orientation() Orientation {
 	return (*quaternion)(&q.Real)
+}
+
+func (q *dualQuaternion) AngularVelocity() Orientation {
+	return q.Orientation()
 }
 
 // SetTranslation correctly sets the translation quaternion against the rotation.
@@ -194,5 +211,5 @@ func OffsetBy(a, b *commonpb.Pose) *commonpb.Pose {
 	q2 := newDualQuaternionFromProtobuf(b)
 	q3 := &dualQuaternion{q1.Transformation(q2.Number)}
 
-	return q3.ToProtobuf()
+	return q3.ToPoseMessage()
 }

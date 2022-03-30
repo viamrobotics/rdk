@@ -42,7 +42,7 @@ func PoseMap(p Pose) (map[string]interface{}, error) {
 
 // NewZeroPose returns a pose at (0,0,0) with same orientation as whatever frame it is placed in.
 func NewZeroPose() Pose {
-	return newDualQuaternion()
+	return newZeroDualQuaternion()
 }
 
 // NewPoseFromOrientation takes in a position and orientation and returns a Pose.
@@ -50,7 +50,7 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 	if o == nil {
 		return NewPoseFromPoint(point)
 	}
-	q := newDualQuaternion()
+	q := newZeroDualQuaternion()
 	q.Real = o.Quaternion()
 	q.SetTranslation(point)
 	return q
@@ -58,7 +58,7 @@ func NewPoseFromOrientation(point r3.Vector, o Orientation) Pose {
 
 // NewPoseFromOrientationVector takes in a position and orientation vector and returns a Pose.
 func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
-	q := newDualQuaternion()
+	q := newZeroDualQuaternion()
 	if ov != nil {
 		q = newDualQuaternionFromRotation(ov)
 	}
@@ -71,11 +71,11 @@ func NewPoseFromOrientationVector(point r3.Vector, ov *OrientationVector) Pose {
 func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 	emptyVec := r3.Vector{0, 0, 0}
 	if rotationAxis == emptyVec || angle == 0 {
-		return newDualQuaternion()
+		return newZeroDualQuaternion()
 	}
 	aa := R4AA{Theta: angle, RX: rotationAxis.X, RY: rotationAxis.Y, RZ: rotationAxis.Z}
 
-	q := newDualQuaternion()
+	q := newZeroDualQuaternion()
 	q.Real = aa.ToQuat()
 	q.SetTranslation(point)
 	return q
@@ -84,7 +84,7 @@ func NewPoseFromAxisAngle(point, rotationAxis r3.Vector, angle float64) Pose {
 // NewPoseFromPoint takes in a cartesian (x,y,z) and stores it as a vector.
 // It will have the same orientation as the frame it is in.
 func NewPoseFromPoint(point r3.Vector) Pose {
-	q := newDualQuaternion()
+	q := newZeroDualQuaternion()
 	q.SetTranslation(point)
 	return q
 }
@@ -156,7 +156,7 @@ func PoseInverse(p Pose) Pose {
 // p1 and p2 are the two poses to interpolate between, by is a float representing the amount to interpolate between them.
 // by == 0 will return p1, by == 1 will return p2, and by == 0.5 will return the pose halfway between them.
 func Interpolate(p1, p2 Pose, by float64) Pose {
-	intQ := newDualQuaternion()
+	intQ := newZeroDualQuaternion()
 	intQ.Real = slerp(p1.Orientation().Quaternion(), p2.Orientation().Quaternion(), by)
 
 	intQ.SetTranslation(r3.Vector{

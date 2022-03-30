@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/golang/geo/r3"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -95,4 +96,13 @@ func R3ToR4(aa r3.Vector) *R4AA {
 	}
 	theta := aa.Norm()
 	return &R4AA{theta, aa.X / theta, aa.Y / theta, aa.Z / theta}
+}
+
+func NewAxisAngleFromProtobuf(aaMsg *commonpb.AxisAngle) *R4AA {
+	return &R4AA{
+		Theta: aaMsg.Theta,
+		RX:    aaMsg.RX,
+		RY:    aaMsg.RY,
+		RZ:    aaMsg.RZ,
+	}
 }

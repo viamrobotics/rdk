@@ -17,6 +17,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -62,11 +63,15 @@ var (
 // BodyToPoseInFrame represents a map of body names to PoseInFrames.
 type BodyToPoseInFrame map[string]*referenceframe.PoseInFrame
 
+// BodyToTwist represents a map of body names to Twists
+type BodyToTwist map[string]spatialmath.Twist
+
 // A PoseTracker represents a robot component that can observe bodies in an
 // environment and provide their respective poses in space. These poses are
 // given in the context of the PoseTracker's frame of reference.
 type PoseTracker interface {
 	GetPoses(ctx context.Context, bodyNames []string) (BodyToPoseInFrame, error)
+	GetTwists(ctx context.Context, bodyName []string) (string, BodyToTwist, error)
 }
 
 // FromRobot is a helper for getting the named force matrix sensor from the given Robot.
@@ -119,6 +124,14 @@ func (r *reconfigurablePoseTracker) GetPoses(
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.GetPoses(ctx, bodyNames)
+}
+
+func (r *reconfigurablePoseTracker) GetTwists(
+	ctx context.Context, bodyNames []string,
+) (string, BodyToTwist, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.actual.GetTwists(ctx, bodyNames)
 }
 
 func (r *reconfigurablePoseTracker) Close(ctx context.Context) error {

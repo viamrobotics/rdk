@@ -9,6 +9,7 @@ import (
 	"go.viam.com/rdk/grpc"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 )
 
 // serviceClient is a client that satisfies the pose_tracker.proto contract.
@@ -88,4 +89,28 @@ func (c *client) GetPoses(
 		result[key] = referenceframe.ProtobufToPoseInFrame(pf)
 	}
 	return result, nil
+}
+
+func (c *client) GetTwists(
+	ctx context.Context, bodyNames []string,
+) (string, BodyToTwist, error) {
+	req := &pb.GetTwistsRequest{
+		Name:      c.name,
+		BodyNames: bodyNames,
+	}
+	resp, err := c.client.GetTwists(ctx, req)
+	if err != nil {
+		return "", nil, err
+	}
+	refFrame := resp.GetReferenceFrame()
+	twistMsgMap := resp.GetBodyTwists()
+	twistMap := make(map[string]spatialmath.Twist, len(twistMsgMap))
+	for bodyName, twistMsg := range twistMsgMap {
+		twist, err := spatialmath.NewTwistFromProtobuf(twistMsg)
+		if err != nil {
+			return "", nil, err
+		}
+		twistMap[bodyName] = twist
+	}
+	return refFrame, twistMap, nil
 }
