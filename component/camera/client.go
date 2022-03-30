@@ -123,10 +123,12 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 	ctx, span := trace.StartSpan(ctx, "camera-client::NextPointCloud")
 	defer span.End()
 
+	ctx, span = trace.StartSpan(ctx, "camera-client::NextPointCloud::GetPointCloud")
 	resp, err := c.client.GetPointCloud(ctx, &pb.GetPointCloudRequest{
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
 	})
+	span.End()
 	if err != nil {
 		return nil, err
 	}
