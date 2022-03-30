@@ -20,6 +20,8 @@ const _ = grpc.SupportPackageIsVersion7
 type PoseTrackerServiceClient interface {
 	// GetPoses returns the current pose of each body tracked by the pose tracker
 	GetPoses(ctx context.Context, in *GetPosesRequest, opts ...grpc.CallOption) (*GetPosesResponse, error)
+	// GetTwists returns the current twist of each body tracked by the pose tracker
+	GetTwists(ctx context.Context, in *GetTwistsRequest, opts ...grpc.CallOption) (*GetTwistsResponse, error)
 }
 
 type poseTrackerServiceClient struct {
@@ -39,12 +41,23 @@ func (c *poseTrackerServiceClient) GetPoses(ctx context.Context, in *GetPosesReq
 	return out, nil
 }
 
+func (c *poseTrackerServiceClient) GetTwists(ctx context.Context, in *GetTwistsRequest, opts ...grpc.CallOption) (*GetTwistsResponse, error) {
+	out := new(GetTwistsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.component.posetracker.v1.PoseTrackerService/GetTwists", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PoseTrackerServiceServer is the server API for PoseTrackerService service.
 // All implementations must embed UnimplementedPoseTrackerServiceServer
 // for forward compatibility
 type PoseTrackerServiceServer interface {
 	// GetPoses returns the current pose of each body tracked by the pose tracker
 	GetPoses(context.Context, *GetPosesRequest) (*GetPosesResponse, error)
+	// GetTwists returns the current twist of each body tracked by the pose tracker
+	GetTwists(context.Context, *GetTwistsRequest) (*GetTwistsResponse, error)
 	mustEmbedUnimplementedPoseTrackerServiceServer()
 }
 
@@ -54,6 +67,9 @@ type UnimplementedPoseTrackerServiceServer struct {
 
 func (UnimplementedPoseTrackerServiceServer) GetPoses(context.Context, *GetPosesRequest) (*GetPosesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetPoses not implemented")
+}
+func (UnimplementedPoseTrackerServiceServer) GetTwists(context.Context, *GetTwistsRequest) (*GetTwistsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetTwists not implemented")
 }
 func (UnimplementedPoseTrackerServiceServer) mustEmbedUnimplementedPoseTrackerServiceServer() {}
 
@@ -86,6 +102,24 @@ func _PoseTrackerService_GetPoses_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PoseTrackerService_GetTwists_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTwistsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PoseTrackerServiceServer).GetTwists(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.component.posetracker.v1.PoseTrackerService/GetTwists",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PoseTrackerServiceServer).GetTwists(ctx, req.(*GetTwistsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PoseTrackerService_ServiceDesc is the grpc.ServiceDesc for PoseTrackerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -96,6 +130,10 @@ var PoseTrackerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPoses",
 			Handler:    _PoseTrackerService_GetPoses_Handler,
+		},
+		{
+			MethodName: "GetTwists",
+			Handler:    _PoseTrackerService_GetTwists_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

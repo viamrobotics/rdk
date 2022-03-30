@@ -12,9 +12,16 @@ import "proto/api/common/v1/common.proto";
 service PoseTrackerService {
   // GetPoses returns the current pose of each body tracked by the pose tracker
   rpc GetPoses(GetPosesRequest) returns (GetPosesResponse) {
-      option (google.api.http) = {
-          get: "/viam/api/v1/component/pose_tracker/{name}/poses"
-      };
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/pose_tracker/{name}/poses"
+    };
+  }
+
+  // GetTwists returns the current twist of each body tracked by the pose tracker
+  rpc GetTwists(GetTwistsRequest) returns (GetTwistsResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/component/pose_tracker/{name}/twists"
+    };
   }
 }
 
@@ -30,4 +37,30 @@ message GetPosesRequest {
 message GetPosesResponse {
   // Mapping of each body name to the pose representing the center of the body.
   map<string, common.v1.PoseInFrame> body_poses = 1;
+}
+
+message GetTwistsRequest {
+  // Name of the pose tracker
+  string name = 1;
+  // Names of the bodies whose twists are being requested. In the event
+  // this parameter is not supplied or is an empty list, all available
+  // twists are returned
+  repeated string body_names = 2;
+}
+
+message RigidBodyTwist {
+  // the translational component of a rigid body's
+  // twist in mm/sec
+  common.v1.Vector3 translational_velocity = 1;
+  // the rotational component of a rigid body's 
+  // twist (per second)
+  common.v1.Orientation angular_velocity = 2;
+}
+
+message GetTwistsResponse {
+  // the name of the pose tracker's reference frame
+  string reference_frame = 1;
+  // Mapping of each body name to the twist of the center
+  // of the body
+  map<string, RigidBodyTwist> body_twists = 2;
 }

@@ -26,6 +26,56 @@ message DigitalInterruptStatus {
   int64 value = 1;
 }
 
+// EulerAngles represents a rotation across x/y/z axes in degrees.
+message EulerAngles {
+  // corresponds to rotations about x
+  double roll = 1;
+  // corresponds to rotations about y
+  double pitch = 2;
+  // corresponds to rotations about z
+  double yaw = 3;
+}
+
+message Quaternion {
+  double real = 1;
+  double i = 2;
+  double j = 3;
+  double k = 4;
+}
+
+message AxisAngle {
+  double r_x = 1;
+  double r_y = 2;
+  double r_z = 3;
+  double theta = 4;
+}
+
+message OrientationVector {
+  // ox, oy, oz, theta represents an orientation vector
+  // Structured similarly to an angle axis, an orientation vector works differently. Rather than representing an orientation
+  // with an arbitrary axis and a rotation around it from an origin, an orientation vector represents orientation
+  // such that the ox/oy/oz components represent the point on the cartesian unit sphere at which your end effector is pointing
+  // from the origin, and that unit vector forms an axis around which theta rotates. This means that incrementing/decrementing
+  // theta will perform an in-line rotation of the end effector.
+  // Theta is defined as rotation between two planes: the plane defined by the origin, the point (0,0,1), and the rx,ry,rz
+  // point, and the plane defined by the origin, the rx,ry,rz point, and the new local Z axis. So if theta is kept at
+  // zero as the north/south pole is circled, the Roll will correct itself to remain in-line.
+  // Theta in pb.Pose should be degrees. It will be converted to radians in the internal OrientationVec.
+  double o_x = 1;
+  double o_y = 2;
+  double o_z = 3;
+  double theta = 4;
+}
+
+message Orientation {
+  oneof value {
+    Quaternion quaternion = 1;
+    EulerAngles euler_angles = 2;
+    AxisAngle axis_angle = 3;
+    OrientationVector orientation_vector = 4;
+  }
+}
+
 message Pose {
   // millimeters of the end effector from the base
   double x = 1;
@@ -51,6 +101,16 @@ message Pose {
 message PoseInFrame {
   string reference_frame = 1;
   Pose pose = 2;
+}
+
+// AngularVelocity contains angular velocity in deg/s across x/y/z axes.
+message AngularVelocity {
+  // Velocity in deg/s across the x-axis
+  double x_degs_per_sec = 1;
+  // Velocity in deg/s across the y-axis
+  double y_degs_per_sec = 2;
+  // Velocity in deg/s across the z-axis
+  double z_degs_per_sec = 3;
 }
 
 message Vector3 {

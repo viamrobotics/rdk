@@ -8,6 +8,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/posetracker/v1"
 	"go.viam.com/rdk/referenceframe"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/utils"
 )
@@ -60,5 +61,27 @@ func (server *subtypeServer) GetPoses(
 	}
 	return &pb.GetPosesResponse{
 		BodyPoses: poseInFrameProtoStructs,
+	}, nil
+}
+
+func (server *subtypeServer) GetTwists(
+	ctx context.Context,
+	req *pb.GetTwistsRequest,
+) (*pb.GetTwistsResponse, error) {
+	poseTracker, err := server.getPoseTracker(req.GetName())
+	if err != nil {
+		return nil, err
+	}
+	refFrame, twistMap, err := poseTracker.GetTwists(ctx, req.GetBodyNames())
+	if err != nil {
+		return nil, err
+	}
+	twistProtoMap := make(map[string]*pb.RigidBodyTwist, len(twistMap))
+	for bodyName, twist := range twistMap {
+		twistProtoMap[bodyName] = spatialmath.TwistToProtobuf(twist)
+	}
+	return &pb.GetTwistsResponse{
+		ReferenceFrame: refFrame,
+		BodyTwists:     twistProtoMap,
 	}, nil
 }

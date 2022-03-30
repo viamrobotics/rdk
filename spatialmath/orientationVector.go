@@ -7,6 +7,7 @@ import (
 	"github.com/go-gl/mathgl/mgl64"
 	"gonum.org/v1/gonum/num/quat"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/utils"
 )
 
@@ -195,4 +196,13 @@ func (ovd *OrientationVectorDegrees) AxisAngles() *R4AA {
 // RotationMatrix returns the orientation in rotation matrix representation.
 func (ovd *OrientationVectorDegrees) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(ovd.Quaternion())
+}
+
+func NewOrientationVectorFromProtobuf(ovMsg *commonpb.OrientationVector) *OrientationVectorDegrees {
+	return &OrientationVectorDegrees{
+		Theta: ovMsg.Theta,
+		OX:    ovMsg.OX,
+		OY:    ovMsg.OY,
+		OZ:    ovMsg.OZ,
+	}
 }

@@ -3,6 +3,7 @@ package spatialmath
 import (
 	"math"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -60,4 +61,12 @@ func (ea *EulerAngles) AxisAngles() *R4AA {
 // RotationMatrix returns the orientation in rotation matrix representation.
 func (ea *EulerAngles) RotationMatrix() *RotationMatrix {
 	return QuatToRotationMatrix(ea.Quaternion())
+}
+
+func NewEulerAnglesFromProtobuf(eaMsg *commonpb.EulerAngles) *EulerAngles {
+	return &EulerAngles{
+		Roll:  eaMsg.Roll,
+		Pitch: eaMsg.Pitch,
+		Yaw:   eaMsg.Yaw,
+	}
 }

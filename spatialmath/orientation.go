@@ -1,6 +1,9 @@
 package spatialmath
 
 import (
+	"github.com/pkg/errors"
+
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"gonum.org/v1/gonum/num/quat"
 )
 
@@ -35,4 +38,34 @@ func OrientationBetween(o1, o2 Orientation) Orientation {
 func OrientationInverse(o Orientation) Orientation {
 	q := quaternion(quat.Inv(o.Quaternion()))
 	return &q
+}
+
+func NewOrientationFromProtobuf(orientMsg *commonpb.Orientation) (Orientation, error) {
+	switch rep := orientMsg.Value.(type) {
+	case *commonpb.Orientation_Quaternion:
+		return NewQuaternionFromProtobuf(rep.Quaternion), nil
+	case *commonpb.Orientation_AxisAngle:
+		return NewAxisAngleFromProtobuf(rep.AxisAngle), nil
+	case *commonpb.Orientation_EulerAngles:
+		return NewEulerAnglesFromProtobuf(rep.EulerAngles), nil
+	case *commonpb.Orientation_OrientationVector:
+		return NewOrientationVectorFromProtobuf(rep.OrientationVector), nil
+	default:
+		return nil, errors.Errorf("Orientation message value has unexpected type %T", rep)
+	}
+}
+
+func OrientationToProtobuf(orient Orientation) *commonpb.Orientation {
+	asQuat := orient.Quaternion()
+	quatMsg := &commonpb.Quaternion{
+		Real: asQuat.Real,
+		I:    asQuat.Imag,
+		J:    asQuat.Jmag,
+		K:    asQuat.Kmag,
+	}
+	return &commonpb.Orientation{
+		Value: &commonpb.Orientation_Quaternion{
+			Quaternion: quatMsg,
+		},
+	}
 }
