@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -87,6 +88,9 @@ func (c *collector) Close() {
 
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *collector) Collect() error {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
+	defer span.End()
+
 	errs, _ := errgroup.WithContext(c.cancelCtx)
 	go c.capture()
 	errs.Go(func() error {
@@ -96,6 +100,9 @@ func (c *collector) Collect() error {
 }
 
 func (c *collector) capture() {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::capture")
+	defer span.End()
+
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
@@ -114,6 +121,8 @@ func (c *collector) capture() {
 }
 
 func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::getAndPushNextReading")
+	defer span.End()
 	defer wg.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())

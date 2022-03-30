@@ -136,18 +136,12 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 		c.CalFactor = 1.0
 	}
 
-	enLowPin, err := b.GPIOPinByName(c.Pins.EnablePinLow)
-	if err != nil {
-		return nil, err
-	}
-
 	m := &Motor{
 		board:       b,
 		bus:         bus,
 		csPin:       c.ChipSelect,
 		index:       c.Index,
 		stepsPerRev: c.TicksPerRotation * uSteps,
-		enLowPin:    enLowPin,
 		maxRPM:      c.MaxRPM,
 		maxAcc:      c.MaxAcceleration,
 		fClk:        baseClk / c.CalFactor,
@@ -190,6 +184,17 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 	)
 	if err != nil {
 		return nil, err
+	}
+
+	if c.Pins.EnablePinLow != "" {
+		m.enLowPin, err = b.GPIOPinByName(c.Pins.EnablePinLow)
+		if err != nil {
+			return nil, err
+		}
+		err = m.Enable(ctx, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return m, nil
@@ -389,6 +394,9 @@ func (m *Motor) IsPowered(ctx context.Context) (bool, error) {
 
 // Enable pulls down the hardware enable pin, activating the power stage of the chip.
 func (m *Motor) Enable(ctx context.Context, turnOn bool) error {
+	if m.enLowPin == nil {
+		return errors.New("no enable pin configured")
+	}
 	return m.enLowPin.Set(ctx, !turnOn)
 }
 
