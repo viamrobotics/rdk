@@ -207,9 +207,11 @@ func TestGetReadings(t *testing.T) {
 
 	readings1, err := imu.GetReadings(context.Background(), actualIMU1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z,
+	test.That(t, readings1, test.ShouldResemble, []interface{}{
+		av.X, av.Y, av.Z,
 		ea.Roll, ea.Pitch, ea.Yaw,
-		ac.X, ac.Y, ac.Z})
+		ac.X, ac.Y, ac.Z,
+	})
 
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
