@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/data"
 )
@@ -31,6 +32,9 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc")
+		defer span.End()
+
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(name, nextPointCloud.String(), err)
