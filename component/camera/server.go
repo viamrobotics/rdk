@@ -11,6 +11,7 @@ import (
 	"image/png"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
 	"go.viam.com/rdk/pointcloud"
@@ -164,6 +165,9 @@ func (s *subtypeServer) GetPointCloud(
 	ctx context.Context,
 	req *pb.GetPointCloudRequest,
 ) (*pb.GetPointCloudResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "camera-server::NextPointCloud")
+	defer span.End()
+
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -176,7 +180,9 @@ func (s *subtypeServer) GetPointCloud(
 
 	var buf bytes.Buffer
 	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
+	_, span = trace.StartSpan(ctx, "camera-server::NextPointCloud::ToPCD")
 	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
+	span.End()
 	if err != nil {
 		return nil, err
 	}
