@@ -10,6 +10,7 @@ import (
 	"image/jpeg"
 	"image/png"
 
+    "github.com/xfmoulet/qoi"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
@@ -58,8 +59,6 @@ func (s *subtypeServer) GetFrame(
 		return nil, err
 	}
 
-	ctx, span2 := trace.StartSpan(ctx, "camera::server::GetFrame::Next")
-	defer span2.End()
 	img, release, err := camera.Next(ctx)
 	if err != nil {
 		return nil, err
@@ -69,14 +68,13 @@ func (s *subtypeServer) GetFrame(
 			release()
 		}
 	}()
-
 	// choose the best/fastest representation
 	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if ok && iwd.Depth != nil && iwd.Color != nil {
+	    switch img.(type) {
+        case *rimage.ImageWithDepth:
 			req.MimeType = utils.MimeTypeRawIWD
-		} else {
-			req.MimeType = utils.MimeTypeRawRGBA
+        default:
+			req.MimeType = utils.MimeTypeJPEG
 		}
 	}
 
@@ -138,12 +136,18 @@ func (s *subtypeServer) GetFrame(
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
+	case utils.MimeTypeQOI:
+		resp.MimeType = utils.MimeTypeQOI
+		if err := qoi.Encode(&buf, img); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
 	ctx, span4 := trace.StartSpan(ctx, "camera::server::GetFrame::GetBytes")
 	defer span4.End()
 	resp.Image = buf.Bytes()
+    fmt.Printf("BYTE LEN: %v\n", len(resp.Image))
 	return &resp, nil
 }
 
