@@ -176,6 +176,12 @@ func NewMotor(ctx context.Context, r robot.Robot, c *Config, logger golog.Logger
 
 // Close stops the motor and marks the axis inactive.
 func (m *Motor) Close() {
+	m.c.mu.Lock()
+	active := m.c.activeAxes[m.Axis]
+	m.c.mu.Unlock()
+	if !active {
+		return
+	}
 	err := m.Stop(context.Background())
 	if err != nil {
 		m.c.logger.Error(err)
@@ -183,8 +189,8 @@ func (m *Motor) Close() {
 
 	m.c.mu.Lock()
 	defer m.c.mu.Unlock()
-	delete(m.c.activeAxes, m.Axis)
-	for _, active := range m.c.activeAxes {
+	m.c.activeAxes[m.Axis] = false
+	for _, active = range m.c.activeAxes {
 		if active {
 			return
 		}
