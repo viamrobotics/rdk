@@ -144,8 +144,6 @@ func (s *subtypeServer) GetFrame(
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
-	ctx, span4 := trace.StartSpan(ctx, "camera-server::GetFrame::GetBytes")
-	defer span4.End()
 	resp.Image = buf.Bytes()
 	return &resp, nil
 }
