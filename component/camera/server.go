@@ -11,6 +11,7 @@ import (
 	"image/png"
 
 	"github.com/pkg/errors"
+	"github.com/xfmoulet/qoi"
 	"go.opencensus.io/trace"
 	"google.golang.org/genproto/googleapis/api/httpbody"
 
@@ -51,6 +52,8 @@ func (s *subtypeServer) GetFrame(
 	ctx context.Context,
 	req *pb.GetFrameRequest,
 ) (*pb.GetFrameResponse, error) {
+	ctx, span := trace.StartSpan(ctx, "camera-server::GetFrame")
+	defer span.End()
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
@@ -65,13 +68,12 @@ func (s *subtypeServer) GetFrame(
 			release()
 		}
 	}()
-
 	// choose the best/fastest representation
 	if req.MimeType == "" || req.MimeType == utils.MimeTypeViamBest {
-		iwd, ok := img.(*rimage.ImageWithDepth)
-		if ok && iwd.Depth != nil && iwd.Color != nil {
+		switch img.(type) {
+		case *rimage.ImageWithDepth:
 			req.MimeType = utils.MimeTypeRawIWD
-		} else {
+		default:
 			req.MimeType = utils.MimeTypeRawRGBA
 		}
 	}
@@ -83,6 +85,8 @@ func (s *subtypeServer) GetFrame(
 		HeightPx: int64(bounds.Dy()),
 	}
 
+	_, span3 := trace.StartSpan(ctx, "camera-server::GetFrame::Encode::"+req.MimeType)
+	defer span3.End()
 	var buf bytes.Buffer
 	switch req.MimeType {
 	case utils.MimeTypeRawRGBA:
@@ -132,6 +136,11 @@ func (s *subtypeServer) GetFrame(
 		if err := jpeg.Encode(&buf, img, nil); err != nil {
 			return nil, err
 		}
+	case utils.MimeTypeQOI:
+		resp.MimeType = utils.MimeTypeQOI
+		if err := qoi.Encode(&buf, img); err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errors.Errorf("do not know how to encode %q", req.MimeType)
 	}
@@ -145,6 +154,8 @@ func (s *subtypeServer) RenderFrame(
 	ctx context.Context,
 	req *pb.RenderFrameRequest,
 ) (*httpbody.HttpBody, error) {
+	ctx, span := trace.StartSpan(ctx, "camera-server::RenderFrame")
+	defer span.End()
 	if req.MimeType == "" {
 		req.MimeType = utils.MimeTypeJPEG // default rendering
 	}
@@ -167,7 +178,6 @@ func (s *subtypeServer) GetPointCloud(
 ) (*pb.GetPointCloudResponse, error) {
 	ctx, span := trace.StartSpan(ctx, "camera-server::NextPointCloud")
 	defer span.End()
-
 	camera, err := s.getCamera(req.Name)
 	if err != nil {
 		return nil, err
