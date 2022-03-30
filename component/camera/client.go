@@ -128,7 +128,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		Name:     c.name,
 		MimeType: utils.MimeTypePCD,
 	})
-	defer span.End()
+	span.End()
 	if err != nil {
 		return nil, err
 	}
