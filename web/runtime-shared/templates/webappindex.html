@@ -1515,7 +1515,6 @@
                 imuService.readMagnetometer(req, {}, (err, resp) => {
                   if (err) {
                     console.log(err);
-                    debugger
                     return;
                   }
                   theData.imuData[name].magnetometer = resp.toObject().magnetometer;
@@ -1624,10 +1623,6 @@
             <tr><th>Y</th><td>${imuData[imu[1].name].angularVelocity.yDegsPerSec.toFixed(2)}</td></tr>
             <tr><th>Z</th><td>${imuData[imu[1].name].angularVelocity.zDegsPerSec.toFixed(2)}</td></tr>
             <tr><th colspan="2">Acceleration (mm/second/second)</th></tr>
-            <tr><th>X</th><td>${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td></tr>
-            <tr><th>Y</th><td>${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td></tr>
-            <tr><th>Z</th><td>${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td></tr>
-                        <tr><th colspan="2">Acceleration (mm/second/second)</th></tr>
             <tr><th>X</th><td>${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td></tr>
             <tr><th>Y</th><td>${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td></tr>
             <tr><th>Z</th><td>${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td></tr>
