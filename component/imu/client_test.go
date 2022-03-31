@@ -34,7 +34,13 @@ func TestClient(t *testing.T) {
 	av := spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea := &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	ac := r3.Vector{X: 7, Y: 8, Z: 9}
-	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}
+	mg := r3.Vector{X: 10, Y: 11, Z: 12}
+	rs := []interface{}{
+		av.X, av.Y, av.Z,
+		ea.Roll, ea.Pitch, ea.Yaw,
+		ac.X, ac.Y, ac.Z,
+		mg.X, mg.Y, mg.Z,
+	}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -45,6 +51,9 @@ func TestClient(t *testing.T) {
 	}
 	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
 		return ac, nil
+	}
+	injectIMU.ReadMagnetometerFunc = func(ctx context.Context) (r3.Vector, error) {
+		return mg, nil
 	}
 
 	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
@@ -82,6 +91,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ac1, test.ShouldResemble, ac)
 
+		mg1, err := imu1Client.ReadMagnetometer(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mg1, test.ShouldResemble, mg)
+
 		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs1, test.ShouldResemble, rs)
@@ -108,6 +121,10 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ac2, test.ShouldResemble, ac)
 
+		mg2, err := imu1Client2.ReadMagnetometer(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mg2, test.ShouldResemble, mg)
+
 		rs2, err := imu1Client2.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, rs2, test.ShouldResemble, rs)
@@ -125,7 +142,13 @@ func TestClientZeroValues(t *testing.T) {
 	av := spatialmath.AngularVelocity{X: 0, Y: 0, Z: 0}
 	ea := &spatialmath.EulerAngles{Roll: 0, Pitch: 0, Yaw: 0}
 	ac := r3.Vector{X: 0, Y: 0, Z: 0}
-	rs := []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z}
+	mg := r3.Vector{X: 0, Y: 0, Z: 0}
+	rs := []interface{}{
+		av.X, av.Y, av.Z,
+		ea.Roll, ea.Pitch, ea.Yaw,
+		ac.X, ac.Y, ac.Z,
+		mg.X, mg.Y, mg.Z,
+	}
 
 	injectIMU := &inject.IMU{}
 	injectIMU.ReadAngularVelocityFunc = func(ctx context.Context) (spatialmath.AngularVelocity, error) {
@@ -136,6 +159,9 @@ func TestClientZeroValues(t *testing.T) {
 	}
 	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
 		return ac, nil
+	}
+	injectIMU.ReadMagnetometerFunc = func(ctx context.Context) (r3.Vector, error) {
+		return mg, nil
 	}
 
 	imuSvc, err := subtype.New(map[resource.Name]interface{}{imu.Named(testIMUName): injectIMU})
@@ -161,6 +187,10 @@ func TestClientZeroValues(t *testing.T) {
 		ac1, err := imu1Client.ReadAcceleration(context.Background())
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, ac1, test.ShouldResemble, ac)
+
+		mg1, err := imu1Client.ReadMagnetometer(context.Background())
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, mg1, test.ShouldResemble, mg)
 
 		rs1, err := imu1Client.(sensor.Sensor).GetReadings(context.Background())
 		test.That(t, err, test.ShouldBeNil)
