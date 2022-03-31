@@ -229,11 +229,11 @@ type Magnetometer struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Magnetometer in mm/s^2 across the x-axis
+	// Magnetometer in gauss across the x-axis
 	XGauss float64 `protobuf:"fixed64,1,opt,name=x_gauss,json=xGauss,proto3" json:"x_gauss,omitempty"`
-	// Magnetometer in mm/s^2 across the y-axis
+	// Magnetometer in gauss across the y-axis
 	YGauss float64 `protobuf:"fixed64,2,opt,name=y_gauss,json=yGauss,proto3" json:"y_gauss,omitempty"`
-	// Magnetometer in mm/s^2 across the z-axis
+	// Magnetometer in gauss across the z-axis
 	ZGauss float64 `protobuf:"fixed64,3,opt,name=z_gauss,json=zGauss,proto3" json:"z_gauss,omitempty"`
 }
 
@@ -632,7 +632,7 @@ type ReadMagnetometerResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Acceleration contains acceleration in mm/s^2 across x/y/z axes.
+	// Magnetometer contains magnetic field values in gauss across x/y/z axes.
 	Magnetometer *Magnetometer `protobuf:"bytes,1,opt,name=magnetometer,proto3" json:"magnetometer,omitempty"`
 }
 

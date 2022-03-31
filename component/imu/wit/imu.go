@@ -51,28 +51,28 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-// ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec
+// ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec.
 func (imu *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
-// Read Orientatijn returns gyroscope orientation in degrees
+// Read Orientatijn returns gyroscope orientation in degrees.
 func (imu *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
 }
 
-// ReadAcceleration returns accelerometer acceleration in mm_per_sec_per_sec
+// ReadAcceleration returns accelerometer acceleration in mm_per_sec_per_sec.
 func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, imu.lastError
 }
 
-// ReadMagnetometer returns magnetic field in gauss
+// ReadMagnetometer returns magnetic field in gauss.
 func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
