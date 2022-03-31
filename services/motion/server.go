@@ -4,6 +4,8 @@ package motion
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	pb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/referenceframe"
@@ -55,6 +57,9 @@ func (server *subtypeServer) GetPose(ctx context.Context, req *pb.GetPoseRequest
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
+	}
+	if req.ComponentName == nil {
+		return nil, errors.New("must provide component name")
 	}
 
 	pose, err := svc.GetPose(ctx, protoutils.ResourceNameFromProto(req.ComponentName), req.DestinationFrame)
