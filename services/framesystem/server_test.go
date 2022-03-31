@@ -55,39 +55,39 @@ func TestServerConfig(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resp.FrameSystemConfigs), test.ShouldEqual, len(fsConfigs))
 		test.That(t, resp.FrameSystemConfigs[0].Name, test.ShouldEqual, fsConfigs[0].Name)
-		test.That(t, resp.FrameSystemConfigs[0].FrameConfig.Parent, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
+		test.That(t, resp.FrameSystemConfigs[0].PoseInParentFrame.ReferenceFrame, test.ShouldEqual, fsConfigs[0].FrameConfig.Parent)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.X,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.X,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Translation.X,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.Y,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Y,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Translation.Y,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.Z,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Z,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Translation.Z,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.OX,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OX,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OX,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.OY,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OY,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OY,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.OZ,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.OZ,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().OZ,
 		)
 		test.That(t,
-			resp.FrameSystemConfigs[0].FrameConfig.Pose.Theta,
+			resp.FrameSystemConfigs[0].PoseInParentFrame.Pose.Theta,
 			test.ShouldAlmostEqual,
 			fsConfigs[0].FrameConfig.Orientation.OrientationVectorDegrees().Theta,
 		)

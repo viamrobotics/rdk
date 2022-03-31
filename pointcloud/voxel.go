@@ -39,12 +39,12 @@ type voxelPlane struct {
 	normal    r3.Vector
 	center    r3.Vector
 	offset    float64
-	points    []Point
+	points    []PointAndData
 	voxelKeys []VoxelCoords
 }
 
 // NewPlaneFromVoxel creats a Plane object from a set of voxel properties.
-func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point, voxelKeys []VoxelCoords) Plane {
+func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []PointAndData, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
@@ -78,12 +78,12 @@ func (p *voxelPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
 
 // PointCloud returns the PointCloud of the underlying points of the plane.
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
-	pc := New()
 	if p.points == nil {
 		return nil, errors.New("no points in plane to turn into point cloud")
 	}
+	pc := New()
 	for _, pt := range p.points {
-		err := pc.Set(pt)
+		err := pc.Set(pt.P, pt.D)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +115,7 @@ func (p *voxelPlane) Distance(pt r3.Vector) float64 {
 type Voxel struct {
 	Key             VoxelCoords
 	Label           int
-	Points          []Point
+	Points          []PointAndData
 	Center          r3.Vector
 	Normal          r3.Vector
 	Offset          float64
@@ -130,7 +130,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          make([]Point, 0),
+		Points:          make([]PointAndData, 0),
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -144,11 +144,10 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 // NewVoxelFromPoint creates a new voxel from a point.
 func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
-	p := NewBasicPoint(pt.X, pt.Y, pt.Z)
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          []Point{p},
+		Points:          []PointAndData{{pt, nil}},
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -163,7 +162,7 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 func (v1 *Voxel) Positions() []r3.Vector {
 	positions := make([]r3.Vector, len(v1.Points))
 	for i, pt := range v1.Points {
-		positions[i] = r3.Vector(pt.Position())
+		positions[i] = pt.P
 	}
 	return positions
 }
@@ -226,7 +225,7 @@ func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
 		for _, pt := range vox.Points {
-			err := cloud.Set(pt)
+			err := cloud.Set(pt.P, pt.D)
 			if err != nil {
 				return nil, err
 			}
@@ -437,9 +436,14 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 			} else {
 				label = vox.PointLabels[i]
 			}
-			ptValue := pt.SetValue(label)
+			var ptValue Data
+			if pt.D != nil {
+				ptValue = pt.D.SetValue(label)
+			} else {
+				ptValue = NewValueData(label)
+			}
 			// add it to the point cloud
-			err := pc.Set(ptValue)
+			err := pc.Set(pt.P, ptValue)
 			if err != nil {
 				return nil, err
 			}
@@ -450,17 +454,17 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 
 // NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud.
 func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGrid {
+	meta := pc.MetaData()
 	voxelMap := NewVoxelGrid(voxelSize, lam)
 	ptMin := r3.Vector{
-		X: pc.MinX(),
-		Y: pc.MinY(),
-		Z: pc.MinZ(),
+		X: meta.MinX,
+		Y: meta.MinY,
+		Z: meta.MinZ,
 	}
 
 	defaultResidual := 1.0
 
-	pc.Iterate(func(p Point) bool {
-		pt := r3.Vector(p.Position())
+	pc.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]
 		// if voxel key does not exist yet, create voxel at this key with current point, voxel coordinates and maximum
@@ -469,7 +473,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			voxelMap.Voxels[coords] = &Voxel{
 				Key:             coords,
 				Label:           0,
-				Points:          []Point{p},
+				Points:          []PointAndData{{pt, d}},
 				Center:          r3.Vector{},
 				Normal:          r3.Vector{},
 				Offset:          0,
@@ -480,7 +484,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			}
 		} else {
 			// if voxel coordinates is in the keys of voxelMap, add point to slice
-			vox.Points = append(vox.Points, p)
+			vox.Points = append(vox.Points, PointAndData{pt, d})
 		}
 		return true
 	})
