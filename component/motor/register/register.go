@@ -4,6 +4,7 @@ package register
 import (
 
 	// for motors.
+	_ "go.viam.com/rdk/component/motor/ezopmp"
 	_ "go.viam.com/rdk/component/motor/fake"
 	_ "go.viam.com/rdk/component/motor/gpio"
 	_ "go.viam.com/rdk/component/motor/gpiostepper"
