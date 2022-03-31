@@ -13,8 +13,8 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	viamgrpc "go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	componentpb "go.viam.com/rdk/proto/api/component/gantry/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/subtype"
@@ -37,7 +37,7 @@ func TestClient(t *testing.T) {
 	injectGantry.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos1, nil
 	}
-	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+	injectGantry.MoveToPositionFunc = func(ctx context.Context, pos []float64, worldState *commonpb.WorldState) error {
 		gantryPos = pos
 		return nil
 	}
@@ -51,7 +51,7 @@ func TestClient(t *testing.T) {
 	injectGantry2.GetPositionFunc = func(ctx context.Context) ([]float64, error) {
 		return pos2, nil
 	}
-	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+	injectGantry2.MoveToPositionFunc = func(ctx context.Context, pos []float64, worldState *commonpb.WorldState) error {
 		gantryPos = pos
 		return nil
 	}
@@ -87,7 +87,7 @@ func TestClient(t *testing.T) {
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, pos, test.ShouldResemble, pos2)
 
-		err = gantry1Client.MoveToPosition(context.Background(), pos1, []*referenceframe.GeometriesInFrame{})
+		err = gantry1Client.MoveToPosition(context.Background(), pos1, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, gantryPos, test.ShouldResemble, pos1)
 
