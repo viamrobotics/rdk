@@ -349,7 +349,7 @@ func (c *controller) sendCmd(cmd string) (string, error) {
 
 	var ret []byte
 	for {
-		buf := make([]byte, 256)
+		buf := make([]byte, 4096)
 		n, err := c.port.Read(buf)
 		if err != nil {
 			return string(ret), err
@@ -694,6 +694,8 @@ func (m *Motor) RunCommand(ctx context.Context, name string, args map[string]int
 		if !ok {
 			return nil, errors.New("need raw 'cmd' string to send")
 		}
+		m.c.mu.Lock()
+		defer m.c.mu.Unlock()
 		retVal, err := m.c.sendCmd(cmd.(string))
 		ret := map[string]interface{}{"return": retVal}
 		return ret, err
