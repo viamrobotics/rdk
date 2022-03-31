@@ -56,6 +56,28 @@ func circle(n int) []Point {
 	return points
 }
 
+func TestConvexHull(t *testing.T) {
+	// test square + point at the centroid
+	points := []Point{{0, 0}, {1, 1}, {0, 1}, {1, 0}, {0.5, 0.5}}
+	hull := ConvexHull(points)
+	test.That(t, hull, test.ShouldNotBeNil)
+	test.That(t, len(hull), test.ShouldEqual, 4)
+	test.That(t, hull[0], test.ShouldResemble, Point{0, 0})
+	test.That(t, hull[1], test.ShouldResemble, Point{1, 0})
+	test.That(t, hull[2], test.ShouldResemble, Point{1, 1})
+	test.That(t, hull[3], test.ShouldResemble, Point{0, 1})
+	// test segment
+	points2 := []Point{{0, 0}, {1, 1}}
+	hull2 := ConvexHull(points2)
+	test.That(t, len(hull2), test.ShouldEqual, len(points2))
+	test.That(t, hull2[0], test.ShouldResemble, points2[0])
+	test.That(t, hull2[1], test.ShouldResemble, points2[1])
+	// test one point: empty convex hull
+	points1 := []Point{{1, 1}}
+	hull1 := ConvexHull(points1)
+	test.That(t, len(hull1), test.ShouldEqual, 0)
+}
+
 func TestTricky(t *testing.T) {
 	var points []Point
 	rnd := rand.New(rand.NewSource(99))
