@@ -39,19 +39,11 @@ func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb
 	if err != nil {
 		return nil, err
 	}
-	obstacles := req.GetWorldState().GetObstacles()
-	geometriesInFrames := make([]*referenceframe.GeometriesInFrame, len(obstacles))
-	for i, geometryInFrame := range obstacles {
-		geometriesInFrames[i], err = referenceframe.ProtobufToGeometriesInFrame(geometryInFrame)
-		if err != nil {
-			return nil, err
-		}
-	}
 	success, err := svc.Move(
 		ctx,
 		protoutils.ResourceNameFromProto(req.GetComponentName()),
 		referenceframe.ProtobufToPoseInFrame(req.GetDestination()),
-		geometriesInFrames,
+		req.GetWorldState(),
 	)
 	if err != nil {
 		return nil, err
