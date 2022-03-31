@@ -9,6 +9,7 @@ import (
 	"github.com/disintegration/imaging"
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
@@ -124,6 +125,8 @@ type rotateImageDepthSource struct {
 
 // Next TODO.
 func (rids *rotateImageDepthSource) Next(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "camera::imagesource::rotate::Next")
+	defer span.End()
 	orig, release, err := rids.Original.Next(ctx)
 	if err != nil {
 		return nil, nil, err
