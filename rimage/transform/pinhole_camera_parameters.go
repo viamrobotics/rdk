@@ -307,7 +307,7 @@ func intrinsics2DPtTo3DPt(pt image.Point, d rimage.Depth, pci *PinholeCameraIntr
 // intrinsics3DTo2D uses the camera's intrinsic matrix to project the 3D pointcloud to a 2D image with depth.
 func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics) (*rimage.ImageWithDepth, error) {
 	// Needs to be a pointcloud with color
-	if !cloud.HasColor() {
+	if !cloud.MetaData().HasColor {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the camera specified by PinholeCameraIntrinsics.
@@ -316,13 +316,13 @@ func intrinsics3DTo2D(cloud pointcloud.PointCloud, pci *PinholeCameraIntrinsics)
 	width, height := pci.Width, pci.Height
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
-	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j, i := pci.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
+		j, i := pci.PointToPixel(pt.X, pt.Y, pt.Z)
 		x, y := int(math.Round(j)), int(math.Round(i))
-		z := int(pt.Position().Z)
+		z := int(pt.Z)
 		// if point has color and is inside the image bounds, add it to the images
-		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
-			r, g, b := pt.RGB255()
+		if x >= 0 && x < width && y >= 0 && y < height && d != nil && d.HasColor() {
+			r, g, b := d.RGB255()
 			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
 			depth.Set(x, y, rimage.Depth(z))
 		}
@@ -353,11 +353,12 @@ func intrinsics2DTo3D(iwd *rimage.ImageWithDepth, pci *PinholeCameraIntrinsics, 
 		endX, endY = newBounds.Max.X, newBounds.Max.Y
 	}
 	pc := pointcloud.NewWithPrealloc((endY - startY) * (endX - startX))
+
 	for y := startY; y < endY; y++ {
 		for x := startX; x < endX; x++ {
 			px, py, pz := pci.PixelToPoint(float64(x), float64(y), float64(iwd.Depth.GetDepth(x, y)))
 			r, g, b := iwd.Color.GetXY(x, y).RGB255()
-			err := pc.Set(pointcloud.NewColoredPoint(px, py, pz, color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewVector(px, py, pz), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}

@@ -434,6 +434,7 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 	}
 	if options.Debug {
 		trace.RegisterExporter(perf.NewNiceLoggingSpanExporter())
+		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 
 		rpcOpts = append(rpcOpts,
 			rpc.WithDebug(),

@@ -78,6 +78,7 @@ type dofBot struct {
 	mp     motionplan.MotionPlanner
 	mu     sync.Mutex
 	muMove sync.Mutex
+	logger golog.Logger
 }
 
 func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.MotionPlanner, error) {
@@ -119,6 +120,8 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 	if err != nil {
 		return nil, err
 	}
+
+	a.logger = logger
 
 	return &a, nil
 }
@@ -271,46 +274,72 @@ func (a *dofBot) ModelFrame() referenceframe.Model {
 func (a *dofBot) Open(ctx context.Context) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	gripperPosition, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return err
+	}
+	a.logger.Debug("In Open. Starting gripper position: ", gripperPosition)
+
 	return a.moveJointInLock(ctx, 6, 100)
 }
 
-const grabAngle = 240.0
+const (
+	grabAngle   = 240.0
+	minMovement = 5.0
+)
 
 // Grab makes the gripper grab.
+// Approach: Move to close, poll until gripper reaches the closed state
+// (position > grabAngle) or the position changes little (< minMovement)
+// between iterations.
 func (a *dofBot) Grab(ctx context.Context) (bool, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	err := a.moveJointInLock(ctx, 6, 360)
+
+	startingGripperPos, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return false, err
+	}
+	a.logger.Debug("In Grab. Starting gripper position: ", startingGripperPos)
+
+	err = a.moveJointInLock(ctx, 6, grabAngle)
 	if err != nil {
 		return false, err
 	}
 
 	// wait a moment to get moving
 	if !gutils.SelectContextOrWait(ctx, 200*time.Millisecond) {
-		return false, errors.New("timeout while grabbing")
+		return false, ctx.Err()
 	}
 
 	// wait till we stop moving
 	last := -1.0
 
-	for i := 0; i < 10; i++ {
-		if !gutils.SelectContextOrWait(ctx, 50*time.Millisecond) {
-			return false, errors.New("timeout while grabbing")
-		}
-
+	for {
 		current, err := a.readJointInLock(ctx, 6)
 		if err != nil {
 			return false, err
 		}
 
-		if math.Abs(last-current) < 5 || current > grabAngle {
+		if math.Abs(last-current) < minMovement || current > grabAngle {
+			last = current // last is used after the loop
 			break
 		}
-
 		last = current
+
+		if !gutils.SelectContextOrWait(ctx, 20*time.Millisecond) {
+			return false, ctx.Err()
+		}
 	}
 
-	return last < grabAngle, a.moveJointInLock(ctx, 6, last+20) // squeeze a tiny bit
+	gripperPositionEnd, err := a.readJointInLock(ctx, 6)
+	if err != nil {
+		return false, err
+	}
+	a.logger.Debug("In Grab. Ending gripper position: ", gripperPositionEnd)
+
+	return last < grabAngle, a.moveJointInLock(ctx, 6, last+10) // squeeze a tiny bit
 }
 
 func (a *dofBot) CurrentInputs(ctx context.Context) ([]referenceframe.Input, error) {

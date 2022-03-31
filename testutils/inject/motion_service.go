@@ -5,16 +5,16 @@ import (
 
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/rdk/services/objectmanipulation"
+	"go.viam.com/rdk/services/motion"
 )
 
-// ObjectManipulationService represents a fake instance of an object manipulation
+// MotionService represents a fake instance of an motion
 // service.
-type ObjectManipulationService struct {
-	objectmanipulation.Service
-	DoGrabFunc func(
+type MotionService struct {
+	motion.Service
+	MoveFunc func(
 		ctx context.Context,
-		gripperName string,
+		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
 		obstacles []*referenceframe.GeometriesInFrame,
 	) (bool, error)
@@ -25,21 +25,21 @@ type ObjectManipulationService struct {
 	) (*referenceframe.PoseInFrame, error)
 }
 
-// DoGrab calls the injected DoGrab or the real variant.
-func (mgs *ObjectManipulationService) DoGrab(
+// Move calls the injected Move or the real variant.
+func (mgs *MotionService) Move(
 	ctx context.Context,
-	gripperName string,
+	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
 	obstacles []*referenceframe.GeometriesInFrame,
 ) (bool, error) {
-	if mgs.DoGrabFunc == nil {
-		return mgs.Service.DoGrab(ctx, gripperName, grabPose, obstacles)
+	if mgs.MoveFunc == nil {
+		return mgs.Service.Move(ctx, componentName, grabPose, obstacles)
 	}
-	return mgs.DoGrabFunc(ctx, gripperName, grabPose, obstacles)
+	return mgs.MoveFunc(ctx, componentName, grabPose, obstacles)
 }
 
 // GetPose calls the injected GetPose or the real variant.
-func (mgs *ObjectManipulationService) GetPose(
+func (mgs *MotionService) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
