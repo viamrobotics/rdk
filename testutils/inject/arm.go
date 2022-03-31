@@ -8,14 +8,13 @@ import (
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
-	"go.viam.com/rdk/referenceframe"
 )
 
 // Arm is an injected arm.
 type Arm struct {
 	arm.Arm
 	GetEndPositionFunc       func(ctx context.Context) (*commonpb.Pose, error)
-	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
+	MoveToPositionFunc       func(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState) error
 	MoveToJointPositionsFunc func(ctx context.Context, pos *pb.JointPositions) error
 	GetJointPositionsFunc    func(ctx context.Context) (*pb.JointPositions, error)
 	CloseFunc                func(ctx context.Context) error
@@ -30,11 +29,11 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition calls the injected MoveToPosition or the real version.
-func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+func (a *Arm) MoveToPosition(ctx context.Context, to *commonpb.Pose, worldState *commonpb.WorldState) error {
 	if a.MoveToPositionFunc == nil {
-		return a.Arm.MoveToPosition(ctx, to, obstacles)
+		return a.Arm.MoveToPosition(ctx, to, worldState)
 	}
-	return a.MoveToPositionFunc(ctx, to, obstacles)
+	return a.MoveToPositionFunc(ctx, to, worldState)
 }
 
 // MoveToJointPositions calls the injected MoveToJointPositions or the real version.

@@ -91,17 +91,11 @@ func (c *client) GetLengths(ctx context.Context) ([]float64, error) {
 	return lengths.LengthsMm, nil
 }
 
-func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error {
-	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
-	for i, obstacle := range obstacles {
-		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
-	}
+func (c *client) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error {
 	_, err := c.client.MoveToPosition(ctx, &pb.MoveToPositionRequest{
 		Name:        c.name,
 		PositionsMm: positionsMm,
-		WorldState: &commonpb.WorldState{
-			Obstacles: geometriesInFrames,
-		},
+		WorldState:  worldState,
 	})
 	return err
 }
@@ -120,7 +114,7 @@ func (c *client) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 }
 
 func (c *client) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
+	return c.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
 }
 
 // Close cleanly closes the underlying connections.

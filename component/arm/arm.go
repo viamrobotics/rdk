@@ -73,7 +73,7 @@ type Arm interface {
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
-	MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error
+	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
 	MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error
@@ -143,10 +143,10 @@ func (r *reconfigurableArm) GetEndPosition(ctx context.Context) (*commonpb.Pose,
 	return r.actual.GetEndPosition(ctx)
 }
 
-func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+func (r *reconfigurableArm) MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.MoveToPosition(ctx, pose, obstacles)
+	return r.actual.MoveToPosition(ctx, pose, worldState)
 }
 
 func (r *reconfigurableArm) MoveToJointPositions(ctx context.Context, positionDegs *pb.JointPositions) error {
