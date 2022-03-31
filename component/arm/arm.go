@@ -73,6 +73,7 @@ type Arm interface {
 	GetEndPosition(ctx context.Context) (*commonpb.Pose, error)
 
 	// MoveToPosition moves the arm to the given absolute position.
+	// The worldState argument should be treated as optional by all implementing drivers
 	MoveToPosition(ctx context.Context, pose *commonpb.Pose, worldState *commonpb.WorldState) error
 
 	// MoveToJointPositions moves the arm's joints to the given positions.
