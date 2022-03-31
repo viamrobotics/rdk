@@ -1509,6 +1509,16 @@
                   theData.imuData[name].acceleration = resp.toObject().acceleration;
                 });
 
+                var req = new imuApi.ReadMagnetometerRequest();
+                req.setName(name);
+
+                imuService.readMagnetometer(req, {}, (err, resp) => {
+                  if (err) {
+                    console.log(err);
+                    return;
+                  }
+                  theData.imuData[name].magnetometer = resp.toObject().magnetometer;
+                });
               });
           }
           setTimeout(imuRefresh, 500);
@@ -1616,7 +1626,10 @@
             <tr><th>X</th><td>${imuData[imu[1].name].acceleration.xMmPerSecPerSec.toFixed(2)}</td></tr>
             <tr><th>Y</th><td>${imuData[imu[1].name].acceleration.yMmPerSecPerSec.toFixed(2)}</td></tr>
             <tr><th>Z</th><td>${imuData[imu[1].name].acceleration.zMmPerSecPerSec.toFixed(2)}</td></tr>
-            
+            <tr><th colspan="2">Magnetometer (gauss)</th></tr>
+            <tr><th>X</th><td>${imuData[imu[1].name].magnetometer.xGauss.toFixed(2)}</td></tr>
+            <tr><th>Y</th><td>${imuData[imu[1].name].magnetometer.yGauss.toFixed(2)}</td></tr>
+            <tr><th>Z</th><td>${imuData[imu[1].name].magnetometer.zGauss.toFixed(2)}</td></tr>            
           </table>
         </div>
         <hr>
