@@ -211,6 +211,7 @@ func TestGetReadings(t *testing.T) {
 		av.X, av.Y, av.Z,
 		ea.Roll, ea.Pitch, ea.Yaw,
 		ac.X, ac.Y, ac.Z,
+		mg.X, mg.Y, mg.Z,
 	})
 
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())

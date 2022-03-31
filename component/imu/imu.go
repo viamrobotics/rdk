@@ -115,10 +115,16 @@ func GetReadings(ctx context.Context, i IMU) ([]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	mg, err := i.ReadMagnetometer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return []interface{}{
 		vel.X, vel.Y, vel.Z,
 		ea.Roll, ea.Pitch, ea.Yaw,
 		ac.X, ac.Y, ac.Z,
+		mg.X, mg.Y, mg.Z,
 	}, nil
 }
 
