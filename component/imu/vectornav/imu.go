@@ -212,24 +212,28 @@ func NewVectorNav(ctx context.Context, r robot.Robot, config config.Component, l
 	return v, nil
 }
 
+// ReadAngularVelocity returns angular velocity from the gyroscope deg_per_sec
 func (imu *vectornav) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, nil
 }
 
+// ReadOrientation returns gyroscope orientation in degrees
 func (imu *vectornav) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, nil
 }
 
+// ReadAcceleration returns accelerometer reading in mm_per_sec_per_sec
 func (imu *vectornav) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, nil
 }
 
+// ReadMagnetometer returns megnetif field data in gauss
 func (imu *vectornav) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()

@@ -71,11 +71,11 @@ message Acceleration {
 
 // Magnetometer contains magnetic field readings in gauss x/y/z axes.
 message Magnetometer {
-  // Magnetometer in mm/s^2 across the x-axis
+  // Magnetometer in gauss across the x-axis
   double x_gauss = 1;
-  // Magnetometer in mm/s^2 across the y-axis
+  // Magnetometer in gauss across the y-axis
   double y_gauss = 2;
-  // Magnetometer in mm/s^2 across the z-axis
+  // Magnetometer in gauss across the z-axis
   double z_gauss = 3;
 }
 
@@ -118,6 +118,6 @@ message ReadMagnetometerRequest {
 }
 
 message ReadMagnetometerResponse {
-  // Acceleration contains acceleration in mm/s^2 across x/y/z axes.
+  // Magnetometer contains magnetic field values in gauss across x/y/z axes.
   Magnetometer magnetometer = 1;
 }

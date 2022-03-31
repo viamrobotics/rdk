@@ -51,24 +51,28 @@ type wit struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
+// ReadAngularVelocity returns Angular velocity from the gyroscope in deg_per_sec
 func (imu *wit) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.angularVelocity, imu.lastError
 }
 
+// Read Orientatijn returns gyroscope orientation in degrees
 func (imu *wit) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return &imu.orientation, imu.lastError
 }
 
+// ReadAcceleration returns accelerometer acceleration in mm_per_sec_per_sec
 func (imu *wit) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
 	return imu.acceleration, imu.lastError
 }
 
+// ReadMagnetometer returns magnetic field in gauss
 func (imu *wit) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	imu.mu.Lock()
 	defer imu.mu.Unlock()
@@ -136,6 +140,15 @@ func scale(a, b byte, r float64) float64 {
 	return x
 }
 
+func scalemag(a, b byte, r float64) float64 {
+	x := float64(int(b)<<8 | int(a)) // 0 -> 2
+	x *= r                           // 0 -> 2r
+	x += r
+	x = math.Mod(x, r*2)
+	x -= r
+	return x
+}
+
 func (imu *wit) parseWIT(line string) error {
 	if line[0] == 0x52 {
 		if len(line) < 7 {
@@ -160,19 +173,18 @@ func (imu *wit) parseWIT(line string) error {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu acceleration %d %v", len(line), line)
 		}
-		accScale := 16 * 9806.65
-		imu.acceleration.X = scale(line[1], line[2], accScale)
-		imu.acceleration.Y = scale(line[3], line[4], accScale)
-		imu.acceleration.Z = scale(line[5], line[6], accScale)
+		imu.acceleration.X = scale(line[1], line[2], 16) * 9806.65 // converts of mm_per_sec_per_sec in NYC
+		imu.acceleration.Y = scale(line[3], line[4], 16) * 9806.65
+		imu.acceleration.Z = scale(line[5], line[6], 16) * 9806.65
 	}
 
 	if line[0] == 0x54 {
 		if len(line) < 7 {
 			return fmt.Errorf("line is wrong for imu magnetometer %d %v", len(line), line)
 		}
-		imu.magnetometer.X = scale(line[1], line[2], 32768.0)
-		imu.magnetometer.Y = scale(line[3], line[4], 32768.0)
-		imu.magnetometer.Z = scale(line[5], line[6], 32768.0)
+		imu.magnetometer.X = scalemag(line[1], line[2], 1) * 0.01 // converts to gauss
+		imu.magnetometer.Y = scalemag(line[3], line[4], 1) * 0.01
+		imu.magnetometer.Z = scalemag(line[5], line[6], 1) * 0.01
 	}
 
 	return nil

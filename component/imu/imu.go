@@ -68,7 +68,8 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// An IMU represents a sensor that can report AngularVelocity and Orientation measurements.
+// An IMU represents a sensor that can report AngularVelocity, Orientation, Acceleration and Magnetometer
+// measurements.
 type IMU interface {
 	ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error)
 	ReadOrientation(ctx context.Context) (spatialmath.Orientation, error)
@@ -145,24 +146,28 @@ func (r *reconfigurableIMU) ProxyFor() interface{} {
 	return r.actual
 }
 
+// ReadAngularVelocity returns angular velocity from the gyroscope deg_per_sec
 func (r *reconfigurableIMU) ReadAngularVelocity(ctx context.Context) (spatialmath.AngularVelocity, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadAngularVelocity(ctx)
 }
 
+// ReadOrientation returns gyroscope orientation in degrees
 func (r *reconfigurableIMU) ReadOrientation(ctx context.Context) (spatialmath.Orientation, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadOrientation(ctx)
 }
 
+// ReadAcceleration returns accelerometer reading in mm_per_sec_per_sec
 func (r *reconfigurableIMU) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ReadAcceleration(ctx)
 }
 
+// ReadMagnetometer returns megnetif field data in gauss
 func (r *reconfigurableIMU) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
