@@ -73,9 +73,9 @@ func NewGPIOController(ctx context.Context, r robot.Robot, config config.Compone
 
 // Config is the overall config.
 type Config struct {
-	Board   string                   `json:"board"`
-	Buttons map[string]input.Control `json:"buttons"`
-	Axes    map[string]AxisConfig    `json:"axes"`
+	Board   string                  `json:"board"`
+	Buttons map[string]ButtonConfig `json:"buttons"`
+	Axes    map[string]AxisConfig   `json:"axes"`
 }
 
 // AxisConfig is a subconfig for axes.
@@ -87,11 +87,17 @@ type AxisConfig struct {
 	Deadzone  int           `json:"deadzone"`
 	MinChange int           `json:"min_change"`
 	PollHz    float64       `json:"poll_hz"`
+	Invert    bool          `json:"invert"`
+}
+
+// ButtonConfig is a subconfig for buttons.
+type ButtonConfig struct {
+	Control input.Control `json:"control"`
+	Invert  bool          `json:"invert"`
 }
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
 type Controller struct {
-	Name                    string
 	mu                      sync.RWMutex
 	controls                []input.Control
 	lastEvents              map[input.Control]input.Event
@@ -205,7 +211,7 @@ func (c *Controller) sendConnectionStatus(ctx context.Context, connected bool) {
 	}
 }
 
-func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, ctrl input.Control) error {
+func (c *Controller) newButton(ctx context.Context, brd board.Board, intName string, cfg ButtonConfig) error {
 	interrupt, ok := brd.DigitalInterruptByName(intName)
 	if !ok {
 		return fmt.Errorf("can't find DigitalInterrupt (%s)", intName)
@@ -222,22 +228,27 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 			case val = <-intChan:
 			}
 
+			if cfg.Invert {
+				val = !val
+			}
+
 			evt := input.ButtonPress
 			outVal := 1.0
 			if !val {
 				evt = input.ButtonRelease
 				outVal = 0
 			}
+
 			eventOut := input.Event{
 				Time:    time.Now(),
 				Event:   evt,
-				Control: ctrl,
+				Control: cfg.Control,
 				Value:   outVal,
 			}
 			c.makeCallbacks(ctx, eventOut)
 		}
 	}, c.activeBackgroundWorkers.Done)
-	c.controls = append(c.controls, ctrl)
+	c.controls = append(c.controls, cfg.Control)
 	return nil
 }
 
@@ -268,6 +279,12 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				c.logger.Error(err)
 			}
 
+			if rawVal > cfg.Max {
+				rawVal = cfg.Max
+			} else if rawVal < cfg.Min {
+				rawVal = cfg.Min
+			}
+
 			var outVal float64
 			if cfg.TwoWay {
 				center := (cfg.Min + cfg.Max) / 2
@@ -284,6 +301,10 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 
 			if abs(rawVal-prevVal) < cfg.MinChange {
 				continue
+			}
+
+			if cfg.Invert {
+				outVal *= -1
 			}
 
 			prevVal = rawVal

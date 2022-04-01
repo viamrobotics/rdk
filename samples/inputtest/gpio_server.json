@@ -46,8 +46,14 @@
       "attributes": {
         "board": "piboard",
         "buttons": {
-          "interrupt1": "ButtonNorth",
-          "interrupt2": "ButtonSouth"
+          "interrupt1": {
+           "control": "ButtonNorth",
+           "invert": false
+          },
+          "interrupt2": {
+            "control": "ButtonSouth",
+            "invert": true
+          }
         },
         "axes": {
           "analogReader1": {
