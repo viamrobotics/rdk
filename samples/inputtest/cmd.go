@@ -17,7 +17,7 @@ import (
 	webserver "go.viam.com/rdk/web/server"
 )
 
-var logger = golog.NewDevelopmentLogger("gamepad")
+var logger = golog.NewDevelopmentLogger("inputtest")
 
 func main() {
 	utils.ContextualMain(mainWithArgs, logger)
