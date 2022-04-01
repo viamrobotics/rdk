@@ -59,20 +59,22 @@
           "analogReader1": {
             "control": "AbsoluteX",
             "min": 0,
-            "max": 1024,
+            "max": 1023,
             "poll_hz": 50,
-            "deadzone": 10,
+            "deadzone": 30,
             "min_change": 5,
-            "two_way": true
+            "two_way": false,
+            "invert": false
           },
           "analogReader2": {
             "control": "AbsoluteY",
             "min": 0,
-            "max": 1024,
+            "max": 1023,
             "poll_hz": 50,
-            "deadzone": 10,
+            "deadzone": 30,
             "min_change": 5,
-            "two_way": true
+            "two_way": true,
+            "invert": true
           }
         }
       },

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bep/debounce"
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 
@@ -218,8 +219,10 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	}
 	intChan := make(chan bool)
 	interrupt.AddCallback(intChan)
+
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
+		debounced := debounce.New(time.Millisecond)
 		for {
 			var val bool
 			select {
@@ -245,7 +248,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 				Control: cfg.Control,
 				Value:   outVal,
 			}
-			c.makeCallbacks(ctx, eventOut)
+			debounced(func() {c.makeCallbacks(ctx, eventOut) })
 		}
 	}, c.activeBackgroundWorkers.Done)
 	c.controls = append(c.controls, cfg.Control)
@@ -290,8 +293,10 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 				center := (cfg.Min + cfg.Max) / 2
 				if abs(rawVal-center) < cfg.Deadzone {
 					rawVal = center
+					outVal = 0.0
+				} else {
+					outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, -1, 1)
 				}
-				outVal = scaleAxis(rawVal, cfg.Min, cfg.Max, -1, 1)
 			} else {
 				if abs(rawVal-cfg.Min) < cfg.Deadzone {
 					rawVal = cfg.Min
