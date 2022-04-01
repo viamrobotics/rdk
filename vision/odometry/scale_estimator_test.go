@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"go.viam.com/test"
-
 	"github.com/golang/geo/r3"
+	"go.viam.com/test"
 )
 
 func TestGetTriangleNormalVector(t *testing.T) {
