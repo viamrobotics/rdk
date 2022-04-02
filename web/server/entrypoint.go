@@ -26,7 +26,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -374,9 +373,6 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		for idx, remote := range out.Remotes {
 			remoteCopy := remote
 			if in.Cloud == nil {
-				if signalingServerAddress, _, ok := grpc.InferSignalingServerAddress(remote.Address); ok {
-					remoteCopy.Auth.SignalingServerAddress = signalingServerAddress
-				}
 				remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
 			} else {
 				if remote.ManagedBy != in.Cloud.ManagedBy {
