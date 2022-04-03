@@ -34,7 +34,7 @@ func TestNewFromFile(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = cloud.WriteToFile(temp.Name())
+	err = WriteToLASFile(cloud, temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	nextCloud, err := NewFromFile(temp.Name(), logger)
@@ -44,9 +44,9 @@ func TestNewFromFile(t *testing.T) {
 
 func TestPCD(t *testing.T) {
 	cloud := New()
-	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(7, 6, 1), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
 	test.That(t, cloud.Size(), test.ShouldEqual, 3)
 	/*
 		The expected string is below, cannot do direct comparison because maps print out in random order.
@@ -72,15 +72,15 @@ func TestPCD(t *testing.T) {
 func testPCDOutput(t *testing.T, cloud2 PointCloud) {
 	t.Helper()
 	test.That(t, cloud2.Size(), test.ShouldEqual, 3)
-	test.That(t, cloud2.At(0, 0, 0), test.ShouldBeNil)
-	test.That(t, cloud2.At(-1, -2, 5), test.ShouldNotBeNil)
+	test.That(t, CloudContains(cloud2, 0, 0, 0), test.ShouldBeFalse)
+	test.That(t, CloudContains(cloud2, -1, -2, 5), test.ShouldBeTrue)
 }
 
 func testASCIIRoundTrip(t *testing.T, cloud PointCloud) {
 	t.Helper()
 	// write to .pcd
 	var buf bytes.Buffer
-	err := cloud.ToPCD(&buf, PCDAscii)
+	err := ToPCD(cloud, &buf, PCDAscii)
 	test.That(t, err, test.ShouldBeNil)
 	gotPCD := buf.String()
 	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
@@ -106,7 +106,7 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 	t.Helper()
 	// write to .pcd
 	var buf bytes.Buffer
-	err := cloud.ToPCD(&buf, PCDBinary)
+	err := ToPCD(cloud, &buf, PCDBinary)
 	test.That(t, err, test.ShouldBeNil)
 	gotPCD := buf.String()
 	test.That(t, gotPCD, test.ShouldContainSubstring, "WIDTH 3")
@@ -128,11 +128,11 @@ func testBinaryRoundTrip(t *testing.T, cloud PointCloud) {
 func TestRoundTripFileWithColorFloat(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	cloud := New()
-	test.That(t, cloud.Set(NewColoredPoint(-1, -2, 5, color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(582, 12, 0, color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(7, 6, 1, color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
-	test.That(t, cloud.Set(NewColoredPoint(1, 2, 9, color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(-1, -2, 5), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(582, 12, 0), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(-1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(7, 6, 1), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(1)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(1, 2, 9), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
+	test.That(t, cloud.Set(NewVector(1, 2, 9), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(0)), test.ShouldBeNil)
 
 	floatBytes := make([]byte, 8)
 	v := 1.4
@@ -147,7 +147,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer os.Remove(temp.Name())
 
-	err = cloud.WriteToFile(temp.Name())
+	err = WriteToLASFile(cloud, temp.Name())
 	test.That(t, err, test.ShouldBeNil)
 
 	nextCloud, err := NewFromFile(temp.Name(), logger)
@@ -157,7 +157,7 @@ func TestRoundTripFileWithColorFloat(t *testing.T) {
 
 func TestPCDColor(t *testing.T) {
 	c := color.NRGBA{5, 31, 123, 255}
-	p := NewColoredPoint(0, 0, 0, c)
+	p := NewColoredData(c)
 	x := _colorToPCDInt(p)
 	c2 := _pcdIntToColor(x)
 	test.That(t, c, test.ShouldResemble, c2)
@@ -168,7 +168,7 @@ func newBigPC() PointCloud {
 	for x := 10.0; x <= 50; x++ {
 		for y := 10.0; y <= 50; y++ {
 			for z := 10.0; z <= 50; z++ {
-				if err := cloud.Set(NewColoredPoint(x, y, z, color.NRGBA{255, 1, 2, 255}).SetValue(5)); err != nil {
+				if err := cloud.Set(NewVector(x, y, z), NewColoredData(color.NRGBA{255, 1, 2, 255}).SetValue(5)); err != nil {
 					panic(err)
 				}
 			}
@@ -182,7 +182,7 @@ func BenchmarkPCDASCIIWrite(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var buf bytes.Buffer
-		err := cloud.ToPCD(&buf, PCDAscii)
+		err := ToPCD(cloud, &buf, PCDAscii)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -190,7 +190,7 @@ func BenchmarkPCDASCIIWrite(b *testing.B) {
 func BenchmarkPCDASCIIRead(b *testing.B) {
 	cloud := newBigPC()
 	var buf bytes.Buffer
-	err := cloud.ToPCD(&buf, PCDAscii)
+	err := ToPCD(cloud, &buf, PCDAscii)
 	test.That(b, err, test.ShouldBeNil)
 
 	gotPCD := buf.String()
@@ -208,7 +208,7 @@ func BenchmarkPCDBinaryWrite(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		var buf bytes.Buffer
-		err := cloud.ToPCD(&buf, PCDBinary)
+		err := ToPCD(cloud, &buf, PCDBinary)
 		test.That(b, err, test.ShouldBeNil)
 	}
 }
@@ -216,7 +216,7 @@ func BenchmarkPCDBinaryWrite(b *testing.B) {
 func BenchmarkPCDBinaryRead(b *testing.B) {
 	cloud := newBigPC()
 	var buf bytes.Buffer
-	err := cloud.ToPCD(&buf, PCDBinary)
+	err := ToPCD(cloud, &buf, PCDBinary)
 	test.That(b, err, test.ShouldBeNil)
 
 	gotPCD := buf.String()

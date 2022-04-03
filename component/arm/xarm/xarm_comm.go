@@ -139,14 +139,15 @@ func (x *xArm) send(ctx context.Context, c cmd, checkError bool) (cmd, error) {
 	b := c.bytes()
 	_, err := x.conn.Write(b)
 	if err != nil {
+		x.moveLock.Unlock()
 		return cmd{}, err
 	}
 
 	c2, err := x.response(ctx)
+	x.moveLock.Unlock()
 	if err != nil {
 		return cmd{}, err
 	}
-	x.moveLock.Unlock()
 
 	if checkError {
 		state := c2.params[0]
@@ -398,7 +399,7 @@ func (x *xArm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition moves the arm to the specified cartesian position.
-func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+func (x *xArm) MoveToPosition(ctx context.Context, pos *commonpb.Pose, worldState *commonpb.WorldState) error {
 	joints, err := x.GetJointPositions(ctx)
 	if err != nil {
 		return err

@@ -111,6 +111,7 @@ var (
 	av = spatialmath.AngularVelocity{X: 1, Y: 2, Z: 3}
 	ea = &spatialmath.EulerAngles{Roll: 4, Pitch: 5, Yaw: 6}
 	ac = r3.Vector{X: 7, Y: 8, Z: 9}
+	mg = r3.Vector{X: 10, Y: 11, Z: 12}
 
 	readings = []interface{}{5.6, 6.4}
 )
@@ -189,13 +190,29 @@ func TestReadAcceleration(t *testing.T) {
 	test.That(t, actualIMU1.accelerationCount, test.ShouldEqual, 1)
 }
 
+func TestReadMagnetometer(t *testing.T) {
+	actualIMU1 := &mock{Name: testIMUName}
+	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
+
+	test.That(t, actualIMU1.magnetometerCount, test.ShouldEqual, 0)
+	mag, err := reconfIMU1.(imu.IMU).ReadMagnetometer(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, mag, test.ShouldResemble, r3.Vector{X: 10, Y: 11, Z: 12})
+	test.That(t, actualIMU1.magnetometerCount, test.ShouldEqual, 1)
+}
+
 func TestGetReadings(t *testing.T) {
 	actualIMU1 := &mock{Name: testIMUName}
 	reconfIMU1, _ := imu.WrapWithReconfigurable(actualIMU1)
 
 	readings1, err := imu.GetReadings(context.Background(), actualIMU1)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, readings1, test.ShouldResemble, []interface{}{av.X, av.Y, av.Z, ea.Roll, ea.Pitch, ea.Yaw, ac.X, ac.Y, ac.Z})
+	test.That(t, readings1, test.ShouldResemble, []interface{}{
+		av.X, av.Y, av.Z,
+		ea.Roll, ea.Pitch, ea.Yaw,
+		ac.X, ac.Y, ac.Z,
+		mg.X, mg.Y, mg.Z,
+	})
 
 	result, err := reconfIMU1.(sensor.Sensor).GetReadings(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -217,6 +234,7 @@ type mock struct {
 	angularVelocityCount int
 	orientationCount     int
 	accelerationCount    int
+	magnetometerCount    int
 	reconfCount          int
 }
 
@@ -233,6 +251,11 @@ func (m *mock) ReadOrientation(ctx context.Context) (spatialmath.Orientation, er
 func (m *mock) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	m.accelerationCount++
 	return ac, nil
+}
+
+func (m *mock) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+	m.magnetometerCount++
+	return mg, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
