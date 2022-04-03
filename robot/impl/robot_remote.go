@@ -192,7 +192,7 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	for _, name := range robot.ResourceNames() {
 		part, err := robot.ResourceByName(name)
 		if err != nil {
-			robot.Logger().Debugw("error getting %s", name, "error", err)
+			robot.Logger().Debugw("error getting resource", "resource", name, "error", err)
 			continue
 		}
 		manager.addResource(name, part)
