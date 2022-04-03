@@ -51,7 +51,7 @@ message Pose {
   // degrees
   double theta = 7;
 }
-// A pose and the reference frame in which it was observed 
+// PoseInFrame contains a pose and the and the reference frame in which it was observed 
 message PoseInFrame {
   string reference_frame = 1;
   Pose pose = 2;
@@ -73,7 +73,7 @@ message RectangularPrism {
   double depth_mm = 3;
 }
 
-// Dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
+// Geometry contains the dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
 message Geometry {
   // Pose of a gemetries center point
   common.v1.Pose center = 1;
@@ -84,7 +84,8 @@ message Geometry {
   }
 }
 
-// Dimensions of a given geometry, pose of its center point, and the reference frame by which it was observed 
+// GeometriesinFrame contains the dimensions of a given geometry, pose of its center point, and the reference frame by which it was 
+// observed. 
 message GeometriesInFrame {
   // Reference frame of the observer of the geometry
   string reference_frame = 1;
@@ -92,7 +93,7 @@ message GeometriesInFrame {
   repeated Geometry geometries = 2;
 }
 
-// An image in bytes that contains point cloud data of all of the objects captured by a given observer as well as a repeated list of 
+// PointCloudObject contains an image in bytes with point cloud data of all of the objects captured by a given observer as well as a repeated list of 
 // geometries which respresents the center point and geometry of each of the objects within the point cloud
 message PointCloudObject {
   // image frame expressed in bytes
@@ -101,7 +102,7 @@ message PointCloudObject {
   common.v1.GeometriesInFrame geometries = 2;
 }
 
-// Geocoordinates expressed as latitude and longitude 
+
 message GeoPoint {
   double latitude = 1;
   double longitude = 2;
@@ -117,9 +118,9 @@ message Transform {
   PoseInFrame pose_in_observer_frame = 2;
 }
 
-// Information about the physical environment around a given robot. ALl of the fields within this message as optional, they can include 
-// information about the the physical dimensions of obstacles as well as any desired transforms between a given reference frame and a new 
-// new target reference frame. 
+// WorldState contrains information about the physical environment around a given robot. All of the fields within this message as optional, 
+// they can include information about the the physical dimensions of obstacles as well as any desired transforms between a given reference 
+// frame and a new target reference frame. 
 message WorldState {
   // a list of obstacles extressed as a geomtry and the reference frame in which it was observed 
   repeated GeometriesInFrame obstacles = 1;
