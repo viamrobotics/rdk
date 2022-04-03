@@ -7,8 +7,7 @@ import (
 	"runtime"
 	"sync"
 
-	goutils "go.viam.com/utils"
-	goutils "go.viam.com/utils"
+	"go.viam.com/utils"
 )
 
 // ParallelFactor controls the max level of parallelization. This might be useful
@@ -52,7 +51,7 @@ func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallel
 	wait.Add(numGroups)
 	for groupNum := 0; groupNum < numGroups; groupNum++ {
 		groupNumCopy := groupNum
-		goutils.PanicCapturingGo(func() {
+		utils.PanicCapturingGo(func() {
 			defer wait.Done()
 			groupNum := groupNumCopy
 
