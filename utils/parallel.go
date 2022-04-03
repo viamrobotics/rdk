@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	goutils "go.viam.com/utils"
+	goutils "go.viam.com/utils"
 )
 
 // ParallelFactor controls the max level of parallelization. This might be useful
@@ -86,6 +87,7 @@ func GroupWorkParallel(ctx context.Context, totalSize int, before BeforeParallel
 func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 	procs := runtime.GOMAXPROCS(0)
 	var waitGroup sync.WaitGroup
+	waitGroup.Add(procs * procs)
 	for i := 0; i < procs; i++ {
 		startX := i * int(math.Floor(float64(size.X)/float64(procs)))
 		var endX int
@@ -102,16 +104,16 @@ func ParallelForEachPixel(size image.Point, f func(x int, y int)) {
 			} else {
 				endY = size.Y
 			}
-			waitGroup.Add(1)
-			go func(sX int, eX int, sY int, eY int) {
+			sX, eX, sY, eY := startX, endX, startY, endY
+			utils.PanicCapturingGo(func() {
 				defer waitGroup.Done()
 				for x := sX; x < eX; x++ {
 					for y := sY; y < eY; y++ {
 						f(x, y)
 					}
 				}
-			}(startX, endX, startY, endY)
-			waitGroup.Wait()
+			})
 		}
 	}
+	waitGroup.Wait()
 }
