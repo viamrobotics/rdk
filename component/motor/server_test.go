@@ -31,7 +31,6 @@ func newServer() (pb.MotorServiceServer, *inject.Motor, *inject.Motor, error) {
 	return motor.NewServer(injectSvc), injectMotor1, injectMotor2, nil
 }
 
-//nolint:dupl
 func TestServerSetPower(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 
@@ -44,18 +43,21 @@ func TestServerSetPower(t *testing.T) {
 	failingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
 		return errors.New("set power failed")
 	}
-	req = pb.SetPowerRequest{Name: failMotorName, PowerPct: 0.5}
+	req = pb.SetPowerRequest{Name: failMotorName, PowerPct: 50}
 	resp, err = motorServer.SetPower(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldNotBeNil)
 
+	var convertedPower float64
 	workingMotor.SetPowerFunc = func(ctx context.Context, powerPct float64) error {
+		convertedPower = powerPct
 		return nil
 	}
-	req = pb.SetPowerRequest{Name: testMotorName, PowerPct: 0.5}
+	req = pb.SetPowerRequest{Name: testMotorName, PowerPct: 50}
 	resp, err = motorServer.SetPower(context.Background(), &req)
 	test.That(t, resp, test.ShouldNotBeNil)
 	test.That(t, err, test.ShouldBeNil)
+	test.That(t, convertedPower, test.ShouldEqual, 0.5)
 }
 
 //nolint:dupl
@@ -218,7 +220,6 @@ func TestServerGoTo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
-//nolint:dupl
 func TestServerResetZeroPosition(t *testing.T) {
 	motorServer, workingMotor, failingMotor, _ := newServer()
 

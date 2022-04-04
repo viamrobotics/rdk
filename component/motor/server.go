@@ -20,6 +20,12 @@ func NewServer(service subtype.Service) pb.MotorServiceServer {
 	return &subtypeServer{service: service}
 }
 
+// ConvertPowerPctToDecimal rescales power percentage to decimal value
+// TODO: put math for non linear power scaling for directional switch here.
+func ConvertPowerPctToDecimal(powerPct float64) float64 {
+	return powerPct / 100
+}
+
 // getMotor returns the specified motor or nil.
 func (server *subtypeServer) getMotor(name string) (Motor, error) {
 	resource := server.service.Resource(name)
@@ -43,7 +49,8 @@ func (server *subtypeServer) SetPower(
 	if err != nil {
 		return nil, errors.Errorf("no motor (%s) found", motorName)
 	}
-	return &pb.SetPowerResponse{}, motor.SetPower(ctx, req.GetPowerPct())
+	powerPct := ConvertPowerPctToDecimal(req.GetPowerPct())
+	return &pb.SetPowerResponse{}, motor.SetPower(ctx, powerPct)
 }
 
 // GoFor requests the motor of the underlying robot to go for a certain amount based off

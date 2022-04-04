@@ -29,7 +29,7 @@ type SetPowerRequest struct {
 
 	// Name of a motor
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// Percentage of motor's power, between -1 and 1
+	// Percentage of motor's power, between -100 and 100
 	PowerPct float64 `protobuf:"fixed64,2,opt,name=power_pct,json=powerPct,proto3" json:"power_pct,omitempty"`
 }
 

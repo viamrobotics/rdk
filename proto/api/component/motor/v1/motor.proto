@@ -79,7 +79,7 @@ service MotorService {
 message SetPowerRequest {
   // Name of a motor
   string name = 1;
-  // Percentage of motor's power, between -1 and 1
+  // Percentage of motor's power, between -100 and 100
   double power_pct = 2;
 }
 
