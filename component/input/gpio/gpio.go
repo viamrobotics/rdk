@@ -93,8 +93,9 @@ type AxisConfig struct {
 
 // ButtonConfig is a subconfig for buttons.
 type ButtonConfig struct {
-	Control input.Control `json:"control"`
-	Invert  bool          `json:"invert"`
+	Control    input.Control `json:"control"`
+	Invert     bool          `json:"invert"`
+	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=1
 }
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
@@ -220,9 +221,13 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	intChan := make(chan bool)
 	interrupt.AddCallback(intChan)
 
+	if cfg.DebounceMs == 0 {
+		cfg.DebounceMs = 1
+	}
+
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
-		debounced := debounce.New(time.Millisecond)
+		debounced := debounce.New(time.Millisecond * time.Duration(cfg.DebounceMs))
 		for {
 			var val bool
 			select {
@@ -248,7 +253,11 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 				Control: cfg.Control,
 				Value:   outVal,
 			}
-			debounced(func() {c.makeCallbacks(ctx, eventOut) })
+			if cfg.DebounceMs < 0 {
+				c.makeCallbacks(ctx, eventOut)
+			} else {
+				debounced(func() { c.makeCallbacks(ctx, eventOut) })
+			}
 		}
 	}, c.activeBackgroundWorkers.Done)
 	c.controls = append(c.controls, cfg.Control)
