@@ -9,15 +9,15 @@ import "proto/api/common/v1/common.proto";
 
 // A ConfigurationService declares the gRPC contract for a Configuration service
 service ConfigurationService {
-  rpc DiscoverCameras(DiscoverCamerasRequest) returns (DiscoverCamerasResponse) {
+  rpc GetCameras(GetCamerasRequest) returns (GetCamerasResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/service/configuration/discover_cameras"
+      get: "/viam/api/v1/service/configuration/cameras"
     };
   }
 }
 
-message DiscoverCamerasRequest {}
+message GetCamerasRequest {}
 
-message DiscoverCamerasResponse {
-  repeated string discover_cameras = 1;
+message GetCamerasResponse {
+  repeated string cameras = 1;
 }
