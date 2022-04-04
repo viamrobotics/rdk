@@ -31,10 +31,10 @@ message DigitalInterruptStatus {
 Location is expressed as distance which is represented by x , y, z coordinates. Orientation is expressed as an orientation vector which 
 is represented by o_x, o_y, o_z and theta. The o_x, o_y, o_z coordinates represent the point on the cartesian unit sphere that the end of
 the arm is pointing to (with the origin as reference). That unit vector forms an axis around which theta rotates. This means that 
-incrementing / decrementing theta will perform an inline rotation of the end effector. Theta is defined as rotation between two planes: 
-the first being defined by the origin, the point (0,0,1), and the rx, ry, rz point, and the second being defined by the origin, the rx, 
-ry, rz point and the local Z axis. Therefore, if theta is kept at zero as the north/south pole is circled, the Roll will correct itself 
-to remain in-line. */
+incrementing / decrementing theta will perform an inline rotation of the end effector. 
+Theta is defined as rotation between two planes: the first being defined by the origin, the point (0,0,1), and the rx, ry, rz point, and the 
+second being defined by the origin, the rx, ry, rz point and the local Z axis. Therefore, if theta is kept at zero as the north/south pole 
+is circled, the Roll will correct itself to remain in-line. */
 message Pose {
   // millimeters from the origin
   double x = 1;
@@ -42,16 +42,16 @@ message Pose {
   double y = 2;
   // millimeters from the origin
   double z = 3;
-  // a vector, this input will get normalized to a point on the unit sphere
+  // z component of a vector defining axis of rotation
   double o_x = 4;
-  // a vector, this input will get normalized to a point on the unit sphere
+  // x component of a vector defining axis of rotation
   double o_y = 5;
-  // a vector, this input will get normalized to a point on the unit sphere
+  // y component of a vector defining axis of rotation
   double o_z = 6;
   // degrees
   double theta = 7;
 }
-
+// A pose and the reference frame in which it was observed 
 message PoseInFrame {
   string reference_frame = 1;
   Pose pose = 2;
@@ -73,19 +73,27 @@ message RectangularPrism {
   double depth_mm = 3;
 }
 
+// Dimensions of a given geometry and the pose of its center 
 message Geometry {
+  // Pose of a gemetries center point
   common.v1.Pose center = 1;
+  // Deminsions of a give geometry. This can be a sphere or box
   oneof geometry_type {
     Sphere sphere = 2;
     RectangularPrism box = 3;
   }
 }
 
+// Dimensions of a given geometry, pose of its center point, and the reference frame by which it was observed 
 message GeometriesInFrame {
+  // Reference frame of the observer of the geometry
   string reference_frame = 1;
+  // Dimensional type 
   repeated Geometry geometries = 2;
 }
 
+// An image in bytes that contains point cloud data of all of the objects captured by a given observer as well as a repeated list of 
+// geometries which respresents the center point and geometry of each of the objects within the point cloud
 message PointCloudObject {
   // image frame expressed in bytes
   bytes point_cloud = 1;
@@ -93,22 +101,27 @@ message PointCloudObject {
   common.v1.GeometriesInFrame geometries = 2;
 }
 
+// Geocoordinates expressed as latitude and longitude 
 message GeoPoint {
   double latitude = 1;
   double longitude = 2;
 }
 
+// Transform contains a pose and two reference frames. The first reference frame is the starting reference frame, and the second reference
+// frame is the observer reference frame. The second reference frame has a pose which represents the pose of an object in the first
+// reference frame as observed within the second reference frame.
 message Transform {
   // the name of a given reference frame
   string reference_frame = 1;
-  // the pose of the above reference frame with respect
-  // to a different observer reference frame
+  // the pose of the above reference frame with respect to a different observer reference frame
   PoseInFrame pose_in_observer_frame = 2;
 }
 
+// Information about the physical environment around a given robot. ALl of the fields within this message as optional, they can include 
+// information about the the physical dimensions of obstacles as well as any desired transforms between a given reference frame and a new 
+// new target reference frame. 
 message WorldState {
   repeated GeometriesInFrame obstacles = 1;
-  // a list of Transforms needed to transform a pose
-  // from one reference frame to another; this field is optional
+  // a list of Transforms needed to transform a pose from one reference frame to another; this field is optional
   repeated Transform transforms = 2;
 }
