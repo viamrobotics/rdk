@@ -17,14 +17,12 @@ import (
 )
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
-// usually acquired by calling Config on a frame system service. WARNING: for now,
-// this function requires that the parts are already topologically sorted (see
-// topologicallySortFrameNames below for a loose example of that process).
+// usually acquired by calling Config on a frame system service.
 func NewFrameSystemFromParts(
 	name, prefix string, parts []*config.FrameSystemPart,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
-	// just topologically sort them
+	// Topologically sort parts first
 	parts, err := TopologicallySortParts(parts)
 	if err != nil {
 		return nil, err
@@ -58,6 +56,8 @@ func NewFrameSystemFromParts(
 	return fs, nil
 }
 
+// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
+// sorts them, beginning at the world node.
 func TopologicallySortParts(parts []*config.FrameSystemPart) ([]*config.FrameSystemPart, error) {
 	// make map of children
 	children := make(map[string][]*config.FrameSystemPart)

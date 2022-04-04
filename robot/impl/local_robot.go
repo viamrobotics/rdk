@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/pexec"
 
 	// registers all components.
@@ -109,6 +110,8 @@ func (r *localRobot) getRemoteConfig(remoteName string) (*config.Remote, error) 
 
 // FrameSystem returns the FrameSystem of the robot.
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "local-robot::FrameSystem")
+	defer span.End()
 	logger := r.Logger()
 	// create the base reference frame system
 	fsService, err := framesystem.FromRobot(r)
@@ -125,10 +128,6 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
-		if remoteService == nil {
-			logger.Infof("remote %s has no frame system service", remoteName)
-			continue
-		}
 		remoteParts, err := remoteService.Config(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
@@ -137,7 +136,7 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
-		if rConf.Frame == nil {
+		if rConf.Frame == nil { // skip over remote if it has no frame info
 			logger.Infof("remote %s has no frame config info", remoteName)
 			continue
 		}
@@ -147,7 +146,6 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 			Name:        connectionName,
 			FrameConfig: rConf.Frame,
 		}
-		logger.Infof("remote %s has frame %s with parent %s", remoteName, connection.Name, connection.FrameConfig.Parent)
 		parts = append(parts, connection)
 		for _, p := range remoteParts {
 			if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
@@ -155,16 +153,13 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 			}
 		}
 		for _, p := range remoteParts {
-			if rConf.Prefix == true { // rename each non-world part with prefix
-				p.Name = remoteName + p.Name
+			if rConf.Prefix { // rename each non-world part with prefix
+				p.Name = remoteName + "." + p.Name
 				if p.FrameConfig.Parent != connectionName {
-					p.FrameConfig.Parent = remoteName + p.FrameConfig.Parent
+					p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
 				}
 			}
 			parts = append(parts, p)
-		}
-		for _, p := range remoteParts {
-			logger.Infof("remote %s has frame %s with parent %s", remoteName, p.Name, p.FrameConfig.Parent)
 		}
 	}
 	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)

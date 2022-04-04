@@ -234,7 +234,7 @@ func TestConfigRemote(t *testing.T) {
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 29)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 22)
 	t.Logf("frames: %v\n", fs.FrameNames())
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
