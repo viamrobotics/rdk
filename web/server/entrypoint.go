@@ -4,8 +4,6 @@ package server
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -28,10 +26,9 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
-	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/robotutils"
 	"go.viam.com/rdk/services/web"
-	rutils "go.viam.com/rdk/utils"
 )
 
 type wrappedLogger struct {
@@ -329,66 +326,16 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
 
-	var tlsConfig *tls.Config
-	var certMu sync.Mutex
-	var tlsCert *tls.Certificate
-	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
-		tlsConfig = &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
-				// always return same cert
-				certMu.Lock()
-				defer certMu.Unlock()
-				return tlsCert, nil
-			},
-			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-				// always return same cert
-				certMu.Lock()
-				defer certMu.Unlock()
-				return tlsCert, nil
-			},
-		}
-	}
-
+	tlsCfg := robotutils.NewTLSConfig(cfg)
 	processConfig := func(in *config.Config) (*config.Config, error) {
-		out := *in
-		var selfCreds *rpc.Credentials
-		if in.Cloud != nil {
-			if in.Cloud.TLSCertificate != "" {
-				cert, err := tls.X509KeyPair([]byte(in.Cloud.TLSCertificate), []byte(in.Cloud.TLSPrivateKey))
-				if err != nil {
-					return nil, err
-				}
-				certMu.Lock()
-				tlsCert = &cert
-				certMu.Unlock()
-			}
-
-			selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
-			out.Network.TLSConfig = tlsConfig // override
-		}
-
-		out.Remotes = make([]config.Remote, len(in.Remotes))
-		copy(out.Remotes, in.Remotes)
-		for idx, remote := range out.Remotes {
-			remoteCopy := remote
-			if in.Cloud == nil {
-				remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
-			} else {
-				if remote.ManagedBy != in.Cloud.ManagedBy {
-					continue
-				}
-				remoteCopy.Auth.Managed = true
-				remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
-				remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
-				remoteCopy.Auth.SignalingCreds = selfCreds
-			}
-			out.Remotes[idx] = remoteCopy
+		out, err := robotutils.ProcessConfig(in, tlsCfg)
+		if err != nil {
+			return nil, err
 		}
 		out.Debug = argsParsed.Debug
 		out.FromCommand = true
 		out.AllowInsecureCreds = argsParsed.AllowInsecureCreds
-		return &out, nil
+		return out, nil
 	}
 
 	processedConfig, err := processConfig(cfg)
@@ -440,74 +387,16 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}()
 	defer cancel()
 
-	options := web.NewOptions()
+	options, err := web.OptionsFromConfig(cfg)
+	if err != nil {
+		return err
+	}
 	options.Pprof = argsParsed.WebProfile
 	options.SharedDir = argsParsed.SharedDir
 	options.Debug = argsParsed.Debug
 	options.WebRTC = argsParsed.WebRTC
-	options.Auth = cfg.Auth
-	options.Network = cfg.Network
-	options.FQDN = cfg.Network.FQDN
-	if cfg.Cloud != nil {
-		options.Managed = true
-		options.LocalFQDN = cfg.Cloud.LocalFQDN
-		options.FQDN = cfg.Cloud.FQDN
-		options.SignalingAddress = cfg.Cloud.SignalingAddress
-
-		if cfg.Cloud.TLSCertificate != "" {
-			// override
-			options.Network.TLSConfig = tlsConfig
-
-			// NOTE(RDK-148):
-			// when we are managed and no explicit bind address is set,
-			// we will listen everywhere on 8080. We assume this to be
-			// secure because TLS will be enabled in addition to
-			// authentication. NOTE: If you do not want the UI to function
-			// without a specific secret being input, then you must set up
-			// a dedicated auth handler in the config. Otherwise, the secret
-			// for this robot will be baked into the UI. There may be a future
-			// feature to disable the baked in credentials from the managed
-			// interface.
-			if cfg.Network.BindAddressDefaultSet {
-				options.Network.BindAddress = ":8080"
-			}
-
-			cert, err := tlsConfig.GetCertificate(&tls.ClientHelloInfo{})
-			if err != nil {
-				return err
-			}
-			leaf, err := x509.ParseCertificate(cert.Certificate[0])
-			if err != nil {
-				return err
-			}
-			options.Auth.TLSAuthEntities = leaf.DNSNames
-		}
-
-		options.Auth.Handlers = make([]config.AuthHandlerConfig, len(cfg.Auth.Handlers))
-		copy(options.Auth.Handlers, cfg.Auth.Handlers)
-		options.Auth.Handlers = append(options.Auth.Handlers, config.AuthHandlerConfig{
-			Type: rutils.CredentialsTypeRobotLocationSecret,
-			Config: config.AttributeMap{
-				"secret": cfg.Cloud.LocationSecret,
-			},
-		})
-
-		signalingDialOpts := []rpc.DialOption{rpc.WithEntityCredentials(
-			cfg.Cloud.ID,
-			rpc.Credentials{rutils.CredentialsTypeRobotSecret, cfg.Cloud.Secret},
-		)}
-		if cfg.Cloud.SignalingInsecure {
-			signalingDialOpts = append(signalingDialOpts, rpc.WithInsecure())
-		}
-		if argsParsed.AllowInsecureCreds {
-			signalingDialOpts = append(signalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
-		}
-		options.BakedAuthEntity = options.FQDN
-		options.BakedAuthCreds = rpc.Credentials{
-			rutils.CredentialsTypeRobotLocationSecret,
-			cfg.Cloud.LocationSecret,
-		}
-		options.SignalingDialOpts = signalingDialOpts
+	if cfg.Cloud != nil && argsParsed.AllowInsecureCreds {
+		options.SignalingDialOpts = append(options.SignalingDialOpts, rpc.WithAllowInsecureWithCredentialsDowngrade())
 	}
 
 	if len(options.Auth.Handlers) == 0 {
@@ -520,27 +409,5 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		}
 	}
 
-	return RunWeb(ctx, myRobot, options, logger)
-}
-
-// RunWeb starts the web server on the web service and blocks until we close it.
-func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {
-	defer func() {
-		if err != nil {
-			err = utils.FilterOutError(err, context.Canceled)
-			if err != nil {
-				logger.Errorw("error running web", "error", err)
-			}
-		}
-		err = multierr.Combine(err, utils.TryClose(ctx, r))
-	}()
-	svc, err := web.FromRobot(r)
-	if err != nil {
-		return err
-	}
-	if err := svc.Start(ctx, o); err != nil {
-		return err
-	}
-	<-ctx.Done()
-	return ctx.Err()
+	return robotutils.RunWeb(ctx, myRobot, options, logger)
 }
