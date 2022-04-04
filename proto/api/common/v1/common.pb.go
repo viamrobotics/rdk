@@ -256,10 +256,10 @@ func (x *DigitalInterruptStatus) GetValue() int64 {
 //Location is expressed as distance which is represented by x , y, z coordinates. Orientation is expressed as an orientation vector which
 //is represented by o_x, o_y, o_z and theta. The o_x, o_y, o_z coordinates represent the point on the cartesian unit sphere that the end of
 //the arm is pointing to (with the origin as reference). That unit vector forms an axis around which theta rotates. This means that
-//incrementing / decrementing theta will perform an inline rotation of the end effector. Theta is defined as rotation between two planes:
-//the first being defined by the origin, the point (0,0,1), and the rx, ry, rz point, and the second being defined by the origin, the rx,
-//ry, rz point and the local Z axis. Therefore, if theta is kept at zero as the north/south pole is circled, the Roll will correct itself
-//to remain in-line.
+//incrementing / decrementing theta will perform an inline rotation of the end effector.
+//Theta is defined as rotation between two planes: the first being defined by the origin, the point (0,0,1), and the rx, ry, rz point, and the
+//second being defined by the origin, the rx, ry, rz point and the local Z axis. Therefore, if theta is kept at zero as the north/south pole
+//is circled, the Roll will correct itself to remain in-line.
 type Pose struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -271,11 +271,11 @@ type Pose struct {
 	Y float64 `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
 	// millimeters from the origin
 	Z float64 `protobuf:"fixed64,3,opt,name=z,proto3" json:"z,omitempty"`
-	// a vector, this input will get normalized to a point on the unit sphere
+	// z component of a vector defining axis of rotation
 	OX float64 `protobuf:"fixed64,4,opt,name=o_x,json=oX,proto3" json:"o_x,omitempty"`
-	// a vector, this input will get normalized to a point on the unit sphere
+	// x component of a vector defining axis of rotation
 	OY float64 `protobuf:"fixed64,5,opt,name=o_y,json=oY,proto3" json:"o_y,omitempty"`
-	// a vector, this input will get normalized to a point on the unit sphere
+	// y component of a vector defining axis of rotation
 	OZ float64 `protobuf:"fixed64,6,opt,name=o_z,json=oZ,proto3" json:"o_z,omitempty"`
 	// degrees
 	Theta float64 `protobuf:"fixed64,7,opt,name=theta,proto3" json:"theta,omitempty"`
@@ -362,6 +362,7 @@ func (x *Pose) GetTheta() float64 {
 	return 0
 }
 
+// A pose and the reference frame in which it was observed
 type PoseInFrame struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -590,12 +591,16 @@ func (x *RectangularPrism) GetDepthMm() float64 {
 	return 0
 }
 
+// Dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
 type Geometry struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Pose of a gemetries center point
 	Center *Pose `protobuf:"bytes,1,opt,name=center,proto3" json:"center,omitempty"`
+	// Deminsions of a give geometry. This can be a sphere or box
+	//
 	// Types that are assignable to GeometryType:
 	//	*Geometry_Sphere
 	//	*Geometry_Box
@@ -678,13 +683,16 @@ func (*Geometry_Sphere) isGeometry_GeometryType() {}
 
 func (*Geometry_Box) isGeometry_GeometryType() {}
 
+// Dimensions of a given geometry, pose of its center point, and the reference frame by which it was observed
 type GeometriesInFrame struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	ReferenceFrame string      `protobuf:"bytes,1,opt,name=reference_frame,json=referenceFrame,proto3" json:"reference_frame,omitempty"`
-	Geometries     []*Geometry `protobuf:"bytes,2,rep,name=geometries,proto3" json:"geometries,omitempty"`
+	// Reference frame of the observer of the geometry
+	ReferenceFrame string `protobuf:"bytes,1,opt,name=reference_frame,json=referenceFrame,proto3" json:"reference_frame,omitempty"`
+	// Dimensional type
+	Geometries []*Geometry `protobuf:"bytes,2,rep,name=geometries,proto3" json:"geometries,omitempty"`
 }
 
 func (x *GeometriesInFrame) Reset() {
@@ -733,6 +741,8 @@ func (x *GeometriesInFrame) GetGeometries() []*Geometry {
 	return nil
 }
 
+// An image in bytes that contains point cloud data of all of the objects captured by a given observer as well as a repeated list of
+// geometries which respresents the center point and geometry of each of the objects within the point cloud
 type PointCloudObject struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -790,6 +800,7 @@ func (x *PointCloudObject) GetGeometries() *GeometriesInFrame {
 	return nil
 }
 
+// Geocoordinates expressed as latitude and longitude
 type GeoPoint struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -845,6 +856,9 @@ func (x *GeoPoint) GetLongitude() float64 {
 	return 0
 }
 
+// Transform contains a pose and two reference frames. The first reference frame is the starting reference frame, and the second reference
+// frame is the observer reference frame. The second reference frame has a pose which represents the pose of an object in the first
+// reference frame as observed within the second reference frame.
 type Transform struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -852,8 +866,7 @@ type Transform struct {
 
 	// the name of a given reference frame
 	ReferenceFrame string `protobuf:"bytes,1,opt,name=reference_frame,json=referenceFrame,proto3" json:"reference_frame,omitempty"`
-	// the pose of the above reference frame with respect
-	// to a different observer reference frame
+	// the pose of the above reference frame with respect to a different observer reference frame
 	PoseInObserverFrame *PoseInFrame `protobuf:"bytes,2,opt,name=pose_in_observer_frame,json=poseInObserverFrame,proto3" json:"pose_in_observer_frame,omitempty"`
 }
 
@@ -903,14 +916,17 @@ func (x *Transform) GetPoseInObserverFrame() *PoseInFrame {
 	return nil
 }
 
+// Information about the physical environment around a given robot. ALl of the fields within this message as optional, they can include
+// information about the the physical dimensions of obstacles as well as any desired transforms between a given reference frame and a new
+// new target reference frame.
 type WorldState struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// a list of obstacles extressed as a geomtry and the reference frame in which it was observed
 	Obstacles []*GeometriesInFrame `protobuf:"bytes,1,rep,name=obstacles,proto3" json:"obstacles,omitempty"`
-	// a list of Transforms needed to transform a pose
-	// from one reference frame to another; this field is optional
+	// a list of Transforms needed to transform a pose from one reference frame to another; this field is optional
 	Transforms []*Transform `protobuf:"bytes,2,rep,name=transforms,proto3" json:"transforms,omitempty"`
 }
 

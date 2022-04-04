@@ -73,7 +73,7 @@ message RectangularPrism {
   double depth_mm = 3;
 }
 
-// Dimensions of a given geometry and the pose of its center 
+// Dimensions of a given geometry and the pose of its center. The geometry is one of either a sphere or a box.
 message Geometry {
   // Pose of a gemetries center point
   common.v1.Pose center = 1;
@@ -121,6 +121,7 @@ message Transform {
 // information about the the physical dimensions of obstacles as well as any desired transforms between a given reference frame and a new 
 // new target reference frame. 
 message WorldState {
+  // a list of obstacles extressed as a geomtry and the reference frame in which it was observed 
   repeated GeometriesInFrame obstacles = 1;
   // a list of Transforms needed to transform a pose from one reference frame to another; this field is optional
   repeated Transform transforms = 2;
