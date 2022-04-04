@@ -72,7 +72,7 @@
       v-if="$slots.icon"
       class=""
       :class="[
-        'w-4 h-4 inline-flex items-center',
+        '',
         {
           'opacity-0': props.loading,
           'mr-1': $slots.default && !props.iconRight,
