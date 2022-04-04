@@ -5,7 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -202,11 +201,11 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	encoded, err := protoutils.InterfaceToMap(i)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %w", i, err)
+		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
 	}
 	ret, err := structpb.NewStruct(encoded)
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct structpb.Struct from map %v: %w", encoded, err)
+		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
 	}
 	return ret, nil
 }
@@ -214,10 +213,10 @@ func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 // InvalidInterfaceErr is the error describing when an interface not conforming to the expected resource.Subtype was
 // passed into a CollectorConstructor.
 func InvalidInterfaceErr(typeName resource.SubtypeName) error {
-	return fmt.Errorf("passed interface does not conform to expected resource type %s", typeName)
+	return errors.Errorf("passed interface does not conform to expected resource type %s", typeName)
 }
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
 func FailedToReadErr(component string, method string, err error) error {
-	return fmt.Errorf("failed to get reading of method %s of component %s: %w", method, component, err)
+	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
 }
