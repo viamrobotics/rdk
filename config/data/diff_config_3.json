@@ -47,7 +47,7 @@
             "type": "board",
             "attributes":
             {
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "encoder2",
