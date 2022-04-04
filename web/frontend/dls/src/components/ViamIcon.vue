@@ -1,51 +1,69 @@
 <template>
   <svg
-    class="stroke-2 inline-block"
-    :class="{
-      'h-3 w-3': size === 'sm',
-      'h-4 w-4': size === 'base',
-      'h-5 w-5': size === 'lg',
-    }"
-    fill="none"
-    stroke="currentColor"
+    :width="`${iconSize()}`"
+    :height="`${iconSize()}`"
     viewBox="0 0 24 24"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    xmlns="http://www.w3.org/2000/svg"
+    :fill="color"
   >
-    <g v-html="icons[name]" />
+    <template v-if="title">
+      <title>{{ title }}</title>
+    </template>
+    <template v-if="description">
+      <description>{{ description }}</description>
+    </template>
+    <g :transform="rotation">
+      <path :d="path" />
+    </g>
   </svg>
 </template>
 
 <script>
 import Vue from "vue";
-import featherIcons from "feather-icons/dist/icons.json";
-const validator = {
-  size: ["sm", "base", "lg"],
-};
 
 export default Vue.extend({
-  validator,
+  computed: {
+    viewBox() {
+      return `0 0 ${this.iconSize()} ${this.iconSize()}`;
+    },
+    rotation() {
+      return `rotate(${this.rotate} 12 12)`;
+    },
+  },
+  methods: {
+    iconSize() {
+      if (this.isNumeric(this.size)) {
+        return `${this.size}px`;
+      }
+      return this.size;
+    },
+    isNumeric(value) {
+      return /^-{0,1}\d+$/.test(value);
+    },
+  },
   props: {
-    name: {
+    path: {
+      type: String,
       required: true,
-      type: String,
     },
+    title: String,
+    description: String,
     size: {
-      default: "base",
-      type: String,
-      validator: (value) => validator.size.includes(value),
+      type: [Number, String],
+      default: 24,
     },
-  },
-  data() {
-    return {
-      icons: featherIcons,
-    };
-  },
-  created() {
-    this.icons = { ...featherIcons };
-    if (!this.icons[this.name])
-      throw new Error(`${this.name} icon is not available.`);
+    horizontal: Boolean,
+    vertical: Boolean,
+    rotate: {
+      type: [Number, String],
+      default: 0,
+    },
+    color: {
+      type: String,
+    },
+    spin: {
+      type: Boolean || String,
+      default: false,
+    },
   },
 });
 </script>

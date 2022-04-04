@@ -91,13 +91,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from "vue-property-decorator";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 
-@Component({
-  components: {
-    FontAwesomeIcon,
-  },
-})
+@Component
 export default class ViamButton extends Vue {
   @Prop({ default: false })
   busy!: boolean;
