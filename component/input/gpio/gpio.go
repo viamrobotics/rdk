@@ -95,7 +95,7 @@ type AxisConfig struct {
 type ButtonConfig struct {
 	Control    input.Control `json:"control"`
 	Invert     bool          `json:"invert"`
-	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=1
+	DebounceMs int           `json:"debounce_ms"` // set to -1 to disable, default=5
 }
 
 // A Controller creates an input.Controller from DigitalInterrupts and AnalogReaders.
@@ -222,7 +222,7 @@ func (c *Controller) newButton(ctx context.Context, brd board.Board, intName str
 	interrupt.AddCallback(intChan)
 
 	if cfg.DebounceMs == 0 {
-		cfg.DebounceMs = 1
+		cfg.DebounceMs = 5
 	}
 
 	c.activeBackgroundWorkers.Add(1)

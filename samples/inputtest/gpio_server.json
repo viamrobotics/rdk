@@ -48,7 +48,8 @@
         "buttons": {
           "interrupt1": {
            "control": "ButtonNorth",
-           "invert": false
+           "invert": false,
+           "debounce_ms": 5
           },
           "interrupt2": {
             "control": "ButtonSouth",
