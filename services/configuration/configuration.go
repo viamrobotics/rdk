@@ -9,6 +9,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils/rpc"
 
+	"github.com/pion/mediadevices/pkg/driver"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
 	"go.viam.com/rdk/registry"
@@ -103,5 +104,11 @@ type configService struct {
 func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return []string{"foo"}, nil
+
+	var result []string
+	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
+	for _, d := range drivers {
+		result = append(result, d.Info().Label)
+	}
+	return result, nil
 }
