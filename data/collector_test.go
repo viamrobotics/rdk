@@ -25,7 +25,7 @@ type exampleReading struct {
 }
 
 func (r *exampleReading) toProto() *structpb.Struct {
-	msg, err := InterfaceToStruct(r)
+	msg, err := StructToStructPb(r)
 	if err != nil {
 		return nil
 	}
