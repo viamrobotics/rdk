@@ -131,6 +131,7 @@ func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
 	timeReceived := timestamppb.New(time.Now().UTC())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
+			c.logger.Infow("error while capturing data", "error", err)
 			return
 		}
 		c.logger.Errorw("error while capturing data", "error", err)
