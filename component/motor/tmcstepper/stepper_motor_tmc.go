@@ -40,7 +40,7 @@ const (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+			m, err := NewMotor(ctx, r, *config.ConvertedAttributes.(*TMC5072Config), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -121,7 +121,7 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
+func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.Logger) (*Motor, error) {
 	b, err := board.FromRobot(r, c.BoardName)
 	if err != nil {
 		return nil, err
