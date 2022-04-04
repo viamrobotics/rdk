@@ -28,7 +28,6 @@ import (
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -78,7 +77,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		return err
 	}
 	where.Z = SafeMoveHeight + float64(heightModMillis)
-	err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+	err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 	if err != nil {
 		return err
 	}
@@ -94,7 +93,7 @@ func moveTo(ctx context.Context, myArm arm.Arm, chess string, heightModMillis in
 		where.X = float64(f.x)
 		where.Y = float64(f.y)
 	}
-	return myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 }
 
 func movePiece(
@@ -141,7 +140,7 @@ func movePiece(
 		return err
 	}
 	where.Z = BoardHeight + height + 10
-	myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 
 	// grab piece
 	for {
@@ -167,7 +166,7 @@ func movePiece(
 		if where.Z <= BoardHeight {
 			return errors.New("no piece")
 		}
-		myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 	}
 
 	saveZ := where.Z // save the height to bring the piece down to
@@ -204,7 +203,7 @@ func movePiece(
 	}
 
 	where.Z = saveZ
-	myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+	myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 	myGripper.Open(ctx)
 
 	if to != "-" {
@@ -213,7 +212,7 @@ func movePiece(
 			return err
 		}
 		where.Z = SafeMoveHeight
-		myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+		myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 		moveOutOfWay(ctx, myArm)
 	}
 	return nil
@@ -230,7 +229,7 @@ func moveOutOfWay(ctx context.Context, myArm arm.Arm) error {
 	where.Y = float64(foo.y)
 	where.Z = SafeMoveHeight + 300 // HARD CODED
 
-	return myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+	return myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 }
 
 func moveJointDelta(ctx context.Context, myArm arm.Arm, joint int, degAngle float64) error {
@@ -253,7 +252,7 @@ func initArm(ctx context.Context, myArm arm.Arm) error {
 		OY:    0,
 		OZ:    0,
 	}
-	err := myArm.MoveToPosition(ctx, target, []*referenceframe.GeometriesInFrame{})
+	err := myArm.MoveToPosition(ctx, target, &commonpb.WorldState{})
 	if err != nil {
 		return err
 	}
@@ -360,7 +359,7 @@ func lookForBoardAdjust(
 
 		where.X += xMove * 1000
 		where.Y += yMove * 1000
-		err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}
@@ -394,7 +393,7 @@ func lookForBoard(ctx context.Context, myArm arm.Arm, myRobot robot.Robot) error
 		where.OX = -2.600206
 		where.OY = -0.007839
 		where.OZ = -0.061827
-		err = myArm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+		err = myArm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}
@@ -483,7 +482,7 @@ func adjustArmInsideSquare(ctx context.Context, robot robot.Robot) error {
 
 		rlog.Logger.Infof("\t moving to %v,%v\n", where.X, where.Y)
 
-		err = arm.MoveToPosition(ctx, where, []*referenceframe.GeometriesInFrame{})
+		err = arm.MoveToPosition(ctx, where, &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}

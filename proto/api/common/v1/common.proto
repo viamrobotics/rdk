@@ -94,6 +94,17 @@ message GeoPoint {
   double longitude = 2;
 }
 
+message Transform {
+  // the name of a given reference frame
+  string reference_frame = 1;
+  // the pose of the above reference frame with respect
+  // to a different observer reference frame
+  PoseInFrame pose_in_observer_frame = 2;
+}
+
 message WorldState {
   repeated GeometriesInFrame obstacles = 1;
+  // a list of Transforms needed to transform a pose
+  // from one reference frame to another; this field is optional
+  repeated Transform transforms = 2;
 }

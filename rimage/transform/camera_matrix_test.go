@@ -50,7 +50,7 @@ func TestPC1(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	defer file.Close()
 
-	pc.ToPCD(file, pointcloud.PCDAscii)
+	pointcloud.ToPCD(pc, file, pointcloud.PCDAscii)
 }
 
 func TestPC2(t *testing.T) {
@@ -66,7 +66,7 @@ func TestPC2(t *testing.T) {
 	pc, err := DepthMapToPointCloud(iwd.Depth, pixel2meter, colorIntrinsics, rimage.Depth(0), rimage.Depth(math.MaxUint16))
 	test.That(t, err, test.ShouldBeNil)
 
-	err = pc.WriteToFile(outDir + "/board2.las")
+	err = pointcloud.WriteToLASFile(pc, outDir+"/board2.las")
 	test.That(t, err, test.ShouldBeNil)
 }
 

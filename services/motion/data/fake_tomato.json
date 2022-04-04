@@ -4,7 +4,7 @@
             "type": "frame_system"
         },
         {
-            "type": "object_manipulation"
+            "type": "motion"
         }
 
     ],

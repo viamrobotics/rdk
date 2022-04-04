@@ -3,6 +3,7 @@ import Vue from "vue";
 import "./index.css";
 
 import InputController from '../src/components/InputController';
+import ViamBadge from '../src/components/Badge';
 import ViamButton from '../src/components/Button';
 import ViamIcon from '../src/components/ViamIcon';
 
@@ -14,6 +15,7 @@ library.add(faCheckSquare)
 
 Vue.component('font-awesome-icon', FontAwesomeIcon);
 Vue.component('InputController', InputController);
+Vue.component('ViamBadge', ViamBadge);
 Vue.component('ViamButton', ViamButton);
 Vue.component('ViamIcon', ViamIcon);
 

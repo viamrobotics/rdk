@@ -24,4 +24,7 @@ const (
 
 	// MimeTypePCD is for .pcd pountcloud files.
 	MimeTypePCD = "pointcloud/pcd"
+
+	// MimeTypeQOI is for .qoi "Quite OK Image" for lossless, fast encoding/decoding.
+	MimeTypeQOI = "image/qoi"
 )

@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"runtime/pprof"
-	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
@@ -374,14 +374,8 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		for idx, remote := range out.Remotes {
 			remoteCopy := remote
 			if in.Cloud == nil {
-				// TODO(GOUT-4):
-				// remove hard coding of signaling server address and
-				// prefer SRV lookup instead.
-				switch {
-				case strings.HasSuffix(remote.Address, ".viam.cloud"):
-					remoteCopy.Auth.SignalingServerAddress = "app.viam.com:443"
-				case strings.HasSuffix(remote.Address, ".robot.viaminternal"):
-					remoteCopy.Auth.SignalingServerAddress = "app.viaminternal:8089"
+				if signalingServerAddress, _, ok := grpc.InferSignalingServerAddress(remote.Address); ok {
+					remoteCopy.Auth.SignalingServerAddress = signalingServerAddress
 				}
 				remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
 			} else {
