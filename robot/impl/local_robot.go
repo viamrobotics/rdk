@@ -119,14 +119,17 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	if err != nil {
 		return nil, err
 	}
-	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("base frame system %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
-	// get frame system for each of its remote parts and merge to base
+	// get frame parts for each of its remotes
 	for remoteName, remote := range r.manager.remotes {
-		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
+		remoteService, err := framesystem.FromRobot(remote)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		if remoteService == nil {
+			logger.Infof("remote %s has no frame system service", remoteName)
+			continue
+		}
+		remoteParts, err := remoteService.Config(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
@@ -134,11 +137,39 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
-		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
-		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		if rConf.Frame == nil {
+			logger.Infof("remote %s has no frame config info", remoteName)
+			continue
 		}
+		// build the frame system part that connects remote world to base world
+		connectionName := remoteName + "_" + referenceframe.World
+		connection := &config.FrameSystemPart{
+			Name:        connectionName,
+			FrameConfig: rConf.Frame,
+		}
+		logger.Infof("remote %s has frame %s with parent %s", remoteName, connection.Name, connection.FrameConfig.Parent)
+		parts = append(parts, connection)
+		for _, p := range remoteParts {
+			if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
+				p.FrameConfig.Parent = connectionName
+			}
+		}
+		for _, p := range remoteParts {
+			if rConf.Prefix == true { // rename each non-world part with prefix
+				p.Name = remoteName + p.Name
+				if p.FrameConfig.Parent != connectionName {
+					p.FrameConfig.Parent = remoteName + p.FrameConfig.Parent
+				}
+			}
+			parts = append(parts, p)
+		}
+		for _, p := range remoteParts {
+			logger.Infof("remote %s has frame %s with parent %s", remoteName, p.Name, p.FrameConfig.Parent)
+		}
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
+	if err != nil {
+		return nil, err
 	}
 	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	return baseFrameSys, nil
