@@ -10,12 +10,12 @@ import (
 
 // subtypeServer implements the contract from configuration.proto.
 type subtypeServer struct {
-	pb.UnimplementedNavigationServiceServer
+	pb.UnimplementedConfigurationServiceServer
 	subtypeSvc subtype.Service
 }
 
 // NewServer constructs a framesystem gRPC service server.
-func NewServer(s subtype.Service) pb.NavigationServiceServer {
+func NewServer(s subtype.Service) pb.ConfigurationServiceServer {
 	return &subtypeServer{subtypeSvc: s}
 }
 
@@ -31,16 +31,16 @@ func (server *subtypeServer) service() (Service, error) {
 	return svc, nil
 }
 
-func (server *subtypeServer) DiscoverCameras(ctx context.Context, req *pb.DiscoverCamerasRequest) (
-	*pb.DiscoverCamerasResponse, error,
+func (server *subtypeServer) GetCameras(ctx context.Context, req *pb.GetCamerasRequest) (
+	*pb.GetCamerasResponse, error,
 ) {
 	svc, err := server.service()
 	if err != nil {
 		return nil, err
 	}
-	cameras, err := svc.DiscoverCameras(ctx)
+	cameras, err := svc.GetCameras(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetModeResponse{DiscoverCameras: cameras}, nil
+	return &pb.GetCamerasResponse{Cameras: cameras}, nil
 }

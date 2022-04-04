@@ -45,10 +45,10 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) DiscoverCameras(ctx context.Context) ([]string, error) {
-	resp, err := c.client.DiscoverCameras(ctx, &pb.GetDiscoverCamerasRequest{})
+func (c *client) GetCameras(ctx context.Context) ([]string, error) {
+	resp, err := c.client.GetCameras(ctx, &pb.GetCamerasRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp, nil
+	return resp.GetCameras(), nil
 }

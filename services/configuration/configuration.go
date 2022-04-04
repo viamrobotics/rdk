@@ -10,7 +10,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
-	servicepb "go.viam.com/rdk/proto/api/service/navigation/v1"
+	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -22,9 +22,9 @@ func init() {
 		RegisterRPCService: func(ctx context.Context, rpcServer rpc.Server, subtypeSvc subtype.Service) error {
 			return rpcServer.RegisterServiceServer(
 				ctx,
-				&servicepb.NavigationService_ServiceDesc,
+				&servicepb.ConfigurationService_ServiceDesc,
 				NewServer(subtypeSvc),
-				servicepb.RegisterNavigationServiceHandlerFromEndpoint,
+				servicepb.RegisterConfigurationServiceHandlerFromEndpoint,
 			)
 		},
 		RPCClient: func(ctx context.Context, conn rpc.ClientConn, name string, logger golog.Logger) interface{} {
@@ -53,7 +53,7 @@ func init() {
 
 // A Service controls the configuration for a robot.
 type Service interface {
-	DiscoverCameras(ctx context.Context) ([]string, error)
+	GetCameras(ctx context.Context) ([]string, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -66,7 +66,7 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// Name is the NavigationService's typed resource name.
+// Name is the ConfigurationService's typed resource name.
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
@@ -100,7 +100,7 @@ type configService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *configService) DiscoverCameras(ctx context.Context) ([]string, error) {
+func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return []string{"foo"}, nil
