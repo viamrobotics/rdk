@@ -3,6 +3,7 @@ package inject
 import (
 	"context"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -16,7 +17,7 @@ type MotionService struct {
 		ctx context.Context,
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
-		obstacles []*referenceframe.GeometriesInFrame,
+		worldState *commonpb.WorldState,
 	) (bool, error)
 	GetPoseFunc func(
 		ctx context.Context,
@@ -30,12 +31,12 @@ func (mgs *MotionService) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *commonpb.WorldState,
 ) (bool, error) {
 	if mgs.MoveFunc == nil {
-		return mgs.Service.Move(ctx, componentName, grabPose, obstacles)
+		return mgs.Service.Move(ctx, componentName, grabPose, worldState)
 	}
-	return mgs.MoveFunc(ctx, componentName, grabPose, obstacles)
+	return mgs.MoveFunc(ctx, componentName, grabPose, worldState)
 }
 
 // GetPose calls the injected GetPose or the real variant.

@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -48,7 +49,7 @@ func (g *Gantry) GetLengths(ctx context.Context) ([]float64, error) {
 }
 
 // MoveToPosition is in meters.
-func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+func (g *Gantry) MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error {
 	g.positionsMm = positionsMm
 	return nil
 }
@@ -75,5 +76,5 @@ func (g *Gantry) CurrentInputs(ctx context.Context) ([]referenceframe.Input, err
 
 // GoToInputs moves using the Gantry frames..
 func (g *Gantry) GoToInputs(ctx context.Context, goal []referenceframe.Input) error {
-	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), []*referenceframe.GeometriesInFrame{})
+	return g.MoveToPosition(ctx, referenceframe.InputsToFloats(goal), &commonpb.WorldState{})
 }
