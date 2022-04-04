@@ -1,0 +1,23 @@
+syntax = "proto3";
+option go_package = "go.viam.com/rdk/proto/api/service/configuration/v1";
+option java_package = "com.viam.rdk.proto.api.service.configuration.v1";
+
+package proto.api.service.configuration.v1;
+
+import "google/api/annotations.proto";
+import "proto/api/common/v1/common.proto";
+
+// A ConfigurationService declares the gRPC contract for a Configuration service
+service ConfigurationService {
+  rpc DiscoverCameras(DiscoverCamerasRequest) returns (DiscoverCamerasResponse) {
+    option (google.api.http) = {
+      get: "/viam/api/v1/service/configuration/discover_cameras"
+    };
+  }
+}
+
+message DiscoverCamerasRequest {}
+
+message DiscoverCamerasResponse {
+  repeated string discover_cameras = 1;
+}
