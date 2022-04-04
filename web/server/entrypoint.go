@@ -326,8 +326,8 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 	}
 	ctx = service.ContextWithService(ctx, metadataSvc)
 
-	tlsCfg := robotutils.NewTLSConfig(cfg)
 	processConfig := func(in *config.Config) (*config.Config, error) {
+		tlsCfg := robotutils.NewTLSConfig(cfg)
 		out, err := robotutils.ProcessConfig(in, tlsCfg)
 		if err != nil {
 			return nil, err

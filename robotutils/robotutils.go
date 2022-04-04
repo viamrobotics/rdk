@@ -21,7 +21,7 @@ import (
 // TLSConfig stores the TLS config for the robot.
 type TLSConfig struct {
 	*tls.Config
-	certMu  *sync.Mutex
+	certMu  sync.Mutex
 	tlsCert *tls.Certificate
 }
 
