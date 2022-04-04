@@ -137,30 +137,11 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		if rConf.Frame == nil { // skip over remote if it has no frame info
-			logger.Infof("remote %s has no frame config info", remoteName)
+			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
-		// build the frame system part that connects remote world to base world
-		connectionName := remoteName + "_" + referenceframe.World
-		connection := &config.FrameSystemPart{
-			Name:        connectionName,
-			FrameConfig: rConf.Frame,
-		}
-		parts = append(parts, connection)
-		for _, p := range remoteParts {
-			if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
-				p.FrameConfig.Parent = connectionName
-			}
-		}
-		for _, p := range remoteParts {
-			if rConf.Prefix { // rename each non-world part with prefix
-				p.Name = remoteName + "." + p.Name
-				if p.FrameConfig.Parent != connectionName {
-					p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
-				}
-			}
-			parts = append(parts, p)
-		}
+		remoteParts = renameRemoteParts(remoteParts, rConf)
+		parts = append(parts, remoteParts...)
 	}
 	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
 	if err != nil {
@@ -168,6 +149,28 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	}
 	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	return baseFrameSys, nil
+}
+
+func renameRemoteParts(remoteParts []*config.FrameSystemPart, remoteConf *config.Remote) []*config.FrameSystemPart {
+	connectionName := remoteConf.Name + "_" + referenceframe.World
+	for _, p := range remoteParts {
+		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
+			p.FrameConfig.Parent = connectionName
+		}
+		if remoteConf.Prefix { // rename each non-world part with prefix
+			p.Name = remoteConf.Name + "." + p.Name
+			if p.FrameConfig.Parent != connectionName {
+				p.FrameConfig.Parent = remoteConf.Name + "." + p.FrameConfig.Parent
+			}
+		}
+	}
+	// build the frame system part that connects remote world to base world
+	connection := &config.FrameSystemPart{
+		Name:        connectionName,
+		FrameConfig: remoteConf.Frame,
+	}
+	remoteParts = append(remoteParts, connection)
+	return remoteParts
 }
 
 // Logger returns the logger the robot is using.
