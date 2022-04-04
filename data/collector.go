@@ -137,7 +137,7 @@ func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
 		c.logger.Errorw("error while capturing data", "error", err)
 		return
 	}
-	pbReading, err := InterfaceToStruct(reading)
+	pbReading, err := StructToStructPb(reading)
 	if err != nil {
 		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 		return
@@ -197,9 +197,9 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 	return nil
 }
 
-// InterfaceToStruct converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
+// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
 // returned proto.
-func InterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	encoded, err := protoutils.InterfaceToMap(i)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %w", i, err)
