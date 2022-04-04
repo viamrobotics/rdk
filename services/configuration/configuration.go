@@ -59,7 +59,7 @@ type Service interface {
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("configuration")
 
-// Subtype is a constant that identifies the navigation service resource subtype.
+// Subtype is a constant that identifies the configuration service resource subtype.
 var Subtype = resource.NewSubtype(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeService,
