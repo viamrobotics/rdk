@@ -78,7 +78,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	// These are the setup register writes
 	go checkTx(t, c, [][]byte{
 		{236, 0, 1, 0, 195},
-		{176, 0, 8, 15, 10},
+		{176, 0, 6, 15, 8},
 		{237, 0, 0, 0, 0},
 		{164, 0, 0, 21, 8},
 		{166, 0, 0, 21, 8},
