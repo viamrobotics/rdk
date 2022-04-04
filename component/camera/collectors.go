@@ -28,6 +28,8 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// TODO: add tests for this file.
+
 // PointCloudWrapper wraps the returned pointcloud.PointCloud in a struct that can be converted to structpb.Struct.
 // It is stored as a string rather than a []byte because structpb.NewStruct does not support passing in fields
 // containing []byte converted to []interface{} (which our generic Go struct -> map converted does).
