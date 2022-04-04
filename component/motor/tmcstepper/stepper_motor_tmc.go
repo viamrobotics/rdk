@@ -164,7 +164,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 
 	err = multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
-		m.writeReg(ctx, iHoldIRun, 0x00081F0A), // IHOLD=10 (quarter current), IRUN=31 (max current), IHOLDDELAY=8
+		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
 		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)
 
 		// Set max acceleration and decceleration
