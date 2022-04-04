@@ -81,11 +81,12 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	// ensure that there are no disconnected frames
+	// If there are disconnected frames, inform the user.
+	// Frames not seen may be in remote robots.
 	if len(sortedFrameNames) != len(seen) {
-		return nil, errors.Errorf(
-			"the frame system is not fully connected, expected %d frames but frame system has %d."+
-				" Expected frames are: %v. Actual frames are: %v",
+		logger.Debugf(
+			"found %d frames from config, but robot has %d local frames."+
+				" Local frames are: %v. frames from config are: %v. Expected frames may be in remote robots",
 			len(seen),
 			len(sortedFrameNames),
 			mapKeys(seen),
@@ -103,7 +104,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		sortedFrameNames: sortedFrameNames,
 		logger:           logger,
 	}
-	logger.Debugf("frame system for robot: %v", sortedFrameNames)
+	logger.Debugf("frame system parts in robot: %v", sortedFrameNames)
 	return fsSvc, nil
 }
 
