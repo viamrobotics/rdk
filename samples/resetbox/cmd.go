@@ -21,9 +21,7 @@ import (
 	"go.viam.com/rdk/config"
 	componentpb "go.viam.com/rdk/proto/api/component/arm/v1"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
-	webserver "go.viam.com/rdk/web/server"
+	"go.viam.com/rdk/robotutils"
 )
 
 const (
@@ -285,7 +283,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotutils.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -327,7 +325,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("DropC1", box.doDropC1)
 	action.RegisterAction("DropC2", box.doDropC2)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	return robotutils.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }
 
 func (b *ResetBox) move1(ctx context.Context, r robot.Robot) {

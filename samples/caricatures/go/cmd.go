@@ -13,9 +13,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/services/web"
-	webserver "go.viam.com/rdk/web/server"
+	"go.viam.com/rdk/robotutils"
 )
 
 const (
@@ -75,12 +73,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotutils.RobotFromConfig(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}
 		defer myRobot.Close(ctx)
-		return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+		return robotutils.RunWebWithConfig(ctx, myRobot, cfg, logger)
 	}
 	return nil
 }
