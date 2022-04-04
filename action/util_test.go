@@ -43,6 +43,7 @@ func (ddd MyDebug) Process(
 }
 
 func TestAutoDrive1(t *testing.T) {
+	t.Skip()
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/autodrive", "*.png", false)
 	err := d.Process(t, MyDebug{})
 	test.That(t, err, test.ShouldBeNil)
@@ -75,6 +76,7 @@ func (cd ChargeDebug) Process(
 }
 
 func TestCharge1(t *testing.T) {
+	t.Skip()
 	d := rimage.NewMultipleImageTestDebugger(t, "minirover2/charging2", "*.both.gz", false)
 	err := d.Process(t, ChargeDebug{})
 	test.That(t, err, test.ShouldBeNil)

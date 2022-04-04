@@ -104,7 +104,7 @@ func segmentsToProto(frame string, segs []*vision.Object) ([]*commonpb.PointClou
 	protoSegs := make([]*commonpb.PointCloudObject, 0, len(segs))
 	for _, seg := range segs {
 		var buf bytes.Buffer
-		err := seg.ToPCD(&buf, pointcloud.PCDBinary)
+		err := pointcloud.ToPCD(seg, &buf, pointcloud.PCDBinary)
 		if err != nil {
 			return nil, err
 		}
