@@ -28,8 +28,8 @@ type TMC5072Config struct {
 	Index       int     `json:"index"`
 	SGThresh    int32   `json:"sg_thresh"`
 	CalFactor   float64 `json:"cal_factor"`
-	RunCurrent  int32   `json:"run_current"`  // 1-32 as a percentage of rsense voltage, 32 default
-	HoldCurrent int32   `json:"hold_current"` // 1-32 as a percentage of rsense voltage, 16 default
+	RunCurrent  int32   `json:"run_current"`  // 1-32 as a percentage of rsense voltage, 15 default
+	HoldCurrent int32   `json:"hold_current"` // 1-32 as a percentage of rsense voltage, 8 default
 	HoldDelay   int32   `json:"hold_delay"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
@@ -178,7 +178,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	}
 
 	if c.HoldCurrent == 0 {
-		c.HoldCurrent = 15 // Default
+		c.HoldCurrent = 8 // Default
 	} else {
 		c.HoldCurrent--
 	}
