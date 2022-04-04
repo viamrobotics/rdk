@@ -206,7 +206,7 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 
 	coolConfig := c.SGThresh << 16
 
-	iCfg := c.HoldDelay<<16 | c.RunCurrent<<8 | c.HoldCurrent // IHOLDDELAY=8, IRUN=31 (max current), IHOLD=10 (quarter current)
+	iCfg := c.HoldDelay<<16 | c.RunCurrent<<8 | c.HoldCurrent
 
 	err = multierr.Combine(
 		m.writeReg(ctx, chopConf, 0x000100C3), // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
