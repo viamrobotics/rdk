@@ -24,7 +24,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from "vue-property-decorator"
+import { Component, Prop, Vue } from "vue-property-decorator";
 import { Status } from "proto/api/component/inputcontroller/v1/input_controller_pb";
 
 @Component
