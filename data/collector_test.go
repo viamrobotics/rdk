@@ -10,14 +10,11 @@ import (
 	"time"
 
 	"github.com/edaniels/golog"
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"go.viam.com/test"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
-
-	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 )
 
 type exampleReading struct {
@@ -68,7 +65,7 @@ func TestSuccessfulWrite(t *testing.T) {
 	// Give 20ms of leeway so slight changes in execution ordering don't impact the test.
 	// floor(70/25) = 2
 	for i := 0; i < 2; i++ {
-		read, err := readNextSensorData(target1)
+		read, err := ReadNextSensorData(target1)
 		if err != nil {
 			t.Fatalf("failed to read SensorData from file: %v", err)
 		}
@@ -76,7 +73,7 @@ func TestSuccessfulWrite(t *testing.T) {
 	}
 
 	// Next reading should fail; there should only be two readings.
-	_, err := readNextSensorData(target1)
+	_, err := ReadNextSensorData(target1)
 	test.That(t, err, test.ShouldEqual, io.EOF)
 }
 
@@ -185,12 +182,4 @@ func getFileSize(f *os.File) int64 {
 		return 0
 	}
 	return fileInfo.Size()
-}
-
-func readNextSensorData(f *os.File) (*v1.SensorData, error) {
-	r := &v1.SensorData{}
-	if _, err := pbutil.ReadDelimited(f, r); err != nil {
-		return nil, err
-	}
-	return r, nil
 }
