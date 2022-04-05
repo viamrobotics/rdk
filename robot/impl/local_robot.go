@@ -126,7 +126,8 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	for remoteName, remote := range r.manager.remotes {
 		remoteService, err := framesystem.FromRobot(remote)
 		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
+			logger.Debugw("remote has frame system error , skipping", "remote", remoteName, "error", err)
+			continue
 		}
 		remoteParts, err := remoteService.Config(ctx)
 		if err != nil {
