@@ -100,3 +100,24 @@ func (s *subtypeServer) ReadAcceleration(
 		},
 	}, nil
 }
+
+func (s *subtypeServer) ReadMagnetometer(
+	ctx context.Context,
+	req *pb.ReadMagnetometerRequest,
+) (*pb.ReadMagnetometerResponse, error) {
+	imuDevice, err := s.getIMU(req.Name)
+	if err != nil {
+		return nil, err
+	}
+	mag, err := imuDevice.ReadMagnetometer(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.ReadMagnetometerResponse{
+		Magnetometer: &pb.Magnetometer{
+			XGauss: mag.X,
+			YGauss: mag.Y,
+			ZGauss: mag.Z,
+		},
+	}, nil
+}
