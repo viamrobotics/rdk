@@ -52,15 +52,13 @@ func NewTLSConfig(cfg *config.Config) *TLSConfig {
 
 // UpdateCert updates the TLS certificate to be returned.
 func (t *TLSConfig) UpdateCert(cfg *config.Config) error {
-	if cfg.Cloud.TLSCertificate != "" {
-		cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
-		if err != nil {
-			return err
-		}
-		t.certMu.Lock()
-		t.tlsCert = &cert
-		t.certMu.Unlock()
+	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
+	if err != nil {
+		return err
 	}
+	t.certMu.Lock()
+	t.tlsCert = &cert
+	t.certMu.Unlock()
 	return nil
 }
 
@@ -69,8 +67,10 @@ func ProcessConfig(in *config.Config, tlsCfg *TLSConfig) (*config.Config, error)
 	out := *in
 	var selfCreds *rpc.Credentials
 	if in.Cloud != nil {
-		if err := tlsCfg.UpdateCert(in); err != nil {
-			return nil, err
+		if in.Cloud.TLSCertificate != "" {
+			if err := tlsCfg.UpdateCert(in); err != nil {
+				return nil, err
+			}
 		}
 
 		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
