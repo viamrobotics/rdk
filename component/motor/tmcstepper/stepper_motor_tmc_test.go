@@ -568,7 +568,6 @@ func TestTMCStepperMotor(t *testing.T) {
 		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
 
-	
 	t.Run("test under-limit current settings", func(*testing.T) {
 		mc.HoldDelay = -9999
 		mc.RunCurrent = -9999
