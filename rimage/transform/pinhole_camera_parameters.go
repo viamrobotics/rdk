@@ -61,7 +61,7 @@ type Extrinsics struct {
 type DepthColorIntrinsicsExtrinsics struct {
 	ColorCamera  PinholeCameraIntrinsics `json:"color"`
 	DepthCamera  PinholeCameraIntrinsics `json:"depth"`
-	ExtrinsicD2C Extrinsics              `json:"extrinsicsDepthToColor"`
+	ExtrinsicD2C Extrinsics              `json:"extrinsics_depth_to_color"`
 }
 
 // CheckValid checks if the fields for PinholeCameraIntrinsics have valid inputs.

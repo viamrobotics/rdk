@@ -13,11 +13,11 @@
         "board": "local",
         "pins": {
           "dir": "1",
-          "enHigh": "2",
+          "en_high": "2",
           "step": "3"
         },
-        "stepperDelay": 50,
-        "ticksPerRotation": 200
+        "stepper_delay": 50,
+        "ticks_per_rotation": 200
       }
     },
     {
@@ -28,11 +28,11 @@
         "board": "local",
         "pins": {
           "dir": "4",
-          "enHigh": "5",
+          "en_high": "5",
           "step": "6"
         },
-        "stepperDelay": 50,
-        "ticksPerRotation": 200
+        "stepper_delay": 50,
+        "ticks_per_rotation": 200
       }
     },
     {
@@ -43,11 +43,11 @@
         "board": "local",
         "pins": {
           "dir": "7",
-          "enHigh": "8",
+          "en_high": "8",
           "step": "9"
         },
-        "stepperDelay": 50,
-        "ticksPerRotation": 200
+        "stepper_delay": 50,
+        "ticks_per_rotation": 200
       }
     },
     {

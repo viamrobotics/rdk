@@ -3,7 +3,6 @@ package framesystem
 import (
 	"context"
 	"fmt"
-	"strings"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -81,11 +80,12 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 	if err != nil {
 		return nil, err
 	}
-	// ensure that there are no disconnected frames
+	// If there are disconnected frames, inform the user.
+	// Frames not seen may be in remote robots.
 	if len(sortedFrameNames) != len(seen) {
-		return nil, errors.Errorf(
-			"the frame system is not fully connected, expected %d frames but frame system has %d."+
-				" Expected frames are: %v. Actual frames are: %v",
+		logger.Debugf(
+			"found %d frames from config, but robot has %d local frames."+
+				" Local frames are: %v. frames from config are: %v. Expected frames may be in remote robots",
 			len(seen),
 			len(sortedFrameNames),
 			mapKeys(seen),
@@ -103,7 +103,7 @@ func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Lo
 		sortedFrameNames: sortedFrameNames,
 		logger:           logger,
 	}
-	logger.Debugf("frame system for robot: %v", sortedFrameNames)
+	logger.Debugf("frame system parts in robot: %v", sortedFrameNames)
 	return fsSvc, nil
 }
 
@@ -128,25 +128,17 @@ type frameSystemService struct {
 	logger           golog.Logger
 }
 
-// Config returns a directed acyclic graph of the structure of the frame system
-// The output of this function is to be sent over GRPC to the client, so the client can build the frame system.
-// the slice should be returned topologically sorted, starting with the frames that are connected to the world node, and going up.
+// Config returns the info of each individual part that makes up the frame system
+// The output of this function is to be sent over GRPC to the client, so the client
+// can build the frame system. The parts are not guaranteed to be returned topologically sorted.
 func (svc *frameSystemService) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	sortedFrameNames := svc.sortedFrameNames[1:] // skip the world frame at the beginning
-	fsConfig := []*config.FrameSystemPart{}
-	for _, name := range sortedFrameNames { // the list is topologically sorted already
-		if strings.Contains(name, "_offset") { // skip offset frames, they will created again from the part config
-			continue
-		}
-		if part, ok := svc.fsParts[name]; ok {
-			fsConfig = append(fsConfig, part)
-		} else {
-			return nil, errors.Errorf("part %q not found in map of robot parts in the frame system service", name)
-		}
+	parts := make([]*config.FrameSystemPart, 0, len(svc.fsParts))
+	for _, part := range svc.fsParts {
+		parts = append(parts, part)
 	}
-	return fsConfig, nil
+	return parts, nil
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
