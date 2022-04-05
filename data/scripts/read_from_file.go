@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
@@ -46,7 +47,7 @@ func writeDummyData(ctx context.Context, filename string) {
 	}
 }
 
-func printStats(ctx context.Context, filename string, debugMode bool, marginOfError float64, frequencyHz int) {
+func printStats(ctx context.Context, filename string, debugMode bool, marginOfError float64, frequencyHz int, printExampleMessage bool) {
 	if filename == "" {
 		fmt.Print("Set -file flag\n")
 		return
@@ -62,7 +63,6 @@ func printStats(ctx context.Context, filename string, debugMode bool, marginOfEr
 		return
 	}
 	ticker := time.NewTicker(10 * time.Second)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -71,6 +71,16 @@ func printStats(ctx context.Context, filename string, debugMode bool, marginOfEr
 			total := 0
 			subintCount := 1
 			first, _ := utils.ReadNextSensorData(file)
+			if printExampleMessage {
+				data := first.GetData()
+				if pc, ok := data.GetFields()["PointCloud"]; ok {
+					data_str := pc.GetStringValue()
+					data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
+					fmt.Println(data_bytes)
+				} else {
+					fmt.Println(data)
+				}
+			}
 			firstTimestamp := first.GetMetadata().GetTimeReceived().AsTime()
 			next := firstTimestamp
 			subIntervalStart := firstTimestamp
@@ -107,6 +117,7 @@ func printStats(ctx context.Context, filename string, debugMode bool, marginOfEr
 func main() {
 	fileFlag := flag.String("file", "", "file with data")
 	debugMode := flag.Bool("debugMode", false, "debug mode")
+	printExampleMessage := flag.Bool("printExample", false, "print example message")
 	marginOfError := flag.Float64("marginOfError", 0.3, "margin of error when in debug mode")
 	frequencyHz := flag.Int("frequencyHz", -1, "frequency in hz used when in debug mode")
 
@@ -117,7 +128,7 @@ func main() {
 
 	fmt.Println("Getting file stats. Press ^C to stop.")
 	//go writeDummyData(c1, *fileFlag)
-	printStats(c1, *fileFlag, *debugMode, *marginOfError, *frequencyHz)
+	printStats(c1, *fileFlag, *debugMode, *marginOfError, *frequencyHz, *printExampleMessage)
 
 	go func(ctx context.Context) {
 		for {
