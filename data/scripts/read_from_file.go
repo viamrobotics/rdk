@@ -116,7 +116,7 @@ func main() {
 	exitCh := make(chan struct{})
 
 	fmt.Println("Getting file stats. Press ^C to stop.")
-	go writeDummyData(c1, *fileFlag)
+	//go writeDummyData(c1, *fileFlag)
 	printStats(c1, *fileFlag, *debugMode, *marginOfError, *frequencyHz)
 
 	go func(ctx context.Context) {
