@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	utils "go.viam.com/rdk/data"
 )
 
-func printStats(filename string, debugMode bool, marginOfError float64, frequencyHz float64) {
+func printStats(filename string, debugMode bool, marginOfError float64, frequencyHz float64, printExampleMessage bool) {
 	if filename == "" {
 		fmt.Print("Set -file flag\n")
 		return
@@ -32,6 +33,16 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 	}
 
 	first, _ := utils.ReadNextSensorData(file)
+
+	if printExampleMessage {
+		data := first.GetData()
+		if pc, ok := data.GetFields()["PointCloud"]; ok {
+			data_str := pc.GetStringValue()
+			data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
+			fmt.Println(data_bytes)
+		}
+	}
+
 	firstTimestamp := first.GetMetadata().GetTimeReceived().AsTime()
 	next := firstTimestamp
 	subIntervalStart := firstTimestamp
@@ -67,6 +78,7 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 func main() {
 	fileFlag := flag.String("file", "", "file with data")
 	debugMode := flag.Bool("debugMode", false, "debug mode")
+	printExampleMessage := flag.Bool("printExample", false, "print example message")
 	marginOfError := flag.Float64("marginOfError", 0.3, "margin of error when in debug mode")
 	frequencyHz := flag.Int("frequencyHz", -1, "frequency in hz used when in debug mode")
 
@@ -77,7 +89,7 @@ func main() {
 	ticker := time.NewTicker(10 * time.Second)
 
 	fmt.Println("Getting file stats. Press ^C to stop.")
-	printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
+	printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz), *printExampleMessage)
 
 	go func(ctx context.Context) {
 		for {
@@ -86,7 +98,7 @@ func main() {
 				exitCh <- struct{}{}
 				return
 			case <-ticker.C:
-				printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
+				printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz), *printExampleMessage)
 			}
 		}
 	}(c1)
