@@ -46,9 +46,8 @@ func NewTLSConfig(cfg *config.Config) *TLSConfig {
 			},
 		}
 	}
-	return &TLSConfig{
-		Config: tlsConfig,
-	}
+	tlsCfg.Config = tlsConfig
+	return tlsCfg
 }
 
 // UpdateCert updates the TLS certificate to be returned.
