@@ -17,18 +17,21 @@ import (
 )
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
-// usually acquired by calling Config on a frame system service.
+// usually acquired by calling Config on a frame system service, or gatherFrameSystemParts.
 func NewFrameSystemFromParts(
 	name, prefix string, parts []*config.FrameSystemPart,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
 	// Topologically sort parts first
-	parts, err := TopologicallySortParts(parts)
+	sortedParts, err := TopologicallySortParts(parts)
 	if err != nil {
 		return nil, err
 	}
+	if len(sortedParts) != len(parts) {
+		return nil, errors.Errorf("frame system has disconnected frames. parts connected to world: %v, all parts: %v", partNames(topoSortedParts), partNames(parts))
+	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
-	for _, part := range parts {
+	for _, part := range sortedParts {
 		// rename everything with prefixes
 		part.Name = prefix + part.Name
 		// prefixing for the world frame is only necessary in the case
@@ -190,6 +193,39 @@ func topologicallySortFrameNames(children map[string][]referenceframe.Frame) ([]
 	return topoSortedNames, nil
 }
 
+// getRemoteConfig gets the parameters for the Remote.
+func getRemoteConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
+	for _, rConf := range conf.Remotes {
+		if rConf.Name == remoteName {
+			return &rConf, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
+}
+
+// renameRemoteParts applies prefixes to frame information if necessary
+func renameRemoteParts(remoteParts []*config.FrameSystemPart, remoteConf *config.Remote) []*config.FrameSystemPart {
+	connectionName := remoteConf.Name + "_" + referenceframe.World
+	for _, p := range remoteParts {
+		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
+			p.FrameConfig.Parent = connectionName
+		}
+		if remoteConf.Prefix { // rename each non-world part with prefix
+			p.Name = remoteConf.Name + "." + p.Name
+			if p.FrameConfig.Parent != connectionName {
+				p.FrameConfig.Parent = remoteConf.Name + "." + p.FrameConfig.Parent
+			}
+		}
+	}
+	// build the frame system part that connects remote world to base world
+	connection := &config.FrameSystemPart{
+		Name:        connectionName,
+		FrameConfig: remoteConf.Frame,
+	}
+	remoteParts = append(remoteParts, connection)
+	return remoteParts
+}
+
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
 // JSON []byte if it does, or nil if it doesn't.
 func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Model, error) {
@@ -201,6 +237,14 @@ func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Mo
 		return framer.ModelFrame(), nil
 	}
 	return nil, referenceframe.ErrNoModelInformation
+}
+
+func partNames(parts []*config.FrameSystemPart) []string {
+	names := make([]string, len(parts))
+	for i, p := range parts {
+		names[i] = p.Name
+	}
+	return names
 }
 
 func frameNamesWithDof(sys referenceframe.FrameSystem) []string {

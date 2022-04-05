@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
@@ -58,6 +59,8 @@ func init() {
 type Service interface {
 	Config(ctx context.Context) ([]*config.FrameSystemPart, error)
 	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
+	FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
+	Print(ctx context.Context) (string, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -129,51 +132,6 @@ type frameSystemService struct {
 	logger           golog.Logger
 }
 
-// FrameSystem returns the frame system of the robot, building the system out of parts from the local robot
-// and its remotes.
-func (svc *frameSystemService) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
-	defer span.End()
-	// create the base reference frame system
-	parts, err := svc.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	remoteNames := svc.r.RemoteNames()
-	// get frame parts for each of its remotes
-	for _, remoteName := range remoteNames {
-		remote, ok := svc.r.RemoteByName(remoteName)
-		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
-		}
-		remoteService, err := framesystem.FromRobot(remote)
-		if err != nil {
-			logger.Debugw("remote has frame system error , skipping", "remote", remoteName, "error", err)
-			continue
-		}
-		remoteParts, err := remoteService.Config(ctx)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-		rConf, err := r.getRemoteConfig(remoteName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-		if rConf.Frame == nil { // skip over remote if it has no frame info
-			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
-			continue
-		}
-		remoteParts = renameRemoteParts(remoteParts, rConf)
-		parts = append(parts, remoteParts...)
-	}
-	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
-	return baseFrameSys, nil
-}
-
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build the frame system. The parts are not guaranteed to be returned topologically sorted.
@@ -196,7 +154,7 @@ func (svc *frameSystemService) TransformPose(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	fs, err := svc.r.FrameSystem(ctx, "", "")
+	fs, err := svc.FrameSystem(ctx, "")
 	if err != nil {
 		return nil, err
 	}
@@ -229,4 +187,106 @@ func (svc *frameSystemService) TransformPose(
 	}
 
 	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
+}
+
+// FrameSystem returns the frame system of the robot, building the system out of parts from the local robot
+// and its remotes. Only local robots can call this function.
+func (svc *frameSystemService) FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	defer span.End()
+	parts, err := svc.gatherAllFrameSystemParts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
+	return baseFrameSys, nil
+}
+
+// gatherAllFrameSystemParts is a helper function to get all parts from the local robot and all remote robots.
+func (svc *frameSystemService) gatherAllFrameSystemParts(ctx context.Context) ([]*config.FrameSystemPart, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::gatherAllFrameSystemParts")
+	defer span.End()
+	localRobot, ok := svc.r.(robot.LocalRobot)
+	if !ok {
+		return nil, errors.New("only local robots can call gatherAllFrameSystemParts(), call Config() on remote robot for FrameSystem info")
+	}
+	// get the base parts and the the robot config to get frame info
+	parts, err := svc.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conf, err := localRobot.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	remoteNames := localRobot.RemoteNames()
+	// get frame parts for each of its remotes
+	for _, remoteName := range remoteNames {
+		remote, ok := localRobot.RemoteByName(remoteName)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
+		}
+		remoteService, err := framesystem.FromRobot(remote)
+		if err != nil {
+			logger.Debugw("remote has frame system error, skipping", "remote", remoteName, "error", err)
+			continue
+		}
+		remoteParts, err := remoteService.Config(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		rConf, err := getRemoteConfig(remoteName, conf)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		if rConf.Frame == nil { // skip over remote if it has no frame info
+			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			continue
+		}
+		remoteParts = renameRemoteParts(remoteParts, rConf)
+		parts = append(parts, remoteParts...)
+	}
+	return parts, nil
+}
+
+// Print will print a table of the part names, parents, and static offsets. If the robot is a local robot,
+// it will print out the complete frame system. If it is not a local robot, it will print a list of the frame parts.
+func (svc *frameSystemService) Print(ctx context.Context) (string, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::Print")
+	defer span.End()
+	parts := []*config.FrameSystemPart{}
+	var err error
+	if _, ok := svc.r.(robot.LocalRobot); ok { // print entire frame system
+		parts, err = svc.gatherAllFrameSystemParts(ctx)
+		if err != nil {
+			return "", err
+		}
+		parts, err = TopologicallySortParts(parts)
+		if err != nil {
+			return "", err
+		}
+	} else { // Don't have access to the local robot, just print the parts from the frame system service's Config
+		parts, err = svc.Config(ctx)
+		if err != nil {
+			return "", err
+		}
+	}
+	t := table.NewWriter()
+	t.AppendHeader(table.Row{"#", "Name", "Parent", "Translation", "Orientation"})
+	for i, part := range parts {
+		tra := part.FrameConfig.Translation
+		ori := part.FrameConfig.Orientation.OrientationVectorDegrees()
+		t.AppendRow([]interface{}{
+			i,
+			part.Name,
+			part.FrameConfig.Parent,
+			fmt.Sprintf("X:%.2f, Y:%.2f, Z:%.2f", tra.X, tra.Y, tra.Z),
+			fmt.Sprintf("OX:%.2f, OY:%.2f, OZ:%.2f, TH:%.2f", ori.OX, ori.OY, ori.OZ, ori.Theta),
+		})
+	}
+	return t.Render(), nil
 }
