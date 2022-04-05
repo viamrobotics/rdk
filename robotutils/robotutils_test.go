@@ -5,10 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	"go.viam.com/rdk/config"
-	rutils "go.viam.com/rdk/utils"
 	"go.viam.com/test"
 	"go.viam.com/utils/rpc"
+
+	"go.viam.com/rdk/config"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestNewTLSConfig(t *testing.T) {
@@ -27,7 +28,6 @@ func TestNewTLSConfig(t *testing.T) {
 				test.That(t, observed.MinVersion, test.ShouldEqual, tls.VersionTLS12)
 			} else {
 				test.That(t, observed, test.ShouldResemble, &TLSConfig{})
-
 			}
 		})
 	}
@@ -115,7 +115,8 @@ EgHnAdibedkHD7ZprX8CIQDY8NASxuaEMa6nH7b9kkx/KaOo0/dOkW+sWb5PeIbs
 IQIgOUd6p5/UY3F5cTFtjK9lTf4nssdWLDFSFM6zTWimtA0CIHwhFj2YN2/uaYvQ
 1siyfDjKn41Lc5cuGmLYms8oHLNhAiBxeGqLlEyHdk+Trp99+nK+pFi4cj5NZSFh
 ph2C/7IgjA==
------END PRIVATE KEY-----`}
+-----END PRIVATE KEY-----`,
+	}
 
 	remoteAuth := config.RemoteAuth{
 		Credentials:            &rpc.Credentials{rutils.CredentialsTypeRobotSecret, "xyz"},
@@ -173,8 +174,16 @@ ph2C/7IgjA==
 		{TestName: "no cloud", Config: noCloudCfg, Expected: noCloudCfg},
 		{TestName: "cloud but no cert", Config: cloudCfg, Expected: cloudCfg},
 		{TestName: "cloud and cert", Config: cloudWTLSCfg, Expected: expectedCloudWTLSCfg},
-		{TestName: "remotes no cloud", Config: remotesNoCloudCfg, Expected: &config.Config{Remotes: []config.Remote{expectedRemoteNoCloud, expectedRemoteDiffManagerNoCloud}}},
-		{TestName: "remotes cloud but no cert", Config: remotesCloudCfg, Expected: &config.Config{Cloud: cloud, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}}},
+		{
+			TestName: "remotes no cloud",
+			Config:   remotesNoCloudCfg,
+			Expected: &config.Config{Remotes: []config.Remote{expectedRemoteNoCloud, expectedRemoteDiffManagerNoCloud}},
+		},
+		{
+			TestName: "remotes cloud but no cert",
+			Config:   remotesCloudCfg,
+			Expected: &config.Config{Cloud: cloud, Remotes: []config.Remote{expectedRemoteCloud, remoteDiffManager}},
+		},
 		{TestName: "remotes cloud and cert", Config: remotesCloudWTLSCfg, Expected: expectedRemotesCloudWTLSCfg},
 	} {
 		t.Run(tc.TestName, func(t *testing.T) {
