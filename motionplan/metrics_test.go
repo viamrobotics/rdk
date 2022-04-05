@@ -10,7 +10,7 @@ import (
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
-func TestDefaultMetric(t *testing.T) {
+func TestSqNormMetric(t *testing.T) {
 	sqMet := NewSquaredNormMetric()
 
 	p1 := spatial.NewPoseFromPoint(r3.Vector{0, 0, 0})
