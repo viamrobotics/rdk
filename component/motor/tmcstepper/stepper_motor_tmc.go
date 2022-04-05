@@ -194,14 +194,12 @@ func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.
 	// Repurposing zero for default, and -1 for "instant"
 	if c.HoldDelay == 0 {
 		c.HoldDelay = 6 // default
-	} else if c.HoldDelay == -1 {
+	} else if c.HoldDelay < 0 {
 		c.HoldDelay = 0
 	}
 
 	if c.HoldDelay > 15 {
 		c.HoldDelay = 15
-	} else if c.HoldDelay < 0 {
-		c.HoldDelay = 0
 	}
 
 	coolConfig := c.SGThresh << 16
