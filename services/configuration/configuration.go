@@ -3,6 +3,7 @@ package configuration
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -108,7 +109,12 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	var result []string
 	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
 	for _, d := range drivers {
-		result = append(result, d.Info().Label)
+		driverInfo := d.Info()
+		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
+		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
+		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
+		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
+		result = append(result, fmt.Sprintf("Props: %v", d.Properties()))
 	}
 	return result, nil
 }
