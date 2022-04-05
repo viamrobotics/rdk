@@ -44,7 +44,10 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
 	var lastGood []referenceframe.Input
-	interpC := ci
+	// Seed with just the start position to walk the path
+	interpC := &ConstraintInput{Frame: ci.Frame}
+	interpC.StartInput = ci.StartInput
+	interpC.EndInput = ci.StartInput
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
@@ -54,7 +57,10 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 		}
 		pass, _ := c.CheckConstraints(interpC)
 		if !pass {
-			if i > 1 {
+			// fail on i == 1 means we failed on the start position. Should not happen.
+			// pass on i == 1, fail on i == 2 means the start position was the only valid position seen. We return nil to avoid
+			// double-adding the start position to our RRT map
+			if i > 2 {
 				return false, &ConstraintInput{StartInput: lastGood, EndInput: interpC.StartInput}
 			}
 			// fail on start pos

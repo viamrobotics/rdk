@@ -60,7 +60,7 @@ func newDefaultMetric(start, end spatial.Pose) Metric {
 				dist += transDist - tDist
 			}
 			if orientDist > oDist {
-				dist = +orientDist - oDist
+				dist += orientDist - oDist
 			}
 			if dist == 0. {
 				return dist
