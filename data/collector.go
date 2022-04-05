@@ -121,8 +121,6 @@ func (c *collector) capture() {
 }
 
 func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
-	_, span := trace.StartSpan(c.cancelCtx, "data::collector::getAndPushNextReading")
-	defer span.End()
 	defer wg.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())
