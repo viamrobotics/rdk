@@ -5,6 +5,9 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
+	"github.com/matttproud/golang_protobuf_extensions/pbutil"
+	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"io"
 	"os"
 	"os/signal"
@@ -13,7 +16,38 @@ import (
 	utils "go.viam.com/rdk/data"
 )
 
-func printStats(filename string, debugMode bool, marginOfError float64, frequencyHz float64, printExampleMessage bool) {
+// 100hz
+func writeDummyData(ctx context.Context, filename string) {
+	ticker := time.NewTicker(time.Millisecond * 10)
+	file, err := os.OpenFile(filename, os.O_WRONLY, os.ModeAppend)
+	if err != nil {
+		fmt.Printf("failed to open file: %v\n", err)
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			md := v1.SensorMetadata{
+				TimeRequested: timestamppb.New(time.Now().UTC()),
+				TimeReceived:  timestamppb.New(time.Now().UTC()),
+			}
+			data, _ := utils.StructToStructPb(&md)
+			nextReading := v1.SensorData{
+				Metadata: &md,
+				Data:     data,
+			}
+			_, err := pbutil.WriteDelimited(file, &nextReading)
+			if err != nil {
+				fmt.Printf("error writing file: %v", err)
+			}
+		}
+	}
+}
+
+func printStats(ctx context.Context, filename string, debugMode bool, marginOfError float64, frequencyHz int, printExampleMessage bool) {
 	if filename == "" {
 		fmt.Print("Set -file flag\n")
 		return
@@ -23,58 +57,61 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 		return
 	}
 
-	total := 0
-	subintCount := 0
-
 	file, err := os.Open(filename)
 	if err != nil {
 		fmt.Printf("failed to open file: %v\n", err)
 		return
 	}
-
-	first, _ := utils.ReadNextSensorData(file)
-
-	if printExampleMessage {
-		data := first.GetData()
-		if pc, ok := data.GetFields()["PointCloud"]; ok {
-			data_str := pc.GetStringValue()
-			data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
-			fmt.Println(data_bytes)
-		} else {
-			fmt.Println(data)
-		}
-	}
-
-	firstTimestamp := first.GetMetadata().GetTimeReceived().AsTime()
-	next := firstTimestamp
-	subIntervalStart := firstTimestamp
-	msgCount := 0
+	ticker := time.NewTicker(10 * time.Second)
 	for {
-		msg, err := utils.ReadNextSensorData(file)
-		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
-				break
-			}
-			fmt.Printf("error reading sensor data: %v\n", err)
+		select {
+		case <-ctx.Done():
 			return
-		}
-		next = msg.GetMetadata().GetTimeReceived().AsTime()
-		diff := next.Sub(subIntervalStart)
-
-		if diff < time.Second {
-			msgCount += 1
-		} else {
-			if debugMode {
-				fmt.Printf("%d messages between %s and %s\n", msgCount, subIntervalStart, next)
+		case <-ticker.C:
+			total := 0
+			subintCount := 1
+			first, _ := utils.ReadNextSensorData(file)
+			if printExampleMessage {
+				data := first.GetData()
+				if pc, ok := data.GetFields()["PointCloud"]; ok {
+					data_str := pc.GetStringValue()
+					data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
+					fmt.Println(data_bytes)
+				} else {
+					fmt.Println(data)
+				}
 			}
-			subIntervalStart = next
-			subintCount += 1
-			total += msgCount
-			msgCount = 0
+			firstTimestamp := first.GetMetadata().GetTimeReceived().AsTime()
+			next := firstTimestamp
+			subIntervalStart := firstTimestamp
+			msgCount := 0
+			for {
+				msg, err := utils.ReadNextSensorData(file)
+				if err != nil {
+					if err == io.EOF || err == io.ErrUnexpectedEOF {
+						break
+					}
+					fmt.Printf("error reading sensor data: %v\n", err)
+					break
+				}
+				next = msg.GetMetadata().GetTimeReceived().AsTime()
+				diff := next.Sub(subIntervalStart)
+				msgCount += 1
+				total += 1
+
+				if diff >= time.Second {
+					if debugMode {
+						fmt.Printf("%d messages between %s and %s\n", msgCount, subIntervalStart, next)
+					}
+					subIntervalStart = next
+					subintCount += 1
+					msgCount = 0
+				}
+			}
+			fmt.Printf("%d messages over %f seconds\n", total, next.Sub(firstTimestamp).Seconds())
+			fmt.Printf("Average number of messages per second: %f\n", float64(total)/float64(subintCount))
 		}
 	}
-	fmt.Printf("%d messages over %f minutes\n", total, next.Sub(firstTimestamp).Minutes())
-	fmt.Printf("Average number of messages per second: %f\n", float64(total)/float64(subintCount))
 }
 
 func main() {
@@ -88,10 +125,10 @@ func main() {
 
 	c1, cancel := context.WithCancel(context.Background())
 	exitCh := make(chan struct{})
-	ticker := time.NewTicker(10 * time.Second)
 
 	fmt.Println("Getting file stats. Press ^C to stop.")
-	printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz), *printExampleMessage)
+	//go writeDummyData(c1, *fileFlag)
+	printStats(c1, *fileFlag, *debugMode, *marginOfError, *frequencyHz, *printExampleMessage)
 
 	go func(ctx context.Context) {
 		for {
@@ -99,8 +136,6 @@ func main() {
 			case <-ctx.Done():
 				exitCh <- struct{}{}
 				return
-			case <-ticker.C:
-				printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz), *printExampleMessage)
 			}
 		}
 	}(c1)
