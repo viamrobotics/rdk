@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -76,13 +75,5 @@ func (s *subtypeServer) MoveToPosition(
 	if err != nil {
 		return nil, err
 	}
-	obstacles := req.GetWorldState().GetObstacles()
-	geometriesInFrames := make([]*referenceframe.GeometriesInFrame, len(obstacles))
-	for i, obstacle := range obstacles {
-		geometriesInFrames[i], err = referenceframe.ProtobufToGeometriesInFrame(obstacle)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, geometriesInFrames)
+	return &pb.MoveToPositionResponse{}, gantry.MoveToPosition(ctx, req.PositionsMm, req.GetWorldState())
 }

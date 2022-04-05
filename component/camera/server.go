@@ -190,9 +190,9 @@ func (s *subtypeServer) GetPointCloud(
 
 	var buf bytes.Buffer
 	buf.Grow(200 + (pc.Size() * 4 * 4)) // 4 numbers per point, each 4 bytes
-	_, span = trace.StartSpan(ctx, "camera-server::NextPointCloud::ToPCD")
+	_, pcdSpan := trace.StartSpan(ctx, "camera-server::NextPointCloud::ToPCD")
 	err = pointcloud.ToPCD(pc, &buf, pointcloud.PCDBinary)
-	span.End()
+	pcdSpan.End()
 	if err != nil {
 		return nil, err
 	}

@@ -23,7 +23,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 200,
+        "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
         "spi_bus": "main",
@@ -39,7 +39,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 200,
+        "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
         "spi_bus": "main",
@@ -55,7 +55,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 200,
+        "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
         "spi_bus": "main",
@@ -71,7 +71,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 200,
+        "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
         "spi_bus": "main",
@@ -87,7 +87,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 200,
+        "ticks_per_rotation": 200,
         "max_rpm": 450,
         "max_acceleration": 400,
         "spi_bus": "main",
@@ -103,7 +103,7 @@
       "model": "TMC5072",
       "attributes": {
         "board": "resetboard",
-        "ticksPerRotation": 5370,
+        "ticks_per_rotation": 5370,
         "max_rpm": 18.5,
         "max_acceleration": 30,
         "spi_bus": "main",
@@ -119,7 +119,7 @@
       "model": "pi",
       "attributes": {
         "board": "resetboard",
-        "pwmFreq": 8000,
+        "pwm_freq": 8000,
         "pins": {
           "pwm": "35",
           "dir": "37"
@@ -132,7 +132,7 @@
       "model": "pi",
       "attributes": {
         "board": "resetboard",
-        "pwmFreq": 8000,
+        "pwm_freq": 8000,
         "pins": {
           "pwm": "16",
           "dir": "18"

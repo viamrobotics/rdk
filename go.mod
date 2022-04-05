@@ -55,7 +55,7 @@ require (
 	go.uber.org/zap v1.21.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.4-0.20220323205102-930dc7ff58fc
+	go.viam.com/utils v0.0.4-0.20220331014822-a8aebe0ff013
 	goji.io v2.0.2+incompatible
 	golang.org/x/image v0.0.0-20220302094943-723b81ca9867
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
