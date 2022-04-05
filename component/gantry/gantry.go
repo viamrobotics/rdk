@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/data"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -68,7 +69,8 @@ type Gantry interface {
 	GetPosition(ctx context.Context) ([]float64, error)
 
 	// MoveToPosition is in meters
-	MoveToPosition(ctx context.Context, positionsMm []float64, obstacles []*referenceframe.GeometriesInFrame) error
+	// The worldState argument should be treated as optional by all implementing drivers
+	MoveToPosition(ctx context.Context, positionsMm []float64, worldState *commonpb.WorldState) error
 
 	// GetLengths is the length of gantries in meters
 	GetLengths(ctx context.Context) ([]float64, error)
@@ -155,11 +157,11 @@ func (g *reconfigurableGantry) GetLengths(ctx context.Context) ([]float64, error
 func (g *reconfigurableGantry) MoveToPosition(
 	ctx context.Context,
 	positionsMm []float64,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *commonpb.WorldState,
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	return g.actual.MoveToPosition(ctx, positionsMm, obstacles)
+	return g.actual.MoveToPosition(ctx, positionsMm, worldState)
 }
 
 func (g *reconfigurableGantry) Close(ctx context.Context) error {

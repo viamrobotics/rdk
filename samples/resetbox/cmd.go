@@ -318,19 +318,19 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	action.RegisterAction("ElevatorDown", box.doElevatorDown)
 	action.RegisterAction("DuckWhack", box.doDuckWhack)
 
-	action.RegisterAction("GrabD1", box.doGrab1)
-	action.RegisterAction("GrabD2", box.doGrab2)
+	action.RegisterAction("GrabD1", box.move1)
+	action.RegisterAction("GrabD2", box.move2)
 	action.RegisterAction("DropD1", box.doDrop1)
 	action.RegisterAction("DropD2", box.doDrop2)
-	action.RegisterAction("GrabC1", box.doGrabC1)
-	action.RegisterAction("GrabC2", box.doGrabC2)
+	action.RegisterAction("GrabC1", box.moveC1)
+	action.RegisterAction("GrabC2", box.moveC2)
 	action.RegisterAction("DropC1", box.doDropC1)
 	action.RegisterAction("DropC2", box.doDropC2)
 
 	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
 }
 
-func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) move1(ctx context.Context, r robot.Robot) {
 	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckgrabFW),
@@ -339,7 +339,7 @@ func (b *ResetBox) doGrab1(ctx context.Context, r robot.Robot) {
 	}
 }
 
-func (b *ResetBox) doGrab2(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) move2(ctx context.Context, r robot.Robot) {
 	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, duckReadyPos),
 		b.arm.MoveToJointPositions(ctx, duckgrabREV),
@@ -348,7 +348,7 @@ func (b *ResetBox) doGrab2(ctx context.Context, r robot.Robot) {
 	}
 }
 
-func (b *ResetBox) doGrabC1(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) moveC1(ctx context.Context, r robot.Robot) {
 	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube1grab),
@@ -357,7 +357,7 @@ func (b *ResetBox) doGrabC1(ctx context.Context, r robot.Robot) {
 	}
 }
 
-func (b *ResetBox) doGrabC2(ctx context.Context, r robot.Robot) {
+func (b *ResetBox) moveC2(ctx context.Context, r robot.Robot) {
 	if err := multierr.Combine(
 		b.arm.MoveToJointPositions(ctx, cubeReadyPos),
 		b.arm.MoveToJointPositions(ctx, cube2grab),

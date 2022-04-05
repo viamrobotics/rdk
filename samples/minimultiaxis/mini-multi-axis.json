@@ -13,8 +13,8 @@
                     "pwm": "pwmx",
                     "step": "stepx"
                 },
-                "stepperDelay": 50,
-                "ticksPerRotation": 200
+                "stepper_delay": 50,
+                "ticks_per_rotation": 200
             },
             "model": "gpiostepper",
             "name": "xmotor",
@@ -28,8 +28,8 @@
                     "pwm": "pwmy",
                     "step": "stepy"
                 },
-                "stepperDelay": 50,
-                "ticksPerRotation": 200
+                "stepper_delay": 50,
+                "ticks_per_rotation": 200
             },
             "model": "gpiostepper",
             "name": "ymotor",
@@ -43,8 +43,8 @@
                     "pwm": "pwmz",
                     "step": "stepz"
                 },
-                "stepperDelay": 50,
-                "ticksPerRotation": 200
+                "stepper_delay": 50,
+                "ticks_per_rotation": 200
             },
             "depends_on": [
                 "local"

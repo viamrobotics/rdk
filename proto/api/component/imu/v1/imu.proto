@@ -28,6 +28,13 @@ service IMUService {
       get: "/viam/api/v1/component/imu/{name}/acceleration"
     };
   }
+  
+  // ReadMagnetometer returns the most recent magnetometer reading from the given IMU, if avaiable
+  rpc ReadMagnetometer(ReadMagnetometerRequest) returns (ReadMagnetometerResponse) {
+      option (google.api.http) = {
+      get: "/viam/api/v1/component/imu/{name}/magnetometer"
+    };
+  }
 }
 
 // AngularVelocity contains angular velocity in deg/s across x/y/z axes.
@@ -61,6 +68,18 @@ message Acceleration {
   double z_mm_per_sec_per_sec = 3;
 }
 
+
+// Magnetometer contains magnetic field readings in gauss x/y/z axes.
+message Magnetometer {
+  // Magnetometer in gauss across the x-axis
+  double x_gauss = 1;
+  // Magnetometer in gauss across the y-axis
+  double y_gauss = 2;
+  // Magnetometer in gauss across the z-axis
+  double z_gauss = 3;
+}
+
+
 message ReadAngularVelocityRequest {
   // Name of an IMU
   string name = 1;
@@ -90,4 +109,15 @@ message ReadAccelerationRequest {
 message ReadAccelerationResponse {
   // Acceleration contains acceleration in mm/s^2 across x/y/z axes.
   Acceleration acceleration = 1;
+}
+
+
+message ReadMagnetometerRequest {
+  // Name of an IMU
+  string name = 1;
+}
+
+message ReadMagnetometerResponse {
+  // Magnetometer contains magnetic field values in gauss across x/y/z axes.
+  Magnetometer magnetometer = 1;
 }
