@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -126,6 +127,51 @@ type frameSystemService struct {
 	fsParts          map[string]*config.FrameSystemPart
 	sortedFrameNames []string // topologically sorted frame names in the frame system, includes world frame
 	logger           golog.Logger
+}
+
+// FrameSystem returns the frame system of the robot, building the system out of parts from the local robot
+// and its remotes.
+func (svc *frameSystemService) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	defer span.End()
+	// create the base reference frame system
+	parts, err := svc.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	remoteNames := svc.r.RemoteNames()
+	// get frame parts for each of its remotes
+	for _, remoteName := range remoteNames {
+		remote, ok := svc.r.RemoteByName(remoteName)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
+		}
+		remoteService, err := framesystem.FromRobot(remote)
+		if err != nil {
+			logger.Debugw("remote has frame system error , skipping", "remote", remoteName, "error", err)
+			continue
+		}
+		remoteParts, err := remoteService.Config(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		rConf, err := r.getRemoteConfig(remoteName)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		if rConf.Frame == nil { // skip over remote if it has no frame info
+			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			continue
+		}
+		remoteParts = renameRemoteParts(remoteParts, rConf)
+		parts = append(parts, remoteParts...)
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
+	return baseFrameSys, nil
 }
 
 // Config returns the info of each individual part that makes up the frame system
