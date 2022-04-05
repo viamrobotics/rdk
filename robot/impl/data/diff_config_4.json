@@ -33,7 +33,7 @@
                         "pin": "1"
                     }
                 ],
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "encoder",

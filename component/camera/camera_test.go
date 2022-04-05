@@ -254,7 +254,7 @@ type cloudSource struct {
 
 func (cs *cloudSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
 	p := pointcloud.New()
-	return p, p.Set(pointcloud.NewBasicPoint(0, 0, 0))
+	return p, p.Set(pointcloud.NewVector(0, 0, 0), nil)
 }
 
 func TestCameraWithNoProjector(t *testing.T) {
@@ -270,7 +270,8 @@ func TestCameraWithNoProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err := noProj2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.At(0, 0, 0), test.ShouldNotBeNil)
+	_, got := pc.At(0, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
 }
 
 func TestCameraWithProjector(t *testing.T) {
@@ -297,5 +298,6 @@ func TestCameraWithProjector(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pc, err = cam2.NextPointCloud(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, pc.At(0, 0, 0), test.ShouldNotBeNil)
+	_, got := pc.At(0, 0, 0)
+	test.That(t, got, test.ShouldBeTrue)
 }

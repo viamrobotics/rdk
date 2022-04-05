@@ -56,7 +56,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		}
 		logger.Debugw("NextPointCloud", "took", time.Since(start).String())
 		startInner := time.Now()
-		config := &segmentation.RadiusClusteringConfig{50000, 500, 10}
+		config := &segmentation.RadiusClusteringConfig{50000, 500, 10, 50}
 		_, err = segmentation.RadiusClusteringOnPointCloud(ctx, pc, config)
 		if err != nil {
 			return err
