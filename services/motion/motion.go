@@ -127,7 +127,11 @@ func (ms *motionService) Move(
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
 	// get the frame system of the robot
-	frameSys, err := ms.r.FrameSystem(ctx, "", "")
+	frameService, err := framesystem.FromRobot(ms.r)
+	if err != nil {
+		return false, err
+	}
+	frameSys, err := frameService.FrameSystem(ctx, "")
 	if err != nil {
 		return false, err
 	}

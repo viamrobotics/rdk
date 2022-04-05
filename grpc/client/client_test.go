@@ -260,9 +260,6 @@ func TestClient(t *testing.T) {
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldNotBeNil)
-
 	arm1, err := arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.GetEndPosition(context.Background())
@@ -356,9 +353,6 @@ func TestClient(t *testing.T) {
 	// working
 	client, err = New(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	_, err = client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 

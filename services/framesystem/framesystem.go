@@ -198,11 +198,11 @@ func (svc *frameSystemService) FrameSystem(ctx context.Context, name string) (re
 	if err != nil {
 		return nil, err
 	}
-	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
+	baseFrameSys, err := NewFrameSystemFromParts(name, "", parts, svc.logger)
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
+	svc.logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	return baseFrameSys, nil
 }
 
@@ -230,9 +230,9 @@ func (svc *frameSystemService) gatherAllFrameSystemParts(ctx context.Context) ([
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
 		}
-		remoteService, err := framesystem.FromRobot(remote)
+		remoteService, err := FromRobot(remote)
 		if err != nil {
-			logger.Debugw("remote has frame system error, skipping", "remote", remoteName, "error", err)
+			svc.logger.Debugw("remote has frame system error, skipping", "remote", remoteName, "error", err)
 			continue
 		}
 		remoteParts, err := remoteService.Config(ctx)
@@ -244,7 +244,7 @@ func (svc *frameSystemService) gatherAllFrameSystemParts(ctx context.Context) ([
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		if rConf.Frame == nil { // skip over remote if it has no frame info
-			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
 		remoteParts = renameRemoteParts(remoteParts, rConf)
