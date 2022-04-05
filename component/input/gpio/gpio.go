@@ -81,14 +81,14 @@ type Config struct {
 
 // AxisConfig is a subconfig for axes.
 type AxisConfig struct {
-	Control   input.Control `json:"control"`
-	Min       int           `json:"min"`
-	Max       int           `json:"max"`
-	TwoWay    bool          `json:"two_way"`
-	Deadzone  int           `json:"deadzone"`
-	MinChange int           `json:"min_change"`
-	PollHz    float64       `json:"poll_hz"`
-	Invert    bool          `json:"invert"`
+	Control       input.Control `json:"control"`
+	Min           int           `json:"min"`
+	Max           int           `json:"max"`
+	Bidirectional bool          `json:"bidirectional"`
+	Deadzone      int           `json:"deadzone"`
+	MinChange     int           `json:"min_change"`
+	PollHz        float64       `json:"poll_hz"`
+	Invert        bool          `json:"invert"`
 }
 
 // ButtonConfig is a subconfig for buttons.
@@ -275,6 +275,9 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 	if cfg.PollHz <= 0 {
 		cfg.PollHz = 10
 	}
+	if cfg.Min >= cfg.Max {
+		return fmt.Errorf("min (%d) must be less than max (%d)", cfg.Min, cfg.Max)
+	}
 	c.activeBackgroundWorkers.Add(1)
 	utils.ManagedGo(func() {
 		var prevVal int
@@ -298,7 +301,7 @@ func (c *Controller) newAxis(ctx context.Context, brd board.Board, analogName st
 			}
 
 			var outVal float64
-			if cfg.TwoWay {
+			if cfg.Bidirectional {
 				center := (cfg.Min + cfg.Max) / 2
 				if abs(rawVal-center) < cfg.Deadzone {
 					rawVal = center
