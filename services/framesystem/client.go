@@ -5,6 +5,7 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -81,4 +82,16 @@ func (c *client) TransformPose(
 		return nil, err
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
+}
+
+func (c *client) FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
+	return nil, errors.New("method FrameSystem not implemented for remote robots. Use Config() instead to get frame information")
+}
+
+func (c *client) Print(ctx context.Context) (string, error) {
+	resp, err := c.client.Print(ctx, &pb.PrintRequest{})
+	if err != nil {
+		return nil, err
+	}
+	return resp.Data, nil
 }
