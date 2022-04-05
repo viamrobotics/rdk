@@ -12,6 +12,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	webserver "go.viam.com/rdk/web/server"
 )
@@ -30,7 +31,12 @@ func init() {
 }
 
 func home(ctx context.Context, r robot.Robot) {
-	fs, err := r.FrameSystem(ctx, "fs", "")
+	frameService, err := framesystem.FromRobot(r)
+	if err != nil {
+		logger.Error(err)
+		return
+	}
+	fs, err := frameService.FrameSystem(ctx, "fs")
 	if err != nil {
 		logger.Error(err)
 		return

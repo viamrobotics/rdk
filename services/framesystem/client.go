@@ -91,7 +91,7 @@ func (c *client) FrameSystem(ctx context.Context, name string) (referenceframe.F
 func (c *client) Print(ctx context.Context) (string, error) {
 	resp, err := c.client.Print(ctx, &pb.PrintRequest{})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return resp.Data, nil
 }

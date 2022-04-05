@@ -28,7 +28,7 @@ func NewFrameSystemFromParts(
 		return nil, err
 	}
 	if len(sortedParts) != len(parts) {
-		return nil, errors.Errorf("frame system has disconnected frames. parts connected to world: %v, all parts: %v", partNames(topoSortedParts), partNames(parts))
+		return nil, errors.Errorf("frame system has disconnected frames. parts connected to world: %v, all parts: %v", partNames(sortedParts), partNames(parts))
 	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for _, part := range sortedParts {

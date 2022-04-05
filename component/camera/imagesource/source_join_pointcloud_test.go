@@ -16,6 +16,7 @@ import (
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/testutils/inject"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -40,27 +41,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	}
 	base1 := &inject.Base{}
 
-	r := &inject.Robot{}
-	r.LoggerFunc = func() golog.Logger {
-		return logger
-	}
-	r.ResourceNamesFunc = func() []resource.Name {
-		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1")}
-	}
-	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
-		switch n.Name {
-		case "cam1":
-			return cam1, nil
-		case "cam2":
-			return cam2, nil
-		case "cam3":
-			return cam3, nil
-		case "base1":
-			return base1, nil
-		default:
-			return nil, rdkutils.NewResourceNotFoundError(n)
-		}
-	}
+	fss := &inject.FrameSystemService{}
 	fs := referenceframe.NewEmptySimpleFrameSystem("test")
 	baseLocation, err := referenceframe.FrameFromPoint("base1", r3.Vector{0, 0, 0}) // base is at world's origin
 	test.That(t, err, test.ShouldBeNil)
@@ -78,8 +59,32 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(cam3Location, fs.GetFrame("cam2"))
 	test.That(t, err, test.ShouldBeNil)
-	r.FrameSystemFunc = func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error) {
+	fss.FrameSystemFunc = func(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
 		return fs, nil
+	}
+
+	r := &inject.Robot{}
+	r.LoggerFunc = func() golog.Logger {
+		return logger
+	}
+	r.ResourceNamesFunc = func() []resource.Name {
+		return []resource.Name{camera.Named("cam1"), camera.Named("cam2"), camera.Named("cam3"), base.Named("base1"), framesystem.Name}
+	}
+	r.ResourceByNameFunc = func(n resource.Name) (interface{}, error) {
+		switch n.Name {
+		case "cam1":
+			return cam1, nil
+		case "cam2":
+			return cam2, nil
+		case "cam3":
+			return cam3, nil
+		case "base1":
+			return base1, nil
+		case "":
+			return fss, nil
+		default:
+			return nil, rdkutils.NewResourceNotFoundError(n)
+		}
 	}
 	return r
 }

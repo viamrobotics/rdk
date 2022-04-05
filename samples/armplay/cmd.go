@@ -19,6 +19,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	spatial "go.viam.com/rdk/spatialmath"
 	webserver "go.viam.com/rdk/web/server"
 )
@@ -158,7 +159,11 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	if err != nil {
 		return err
 	}
-	fs, err := r.FrameSystem(ctx, "fs", "")
+	frameService, err := framesystem.FromRobot(r)
+	if err != nil {
+		return err
+	}
+	fs, err := frameService.FrameSystem(ctx, "fs")
 	if err != nil {
 		return err
 	}
@@ -321,7 +326,11 @@ func main() {
 }
 
 func getInputEnabled(ctx context.Context, r robot.Robot) (map[string]referenceframe.InputEnabled, error) {
-	fs, err := r.FrameSystem(ctx, "fs", "")
+	frameService, err := framesystem.FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := frameService.FrameSystem(ctx, "fs")
 	if err != nil {
 		return nil, err
 	}
