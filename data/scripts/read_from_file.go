@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"time"
 
 	utils "go.viam.com/rdk/data"
@@ -12,11 +14,11 @@ import (
 
 func printStats(filename string, debugMode bool, marginOfError float64, frequencyHz float64) {
 	if filename == "" {
-		fmt.Printf("Set -file flag\n")
+		fmt.Print("Set -file flag\n")
 		return
 	}
 	if debugMode && frequencyHz == -1 {
-		fmt.Printf("Set -frequencyHz flag when in debug mode\n")
+		fmt.Print("Set -frequencyHz flag when in debug mode\n")
 		return
 	}
 
@@ -50,10 +52,6 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 			msgCount += 1
 		} else {
 			if debugMode {
-				if float64(msgCount) < (frequencyHz-(frequencyHz*marginOfError)) ||
-					float64(msgCount) > frequencyHz+(frequencyHz*marginOfError) {
-					fmt.Printf("msgCount outside of margin of error between %v and %v: %d messages\n", subIntervalStart, next, msgCount)
-				}
 				fmt.Printf("%d messages between %s and %s\n", msgCount, subIntervalStart, next)
 			}
 			subIntervalStart = next
@@ -74,5 +72,33 @@ func main() {
 
 	flag.Parse()
 
+	c1, cancel := context.WithCancel(context.Background())
+	exitCh := make(chan struct{})
+	ticker := time.NewTicker(10 * time.Second)
+
+	fmt.Println("Getting file stats. Press ^C to stop.")
 	printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
+
+	go func(ctx context.Context) {
+		for {
+			select {
+			case <-ctx.Done():
+				exitCh <- struct{}{}
+				return
+			case <-ticker.C:
+				printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
+			}
+		}
+	}(c1)
+
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, os.Interrupt)
+	go func() {
+		select {
+		case <-signalCh:
+			cancel()
+			return
+		}
+	}()
+	<-exitCh
 }
