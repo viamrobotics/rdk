@@ -10,7 +10,7 @@ import (
 	utils "go.viam.com/rdk/data"
 )
 
-func printMetadata(filename string, debugMode bool, marginOfError float64, frequencyHz float64) {
+func printStats(filename string, debugMode bool, marginOfError float64, frequencyHz float64) {
 	if filename == "" {
 		fmt.Printf("Set -file flag\n")
 		return
@@ -74,5 +74,5 @@ func main() {
 
 	flag.Parse()
 
-	printMetadata(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
+	printStats(*fileFlag, *debugMode, *marginOfError, float64(*frequencyHz))
 }
