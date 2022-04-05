@@ -40,6 +40,8 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 			data_str := pc.GetStringValue()
 			data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
 			fmt.Println(data_bytes)
+		} else {
+			fmt.Println(data)
 		}
 	}
 
