@@ -17,13 +17,16 @@ import (
 )
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
-// usually acquired by calling Config on a frame system service. WARNING: for now,
-// this function requires that the parts are already topologically sorted (see
-// topologicallySortFrameNames below for a loose example of that process).
+// usually acquired by calling Config on a frame system service.
 func NewFrameSystemFromParts(
 	name, prefix string, parts []*config.FrameSystemPart,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
+	// Topologically sort parts first
+	parts, err := TopologicallySortParts(parts)
+	if err != nil {
+		return nil, err
+	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for _, part := range parts {
 		// rename everything with prefixes
@@ -51,6 +54,44 @@ func NewFrameSystemFromParts(
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
+}
+
+// TopologicallySortParts takes a potentially un-ordered slice of frame system parts and
+// sorts them, beginning at the world node.
+func TopologicallySortParts(parts []*config.FrameSystemPart) ([]*config.FrameSystemPart, error) {
+	// make map of children
+	children := make(map[string][]*config.FrameSystemPart)
+	for _, part := range parts {
+		children[part.FrameConfig.Parent] = append(children[part.FrameConfig.Parent], part)
+	}
+	topoSortedParts := []*config.FrameSystemPart{} // keep track of tree structure
+	// If there are no frames, return the empty list
+	if len(children) == 0 {
+		return topoSortedParts, nil
+	}
+	stack := make([]string, 0)
+	visited := make(map[string]bool)
+	if _, ok := children[referenceframe.World]; !ok {
+		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
+	}
+	stack = append(stack, referenceframe.World)
+	// begin adding frames to tree
+	for len(stack) != 0 {
+		parent := stack[0] // pop the top element from the stack
+		stack = stack[1:]
+		if _, ok := visited[parent]; ok {
+			return nil, fmt.Errorf("the system contains a cycle, have already visited frame %s", parent)
+		}
+		visited[parent] = true
+		sort.Slice(children[parent], func(i, j int) bool {
+			return children[parent][i].Name < children[parent][j].Name
+		}) // sort alphabetically within the topological sort
+		for _, part := range children[parent] { // add all the children to the frame system, and to the stack as new parents
+			stack = append(stack, part.Name)
+			topoSortedParts = append(topoSortedParts, part)
+		}
+	}
+	return topoSortedParts, nil
 }
 
 // CollectFrameSystemParts collects the physical parts of the robot that may have frame info (excluding remote robots and services, etc)

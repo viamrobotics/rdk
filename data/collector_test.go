@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -24,7 +25,7 @@ type exampleReading struct {
 }
 
 func (r *exampleReading) toProto() *structpb.Struct {
-	msg, err := InterfaceToStruct(r)
+	msg, err := StructToStructPb(r)
 	if err != nil {
 		return nil
 	}
@@ -155,6 +156,27 @@ func TestSwallowsErrors(t *testing.T) {
 	default:
 		test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldBeGreaterThan, 0)
 	}
+}
+
+// TestCtxCancelledLoggedAsDebug verifies that context cancelled errors are logged as debug level instead of as errors.
+func TestCtxCancelledLoggedAsDebug(t *testing.T) {
+	logger, logs := golog.NewObservedTestLogger(t)
+	target1, _ := ioutil.TempFile("", "whatever")
+	defer os.Remove(target1.Name())
+	errorCapturer := CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		return nil, fmt.Errorf("arbitrary wrapping message: %w", context.Canceled)
+	})
+	c := NewCollector(
+		errorCapturer, time.Millisecond*10, map[string]string{"name": "test"}, target1, queueSize, bufferSize, logger)
+	go c.Collect()
+	time.Sleep(30 * time.Millisecond)
+	c.Close()
+	// Sleep for a short period to avoid race condition when accessing the logs below (since the collector might still
+	// write an error log for a few instructions after .Close() is called, and this test is reading from the logger).
+	time.Sleep(10 * time.Millisecond)
+
+	test.That(t, logs.FilterLevelExact(zapcore.DebugLevel).Len(), test.ShouldBeGreaterThan, 0)
+	test.That(t, logs.FilterLevelExact(zapcore.ErrorLevel).Len(), test.ShouldEqual, 0)
 }
 
 func getFileSize(f *os.File) int64 {
