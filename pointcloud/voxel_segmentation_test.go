@@ -23,8 +23,8 @@ func GeneratePointsOnPlaneZ0(nPoints int, normal r3.Vector, offset float64) Poin
 		// Point in the R3 unit cube
 		p := r3.Vector{rand.Float64(), rand.Float64(), 0}
 
-		pt := NewBasicPoint(p.X, p.Y, p.Z)
-		err := pc.Set(pt)
+		pt := NewVector(p.X, p.Y, p.Z)
+		err := pc.Set(pt, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -55,8 +55,8 @@ func GenerateCubeTestData(nPoints int) PointCloud {
 		idx3 := int(math.Mod(float64(c+2), 3))
 		pt[idx3] = rand.Float64()
 		// add point to slice
-		p := NewBasicPoint(pt[0], pt[1], pt[2])
-		err := pc.Set(p)
+		p := NewVector(pt[0], pt[1], pt[2])
+		err := pc.Set(p, nil)
 		if err != nil {
 			panic(err)
 		}

@@ -33,6 +33,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/sensors"
 	"go.viam.com/rdk/services/status"
@@ -110,6 +111,14 @@ func TestConfigRemote(t *testing.T) {
 					Parent: referenceframe.World,
 				},
 			},
+			{
+				Name:  "myParentIsRemote",
+				Type:  config.ComponentTypeBase,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: "cameraOver",
+				},
+			},
 		},
 		Services: []config.Service{
 			{
@@ -156,6 +165,7 @@ func TestConfigRemote(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "squee"),
@@ -169,6 +179,7 @@ func TestConfigRemote(t *testing.T) {
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
 		base.Named("foo"),
+		base.Named("myParentIsRemote"),
 		camera.Named("cameraOver"),
 		camera.Named("foo.cameraOver"),
 		camera.Named("bar.cameraOver"),
@@ -228,12 +239,12 @@ func TestConfigRemote(t *testing.T) {
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cfg2.Components), test.ShouldEqual, 1)
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
 	fs, err := r2.FrameSystem(context.Background(), "test", "")
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 29)
-	t.Logf("frames: %v\n", fs.FrameNames())
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
+	t.Logf("FRAMES: %v\n", fs.FrameNames())
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)
@@ -394,6 +405,7 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				framesystem.Name,
 				sensors.Name,
 				status.Name,
+				datamanager.Name,
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "bar"),
 				resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
@@ -593,6 +605,7 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeComponent, resource.ResourceSubtypeRemote, "foo"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func1"),
 		resource.NewName(resource.ResourceNamespaceRDK, resource.ResourceTypeFunction, resource.ResourceSubtypeFunction, "func2"),
@@ -743,6 +756,7 @@ func TestMetadataUpdate(t *testing.T) {
 		framesystem.Name,
 		sensors.Name,
 		status.Name,
+		datamanager.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{

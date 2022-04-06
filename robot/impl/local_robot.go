@@ -11,6 +11,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/pexec"
 
 	// registers all components.
@@ -24,6 +25,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
@@ -38,7 +40,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name}
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -108,6 +110,8 @@ func (r *localRobot) getRemoteConfig(remoteName string) (*config.Remote, error) 
 
 // FrameSystem returns the FrameSystem of the robot.
 func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "local-robot::FrameSystem")
+	defer span.End()
 	logger := r.Logger()
 	// create the base reference frame system
 	fsService, err := framesystem.FromRobot(r)
@@ -118,14 +122,14 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 	if err != nil {
 		return nil, err
 	}
-	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("base frame system %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
-	// get frame system for each of its remote parts and merge to base
+	// get frame parts for each of its remotes
 	for remoteName, remote := range r.manager.remotes {
-		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
+		remoteService, err := framesystem.FromRobot(remote)
+		if err != nil {
+			logger.Debugw("remote has frame system error , skipping", "remote", remoteName, "error", err)
+			continue
+		}
+		remoteParts, err := remoteService.Config(ctx)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
@@ -133,14 +137,41 @@ func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (refe
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
-		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
-		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		if rConf.Frame == nil { // skip over remote if it has no frame info
+			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			continue
 		}
+		remoteParts = renameRemoteParts(remoteParts, rConf)
+		parts = append(parts, remoteParts...)
+	}
+	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
+	if err != nil {
+		return nil, err
 	}
 	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
 	return baseFrameSys, nil
+}
+
+func renameRemoteParts(remoteParts []*config.FrameSystemPart, remoteConf *config.Remote) []*config.FrameSystemPart {
+	connectionName := remoteConf.Name + "_" + referenceframe.World
+	for _, p := range remoteParts {
+		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
+			p.FrameConfig.Parent = connectionName
+		}
+		if remoteConf.Prefix { // rename each non-world part with prefix
+			p.Name = remoteConf.Name + "." + p.Name
+			if p.FrameConfig.Parent != connectionName {
+				p.FrameConfig.Parent = remoteConf.Name + "." + p.FrameConfig.Parent
+			}
+		}
+	}
+	// build the frame system part that connects remote world to base world
+	connection := &config.FrameSystemPart{
+		Name:        connectionName,
+		FrameConfig: remoteConf.Frame,
+	}
+	remoteParts = append(remoteParts, connection)
+	return remoteParts
 }
 
 // Logger returns the logger the robot is using.
@@ -228,6 +259,22 @@ func (r *localRobot) newResource(ctx context.Context, config config.Component) (
 	return c.Reconfigurable(newResource)
 }
 
+// ConfigUpdateable is implemented when component/service of a robot should be updated with the config.
+type ConfigUpdateable interface {
+	// Update updates the resource
+	Update(context.Context, config.Service) error
+}
+
+// Get the config associated with the service resource.
+func getServiceConfig(cfg *config.Config, name resource.Name) (config.Service, error) {
+	for _, c := range cfg.Services {
+		if c.ResourceName() == name {
+			return c, nil
+		}
+	}
+	return config.Service{}, errors.Errorf("could not find service config of subtype %s", name.Subtype.String())
+}
+
 func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 	// grab all resources
 	resources := map[resource.Name]interface{}{}
@@ -244,10 +291,17 @@ func (r *localRobot) updateDefaultServices(ctx context.Context) error {
 		if err != nil {
 			return utils.NewResourceNotFoundError(name)
 		}
-		updateable, ok := svc.(resource.Updateable)
-		if ok {
+		if updateable, ok := svc.(resource.Updateable); ok {
 			if err := updateable.Update(ctx, resources); err != nil {
 				return err
+			}
+		}
+		if configUpdateable, ok := svc.(ConfigUpdateable); ok {
+			serviceConfig, err := getServiceConfig(r.config, name)
+			if err == nil {
+				if err := configUpdateable.Update(ctx, serviceConfig); err != nil {
+					return err
+				}
 			}
 		}
 	}

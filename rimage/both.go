@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -16,10 +15,9 @@ import (
 	"go.viam.com/utils"
 )
 
-// ReadBothFromBytes reads the given data as an image that contains depth. isAligned
+// ReadBothFromReader reads the given data as an image that contains depth. isAligned
 // notifies the reader if the image and depth is already aligned.
-func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) {
-	reader := bufio.NewReader(bytes.NewReader(allData))
+func ReadBothFromReader(reader *bufio.Reader, isAligned bool) (*ImageWithDepth, error) {
 	depth, err := ReadDepthMap(reader)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't read depth map (both)")
@@ -31,6 +29,13 @@ func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) 
 	}
 
 	return &ImageWithDepth{ConvertImage(img), depth, isAligned}, nil
+}
+
+// ReadBothFromBytes reads the given data as an image that contains depth. isAligned
+// notifies the reader if the image and depth is already aligned.
+func ReadBothFromBytes(allData []byte, isAligned bool) (*ImageWithDepth, error) {
+	reader := bufio.NewReader(bytes.NewReader(allData))
+	return ReadBothFromReader(reader, isAligned)
 }
 
 // ReadBothFromFile reads the given file as an image that contains depth. isAligned
@@ -54,12 +59,7 @@ func ReadBothFromFile(fn string, isAligned bool) (*ImageWithDepth, error) {
 
 	defer utils.UncheckedErrorFunc(in.Close)
 
-	allData, err := ioutil.ReadAll(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return ReadBothFromBytes(allData, isAligned)
+	return ReadBothFromReader(bufio.NewReader(in), isAligned)
 }
 
 // WriteBothToFile writes the image with depth to the given file.

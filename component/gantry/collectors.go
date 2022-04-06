@@ -27,8 +27,13 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// PositionWrapper wraps the returned position values.
+type PositionWrapper struct {
+	Position []float64
+}
+
 func newGetPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -37,15 +42,20 @@ func newGetPositionCollector(resource interface{}, name string, interval time.Du
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := gantry.GetPosition(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getPosition.String())
+			return nil, data.FailedToReadErr(name, getPosition.String(), err)
 		}
-		return v, nil
+		return PositionWrapper{Position: v}, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
+}
+
+// LengthsWrapper wraps the returns lengths values.
+type LengthsWrapper struct {
+	Lengths []float64
 }
 
 func newGetLengthsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	gantry, err := assertGantry(resource)
 	if err != nil {
 		return nil, err
@@ -54,11 +64,11 @@ func newGetLengthsCollector(resource interface{}, name string, interval time.Dur
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := gantry.GetLengths(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getLengths.String())
+			return nil, data.FailedToReadErr(name, getLengths.String(), err)
 		}
-		return v, nil
+		return LengthsWrapper{Lengths: v}, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 func assertGantry(resource interface{}) (Gantry, error) {

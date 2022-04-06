@@ -118,19 +118,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-	// has disconnected components (gps2 misspelled parent as gripperPiece, rather than pieceGripper)
-	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig1.json", logger)
-	test.That(t, err, test.ShouldBeNil)
-	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t,
-		err,
-		test.ShouldBeError,
-		errors.New("the frame system is not fully connected, expected 9 frames but frame system has 7. Expected "+
-			"frames are: [cameraOver cameraOver_offset gps2 gps2_offset pieceArm pieceArm_offset pieceGripper "+
-			"pieceGripper_offset world]. Actual frames are: [world cameraOver_offset pieceArm_offset cameraOver pieceArm "+
-			"pieceGripper_offset pieceGripper]"))
-
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig2.json", logger) // no world node
+	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig2.json", logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,

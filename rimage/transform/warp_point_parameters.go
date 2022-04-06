@@ -76,7 +76,7 @@ func (dct *DepthColorWarpTransforms) ImageWithDepthToPointCloud(
 			c := iwd.Color.GetXY(x, y)
 			r, g, b := c.RGB255()
 			i, j := float64(x-dct.OutputOrigin.X), float64(y-dct.OutputOrigin.Y)
-			err := pc.Set(pointcloud.NewColoredPoint(i, j, float64(z), color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewVector(i, j, float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}
@@ -112,8 +112,9 @@ func (dct *DepthColorWarpTransforms) AlignColorAndDepthImage(col *rimage.Image, 
 func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
 	cloud pointcloud.PointCloud,
 ) (*rimage.ImageWithDepth, error) {
+	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
-	if !cloud.HasColor() {
+	if !meta.HasColor {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the RGB camera.
@@ -123,14 +124,14 @@ func (dct *DepthColorWarpTransforms) PointCloudToImageWithDepth(
 	color := rimage.NewImage(width, height)
 	depth := rimage.NewEmptyDepthMap(width, height)
 	// TODO(bijan): naive implementation until we get get more points in the warp config
-	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j := pt.Position().X - cloud.MinX()
-		i := pt.Position().Y - cloud.MinY()
+	cloud.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
+		j := pt.X - meta.MinX
+		i := pt.Y - meta.MinY
 		x, y := int(math.Round(j)), int(math.Round(i))
-		z := int(pt.Position().Z)
+		z := int(pt.Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
-		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
-			r, g, b := pt.RGB255()
+		if x >= 0 && x < width && y >= 0 && y < height && d != nil && d.HasColor() {
+			r, g, b := d.RGB255()
 			color.Set(image.Point{x, y}, rimage.NewColor(r, g, b))
 			depth.Set(x, y, rimage.Depth(z))
 		}

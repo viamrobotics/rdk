@@ -4,44 +4,66 @@ import (
 	"math"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 )
 
 // RoundingPointCloud is a PointCloud implementation for SLAM that rounds all points to the closest
 // integer before it sets or gets the point. The bare floats measured from LiDARs are not
 // stored because even if the points are only 0.00000000002 apart, they would be considered different locations.
-type RoundingPointCloud struct {
-	*basicPointCloud
+type roundingPointCloud struct {
+	points storage
+	meta   MetaData
 }
 
 // NewRoundingPointCloud returns a new, empty, rounding PointCloud.
 func NewRoundingPointCloud() PointCloud {
-	return &RoundingPointCloud{New().(*basicPointCloud)}
+	return &roundingPointCloud{
+		points: &mapStorage{map[r3.Vector]Data{}},
+		meta:   NewMetaData(),
+	}
+}
+
+func (cloud *roundingPointCloud) Size() int {
+	return cloud.points.Size()
+}
+
+func (cloud *roundingPointCloud) MetaData() MetaData {
+	return cloud.meta
+}
+
+func (cloud *roundingPointCloud) At(x, y, z float64) (Data, bool) {
+	return cloud.points.At(math.Round(x), math.Round(y), math.Round(z))
+}
+
+// Set validates that the point can be precisely stored before setting it in the cloud.
+func (cloud *roundingPointCloud) Set(p r3.Vector, d Data) error {
+	p = r3.Vector{math.Round(p.X), math.Round(p.Y), math.Round(p.Z)}
+	if err := cloud.points.Set(p, d); err != nil {
+		return err
+	}
+	cloud.meta.Merge(p, d)
+	return nil
+}
+
+func (cloud *roundingPointCloud) Unset(x, y, z float64) {
+	cloud.points.Unset(math.Round(x), math.Round(y), math.Round(z))
+}
+
+func (cloud *roundingPointCloud) Iterate(numBatches, myBatch int, fn func(p r3.Vector, d Data) bool) {
+	cloud.points.Iterate(numBatches, myBatch, fn)
 }
 
 // NewRoundingPointCloudFromFile like NewFromFile, returns a PointCloud but rounds
 // all points in advance.
 func NewRoundingPointCloudFromFile(fn string, logger golog.Logger) (PointCloud, error) {
-	var err error
-	roundingPc := NewRoundingPointCloud()
+	// TODO(bhaney): From eliot - not sure if perf matters here or not, but we're building twice
+	// a refactor could easily fix
 	pc, err := NewFromFile(fn, logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating NewRoundingPointCloudFromFile")
 	}
-	// Round all the points in the pointcloud
-	pc.Iterate(func(pt Point) bool {
-		err = roundingPc.Set(pt)
-		if err != nil {
-			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
-			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
-			return false
-		}
-		return true
-	})
-	if err != nil {
-		return nil, err
-	}
-	return roundingPc, nil
+	return NewRoundingPointCloudFromPC(pc)
 }
 
 // NewRoundingPointCloudFromPC creates a rounding point cloud from any kind of input point cloud.
@@ -49,10 +71,10 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 	var err error
 	roundingPc := NewRoundingPointCloud()
 	// Round all the points in the pointcloud
-	pc.Iterate(func(pt Point) bool {
-		err = roundingPc.Set(pt)
+	pc.Iterate(0, 0, func(p r3.Vector, d Data) bool {
+		err = roundingPc.Set(p, d)
 		if err != nil {
-			x, y, z := pt.Position().X, pt.Position().Y, pt.Position().Z
+			x, y, z := p.X, p.Y, p.Z
 			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
 		}
@@ -62,57 +84,4 @@ func NewRoundingPointCloudFromPC(pc PointCloud) (PointCloud, error) {
 		return nil, err
 	}
 	return roundingPc, nil
-}
-
-// Set sets a point on the cloud.
-func (cloud *RoundingPointCloud) Set(p Point) error {
-	pos := p.Position()
-	rp := p.Clone(Vec3{math.Round(pos.X), math.Round(pos.Y), math.Round(pos.Z)})
-	cloud.points[key(rp.Position())] = rp
-	if rp.HasColor() {
-		cloud.hasColor = true
-	}
-	if rp.HasValue() {
-		cloud.hasValue = true
-	}
-	v := rp.Position()
-	if v.X > maxPreciseFloat64 || v.X < minPreciseFloat64 {
-		return newOutOfRangeErr("x", v.X)
-	}
-	if v.Y > maxPreciseFloat64 || v.Y < minPreciseFloat64 {
-		return newOutOfRangeErr("y", v.Y)
-	}
-	if v.Z > maxPreciseFloat64 || v.Z < minPreciseFloat64 {
-		return newOutOfRangeErr("z", v.Z)
-	}
-	if v.X > cloud.maxX {
-		cloud.maxX = v.X
-	}
-	if v.Y > cloud.maxY {
-		cloud.maxY = v.Y
-	}
-	if v.Z > cloud.maxZ {
-		cloud.maxZ = v.Z
-	}
-
-	if v.X < cloud.minX {
-		cloud.minX = v.X
-	}
-	if v.Y < cloud.minY {
-		cloud.minY = v.Y
-	}
-	if v.Z < cloud.minZ {
-		cloud.minZ = v.Z
-	}
-	return nil
-}
-
-// At returns a point in the cloud, if exist; returns nil otherwise.
-func (cloud *RoundingPointCloud) At(x, y, z float64) Point {
-	return cloud.points[key{math.Round(x), math.Round(y), math.Round(z)}]
-}
-
-// Unset removes a point from the cloud; does nothing if it does not exist.
-func (cloud *RoundingPointCloud) Unset(x, y, z float64) {
-	delete(cloud.points, key{math.Round(x), math.Round(y), math.Round(z)})
 }
