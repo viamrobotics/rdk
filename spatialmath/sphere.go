@@ -170,5 +170,5 @@ func sphereInSphere(inner, outer *sphere) bool {
 
 // sphereInBox returns a bool describing if the given sphere is fully encompassed by the given box.
 func sphereInBox(s *sphere, b *box) bool {
-	return -pointVsBoxDistance(b, s.pose.Point()) > s.radius
+	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
