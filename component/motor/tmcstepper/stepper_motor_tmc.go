@@ -23,11 +23,14 @@ import (
 // TMC5072Config extends motor.Config, mainly for RegisterComponentAttributeMapConverter.
 type TMC5072Config struct {
 	motor.Config
-	SPIBus     string  `json:"spi_bus"`
-	ChipSelect string  `json:"chip_select"`
-	Index      int     `json:"index"`
-	SGThresh   int32   `json:"sg_thresh"`
-	CalFactor  float64 `json:"cal_factor"`
+	SPIBus      string  `json:"spi_bus"`
+	ChipSelect  string  `json:"chip_select"`
+	Index       int     `json:"index"`
+	SGThresh    int32   `json:"sg_thresh"`
+	CalFactor   float64 `json:"cal_factor"`
+	RunCurrent  int32   `json:"run_current"`  // 1-32 as a percentage of rsense voltage, 15 default
+	HoldCurrent int32   `json:"hold_current"` // 1-32 as a percentage of rsense voltage, 8 default
+	HoldDelay   int32   `json:"hold_delay"`   // 0=instant powerdown, 1-15=delay * 2^18 clocks, 6 default
 }
 
 const (
@@ -37,7 +40,7 @@ const (
 func init() {
 	_motor := registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			m, err := NewMotor(ctx, r, config.ConvertedAttributes.(*TMC5072Config), logger)
+			m, err := NewMotor(ctx, r, *config.ConvertedAttributes.(*TMC5072Config), logger)
 			if err != nil {
 				return nil, err
 			}
@@ -118,7 +121,7 @@ const (
 )
 
 // NewMotor returns a TMC5072 driven motor.
-func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog.Logger) (*Motor, error) {
+func NewMotor(ctx context.Context, r robot.Robot, c TMC5072Config, logger golog.Logger) (*Motor, error) {
 	b, err := board.FromRobot(r, c.BoardName)
 	if err != nil {
 		return nil, err
@@ -160,12 +163,53 @@ func NewMotor(ctx context.Context, r robot.Robot, c *TMC5072Config, logger golog
 		c.SGThresh = int32(64 + math.Abs(float64(c.SGThresh)))
 	}
 
+	// Hold/Run currents are 0-31 (linear scale),
+	// but we'll take 1-32 so zero can remain default
+	if c.RunCurrent == 0 {
+		c.RunCurrent = 15 // Default
+	} else {
+		c.RunCurrent--
+	}
+
+	if c.RunCurrent > 31 {
+		c.RunCurrent = 31
+	} else if c.RunCurrent < 0 {
+		c.RunCurrent = 0
+	}
+
+	if c.HoldCurrent == 0 {
+		c.HoldCurrent = 8 // Default
+	} else {
+		c.HoldCurrent--
+	}
+
+	if c.HoldCurrent > 31 {
+		c.HoldCurrent = 31
+	} else if c.HoldCurrent < 0 {
+		c.HoldCurrent = 0
+	}
+
+	// HoldDelay is 2^18 clocks per step between current stepdown phases
+	// Approximately 1/16th of a second for default 16mhz clock
+	// Repurposing zero for default, and -1 for "instant"
+	if c.HoldDelay == 0 {
+		c.HoldDelay = 6 // default
+	} else if c.HoldDelay < 0 {
+		c.HoldDelay = 0
+	}
+
+	if c.HoldDelay > 15 {
+		c.HoldDelay = 15
+	}
+
 	coolConfig := c.SGThresh << 16
 
+	iCfg := c.HoldDelay<<16 | c.RunCurrent<<8 | c.HoldCurrent
+
 	err = multierr.Combine(
-		m.writeReg(ctx, chopConf, 0x000100C3),  // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
-		m.writeReg(ctx, iHoldIRun, 0x00080F0A), // IHOLD=8 (half current), IRUN=15 (max current), IHOLDDELAY=6
-		m.writeReg(ctx, coolConf, coolConfig),  // Sets just the SGThreshold (for now)
+		m.writeReg(ctx, chopConf, 0x000100C3), // TOFF=3, HSTRT=4, HEND=1, TBL=2, CHM=0 (spreadCycle)
+		m.writeReg(ctx, iHoldIRun, iCfg),
+		m.writeReg(ctx, coolConf, coolConfig), // Sets just the SGThreshold (for now)
 
 		// Set max acceleration and decceleration
 		m.writeReg(ctx, a1, rawMaxAcc),
