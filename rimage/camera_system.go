@@ -68,7 +68,7 @@ func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, cro
 			}
 			c := ii.Color.GetXY(x, y)
 			r, g, b := c.RGB255()
-			err := pc.Set(pointcloud.NewColoredPoint(float64(x), float64(y), float64(z), color.NRGBA{r, g, b, 255}))
+			err := pc.Set(pointcloud.NewVector(float64(x), float64(y), float64(z)), pointcloud.NewColoredData(color.NRGBA{r, g, b, 255}))
 			if err != nil {
 				return nil, err
 			}
@@ -79,25 +79,26 @@ func (pp *ParallelProjection) ImageWithDepthToPointCloud(ii *ImageWithDepth, cro
 
 // PointCloudToImageWithDepth assumes the x,y coordinates are the same as the x,y pixels.
 func (pp *ParallelProjection) PointCloudToImageWithDepth(cloud pointcloud.PointCloud) (*ImageWithDepth, error) {
+	meta := cloud.MetaData()
 	// Needs to be a pointcloud with color
-	if !cloud.HasColor() {
+	if !meta.HasColor {
 		return nil, errors.New("pointcloud has no color information, cannot create an image with depth")
 	}
 	// ImageWithDepth will be in the camera frame of the RGB camera.
 	// Points outside of the frame will be discarded.
 	// Assumption is that points in pointcloud are in mm.
-	width := int(cloud.MaxX() - cloud.MinX())
-	height := int(cloud.MaxY() - cloud.MinY())
+	width := int(meta.MaxX - meta.MinX)
+	height := int(meta.MaxY - meta.MinY)
 	color := NewImage(width, height)
 	depth := NewEmptyDepthMap(width, height)
-	cloud.Iterate(func(pt pointcloud.Point) bool {
-		j := pt.Position().X - cloud.MinX()
-		i := pt.Position().Y - cloud.MinY()
+	cloud.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		j := pt.X - meta.MinX
+		i := pt.Y - meta.MinY
 		x, y := int(math.Round(j)), int(math.Round(i))
-		z := int(pt.Position().Z)
+		z := int(pt.Z)
 		// if point has color and is inside the RGB image bounds, add it to the images
-		if x >= 0 && x < width && y >= 0 && y < height && pt.HasColor() {
-			r, g, b := pt.RGB255()
+		if x >= 0 && x < width && y >= 0 && y < height && data != nil && data.HasColor() {
+			r, g, b := data.RGB255()
 			color.Set(image.Point{x, y}, NewColor(r, g, b))
 			depth.Set(x, y, Depth(z))
 		}

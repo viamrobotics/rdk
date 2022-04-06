@@ -28,7 +28,7 @@ func (m method) String() string {
 }
 
 func newGetEndPositionCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
@@ -37,15 +37,15 @@ func newGetEndPositionCollector(resource interface{}, name string, interval time
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := arm.GetEndPosition(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getEndPosition.String())
+			return nil, data.FailedToReadErr(name, getEndPosition.String(), err)
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 func newGetJointPositionsCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
-	target *os.File, logger golog.Logger) (data.Collector, error) {
+	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	arm, err := assertArm(resource)
 	if err != nil {
 		return nil, err
@@ -54,11 +54,11 @@ func newGetJointPositionsCollector(resource interface{}, name string, interval t
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
 		v, err := arm.GetJointPositions(ctx)
 		if err != nil {
-			return nil, data.FailedToReadErr(name, getJointPositions.String())
+			return nil, data.FailedToReadErr(name, getJointPositions.String(), err)
 		}
 		return v, nil
 	})
-	return data.NewCollector(cFunc, interval, params, target, logger), nil
+	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }
 
 func assertArm(resource interface{}) (Arm, error) {

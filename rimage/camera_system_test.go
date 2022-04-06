@@ -33,14 +33,16 @@ func TestParallelProjection(t *testing.T) {
 
 	pc, err := pp.ImageWithDepthToPointCloud(iwd)
 	test.That(t, err, test.ShouldBeNil)
-	point := pc.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
-	test.That(t, NewColorFromColor(point.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
+	data, got := pc.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
 
 	pc2, err := pp.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pc2.Size(), test.ShouldEqual, 400)
-	point = pc2.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
-	test.That(t, NewColorFromColor(point.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
+	data, got = pc2.At(140, 500, float64(iwd.Depth.GetDepth(140, 500)))
+	test.That(t, got, test.ShouldBeTrue)
+	test.That(t, NewColorFromColor(data.Color()), test.ShouldResemble, iwd.Color.GetXY(140, 500))
 
 	_, err = pp.ImageWithDepthToPointCloud(iwd, image.Rectangle{image.Point{130, 490}, image.Point{150, 510}}, image.Rectangle{})
 	test.That(t, err.Error(), test.ShouldContainSubstring, "more than one cropping rectangle")

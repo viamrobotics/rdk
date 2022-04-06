@@ -8,6 +8,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/pointcloud"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rimage/transform"
 )
@@ -65,7 +66,7 @@ func toLas(flags *flag.FlagSet, aligned bool) error {
 		return err
 	}
 
-	return pc.WriteToFile(flags.Arg(3))
+	return pointcloud.WriteToLASFile(pc, flags.Arg(3))
 }
 
 func realMain(args []string) error {

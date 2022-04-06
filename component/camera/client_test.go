@@ -40,7 +40,7 @@ func TestClient(t *testing.T) {
 	test.That(t, jpeg.Encode(&imgBuf, img, nil), test.ShouldBeNil)
 
 	pcA := pointcloud.New()
-	err = pcA.Set(pointcloud.NewBasicPoint(5, 5, 5))
+	err = pcA.Set(pointcloud.NewVector(5, 5, 5), nil)
 	test.That(t, err, test.ShouldBeNil)
 
 	var imageReleased bool
@@ -90,7 +90,8 @@ func TestClient(t *testing.T) {
 
 		pcB, err := camera1Client.NextPointCloud(context.Background())
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, pcB.At(5, 5, 5), test.ShouldNotBeNil)
+		_, got := pcB.At(5, 5, 5)
+		test.That(t, got, test.ShouldBeTrue)
 
 		test.That(t, utils.TryClose(context.Background(), camera1Client), test.ShouldBeNil)
 	})
