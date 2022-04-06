@@ -12,10 +12,21 @@ import (
 	"strings"
 
 	"github.com/edaniels/golog"
+	"github.com/golang/geo/r3"
 	"github.com/jblindsay/lidario"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"go.viam.com/utils"
+)
+
+// PCDType is the format of a pcd file.
+type PCDType int
+
+const (
+	// PCDAscii ascii format for pcd.
+	PCDAscii PCDType = 0
+	// PCDBinary binary format for pcd.
+	PCDBinary PCDType = 1
 )
 
 // NewFromFile returns a pointcloud read in from the given file.
@@ -66,29 +77,33 @@ func NewFromLASFile(fn string, logger golog.Logger) (PointCloud, error) {
 			logger.Warnf("potential floating point lossiness for LAS point",
 				"point", data, "range", fmt.Sprintf("[%f,%f]", minPreciseFloat64, maxPreciseFloat64))
 		}
-		pToSet := NewBasicPoint(x, y, z)
 
+		v := r3.Vector{x, y, z}
+		var dd Data
 		if lf.Header.PointFormatID == 2 && p.RgbData() != nil {
 			r := uint8(p.RgbData().Red / 256)
 			g := uint8(p.RgbData().Green / 256)
 			b := uint8(p.RgbData().Blue / 256)
-			pToSet.SetColor(color.NRGBA{r, g, b, 255})
+			dd = NewColoredData(color.NRGBA{r, g, b, 255})
 		}
 
 		if hasValue {
 			value := int(binary.LittleEndian.Uint64(valueData[i*8 : (i*8)+8]))
-			pToSet.SetValue(value)
+			if dd == nil {
+				dd = NewBasicData()
+			}
+			dd.SetValue(value)
 		}
 
-		if err := pc.Set(pToSet); err != nil {
+		if err := pc.Set(v, dd); err != nil {
 			return nil, err
 		}
 	}
 	return pc, nil
 }
 
-// WriteToFile writes the point cloud out to a LAS file.
-func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
+// WriteToLASFile writes the point cloud out to a LAS file.
+func WriteToLASFile(cloud PointCloud, fn string) (err error) {
 	lf, err := lidario.NewLasFile(fn, "w")
 	if err != nil {
 		return
@@ -98,8 +113,10 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 		err = multierr.Combine(err, cerr)
 	}()
 
+	meta := cloud.MetaData()
+
 	pointFormatID := 0
-	if cloud.hasColor {
+	if meta.HasColor {
 		pointFormatID = 2
 	}
 	if err = lf.AddHeader(lidario.LasHeader{
@@ -109,19 +126,17 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 	}
 
 	var pVals []int
-	if cloud.hasValue {
+	if meta.HasValue {
 		pVals = make([]int, 0, cloud.Size())
 	}
 	var lastErr error
-	cloud.Iterate(func(p Point) bool {
-		pos := p.Position()
+	cloud.Iterate(0, 0, func(pos r3.Vector, d Data) bool {
 		var lp lidario.LasPointer
 		pr0 := &lidario.PointRecord0{
 			// floating point lossiness validated/warned from set/load
-			X:         pos.X,
-			Y:         pos.Y,
-			Z:         pos.Z,
-			Intensity: p.Intensity(),
+			X: pos.X,
+			Y: pos.Y,
+			Z: pos.Z,
 			BitField: lidario.PointBitField{
 				Value: (1) | (1 << 3) | (0 << 6) | (0 << 7),
 			},
@@ -133,10 +148,15 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 			PointSourceID: 1,
 		}
 		lp = pr0
-		if cloud.hasColor {
+
+		if d != nil {
+			pr0.Intensity = d.Intensity()
+		}
+
+		if meta.HasColor {
 			red, green, blue := 255, 255, 255
-			if p.HasColor() {
-				r, g, b := p.RGB255()
+			if d != nil && d.HasColor() {
+				r, g, b := d.RGB255()
 				red, green, blue = int(r), int(g), int(b)
 			}
 			lp = &lidario.PointRecord2{
@@ -148,9 +168,9 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 				},
 			}
 		}
-		if cloud.hasValue {
-			if p.HasValue() {
-				pVals = append(pVals, p.Value())
+		if meta.HasValue {
+			if d != nil && d.HasValue() {
+				pVals = append(pVals, d.Value())
 			} else {
 				pVals = append(pVals, 0)
 			}
@@ -161,7 +181,7 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 		}
 		return true
 	})
-	if cloud.hasValue {
+	if meta.HasValue {
 		var buf bytes.Buffer
 		for _, v := range pVals {
 			bytes := make([]byte, 8)
@@ -186,8 +206,8 @@ func (cloud *basicPointCloud) WriteToFile(fn string) (err error) {
 	return
 }
 
-func _colorToPCDInt(pt Point) int {
-	if !pt.HasColor() {
+func _colorToPCDInt(pt Data) int {
+	if pt == nil || !pt.HasColor() {
 		return 255 << 16 // TODO(erh): this doesn't feel great
 	}
 
@@ -207,7 +227,8 @@ func _pcdIntToColor(c int) color.NRGBA {
 	return color.NRGBA{r, g, b, 255}
 }
 
-func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
+// ToPCD Writes a PointCloud in PCD format.
+func ToPCD(cloud PointCloud, out io.Writer, outputType PCDType) error {
 	var err error
 
 	_, err = fmt.Fprintf(out, "VERSION .7\n"+
@@ -235,9 +256,8 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 			return err
 		}
 
-		cloud.Iterate(func(pt Point) bool {
+		cloud.Iterate(0, 0, func(position r3.Vector, d Data) bool {
 			// Our point clouds are in mm, PCD files expect meters
-			position := pt.Position()
 			width := position.X / 1000.
 			height := position.Y / 1000.
 			depth := position.Z / 1000.
@@ -246,7 +266,7 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 				width,
 				height,
 				depth,
-				_colorToPCDInt(pt))
+				_colorToPCDInt(d))
 			return err == nil
 		})
 	case PCDBinary:
@@ -256,9 +276,8 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 		}
 
 		buf := make([]byte, 16)
-		cloud.Iterate(func(pt Point) bool {
+		cloud.Iterate(0, 0, func(position r3.Vector, d Data) bool {
 			// Our point clouds are in mm, PCD files expect meters
-			position := pt.Position()
 			width := float32(position.X / 1000.0)
 			height := float32(position.Y / 1000.)
 			depth := float32(position.Z / 1000.)
@@ -266,7 +285,7 @@ func (cloud *basicPointCloud) ToPCD(out io.Writer, outputType PCDType) error {
 			binary.LittleEndian.PutUint32(buf, math.Float32bits(width))
 			binary.LittleEndian.PutUint32(buf[4:], math.Float32bits(height))
 			binary.LittleEndian.PutUint32(buf[8:], math.Float32bits(depth))
-			binary.LittleEndian.PutUint32(buf[12:], uint32(_colorToPCDInt(pt)))
+			binary.LittleEndian.PutUint32(buf[12:], uint32(_colorToPCDInt(d)))
 			_, err = out.Write(buf)
 			return err == nil
 		})
@@ -387,7 +406,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 				return nil, fmt.Errorf("didn't find the correct number of things, got %d", n)
 			}
 
-			err = pc.Set(NewColoredPoint(x*1000, y*1000, z*1000, _pcdIntToColor(color)))
+			err = pc.Set(r3.Vector{x * 1000, y * 1000, z * 1000}, NewColoredData(_pcdIntToColor(color)))
 			if err != nil {
 				return nil, err
 			}
@@ -418,7 +437,7 @@ func ReadPCD(inRaw io.Reader) (PointCloud, error) {
 			z := readFloat(binary.LittleEndian.Uint32(buf[8:]))
 			color := int(binary.LittleEndian.Uint32(buf[12:]))
 
-			err = pc.Set(NewColoredPoint(x*1000, y*1000, z*1000, _pcdIntToColor(color)))
+			err = pc.Set(r3.Vector{x * 1000, y * 1000, z * 1000}, NewColoredData(_pcdIntToColor(color)))
 			if err != nil {
 				return nil, err
 			}
