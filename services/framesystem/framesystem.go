@@ -258,8 +258,8 @@ func (svc *frameSystemService) gatherAllFrameSystemParts(ctx context.Context) ([
 func (svc *frameSystemService) Print(ctx context.Context) (string, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Print")
 	defer span.End()
-	parts := []*config.FrameSystemPart{}
 	var err error
+	var parts []*config.FrameSystemPart
 	if _, ok := svc.r.(robot.LocalRobot); ok { // print entire frame system
 		parts, err = svc.gatherAllFrameSystemParts(ctx)
 		if err != nil {

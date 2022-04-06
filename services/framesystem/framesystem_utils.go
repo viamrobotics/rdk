@@ -28,7 +28,11 @@ func NewFrameSystemFromParts(
 		return nil, err
 	}
 	if len(sortedParts) != len(parts) {
-		return nil, errors.Errorf("frame system has disconnected frames. parts connected to world: %v, all parts: %v", partNames(sortedParts), partNames(parts))
+		return nil, errors.Errorf(
+			"frame system has disconnected frames. parts connected to world: %v, all parts: %v",
+			partNames(sortedParts),
+			partNames(parts),
+		)
 	}
 	fs := referenceframe.NewEmptySimpleFrameSystem(name)
 	for _, part := range sortedParts {
@@ -203,7 +207,7 @@ func getRemoteConfig(remoteName string, conf *config.Config) (*config.Remote, er
 	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
-// renameRemoteParts applies prefixes to frame information if necessary
+// renameRemoteParts applies prefixes to frame information if necessary.
 func renameRemoteParts(remoteParts []*config.FrameSystemPart, remoteConf *config.Remote) []*config.FrameSystemPart {
 	connectionName := remoteConf.Name + "_" + referenceframe.World
 	for _, p := range remoteParts {
