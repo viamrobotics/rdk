@@ -376,15 +376,17 @@ func ReadFromCloud(
 				return nil, nil, errors.Wrap(err, "error decoding certificate data from cloud; try again later")
 			}
 
-			if certData.TLSCertificate == "" {
-				return nil, nil, errors.New("no TLS certificate yet from cloud; try again later")
-			}
-			if certData.TLSPrivateKey == "" {
-				return nil, nil, errors.New("no TLS private key yet from cloud; try again later")
-			}
+			if !certData.SignalingInsecure {
+				if certData.TLSCertificate == "" {
+					return nil, nil, errors.New("no TLS certificate yet from cloud; try again later")
+				}
+				if certData.TLSPrivateKey == "" {
+					return nil, nil, errors.New("no TLS private key yet from cloud; try again later")
+				}
 
-			tlsCertificate = certData.TLSCertificate
-			tlsPrivateKey = certData.TLSPrivateKey
+				tlsCertificate = certData.TLSCertificate
+				tlsPrivateKey = certData.TLSPrivateKey
+			}
 		} else {
 			var urlErr *url.Error
 			if !errors.Is(err, context.DeadlineExceeded) && (!errors.As(err, &urlErr) || urlErr.Temporary()) {

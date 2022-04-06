@@ -25,10 +25,10 @@ buf:
 	cd ../.. && PATH="${PATH}:`pwd`/bin" buf generate --template ./grpc/cpp/buf.gen.yaml buf.build/googleapis/googleapis
 
 setup:
-	sudo apt-get install protobuf-compiler-grpc libgrpc-dev libgrpc++-dev || brew install grpc openssl --quiet
+	sudo apt-get install -y protobuf-compiler-grpc libgrpc-dev libgrpc++-dev || brew install grpc openssl --quiet
 	cd ../.. && GOBIN=`pwd`/bin go install github.com/bufbuild/buf/cmd/buf
 	cd ../.. && ln -sf `which grpc_cpp_plugin` bin/protoc-gen-grpc-cpp
-	pkg-config openssl || export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:`find \`brew --prefix\` -name openssl.pc | head -n1 | xargs dirname`
+	pkg-config openssl || export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:`find \`which brew > /dev/null && brew --prefix\` -name openssl.pc | head -n1 | xargs dirname`
 
 build_client: mkdir client.cpp
 	$(CXX) $(CPPFLAGS) -o bin/client client.cpp $(SOURCES) $(IFLAGS) $(GRPCFLAGS) $(OTHER)

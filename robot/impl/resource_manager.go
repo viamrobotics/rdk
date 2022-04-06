@@ -18,6 +18,7 @@ import (
 	"go.viam.com/rdk/grpc/client"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/datamanager"
 	rutils "go.viam.com/rdk/utils"
 )
 
@@ -322,20 +323,29 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 			}))
 		}
 
-		robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
-		if err != nil {
-			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-				if manager.opts.fromCommand {
-					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
-				} else {
-					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+		var outerError error
+		for attempt := 0; attempt < 3; attempt++ {
+			robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
+			if err != nil {
+				if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+					if manager.opts.fromCommand {
+						err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+					} else {
+						err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+					}
+					return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 				}
+				outerError = errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
+			} else {
+				configCopy := config
+				manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
+				outerError = nil
+				break
 			}
-			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
-
-		configCopy := config
-		manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
+		if outerError != nil {
+			return outerError
+		}
 	}
 	return nil
 }
@@ -371,6 +381,11 @@ func (manager *resourceManager) newComponents(ctx context.Context, components []
 // newServices constructs all services defined.
 func (manager *resourceManager) newServices(ctx context.Context, services []config.Service, r *localRobot) error {
 	for _, c := range services {
+		// DataManagerService has to be specifically excluded since it's defined in the config but is a default
+		// service that we only want to reconfigure rather than reinstantiate with New().
+		if c.ResourceName() == datamanager.Name {
+			continue
+		}
 		svc, err := r.newService(ctx, c)
 		if err != nil {
 			return err

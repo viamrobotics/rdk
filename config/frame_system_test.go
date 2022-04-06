@@ -41,13 +41,13 @@ func TestFrameModelPart(t *testing.T) {
 	pose := &commonpb.Pose{OZ: 1, Theta: 0} // zero pose
 	exp := &servicepb.Config{
 		Name: "test",
-		FrameConfig: &servicepb.FrameConfig{
-			Parent: "world",
-			Pose:   pose,
+		PoseInParentFrame: &commonpb.PoseInFrame{
+			ReferenceFrame: "world",
+			Pose:           pose,
 		},
 	}
 	test.That(t, result.Name, test.ShouldEqual, exp.Name)
-	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
+	test.That(t, result.PoseInParentFrame, test.ShouldResemble, exp.PoseInParentFrame)
 	test.That(t, result.ModelJson, test.ShouldResemble, exp.ModelJson)
 	// return to FrameSystemPart
 	partAgain, err := ProtobufToFrameSystemPart(result)
@@ -69,12 +69,15 @@ func TestFrameModelPart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	pose = &commonpb.Pose{X: 1, Y: 2, Z: 3, OZ: 1, Theta: 0}
 	exp = &servicepb.Config{
-		Name:        "test",
-		FrameConfig: &servicepb.FrameConfig{Parent: "world", Pose: pose},
-		ModelJson:   jsonData,
+		Name: "test",
+		PoseInParentFrame: &commonpb.PoseInFrame{
+			ReferenceFrame: "world",
+			Pose:           pose,
+		},
+		ModelJson: jsonData,
 	}
 	test.That(t, result.Name, test.ShouldEqual, exp.Name)
-	test.That(t, result.FrameConfig, test.ShouldResemble, exp.FrameConfig)
+	test.That(t, result.PoseInParentFrame, test.ShouldResemble, exp.PoseInParentFrame)
 	test.That(t, result.ModelJson, test.ShouldNotBeNil)
 	// return to FrameSystemPart
 	partAgain, err = ProtobufToFrameSystemPart(result)

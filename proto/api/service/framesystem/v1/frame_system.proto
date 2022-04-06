@@ -22,14 +22,9 @@ service FrameSystemService {
   }
 }
 
-message FrameConfig{
-  string parent = 1;
-  common.v1.Pose pose = 2;
-}
-
 message Config {
   string name = 1;
-  FrameConfig frame_config = 2;
+  common.v1.PoseInFrame pose_in_parent_frame = 2;
   bytes model_json = 3; 
 }
 
@@ -45,5 +40,5 @@ message TransformPoseRequest {
 }
 
 message TransformPoseResponse {
-  common.v1.Pose pose = 1;
+  common.v1.PoseInFrame pose = 1;
 }
