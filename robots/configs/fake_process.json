@@ -154,6 +154,9 @@
     "services":
     [
         {
+            "type": "configuration"
+        },
+        {
             "type": "frame_system"
         },
         {
