@@ -111,9 +111,8 @@ func (pt *point) DistanceFrom(g Geometry) (float64, error) {
 }
 
 // EncompassedBy returns a bool describing if the given point is completely encompassed by the given geometry.
-// Note: This is only possible if the given geometry is equal to the point.
 func (pt *point) EncompassedBy(g Geometry) (bool, error) {
-	return pt.AlmostEqual(g), nil
+	return pt.CollidesWith(g)
 }
 
 // pointVsBoxCollision takes a box and a point as arguments and returns a bool describing if they are in collision. \

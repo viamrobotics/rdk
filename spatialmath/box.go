@@ -260,7 +260,7 @@ func boxInBox(inner, outer *box) bool {
 			return false
 		}
 	}
-	return pointVsBoxCollision(outer, inner.pose.Point())
+	return true
 }
 
 // boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
