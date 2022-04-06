@@ -8,9 +8,9 @@
             "attributes":
             {
                 "board": "local",
-                "widthMm": 600,
-                "wheelCircumferenceMm": 470,
-                "spinSlipFactor": 2.0,
+                "width_mm": 600,
+                "wheel_circumference_mm": 470,
+                "spin_slip_factor": 2.0,
                 "frontRight": "fr-m",
                 "frontLeft": "fl-m",
                 "backLeft": "bl-m",
