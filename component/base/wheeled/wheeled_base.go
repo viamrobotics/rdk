@@ -282,9 +282,9 @@ func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Compo
 	}
 
 	base := &wheeledBase{
-		widthMm:              config.Attributes.Int("widthMm", 0),
-		wheelCircumferenceMm: config.Attributes.Int("wheelCircumferenceMm", 0),
-		spinSlipFactor:       config.Attributes.Float64("spinSlipFactor", 1.0),
+		widthMm:              config.Attributes.Int("width_mm", 0),
+		wheelCircumferenceMm: config.Attributes.Int("wheel_circumference_mm", 0),
+		spinSlipFactor:       config.Attributes.Float64("spin_slip_factor", 1.0),
 		left:                 []motor.Motor{frontLeft, backLeft},
 		right:                []motor.Motor{frontRight, backRight},
 	}
