@@ -2,7 +2,6 @@ package transform
 
 import (
 	"image"
-	"image/color"
 	"math"
 
 	"github.com/golang/geo/r3"
@@ -140,8 +139,8 @@ func DepthMapToPointCloud(
 				xPoint /= pixel2meter
 				yPoint /= pixel2meter
 				z /= pixel2meter
-				pt := pointcloud.NewBasicPoint(xPoint, yPoint, z)
-				err := pcOut.Set(pt)
+				pt := pointcloud.NewVector(xPoint, yPoint, z)
+				err := pcOut.Set(pt, nil)
 				if err != nil {
 					err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", xPoint, yPoint, z)
 					return nil, err
@@ -157,18 +156,9 @@ func DepthMapToPointCloud(
 func ApplyRigidBodyTransform(pts pointcloud.PointCloud, params *Extrinsics) (pointcloud.PointCloud, error) {
 	transformedPoints := pointcloud.New()
 	var err error
-	pts.Iterate(func(pt pointcloud.Point) bool {
-		x, y, z := params.TransformPointToPoint(pt.Position().X, pt.Position().Y, pt.Position().Z)
-		var ptTransformed pointcloud.Point
-		switch {
-		case pt.HasColor():
-			ptTransformed = pointcloud.NewColoredPoint(x, y, z, pt.Color().(color.NRGBA))
-		case pt.HasValue():
-			ptTransformed = pointcloud.NewValuePoint(x, y, z, pt.Value())
-		default:
-			ptTransformed = pointcloud.NewBasicPoint(x, y, z)
-		}
-		err = transformedPoints.Set(ptTransformed)
+	pts.Iterate(0, 0, func(pt r3.Vector, data pointcloud.Data) bool {
+		x, y, z := params.TransformPointToPoint(pt.X, pt.Y, pt.Z)
+		err = transformedPoints.Set(pointcloud.NewVector(x, y, z), data)
 		if err != nil {
 			err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", x, y, z)
 			return false
@@ -190,16 +180,16 @@ func ProjectPointCloudToRGBPlane(
 ) (pointcloud.PointCloud, error) {
 	coordinates := pointcloud.New()
 	var err error
-	pts.Iterate(func(pt pointcloud.Point) bool {
-		j, i := params.PointToPixel(pt.Position().X, pt.Position().Y, pt.Position().Z)
+	pts.Iterate(0, 0, func(pt r3.Vector, d pointcloud.Data) bool {
+		j, i := params.PointToPixel(pt.X, pt.Y, pt.Z)
 		j = math.Round(j)
 		i = math.Round(i)
 		// if point has color is inside the RGB image bounds, add it to the new pointcloud
-		if j >= 0 && j < float64(w) && i >= 0 && i < float64(h) && pt.HasColor() {
-			pt2d := pointcloud.NewColoredPoint(j, i, pt.Position().Z, pt.Color().(color.NRGBA))
-			err = coordinates.Set(pt2d)
+		if j >= 0 && j < float64(w) && i >= 0 && i < float64(h) && d != nil && d.HasColor() {
+			pt2d := pointcloud.NewVector(j, i, pt.Z)
+			err = coordinates.Set(pt2d, d)
 			if err != nil {
-				err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", j, i, pt.Position().Z)
+				err = errors.Wrapf(err, "error setting point (%v, %v, %v) in point cloud", j, i, pt.Z)
 				return false
 			}
 		}

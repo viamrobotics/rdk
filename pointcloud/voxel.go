@@ -39,23 +39,23 @@ type voxelPlane struct {
 	normal    r3.Vector
 	center    r3.Vector
 	offset    float64
-	points    []Point
+	points    []PointAndData
 	voxelKeys []VoxelCoords
 }
 
 // NewPlaneFromVoxel creats a Plane object from a set of voxel properties.
-func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []Point, voxelKeys []VoxelCoords) Plane {
+func NewPlaneFromVoxel(normal, center r3.Vector, offset float64, points []PointAndData, voxelKeys []VoxelCoords) Plane {
 	return &voxelPlane{normal, center, offset, points, voxelKeys}
 }
 
 // Normal is the normal vector of the plane.
-func (p *voxelPlane) Normal() Vec3 {
-	return Vec3(p.normal)
+func (p *voxelPlane) Normal() r3.Vector {
+	return p.normal
 }
 
 // Center is the vector that points to the center of the plane.
-func (p *voxelPlane) Center() Vec3 {
-	return Vec3(p.center)
+func (p *voxelPlane) Center() r3.Vector {
+	return p.center
 }
 
 // Offset is the vector offset of the plane from the origin.
@@ -63,14 +63,27 @@ func (p *voxelPlane) Offset() float64 {
 	return p.offset
 }
 
+// Intersect calculates the intersection point of the plane with line defined by p0,p1. return nil if parallel.
+func (p *voxelPlane) Intersect(p0, p1 r3.Vector) *r3.Vector {
+	line := p1.Sub(p0)
+	parallel := line.Dot(p.Normal())
+	if math.Abs(parallel) < 1e-6 { // the normal and line are perpendicular, will not intersect
+		return nil
+	}
+	w := p0.Sub(p.center)
+	fac := -w.Dot(p.Normal()) / parallel
+	result := p0.Add(line.Mul(fac))
+	return &result
+}
+
 // PointCloud returns the PointCloud of the underlying points of the plane.
 func (p *voxelPlane) PointCloud() (PointCloud, error) {
-	pc := New()
 	if p.points == nil {
 		return nil, errors.New("no points in plane to turn into point cloud")
 	}
+	pc := New()
 	for _, pt := range p.points {
-		err := pc.Set(pt)
+		err := pc.Set(pt.P, pt.D)
 		if err != nil {
 			return nil, err
 		}
@@ -89,8 +102,8 @@ func (p *voxelPlane) Equation() [4]float64 {
 }
 
 // DistToPlane computes the distance between a point a plane with given normal vector and offset.
-func (p *voxelPlane) Distance(pt Vec3) float64 {
-	num := math.Abs(r3.Vector(pt).Dot(p.normal) + p.offset)
+func (p *voxelPlane) Distance(pt r3.Vector) float64 {
+	num := math.Abs(pt.Dot(p.normal) + p.offset)
 	d := 0.
 	if denom := p.normal.Norm(); denom > 0.0001 {
 		d = num / denom
@@ -102,7 +115,7 @@ func (p *voxelPlane) Distance(pt Vec3) float64 {
 type Voxel struct {
 	Key             VoxelCoords
 	Label           int
-	Points          []Point
+	Points          []PointAndData
 	Center          r3.Vector
 	Normal          r3.Vector
 	Offset          float64
@@ -117,7 +130,7 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          make([]Point, 0),
+		Points:          make([]PointAndData, 0),
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -131,11 +144,10 @@ func NewVoxel(coords VoxelCoords) *Voxel {
 // NewVoxelFromPoint creates a new voxel from a point.
 func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 	coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
-	p := NewBasicPoint(pt.X, pt.Y, pt.Z)
 	return &Voxel{
 		Key:             coords,
 		Label:           0,
-		Points:          []Point{p},
+		Points:          []PointAndData{{pt, nil}},
 		Center:          r3.Vector{},
 		Normal:          r3.Vector{},
 		Offset:          0,
@@ -150,7 +162,7 @@ func NewVoxelFromPoint(pt, ptMin r3.Vector, voxelSize float64) *Voxel {
 func (v1 *Voxel) Positions() []r3.Vector {
 	positions := make([]r3.Vector, len(v1.Points))
 	for i, pt := range v1.Points {
-		positions[i] = r3.Vector(pt.Position())
+		positions[i] = pt.P
 	}
 	return positions
 }
@@ -213,7 +225,7 @@ func (d VoxelSlice) ToPointCloud() (PointCloud, error) {
 	cloud := New()
 	for _, vox := range d {
 		for _, pt := range vox.Points {
-			err := cloud.Set(pt)
+			err := cloud.Set(pt.P, pt.D)
 			if err != nil {
 				return nil, err
 			}
@@ -424,9 +436,14 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 			} else {
 				label = vox.PointLabels[i]
 			}
-			ptValue := pt.SetValue(label)
+			var ptValue Data
+			if pt.D != nil {
+				ptValue = pt.D.SetValue(label)
+			} else {
+				ptValue = NewValueData(label)
+			}
 			// add it to the point cloud
-			err := pc.Set(ptValue)
+			err := pc.Set(pt.P, ptValue)
 			if err != nil {
 				return nil, err
 			}
@@ -437,17 +454,17 @@ func (vg *VoxelGrid) ConvertToPointCloudWithValue() (PointCloud, error) {
 
 // NewVoxelGridFromPointCloud creates and fills a VoxelGrid from a point cloud.
 func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGrid {
+	meta := pc.MetaData()
 	voxelMap := NewVoxelGrid(voxelSize, lam)
 	ptMin := r3.Vector{
-		X: pc.MinX(),
-		Y: pc.MinY(),
-		Z: pc.MinZ(),
+		X: meta.MinX,
+		Y: meta.MinY,
+		Z: meta.MinZ,
 	}
 
 	defaultResidual := 1.0
 
-	pc.Iterate(func(p Point) bool {
-		pt := r3.Vector(p.Position())
+	pc.Iterate(0, 0, func(pt r3.Vector, d Data) bool {
 		coords := GetVoxelCoordinates(pt, ptMin, voxelSize)
 		vox, ok := voxelMap.Voxels[coords]
 		// if voxel key does not exist yet, create voxel at this key with current point, voxel coordinates and maximum
@@ -456,7 +473,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			voxelMap.Voxels[coords] = &Voxel{
 				Key:             coords,
 				Label:           0,
-				Points:          []Point{p},
+				Points:          []PointAndData{{pt, d}},
 				Center:          r3.Vector{},
 				Normal:          r3.Vector{},
 				Offset:          0,
@@ -467,7 +484,7 @@ func NewVoxelGridFromPointCloud(pc PointCloud, voxelSize, lam float64) *VoxelGri
 			}
 		} else {
 			// if voxel coordinates is in the keys of voxelMap, add point to slice
-			vox.Points = append(vox.Points, p)
+			vox.Points = append(vox.Points, PointAndData{pt, d})
 		}
 		return true
 	})

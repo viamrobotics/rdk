@@ -84,7 +84,7 @@ func TestServerObjectSegmentation(t *testing.T) {
 	injCam.NextPointCloudFunc = func(ctx context.Context) (pointcloud.PointCloud, error) {
 		pcA := pointcloud.New()
 		for _, pt := range testPointCloud {
-			test.That(t, pcA.Set(pt), test.ShouldBeNil)
+			test.That(t, pcA.Set(pt, nil), test.ShouldBeNil)
 		}
 		return pcA, nil
 	}
@@ -138,11 +138,13 @@ func TestServerObjectSegmentation(t *testing.T) {
 	test.That(t, paramNames[0].Type, test.ShouldEqual, "int")
 	test.That(t, paramNames[1].Type, test.ShouldEqual, "int")
 	test.That(t, paramNames[2].Type, test.ShouldEqual, "float64")
+	test.That(t, paramNames[3].Type, test.ShouldEqual, "int")
 
 	params, err = structpb.NewStruct(config.AttributeMap{
 		paramNames[0].Name: 100, // min points in plane
 		paramNames[1].Name: 3,   // min points in segment
 		paramNames[2].Name: 5.,  //  clustering radius
+		paramNames[3].Name: 10,  //  mean_k_filtering
 	})
 	test.That(t, err, test.ShouldBeNil)
 	segs, err := server.GetObjectPointClouds(context.Background(), &pb.GetObjectPointCloudsRequest{

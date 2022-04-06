@@ -96,9 +96,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 		// TODO(pl): Might need to check if any of x is +/- Inf
 		eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(x))
 		if eePos == nil {
-			ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+			ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 			err = opt.ForceStop()
-			ik.logger.Errorf("forcestop error %q", err)
+			ik.logger.Errorw("forcestop error", "error", err)
 		}
 
 		dist := m(eePos, newGoal)
@@ -110,9 +110,9 @@ func (ik *NloptIK) Solve(ctx context.Context,
 				eePos, err := ik.model.Transform(referenceframe.FloatsToInputs(xBak))
 				xBak[i] -= ik.jump
 				if eePos == nil {
-					ik.logger.Errorf("error calculating eePos in nlopt %q", err)
+					ik.logger.Errorw("error calculating eePos in nlopt", "error", err)
 					err = opt.ForceStop()
-					ik.logger.Errorf("forcestop error %q", err)
+					ik.logger.Errorw("forcestop error", "error", err)
 				}
 				dist2 := m(eePos, newGoal)
 

@@ -13,6 +13,7 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -164,11 +165,7 @@ func decodeDepth(depthData []byte) (*rimage.DepthMap, error) {
 	return rimage.ReadDepthMap(bufio.NewReader(bytes.NewReader(depthData)))
 }
 
-func decodeBoth(bothData []byte, aligned bool) (*rimage.ImageWithDepth, error) {
-	return rimage.ReadBothFromBytes(bothData, aligned)
-}
-
-func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
+func prepReadFromURL(ctx context.Context, client http.Client, url string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -177,11 +174,19 @@ func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]b
 	if err != nil {
 		return nil, err
 	}
+	return resp.Body, nil
+}
+
+func readyBytesFromURL(ctx context.Context, client http.Client, url string) ([]byte, error) {
+	body, err := prepReadFromURL(ctx, client, url)
+	if err != nil {
+		return nil, err
+	}
 
 	defer func() {
-		viamutils.UncheckedError(resp.Body.Close())
+		viamutils.UncheckedError(body.Close())
 	}()
-	return ioutil.ReadAll(resp.Body)
+	return ioutil.ReadAll(body)
 }
 
 // dualServerSource stores two URLs, one which points the color source and the other to the
@@ -272,26 +277,29 @@ func (s *serverSource) Next(ctx context.Context) (image.Image, func(), error) {
 	var img *rimage.ImageWithDepth
 	var err error
 
-	allData, err := readyBytesFromURL(ctx, s.client, s.URL)
+	in, err := prepReadFromURL(ctx, s.client, s.URL)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "couldn't read url (%s)", s.URL)
 	}
+	defer func() {
+		viamutils.UncheckedError(in.Close())
+	}()
 
 	switch s.stream {
 	case camera.ColorStream:
-		color, err := decodeColor(allData)
+		color, _, err := image.Decode(in)
 		if err != nil {
 			return nil, nil, err
 		}
 		img = rimage.MakeImageWithDepth(rimage.ConvertImage(color), nil, false)
 	case camera.DepthStream:
-		depth, err := decodeDepth(allData)
+		depth, err := rimage.ReadDepthMap(bufio.NewReader(in))
 		if err != nil {
 			return nil, nil, err
 		}
-		img = rimage.MakeImageWithDepth(rimage.ConvertImage(depth.ToGray16Picture()), depth, true)
+		return depth, func() {}, nil
 	case camera.BothStream:
-		img, err = decodeBoth(allData, s.isAligned)
+		img, err = rimage.ReadBothFromReader(bufio.NewReader(in), s.isAligned)
 		if err != nil {
 			return nil, nil, err
 		}

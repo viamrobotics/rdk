@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"math"
 	"sync"
 	"time"
 
@@ -224,7 +223,7 @@ func (c *client) runLoop(listener *vlp16.PacketListener) error {
 	return nil
 }
 
-func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Point {
+func pointFrom(yaw, pitch, distance float64) r3.Vector {
 	ea := spatialmath.NewEulerAngles()
 	ea.Yaw = yaw
 	ea.Pitch = pitch
@@ -233,7 +232,7 @@ func pointFrom(yaw, pitch, distance float64, reflectivity uint8) pointcloud.Poin
 	pose2 := spatialmath.NewPoseFromPoint(r3.Vector{distance, 0, 0})
 	p := spatialmath.Compose(pose1, pose2).Point()
 
-	return pointcloud.NewBasicPoint(p.X*1000, p.Y*1000, p.Z*1000).SetIntensity(uint16(reflectivity) * 255)
+	return pointcloud.NewVector(p.X*1000, p.Y*1000, p.Z*1000)
 }
 
 func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
@@ -258,7 +257,10 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 				}
 				pitch := config[channelID].elevationAngle
 				yaw += config[channelID].azimuthOffset
-				err := pc.Set(pointFrom(utils.DegToRad(yaw), utils.DegToRad(pitch), float64(c.Distance)/1000, c.Reflectivity))
+				err := pc.Set(
+					pointFrom(utils.DegToRad(yaw), utils.DegToRad(pitch), float64(c.Distance)/1000),
+					pointcloud.NewBasicData().SetIntensity(uint16(c.Reflectivity)*255),
+				)
 				if err != nil {
 					return nil, err
 				}
@@ -266,7 +268,7 @@ func (c *client) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, err
 		}
 	}
 
-	return pc, pc.WriteToFile("foo.las")
+	return pc, nil
 }
 
 func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
@@ -275,27 +277,14 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		return nil, nil, err
 	}
 
-	minX := 0.0
-	minY := 0.0
-
-	maxX := 0.0
-	maxY := 0.0
-
-	pc.Iterate(func(p pointcloud.Point) bool {
-		pos := p.Position()
-		minX = math.Min(minX, pos.X)
-		maxX = math.Max(maxX, pos.X)
-		minY = math.Min(minY, pos.Y)
-		maxY = math.Max(maxY, pos.Y)
-		return true
-	})
+	meta := pc.MetaData()
 
 	width := 800
 	height := 800
 
 	scale := func(x, y float64) (int, int) {
-		return int(float64(width) * ((x - minX) / (maxX - minX))),
-			int(float64(height) * ((y - minY) / (maxY - minY)))
+		return int(float64(width) * ((x - meta.MinX) / (meta.MaxX - meta.MinX))),
+			int(float64(height) * ((y - meta.MinY) / (meta.MaxY - meta.MinY)))
 	}
 
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
@@ -305,8 +294,8 @@ func (c *client) Next(ctx context.Context) (image.Image, func(), error) {
 		img.SetNRGBA(x, y, clr)
 	}
 
-	pc.Iterate(func(p pointcloud.Point) bool {
-		set(p.Position().X, p.Position().Y, color.NRGBA{255, 0, 0, 255})
+	pc.Iterate(0, 0, func(p r3.Vector, d pointcloud.Data) bool {
+		set(p.X, p.Y, color.NRGBA{255, 0, 0, 255})
 		return true
 	})
 
