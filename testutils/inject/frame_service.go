@@ -26,7 +26,10 @@ func (fss *FrameSystemService) Config(ctx context.Context) ([]*config.FrameSyste
 }
 
 // TransformPose calls the injected TransformPose or the real version.
-func (fss *FrameSystemService) TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error) {
+func (fss *FrameSystemService) TransformPose(
+	ctx context.Context,
+	pose *referenceframe.PoseInFrame,
+	dst string) (*referenceframe.PoseInFrame, error) {
 	if fss.TransformPoseFunc == nil {
 		return fss.TransformPose(ctx, pose, dst)
 	}
