@@ -27,7 +27,6 @@ import (
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/rlog"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robotutils"
 	"go.viam.com/rdk/services/web"
 )
 
@@ -409,5 +408,5 @@ func serveWeb(ctx context.Context, cfg *config.Config, argsParsed Arguments, log
 		}
 	}
 
-	return robotutils.RunWeb(ctx, myRobot, options, logger)
+	return web.RunWeb(ctx, myRobot, options, logger)
 }
