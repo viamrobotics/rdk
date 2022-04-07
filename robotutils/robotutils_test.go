@@ -75,17 +75,6 @@ ph2C/7IgjA==
 }
 
 func TestProcessConfig(t *testing.T) {
-	// no remote
-	// nil cloud
-	// cloud but nil tls
-	// cloud and has tls
-
-	// has remote
-	// nil cloud
-	// cloud but nil tls
-	// cloud and has tls
-	// managed by diff
-
 	cloud := &config.Cloud{
 		ManagedBy:        "acme",
 		SignalingAddress: "abc",
