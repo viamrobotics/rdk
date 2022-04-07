@@ -151,7 +151,7 @@ func TestLineFollow(t *testing.T) {
 	opt := NewDefaultPlannerOptions()
 	opt.SetPathDist(gradFunc)
 	opt.AddConstraint("whiteboard", validFunc)
-	ok, _ := opt.CheckConstraintPath(
+	ok, lastGood := opt.CheckConstraintPath(
 		&ConstraintInput{
 			StartInput: frame.JointPosToInputs(mp1),
 			EndInput:   frame.JointPosToInputs(mp2),
@@ -159,8 +159,15 @@ func TestLineFollow(t *testing.T) {
 		},
 		1,
 	)
-
 	test.That(t, ok, test.ShouldBeFalse)
+	// lastGood.StartInput should pass constraints, while lastGood.EndInput should fail`
+	lastGood.Frame = sf
+	pass, _ := opt.CheckConstraints(lastGood)
+	test.That(t, pass, test.ShouldBeTrue)
+	lastGood.StartInput = lastGood.EndInput
+	lastGood.StartPos = nil
+	pass, _ = opt.CheckConstraints(lastGood)
+	test.That(t, pass, test.ShouldBeFalse)
 }
 
 func TestCollisionConstraint(t *testing.T) {

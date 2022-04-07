@@ -36,7 +36,7 @@ type constraintHandler struct {
 // CheckConstraintPath will interpolate between two joint inputs and check that `true` is returned for all constraints
 // in all intermediate positions. If failing on an intermediate position, it will return that position.
 func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution float64) (bool, *ConstraintInput) {
-	// ensure we have cartesian positions
+	// ensure we have cartesian positions+
 	err := resolveInputsToPositions(ci)
 	if err != nil {
 		return false, nil
@@ -44,7 +44,10 @@ func (c *constraintHandler) CheckConstraintPath(ci *ConstraintInput, resolution 
 	steps := getSteps(ci.StartPos, ci.EndPos, resolution)
 
 	var lastGood []referenceframe.Input
-	interpC := ci
+	// Seed with just the start position to walk the path
+	interpC := &ConstraintInput{Frame: ci.Frame}
+	interpC.StartInput = ci.StartInput
+	interpC.EndInput = ci.StartInput
 
 	for i := 1; i <= steps; i++ {
 		interp := float64(i) / float64(steps)
