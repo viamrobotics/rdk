@@ -126,6 +126,10 @@ func (ms *motionService) Move(
 	if err != nil {
 		return false, err
 	}
+	err = frameSys.MergeTransformsInfoFromWorldState(worldState)
+	if err != nil {
+		return false, err
+	}
 	solver := motionplan.NewSolvableFrameSystem(frameSys, logger)
 
 	// get the initial inputs
@@ -169,7 +173,7 @@ func (ms *motionService) Move(
 	}
 
 	// the goal is to move the component to goalPose which is specified in coordinates of goalFrameName
-	_ = worldState // TODO(rb) incorporate obstacles into motion planning
+	// TODO(rb) incorporate obstacles from worldState into motion planning
 	output, err := solver.SolvePose(ctx, input, goalPose.Pose(), componentName.Name, solvingFrame)
 	if err != nil {
 		return false, err

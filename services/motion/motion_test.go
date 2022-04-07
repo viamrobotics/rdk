@@ -49,6 +49,30 @@ func TestMoveFailures(t *testing.T) {
 		_, err = ms.Move(context.Background(), gripper.Named("arm1"), badGrabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
+	t.Run("fail on improperly disconnected world state", func(t *testing.T) {
+		transform := &commonpb.Transform{
+			ReferenceFrame: "frame_to_add",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "unknown_parent",
+				Pose: &commonpb.Pose{
+					X: 1,
+					Y: 2,
+					Z: 3,
+				},
+			},
+		}
+		worldState := &commonpb.WorldState{
+			Transforms: []*commonpb.Transform{transform},
+		}
+		ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
+		grabPose := referenceframe.NewPoseInFrame(
+			"c", spatialmath.NewPoseFromPoint(
+				r3.Vector{X: -20, Y: -30, Z: -40},
+			),
+		)
+		_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, worldState)
+		test.That(t, err, test.ShouldBeError, referenceframe.NewParentFrameMissingError())
+	})
 }
 
 func TestMove(t *testing.T) {
