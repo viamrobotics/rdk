@@ -16,7 +16,6 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/component/board"
-	rutils "go.viam.com/rdk/utils"
 
 	// board attribute converters.
 	_ "go.viam.com/rdk/component/board/fake"
@@ -27,6 +26,7 @@ import (
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
 	"go.viam.com/rdk/testutils/inject"
+	rutils "go.viam.com/rdk/utils"
 )
 
 func TestConfigRobot(t *testing.T) {
