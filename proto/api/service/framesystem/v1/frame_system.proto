@@ -15,12 +15,6 @@ service FrameSystemService {
     };
   }
 
-  rpc Print(PrintRequest) returns (PrintResponse) {
-    option (google.api.http) = {
-      get: "/viam/api/v1/service/frame_system/print"
-    };
-  }
-  
   rpc TransformPose(TransformPoseRequest) returns (TransformPoseResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/service/frame_system/transform_pose"
@@ -38,12 +32,6 @@ message ConfigRequest {}
 
 message ConfigResponse {
   repeated Config frame_system_configs = 1;
-}
-
-message PrintRequest {}
-
-message PrintResponse {
-  string data = 1;
 }
 
 message TransformPoseRequest {

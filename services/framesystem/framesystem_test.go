@@ -25,6 +25,9 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return &cfg, nil
 	}
+	injectRobot.RemoteNamesFunc = func() []string {
+		return []string{}
+	}
 
 	ctx := context.Background()
 	service, err := framesystem.New(ctx, injectRobot, config.Service{}, logger)

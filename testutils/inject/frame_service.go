@@ -3,7 +3,6 @@ package inject
 import (
 	"context"
 
-	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/framesystem"
 )
@@ -11,14 +10,14 @@ import (
 // FrameSystemService is an injected FrameSystem service.
 type FrameSystemService struct {
 	framesystem.Service
-	ConfigFunc        func(ctx context.Context) ([]*config.FrameSystemPart, error)
+	ConfigFunc        func(ctx context.Context) (framesystem.Parts, error)
 	TransformPoseFunc func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
 	FrameSystemFunc   func(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	PrintFunc         func(ctx context.Context) (string, error)
 }
 
 // Config calls the injected Config or the real version.
-func (fss *FrameSystemService) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
+func (fss *FrameSystemService) Config(ctx context.Context) (framesystem.Parts, error) {
 	if fss.ConfigFunc == nil {
 		return fss.Config(ctx)
 	}

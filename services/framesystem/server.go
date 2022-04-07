@@ -79,12 +79,3 @@ func (server *subtypeServer) TransformPose(
 
 	return &pb.TransformPoseResponse{Pose: referenceframe.PoseInFrameToProtobuf(transformedPose)}, err
 }
-
-func (server *subtypeServer) Print(ctx context.Context, req *pb.PrintRequest) (*pb.PrintResponse, error) {
-	svc, err := server.service()
-	if err != nil {
-		return nil, err
-	}
-	data, err := svc.Print(ctx)
-	return &pb.PrintResponse{Data: data}, err
-}
