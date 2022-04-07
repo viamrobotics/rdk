@@ -114,7 +114,10 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
 		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
 		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
-		result = append(result, fmt.Sprintf("Props: %v", d.Properties()))
+		for _, prop := range d.Properties() {
+			result = append(result, fmt.Sprintf("Prop: %v", prop))
+		}
+		result = append(result, "-----")
 	}
 	return result, nil
 }
