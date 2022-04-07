@@ -23,6 +23,7 @@ type Geometry interface {
 	ToProtobuf() *commonpb.Geometry
 	CollidesWith(Geometry) (bool, error)
 	DistanceFrom(Geometry) (float64, error)
+	EncompassedBy(Geometry) (bool, error)
 }
 
 // GeometryConfig specifies the format of geometries specified through the configuration file.
