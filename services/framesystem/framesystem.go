@@ -99,7 +99,7 @@ type frameSystemService struct {
 }
 
 // Update will rebuild the frame system from the newly updated robot.
-// TODO(bhaney): Does not update if a remote robot is updated. Can a local robot refresh if one of its remotes does?
+// TODO(RSDK-258): Does not update if a remote robot is updated. Remote updates need to re-trigger local updates.
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	fs, allParts, err := BuildFrameSystem(ctx, "robot", svc.r, svc.logger)
 	if err != nil {
