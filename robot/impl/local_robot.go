@@ -125,10 +125,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}()
 	r.config = cfg
 
-	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
-		return nil, err
-	}
-
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
@@ -137,6 +133,10 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 			return nil, err
 		}
 		r.manager.addResource(name, svc)
+	}
+
+	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
+		return nil, err
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.

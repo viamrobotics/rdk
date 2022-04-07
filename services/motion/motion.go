@@ -88,13 +88,9 @@ func FromRobot(r robot.Robot) (Service, error) {
 
 // New returns a new move and grab service for the given robot.
 func New(ctx context.Context, r robot.Robot, config config.Service, logger golog.Logger) (Service, error) {
-	fsSvcIfc, err := r.ResourceByName(framesystem.Name)
+	fsSvc, err := framesystem.FromRobot(r)
 	if err != nil {
 		return nil, err
-	}
-	fsSvc, ok := fsSvcIfc.(framesystem.Service)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("framesystem.Service", fsSvcIfc)
 	}
 
 	return &motionService{

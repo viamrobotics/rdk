@@ -62,19 +62,10 @@ type Service interface {
 
 // New returns a new frame system service for the given robot.
 func New(ctx context.Context, r robot.Robot, cfg config.Service, logger golog.Logger) (Service, error) {
-	fs, allParts, err := BuildFrameSystem(ctx, "robot", r, logger)
-	if err != nil {
-		return nil, err
-	}
-	fsSvc := &frameSystemService{
-		r:        r,
-		allParts: allParts,
-		fs:       fs,
-		logger:   logger,
-	}
-
-	logger.Debugf("full robot frame system:\n%v", allParts.String())
-	return fsSvc, nil
+	return &frameSystemService{
+		r:      r,
+		logger: logger,
+	}, nil
 }
 
 // FromRobot retrieves the frame system service of a robot.
@@ -105,8 +96,13 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 	if err != nil {
 		return err
 	}
-	svc.allParts = allParts
+	sortedParts, err := TopologicallySortParts(allParts)
+	if err != nil {
+		return err
+	}
+	svc.allParts = sortedParts
 	svc.fs = fs
+	svc.logger.Debugf("updated robot frame system:\n%v", svc.allParts.String())
 	return nil
 }
 
@@ -121,8 +117,15 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 
 // FrameSystem returns the cached frame system of the robot.
 func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
+	// if it's not cached, then build the frame system now
+	if svc.fs == nil {
+		fs, allParts, err := BuildFrameSystem(ctx, "robot", svc.r, svc.logger)
+		if err != nil {
+			return nil, err
+		}
+		svc.allParts = allParts
+		svc.fs = fs
+	}
 	return svc.fs, nil
 }
 
