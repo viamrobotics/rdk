@@ -131,7 +131,7 @@ func (ms *motionService) Move(
 	if err != nil {
 		return false, err
 	}
-	frameSys, err := frameService.FrameSystem(ctx, "")
+	frameSys, err := frameService.FrameSystem(ctx)
 	if err != nil {
 		return false, err
 	}

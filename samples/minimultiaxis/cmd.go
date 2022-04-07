@@ -36,7 +36,7 @@ func home(ctx context.Context, r robot.Robot) {
 		logger.Error(err)
 		return
 	}
-	fs, err := frameService.FrameSystem(ctx, "fs")
+	fs, err := frameService.FrameSystem(ctx)
 	if err != nil {
 		logger.Error(err)
 		return

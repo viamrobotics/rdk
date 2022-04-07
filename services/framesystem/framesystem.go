@@ -55,7 +55,7 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) (Parts, error)
-	FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error)
+	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
 	Print(ctx context.Context) (string, error)
 }
@@ -120,7 +120,7 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 }
 
 // FrameSystem returns the cached frame system of the robot.
-func (svc *frameSystemService) FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
+func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 	return svc.fs, nil
