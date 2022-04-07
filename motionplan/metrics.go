@@ -45,7 +45,8 @@ func CombineMetrics(metrics ...Metric) Metric {
 func newDefaultMetric(start, end spatial.Pose) Metric {
 	delta := spatial.PoseDelta(start, end)
 	// Translation distance between the two initializing poses
-	tDist := delta.Point().Norm2() * deviationFactor
+	// If this is extremely small, there is a floor of 1 so that pure-orientation motions do not fail.
+	tDist := math.Max(1.0, delta.Point().Norm2()*deviationFactor)
 	// Orientation distances between the two initializing poses
 	oDist := spatial.QuatToR3AA(delta.Orientation().Quaternion()).Norm2() * deviationFactor
 	endpoints := []spatial.Pose{start, end}
@@ -60,7 +61,7 @@ func newDefaultMetric(start, end spatial.Pose) Metric {
 				dist += transDist - tDist
 			}
 			if orientDist > oDist {
-				dist = +orientDist - oDist
+				dist += orientDist - oDist
 			}
 			if dist == 0. {
 				return dist

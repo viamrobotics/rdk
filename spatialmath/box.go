@@ -138,6 +138,19 @@ func (b *box) DistanceFrom(g Geometry) (float64, error) {
 	return math.Inf(-1), newCollisionTypeUnsupportedError(b, g)
 }
 
+func (b *box) EncompassedBy(g Geometry) (bool, error) {
+	if other, ok := g.(*box); ok {
+		return boxInBox(b, other), nil
+	}
+	if other, ok := g.(*sphere); ok {
+		return boxInSphere(b, other), nil
+	}
+	if _, ok := g.(*point); ok {
+		return false, nil
+	}
+	return false, newCollisionTypeUnsupportedError(b, g)
+}
+
 // closestPoint returns the closest point on the specified box to the specified point
 // Reference: https://github.com/gszauer/GamePhysicsCookbook/blob/a0b8ee0c39fed6d4b90bb6d2195004dfcf5a1115/Code/Geometry3D.cpp#L165
 func (b *box) closestPoint(pt r3.Vector) r3.Vector {
@@ -238,6 +251,26 @@ func boxVsBoxDistance(a, b *box) float64 {
 		}
 	}
 	return max
+}
+
+// boxInBox returns a bool describing if the inner box is completely encompassed by the outer box.
+func boxInBox(inner, outer *box) bool {
+	for _, vertex := range inner.Vertices() {
+		if !pointVsBoxCollision(outer, vertex) {
+			return false
+		}
+	}
+	return true
+}
+
+// boxInSphere returns a bool describing if the given box is completely encompassed by the given sphere.
+func boxInSphere(b *box, s *sphere) bool {
+	for _, vertex := range b.Vertices() {
+		if sphereVsPointDistance(s, vertex) > 0 {
+			return false
+		}
+	}
+	return sphereVsPointDistance(s, b.pose.Point()) <= 0
 }
 
 // separatingAxisTest projects two boxes onto the given plane and compute how much distance is between them along
