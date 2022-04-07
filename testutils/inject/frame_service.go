@@ -11,8 +11,8 @@ import (
 type FrameSystemService struct {
 	framesystem.Service
 	ConfigFunc        func(ctx context.Context) (framesystem.Parts, error)
+	FrameSystemFunc   func(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPoseFunc func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
-	FrameSystemFunc   func(ctx context.Context, name string) (referenceframe.FrameSystem, error)
 	PrintFunc         func(ctx context.Context) (string, error)
 }
 
@@ -24,6 +24,14 @@ func (fss *FrameSystemService) Config(ctx context.Context) (framesystem.Parts, e
 	return fss.ConfigFunc(ctx)
 }
 
+// FrameSystem calls the injected FrameSystem or the real version.
+func (fss *FrameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	if fss.FrameSystemFunc == nil {
+		return fss.FrameSystem(ctx)
+	}
+	return fss.FrameSystemFunc(ctx)
+}
+
 // TransformPose calls the injected TransformPose or the real version.
 func (fss *FrameSystemService) TransformPose(
 	ctx context.Context,
@@ -33,14 +41,6 @@ func (fss *FrameSystemService) TransformPose(
 		return fss.TransformPose(ctx, pose, dst)
 	}
 	return fss.TransformPoseFunc(ctx, pose, dst)
-}
-
-// FrameSystem calls the injected FrameSystem or the real version.
-func (fss *FrameSystemService) FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
-	if fss.FrameSystemFunc == nil {
-		return fss.FrameSystem(ctx, name)
-	}
-	return fss.FrameSystemFunc(ctx, name)
 }
 
 // Print calls the injected Print or the real version.

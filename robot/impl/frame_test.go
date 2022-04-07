@@ -31,7 +31,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// use fake registrations to have a FrameSystem return
 	frameService, err := framesystem.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := frameService.FrameSystem(context.Background(), "test")
+	fs, err := frameService.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 8) // 4 frames defined, 8 frames when including the offset
 

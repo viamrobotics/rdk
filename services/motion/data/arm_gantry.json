@@ -29,10 +29,4 @@
             }
         }
     ],
-    "services":
-    [
-        {
-            "type": "frame_system"
-        }
-    ]
 }

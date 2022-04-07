@@ -109,7 +109,7 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	if err != nil {
 		return nil, err
 	}
-	fs, err := frameService.FrameSystem(ctx, "join_cameras")
+	fs, err := frameService.FrameSystem(ctx)
 	if err != nil {
 		return nil, err
 	}

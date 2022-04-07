@@ -59,7 +59,7 @@ func makeFakeRobot(t *testing.T) robot.Robot {
 	test.That(t, err, test.ShouldBeNil)
 	err = fs.AddFrame(cam3Location, fs.GetFrame("cam2"))
 	test.That(t, err, test.ShouldBeNil)
-	fss.FrameSystemFunc = func(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
+	fss.FrameSystemFunc = func(ctx context.Context) (referenceframe.FrameSystem, error) {
 		return fs, nil
 	}
 
