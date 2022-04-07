@@ -66,7 +66,7 @@ test: test-go test-web
 test-go:
 	./etc/test.sh
 
-test-web:
+test-web: build-web
 	cd web/frontend/dls && npm run test:unit
 
 testpi:
