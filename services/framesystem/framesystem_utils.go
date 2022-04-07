@@ -27,12 +27,8 @@ func BuildFrameSystem(
 	if !ok {
 		return nil, nil, errors.Errorf("robot is not a local robot, cannot build Frame System %q on a remote", name)
 	}
-	// collect the necessary robot parts (skipping remotes, services, etc)
-	localParts, err := CollectLocalParts(ctx, localRobot)
-	if err != nil {
-		return nil, nil, err
-	}
-	allParts, err := CollectAllParts(ctx, localRobot, localParts, logger)
+	// collect the necessary robot parts
+	allParts, err := CollectAllParts(ctx, localRobot, logger)
 	if err != nil {
 		return nil, nil, err
 	}

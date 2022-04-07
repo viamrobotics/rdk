@@ -85,47 +85,10 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 	return topoSortedParts, nil
 }
 
-// CollectLocalParts collects the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc.
-func CollectLocalParts(ctx context.Context, r robot.Robot) (Parts, error) {
-	parts := make(map[string]*config.FrameSystemPart)
-	seen := make(map[string]bool)
-	local, ok := r.(robot.LocalRobot)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
-	}
-	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
-	if err != nil {
-		return nil, err
-	}
-	for _, c := range cfg.Components {
-		if c.Frame == nil { // no Frame means dont include in frame system.
-			continue
-		}
-		if _, ok := seen[c.Name]; ok {
-			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
-		}
-		if c.Name == referenceframe.World {
-			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
-		}
-		if c.Frame.Parent == "" {
-			return nil, errors.Errorf("parent field in frame config for part %q is empty", c.Name)
-		}
-		seen[c.Name] = true
-		model, err := extractModelFrameJSON(r, c.ResourceName())
-		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
-			return nil, err
-		}
-		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
-	}
-	return partMapToPartSlice(parts), nil
-}
-
 // CollectAllParts is a helper function to get all parts from the local robot and its  connected remote robots.
 func CollectAllParts(
 	ctx context.Context,
 	r robot.Robot,
-	localParts Parts,
 	logger golog.Logger) (Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem_utils::CollectAllParts")
 	defer span.End()
@@ -133,8 +96,10 @@ func CollectAllParts(
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
 	}
-	parts := Parts{}
-	parts = append(parts, localParts...)
+	parts, err := collectLocalParts(ctx, localRobot)
+	if err != nil {
+		return nil, err
+	}
 	conf, err := localRobot.Config(ctx)
 	if err != nil {
 		return nil, err
@@ -167,6 +132,42 @@ func CollectAllParts(
 		parts = append(parts, remoteParts...)
 	}
 	return parts, nil
+}
+
+// collectLocalParts collects the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc.
+func collectLocalParts(ctx context.Context, r robot.Robot) (Parts, error) {
+	parts := make(map[string]*config.FrameSystemPart)
+	seen := make(map[string]bool)
+	local, ok := r.(robot.LocalRobot)
+	if !ok {
+		return nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
+	}
+	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cfg.Components {
+		if c.Frame == nil { // no Frame means dont include in frame system.
+			continue
+		}
+		if _, ok := seen[c.Name]; ok {
+			return nil, errors.Errorf("more than one component with name %q in config file", c.Name)
+		}
+		if c.Name == referenceframe.World {
+			return nil, errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		}
+		if c.Frame.Parent == "" {
+			return nil, errors.Errorf("parent field in frame config for part %q is empty", c.Name)
+		}
+		seen[c.Name] = true
+		model, err := extractModelFrameJSON(r, c.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			return nil, err
+		}
+		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
+	}
+	return partMapToPartSlice(parts), nil
 }
 
 // getRemoteConfig gets the parameters for the Remote.
