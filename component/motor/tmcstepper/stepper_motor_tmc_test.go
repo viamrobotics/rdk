@@ -78,7 +78,7 @@ func TestTMCStepperMotor(t *testing.T) {
 	// These are the setup register writes
 	go checkTx(t, c, [][]byte{
 		{236, 0, 1, 0, 195},
-		{176, 0, 8, 15, 10},
+		{176, 0, 6, 15, 8},
 		{237, 0, 0, 0, 0},
 		{164, 0, 0, 21, 8},
 		{166, 0, 0, 21, 8},
@@ -537,5 +537,92 @@ func TestTMCStepperMotor(t *testing.T) {
 		}()
 		// Always true stopFunc
 		test.That(t, stoppableMotor.GoTillStop(ctx, -25.0, func(ctx context.Context) bool { return true }), test.ShouldBeNil)
+	})
+
+	//nolint:dupl
+	t.Run("test over-limit current settings", func(*testing.T) {
+		mc.HoldDelay = 9999
+		mc.RunCurrent = 9999
+		mc.HoldCurrent = 9999
+
+		// These are the setup register writes
+		go checkTx(t, c, [][]byte{
+			{236, 0, 1, 0, 195},
+			{176, 0, 15, 31, 31}, // Last three are delay, run, and hold
+			{237, 0, 0, 0, 0},
+			{164, 0, 0, 21, 8},
+			{166, 0, 0, 21, 8},
+			{170, 0, 0, 21, 8},
+			{168, 0, 0, 21, 8},
+			{163, 0, 0, 0, 1},
+			{171, 0, 0, 0, 10},
+			{165, 0, 2, 17, 149},
+			{177, 0, 0, 105, 234},
+			{167, 0, 0, 0, 0},
+			{160, 0, 0, 0, 1},
+			{161, 0, 0, 0, 0},
+		})
+
+		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+	})
+
+	t.Run("test under-limit current settings", func(*testing.T) {
+		mc.HoldDelay = -9999
+		mc.RunCurrent = -9999
+		mc.HoldCurrent = -9999
+
+		// These are the setup register writes
+		go checkTx(t, c, [][]byte{
+			{236, 0, 1, 0, 195},
+			{176, 0, 0, 0, 0}, // Last three are delay, run, and hold
+			{237, 0, 0, 0, 0},
+			{164, 0, 0, 21, 8},
+			{166, 0, 0, 21, 8},
+			{170, 0, 0, 21, 8},
+			{168, 0, 0, 21, 8},
+			{163, 0, 0, 0, 1},
+			{171, 0, 0, 0, 10},
+			{165, 0, 2, 17, 149},
+			{177, 0, 0, 105, 234},
+			{167, 0, 0, 0, 0},
+			{160, 0, 0, 0, 1},
+			{161, 0, 0, 0, 0},
+		})
+
+		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
+	})
+
+	//nolint:dupl
+	t.Run("test explicit current settings", func(*testing.T) {
+		mc.HoldDelay = 12
+		// Currents will be passed as one less, as default is repurposed
+		mc.RunCurrent = 27
+		mc.HoldCurrent = 14
+
+		// These are the setup register writes
+		go checkTx(t, c, [][]byte{
+			{236, 0, 1, 0, 195},
+			{176, 0, 12, 26, 13}, // Last three are delay, run, and hold
+			{237, 0, 0, 0, 0},
+			{164, 0, 0, 21, 8},
+			{166, 0, 0, 21, 8},
+			{170, 0, 0, 21, 8},
+			{168, 0, 0, 21, 8},
+			{163, 0, 0, 0, 1},
+			{171, 0, 0, 0, 10},
+			{165, 0, 2, 17, 149},
+			{177, 0, 0, 105, 234},
+			{167, 0, 0, 0, 0},
+			{160, 0, 0, 0, 1},
+			{161, 0, 0, 0, 0},
+		})
+
+		m, err := motorReg.Constructor(context.Background(), &r, config.Component{Name: "motor1", ConvertedAttributes: &mc}, logger)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, utils.TryClose(context.Background(), m), test.ShouldBeNil)
 	})
 }
