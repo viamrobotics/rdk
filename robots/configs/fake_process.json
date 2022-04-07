@@ -3,8 +3,7 @@
         "fqdn": "something-unique",
         "bind_address": ":8080"
     },
-    "components":
-    [
+    "components": [
         {
             "model": "fake",
             "name": "arm1",
@@ -25,7 +24,10 @@
                 "start_latitude": 40.745297,
                 "start_longitude": -74.010916
             },
-            "depends_on": ["base1_int", "gps1"]
+            "depends_on": [
+                "base1_int",
+                "gps1"
+            ]
         },
         {
             "model": "fake",
@@ -38,20 +40,33 @@
             "type": "camera"
         },
         {
+            "attributes": {
+                "path": "/dev/video0"
+            },
+            "model": "webcam",
+            "name": "laptop",
+            "type": "camera"
+        },
+        {
+            "attributes": {
+                "path": "/dev/video4"
+            },
+            "model": "webcam",
+            "name": "usb",
+            "type": "camera"
+        },
+        {
             "model": "fake",
             "name": "board1",
             "type": "board",
-            "attributes":
-            {
-                "analogs":
-                [
+            "attributes": {
+                "analogs": [
                     {
                         "name": "analog1",
                         "pin": "0"
                     }
                 ],
-                "digital_interrupts":
-                [
+                "digital_interrupts": [
                     {
                         "name": "encoder",
                         "pin": "14"
@@ -63,8 +78,7 @@
             "model": "fake",
             "name": "servo1",
             "type": "servo",
-            "attributes":
-            {
+            "attributes": {
                 "pin": "12"
             }
         },
@@ -72,11 +86,9 @@
             "name": "g",
             "type": "motor",
             "model": "fake",
-            "attributes":
-            {
+            "attributes": {
                 "encoder": "encoder",
-                "pins":
-                {
+                "pins": {
                     "a": "1",
                     "b": "2",
                     "pwm": "3"
@@ -88,7 +100,7 @@
             "name": "gps1",
             "type": "gps",
             "model": "fake"
-        }, 
+        },
         {
             "name": "imu1",
             "type": "imu",
@@ -115,13 +127,11 @@
             "model": "fake"
         }
     ],
-    "processes":
-    [
+    "processes": [
         {
             "id": "1",
             "name": "echo",
-            "args":
-            [
+            "args": [
                 "hello",
                 "world"
             ],
@@ -130,16 +140,14 @@
         {
             "id": "2",
             "name": "bash",
-            "args":
-            [
+            "args": [
                 "-c",
                 "trap \"exit 0\" SIGINT; while true; do echo hey; sleep 2; done"
             ],
             "log": true
         }
     ],
-    "functions":
-    [
+    "functions": [
         {
             "name": "func1",
             "engine": "javascript",
@@ -151,8 +159,7 @@
             "source": "(function() { console.log(robot.gripperGrab('gripper1')); return 2}())"
         }
     ],
-    "services":
-    [
+    "services": [
         {
             "type": "configuration"
         },
