@@ -10,6 +10,7 @@ import (
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/metadata/service"
@@ -18,7 +19,6 @@ import (
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/spatialmath"
-	"go.viam.com/rdk/utils"
 	rdkutils "go.viam.com/rdk/utils"
 )
 
@@ -28,7 +28,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	// use robot/impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), utils.ResolveFile("robot/impl/data/fake.json"), logger)
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -128,18 +128,26 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), utils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
 		err, test.ShouldBeError, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'"))
 
-	cfg, err = config.Read(context.Background(), utils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"), logger) // one of the nodes was given the name world
+	cfg, err = config.Read(
+		context.Background(),
+		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
+		logger,
+	) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
-	cfg, err = config.Read(context.Background(), utils.ResolveFile("robot/impl/data/fake_wrongconfig4.json"), logger) // the parent field was left empty for a component
+	cfg, err = config.Read(
+		context.Background(),
+		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig4.json"),
+		logger,
+	) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
