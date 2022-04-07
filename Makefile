@@ -61,8 +61,13 @@ lint: tool-install
 cover:
 	./etc/test.sh cover
 
-test:
+test: test-go test-web
+
+test-go:
 	./etc/test.sh
+
+test-web:
+	cd web/frontend/dls && npm run test:unit
 
 testpi:
 	sudo CGO_LDFLAGS=$(CGO_LDFLAGS) go test $(TAGS) -coverprofile=coverage.txt go.viam.com/rdk/component/board/pi
