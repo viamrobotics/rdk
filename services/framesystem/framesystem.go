@@ -169,8 +169,7 @@ func (svc *frameSystemService) TransformPose(
 	return svc.fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
 
-// Print will print a table of the part names, parents, and static offsets. If the robot is a local robot,
-// it will print out the complete frame system. If it is not a local robot, it will print a list of the frame parts.
+// Print will print a table of the part names, parents, and static offsets of the current frame system.
 func (svc *frameSystemService) Print(ctx context.Context) (string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
