@@ -13,7 +13,7 @@ import (
 	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
-	"go.viam.com/rdk/robotutils"
+	"go.viam.com/rdk/services/web"
 )
 
 var logger = golog.NewDevelopmentLogger("gamepad")
@@ -42,7 +42,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	defer myRobot.Close(ctx)
 	go debugOut(ctx, myRobot)
 
-	return robotutils.RunWebWithConfig(ctx, myRobot, cfg, logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }
 
 func debugOut(ctx context.Context, r robot.Robot) {
