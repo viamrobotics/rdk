@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	spatial "go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -130,6 +131,23 @@ func NewStaticFrame(name string, pose spatial.Pose) (Frame, error) {
 		return nil, errors.New("pose is not allowed to be nil")
 	}
 	return &staticFrame{name, pose, nil}, nil
+}
+
+// NewFrameAndParentNameFromTransform takes a Transform message and returns
+// it as a pair of a Frame and the name of its parent frame.
+func NewFrameAndParentNameFromTransform(transMessage *commonpb.Transform) (
+	Frame, string, error,
+) {
+	frameName := transMessage.GetReferenceFrame()
+	poseInParentFrame := transMessage.GetPoseInObserverFrame()
+	parentFrame := poseInParentFrame.GetReferenceFrame()
+	poseMsg := poseInParentFrame.GetPose()
+	pose := spatial.NewPoseFromProtobuf(poseMsg)
+	frame, err := NewStaticFrame(frameName, pose)
+	if err != nil {
+		return nil, "", err
+	}
+	return frame, parentFrame, nil
 }
 
 // NewZeroStaticFrame creates a frame with no translation or orientation changes.

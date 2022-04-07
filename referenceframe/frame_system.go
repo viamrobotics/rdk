@@ -7,6 +7,7 @@ import (
 	"github.com/golang/geo/r3"
 	"go.uber.org/multierr"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	spatial "go.viam.com/rdk/spatialmath"
 )
 
@@ -37,6 +38,7 @@ type FrameSystem interface {
 
 	DivideFrameSystem(newRoot Frame) (FrameSystem, error)
 	MergeFrameSystem(systemToMerge FrameSystem, attachTo Frame) error
+	MergeTransformsInfoFromWorldState(ws *commonpb.WorldState) error
 }
 
 // simpleFrameSystem implements FrameSystem. It is a simple tree graph.
@@ -214,6 +216,109 @@ func (sfs *simpleFrameSystem) TransformPose(positions map[string][]Input, pose s
 // Name returns the name of the simpleFrameSystem.
 func (sfs *simpleFrameSystem) Name() string {
 	return sfs.name
+}
+
+func (sfs *simpleFrameSystem) addFrameToExistingParent(frame Frame, parentName string) error {
+	var parentFrame Frame
+	var parentExists bool
+	if parentName == "world" {
+		parentFrame = sfs.World()
+		parentExists = true
+	} else {
+		parentFrame, parentExists = sfs.frames[parentName]
+	}
+	if parentExists {
+		err := sfs.AddFrame(frame, parentFrame)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return NewParentFrameMissingError()
+}
+
+func (sfs *simpleFrameSystem) addDescendantFramesFromMap(
+	apexFrameName string, childrenMap map[string][]*commonpb.Transform,
+) error {
+	// breadth-first traversal
+	childrenQueue := childrenMap[apexFrameName][0:]
+	for len(childrenQueue) != 0 {
+		currentChild := childrenQueue[0]
+		childFrame, thisParentName, err := NewFrameAndParentNameFromTransform(
+			currentChild,
+		)
+		if err != nil {
+			return err
+		}
+		err = sfs.addFrameToExistingParent(childFrame, thisParentName)
+		if err != nil {
+			return err
+		}
+		childrenQueue = append(childrenQueue, childrenMap[childFrame.Name()]...)
+		childrenQueue = childrenQueue[1:]
+	}
+	return nil
+}
+
+// MergeTransformsInfoFromWorldState takes the Transforms form a WorldState message
+// and adds the new information into the system in the form of Frames. NOTE: We can't simply
+// create a complete frame system from the information in world state because some of the
+// frames may have parents in the actual frame system.
+func (sfs *simpleFrameSystem) MergeTransformsInfoFromWorldState(ws *commonpb.WorldState) error {
+	transforms := ws.GetTransforms()
+	transformLookup := make(map[string]*commonpb.Transform)
+	childrenMap := make(map[string][]*commonpb.Transform)
+	for _, transformMsg := range transforms {
+		frameName := transformMsg.GetReferenceFrame()
+		transformLookup[frameName] = transformMsg
+		poseInParentFrame := transformMsg.GetPoseInObserverFrame()
+		parentName := poseInParentFrame.GetReferenceFrame()
+		childrenMap[parentName] = append(childrenMap[parentName], transformMsg)
+	}
+	for _, transformMsg := range transformLookup {
+		frameName := transformMsg.GetReferenceFrame()
+		if _, ok := sfs.frames[frameName]; ok {
+			continue
+		}
+		currentTransform := transformMsg
+		poseInParentFrame := currentTransform.GetPoseInObserverFrame()
+		parentName := poseInParentFrame.GetReferenceFrame()
+		loopIterations := 0
+		// traverse parent by parent until we get to the first frame
+		// without a parent reference frame in the world state
+		for {
+			if _, exists := transformLookup[parentName]; !exists {
+				frame, parentName, err := NewFrameAndParentNameFromTransform(
+					currentTransform,
+				)
+				if err != nil {
+					return err
+				}
+				// now that we are at the highest level frame for a subtree
+				// of reference frames included in the world state, we can add
+				// the entire subtree of reference frames to the frame system
+				// via breadth-first traversal
+				err = sfs.addFrameToExistingParent(frame, parentName)
+				if err != nil {
+					return err
+				}
+				err = sfs.addDescendantFramesFromMap(frame.Name(), childrenMap)
+				if err != nil {
+					return err
+				}
+				break
+			} else {
+				currentTransform = transformLookup[parentName]
+				parentPOF := currentTransform.GetPoseInObserverFrame()
+				parentName = parentPOF.GetReferenceFrame()
+			}
+			loopIterations++
+			if loopIterations > len(transformLookup) {
+				return errors.New("breadth-first descent took too many iterations, check logic")
+			}
+		}
+	}
+	return nil
 }
 
 // MergeFrameSystem will combine two frame systems together, placing the world of systemToMerge at the "attachTo" frame in sfs.

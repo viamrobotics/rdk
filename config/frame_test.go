@@ -11,6 +11,7 @@ import (
 	"go.viam.com/test"
 	"go.viam.com/utils"
 
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
 )
@@ -116,4 +117,103 @@ func TestMergeFrameSystems(t *testing.T) {
 	test.That(t, transformPoint.X, test.ShouldAlmostEqual, pointEnd.X)
 	test.That(t, transformPoint.Y, test.ShouldAlmostEqual, pointEnd.Y)
 	test.That(t, transformPoint.Z, test.ShouldAlmostEqual, pointEnd.Z)
+}
+
+func TestMergeTransformsInfoFromWorldState(t *testing.T) {
+	fs1 := referenceframe.NewEmptySimpleFrameSystem("test1")
+
+	frame1, err := referenceframe.NewStaticFrame("frame1", spatial.NewPoseFromPoint(r3.Vector{-5, 5, 0}))
+	test.That(t, err, test.ShouldBeNil)
+	err = fs1.AddFrame(frame1, fs1.World())
+	test.That(t, err, test.ShouldBeNil)
+	frame2, err := referenceframe.NewStaticFrame("frame2", spatial.NewPoseFromPoint(r3.Vector{0, 0, 10}))
+	test.That(t, err, test.ShouldBeNil)
+	err = fs1.AddFrame(frame2, fs1.GetFrame("frame1"))
+	test.That(t, err, test.ShouldBeNil)
+
+	pose := spatial.NewPoseFromAxisAngle(
+		r3.Vector{X: 1., Y: 2., Z: 3.},
+		r3.Vector{X: 0., Y: 1., Z: 0.},
+		math.Pi/2,
+	)
+
+	transformMsgs := []*commonpb.Transform{
+		&commonpb.Transform{
+			ReferenceFrame: "frame1a",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame1",
+				Pose:           spatial.PoseToProtobuf(pose),
+			},
+		},
+		&commonpb.Transform{
+			ReferenceFrame: "frame2b",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2a",
+				Pose:           spatial.PoseToProtobuf(pose),
+			},
+		},
+		&commonpb.Transform{
+			ReferenceFrame: "frame2a",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatial.PoseToProtobuf(pose),
+			},
+		},
+		&commonpb.Transform{
+			ReferenceFrame: "frame2c",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "frame2",
+				Pose:           spatial.PoseToProtobuf(pose),
+			},
+		},
+		&commonpb.Transform{
+			ReferenceFrame: "frame3",
+			PoseInObserverFrame: &commonpb.PoseInFrame{
+				ReferenceFrame: "world",
+				Pose:           spatial.PoseToProtobuf(pose),
+			},
+		},
+	}
+	worldState := &commonpb.WorldState{
+		Transforms: transformMsgs,
+	}
+	err = fs1.MergeTransformsInfoFromWorldState(worldState)
+	test.That(t, err, test.ShouldBeNil)
+
+	expectedFramesAndParents := []struct {
+		frameName  string
+		parentName string
+	}{
+		{
+			frameName:  "frame1a",
+			parentName: "frame1",
+		},
+		{
+			frameName:  "frame2a",
+			parentName: "frame2",
+		},
+		{
+			frameName:  "frame2b",
+			parentName: "frame2a",
+		},
+		{
+			frameName:  "frame2c",
+			parentName: "frame2",
+		},
+		{
+			frameName:  "frame3",
+			parentName: "world",
+		},
+	}
+
+	for _, frameAndParent := range expectedFramesAndParents {
+		frame := fs1.GetFrame(frameAndParent.frameName)
+		emptyInputs := make([]referenceframe.Input, 0)
+		framePose, err := frame.Transform(emptyInputs)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, spatial.PoseAlmostEqual(framePose, pose), test.ShouldBeTrue)
+		parentFrame, err := fs1.Parent(frame)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, parentFrame.Name(), test.ShouldEqual, frameAndParent.parentName)
+	}
 }
