@@ -47,8 +47,8 @@ func TestServerConfig(t *testing.T) {
 			},
 		}
 
-		injectSvc.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-			return fsConfigs, nil
+		injectSvc.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+			return framesystem.Parts(fsConfigs), nil
 		}
 		req := &pb.ConfigRequest{}
 		resp, err := fsServer.Config(context.Background(), req)
@@ -95,7 +95,7 @@ func TestServerConfig(t *testing.T) {
 
 	t.Run("test failing config function", func(t *testing.T) {
 		expectedErr := errors.New("failed to retrieve config")
-		injectSvc.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+		injectSvc.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
 			return nil, expectedErr
 		}
 		req := &pb.ConfigRequest{}

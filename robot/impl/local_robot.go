@@ -23,6 +23,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/services/datamanager"
+	"go.viam.com/rdk/services/framesystem"
 
 	// registers all services.
 	_ "go.viam.com/rdk/services/register"
@@ -36,7 +37,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name}
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most

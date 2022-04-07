@@ -65,12 +65,6 @@
           }
         }
     ],
-    "services": [
-        {
-            "name": "frame_system",
-            "type": "frame_system"
-        }
-    ],
     "functions": [
         {
           "name": "func1",

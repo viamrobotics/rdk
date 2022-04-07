@@ -52,7 +52,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
+func (c *client) Config(ctx context.Context) (Parts, error) {
 	resp, err := c.client.Config(ctx, &pb.ConfigRequest{})
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		}
 		result = append(result, part)
 	}
-	return result, nil
+	return Parts(result), nil
 }
 
 func (c *client) TransformPose(
@@ -85,13 +85,9 @@ func (c *client) TransformPose(
 }
 
 func (c *client) FrameSystem(ctx context.Context, name string) (referenceframe.FrameSystem, error) {
-	return nil, errors.New("method FrameSystem not implemented for remote robots. Use Config() instead to get frame information")
+	return nil, errors.New("method FrameSystem() not implemented for remote robots. Use Config() instead to get frame information")
 }
 
 func (c *client) Print(ctx context.Context) (string, error) {
-	resp, err := c.client.Print(ctx, &pb.PrintRequest{})
-	if err != nil {
-		return "", err
-	}
-	return resp.Data, nil
+	return "", errors.New("method Print() not implemented for remote robots. Use Config() instead to get frame information")
 }
