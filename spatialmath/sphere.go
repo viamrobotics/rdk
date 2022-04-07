@@ -121,6 +121,19 @@ func (s *sphere) DistanceFrom(g Geometry) (float64, error) {
 	return math.Inf(-1), newCollisionTypeUnsupportedError(s, g)
 }
 
+func (s *sphere) EncompassedBy(g Geometry) (bool, error) {
+	if other, ok := g.(*sphere); ok {
+		return sphereInSphere(s, other), nil
+	}
+	if other, ok := g.(*box); ok {
+		return sphereInBox(s, other), nil
+	}
+	if _, ok := g.(*point); ok {
+		return false, nil
+	}
+	return true, newCollisionTypeUnsupportedError(s, g)
+}
+
 // sphereVsPointDistance takes a sphere and a point as arguments and returns a floating point number.  If this number is nonpositive it
 // represents the penetration depth of the point within the sphere.  If the returned float is positive it represents the separation
 // distance between the point and the sphere, which are not in collision.
@@ -148,4 +161,14 @@ func sphereVsBoxCollision(s *sphere, b *box) bool {
 // separation distance for the two geometries, which are not in collision.
 func sphereVsBoxDistance(s *sphere, b *box) float64 {
 	return pointVsBoxDistance(b, s.pose.Point()) - s.radius
+}
+
+// sphereInSphere returns a bool describing if the inner sphere is fully encompassed by the outer sphere.
+func sphereInSphere(inner, outer *sphere) bool {
+	return inner.pose.Point().Sub(outer.pose.Point()).Norm()+inner.radius <= outer.radius
+}
+
+// sphereInBox returns a bool describing if the given sphere is fully encompassed by the given box.
+func sphereInBox(s *sphere, b *box) bool {
+	return -pointVsBoxDistance(b, s.pose.Point()) >= s.radius
 }
