@@ -941,6 +941,7 @@
 
             if (resourcesChanged === true) {
               querySensors()
+              queryCameras()
 
               if (shouldRestartStatusStream === true){
                 restartStatusStream()
@@ -963,6 +964,24 @@
                 return;
               }
               theData.sensorNames = resp.toObject().sensorNamesList
+              pResolve(null);
+            });
+          }
+
+          const queryCameras = async function() {
+            let pResolve;
+            let pReject;
+            p = new Promise((resolve, reject) => {
+              pResolve = resolve;
+              pReject = reject;
+            });
+            configurationService.getCameras(new configurationApi.GetCamerasRequest(), {}, function(err, resp) {
+              grpcCallback(err, resp, false)
+              if (err) {
+                pReject(err);
+                return;
+              }
+              theData.cameraData = resp.toObject().cameras
               pResolve(null);
             });
           }
@@ -1840,6 +1859,13 @@
         </tr>
 
       </table>
+
+      <div v-if="nonEmpty(cameraData)">
+        <h3>Camera Data</h3>
+        <div v-for="data in cameraData">
+          <p>${data}</p>
+        </div>
+      </div>
 
       <div id="pcd_wrapper">
         <table>
