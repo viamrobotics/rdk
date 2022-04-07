@@ -10,6 +10,7 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils/rpc"
 
+	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
@@ -107,7 +108,7 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	defer svc.mu.RUnlock()
 
 	var result []string
-	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
+	drivers := driver.GetManager().Query(meetsConstraints)
 	for _, d := range drivers {
 		driverInfo := d.Info()
 		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
@@ -120,4 +121,18 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 		result = append(result, "-----")
 	}
 	return result, nil
+}
+
+func meetsConstraints(d driver.Driver) bool {
+	// TODO: add actual constraints?
+	var constraints mediadevices.MediaTrackConstraints
+
+	for _, prop := range d.Properties() {
+		_, ok := constraints.MediaConstraints.FitnessDistance(prop)
+		if !ok {
+			continue
+		}
+		return true
+	}
+	return false
 }
