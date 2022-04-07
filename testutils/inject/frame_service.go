@@ -13,7 +13,6 @@ type FrameSystemService struct {
 	ConfigFunc        func(ctx context.Context) (framesystem.Parts, error)
 	FrameSystemFunc   func(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPoseFunc func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
-	PrintFunc         func(ctx context.Context) (string, error)
 }
 
 // Config calls the injected Config or the real version.
@@ -41,12 +40,4 @@ func (fss *FrameSystemService) TransformPose(
 		return fss.TransformPose(ctx, pose, dst)
 	}
 	return fss.TransformPoseFunc(ctx, pose, dst)
-}
-
-// Print calls the injected Print or the real version.
-func (fss *FrameSystemService) Print(ctx context.Context) (string, error) {
-	if fss.PrintFunc == nil {
-		return fss.Print(ctx)
-	}
-	return fss.PrintFunc(ctx)
 }

@@ -87,7 +87,3 @@ func (c *client) TransformPose(
 func (c *client) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
 	return nil, errors.New("method FrameSystem() not implemented for remote robots. Use Config() instead to get frame information")
 }
-
-func (c *client) Print(ctx context.Context) (string, error) {
-	return "", errors.New("method Print() not implemented for remote robots. Use Config() instead to get frame information")
-}

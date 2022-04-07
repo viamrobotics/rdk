@@ -57,7 +57,6 @@ type Service interface {
 	Config(ctx context.Context) (Parts, error)
 	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
-	Print(ctx context.Context) (string, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -169,9 +168,9 @@ func (svc *frameSystemService) TransformPose(
 	return svc.fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
 
-// Print will print a table of the part names, parents, and static offsets of the current frame system.
-func (svc *frameSystemService) Print(ctx context.Context) (string, error) {
+// String will print a table of the part names, parents, and static offsets of the current frame system.
+func (svc *frameSystemService) String() string {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.allParts.String(), nil
+	return svc.allParts.String()
 }
