@@ -94,7 +94,7 @@ func (c *client) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, e
 func (c *client) String(ctx context.Context) (string, error) {
 	parts, err := c.Config(ctx)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	return parts.String(), nil
 }
