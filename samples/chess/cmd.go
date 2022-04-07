@@ -31,6 +31,7 @@ import (
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/rlog"
 	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robotutils"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/chess"
@@ -515,7 +516,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	if err != nil {
 		return err
 	}
-	myRobot, err := robotutils.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}

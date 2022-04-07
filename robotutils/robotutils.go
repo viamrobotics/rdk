@@ -10,29 +10,8 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/robot"
-	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 )
-
-// RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
-func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger) (robot.LocalRobot, error) {
-	cfg, err := config.Read(ctx, cfgPath, logger)
-	if err != nil {
-		logger.Fatal("cannot read config")
-		return nil, err
-	}
-	return RobotFromConfig(ctx, cfg, logger)
-}
-
-// RobotFromConfig is a helper to process a config and then create a robot based on it.
-func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
-	tlsConfig := config.NewTLSConfig(cfg)
-	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
-	if err != nil {
-		return nil, err
-	}
-	return robotimpl.New(ctx, processedCfg, logger)
-}
 
 // RunWeb starts the web server on the web service with web options and blocks until we close it.
 func RunWeb(ctx context.Context, r robot.Robot, o web.Options, logger golog.Logger) (err error) {

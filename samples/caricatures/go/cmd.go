@@ -13,6 +13,7 @@ import (
 	"go.viam.com/rdk/config"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robotutils"
 )
 
@@ -73,7 +74,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotutils.RobotFromConfig(ctx, cfg, logger)
+		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}

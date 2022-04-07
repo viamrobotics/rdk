@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/robotutils"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/vision/segmentation"
@@ -320,7 +321,7 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		return err
 	}
 
-	myRobot, err := robotutils.RobotFromConfig(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
