@@ -10,8 +10,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"go.viam.com/utils/rpc"
 
-	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/driver"
+	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
 	"go.viam.com/rdk/registry"
@@ -108,14 +108,19 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	defer svc.mu.RUnlock()
 
 	var result []string
-	drivers := driver.GetManager().Query(meetsConstraints)
+	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
 	for _, d := range drivers {
 		driverInfo := d.Info()
 		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
 		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
 		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
 		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
-		for _, prop := range d.Properties() {
+
+		props, err := getProperties(d)
+		if err != nil {
+			return result, nil
+		}
+		for _, prop := range props {
 			result = append(result, fmt.Sprintf("Prop: %v", prop))
 		}
 		result = append(result, "-----")
@@ -123,16 +128,16 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	return result, nil
 }
 
-func meetsConstraints(d driver.Driver) bool {
-	// TODO: add actual constraints?
-	var constraints mediadevices.MediaTrackConstraints
-
-	for _, prop := range d.Properties() {
-		_, ok := constraints.MediaConstraints.FitnessDistance(prop)
-		if !ok {
-			continue
+func getProperties(d driver.Driver) ([]prop.Media, error) {
+	// Need to open driver to get properties
+	if d.Status() == driver.StateClosed {
+		err := d.Open()
+		if err != nil {
+			return nil, err
 		}
-		return true
+		// TODO: it's unclear if it's okay to just keep the driver open
+		// TODO: if we do need to close, handle errors
+		defer d.Close()
 	}
-	return false
+	return d.Properties(), nil
 }
