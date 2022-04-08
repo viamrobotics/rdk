@@ -122,7 +122,7 @@ func (ms *motionService) Move(
 	}
 	logger.Debugf("goal given in frame of %q", goalFrameName)
 
-	frameSys, err := ms.fsSvc.FrameSystem(ctx)
+	frameSys, err := framesystem.RobotFrameSystem(ctx, ms.r)
 	if err != nil {
 		return false, err
 	}

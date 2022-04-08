@@ -11,7 +11,6 @@ import (
 type FrameSystemService struct {
 	framesystem.Service
 	ConfigFunc        func(ctx context.Context) (framesystem.Parts, error)
-	FrameSystemFunc   func(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPoseFunc func(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
 }
 
@@ -21,14 +20,6 @@ func (fss *FrameSystemService) Config(ctx context.Context) (framesystem.Parts, e
 		return fss.Config(ctx)
 	}
 	return fss.ConfigFunc(ctx)
-}
-
-// FrameSystem calls the injected FrameSystem or the real version.
-func (fss *FrameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	if fss.FrameSystemFunc == nil {
-		return fss.FrameSystem(ctx)
-	}
-	return fss.FrameSystemFunc(ctx)
 }
 
 // TransformPose calls the injected TransformPose or the real version.

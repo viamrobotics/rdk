@@ -105,14 +105,11 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	frameService, err := framesystem.FromRobot(jpcs.robot)
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot)
 	if err != nil {
 		return nil, err
 	}
-	fs, err := frameService.FrameSystem(ctx)
-	if err != nil {
-		return nil, err
-	}
+
 	inputs, err := jpcs.initializeInputs(ctx, fs)
 	if err != nil {
 		return nil, err
