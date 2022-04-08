@@ -88,5 +88,5 @@ func (c *client) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, e
 	if err != nil {
 		return nil, err
 	}
-	return NewFrameSystemFromParts("remote robot", "", parts, c.logger)
+	return NewFrameSystemFromParts(FrameSystemName, "", parts, c.logger)
 }

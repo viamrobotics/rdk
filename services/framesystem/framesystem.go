@@ -92,7 +92,6 @@ type frameSystemService struct {
 	localParts   Parts                              // gotten from the local robot's config.Config
 	offsetParts  map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
 	remotePrefix map[string]bool                    // gotten from local robot's config.Remote
-	remoteParts  map[string]Parts                   // gotten from the remote robot's frameservice.Config(ctx)
 	logger       golog.Logger
 }
 
@@ -116,9 +115,8 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 		)
 		remoteParts[remoteName] = rParts
 	}
-	svc.remoteParts = remoteParts
 	// combine the parts and print the result
-	allParts := CombineParts(svc.localParts, svc.offsetParts, svc.remoteParts)
+	allParts := CombineParts(svc.localParts, svc.offsetParts, remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return err
@@ -154,9 +152,8 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 		)
 		remoteParts[remoteName] = rParts
 	}
-	svc.remoteParts = remoteParts
 	// build the config
-	allParts := CombineParts(svc.localParts, svc.offsetParts, svc.remoteParts)
+	allParts := CombineParts(svc.localParts, svc.offsetParts, remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return nil, err
