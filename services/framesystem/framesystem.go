@@ -113,11 +113,10 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
-// can build its frame system. requests the remote components.
+// can build its frame system. requests the remote components anew.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
 	// update part from remotes
+	svc.remoteParts = nil
 	remoteParts := make(map[string]Parts)
 	for _, remoteName := range svc.r.RemoteNames() {
 		remoteBot, ok := svc.r.RemoteByName(remoteName)

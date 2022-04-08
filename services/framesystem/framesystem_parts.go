@@ -134,14 +134,14 @@ func CollectAllParts(
 		}
 		connectionName := rConf.Name + "_" + referenceframe.World
 		rParts = renameRemoteParts(rParts, rConf.Name, rConf.Prefix, connectionName)
-		remoteParts[remoteName] = append(remoteParts[remoteName], rParts...)
-		remotePrefix[remoteName] = rConf.Prefix
 		// build the frame system part that connects remote world to base world
 		connection := &config.FrameSystemPart{
 			Name:        connectionName,
 			FrameConfig: rConf.Frame,
 		}
 		offsetParts[remoteName] = connection
+		remoteParts[remoteName] = append(remoteParts[remoteName], rParts...)
+		remotePrefix[remoteName] = rConf.Prefix
 	}
 	return localParts, offsetParts, remoteParts, remotePrefix, nil
 }

@@ -37,7 +37,6 @@ func BuildFrameSystem(
 	allParts Parts,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
-
 	// ensure that at least one frame connects to world if the frame system is not empty, and none are named world
 	if len(allParts) != 0 {
 		hasWorld := false
@@ -106,7 +105,7 @@ func NewFrameSystemFromParts(
 	return fs, nil
 }
 
-// getParts returns the frame system parts of the remote robot
+// getParts returns the frame system parts of the remote robot.
 func getParts(ctx context.Context, r robot.Robot) (Parts, error) {
 	fsSrv, err := FromRobot(r)
 	if err != nil {
