@@ -36,21 +36,6 @@ func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameS
 	return fs, nil
 }
 
-// RobotFrameSystemConfig returns the frame system parts of the robot through the frame system service.
-func RobotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystemConfig")
-	defer span.End()
-	fsSrv, err := FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fsSrv.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return parts, nil
-}
-
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
 // usually acquired by calling Config on a frame system service.
 func NewFrameSystemFromParts(
@@ -125,6 +110,21 @@ func combineParts(
 		allParts = append(allParts, part...)
 	}
 	return allParts
+}
+
+// robotFrameSystemConfig returns the frame system parts of the robot through the frame system service.
+func robotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystemConfig")
+	defer span.End()
+	fsSrv, err := FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := fsSrv.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parts, nil
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
