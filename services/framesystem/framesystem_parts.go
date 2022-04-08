@@ -85,19 +85,19 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 	return topoSortedParts, nil
 }
 
-// CollectAllParts is a helper function to get all parts from the local robot and its  connected remote robots.
-func CollectAllParts(
+// CollectPartsFromRobotConfig is a helper function to get all parts from the local robot and its connected remote robots.
+func CollectPartsFromRobotConfig(
 	ctx context.Context,
 	r robot.Robot,
 	logger golog.Logger,
 ) (Parts, map[string]*config.FrameSystemPart, map[string]Parts, map[string]bool, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem_utils::CollectAllParts")
+	ctx, span := trace.StartSpan(ctx, "services::framesystem_utils::CollectPartsFromRobotConfig")
 	defer span.End()
 	localRobot, ok := r.(robot.LocalRobot)
 	if !ok {
 		return nil, nil, nil, nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
 	}
-	localParts, err := collectLocalParts(ctx, localRobot)
+	localParts, err := collectLocalPartsFromRobotConfig(ctx, localRobot)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -120,11 +120,11 @@ func CollectAllParts(
 			logger.Debugw("remote has frame system error, skipping", "remote", remoteName, "error", err)
 			continue
 		}
-		rParts, err := remoteService.Config(ctx)
+		rParts, err := remoteService.Config(ctx) // be aware, remote parts are returned with their original names.
 		if err != nil {
 			return nil, nil, nil, nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
-		rConf, err := getRemoteConfig(remoteName, conf)
+		rConf, err := getRemoteRobotConfig(remoteName, conf)
 		if err != nil {
 			return nil, nil, nil, nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
@@ -133,7 +133,6 @@ func CollectAllParts(
 			continue
 		}
 		connectionName := rConf.Name + "_" + referenceframe.World
-		rParts = renameRemoteParts(rParts, rConf.Name, rConf.Prefix, connectionName)
 		// build the frame system part that connects remote world to base world
 		connection := &config.FrameSystemPart{
 			Name:        connectionName,
@@ -146,9 +145,9 @@ func CollectAllParts(
 	return localParts, offsetParts, remoteParts, remotePrefix, nil
 }
 
-// collectLocalParts collects the physical parts of the robot that may have frame info,
-// excluding remote robots and services, etc.
-func collectLocalParts(ctx context.Context, r robot.Robot) (Parts, error) {
+// collectLocalPartsFromRobotConfig collects the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc from the robot's config.Config.
+func collectLocalPartsFromRobotConfig(ctx context.Context, r robot.Robot) (Parts, error) {
 	parts := make(map[string]*config.FrameSystemPart)
 	seen := make(map[string]bool)
 	local, ok := r.(robot.LocalRobot)
@@ -182,8 +181,21 @@ func collectLocalParts(ctx context.Context, r robot.Robot) (Parts, error) {
 	return partMapToPartSlice(parts), nil
 }
 
-// getRemoteConfig gets the parameters for the Remote.
-func getRemoteConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
+// collectAllPartsFromService returns the frame system parts of the robot through the frame system service.
+func collectAllPartsFromService(ctx context.Context, r robot.Robot) (Parts, error) {
+	fsSrv, err := FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := fsSrv.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parts, nil
+}
+
+// getRemoteRobotConfig gets the parameters for the Remote.
+func getRemoteRobotConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
 	for _, rConf := range conf.Remotes {
 		if rConf.Name == remoteName {
 			return &rConf, nil
