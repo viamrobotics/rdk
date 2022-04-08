@@ -121,7 +121,7 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 			return result, nil
 		}
 		for _, prop := range props {
-			result = append(result, fmt.Sprintf("Prop: %v", prop))
+			result = append(result, fmt.Sprintf("Prop: %+v", prop))
 		}
 		result = append(result, "-----")
 	}
