@@ -110,11 +110,6 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
 	for _, d := range drivers {
 		driverInfo := d.Info()
-		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
-		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
-		result = append(result, fmt.Sprintf("Status: %v", d.Status()))
-		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
-		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
 
 		props, err := getProperties(d)
 		if len(props) == 0 || err != nil {
@@ -123,6 +118,13 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 			// TODO: log error
 			continue
 		}
+
+		// Print camera information
+		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
+		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
+		result = append(result, fmt.Sprintf("Status: %v", d.Status()))
+		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
+		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
 		for _, prop := range props {
 			result = append(result, fmt.Sprintf("Prop: %+v", prop))
 		}
