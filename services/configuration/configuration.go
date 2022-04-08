@@ -117,8 +117,11 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
 
 		props, err := getProperties(d)
-		if err != nil {
-			return result, nil
+		if len(props) == 0 || err != nil {
+			// Skip if there are no properties or if there is an error obtaining
+			// properties
+			// TODO: log error
+			continue
 		}
 		for _, prop := range props {
 			result = append(result, fmt.Sprintf("Prop: %+v", prop))
