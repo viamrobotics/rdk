@@ -168,7 +168,7 @@ func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.
 	if err != nil {
 		return nil, err
 	}
-	fs, err := BuildFrameSystem(FrameSystemName, allParts, svc.logger)
+	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, svc.logger)
 	if err != nil {
 		return nil, err
 	}

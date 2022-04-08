@@ -30,17 +30,16 @@ func CombineParts(
 	return allParts
 }
 
-// BuildFrameSystem collects frame system parts from the local and remote robots and creates the frame system
-// and returns the parts that built it as well.
-func BuildFrameSystem(
-	name string,
-	allParts Parts,
+// NewFrameSystemFromParts assembles a frame system from a collection of parts,
+// usually acquired by calling Config on a frame system service.
+func NewFrameSystemFromParts(
+	name, prefix string, parts Parts,
 	logger golog.Logger,
 ) (referenceframe.FrameSystem, error) {
-	// ensure that at least one frame connects to world if the frame system is not empty, and none are named world
-	if len(allParts) != 0 {
+	// ensure that at least one frame connects to world if the frame system is not empty
+	if len(parts) != 0 {
 		hasWorld := false
-		for _, part := range allParts {
+		for _, part := range parts {
 			if part.FrameConfig.Parent == referenceframe.World {
 				hasWorld = true
 				break
@@ -50,21 +49,7 @@ func BuildFrameSystem(
 			return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 		}
 	}
-	// build frame system
-	fs, err := NewFrameSystemFromParts(name, "", allParts, logger)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
-
-// NewFrameSystemFromParts assembles a frame system from a collection of parts,
-// usually acquired by calling Config on a frame system service, or gatherParts.
-func NewFrameSystemFromParts(
-	name, prefix string, parts Parts,
-	logger golog.Logger,
-) (referenceframe.FrameSystem, error) {
-	// Topologically sort parts first
+	// Topologically sort parts
 	sortedParts, err := TopologicallySortParts(parts)
 	if err != nil {
 		return nil, err
