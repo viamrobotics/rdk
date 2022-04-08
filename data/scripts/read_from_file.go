@@ -24,7 +24,7 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 	}
 
 	total := 0
-	subintCount := 0
+	subintCount := 1
 
 	file, err := os.Open(filename)
 	if err != nil {
@@ -34,21 +34,11 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 
 	first, _ := utils.ReadNextSensorData(file)
 
-	if printExampleMessage {
-		data := first.GetData()
-		if pc, ok := data.GetFields()["PointCloud"]; ok {
-			data_str := pc.GetStringValue()
-			data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
-			fmt.Println(data_bytes)
-		} else {
-			fmt.Println(data)
-		}
-	}
-
 	firstTimestamp := first.GetMetadata().GetTimeReceived().AsTime()
 	next := firstTimestamp
 	subIntervalStart := firstTimestamp
 	msgCount := 0
+	mostRecent := first
 	for {
 		msg, err := utils.ReadNextSensorData(file)
 		if err != nil {
@@ -59,6 +49,8 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 			return
 		}
 		next = msg.GetMetadata().GetTimeReceived().AsTime()
+		mostRecent = msg
+
 		diff := next.Sub(subIntervalStart)
 
 		if diff < time.Second {
@@ -73,6 +65,18 @@ func printStats(filename string, debugMode bool, marginOfError float64, frequenc
 			msgCount = 0
 		}
 	}
+
+	if printExampleMessage {
+		data := mostRecent.GetData()
+		if pc, ok := data.GetFields()["PointCloud"]; ok {
+			data_str := pc.GetStringValue()
+			data_bytes, _ := base64.StdEncoding.DecodeString(data_str)
+			fmt.Println(data_bytes)
+		} else {
+			fmt.Println(data)
+		}
+	}
+
 	fmt.Printf("%d messages over %f minutes\n", total, next.Sub(firstTimestamp).Minutes())
 	fmt.Printf("Average number of messages per second: %f\n", float64(total)/float64(subintCount))
 }
