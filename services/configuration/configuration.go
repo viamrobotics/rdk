@@ -3,7 +3,6 @@ package configuration
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -54,9 +53,16 @@ func init() {
 	}, &Config{})
 }
 
+// CameraConfig is collection of configuration options for a camera.
+type CameraConfig struct {
+	Label      string
+	Status     driver.State
+	Properties []prop.Media
+}
+
 // A Service controls the configuration for a robot.
 type Service interface {
-	GetCameras(ctx context.Context) ([]string, error)
+	GetCameras(ctx context.Context) ([]CameraConfig, error)
 }
 
 // SubtypeName is the name of the type of service.
@@ -102,11 +108,11 @@ type configService struct {
 	activeBackgroundWorkers sync.WaitGroup
 }
 
-func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
+func (svc *configService) GetCameras(ctx context.Context) ([]CameraConfig, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	var result []string
+	var result []CameraConfig
 	drivers := driver.GetManager().Query(func(d driver.Driver) bool { return true })
 	for _, d := range drivers {
 		driverInfo := d.Info()
@@ -119,16 +125,24 @@ func (svc *configService) GetCameras(ctx context.Context) ([]string, error) {
 			continue
 		}
 
-		// Print camera information
-		result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
-		result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
-		result = append(result, fmt.Sprintf("Status: %v", d.Status()))
-		result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
-		result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
-		for _, prop := range props {
-			result = append(result, fmt.Sprintf("Prop: %+v", prop))
+		conf := CameraConfig{
+			Label:      driverInfo.Label,
+			Status:     d.Status(),
+			Properties: []prop.Media{},
 		}
-		result = append(result, "-----")
+
+		// Print camera information
+		// result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
+		// result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
+		// result = append(result, fmt.Sprintf("Status: %v", d.Status()))
+		// result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
+		// result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
+		for _, prop := range props {
+			// result = append(result, fmt.Sprintf("Prop: %+v", prop))
+			conf.Properties = append(conf.Properties, prop)
+		}
+		result = append(result, conf)
+		// result = append(result, "-----")
 	}
 	return result, nil
 }

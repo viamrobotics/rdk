@@ -42,5 +42,25 @@ func (server *subtypeServer) GetCameras(ctx context.Context, req *pb.GetCamerasR
 	if err != nil {
 		return nil, err
 	}
-	return &pb.GetCamerasResponse{Cameras: cameras}, nil
+	respCams := []*pb.CameraConfig{}
+	for _, conf := range cameras {
+		camConf := &pb.CameraConfig{
+			Label:      conf.Label,
+			Status:     string(conf.Status),
+			Properties: []*pb.Property{},
+		}
+
+		for _, p := range conf.Properties {
+			video := &pb.Video{
+				Width:       int32(p.Video.Width),
+				Height:      int32(p.Video.Height),
+				FrameFormat: string(p.Video.FrameFormat),
+			}
+			property := &pb.Property{Video: video}
+
+			camConf.Properties = append(camConf.Properties, property)
+		}
+		respCams = append(respCams, camConf)
+	}
+	return &pb.GetCamerasResponse{Cameras: respCams}, nil
 }
