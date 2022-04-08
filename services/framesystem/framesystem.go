@@ -205,14 +205,3 @@ func (svc *frameSystemService) TransformPose(
 
 	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
-
-// String will print a table of the part names, parents, and static offsets of the current frame system.
-func (svc *frameSystemService) String(ctx context.Context) (string, error) {
-	svc.mu.RLock()
-	defer svc.mu.RUnlock()
-	parts, err := svc.Config(ctx)
-	if err != nil {
-		return "", err
-	}
-	return parts.String(), nil
-}
