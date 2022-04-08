@@ -1,26 +1,34 @@
-package robotimpl_test
+package framesystem_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
+	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/web"
+	"go.viam.com/rdk/spatialmath"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 var blankPos map[string][]referenceframe.Input
 
 func TestFrameSystemFromConfig(t *testing.T) {
-	// use impl/data/fake.json as config input
+	// use robot/impl/data/fake.json as config input
 	emptyIn := []referenceframe.Input{}
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake.json", logger)
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
 
 	r, err := robotimpl.New(context.Background(), cfg, logger)
@@ -28,7 +36,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	fs, err := r.FrameSystem(context.Background(), "test", "")
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 8) // 4 frames defined, 8 frames when including the offset
 
@@ -118,21 +126,119 @@ func TestFrameSystemFromConfig(t *testing.T) {
 func TestWrongFrameSystems(t *testing.T) {
 	// use impl/data/fake_wrongconfig*.json as config input
 	logger := golog.NewTestLogger(t)
-	cfg, err := config.Read(context.Background(), "data/fake_wrongconfig2.json", logger) // no world node
+	cfg, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig2.json"), logger) // no world node
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t,
-		err, test.ShouldBeError, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'"))
+		err, test.ShouldBeError, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'"))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig3.json", logger) // one of the nodes was given the name world
+	cfg, err = config.Read(
+		context.Background(),
+		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig3.json"),
+		logger,
+	) // one of the nodes was given the name world
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
-	test.That(t, err, test.ShouldBeError, errors.New("cannot have more than one frame with name world"))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("cannot give frame system part the name %s", referenceframe.World))
 
-	cfg, err = config.Read(context.Background(), "data/fake_wrongconfig4.json", logger) // the parent field was left empty for a component
+	cfg, err = config.Read(
+		context.Background(),
+		rdkutils.ResolveFile("robot/impl/data/fake_wrongconfig4.json"),
+		logger,
+	) // the parent field was left empty for a component
 	test.That(t, err, test.ShouldBeNil)
 	_, err = robotimpl.New(context.Background(), cfg, logger)
 	test.That(t, err, test.ShouldBeError, errors.New("parent field in frame config for part \"cameraOver\" is empty"))
+}
+
+func TestServiceWithRemote(t *testing.T) {
+	logger := golog.NewTestLogger(t)
+	// make the remote robots
+	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
+	test.That(t, err, test.ShouldBeNil)
+	metadataSvc, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx := service.ContextWithService(context.Background(), metadataSvc)
+	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	defer func() {
+		test.That(t, remoteRobot.Close(context.Background()), test.ShouldBeNil)
+	}()
+	port, err := utils.TryReserveRandomPort()
+	test.That(t, err, test.ShouldBeNil)
+	options := web.NewOptions()
+	options.Network.BindAddress = fmt.Sprintf("localhost:%d", port)
+	svc, err := web.FromRobot(remoteRobot)
+	test.That(t, err, test.ShouldBeNil)
+	err = svc.Start(ctx, options)
+	test.That(t, err, test.ShouldBeNil)
+	addr := fmt.Sprintf("localhost:%d", port)
+
+	// make the local robot
+	localConfig := &config.Config{
+		Components: []config.Component{
+			{
+				Name:  "foo",
+				Type:  config.ComponentTypeBase,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: referenceframe.World,
+				},
+			},
+			{
+				Name:  "myParentIsRemote",
+				Type:  config.ComponentTypeGripper,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: "bar.pieceArm",
+				},
+			},
+		},
+		Remotes: []config.Remote{
+			{
+				Name:    "bar",
+				Address: addr,
+				Prefix:  true,
+				Frame: &config.Frame{
+					Parent:      "foo",
+					Translation: spatialmath.TranslationConfig{100, 200, 300},
+					Orientation: &spatialmath.R4AA{math.Pi / 2., 0, 0, 1},
+				},
+			},
+			{
+				Name:    "squee",
+				Prefix:  false,
+				Address: addr,
+				Frame: &config.Frame{
+					Parent:      referenceframe.World,
+					Translation: spatialmath.TranslationConfig{500, 600, 700},
+					Orientation: &spatialmath.R4AA{math.Pi / 2., 1, 0, 0},
+				},
+			},
+			{
+				Name:    "dontAddMe", // no frame info, should be skipped
+				Prefix:  true,
+				Address: addr,
+			},
+		},
+	}
+
+	metadataSvc2, err := service.New()
+	test.That(t, err, test.ShouldBeNil)
+	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
+
+	// make local robot
+	r2, err := robotimpl.New(ctx2, localConfig, logger)
+	test.That(t, err, test.ShouldBeNil)
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
+	// run the frame system service
+	fsServ, err := framesystem.FromRobot(r2)
+	test.That(t, err, test.ShouldBeNil)
+	allParts, err := fsServ.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frame system:\n%v", allParts)
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {

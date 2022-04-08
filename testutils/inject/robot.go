@@ -9,7 +9,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -21,7 +20,6 @@ type Robot struct {
 	ResourceByNameFunc func(name resource.Name) (interface{}, error)
 	RemoteNamesFunc    func() []string
 	FunctionNamesFunc  func() []string
-	FrameSystemFunc    func(ctx context.Context, name string, prefix string) (referenceframe.FrameSystem, error)
 	ResourceNamesFunc  func() []resource.Name
 	ProcessManagerFunc func() pexec.ProcessManager
 	ConfigFunc         func(ctx context.Context) (*config.Config, error)
@@ -60,14 +58,6 @@ func (r *Robot) FunctionNames() []string {
 		return r.LocalRobot.FunctionNames()
 	}
 	return r.FunctionNamesFunc()
-}
-
-// FrameSystem calls the injected FrameSystemFunc or the real version.
-func (r *Robot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	if r.FrameSystemFunc == nil {
-		return r.LocalRobot.FrameSystem(ctx, name, prefix)
-	}
-	return r.FrameSystemFunc(ctx, name, prefix)
 }
 
 // ResourceNames calls the injected ResourceNames or the real version.

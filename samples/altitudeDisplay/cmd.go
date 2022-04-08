@@ -12,7 +12,6 @@ import (
 
 	"go.viam.com/rdk/component/board"
 	"go.viam.com/rdk/component/gps"
-	"go.viam.com/rdk/config"
 	robotimpl "go.viam.com/rdk/robot/impl"
 )
 
@@ -31,12 +30,7 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0), logger)
-	if err != nil {
-		return err
-	}
-
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfigPath(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
 	}

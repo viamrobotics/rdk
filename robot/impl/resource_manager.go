@@ -317,10 +317,6 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 					RemoveAuthCredentials: true,
 				}))
 			}
-		} else {
-			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-				Config: &rpc.DefaultWebRTCConfiguration,
-			}))
 		}
 
 		var outerError error
