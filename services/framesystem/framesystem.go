@@ -21,6 +21,8 @@ import (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("frame_system")
+
+// FrameSystemName is the default name of the frame system created by the service.
 const FrameSystemName = "robot"
 
 // Subtype is a constant that identifies the frame system resource subtype.
