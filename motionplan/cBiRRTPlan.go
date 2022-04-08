@@ -90,7 +90,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 	solutionChan := make(chan *planReturn, 1)
 	utils.PanicCapturingGo(func() {
 		// TODO(rb) fix me
-		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, opt, nil, solutionChan)
+		mp.planRunner(ctx, goal, seed, map[string]spatial.Geometry{}, map[string]spatial.Geometry{}, opt, nil, solutionChan)
 	})
 	select {
 	case <-ctx.Done():
@@ -109,7 +109,7 @@ func (mp *cBiRRTMotionPlanner) Plan(ctx context.Context,
 func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 	goal *commonpb.Pose,
 	seed []referenceframe.Input,
-	obstacles map[string]spatial.Geometry,
+	obstacles, interactionSpaces map[string]spatial.Geometry,
 	opt *PlannerOptions,
 	endpointPreview chan *configuration,
 	solutionChan chan *planReturn,
@@ -128,7 +128,7 @@ func (mp *cBiRRTMotionPlanner) planRunner(ctx context.Context,
 		if len(obstacles) == 0 {
 			opt = DefaultConstraint(seedPos, goalPos, mp.Frame(), opt)
 		} else {
-			collisionConst := NewCollisionConstraintFromFrame(mp.Frame(), obstacles)
+			collisionConst := NewCollisionConstraint(mp.Frame(), obstacles, interactionSpaces)
 			if collisionConst != nil {
 				opt.AddConstraint("self-collision", collisionConst)
 			}
