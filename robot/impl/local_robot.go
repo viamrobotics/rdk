@@ -348,3 +348,23 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 	}
 	return svc.Replace(resources)
 }
+
+// RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger) (robot.LocalRobot, error) {
+	cfg, err := config.Read(ctx, cfgPath, logger)
+	if err != nil {
+		logger.Fatal("cannot read config")
+		return nil, err
+	}
+	return RobotFromConfig(ctx, cfg, logger)
+}
+
+// RobotFromConfig is a helper to process a config and then create a robot based on it.
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	tlsConfig := config.NewTLSConfig(cfg)
+	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return New(ctx, processedCfg, logger)
+}
