@@ -51,7 +51,7 @@ jobs:
         echo "$ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS" | base64 -d > artifact_google_creds.json
         export ARTIFACT_GOOGLE_APPLICATION_CREDENTIALS=`pwd`/artifact_google_creds.json
         sudo -u testbot bash -lc 'make cover'
-	sudo -u testbot bash -lc 'make test-web'
+        sudo -u testbot bash -lc 'make test-web'
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
