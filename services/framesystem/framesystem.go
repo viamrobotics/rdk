@@ -285,7 +285,7 @@ func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[strin
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
 		}
-		rParts, err := RobotFrameSystemConfig(ctx, remote)
+		rParts, err := robotFrameSystemConfig(ctx, remote)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
