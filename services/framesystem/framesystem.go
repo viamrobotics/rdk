@@ -23,8 +23,8 @@ import (
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("frame_system")
 
-// FrameSystemName is the default name of the frame system created by the service.
-const FrameSystemName = "robot"
+// LocalFrameSystemName is the default name of the frame system created by the service.
+const LocalFrameSystemName = "robot"
 
 // Subtype is a constant that identifies the frame system resource subtype.
 var Subtype = resource.NewSubtype(
@@ -99,26 +99,23 @@ type frameSystemService struct {
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
 	defer span.End()
-	localParts, offsetParts, remoteParts, remotePrefix, err := CollectPartsFromRobotConfig(ctx, svc.r, svc.logger)
+	// update local parts
+	err := svc.collectLocalPartsFromRobotConfig(ctx)
 	if err != nil {
 		return err
 	}
-	svc.localParts = localParts
-	svc.offsetParts = offsetParts
-	svc.remotePrefix = remotePrefix
-	// rename the remote parts according to the offsets and prefixes
-	for remoteName, rParts := range remoteParts {
-		connectionName := remoteName + "_" + referenceframe.World
-		rParts = renameRemoteParts(
-			rParts,
-			remoteName,
-			svc.remotePrefix[remoteName],
-			connectionName,
-		)
-		remoteParts[remoteName] = rParts
+	// update offsets and prefixes
+	err = svc.collectOffsetPartsFromRobotConfig(ctx)
+	if err != nil {
+		return err
 	}
-	// combine the parts and print the result
-	allParts := CombineParts(svc.localParts, svc.offsetParts, remoteParts)
+	// update the remote parts
+	remoteParts, err := svc.collectRemotePartsFromRobot(ctx)
+	if err != nil {
+		return err
+	}
+	// combine the parts, sort, and print the result
+	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return err
@@ -130,34 +127,17 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
+// NOTE(RDK-258): If remotes can trigger a local to reconfigure, you can cache the remoteParts in svc as well.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
-	// update part from remotes
-	remoteParts := make(map[string]Parts)
-	for _, remoteName := range svc.r.RemoteNames() {
-		if _, ok := svc.offsetParts[remoteName]; !ok {
-			continue // remote robot has no offset information, skip it
-		}
-		remoteBot, ok := svc.r.RemoteByName(remoteName)
-		if !ok {
-			return nil, errors.Errorf("remote %s not found for frame system config", remoteName)
-		}
-		rParts, err := collectAllPartsFromService(ctx, remoteBot)
-		if err != nil {
-			return nil, err
-		}
-		connectionName := remoteName + "_" + referenceframe.World
-		rParts = renameRemoteParts(
-			rParts,
-			remoteName,
-			svc.remotePrefix[remoteName],
-			connectionName,
-		)
-		remoteParts[remoteName] = rParts
+	// update parts from remotes
+	remoteParts, err := svc.collectRemotePartsFromRobot(ctx)
+	if err != nil {
+		return nil, err
 	}
 	// build the config
-	allParts := CombineParts(svc.localParts, svc.offsetParts, remoteParts)
+	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return nil, err
@@ -181,7 +161,7 @@ func (svc *frameSystemService) TransformPose(
 	if err != nil {
 		return nil, err
 	}
-	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, svc.logger)
+	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, svc.logger)
 	if err != nil {
 		return nil, err
 	}
@@ -213,4 +193,107 @@ func (svc *frameSystemService) TransformPose(
 	}
 
 	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
+}
+
+// collectLocalPartsFromRobotConfig collects the physical parts of the robot that may have frame info,
+// excluding remote robots and services, etc from the robot's config.Config.
+func (svc *frameSystemService) collectLocalPartsFromRobotConfig(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectLocalPartsFromRobotConfig")
+	defer span.End()
+	parts := make(map[string]*config.FrameSystemPart)
+	seen := make(map[string]bool)
+	local, ok := svc.r.(robot.LocalRobot)
+	if !ok {
+		return utils.NewUnimplementedInterfaceError("robot.LocalRobot", svc.r)
+	}
+	cfg, err := local.Config(ctx) // Eventually there will be another function that gathers the frame system config
+	if err != nil {
+		return err
+	}
+	for _, c := range cfg.Components {
+		if c.Frame == nil { // no Frame means dont include in frame system.
+			continue
+		}
+		if _, ok := seen[c.Name]; ok {
+			return errors.Errorf("more than one component with name %q in config file", c.Name)
+		}
+		if c.Name == referenceframe.World {
+			return errors.Errorf("cannot give frame system part the name %s", referenceframe.World)
+		}
+		if c.Frame.Parent == "" {
+			return errors.Errorf("parent field in frame config for part %q is empty", c.Name)
+		}
+		seen[c.Name] = true
+		model, err := extractModelFrameJSON(svc.r, c.ResourceName())
+		if err != nil && !errors.Is(err, referenceframe.ErrNoModelInformation) {
+			return err
+		}
+		parts[c.Name] = &config.FrameSystemPart{Name: c.Name, FrameConfig: c.Frame, ModelFrame: model}
+	}
+	svc.localParts = partMapToPartSlice(parts)
+	return nil
+}
+
+// collectOffsetPartsFromRobotConfig collects the frame offset information from the config.Remote of the local robot.
+func (svc *frameSystemService) collectOffsetPartsFromRobotConfig(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectOffsetPartsFromRobotConfig")
+	defer span.End()
+	local, ok := svc.r.(robot.LocalRobot)
+	if !ok {
+		return utils.NewUnimplementedInterfaceError("robot.LocalRobot", svc.r)
+	}
+	conf, err := local.Config(ctx)
+	if err != nil {
+		return err
+	}
+	remoteNames := local.RemoteNames()
+	offsetParts := make(map[string]*config.FrameSystemPart)
+	remotePrefix := make(map[string]bool)
+	for _, remoteName := range remoteNames {
+		rConf, err := getRemoteRobotConfig(remoteName, conf)
+		if err != nil {
+			return errors.Wrapf(err, "remote %s", remoteName)
+		}
+		if rConf.Frame == nil { // skip over remote if it has no frame info
+			svc.logger.Debugf("remote %s has no frame config info, skipping", remoteName)
+			continue
+		}
+		connectionName := rConf.Name + "_" + referenceframe.World
+		// build the frame system part that connects remote world to base world
+		connection := &config.FrameSystemPart{
+			Name:        connectionName,
+			FrameConfig: rConf.Frame,
+		}
+		offsetParts[remoteName] = connection
+		remotePrefix[remoteName] = rConf.Prefix
+	}
+	svc.offsetParts = offsetParts
+	svc.remotePrefix = remotePrefix
+	return nil
+}
+
+// collectRemotePartsFromRobot is a helper function to get parts from the connected remote robots, and renames them.
+func (svc *frameSystemService) collectRemotePartsFromRobot(ctx context.Context) (map[string]Parts, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectRemotePartsFromRobot")
+	defer span.End()
+	// get frame parts for each remote robot, skip if not in remote offset map
+	remoteParts := make(map[string]Parts)
+	remoteNames := svc.r.RemoteNames()
+	for _, remoteName := range remoteNames {
+		if _, ok := svc.offsetParts[remoteName]; !ok {
+			continue // no remote frame info, skipping
+		}
+		remote, ok := svc.r.RemoteByName(remoteName)
+		if !ok {
+			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
+		}
+		rParts, err := collectAllPartsFromService(ctx, remote)
+		if err != nil {
+			return nil, errors.Wrapf(err, "remote %s", remoteName)
+		}
+		connectionName := remoteName + "_" + referenceframe.World
+		rParts = renameRemoteParts(rParts, remoteName, svc.remotePrefix[remoteName], connectionName)
+		remoteParts[remoteName] = rParts
+	}
+	return remoteParts, nil
 }
