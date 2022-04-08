@@ -119,6 +119,9 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	svc.remoteParts = nil
 	remoteParts := make(map[string]Parts)
 	for _, remoteName := range svc.r.RemoteNames() {
+		if _, ok := svc.offsetParts[remoteName]; !ok {
+			continue // remote robot has no offset information, skip it
+		}
 		remoteBot, ok := svc.r.RemoteByName(remoteName)
 		if !ok {
 			return nil, errors.Errorf("remote %s not found for frame system config", remoteName)
