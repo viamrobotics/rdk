@@ -2,7 +2,6 @@
 package framesystem
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
@@ -16,6 +15,7 @@ import (
 )
 
 // CombineParts combines the local, remote, and offset parts into one slice.
+// Renaming of the remote parts does not happen in this function.
 func CombineParts(
 	localParts Parts,
 	offsetParts map[string]*config.FrameSystemPart,
@@ -103,19 +103,6 @@ func NewFrameSystemFromParts(
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
-}
-
-// getPartsFromRobot returns the frame system parts of the remote robot.
-func getPartsFromRobot(ctx context.Context, r robot.Robot) (Parts, error) {
-	fsSrv, err := FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fsSrv.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return parts, nil
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the

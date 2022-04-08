@@ -21,6 +21,7 @@ import (
 
 // SubtypeName is the name of the type of service.
 const SubtypeName = resource.SubtypeName("frame_system")
+const FrameSystemName = "robot"
 
 // Subtype is a constant that identifies the frame system resource subtype.
 var Subtype = resource.NewSubtype(
@@ -81,27 +82,40 @@ func FromRobot(r robot.Robot) (Service, error) {
 	return fss, nil
 }
 
+// the frame system service collects all the relevant parts that make up the frame system from the robot
+// configs, and the remote robot configs.
 type frameSystemService struct {
 	mu           sync.RWMutex
 	r            robot.Robot
-	localParts   Parts
-	offsetParts  map[string]*config.FrameSystemPart
-	remoteParts  map[string]Parts
-	remotePrefix map[string]bool
+	localParts   Parts                              // gotten from the local robot's config.Config
+	offsetParts  map[string]*config.FrameSystemPart // gotten from local robot's config.Remote
+	remotePrefix map[string]bool                    // gotten from local robot's config.Remote
+	remoteParts  map[string]Parts                   // gotten from the remote robot's frameservice.Config(ctx)
 	logger       golog.Logger
 }
 
 // Update will rebuild the frame system from the newly updated robot.
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
-	localParts, offsetParts, remoteParts, remotePrefix, err := CollectAllParts(ctx, svc.r, svc.logger)
+	localParts, offsetParts, remoteParts, remotePrefix, err := CollectPartsFromRobotConfig(ctx, svc.r, svc.logger)
 	if err != nil {
 		return err
 	}
 	svc.localParts = localParts
 	svc.offsetParts = offsetParts
-	svc.remoteParts = remoteParts
 	svc.remotePrefix = remotePrefix
-	// combined the parts
+	// rename the remote parts according to the offsets and prefixes
+	for remoteName, rParts := range remoteParts {
+		connectionName := remoteName + "_" + referenceframe.World
+		rParts = renameRemoteParts(
+			rParts,
+			remoteName,
+			svc.remotePrefix[remoteName],
+			connectionName,
+		)
+		remoteParts[remoteName] = rParts
+	}
+	svc.remoteParts = remoteParts
+	// combine the parts and print the result
 	allParts := CombineParts(svc.localParts, svc.offsetParts, svc.remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
@@ -113,7 +127,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
-// can build its frame system. requests the remote components anew.
+// can build its frame system. requests the remote components from the remote's frame system service.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	// update part from remotes
 	remoteParts := make(map[string]Parts)
@@ -125,7 +139,7 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 		if !ok {
 			return nil, errors.Errorf("remote %s not found for frame system config", remoteName)
 		}
-		rParts, err := getPartsFromRobot(ctx, remoteBot)
+		rParts, err := collectAllPartsFromService(ctx, remoteBot)
 		if err != nil {
 			return nil, err
 		}
@@ -155,7 +169,7 @@ func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.
 	if err != nil {
 		return nil, err
 	}
-	fs, err := BuildFrameSystem("robot", allParts, svc.logger)
+	fs, err := BuildFrameSystem(FrameSystemName, allParts, svc.logger)
 	if err != nil {
 		return nil, err
 	}
