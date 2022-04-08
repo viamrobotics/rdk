@@ -93,6 +93,6 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 		},
 	}
 	fs, err := framesystem.NewFrameSystemFromParts("", "", badFSConfigs, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "there are no frames that connect to a 'world' node.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "there are no robot parts that connect to a 'world' node.")
 	test.That(t, fs, test.ShouldBeNil)
 }

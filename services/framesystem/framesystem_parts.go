@@ -63,7 +63,7 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 	stack := make([]string, 0)
 	visited := make(map[string]bool)
 	if _, ok := children[referenceframe.World]; !ok {
-		return nil, errors.New("there are no frames that connect to a 'world' node. Root node must be named 'world'")
+		return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 	}
 	stack = append(stack, referenceframe.World)
 	// begin adding frames to tree
@@ -89,49 +89,61 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 func CollectAllParts(
 	ctx context.Context,
 	r robot.Robot,
-	logger golog.Logger) (Parts, error) {
+	logger golog.Logger,
+) (Parts, map[string]*config.FrameSystemPart, map[string]Parts, map[string]bool, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem_utils::CollectAllParts")
 	defer span.End()
 	localRobot, ok := r.(robot.LocalRobot)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
+		return nil, nil, nil, nil, utils.NewUnimplementedInterfaceError("robot.LocalRobot", r)
 	}
-	parts, err := collectLocalParts(ctx, localRobot)
+	localParts, err := collectLocalParts(ctx, localRobot)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	conf, err := localRobot.Config(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
 	remoteNames := localRobot.RemoteNames()
+	offsetParts := make(map[string]*config.FrameSystemPart)
+	remoteParts := make(map[string]Parts)
+	remotePrefix := make(map[string]bool)
 	// get frame parts for each of its remotes
 	for _, remoteName := range remoteNames {
 		remote, ok := localRobot.RemoteByName(remoteName)
 		if !ok {
-			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
+			return nil, nil, nil, nil, errors.Errorf("cannot find remote robot %s", remoteName)
 		}
 		remoteService, err := FromRobot(remote)
 		if err != nil {
 			logger.Debugw("remote has frame system error, skipping", "remote", remoteName, "error", err)
 			continue
 		}
-		remoteParts, err := remoteService.Config(ctx)
+		rParts, err := remoteService.Config(ctx)
 		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
+			return nil, nil, nil, nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		rConf, err := getRemoteConfig(remoteName, conf)
 		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
+			return nil, nil, nil, nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
 		if rConf.Frame == nil { // skip over remote if it has no frame info
 			logger.Debugf("remote %s has no frame config info, skipping", remoteName)
 			continue
 		}
-		remoteParts = renameRemoteParts(remoteParts, rConf)
-		parts = append(parts, remoteParts...)
+		connectionName := rConf.Name + "_" + referenceframe.World
+		rParts = renameRemoteParts(rParts, rConf.Name, rConf.Prefix, connectionName)
+		remoteParts[remoteName] = append(remoteParts[remoteName], rParts...)
+		remotePrefix[remoteName] = rConf.Prefix
+		// build the frame system part that connects remote world to base world
+		connection := &config.FrameSystemPart{
+			Name:        connectionName,
+			FrameConfig: rConf.Frame,
+		}
+		offsetParts[remoteName] = connection
 	}
-	return parts, nil
+	return localParts, offsetParts, remoteParts, remotePrefix, nil
 }
 
 // collectLocalParts collects the physical parts of the robot that may have frame info,
@@ -181,25 +193,22 @@ func getRemoteConfig(remoteName string, conf *config.Config) (*config.Remote, er
 }
 
 // renameRemoteParts applies prefixes to frame information if necessary.
-func renameRemoteParts(remoteParts Parts, remoteConf *config.Remote) Parts {
-	connectionName := remoteConf.Name + "_" + referenceframe.World
+func renameRemoteParts(
+	remoteParts Parts,
+	remoteName string,
+	remotePrefix bool,
+	connectionName string) Parts {
 	for _, p := range remoteParts {
 		if p.FrameConfig.Parent == referenceframe.World { // rename World of remote parts
 			p.FrameConfig.Parent = connectionName
 		}
-		if remoteConf.Prefix { // rename each non-world part with prefix
-			p.Name = remoteConf.Name + "." + p.Name
+		if remotePrefix { // rename each non-world part with prefix
+			p.Name = remoteName + "." + p.Name
 			if p.FrameConfig.Parent != connectionName {
-				p.FrameConfig.Parent = remoteConf.Name + "." + p.FrameConfig.Parent
+				p.FrameConfig.Parent = remoteName + "." + p.FrameConfig.Parent
 			}
 		}
 	}
-	// build the frame system part that connects remote world to base world
-	connection := &config.FrameSystemPart{
-		Name:        connectionName,
-		FrameConfig: remoteConf.Frame,
-	}
-	remoteParts = append(remoteParts, connection)
 	return remoteParts
 }
 

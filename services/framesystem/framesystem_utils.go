@@ -15,23 +15,29 @@ import (
 	"go.viam.com/rdk/utils"
 )
 
+// CombineParts combines the local, remote, and offset parts into one slice.
+func CombineParts(
+	localParts Parts,
+	offsetParts map[string]*config.FrameSystemPart,
+	remoteParts map[string]Parts,
+) Parts {
+	allParts := Parts{}
+	allParts = append(allParts, localParts...)
+	allParts = append(allParts, partMapToPartSlice(offsetParts)...)
+	for _, part := range remoteParts {
+		allParts = append(allParts, part...)
+	}
+	return allParts
+}
+
 // BuildFrameSystem collects frame system parts from the local and remote robots and creates the frame system
 // and returns the parts that built it as well.
 func BuildFrameSystem(
-	ctx context.Context,
 	name string,
-	r robot.Robot,
-	logger golog.Logger) (referenceframe.FrameSystem, Parts, error) {
-	// error if you try to run Build on a remote Robot
-	localRobot, ok := r.(robot.LocalRobot)
-	if !ok {
-		return nil, nil, errors.Errorf("robot is not a local robot, cannot build Frame System %q on a remote", name)
-	}
-	// collect the necessary robot parts
-	allParts, err := CollectAllParts(ctx, localRobot, logger)
-	if err != nil {
-		return nil, nil, err
-	}
+	allParts Parts,
+	logger golog.Logger,
+) (referenceframe.FrameSystem, error) {
+
 	// ensure that at least one frame connects to world if the frame system is not empty, and none are named world
 	if len(allParts) != 0 {
 		hasWorld := false
@@ -42,15 +48,15 @@ func BuildFrameSystem(
 			}
 		}
 		if !hasWorld {
-			return nil, nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
+			return nil, errors.New("there are no robot parts that connect to a 'world' node. Root node must be named 'world'")
 		}
 	}
 	// build frame system
 	fs, err := NewFrameSystemFromParts(name, "", allParts, logger)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return fs, allParts, nil
+	return fs, nil
 }
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
@@ -98,6 +104,19 @@ func NewFrameSystemFromParts(
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
+}
+
+// getParts returns the frame system parts of the remote robot
+func getParts(ctx context.Context, r robot.Robot) (Parts, error) {
+	fsSrv, err := FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	parts, err := fsSrv.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parts, nil
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
