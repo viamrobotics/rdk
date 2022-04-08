@@ -121,7 +121,7 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 }
 
 // NewCollisionConstraint takes a frame and geometries representing obstacles and interaction spaces and will construct a collision
-// avoidance constraint from them
+// avoidance constraint from them.
 func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
 	zeroInput := make([]referenceframe.Input, len(frame.DoF()))
