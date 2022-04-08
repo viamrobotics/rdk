@@ -4,6 +4,9 @@ import (
 	"context"
 
 	"github.com/edaniels/golog"
+	"github.com/pion/mediadevices/pkg/driver"
+	"github.com/pion/mediadevices/pkg/frame"
+	"github.com/pion/mediadevices/pkg/prop"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/grpc"
@@ -45,10 +48,30 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) GetCameras(ctx context.Context) ([]string, error) {
+func (c *client) GetCameras(ctx context.Context) ([]CameraConfig, error) {
 	resp, err := c.client.GetCameras(ctx, &pb.GetCamerasRequest{})
 	if err != nil {
 		return nil, err
 	}
-	return resp.GetCameras(), nil
+	result := []CameraConfig{}
+	for _, conf := range resp.GetCameras() {
+		camConf := CameraConfig{
+			Label:      conf.Label,
+			Status:     driver.State(conf.Status),
+			Properties: []prop.Media{},
+		}
+
+		for _, p := range conf.Properties {
+			property := prop.Media{
+				Video: prop.Video{
+					Width:       int(p.Video.Width),
+					Height:      int(p.Video.Height),
+					FrameFormat: frame.Format(p.Video.FrameFormat),
+				},
+			}
+			camConf.Properties = append(camConf.Properties, property)
+		}
+		result = append(result, camConf)
+	}
+	return result, nil
 }
