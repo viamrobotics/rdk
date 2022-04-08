@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -73,59 +74,91 @@ func FromRobot(r robot.Robot) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	fs, ok := resource.(Service)
+	fss, ok := resource.(Service)
 	if !ok {
 		return nil, utils.NewUnimplementedInterfaceError("framesystem.Service", resource)
 	}
-	return fs, nil
+	return fss, nil
 }
 
 type frameSystemService struct {
-	mu       sync.RWMutex
-	r        robot.Robot
-	allParts Parts
-	fs       referenceframe.FrameSystem
-	logger   golog.Logger
+	mu           sync.RWMutex
+	r            robot.Robot
+	localParts   Parts
+	offsetParts  map[string]*config.FrameSystemPart
+	remoteParts  map[string]Parts
+	remotePrefix map[string]bool
+	logger       golog.Logger
 }
 
 // Update will rebuild the frame system from the newly updated robot.
-// TODO(RSDK-258): Does not update if a remote robot is updated. Remote updates need to re-trigger local updates.
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
-	fs, allParts, err := BuildFrameSystem(ctx, "robot", svc.r, svc.logger)
+	localParts, offsetParts, remoteParts, remotePrefix, err := CollectAllParts(ctx, svc.r, svc.logger)
 	if err != nil {
 		return err
 	}
+	svc.localParts = localParts
+	svc.offsetParts = offsetParts
+	svc.remoteParts = remoteParts
+	svc.remotePrefix = remotePrefix
+	// combined the parts
+	allParts := CombineParts(svc.localParts, svc.offsetParts, svc.remoteParts)
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return err
 	}
-	svc.allParts = sortedParts
-	svc.fs = fs
-	svc.logger.Debugf("updated robot frame system:\n%v", svc.allParts.String())
+	svc.logger.Debugf("updated robot frame system:\n%v", sortedParts.String())
 	return nil
 }
 
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
-// can build its frame system. The parts are not guaranteed to be returned topologically sorted.
+// can build its frame system. requests the remote components.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.allParts, nil
-}
-
-// FrameSystem returns the cached frame system of the robot.
-func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	// if it's not cached, then build the frame system now
-	if svc.fs == nil {
-		fs, allParts, err := BuildFrameSystem(ctx, "robot", svc.r, svc.logger)
+	// update part from remotes
+	remoteParts := make(map[string]Parts)
+	for _, remoteName := range svc.r.RemoteNames() {
+		remoteBot, ok := svc.r.RemoteByName(remoteName)
+		if !ok {
+			return nil, errors.Errorf("remote %s not found for frame system config", remoteName)
+		}
+		rParts, err := getParts(ctx, remoteBot)
 		if err != nil {
 			return nil, err
 		}
-		svc.allParts = allParts
-		svc.fs = fs
+		connectionName := remoteName + "_" + referenceframe.World
+		rParts = renameRemoteParts(
+			rParts,
+			remoteName,
+			svc.remotePrefix[remoteName],
+			connectionName,
+		)
+		remoteParts[remoteName] = rParts
 	}
-	return svc.fs, nil
+	svc.remoteParts = remoteParts
+	// build the config
+	allParts := CombineParts(svc.localParts, svc.offsetParts, svc.remoteParts)
+	sortedParts, err := TopologicallySortParts(allParts)
+	if err != nil {
+		return nil, err
+	}
+	return sortedParts, nil
+}
+
+// FrameSystem returns the frame system of the robot.
+func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	// create the frame system
+	allParts, err := svc.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := BuildFrameSystem("robot", allParts, svc.logger)
+	if err != nil {
+		return nil, err
+	}
+	return fs, nil
 }
 
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
@@ -138,7 +171,11 @@ func (svc *frameSystemService) TransformPose(
 	defer svc.mu.RUnlock()
 
 	// get the initial inputs
-	input := referenceframe.StartPositions(svc.fs)
+	fs, err := svc.FrameSystem(ctx)
+	if err != nil {
+		return nil, err
+	}
+	input := referenceframe.StartPositions(fs)
 
 	// build maps of relevant components and inputs from initial inputs
 	for name, original := range input {
@@ -165,12 +202,16 @@ func (svc *frameSystemService) TransformPose(
 		input[name] = pos
 	}
 
-	return svc.fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
+	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
 
 // String will print a table of the part names, parents, and static offsets of the current frame system.
-func (svc *frameSystemService) String() string {
+func (svc *frameSystemService) String(ctx context.Context) (string, error) {
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
-	return svc.allParts.String()
+	parts, err := svc.Config(ctx)
+	if err != nil {
+		return "", err
+	}
+	return parts.String(), nil
 }
