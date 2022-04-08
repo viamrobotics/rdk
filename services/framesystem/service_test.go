@@ -36,9 +36,7 @@ func TestFrameSystemFromConfig(t *testing.T) {
 	defer r.Close(context.Background())
 
 	// use fake registrations to have a FrameSystem return
-	frameService, err := framesystem.FromRobot(r)
-	test.That(t, err, test.ShouldBeNil)
-	fs, err := frameService.FrameSystem(context.Background())
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(fs.FrameNames()), test.ShouldEqual, 8) // 4 frames defined, 8 frames when including the offset
 
@@ -217,6 +215,11 @@ func TestServiceWithRemote(t *testing.T) {
 					Orientation: &spatialmath.R4AA{math.Pi / 2., 1, 0, 0},
 				},
 			},
+			{
+				Name:    "dontAddMe", // no frame info, should be skipped
+				Prefix:  true,
+				Address: addr,
+			},
 		},
 	}
 
@@ -227,12 +230,12 @@ func TestServiceWithRemote(t *testing.T) {
 	// make local robot
 	r2, err := robotimpl.New(ctx2, localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
+	fs, err := framesystem.RobotFrameSystem(context.Background(), r2)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
 	// run the frame system service
 	fsServ, err := framesystem.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
-	fs, err := fsServ.FrameSystem(context.Background())
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
 	allParts, err := fsServ.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	t.Logf("frame system:\n%v", allParts)

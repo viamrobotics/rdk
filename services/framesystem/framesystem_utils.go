@@ -2,10 +2,12 @@
 package framesystem
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
@@ -13,6 +15,26 @@ import (
 	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/utils"
 )
+
+// RobotFrameSystem returns the frame system of the robot.
+func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystem")
+	defer span.End()
+	frameService, err := FromRobot(r)
+	if err != nil {
+		return nil, err
+	}
+	// create the frame system
+	allParts, err := frameService.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, r.Logger())
+	if err != nil {
+		return nil, err
+	}
+	return fs, nil
+}
 
 // CombineParts combines the local, remote, and offset parts into one slice.
 // Renaming of the remote parts does not happen in this function.

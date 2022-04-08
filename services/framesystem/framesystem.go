@@ -60,7 +60,6 @@ func init() {
 // A Service that returns the frame system for a robot.
 type Service interface {
 	Config(ctx context.Context) (Parts, error)
-	FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error)
 	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
 }
 
@@ -166,22 +165,6 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	return sortedParts, nil
 }
 
-// FrameSystem returns the frame system of the robot.
-func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
-	defer span.End()
-	// create the frame system
-	allParts, err := svc.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, svc.logger)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
-
 // TransformPose will transform the pose of the requested poseInFrame to the desired frame in the robot's frame system.
 func (svc *frameSystemService) TransformPose(
 	ctx context.Context,
@@ -193,8 +176,12 @@ func (svc *frameSystemService) TransformPose(
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
-	// get the initial inputs
-	fs, err := svc.FrameSystem(ctx)
+	// get the frame system and initial inputs
+	allParts, err := svc.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, svc.logger)
 	if err != nil {
 		return nil, err
 	}

@@ -82,11 +82,3 @@ func (c *client) TransformPose(
 	}
 	return referenceframe.ProtobufToPoseInFrame(resp.Pose), nil
 }
-
-func (c *client) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
-	parts, err := c.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return NewFrameSystemFromParts(FrameSystemName, "", parts, c.logger)
-}

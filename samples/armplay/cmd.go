@@ -159,11 +159,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	if err != nil {
 		return err
 	}
-	frameService, err := framesystem.FromRobot(r)
-	if err != nil {
-		return err
-	}
-	fs, err := frameService.FrameSystem(ctx)
+	fs, err := framesystem.RobotFrameSystem(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -326,11 +322,7 @@ func main() {
 }
 
 func getInputEnabled(ctx context.Context, r robot.Robot) (map[string]referenceframe.InputEnabled, error) {
-	frameService, err := framesystem.FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	fs, err := frameService.FrameSystem(ctx)
+	fs, err := framesystem.RobotFrameSystem(ctx, r)
 	if err != nil {
 		return nil, err
 	}

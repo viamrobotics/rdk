@@ -31,12 +31,7 @@ func init() {
 }
 
 func home(ctx context.Context, r robot.Robot) {
-	frameService, err := framesystem.FromRobot(r)
-	if err != nil {
-		logger.Error(err)
-		return
-	}
-	fs, err := frameService.FrameSystem(ctx)
+	fs, err := framesystem.RobotFrameSystem(ctx, r)
 	if err != nil {
 		logger.Error(err)
 		return
