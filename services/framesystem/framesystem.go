@@ -7,6 +7,7 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
@@ -97,6 +98,8 @@ type frameSystemService struct {
 
 // Update will rebuild the frame system from the newly updated robot.
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
+	defer span.End()
 	localParts, offsetParts, remoteParts, remotePrefix, err := CollectPartsFromRobotConfig(ctx, svc.r, svc.logger)
 	if err != nil {
 		return err
@@ -129,6 +132,8 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
+	defer span.End()
 	// update part from remotes
 	remoteParts := make(map[string]Parts)
 	for _, remoteName := range svc.r.RemoteNames() {
@@ -163,6 +168,8 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 
 // FrameSystem returns the frame system of the robot.
 func (svc *frameSystemService) FrameSystem(ctx context.Context) (referenceframe.FrameSystem, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::FrameSystem")
+	defer span.End()
 	// create the frame system
 	allParts, err := svc.Config(ctx)
 	if err != nil {
@@ -181,6 +188,8 @@ func (svc *frameSystemService) TransformPose(
 	pose *referenceframe.PoseInFrame,
 	dst string,
 ) (*referenceframe.PoseInFrame, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
+	defer span.End()
 	svc.mu.RLock()
 	defer svc.mu.RUnlock()
 
