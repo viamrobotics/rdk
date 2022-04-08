@@ -51,7 +51,7 @@ func NewClientFromConn(ctx context.Context, conn rpc.ClientConn, name string, lo
 	return newSvcClientFromConn(conn, logger)
 }
 
-func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) {
+func (c *client) Config(ctx context.Context) (Parts, error) {
 	resp, err := c.client.Config(ctx, &pb.ConfigRequest{})
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func (c *client) Config(ctx context.Context) ([]*config.FrameSystemPart, error) 
 		}
 		result = append(result, part)
 	}
-	return result, nil
+	return Parts(result), nil
 }
 
 func (c *client) TransformPose(
