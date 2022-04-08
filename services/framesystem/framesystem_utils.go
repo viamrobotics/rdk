@@ -105,8 +105,8 @@ func NewFrameSystemFromParts(
 	return fs, nil
 }
 
-// getParts returns the frame system parts of the remote robot.
-func getParts(ctx context.Context, r robot.Robot) (Parts, error) {
+// getPartsFromRobot returns the frame system parts of the remote robot.
+func getPartsFromRobot(ctx context.Context, r robot.Robot) (Parts, error) {
 	fsSrv, err := FromRobot(r)
 	if err != nil {
 		return nil, err
