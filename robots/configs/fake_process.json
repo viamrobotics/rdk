@@ -48,14 +48,6 @@
             "type": "camera"
         },
         {
-            "attributes": {
-                "path": "/dev/video4"
-            },
-            "model": "webcam",
-            "name": "usb",
-            "type": "camera"
-        },
-        {
             "model": "fake",
             "name": "board1",
             "type": "board",

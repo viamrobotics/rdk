@@ -8,10 +8,10 @@ import (
 
 	"github.com/edaniels/golog"
 	"github.com/mitchellh/mapstructure"
-	"go.viam.com/utils/rpc"
-
 	"github.com/pion/mediadevices/pkg/driver"
 	"github.com/pion/mediadevices/pkg/prop"
+	"go.viam.com/utils/rpc"
+
 	"go.viam.com/rdk/config"
 	servicepb "go.viam.com/rdk/proto/api/service/configuration/v1"
 	"go.viam.com/rdk/registry"
@@ -73,8 +73,7 @@ var Subtype = resource.NewSubtype(
 var Name = resource.NameFromSubtype(Subtype, "")
 
 // Config describes how to configure the service.
-type Config struct {
-}
+type Config struct{}
 
 // Validate ensures all parts of the config are valid.
 func (config *Config) Validate(path string) error {

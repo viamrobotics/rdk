@@ -12,6 +12,8 @@ window.boardApi = require('./gen/proto/api/component/board/v1/board_pb.js');
 const { BoardServiceClient } = require('./gen/proto/api/component/board/v1/board_pb_service.js');
 window.cameraApi = require('./gen/proto/api/component/camera/v1/camera_pb.js');
 const { CameraServiceClient } = require('./gen/proto/api/component/camera/v1/camera_pb_service.js');
+window.configurationApi = require('./gen/proto/api/service/configuration/v1/configuration_pb.js');
+const { ConfigurationServiceClient } = require('./gen/proto/api/service/configuration/v1/configuration_pb_service.js');
 window.forceMatrixApi = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb.js');
 const { ForceMatrixServiceClient } = require('./gen/proto/api/component/forcematrix/v1/force_matrix_pb_service.js');
 window.gantryApi = require('./gen/proto/api/component/gantry/v1/gantry_pb.js');
@@ -99,6 +101,7 @@ let connect = async (authEntity, creds) => {
 	window.baseService = new BaseServiceClient(window.webrtcHost, { transport: transportFactory });
     window.boardService = new BoardServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.cameraService = new CameraServiceClient(window.webrtcHost, { transport: transportFactory });
+	window.configurationService = new ConfigurationServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.forceMatrixService = new ForceMatrixServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gantryService = new GantryServiceClient(window.webrtcHost, { transport: transportFactory });
 	window.gripperService = new GripperServiceClient(window.webrtcHost, { transport: transportFactory });

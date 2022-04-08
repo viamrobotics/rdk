@@ -186,12 +186,13 @@
               pcdClick : {},
               sensorReadings: {},
               resources: [],
+              cameraData: [],
               sensorNames: [],
               streamNames: [],
-	      segmenterNames: [],
-	      segmenterParameterNames: [],
-	      segmenterParameters: {},
-	      segmentAlgo: "",
+              segmenterNames: [],
+              segmenterParameterNames: [],
+              segmenterParameters: {},
+              segmentAlgo: "",
               fullcloud: null,
               objects: null,
               minPtsPlane : 10000,
@@ -981,7 +982,7 @@
                 pReject(err);
                 return;
               }
-              theData.cameraData = resp.toObject().cameras
+              theData.cameraData = resp.toObject().camerasList
               pResolve(null);
             });
           }
