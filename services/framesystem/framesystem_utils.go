@@ -36,20 +36,19 @@ func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameS
 	return fs, nil
 }
 
-// combineParts combines the local, remote, and offset parts into one slice.
-// Renaming of the remote parts does not happen in this function.
-func combineParts(
-	localParts Parts,
-	offsetParts map[string]*config.FrameSystemPart,
-	remoteParts map[string]Parts,
-) Parts {
-	allParts := Parts{}
-	allParts = append(allParts, localParts...)
-	allParts = append(allParts, partMapToPartSlice(offsetParts)...)
-	for _, part := range remoteParts {
-		allParts = append(allParts, part...)
+// RobotFrameSystemConfig returns the frame system parts of the robot through the frame system service.
+func RobotFrameSystemConfig(ctx context.Context, r robot.Robot) (Parts, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::RobotFrameSystemConfig")
+	defer span.End()
+	fsSrv, err := FromRobot(r)
+	if err != nil {
+		return nil, err
 	}
-	return allParts
+	parts, err := fsSrv.Config(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return parts, nil
 }
 
 // NewFrameSystemFromParts assembles a frame system from a collection of parts,
@@ -110,6 +109,22 @@ func NewFrameSystemFromParts(
 	}
 	logger.Debugf("frames in robot frame system are: %v", frameNamesWithDof(fs))
 	return fs, nil
+}
+
+// combineParts combines the local, remote, and offset parts into one slice.
+// Renaming of the remote parts does not happen in this function.
+func combineParts(
+	localParts Parts,
+	offsetParts map[string]*config.FrameSystemPart,
+	remoteParts map[string]Parts,
+) Parts {
+	allParts := Parts{}
+	allParts = append(allParts, localParts...)
+	allParts = append(allParts, partMapToPartSlice(offsetParts)...)
+	for _, part := range remoteParts {
+		allParts = append(allParts, part...)
+	}
+	return allParts
 }
 
 // extractModelFrameJSON finds the robot part with a given name, checks to see if it implements ModelFrame, and returns the
