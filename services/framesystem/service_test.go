@@ -189,10 +189,10 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				Type:  config.ComponentTypeBase,
+				Type:  config.ComponentTypeGripper,
 				Model: "fake",
 				Frame: &config.Frame{
-					Parent: "cameraOver",
+					Parent: "bar.pieceArm",
 				},
 			},
 		},
@@ -233,6 +233,9 @@ func TestServiceWithRemote(t *testing.T) {
 	fs, err := fsServ.FrameSystem(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 24)
+	allParts, err := fsServ.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	t.Logf("frame system:\n%v", allParts)
 }
 
 func pointAlmostEqual(t *testing.T, from, to r3.Vector) {
