@@ -246,7 +246,6 @@ func TestConfigRemote(t *testing.T) {
 	fsConfig, err := frameService.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, fsConfig, test.ShouldHaveLength, 12)
-	t.Logf("FRAMES:\n%v", fsConfig)
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)

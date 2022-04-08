@@ -29,16 +29,16 @@ func RobotFrameSystem(ctx context.Context, r robot.Robot) (referenceframe.FrameS
 	if err != nil {
 		return nil, err
 	}
-	fs, err := NewFrameSystemFromParts(FrameSystemName, "", allParts, r.Logger())
+	fs, err := NewFrameSystemFromParts(LocalFrameSystemName, "", allParts, r.Logger())
 	if err != nil {
 		return nil, err
 	}
 	return fs, nil
 }
 
-// CombineParts combines the local, remote, and offset parts into one slice.
+// combineParts combines the local, remote, and offset parts into one slice.
 // Renaming of the remote parts does not happen in this function.
-func CombineParts(
+func combineParts(
 	localParts Parts,
 	offsetParts map[string]*config.FrameSystemPart,
 	remoteParts map[string]Parts,
@@ -123,6 +123,16 @@ func extractModelFrameJSON(r robot.Robot, name resource.Name) (referenceframe.Mo
 		return framer.ModelFrame(), nil
 	}
 	return nil, referenceframe.ErrNoModelInformation
+}
+
+// getRemoteRobotConfig gets the parameters for the Remote.
+func getRemoteRobotConfig(remoteName string, conf *config.Config) (*config.Remote, error) {
+	for _, rConf := range conf.Remotes {
+		if rConf.Name == remoteName {
+			return &rConf, nil
+		}
+	}
+	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
 }
 
 func frameNamesWithDof(sys referenceframe.FrameSystem) []string {
