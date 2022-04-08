@@ -1,17 +1,14 @@
 package framesystem
 
 import (
-	"context"
 	"fmt"
 	"sort"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/pkg/errors"
-	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/referenceframe"
-	"go.viam.com/rdk/robot"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/utils"
 )
@@ -82,21 +79,6 @@ func TopologicallySortParts(parts Parts) (Parts, error) {
 		}
 	}
 	return topoSortedParts, nil
-}
-
-// collectAllPartsFromService returns the frame system parts of the robot through the frame system service.
-func collectAllPartsFromService(ctx context.Context, r robot.Robot) (Parts, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectAllPartsFromService")
-	defer span.End()
-	fsSrv, err := FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fsSrv.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return parts, nil
 }
 
 // renameRemoteParts applies prefixes to frame information if necessary.

@@ -96,21 +96,19 @@ type frameSystemService struct {
 }
 
 // Update will rebuild the frame system from the newly updated robot.
+// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you can cache the remoteParts in svc as well.
 func (svc *frameSystemService) Update(ctx context.Context, resources map[resource.Name]interface{}) error {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Update")
 	defer span.End()
-	// update local parts
-	err := svc.collectLocalPartsFromRobotConfig(ctx)
+	err := svc.updateLocalParts(ctx)
 	if err != nil {
 		return err
 	}
-	// update offsets and prefixes
-	err = svc.collectOffsetPartsFromRobotConfig(ctx)
+	err = svc.updateOffsetParts(ctx)
 	if err != nil {
 		return err
 	}
-	// update the remote parts
-	remoteParts, err := svc.collectRemotePartsFromRobot(ctx)
+	remoteParts, err := svc.updateRemoteParts(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,12 +125,12 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // Config returns the info of each individual part that makes up the frame system
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
-// NOTE(RDK-258): If remotes can trigger a local to reconfigure, you can cache the remoteParts in svc as well.
+// NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
 	// update parts from remotes
-	remoteParts, err := svc.collectRemotePartsFromRobot(ctx)
+	remoteParts, err := svc.updateRemoteParts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -195,10 +193,10 @@ func (svc *frameSystemService) TransformPose(
 	return fs.TransformPose(input, pose.Pose(), pose.FrameName(), dst)
 }
 
-// collectLocalPartsFromRobotConfig collects the physical parts of the robot that may have frame info,
+// updateLocalParts collects the physical parts of the robot that may have frame info,
 // excluding remote robots and services, etc from the robot's config.Config.
-func (svc *frameSystemService) collectLocalPartsFromRobotConfig(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectLocalPartsFromRobotConfig")
+func (svc *frameSystemService) updateLocalParts(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateLocalParts")
 	defer span.End()
 	parts := make(map[string]*config.FrameSystemPart)
 	seen := make(map[string]bool)
@@ -234,9 +232,9 @@ func (svc *frameSystemService) collectLocalPartsFromRobotConfig(ctx context.Cont
 	return nil
 }
 
-// collectOffsetPartsFromRobotConfig collects the frame offset information from the config.Remote of the local robot.
-func (svc *frameSystemService) collectOffsetPartsFromRobotConfig(ctx context.Context) error {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectOffsetPartsFromRobotConfig")
+// updateOffsetPartsFromRobotConfig collects the frame offset information from the config.Remote of the local robot.
+func (svc *frameSystemService) updateOffsetParts(ctx context.Context) error {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateOffsetParts")
 	defer span.End()
 	local, ok := svc.r.(robot.LocalRobot)
 	if !ok {
@@ -272,9 +270,9 @@ func (svc *frameSystemService) collectOffsetPartsFromRobotConfig(ctx context.Con
 	return nil
 }
 
-// collectRemotePartsFromRobot is a helper function to get parts from the connected remote robots, and renames them.
-func (svc *frameSystemService) collectRemotePartsFromRobot(ctx context.Context) (map[string]Parts, error) {
-	ctx, span := trace.StartSpan(ctx, "services::framesystem::collectRemotePartsFromRobot")
+// updateRemoteParts is a helper function to get parts from the connected remote robots, and renames them.
+func (svc *frameSystemService) updateRemoteParts(ctx context.Context) (map[string]Parts, error) {
+	ctx, span := trace.StartSpan(ctx, "services::framesystem::updateRemoteParts")
 	defer span.End()
 	// get frame parts for each remote robot, skip if not in remote offset map
 	remoteParts := make(map[string]Parts)
@@ -287,7 +285,7 @@ func (svc *frameSystemService) collectRemotePartsFromRobot(ctx context.Context) 
 		if !ok {
 			return nil, errors.Errorf("cannot find remote robot %s", remoteName)
 		}
-		rParts, err := collectAllPartsFromService(ctx, remote)
+		rParts, err := RobotFrameSystemConfig(ctx, remote)
 		if err != nil {
 			return nil, errors.Wrapf(err, "remote %s", remoteName)
 		}
