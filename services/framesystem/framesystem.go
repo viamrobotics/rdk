@@ -116,7 +116,6 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // can build its frame system. requests the remote components anew.
 func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	// update part from remotes
-	svc.remoteParts = nil
 	remoteParts := make(map[string]Parts)
 	for _, remoteName := range svc.r.RemoteNames() {
 		if _, ok := svc.offsetParts[remoteName]; !ok {
@@ -126,7 +125,7 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 		if !ok {
 			return nil, errors.Errorf("remote %s not found for frame system config", remoteName)
 		}
-		rParts, err := getParts(ctx, remoteBot)
+		rParts, err := getPartsFromRobot(ctx, remoteBot)
 		if err != nil {
 			return nil, err
 		}
