@@ -85,7 +85,7 @@ type geometryComparisonTestCase struct {
 	expected   float64
 }
 
-func testGeometryComparisons(t *testing.T, cases []geometryComparisonTestCase) {
+func testGeometryCollision(t *testing.T, cases []geometryComparisonTestCase) {
 	t.Helper()
 	for _, c := range cases {
 		for i := 0; i < 2; i++ {
@@ -107,7 +107,7 @@ func testGeometryComparisons(t *testing.T, cases []geometryComparisonTestCase) {
 	}
 }
 
-func TestBoxVsBox(t *testing.T) {
+func TestBoxVsBoxCollision(t *testing.T) {
 	deg45 := math.Pi / 4.
 	cases := []geometryComparisonTestCase{
 		{
@@ -231,10 +231,10 @@ func TestBoxVsBox(t *testing.T) {
 			-2,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
 }
 
-func TestSphereVsSphere(t *testing.T) {
+func TestSphereVsSphereCollision(t *testing.T) {
 	cases := []geometryComparisonTestCase{
 		{
 			"test inscribed spheres",
@@ -252,10 +252,10 @@ func TestSphereVsSphere(t *testing.T) {
 			1e-3,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
 }
 
-func TestPointVsPoint(t *testing.T) {
+func TestPointVsPointCollision(t *testing.T) {
 	cases := []geometryComparisonTestCase{
 		{
 			"coincident",
@@ -268,10 +268,10 @@ func TestPointVsPoint(t *testing.T) {
 			1,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
 }
 
-func TestSphereVsBox(t *testing.T) {
+func TestSphereVsBoxCollision(t *testing.T) {
 	cases := []geometryComparisonTestCase{
 		{
 			"separated face closest",
@@ -338,10 +338,10 @@ func TestSphereVsBox(t *testing.T) {
 			-2,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
 }
 
-func TestPointVsBox(t *testing.T) {
+func TestPointVsBoxCollision(t *testing.T) {
 	cases := []geometryComparisonTestCase{
 		{
 			"separated face closest",
@@ -376,10 +376,10 @@ func TestPointVsBox(t *testing.T) {
 			-0.5,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
 }
 
-func TestPointVsSphere(t *testing.T) {
+func TestPointVsSphereCollision(t *testing.T) {
 	cases := []geometryComparisonTestCase{
 		{
 			"coincident",
@@ -398,5 +398,130 @@ func TestPointVsSphere(t *testing.T) {
 			1,
 		},
 	}
-	testGeometryComparisons(t, cases)
+	testGeometryCollision(t, cases)
+}
+
+func testGeometryEncompassed(t *testing.T, cases []geometryComparisonTestCase) {
+	t.Helper()
+	for _, c := range cases {
+		t.Run(c.testname, func(t *testing.T) {
+			fn := test.ShouldBeTrue
+			if c.expected > 0.0 {
+				fn = test.ShouldBeFalse
+			}
+			collides, err := c.geometries[0].EncompassedBy(c.geometries[1])
+			test.That(t, err, test.ShouldBeNil)
+			test.That(t, collides, fn)
+		})
+	}
+}
+
+func TestBoxVsBoxEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1, 0}, r3.Vector{2, 3, 2}),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+			},
+			1,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestBoxVsSphereEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{2, 2, 2}),
+				makeTestSphere(r3.Vector{}, math.Sqrt(3)),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestBox(NewZeroOrientation(), r3.Vector{0, 1, 0}, r3.Vector{2, 2.1, 2}),
+				makeTestSphere(r3.Vector{}, math.Sqrt(3)),
+			},
+			.1,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestBoxVsPointEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"coincident",
+			[2]Geometry{makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{1, 1, 1}), NewPoint(r3.Vector{})},
+			math.Sqrt(3),
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestSphereVsBoxEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{3, 0, 0}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{8, 8, 8}),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{3.5, 0, 0}, 1),
+				makeTestBox(NewZeroOrientation(), r3.Vector{}, r3.Vector{8, 8, 8}),
+			},
+			0.5,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestSphereVsSphereEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"encompassed",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{3, 0, 0}, 1),
+				makeTestSphere(r3.Vector{}, 4),
+			},
+			0,
+		},
+		{
+			"not encompassed",
+			[2]Geometry{
+				makeTestSphere(r3.Vector{3, 0, 0}, 1),
+				makeTestSphere(r3.Vector{}, 3.5),
+			},
+			0.5,
+		},
+	}
+	testGeometryEncompassed(t, cases)
+}
+
+func TestSphereVsPointEncompassed(t *testing.T) {
+	cases := []geometryComparisonTestCase{
+		{
+			"coincident",
+			[2]Geometry{makeTestSphere(r3.Vector{}, 1), NewPoint(r3.Vector{})},
+			1,
+		},
+	}
+	testGeometryEncompassed(t, cases)
 }
