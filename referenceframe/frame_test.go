@@ -100,7 +100,7 @@ func TestRevoluteFrame(t *testing.T) {
 	overLimit := 100.0 // degrees
 	input = JointPosToInputs(&pb.JointPositions{Degrees: []float64{overLimit}})
 	_, err = frame.Transform(input)
-	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of rev frame bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
+	test.That(t, err, test.ShouldBeError, errors.Errorf("%.5f input out of bounds %.5f", utils.DegToRad(overLimit), frame.DoF()[0]))
 	// gets the correct limits back
 	limit := frame.DoF()
 	expLimit := []Limit{{Min: -math.Pi / 2, Max: math.Pi / 2}}
