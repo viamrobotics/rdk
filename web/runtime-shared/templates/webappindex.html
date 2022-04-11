@@ -186,7 +186,7 @@
               pcdClick : {},
               sensorReadings: {},
               resources: [],
-              cameraData: [],
+              cameraConfigs: [],
               sensorNames: [],
               streamNames: [],
               segmenterNames: [],
@@ -982,7 +982,7 @@
                 pReject(err);
                 return;
               }
-              theData.cameraData = resp.toObject().camerasList
+              theData.cameraConfigs = resp.toObject().camerasList
               pResolve(null);
             });
           }
@@ -1861,12 +1861,28 @@
 
       </table>
 
-      <div v-if="nonEmpty(cameraData)">
-        <h3>Camera Data</h3>
-        <div v-for="data in cameraData">
-          <p>${data}</p>
-        </div>
-      </div>
+      <!-- camera configs -->
+      <table border=1 v-if="nonEmpty(cameraConfigs)">
+        <tr>
+          <th colspan="3">Available Cameras</th>
+        </tr>
+        <tr>
+          <th>Label</th>
+          <th>Status</th>
+          <th>Resolutions</th>
+        </tr>
+        <tr v-for="conf in cameraConfigs">
+          <td>${conf.label}</td>
+          <td>${conf.status}</td>
+          <td>
+            <select v-if="nonEmpty(conf.propertiesList)">
+              <option v-for="prop in conf.propertiesList">
+                ${prop.video.width}x${prop.video.height} (${prop.video.frameFormat})
+              </option>
+            </select>
+          </td>
+        </tr>
+      </table>
 
       <div id="pcd_wrapper">
         <table>
