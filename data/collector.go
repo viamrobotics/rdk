@@ -100,18 +100,17 @@ func (c *collector) Collect() error {
 }
 
 func (c *collector) capture() {
-	ticker := time.NewTicker(c.interval)
-	defer ticker.Stop()
 	var wg sync.WaitGroup
 	lastTick := time.Now()
-
+	next := lastTick.Add(c.interval)
 	for {
+		time.Sleep(time.Until(next))
 		select {
 		case <-c.cancelCtx.Done():
 			wg.Wait()
 			close(c.queue)
 			return
-		case <-ticker.C:
+		default:
 			currTick := time.Now()
 			diff := currTick.Sub(lastTick).Microseconds()
 			if diff > 1800 {
@@ -121,6 +120,7 @@ func (c *collector) capture() {
 			wg.Add(1)
 			go c.getAndPushNextReading(&wg)
 		}
+		next = next.Add(c.interval)
 	}
 }
 
