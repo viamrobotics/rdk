@@ -5,9 +5,9 @@
             "name": "pieceArm",
             "type": "arm",
             "attributes" : {
-              "usbPort"       : "/dev/ttyUSB0",
-              "baudRate"      : "1000000",
-              "armServoCount" : "8"
+              "usb_port"       : "/dev/ttyUSB0",
+              "baud_rate"      : "1000000",
+              "arm_servo_count" : "8"
            }
         }
     ]

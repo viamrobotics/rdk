@@ -52,8 +52,8 @@ type wx250s struct {
 
 // newGripper TODO.
 func newGripper(attributes config.AttributeMap, logger golog.Logger) (*wx250s, error) {
-	usbPort := attributes.String("usbPort")
-	jServo := findServo(usbPort, attributes.String("baudRate"), logger)
+	usbPort := attributes.String("usb_port")
+	jServo := findServo(usbPort, attributes.String("baud_rate"), logger)
 	err := jServo.SetTorqueEnable(true)
 	newGripper := wx250s{
 		jServo:   jServo,
