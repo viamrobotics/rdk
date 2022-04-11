@@ -21,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -104,10 +105,11 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	fs, err := jpcs.robot.FrameSystem(ctx, "join_cameras", "")
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot)
 	if err != nil {
 		return nil, err
 	}
+
 	inputs, err := jpcs.initializeInputs(ctx, fs)
 	if err != nil {
 		return nil, err
