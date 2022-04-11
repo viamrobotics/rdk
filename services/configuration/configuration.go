@@ -131,18 +131,10 @@ func (svc *configService) GetCameras(ctx context.Context) ([]CameraConfig, error
 			Properties: []prop.Media{},
 		}
 
-		// Print camera information
-		// result = append(result, fmt.Sprintf("Label: %s", driverInfo.Label))
-		// result = append(result, fmt.Sprintf("Device ID: %s", d.ID()))
-		// result = append(result, fmt.Sprintf("Status: %v", d.Status()))
-		// result = append(result, fmt.Sprintf("Device Type: %v", driverInfo.DeviceType))
-		// result = append(result, fmt.Sprintf("Priority: %f", driverInfo.Priority))
 		for _, prop := range props {
-			// result = append(result, fmt.Sprintf("Prop: %+v", prop))
 			conf.Properties = append(conf.Properties, prop)
 		}
 		result = append(result, conf)
-		// result = append(result, "-----")
 	}
 	return result, nil
 }
