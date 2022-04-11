@@ -32,6 +32,7 @@ import { Component, Vue } from "vue-property-decorator";
 import { debounce } from "lodash";
 import { mdiRestore } from "@mdi/js";
 import ViamIcon from "./ViamIcon.vue";
+import ViamButton from "./Button.vue";
 
 const PressedKeysMap: { [index: string]: string } = {
   "87": "forward",
@@ -45,6 +46,7 @@ const inputDelay = 300;
 @Component({
   components: {
     ViamIcon,
+    ViamButton,
   },
 })
 export default class KeyboardInput extends Vue {
@@ -58,7 +60,7 @@ export default class KeyboardInput extends Vue {
   mdiRestore = mdiRestore;
   mdiReload = mdiRestore;
 
-  keyLetters: Object = {
+  keyLetters = {
     forward: "W",
     left: "A",
     backward: "S",
@@ -71,6 +73,10 @@ export default class KeyboardInput extends Vue {
   inputLocked = false;
 
   sendKeysState = debounce(() => {
+    this.handleKeysStateInstantly();
+  }, inputDelay);
+
+  handleKeysStateInstantly(): void {
     this.setInputLocked();
     if (Object.values(this.pressedKeys).every((item) => item === false)) {
       this.setInputLocked(false);
@@ -86,19 +92,19 @@ export default class KeyboardInput extends Vue {
     else if (forward) this.$emit("forward");
     else if (backward) this.$emit("backward");
     else if (left) this.$emit("spin-counter-clockwise");
-    else if (forward) this.$emit("spin-clockwise");
-  }, inputDelay);
+    else if (right) this.$emit("spin-clockwise");
+  }
 
-  setKeyPressed(key: string, value = true) {
+  setKeyPressed(key: string, value = true): void {
     if (this.inputLocked && value) return;
     this.pressedKeys[key] = value;
     this.sendKeysState();
   }
-  setInputLocked(isLocked = true) {
+  setInputLocked(isLocked = true): void {
     this.inputLocked = isLocked;
   }
 
-  onUseKeyboardNav(event: any) {
+  onUseKeyboardNav(event: KeyboardEvent): void {
     const key = PressedKeysMap[event.keyCode];
     if (!key) return;
 
@@ -107,11 +113,11 @@ export default class KeyboardInput extends Vue {
     event.preventDefault();
   }
 
-  beforeDestroy() {
+  beforeDestroy(): void {
     window.removeEventListener("keydown", this.onUseKeyboardNav);
     window.removeEventListener("keyup", this.onUseKeyboardNav);
   }
-  mounted() {
+  mounted(): void {
     window.addEventListener("keydown", this.onUseKeyboardNav, false);
     window.addEventListener("keyup", this.onUseKeyboardNav, false);
   }
