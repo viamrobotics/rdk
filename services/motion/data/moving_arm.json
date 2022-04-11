@@ -1,9 +1,4 @@
 {
-    "services": [
-        {
-            "type": "frame_system"
-        }
-    ],
     "components": [
         {
             "type": "camera",

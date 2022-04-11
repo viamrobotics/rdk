@@ -92,11 +92,11 @@ func TestClientConfig(t *testing.T) {
 		},
 	}
 
-	workingFrameService.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
-		return fsConfigs, nil
+	workingFrameService.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+		return framesystem.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
-	failingFrameService.ConfigFunc = func(ctx context.Context) ([]*config.FrameSystemPart, error) {
+	failingFrameService.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
 		return nil, configErr
 	}
 
