@@ -207,7 +207,7 @@ class MotorCommand {
     switch (this.type) {
       case MotorCommandType.Go:
         req = new SetPowerRequest();
-        req.setPowerPct(this.speed * this.direction);
+        req.setPowerPct((this.speed * this.direction) / 100);
         break;
       case MotorCommandType.GoFor:
         req = new GoForRequest();

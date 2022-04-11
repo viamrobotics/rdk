@@ -35,7 +35,6 @@ import (
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/utils"
 	"go.viam.com/rdk/vision/chess"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 type pos struct {
@@ -503,8 +502,6 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 
 	flag.Parse()
 
-	cfgFile := flag.Arg(0)
-
 	if *cpuprofile != "" {
 		f, err := os.Create(*cpuprofile)
 		if err != nil {
@@ -514,12 +511,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		defer pprof.StopCPUProfile()
 	}
 
+	cfgFile := flag.Arg(0)
 	cfg, err := config.Read(ctx, cfgFile, logger)
 	if err != nil {
 		return err
 	}
-
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -672,5 +669,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			}()
 		}
 	})
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

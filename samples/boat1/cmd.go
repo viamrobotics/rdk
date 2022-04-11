@@ -31,7 +31,6 @@ import (
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
 	rdkutils "go.viam.com/rdk/utils"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 const (
@@ -384,11 +383,6 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0), logger)
-	if err != nil {
-		return err
-	}
-
 	// register boat as base properly
 	registry.RegisterComponent(base.Subtype, "viam-boat1", registry.Component{
 		Constructor: func(
@@ -400,6 +394,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 			return newBoat(ctx, r)
 		},
 	})
+
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
+	if err != nil {
+		return err
+	}
 
 	myRobot, err := robotimpl.New(ctx, cfg, logger)
 	if err != nil {
@@ -425,5 +424,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		recordDepthWorker(ctx, depth1)
 	}, activeBackgroundWorkers.Done)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

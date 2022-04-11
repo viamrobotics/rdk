@@ -1,12 +1,8 @@
 {
     "services": [
         {
-            "type": "frame_system"
-        },
-        {
             "type": "motion"
         }
-
     ],
     "components": [
         {
