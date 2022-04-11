@@ -79,7 +79,7 @@ func init() {
 			logger golog.Logger,
 		) (interface{}, error) {
 			port := config.Attributes.Int("port", 2368)
-			ttl := config.Attributes.Int("ttlMilliseconds", 0)
+			ttl := config.Attributes.Int("ttl_ms", 0)
 			if ttl == 0 {
 				return nil, errors.New("need to specify a ttl")
 			}
