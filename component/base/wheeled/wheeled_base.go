@@ -264,21 +264,21 @@ func (base *wheeledBase) GetWidth(ctx context.Context) (int, error) {
 
 // CreateFourWheelBase returns a new four wheel base defined by the given config.
 func CreateFourWheelBase(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (base.LocalBase, error) {
-	frontLeft, err := motor.FromRobot(r, config.Attributes.String("frontLeft"))
+	frontLeft, err := motor.FromRobot(r, config.Attributes.String("front_left"))
 	if err != nil {
-		return nil, errors.Wrap(err, "frontLeft motor not found")
+		return nil, errors.Wrap(err, "front_left motor not found")
 	}
-	frontRight, err := motor.FromRobot(r, config.Attributes.String("frontRight"))
+	frontRight, err := motor.FromRobot(r, config.Attributes.String("front_right"))
 	if err != nil {
-		return nil, errors.Wrap(err, "frontRight motor not found")
+		return nil, errors.Wrap(err, "front_right motor not found")
 	}
-	backLeft, err := motor.FromRobot(r, config.Attributes.String("backLeft"))
+	backLeft, err := motor.FromRobot(r, config.Attributes.String("back_left"))
 	if err != nil {
-		return nil, errors.Wrap(err, "backLeft motor not found")
+		return nil, errors.Wrap(err, "back_left motor not found")
 	}
-	backRight, err := motor.FromRobot(r, config.Attributes.String("backRight"))
+	backRight, err := motor.FromRobot(r, config.Attributes.String("back_right"))
 	if err != nil {
-		return nil, errors.Wrap(err, "backRight motor not found")
+		return nil, errors.Wrap(err, "back_right motor not found")
 	}
 
 	base := &wheeledBase{
