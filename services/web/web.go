@@ -38,6 +38,7 @@ import (
 	grpcmetadata "go.viam.com/rdk/grpc/metadata/server"
 	grpcserver "go.viam.com/rdk/grpc/server"
 	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/registry"
@@ -545,6 +546,21 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			}
 		}
 	}
+
+	rpcOpts = append(
+		rpcOpts,
+		rpc.WithUnaryServerInterceptor(func(
+			ctx context.Context,
+			req interface{},
+			info *googlegrpc.UnaryServerInfo,
+			handler googlegrpc.UnaryHandler,
+		) (interface{}, error) {
+			ctx, done := operation.Create(ctx, info.FullMethod, req)
+			defer done()
+			return handler(ctx, req)
+		}),
+	)
+
 	rpcServer, err := rpc.NewServer(svc.logger, rpcOpts...)
 	if err != nil {
 		return err

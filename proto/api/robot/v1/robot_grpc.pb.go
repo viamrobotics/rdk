@@ -22,6 +22,9 @@ type RobotServiceClient interface {
 	DoAction(ctx context.Context, in *DoActionRequest, opts ...grpc.CallOption) (*DoActionResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(ctx context.Context, in *ResourceRunCommandRequest, opts ...grpc.CallOption) (*ResourceRunCommandResponse, error)
+	ListOperations(ctx context.Context, in *ListOperationsRequest, opts ...grpc.CallOption) (*ListOperationsResponse, error)
+	KillOperation(ctx context.Context, in *KillOperationRequest, opts ...grpc.CallOption) (*KillOperationResponse, error)
+	BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error)
 }
 
 type robotServiceClient struct {
@@ -50,6 +53,33 @@ func (c *robotServiceClient) ResourceRunCommand(ctx context.Context, in *Resourc
 	return out, nil
 }
 
+func (c *robotServiceClient) ListOperations(ctx context.Context, in *ListOperationsRequest, opts ...grpc.CallOption) (*ListOperationsResponse, error) {
+	out := new(ListOperationsResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/ListOperations", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) KillOperation(ctx context.Context, in *KillOperationRequest, opts ...grpc.CallOption) (*KillOperationResponse, error) {
+	out := new(KillOperationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/KillOperation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *robotServiceClient) BlockForOperation(ctx context.Context, in *BlockForOperationRequest, opts ...grpc.CallOption) (*BlockForOperationResponse, error) {
+	out := new(BlockForOperationResponse)
+	err := c.cc.Invoke(ctx, "/proto.api.robot.v1.RobotService/BlockForOperation", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RobotServiceServer is the server API for RobotService service.
 // All implementations must embed UnimplementedRobotServiceServer
 // for forward compatibility
@@ -58,6 +88,9 @@ type RobotServiceServer interface {
 	DoAction(context.Context, *DoActionRequest) (*DoActionResponse, error)
 	// ResourceRunCommand runs an arbitrary command on a resource if it supports it.
 	ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error)
+	ListOperations(context.Context, *ListOperationsRequest) (*ListOperationsResponse, error)
+	KillOperation(context.Context, *KillOperationRequest) (*KillOperationResponse, error)
+	BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error)
 	mustEmbedUnimplementedRobotServiceServer()
 }
 
@@ -70,6 +103,15 @@ func (UnimplementedRobotServiceServer) DoAction(context.Context, *DoActionReques
 }
 func (UnimplementedRobotServiceServer) ResourceRunCommand(context.Context, *ResourceRunCommandRequest) (*ResourceRunCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourceRunCommand not implemented")
+}
+func (UnimplementedRobotServiceServer) ListOperations(context.Context, *ListOperationsRequest) (*ListOperationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListOperations not implemented")
+}
+func (UnimplementedRobotServiceServer) KillOperation(context.Context, *KillOperationRequest) (*KillOperationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method KillOperation not implemented")
+}
+func (UnimplementedRobotServiceServer) BlockForOperation(context.Context, *BlockForOperationRequest) (*BlockForOperationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method BlockForOperation not implemented")
 }
 func (UnimplementedRobotServiceServer) mustEmbedUnimplementedRobotServiceServer() {}
 
@@ -120,6 +162,60 @@ func _RobotService_ResourceRunCommand_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RobotService_ListOperations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOperationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).ListOperations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/ListOperations",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).ListOperations(ctx, req.(*ListOperationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_KillOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KillOperationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).KillOperation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/KillOperation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).KillOperation(ctx, req.(*KillOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RobotService_BlockForOperation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BlockForOperationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RobotServiceServer).BlockForOperation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.api.robot.v1.RobotService/BlockForOperation",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RobotServiceServer).BlockForOperation(ctx, req.(*BlockForOperationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RobotService_ServiceDesc is the grpc.ServiceDesc for RobotService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +230,18 @@ var RobotService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResourceRunCommand",
 			Handler:    _RobotService_ResourceRunCommand_Handler,
+		},
+		{
+			MethodName: "ListOperations",
+			Handler:    _RobotService_ListOperations_Handler,
+		},
+		{
+			MethodName: "KillOperation",
+			Handler:    _RobotService_KillOperation_Handler,
+		},
+		{
+			MethodName: "BlockForOperation",
+			Handler:    _RobotService_BlockForOperation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
