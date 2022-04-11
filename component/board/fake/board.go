@@ -283,10 +283,20 @@ func (h *I2CHandle) Close() error {
 type Analog struct {
 	Value      int
 	CloseCount int
+	Mu         sync.RWMutex
 }
 
 func (a *Analog) Read(context.Context) (int, error) {
+	a.Mu.RLock()
+	defer a.Mu.RUnlock()
 	return a.Value, nil
+}
+
+// Set is used during testing.
+func (a *Analog) Set(value int) {
+	a.Mu.Lock()
+	defer a.Mu.Unlock()
+	a.Value = value
 }
 
 // Close does nothing.
