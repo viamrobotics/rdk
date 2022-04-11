@@ -89,6 +89,7 @@ require (
 	github.com/ashanbrown/makezero v0.0.0-20210520155254-b6261585ddde // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bep/debounce v1.2.0 // indirect
 	github.com/bkielbasa/cyclop v1.2.0 // indirect
 	github.com/blackjack/webcam v0.0.0-20200313125108-10ed912a8539 // indirect
 	github.com/blizzy78/varnamelen v0.3.0 // indirect
