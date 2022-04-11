@@ -61,7 +61,7 @@ var Name = resource.NameFromSubtype(Subtype, "")
 // written to disk. A default value of 250 was chosen because even with the fastest reasonable capture interval (1ms),
 // this would leave 250ms for a (buffered) disk write before blocking, which seems sufficient for the size of
 // writes this would be performing.
-const defaultCaptureQueueSize = 1000
+const defaultCaptureQueueSize = 250
 
 // Default bufio.Writer buffer size in bytes.
 const defaultCaptureBufferSize = 4096
