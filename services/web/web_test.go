@@ -41,11 +41,11 @@ func TestWebStart(t *testing.T) {
 
 	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	err = svc.Start(ctx, web.NewOptions())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldNotBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	client, err := client.New(context.Background(), "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -58,7 +58,7 @@ func TestWebStart(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -67,7 +67,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
@@ -77,7 +77,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldNotBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	client, err := client.New(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -86,7 +86,7 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 }
 
 func TestWebWithAuth(t *testing.T) {
@@ -401,7 +401,7 @@ func TestWebUpdate(t *testing.T) {
 
 	svc, err := web.New(ctx, robot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
@@ -410,7 +410,7 @@ func TestWebUpdate(t *testing.T) {
 	options.Network.BindAddress = addr
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldNotBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	arm1 := "arm1"
 	c, err := client.New(context.Background(), addr, logger)
@@ -438,7 +438,7 @@ func TestWebUpdate(t *testing.T) {
 
 	test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	test.That(t, svc.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
 
 	// now start it with the arm already in it
@@ -453,11 +453,11 @@ func TestWebUpdate(t *testing.T) {
 
 	svc2, err := web.New(ctx, robot2, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc2.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc2.(*web.WebService).CancelFunc, test.ShouldNotBeNil)
+	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	c2, err := client.New(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -495,7 +495,7 @@ func TestWebUpdate(t *testing.T) {
 
 	test.That(t, utils.TryClose(context.Background(), c2), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
-	test.That(t, svc2.(*web.WebService).CancelFunc, test.ShouldBeNil)
+	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
