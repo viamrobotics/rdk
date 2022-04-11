@@ -40,14 +40,6 @@
             "type": "camera"
         },
         {
-            "attributes": {
-                "path": "/dev/video0"
-            },
-            "model": "webcam",
-            "name": "laptop",
-            "type": "camera"
-        },
-        {
             "model": "fake",
             "name": "board1",
             "type": "board",
