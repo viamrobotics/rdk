@@ -105,25 +105,21 @@ func (c *collector) capture() {
 
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
-	var wg sync.WaitGroup
 
 	for {
 		select {
 		case <-c.cancelCtx.Done():
-			wg.Wait()
 			close(c.queue)
 			return
 		case <-ticker.C:
-			wg.Add(1)
-			go c.getAndPushNextReading(&wg)
+			c.getAndPushNextReading()
 		}
 	}
 }
 
-func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
+func (c *collector) getAndPushNextReading() {
 	_, span := trace.StartSpan(c.cancelCtx, "data::collector::getAndPushNextReading")
 	defer span.End()
-	defer wg.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)

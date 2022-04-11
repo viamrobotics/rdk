@@ -25,6 +25,9 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) {
 		return &cfg, nil
 	}
+	injectRobot.RemoteNamesFunc = func() []string {
+		return []string{}
+	}
 
 	ctx := context.Background()
 	service, err := framesystem.New(ctx, injectRobot, config.Service{}, logger)
@@ -90,6 +93,6 @@ func TestNewFrameSystemFromPartsBadConfig(t *testing.T) {
 		},
 	}
 	fs, err := framesystem.NewFrameSystemFromParts("", "", badFSConfigs, logger)
-	test.That(t, err.Error(), test.ShouldContainSubstring, "there are no frames that connect to a 'world' node.")
+	test.That(t, err.Error(), test.ShouldContainSubstring, "there are no robot parts that connect to a 'world' node.")
 	test.That(t, fs, test.ShouldBeNil)
 }
