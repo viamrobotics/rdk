@@ -1,5 +1,5 @@
-/* Package metadata contains a service type that can be used to hold information
-about a robot's components and services. */
+// Package metadata contains a service type that can be used to hold information
+// about a robot's components and services.
 package metadata
 
 import (
