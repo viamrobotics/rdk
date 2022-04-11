@@ -111,6 +111,14 @@ func TestConfigRemote(t *testing.T) {
 					Parent: referenceframe.World,
 				},
 			},
+			{
+				Name:  "myParentIsRemote",
+				Type:  config.ComponentTypeBase,
+				Model: "fake",
+				Frame: &config.Frame{
+					Parent: "cameraOver",
+				},
+			},
 		},
 		Services: []config.Service{
 			{
@@ -171,6 +179,7 @@ func TestConfigRemote(t *testing.T) {
 		arm.Named("foo.pieceArm"),
 		arm.Named("bar.pieceArm"),
 		base.Named("foo"),
+		base.Named("myParentIsRemote"),
 		camera.Named("cameraOver"),
 		camera.Named("foo.cameraOver"),
 		camera.Named("bar.cameraOver"),
@@ -230,12 +239,13 @@ func TestConfigRemote(t *testing.T) {
 
 	cfg2, err := r2.Config(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(cfg2.Components), test.ShouldEqual, 1)
+	test.That(t, len(cfg2.Components), test.ShouldEqual, 2)
 
-	fs, err := r2.FrameSystem(context.Background(), "test", "")
+	frameService, err := framesystem.FromRobot(r2)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, fs.FrameNames(), test.ShouldHaveLength, 29)
-	t.Logf("frames: %v\n", fs.FrameNames())
+	fsConfig, err := frameService.Config(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, fsConfig, test.ShouldHaveLength, 12)
 
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 	test.That(t, r2.Close(context.Background()), test.ShouldBeNil)

@@ -317,26 +317,31 @@ func (manager *resourceManager) newRemotes(ctx context.Context, remotes []config
 					RemoveAuthCredentials: true,
 				}))
 			}
-		} else {
-			dialOpts = append(dialOpts, rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
-				Config: &rpc.DefaultWebRTCConfiguration,
-			}))
 		}
 
-		robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
-		if err != nil {
-			if errors.Is(err, rpc.ErrInsecureWithCredentials) {
-				if manager.opts.fromCommand {
-					err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
-				} else {
-					err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+		var outerError error
+		for attempt := 0; attempt < 3; attempt++ {
+			robotClient, err := client.New(ctx, config.Address, logger, client.WithDialOptions(dialOpts...))
+			if err != nil {
+				if errors.Is(err, rpc.ErrInsecureWithCredentials) {
+					if manager.opts.fromCommand {
+						err = errors.New("must use -allow-insecure-creds flag to connect to a non-TLS secured robot")
+					} else {
+						err = errors.New("must use Config.AllowInsecureCreds to connect to a non-TLS secured robot")
+					}
+					return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 				}
+				outerError = errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
+			} else {
+				configCopy := config
+				manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
+				outerError = nil
+				break
 			}
-			return errors.Wrapf(err, "couldn't connect to robot remote (%s)", config.Address)
 		}
-
-		configCopy := config
-		manager.addRemote(newRemoteRobot(robotClient, configCopy), configCopy)
+		if outerError != nil {
+			return outerError
+		}
 	}
 	return nil
 }

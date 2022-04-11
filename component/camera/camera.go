@@ -9,6 +9,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
@@ -118,6 +119,8 @@ func (is *imageSource) Close(ctx context.Context) error {
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (is *imageSource) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::imageSource::NextPointCloud")
+	defer span.End()
 	if c, ok := is.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
@@ -142,6 +145,8 @@ func (iswp *imageSourceWithProjector) GetProjector() rimage.Projector {
 
 // NextPointCloud returns the next PointCloud from the camera, or will error if not supported.
 func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (pointcloud.PointCloud, error) {
+	ctx, span := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud")
+	defer span.End()
 	if c, ok := iswp.ImageSource.(Camera); ok {
 		return c.NextPointCloud(ctx)
 	}
@@ -156,7 +161,14 @@ func (iswp *imageSourceWithProjector) NextPointCloud(ctx context.Context) (point
 	}
 
 	defer closer()
-	return iswp.projector.ImageWithDepthToPointCloud(rimage.ConvertToImageWithDepth(img))
+
+	_, toImageWithDepthSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ConvertToImageWithDepth")
+	imageWithDepth := rimage.ConvertToImageWithDepth(img)
+	toImageWithDepthSpan.End()
+
+	_, toPcdSpan := trace.StartSpan(ctx, "camera::imageSourceWithProjector::NextPointCloud::ImageWithDepthToPointCloud")
+	defer toPcdSpan.End()
+	return iswp.projector.ImageWithDepthToPointCloud(imageWithDepth)
 }
 
 // WrapWithReconfigurable wraps a camera with a reconfigurable and locking interface.

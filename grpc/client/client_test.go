@@ -41,7 +41,6 @@ import (
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	framepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	metadatapb "go.viam.com/rdk/proto/api/service/metadata/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
@@ -261,9 +260,6 @@ func TestClient(t *testing.T) {
 	client, err := New(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	_, err = client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldNotBeNil)
-
 	arm1, err := arm.FromRobot(client, "arm1")
 	test.That(t, err, test.ShouldBeNil)
 	_, err = arm1.GetEndPosition(context.Background())
@@ -274,7 +270,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
+	err = arm1.MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -343,7 +339,7 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
-	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, []*referenceframe.GeometriesInFrame{})
+	err = resource1.(arm.Arm).MoveToPosition(context.Background(), &commonpb.Pose{X: 1}, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "no arm")
 
@@ -357,9 +353,6 @@ func TestClient(t *testing.T) {
 	// working
 	client, err = New(context.Background(), listener2.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
-
-	_, err = client.FrameSystem(context.Background(), "", "")
-	test.That(t, err, test.ShouldNotBeNil)
 
 	test.That(t, func() { client.RemoteByName("remote1") }, test.ShouldPanic)
 

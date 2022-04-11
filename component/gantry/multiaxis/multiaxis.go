@@ -10,6 +10,7 @@ import (
 
 	"go.viam.com/rdk/component/gantry"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/robot"
@@ -93,7 +94,7 @@ func newMultiAxis(ctx context.Context, r robot.Robot, config config.Component, l
 }
 
 // MoveToPosition moves along an axis using inputs in millimeters.
-func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
 	if len(positions) == 0 {
 		return errors.Errorf("need position inputs for %v-axis gantry, have %v positions", len(g.subAxes), len(positions))
 	}
@@ -105,7 +106,7 @@ func (g *multiAxis) MoveToPosition(ctx context.Context, positions []float64, obs
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], obstacles)
+		err = subAx.MoveToPosition(ctx, positions[idx:idx+len(subAxNum)-1], worldState)
 		if err != nil {
 			return err
 		}
@@ -127,7 +128,7 @@ func (g *multiAxis) GoToInputs(ctx context.Context, goal []referenceframe.Input)
 			return err
 		}
 
-		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), []*referenceframe.GeometriesInFrame{})
+		err = subAx.MoveToPosition(ctx, referenceframe.InputsToFloats(goal[idx:idx+len(subAxNum)-1]), &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}

@@ -36,7 +36,7 @@
             "type": "board",
             "attributes":
             {
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "fl-e",
@@ -71,7 +71,7 @@
                     "pwm": "11"
                 },
                 "encoder": "fl-e",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [
@@ -92,7 +92,7 @@
                     "pwm": "7"
                 },
                 "encoder": "fr-e",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [
@@ -113,7 +113,7 @@
                     "pwm": "13"
                 },
                 "encoder": "bl-e",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [
@@ -134,7 +134,7 @@
                     "pwm": "15"
                 },
                 "encoder": "br-e",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [

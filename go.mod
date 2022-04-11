@@ -12,7 +12,7 @@ require (
 	github.com/disintegration/imaging v1.6.2
 	github.com/edaniels/golinters v0.0.5-0.20210512224240-495d3b8eed19
 	github.com/edaniels/golog v0.0.0-20210326173913-16d408aa7a5e
-	github.com/edaniels/gostream v0.0.0-20220103181712-0bb3c45e3a26
+	github.com/edaniels/gostream v0.0.0-20220331015535-41ae4448d72e
 	github.com/erh/scheme v0.0.0-20210304170849-99d295c6ce9a
 	github.com/fogleman/gg v1.3.0
 	github.com/fsnotify/fsnotify v1.5.1
@@ -37,7 +37,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.3
 	github.com/muesli/clusters v0.0.0-20200529215643-2700303c1762
 	github.com/muesli/kmeans v0.2.1
-	github.com/pion/mediadevices v0.3.1
+	github.com/pion/mediadevices v0.3.4-0.20220328105715-70261260cb6f
 	github.com/pion/webrtc/v3 v3.1.10
 	github.com/pseudomuto/protoc-gen-doc v1.3.2
 	github.com/sergi/go-diff v1.2.0
@@ -46,6 +46,7 @@ require (
 	github.com/tonyOreglia/glee v0.0.0-20201027095806-ae3f0739ad37
 	github.com/viamrobotics/evdev v0.1.3
 	github.com/wasmerio/wasmer-go v1.0.4
+	github.com/xfmoulet/qoi v0.2.0
 	go-hep.org/x/hep v0.28.5
 	go.einride.tech/vlp16 v0.7.0
 	go.mongodb.org/mongo-driver v1.8.0
@@ -54,9 +55,9 @@ require (
 	go.uber.org/zap v1.21.0
 	go.viam.com/dynamixel v0.0.0-20210415184230-4a447af034c4
 	go.viam.com/test v1.1.0
-	go.viam.com/utils v0.0.4-0.20220323205102-930dc7ff58fc
+	go.viam.com/utils v0.0.4-0.20220331014822-a8aebe0ff013
 	goji.io v2.0.2+incompatible
-	golang.org/x/image v0.0.0-20211028202545-6944b10bf410
+	golang.org/x/image v0.0.0-20220302094943-723b81ca9867
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	gonum.org/v1/gonum v0.8.2
@@ -168,6 +169,7 @@ require (
 	github.com/improbable-eng/grpc-web v0.14.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jdxcode/netrc v0.0.0-20210204082910-926c7f70242a // indirect
+	github.com/jedib0t/go-pretty/v6 v6.3.0 // indirect
 	github.com/jgautheron/goconst v1.5.1 // indirect
 	github.com/jhump/protoreflect v1.11.1-0.20220213155251-0c2aedc66cf4 // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
@@ -189,7 +191,7 @@ require (
 	github.com/matoous/godox v0.0.0-20210227103229-6504466cf951 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/mattn/go-runewidth v0.0.9 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mbilski/exhaustivestruct v1.2.0 // indirect
 	github.com/mgechev/dots v0.0.0-20210922191527-e955255bf517 // indirect
 	github.com/mgechev/revive v1.1.2 // indirect
@@ -233,6 +235,7 @@ require (
 	github.com/pseudomuto/protokit v0.2.0 // indirect
 	github.com/quasilyte/go-ruleguard v0.3.13 // indirect
 	github.com/quasilyte/regex/syntax v0.0.0-20200407221936-30656e2c4a95 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rocketlaunchr/dataframe-go v0.0.0-20201007021539-67b046771f0b // indirect
 	github.com/rs/cors v1.7.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

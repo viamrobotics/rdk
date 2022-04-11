@@ -239,11 +239,13 @@ func (svc *Service) Update(ctx context.Context, config config.Service) error {
 	// Initialize or add a collector based on changes to the config.
 	newCollectorMetadata := make(map[componentMethodMetadata]bool)
 	for componentName, attributes := range svcConfig.ComponentAttributes {
-		componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
-		if err != nil {
-			return err
+		if attributes.CaptureFrequencyHz > 0 {
+			componentMetadata, err := svc.initializeOrUpdateCollector(componentName, attributes, updateCaptureDir)
+			if err != nil {
+				return err
+			}
+			newCollectorMetadata[*componentMetadata] = true
 		}
-		newCollectorMetadata[*componentMetadata] = true
 	}
 
 	// If a component/method has been removed from the config, close the collector and remove it from the map.

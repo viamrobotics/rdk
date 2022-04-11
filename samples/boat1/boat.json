@@ -7,7 +7,7 @@
             "type": "board",
             "attributes":
             {
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "throttle",
@@ -72,7 +72,7 @@
                     "pwm": "15"
                 },
                 "encoder": "port-encoder",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [
@@ -92,7 +92,7 @@
                     "pwm": "22"
                 },
                 "encoder": "starboard-encoder",
-                "ticksPerRotation": 1000
+                "ticks_per_rotation": 1000
             },
             "depends_on":
             [

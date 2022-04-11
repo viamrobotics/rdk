@@ -2,14 +2,19 @@ package posetracker_test
 
 import (
 	"context"
+	"math"
+	"sort"
 	"testing"
 
+	"github.com/golang/geo/r3"
 	"go.viam.com/test"
 	viamutils "go.viam.com/utils"
 
 	"go.viam.com/rdk/component/posetracker"
 	"go.viam.com/rdk/component/sensor"
+	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/testutils/inject"
 	"go.viam.com/rdk/utils"
 )
@@ -122,7 +127,14 @@ type mock struct {
 }
 
 func (m *mock) GetPoses(ctx context.Context, bodyNames []string) (posetracker.BodyToPoseInFrame, error) {
-	return posetracker.BodyToPoseInFrame{}, nil
+	return posetracker.BodyToPoseInFrame{
+		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromAxisAngle(
+			r3.Vector{X: 2, Y: 4, Z: 6},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+			math.Pi,
+		)),
+	}, nil
 }
 
 func (m *mock) Close() { m.reconfCount++ }
@@ -142,13 +154,48 @@ func TestReconfigurablePoseTracker(t *testing.T) {
 	test.That(t, reconfPT1, test.ShouldResemble, reconfPT2)
 	test.That(t, actualPT1.reconfCount, test.ShouldEqual, 1)
 
-	expectedPoses := posetracker.BodyToPoseInFrame{}
+	expectedPoses := posetracker.BodyToPoseInFrame{
+		"body1": referenceframe.NewPoseInFrame("world", spatialmath.NewZeroPose()),
+		"body2": referenceframe.NewPoseInFrame("world", spatialmath.NewPoseFromAxisAngle(
+			r3.Vector{X: 2, Y: 4, Z: 6},
+			r3.Vector{X: 0, Y: 0, Z: 1},
+			math.Pi,
+		)),
+	}
 	poses, err := reconfPT1.(posetracker.PoseTracker).GetPoses(context.Background(), []string{})
 	test.That(t, poses, test.ShouldResemble, expectedPoses)
 	test.That(t, err, test.ShouldBeNil)
 
 	err = reconfPT1.Reconfigure(context.Background(), nil)
 	test.That(t, err, test.ShouldNotBeNil)
+}
+
+func TestGetReadings(t *testing.T) {
+	actualPT1 := &mock{Name: workingPTName}
+	reconfPT1, err := posetracker.WrapWithReconfigurable(actualPT1)
+	test.That(t, err, test.ShouldBeNil)
+	sensorPT1, isSensor := reconfPT1.(sensor.Sensor)
+	test.That(t, isSensor, test.ShouldBeTrue)
+
+	expectedReadings := [][]interface{}{
+		{"body1", "world", 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0},
+		{"body2", "world", 2.0, 4.0, 6.0, 0.0, 0.0, 1.0, math.Pi},
+	}
+	receivedRawReadings, err := sensorPT1.GetReadings(context.Background())
+	test.That(t, err, test.ShouldBeNil)
+
+	receivedReadings := make([][]interface{}, 0)
+	for _, reading := range receivedRawReadings {
+		receivedReadings = append(receivedReadings, reading.([]interface{}))
+	}
+	sort.SliceStable(expectedReadings, func(i, j int) bool {
+		return expectedReadings[i][0].(string) < expectedReadings[j][0].(string)
+	})
+	sort.SliceStable(receivedReadings, func(i, j int) bool {
+		return receivedReadings[i][0].(string) < receivedReadings[j][0].(string)
+	})
+
+	test.That(t, receivedReadings, test.ShouldResemble, expectedReadings)
 }
 
 func TestClose(t *testing.T) {

@@ -19,6 +19,7 @@ import (
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	spatial "go.viam.com/rdk/spatialmath"
 	webserver "go.viam.com/rdk/web/server"
 )
@@ -83,10 +84,10 @@ func chrisCirlce(ctx context.Context, r robot.Robot) error {
 	}
 
 	return multierr.Combine(
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}, []*referenceframe.GeometriesInFrame{}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}, []*referenceframe.GeometriesInFrame{}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}, []*referenceframe.GeometriesInFrame{}),
-		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}, []*referenceframe.GeometriesInFrame{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 480}, &commonpb.WorldState{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 480}, &commonpb.WorldState{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -200, Z: 300}, &commonpb.WorldState{}),
+		a.MoveToPosition(ctx, &commonpb.Pose{X: -600, Z: 300}, &commonpb.WorldState{}),
 	)
 }
 
@@ -108,13 +109,13 @@ func upAndDown(ctx context.Context, r robot.Robot) error {
 		}
 
 		pos.Y += 550
-		err = a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
+		err = a.MoveToPosition(ctx, pos, &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}
 
 		pos.Y -= 550
-		err = a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
+		err = a.MoveToPosition(ctx, pos, &commonpb.WorldState{})
 		if err != nil {
 			return err
 		}
@@ -158,7 +159,7 @@ func followPoints(ctx context.Context, r robot.Robot, points []spatial.Pose, mov
 	if err != nil {
 		return err
 	}
-	fs, err := r.FrameSystem(ctx, "fs", "")
+	fs, err := framesystem.RobotFrameSystem(ctx, r)
 	if err != nil {
 		return err
 	}
@@ -321,7 +322,7 @@ func main() {
 }
 
 func getInputEnabled(ctx context.Context, r robot.Robot) (map[string]referenceframe.InputEnabled, error) {
-	fs, err := r.FrameSystem(ctx, "fs", "")
+	fs, err := framesystem.RobotFrameSystem(ctx, r)
 	if err != nil {
 		return nil, err
 	}

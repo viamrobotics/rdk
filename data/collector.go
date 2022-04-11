@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -87,6 +88,9 @@ func (c *collector) Close() {
 
 // Collect starts the Collector, causing it to run c.capture every c.interval, and write the results to c.target.
 func (c *collector) Collect() error {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::Collect")
+	defer span.End()
+
 	errs, _ := errgroup.WithContext(c.cancelCtx)
 	go c.capture()
 	errs.Go(func() error {
@@ -96,6 +100,9 @@ func (c *collector) Collect() error {
 }
 
 func (c *collector) capture() {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::capture")
+	defer span.End()
+
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
@@ -114,16 +121,22 @@ func (c *collector) capture() {
 }
 
 func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
+	_, span := trace.StartSpan(c.cancelCtx, "data::collector::getAndPushNextReading")
+	defer span.End()
 	defer wg.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())
 	reading, err := c.capturer.Capture(c.cancelCtx, c.params)
 	timeReceived := timestamppb.New(time.Now().UTC())
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			c.logger.Debugw("error while capturing data", "error", err)
+			return
+		}
 		c.logger.Errorw("error while capturing data", "error", err)
 		return
 	}
-	pbReading, err := InterfaceToStruct(reading)
+	pbReading, err := StructToStructPb(reading)
 	if err != nil {
 		c.logger.Errorw("error while converting reading to structpb.Struct", "error", err)
 		return
@@ -183,16 +196,16 @@ func (c *collector) appendMessage(msg *v1.SensorData) error {
 	return nil
 }
 
-// InterfaceToStruct converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
+// StructToStructPb converts an arbitrary Go struct to a *structpb.Struct. Only exported fields are included in the
 // returned proto.
-func InterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+func StructToStructPb(i interface{}) (*structpb.Struct, error) {
 	encoded, err := protoutils.InterfaceToMap(i)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to convert interface %v to a form acceptable to structpb.NewStruct", i)
+		return nil, errors.Errorf("unable to convert interface %v to a form acceptable to structpb.NewStruct: %v", i, err)
 	}
 	ret, err := structpb.NewStruct(encoded)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to construct structpb.Struct from map %v", encoded)
+		return nil, errors.Errorf("unable to construct structpb.Struct from map %v: %v", encoded, err)
 	}
 	return ret, nil
 }
@@ -205,5 +218,5 @@ func InvalidInterfaceErr(typeName resource.SubtypeName) error {
 
 // FailedToReadErr is the error describing when a Capturer was unable to get the reading of a method.
 func FailedToReadErr(component string, method string, err error) error {
-	return errors.Errorf("failed to get reading of method %s of component %s: %s", method, component, err)
+	return errors.Errorf("failed to get reading of method %s of component %s: %v", method, component, err)
 }

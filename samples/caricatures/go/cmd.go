@@ -11,11 +11,10 @@ import (
 	"go.viam.com/rdk/action"
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/referenceframe"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 const (
@@ -51,7 +50,7 @@ func drawPoint(ctx context.Context, r robot.Robot) error {
 		if err != nil {
 			return err
 		}
-		a.MoveToPosition(ctx, pos, []*referenceframe.GeometriesInFrame{})
+		a.MoveToPosition(ctx, pos, &commonpb.WorldState{})
 	}
 	return nil
 }
@@ -75,12 +74,12 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) error
 		if err != nil {
 			return err
 		}
-		myRobot, err := robotimpl.New(ctx, cfg, logger)
+		myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 		if err != nil {
 			return err
 		}
 		defer myRobot.Close(ctx)
-		return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+		return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 	}
 	return nil
 }
