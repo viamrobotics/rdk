@@ -29,7 +29,7 @@
       "tp2": 0.0
     }
   },
-  "extrinsicsDepthToColor": {
+  "extrinsics_depth_to_color": {
     "rotation": [
       0.999958,
       -0.00838489,

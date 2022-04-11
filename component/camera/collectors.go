@@ -1,13 +1,18 @@
 package camera
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"os"
 	"time"
 
 	"github.com/edaniels/golog"
+	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 
 	"go.viam.com/rdk/data"
+	"go.viam.com/rdk/pointcloud"
 )
 
 type method int64
@@ -23,6 +28,15 @@ func (m method) String() string {
 	return "Unknown"
 }
 
+// TODO: add tests for this file.
+
+// PointCloudWrapper wraps the returned pointcloud.PointCloud in a struct that can be converted to structpb.Struct.
+// It is stored as a string rather than a []byte because structpb.NewStruct does not support passing in fields
+// containing []byte converted to []interface{} (which our generic Go struct -> map converted does).
+type PointCloudWrapper struct {
+	PointCloud string
+}
+
 func newNextPointCloudCollector(resource interface{}, name string, interval time.Duration, params map[string]string,
 	target *os.File, queueSize int, bufferSize int, logger golog.Logger) (data.Collector, error) {
 	camera, err := assertCamera(resource)
@@ -31,11 +45,21 @@ func newNextPointCloudCollector(resource interface{}, name string, interval time
 	}
 
 	cFunc := data.CaptureFunc(func(ctx context.Context, _ map[string]string) (interface{}, error) {
+		_, span := trace.StartSpan(ctx, "camera::data::collector::CaptureFunc")
+		defer span.End()
+
 		v, err := camera.NextPointCloud(ctx)
 		if err != nil {
 			return nil, data.FailedToReadErr(name, nextPointCloud.String(), err)
 		}
-		return v, nil
+
+		var buf bytes.Buffer
+		buf.Grow(v.Size() * 4 * 4) // 4 numbers per point, each 4 bytes
+		err = pointcloud.ToPCD(v, &buf, pointcloud.PCDBinary)
+		if err != nil {
+			return nil, errors.Errorf("failed to convert returned point cloud to PCD: %v", err)
+		}
+		return PointCloudWrapper{PointCloud: base64.StdEncoding.EncodeToString(buf.Bytes())}, nil
 	})
 	return data.NewCollector(cFunc, interval, params, target, queueSize, bufferSize, logger), nil
 }

@@ -25,7 +25,7 @@
         "pins" : {
           "pwm" : "5"
         },
-        "pwmfreq" : 4000
+        "pwm_freq" : 4000
       },
       "depends_on":["board1"]
     },

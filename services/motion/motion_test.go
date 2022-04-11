@@ -12,6 +12,7 @@ import (
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/component/gripper"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	robotimpl "go.viam.com/rdk/robot/impl"
@@ -40,12 +41,12 @@ func TestMoveFailures(t *testing.T) {
 	ms := setupMotionServiceFromConfig(t, "data/arm_gantry.json")
 	t.Run("fail on not finding gripper", func(t *testing.T) {
 		grabPose := referenceframe.NewPoseInFrame("fakeCamera", spatialmath.NewPoseFromPoint(r3.Vector{10.0, 10.0, 10.0}))
-		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, []*referenceframe.GeometriesInFrame{})
+		_, err = ms.Move(context.Background(), camera.Named("fake"), grabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldNotBeNil)
 	})
 	t.Run("fail on moving gripper with respect to gripper", func(t *testing.T) {
 		badGrabPose := referenceframe.NewPoseInFrame("arm1", spatialmath.NewZeroPose())
-		_, err = ms.Move(context.Background(), gripper.Named("arm1"), badGrabPose, []*referenceframe.GeometriesInFrame{})
+		_, err = ms.Move(context.Background(), gripper.Named("arm1"), badGrabPose, &commonpb.WorldState{})
 		test.That(t, err, test.ShouldBeError, "cannot move component with respect to its own frame, will always be at its own origin")
 	})
 }
@@ -54,7 +55,7 @@ func TestMove(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/moving_arm.json")
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = ms.Move(context.Background(), gripper.Named("pieceGripper"), grabPose, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -62,7 +63,7 @@ func TestMultiplePieces(t *testing.T) {
 	var err error
 	ms := setupMotionServiceFromConfig(t, "data/fake_tomato.json")
 	grabPose := referenceframe.NewPoseInFrame("c", spatialmath.NewPoseFromPoint(r3.Vector{-20, -30, -40}))
-	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, []*referenceframe.GeometriesInFrame{})
+	_, err = ms.Move(context.Background(), gripper.Named("gr"), grabPose, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -124,7 +125,7 @@ func (m *mock) Move(
 	ctx context.Context,
 	gripperName resource.Name,
 	grabPose *referenceframe.PoseInFrame,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *commonpb.WorldState,
 ) (bool, error) {
 	m.grabCount++
 	return false, nil
@@ -146,7 +147,7 @@ func TestFromRobot(t *testing.T) {
 	test.That(t, svc, test.ShouldNotBeNil)
 
 	grabPose := referenceframe.NewPoseInFrame("", spatialmath.NewZeroPose())
-	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, []*referenceframe.GeometriesInFrame{})
+	result, err := svc.Move(context.Background(), gripper.Named("fake"), grabPose, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldEqual, false)
 	test.That(t, svc1.grabCount, test.ShouldEqual, 1)

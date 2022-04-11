@@ -33,8 +33,8 @@
           "pwm": "11"
         },
         "encoder": "20",
-        "encoderB": "21",
-        "ticksPerRotation": 1,
+        "encoder_b": "21",
+        "ticks_per_rotation": 1,
         "PWMFreq" : 8000,
         "controlLoop": {
           "frequency": 100,

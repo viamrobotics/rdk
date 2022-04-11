@@ -22,6 +22,7 @@ import (
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
 	functionvm "go.viam.com/rdk/function/vm"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/motion"
@@ -602,7 +603,7 @@ func TestManagerAdd(t *testing.T) {
 		ctx context.Context,
 		componentName resource.Name,
 		grabPose *referenceframe.PoseInFrame,
-		obstacles []*referenceframe.GeometriesInFrame,
+		worldState *commonpb.WorldState,
 	) (bool, error) {
 		return false, nil
 	}

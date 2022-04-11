@@ -9,6 +9,7 @@ import (
 
 	"github.com/edaniels/gostream"
 	"github.com/pkg/errors"
+	"go.opencensus.io/trace"
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/rimage"
@@ -88,6 +89,8 @@ func (s *Source) Close() {
 
 // Next returns the original image overlaid with the found detections.
 func (s *Source) Next(ctx context.Context) (image.Image, func(), error) {
+	ctx, span := trace.StartSpan(ctx, "vision::objectdetection::Source::Next")
+	defer span.End()
 	start := time.Now()
 	res, err := s.NextResult(ctx)
 	if err != nil {
@@ -105,6 +108,8 @@ func (s *Source) Next(ctx context.Context) (image.Image, func(), error) {
 
 // NextResult returns all the components required to build the overlaid image, but is useful if you only want the Detections.
 func (s *Source) NextResult(ctx context.Context) (*Result, error) {
+	ctx, span := trace.StartSpan(ctx, "vision::objectdetection::Source::NextResult")
+	defer span.End()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()

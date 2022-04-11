@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -158,19 +157,6 @@ func (rr *remoteRobot) ProcessManager() pexec.ProcessManager {
 	return pexec.NoopProcessManager
 }
 
-// FrameSystem will return the frame system from the remote robot's server
-// remoteRobot may add on its own prefix if specified by the config file.
-func (rr *remoteRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	if rr.conf.Prefix {
-		prefix = rr.prefixName(prefix)
-	}
-	fs, err := rr.robot.FrameSystem(ctx, name, prefix)
-	if err != nil {
-		return nil, err
-	}
-	return fs, nil
-}
-
 func (rr *remoteRobot) Logger() golog.Logger {
 	return rr.robot.Logger()
 }
@@ -192,7 +178,7 @@ func managerForRemoteRobot(robot robot.Robot) *resourceManager {
 	for _, name := range robot.ResourceNames() {
 		part, err := robot.ResourceByName(name)
 		if err != nil {
-			robot.Logger().Debugf("error on getting %s: %w", name, err)
+			robot.Logger().Debugw("error getting resource", "resource", name, "error", err)
 			continue
 		}
 		manager.addResource(name, part)

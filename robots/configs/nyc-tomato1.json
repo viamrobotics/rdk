@@ -18,11 +18,11 @@
               "board": "local",
               "pins": {
                 "dir": "io21",
-                "enHigh": "io26",
+                "en_high": "io26",
                 "step": "io13"
               },
-              "stepperDelay": 50,
-              "ticksPerRotation": 200
+              "stepper_delay": 50,
+              "ticks_per_rotation": 200
             },
             "model": "gpiostepper",
             "name": "tomato-motor",

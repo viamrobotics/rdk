@@ -57,18 +57,12 @@ func (c *client) Move(
 	ctx context.Context,
 	componentName resource.Name,
 	destination *referenceframe.PoseInFrame,
-	obstacles []*referenceframe.GeometriesInFrame,
+	worldState *commonpb.WorldState,
 ) (bool, error) {
-	geometriesInFrames := make([]*commonpb.GeometriesInFrame, len(obstacles))
-	for i, obstacle := range obstacles {
-		geometriesInFrames[i] = referenceframe.GeometriesInFrameToProtobuf(obstacle)
-	}
 	resp, err := c.client.Move(ctx, &pb.MoveRequest{
 		ComponentName: protoutils.ResourceNameToProto(componentName),
 		Destination:   referenceframe.PoseInFrameToProtobuf(destination),
-		WorldState: &commonpb.WorldState{
-			Obstacles: geometriesInFrames,
-		},
+		WorldState:    worldState,
 	})
 	if err != nil {
 		return false, err

@@ -6,7 +6,6 @@ package robotimpl
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/edaniels/golog"
@@ -20,7 +19,6 @@ import (
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/metadata/service"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -39,7 +37,7 @@ var (
 	_ = robot.LocalRobot(&localRobot{})
 
 	// defaultSvc is a list of default robot services.
-	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name}
+	defaultSvc = []resource.Name{sensors.Name, status.Name, web.Name, datamanager.Name, framesystem.Name}
 )
 
 // localRobot satisfies robot.LocalRobot and defers most
@@ -97,53 +95,6 @@ func (r *localRobot) Config(ctx context.Context) (*config.Config, error) {
 	return &cfgCpy, nil
 }
 
-// getRemoteConfig gets the parameters for the Remote.
-func (r *localRobot) getRemoteConfig(remoteName string) (*config.Remote, error) {
-	for _, rConf := range r.config.Remotes {
-		if rConf.Name == remoteName {
-			return &rConf, nil
-		}
-	}
-	return nil, fmt.Errorf("cannot find Remote config with name %q", remoteName)
-}
-
-// FrameSystem returns the FrameSystem of the robot.
-func (r *localRobot) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	logger := r.Logger()
-	// create the base reference frame system
-	fsService, err := framesystem.FromRobot(r)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fsService.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	baseFrameSys, err := framesystem.NewFrameSystemFromParts(name, "", parts, logger)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("base frame system %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
-	// get frame system for each of its remote parts and merge to base
-	for remoteName, remote := range r.manager.remotes {
-		remoteFrameSys, err := remote.FrameSystem(ctx, remoteName, prefix)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-		rConf, err := r.getRemoteConfig(remoteName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-		logger.Debugf("merging remote frame system  %q with frames %v", remoteFrameSys.Name(), remoteFrameSys.FrameNames())
-		err = config.MergeFrameSystems(baseFrameSys, remoteFrameSys, rConf.Frame)
-		if err != nil {
-			return nil, errors.Wrapf(err, "remote %s", remoteName)
-		}
-	}
-	logger.Debugf("final frame system  %q has frames %v", baseFrameSys.Name(), baseFrameSys.FrameNames())
-	return baseFrameSys, nil
-}
-
 // Logger returns the logger the robot is using.
 func (r *localRobot) Logger() golog.Logger {
 	return r.logger
@@ -174,10 +125,6 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 	}()
 	r.config = cfg
 
-	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
-		return nil, err
-	}
-
 	// default services
 	for _, name := range defaultSvc {
 		cfg := config.Service{Type: config.ServiceType(name.ResourceSubtype)}
@@ -186,6 +133,10 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 			return nil, err
 		}
 		r.manager.addResource(name, svc)
+	}
+
+	if err := r.manager.processConfig(ctx, cfg, r, logger); err != nil {
+		return nil, err
 	}
 
 	// update default services - done here so that all resources have been created and can be addressed.
@@ -317,4 +268,24 @@ func (r *localRobot) UpdateMetadata(svc service.Metadata) error {
 		resources = append(resources, n)
 	}
 	return svc.Replace(resources)
+}
+
+// RobotFromConfigPath is a helper to read and process a config given its path and then create a robot based on it.
+func RobotFromConfigPath(ctx context.Context, cfgPath string, logger golog.Logger) (robot.LocalRobot, error) {
+	cfg, err := config.Read(ctx, cfgPath, logger)
+	if err != nil {
+		logger.Fatal("cannot read config")
+		return nil, err
+	}
+	return RobotFromConfig(ctx, cfg, logger)
+}
+
+// RobotFromConfig is a helper to process a config and then create a robot based on it.
+func RobotFromConfig(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.LocalRobot, error) {
+	tlsConfig := config.NewTLSConfig(cfg)
+	processedCfg, err := config.ProcessConfig(cfg, tlsConfig)
+	if err != nil {
+		return nil, err
+	}
+	return New(ctx, processedCfg, logger)
 }

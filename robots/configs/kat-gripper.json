@@ -31,7 +31,7 @@
                 "spi_bus": "main"
               }
             ],
-            "digitalInterrupts": [
+            "digital_interrupts": [
               {
                 "name": "encoder",
                 "pin": "15"
@@ -48,7 +48,7 @@
               }
             ]
           },
-          "digitalInterrupts": [
+          "digital_interrupts": [
             {
               "name": "encoder",
               "pin": "15"
@@ -75,26 +75,26 @@
           "config": {
             "board": "gripper-board",
             "encoder": "encoder",
-            "encoderB": "encoder-b",
+            "encoder_b": "encoder-b",
             "max_power_pct": 0.8,
             "pins": {
               "a": "13",
               "b": "11",
               "pwm": "18"
             },
-            "pwmFreq": 8000,
-            "ticksPerRotation": 1960
+            "pwm_freq": 8000,
+            "ticks_per_rotation": 1960
           },
           "encoder": "encoder",
-          "encoderB": "encoder-b",
+          "encoder_b": "encoder-b",
           "max_power_pct": 0.8,
           "pins": {
             "a": "13",
             "b": "11",
             "pwm": "18"
           },
-          "pwmFreq": 8000,
-          "ticksPerRotation": 1960
+          "pwm_freq": 8000,
+          "ticks_per_rotation": 1960
         },
         "depends_on": [
           "gripper-board"

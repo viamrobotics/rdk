@@ -12,6 +12,7 @@ import (
 	"github.com/edaniels/golog"
 	"github.com/golang/geo/r3"
 	"go.opencensus.io/trace"
+	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/camera"
 	"go.viam.com/rdk/config"
@@ -20,6 +21,7 @@ import (
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -103,10 +105,11 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud")
 	defer span.End()
 
-	fs, err := jpcs.robot.FrameSystem(ctx, "join_cameras", "")
+	fs, err := framesystem.RobotFrameSystem(ctx, jpcs.robot)
 	if err != nil {
 		return nil, err
 	}
+
 	inputs, err := jpcs.initializeInputs(ctx, fs)
 	if err != nil {
 		return nil, err
@@ -116,38 +119,40 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 	activeReaders := int32(len(jpcs.sourceCameras))
 
 	for i, cam := range jpcs.sourceCameras {
-		go func(i int, cam camera.Camera) {
-			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i])
+		iCopy := i
+		camCopy := cam
+		utils.PanicCapturingGo(func() {
+			ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy])
 			defer span.End()
 
 			defer func() {
 				atomic.AddInt32(&activeReaders, -1)
 			}()
 			pcSrc, err := func() (pointcloud.PointCloud, error) {
-				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[i]+"-NextPointCloud")
+				ctx, span := trace.StartSpan(ctx, "joinPointCloudSource::NextPointCloud::"+jpcs.sourceNames[iCopy]+"-NextPointCloud")
 				defer span.End()
-				return cam.NextPointCloud(ctx)
+				return camCopy.NextPointCloud(ctx)
 			}()
 			if err != nil {
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
-			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[i], jpcs.targetName)
+			theTransform, err := fs.TransformFrame(inputs, jpcs.sourceNames[iCopy], jpcs.targetName)
 			if err != nil {
 				panic(err) // TODO(erh) is there something better to do?
 			}
 
 			var wg sync.WaitGroup
 			const numLoops = 8
+			wg.Add(numLoops)
 			for loop := 0; loop < numLoops; loop++ {
-				wg.Add(1)
 				f := func(loop int) {
 					defer wg.Done()
 					const batchSize = 500
 					batch := make([]pointcloud.PointAndData, 0, batchSize)
 					savedDualQuat := spatialmath.NewZeroPose()
 					pcSrc.Iterate(numLoops, loop, func(p r3.Vector, d pointcloud.Data) bool {
-						if jpcs.sourceNames[i] != jpcs.targetName {
+						if jpcs.sourceNames[iCopy] != jpcs.targetName {
 							spatialmath.ResetPoseDQTransalation(savedDualQuat, p)
 							newPose := spatialmath.Compose(theTransform.Pose(), savedDualQuat)
 							p = newPose.Point()
@@ -161,10 +166,11 @@ func (jpcs *joinPointCloudSource) NextPointCloud(ctx context.Context) (pointclou
 					})
 					finalPoints <- batch
 				}
-				go f(loop)
+				loopCopy := loop
+				utils.PanicCapturingGo(func() { f(loopCopy) })
 			}
 			wg.Wait()
-		}(i, cam)
+		})
 	}
 
 	var pcTo pointcloud.PointCloud

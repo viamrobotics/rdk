@@ -8,7 +8,6 @@ import (
 
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/arm/v1"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/subtype"
 )
 
@@ -78,15 +77,7 @@ func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositi
 	if err != nil {
 		return nil, err
 	}
-	obstacles := req.GetWorldState().GetObstacles()
-	geometriesInFrames := make([]*referenceframe.GeometriesInFrame, len(obstacles))
-	for i, obstacle := range obstacles {
-		geometriesInFrames[i], err = referenceframe.ProtobufToGeometriesInFrame(obstacle)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), geometriesInFrames)
+	return &pb.MoveToPositionResponse{}, arm.MoveToPosition(ctx, req.GetTo(), req.GetWorldState())
 }
 
 // MoveToJointPositions moves an arm of the underlying robot to the requested joint positions.

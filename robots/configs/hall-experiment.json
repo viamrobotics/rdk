@@ -7,7 +7,7 @@
             "type": "board",
             "attributes":
             {
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "blue",
@@ -35,8 +35,8 @@
                     "pwm": "7"
                 },
                 "encoder": "blue",
-                "encoderB": "purple",
-                "ticksPerRotation": 100
+                "encoder_b": "purple",
+                "ticks_per_rotation": 100
             },
             "depends_on":
             [

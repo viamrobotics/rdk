@@ -29,7 +29,7 @@
         "pins" : {
           "pwm" : "1"
         },
-        "pwmfreq" : 1000
+        "pwm_freq" : 1000
       }
     },
     {
@@ -69,7 +69,7 @@
             "pin": "0"
           }
         ],
-        "digitalInterrupts":
+        "digital_interrupts":
         [
           {
             "name": "encoder",

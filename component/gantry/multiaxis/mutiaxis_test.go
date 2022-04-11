@@ -11,6 +11,7 @@ import (
 	"go.viam.com/rdk/component/motor"
 	fm "go.viam.com/rdk/component/motor/fake"
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/testutils/inject"
@@ -23,7 +24,7 @@ func createFakeOneaAxis(length float64, positions []float64) *inject.Gantry {
 		GetPositionFunc: func(ctx context.Context) ([]float64, error) {
 			return positions, nil
 		},
-		MoveToPositionFunc: func(ctx context.Context, positions []float64, obstacles []*referenceframe.GeometriesInFrame) error {
+		MoveToPositionFunc: func(ctx context.Context, positions []float64, worldState *commonpb.WorldState) error {
 			return nil
 		},
 		GetLengthsFunc: func(ctx context.Context) ([]float64, error) {
@@ -109,17 +110,17 @@ func TestMoveToPosition(t *testing.T) {
 	positions := []float64{}
 
 	fakemultiaxis := &multiAxis{}
-	err := fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
+	err := fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldNotBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: threeAxes}
 	positions = []float64{1, 2, 3}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 
 	fakemultiaxis = &multiAxis{subAxes: twoAxes}
 	positions = []float64{1, 2}
-	err = fakemultiaxis.MoveToPosition(ctx, positions, []*referenceframe.GeometriesInFrame{})
+	err = fakemultiaxis.MoveToPosition(ctx, positions, &commonpb.WorldState{})
 	test.That(t, err, test.ShouldBeNil)
 }
 

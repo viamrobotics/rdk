@@ -117,6 +117,20 @@ func (c *client) ReadAcceleration(ctx context.Context) (r3.Vector, error) {
 	}, nil
 }
 
+func (c *client) ReadMagnetometer(ctx context.Context) (r3.Vector, error) {
+	resp, err := c.client.ReadMagnetometer(ctx, &pb.ReadMagnetometerRequest{
+		Name: c.name,
+	})
+	if err != nil {
+		return r3.Vector{}, err
+	}
+	return r3.Vector{
+		X: resp.Magnetometer.XGauss,
+		Y: resp.Magnetometer.YGauss,
+		Z: resp.Magnetometer.ZGauss,
+	}, nil
+}
+
 func (c *client) GetReadings(ctx context.Context) ([]interface{}, error) {
 	return GetReadings(ctx, c)
 }

@@ -68,7 +68,7 @@ func (a *Arm) GetEndPosition(ctx context.Context) (*commonpb.Pose, error) {
 }
 
 // MoveToPosition sets the position.
-func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, obstacles []*referenceframe.GeometriesInFrame) error {
+func (a *Arm) MoveToPosition(ctx context.Context, c *commonpb.Pose, worldState *commonpb.WorldState) error {
 	a.position = c
 	return nil
 }

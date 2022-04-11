@@ -32,7 +32,7 @@
                         "pin": "0"
                     }
                 ],
-                "digitalInterrupts":
+                "digital_interrupts":
                 [
                     {
                         "name": "encoder",
@@ -53,8 +53,8 @@
                     "pwm": "io18"
                 },
                 "encoder": "encoder-steering-b",
-                "encoderB": "encoder-steering-a",
-                "ticksPerRotation": 10000,
+                "encoder_b": "encoder-steering-a",
+                "ticks_per_rotation": 10000,
                 "max_power_pct": 0.5
             }
         }

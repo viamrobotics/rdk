@@ -43,6 +43,9 @@ func TestServer(t *testing.T) {
 	injectIMU.ReadAccelerationFunc = func(ctx context.Context) (r3.Vector, error) {
 		return r3.Vector{X: 7, Y: 8, Z: 9}, nil
 	}
+	injectIMU.ReadMagnetometerFunc = func(ctx context.Context) (r3.Vector, error) {
+		return r3.Vector{X: 10, Y: 11, Z: 12}, nil
+	}
 
 	//nolint:dupl
 	t.Run("IMU angular velocity", func(t *testing.T) {
@@ -85,6 +88,21 @@ func TestServer(t *testing.T) {
 		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
 
 		_, err = imuServer.ReadAcceleration(context.Background(), &pb.ReadAccelerationRequest{Name: missingIMUName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
+	})
+
+	//nolint:dupl
+	t.Run("IMU magnetometer", func(t *testing.T) {
+		resp, err := imuServer.ReadMagnetometer(context.Background(), &pb.ReadMagnetometerRequest{Name: testIMUName})
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, resp.Magnetometer, test.ShouldResemble, &pb.Magnetometer{XGauss: 10, YGauss: 11, ZGauss: 12})
+
+		_, err = imuServer.ReadMagnetometer(context.Background(), &pb.ReadMagnetometerRequest{Name: fakeIMUName})
+		test.That(t, err, test.ShouldNotBeNil)
+		test.That(t, err.Error(), test.ShouldContainSubstring, "not an IMU")
+
+		_, err = imuServer.ReadMagnetometer(context.Background(), &pb.ReadMagnetometerRequest{Name: missingIMUName})
 		test.That(t, err, test.ShouldNotBeNil)
 		test.That(t, err.Error(), test.ShouldContainSubstring, "no IMU")
 	})
