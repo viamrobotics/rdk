@@ -100,12 +100,10 @@ func (c *collector) Collect() error {
 }
 
 func (c *collector) capture() {
-	_, span := trace.StartSpan(c.cancelCtx, "data::collector::capture")
-	defer span.End()
-
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
 	var wg sync.WaitGroup
+	lastTick := time.Now()
 
 	for {
 		select {
@@ -114,6 +112,12 @@ func (c *collector) capture() {
 			close(c.queue)
 			return
 		case <-ticker.C:
+			currTick := time.Now()
+			diff := currTick.Sub(lastTick).Microseconds()
+			if diff > 1800 {
+				c.logger.Debugf("took %d microseconds between ticks", diff)
+			}
+			lastTick = currTick
 			wg.Add(1)
 			go c.getAndPushNextReading(&wg)
 		}
@@ -121,8 +125,6 @@ func (c *collector) capture() {
 }
 
 func (c *collector) getAndPushNextReading(wg *sync.WaitGroup) {
-	_, span := trace.StartSpan(c.cancelCtx, "data::collector::getAndPushNextReading")
-	defer span.End()
 	defer wg.Done()
 
 	timeRequested := timestamppb.New(time.Now().UTC())
