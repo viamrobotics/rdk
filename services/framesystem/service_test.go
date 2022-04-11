@@ -13,7 +13,6 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/referenceframe"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/framesystem"
@@ -156,9 +155,7 @@ func TestServiceWithRemote(t *testing.T) {
 	// make the remote robots
 	remoteConfig, err := config.Read(context.Background(), rdkutils.ResolveFile("robot/impl/data/fake.json"), logger)
 	test.That(t, err, test.ShouldBeNil)
-	metadataSvc, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx := service.ContextWithService(context.Background(), metadataSvc)
+	ctx := context.Background()
 	remoteRobot, err := robotimpl.New(ctx, remoteConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	defer func() {
@@ -223,12 +220,8 @@ func TestServiceWithRemote(t *testing.T) {
 		},
 	}
 
-	metadataSvc2, err := service.New()
-	test.That(t, err, test.ShouldBeNil)
-	ctx2 := service.ContextWithService(context.Background(), metadataSvc2)
-
 	// make local robot
-	r2, err := robotimpl.New(ctx2, localConfig, logger)
+	r2, err := robotimpl.New(context.Background(), localConfig, logger)
 	test.That(t, err, test.ShouldBeNil)
 	fs, err := framesystem.RobotFrameSystem(context.Background(), r2)
 	test.That(t, err, test.ShouldBeNil)
