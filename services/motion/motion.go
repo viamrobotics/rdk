@@ -12,6 +12,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/motionplan"
+	"go.viam.com/rdk/operation"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/motion/v1"
 	"go.viam.com/rdk/referenceframe"
@@ -113,6 +114,7 @@ func (ms *motionService) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
+	operation.Get(ctx).CancelOtherWithLabel("move-actuate")
 	logger := ms.r.Logger()
 
 	// get goal frame

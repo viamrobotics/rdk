@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/servo/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -34,6 +35,7 @@ func (server *subtypeServer) getServo(name string) (Servo, error) {
 }
 
 func (server *subtypeServer) Move(ctx context.Context, req *pb.MoveRequest) (*pb.MoveResponse, error) {
+	operation.Get(ctx).CancelOtherWithLabel("base-actuate-" + req.GetName())
 	servo, err := server.getServo(req.GetName())
 	if err != nil {
 		return nil, err
