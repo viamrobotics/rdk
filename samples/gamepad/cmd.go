@@ -24,12 +24,6 @@ func main() {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	metadataSvc, err := service.New()
-	if err != nil {
-		return err
-	}
-	ctx = service.ContextWithService(ctx, metadataSvc)
-
 	cfg, err := config.Read(ctx, flag.Arg(0), logger)
 	if err != nil {
 		return err
