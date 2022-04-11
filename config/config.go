@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -378,4 +379,83 @@ func (config *AuthHandlerConfig) Validate(path string) error {
 		return utils.NewConfigValidationError(path, errors.Errorf("do not know how to handle auth for %q", config.Type))
 	}
 	return nil
+}
+
+// TLSConfig stores the TLS config for the robot.
+type TLSConfig struct {
+	*tls.Config
+	certMu  sync.Mutex
+	tlsCert *tls.Certificate
+}
+
+// NewTLSConfig creates a new tls config.
+func NewTLSConfig(cfg *Config) *TLSConfig {
+	tlsCfg := &TLSConfig{}
+	var tlsConfig *tls.Config
+	if cfg.Cloud != nil && cfg.Cloud.TLSCertificate != "" {
+		tlsConfig = &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			GetCertificate: func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+				// always return same cert
+				tlsCfg.certMu.Lock()
+				defer tlsCfg.certMu.Unlock()
+				return tlsCfg.tlsCert, nil
+			},
+			GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				// always return same cert
+				tlsCfg.certMu.Lock()
+				defer tlsCfg.certMu.Unlock()
+				return tlsCfg.tlsCert, nil
+			},
+		}
+	}
+	tlsCfg.Config = tlsConfig
+	return tlsCfg
+}
+
+// UpdateCert updates the TLS certificate to be returned.
+func (t *TLSConfig) UpdateCert(cfg *Config) error {
+	cert, err := tls.X509KeyPair([]byte(cfg.Cloud.TLSCertificate), []byte(cfg.Cloud.TLSPrivateKey))
+	if err != nil {
+		return err
+	}
+	t.certMu.Lock()
+	t.tlsCert = &cert
+	t.certMu.Unlock()
+	return nil
+}
+
+// ProcessConfig processes robot configs.
+func ProcessConfig(in *Config, tlsCfg *TLSConfig) (*Config, error) {
+	out := *in
+	var selfCreds *rpc.Credentials
+	if in.Cloud != nil {
+		if in.Cloud.TLSCertificate != "" {
+			if err := tlsCfg.UpdateCert(in); err != nil {
+				return nil, err
+			}
+		}
+
+		selfCreds = &rpc.Credentials{rutils.CredentialsTypeRobotSecret, in.Cloud.Secret}
+		out.Network.TLSConfig = tlsCfg.Config // override
+	}
+
+	out.Remotes = make([]Remote, len(in.Remotes))
+	copy(out.Remotes, in.Remotes)
+	for idx, remote := range out.Remotes {
+		remoteCopy := remote
+		if in.Cloud == nil {
+			remoteCopy.Auth.SignalingCreds = remoteCopy.Auth.Credentials
+		} else {
+			if remote.ManagedBy != in.Cloud.ManagedBy {
+				continue
+			}
+			remoteCopy.Auth.Managed = true
+			remoteCopy.Auth.SignalingServerAddress = in.Cloud.SignalingAddress
+			remoteCopy.Auth.SignalingAuthEntity = in.Cloud.ID
+			remoteCopy.Auth.SignalingCreds = selfCreds
+		}
+		out.Remotes[idx] = remoteCopy
+	}
+	return &out, nil
 }

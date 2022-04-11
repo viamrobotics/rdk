@@ -154,9 +154,6 @@
     "services":
     [
         {
-            "type": "frame_system"
-        },
-        {
             "type": "navigation",
             "attributes": {
                 "store": {
