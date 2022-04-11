@@ -10,7 +10,6 @@ import (
 
 	"go.viam.com/rdk/component/input"
 	"go.viam.com/rdk/config"
-	"go.viam.com/rdk/metadata/service"
 	"go.viam.com/rdk/robot"
 	robotimpl "go.viam.com/rdk/robot/impl"
 	"go.viam.com/rdk/services/web"

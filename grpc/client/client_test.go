@@ -26,7 +26,6 @@ import (
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/component/servo"
 	"go.viam.com/rdk/config"
-	metadataserver "go.viam.com/rdk/grpc/metadata/server"
 	"go.viam.com/rdk/grpc/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	armpb "go.viam.com/rdk/proto/api/component/arm/v1"
@@ -44,6 +43,7 @@ import (
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/rimage"
 	"go.viam.com/rdk/services/framesystem"
+	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/spatialmath"
 	"go.viam.com/rdk/subtype"
 	"go.viam.com/rdk/testutils"
@@ -427,6 +427,11 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 }
 
+func getMetadataServer(injectMetadata *inject.Metadata) (metadatapb.MetadataServiceServer, error) {
+	subtypeSvcMap := map[resource.Name]interface{}{metadata.Name: injectMetadata}
+	return metadata.NewServerFromMap(subtypeSvcMap)
+}
+
 func TestClientRefresh(t *testing.T) {
 	logger := golog.NewTestLogger(t)
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -435,7 +440,9 @@ func TestClientRefresh(t *testing.T) {
 	injectRobot := &inject.Robot{}
 	pb.RegisterRobotServiceServer(gServer, server.New(injectRobot))
 	injectMetadata := &inject.Metadata{}
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	metadataServer, err := getMetadataServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
@@ -443,7 +450,7 @@ func TestClientRefresh(t *testing.T) {
 	var callCount int
 	calledEnough := make(chan struct{})
 
-	injectMetadata.AllFunc = func() []resource.Name {
+	injectMetadata.ResourcesFunc = func() []resource.Name {
 		if callCount == 5 {
 			close(calledEnough)
 		}
@@ -529,7 +536,7 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.AllFunc = func() []resource.Name {
+	injectMetadata.ResourcesFunc = func() []resource.Name {
 		return emptyResources
 	}
 	client, err = New(
@@ -591,7 +598,7 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	injectMetadata.AllFunc = func() []resource.Name {
+	injectMetadata.ResourcesFunc = func() []resource.Name {
 		return finalResources
 	}
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
@@ -663,12 +670,14 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectMetadata := &inject.Metadata{}
-	metadatapb.RegisterMetadataServiceServer(gServer, metadataserver.New(injectMetadata))
+	metadataServer, err := getMetadataServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	metadatapb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	injectMetadata.AllFunc = func() []resource.Name {
+	injectMetadata.ResourcesFunc = func() []resource.Name {
 		return emptyResources
 	}
 
