@@ -114,7 +114,7 @@ func (ms *motionService) Move(
 	destination *referenceframe.PoseInFrame,
 	worldState *commonpb.WorldState,
 ) (bool, error) {
-	operation.CancelOtherWithLabel(ctx, "move-actuate")
+	operation.CancelOtherWithLabel(ctx, "motion-service")
 	logger := ms.r.Logger()
 
 	// get goal frame
