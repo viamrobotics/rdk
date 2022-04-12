@@ -5,7 +5,6 @@ package data
 import (
 	"bufio"
 	"context"
-	"go.viam.com/utils"
 	"os"
 	"sync"
 	"time"
@@ -21,6 +20,7 @@ import (
 	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/utils"
 )
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
