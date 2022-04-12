@@ -915,7 +915,7 @@
           // query metadata service every 0.5s
           const queryMetadata = async function() {
             let pResolve;
-          let pReject;
+            let pReject;
             let p = new Promise((resolve, reject) => {
               pResolve = resolve;
               pReject = reject;
@@ -1489,7 +1489,7 @@
       function imuRefresh() {
           if (window.theApp) {
               var all = theApp.filterResources("rdk", "component", "imu");
-            all.forEach(function(x) {
+                  all.forEach(function(x) {
                   var name = x.name;
 
                   if (!theData.imuData[name]) {

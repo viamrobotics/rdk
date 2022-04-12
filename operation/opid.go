@@ -1,4 +1,4 @@
-// Package operation manageds operation ids
+// Package operation manages operation ids
 package operation
 
 import (
@@ -20,8 +20,9 @@ type Operation struct {
 	Arguments interface{}
 	Started   time.Time
 
-	cancel context.CancelFunc
-	labels []string
+	myManager *Manager
+	cancel    context.CancelFunc
+	labels    []string
 }
 
 // Cancel cancel the context associated with an operation.
@@ -29,7 +30,7 @@ func (o *Operation) Cancel() {
 	o.cancel()
 }
 
-// HasLabel returns true if this oepration has a speficic lable.
+// HasLabel returns true if this oepration has a speficic label.
 func (o *Operation) HasLabel(label string) bool {
 	for _, l := range o.labels {
 		if l == label {
@@ -41,7 +42,7 @@ func (o *Operation) HasLabel(label string) bool {
 
 // CancelOtherWithLabel will cancel all operations besides this one with this label.
 func (o *Operation) CancelOtherWithLabel(label string) {
-	all := CurrentOps()
+	all := o.myManager.All()
 	for _, op := range all {
 		if op == o {
 			continue
@@ -55,67 +56,59 @@ func (o *Operation) CancelOtherWithLabel(label string) {
 }
 
 func (o *Operation) cleanup() {
-	theGlobal.remove(o.ID)
+	o.myManager.remove(o.ID)
 }
 
-var theGlobal = &global{ops: map[string]*Operation{}}
+// NewManager creates a new manager for holding Operations.
+func NewManager() *Manager {
+	return &Manager{ops: map[string]*Operation{}}
+}
 
-type global struct {
+// Manager holds Operations.
+type Manager struct {
 	ops  map[string]*Operation
 	lock sync.Mutex
 }
 
-func (g *global) remove(id uuid.UUID) {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	delete(g.ops, id.String())
+func (m *Manager) remove(id uuid.UUID) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	delete(m.ops, id.String())
 }
 
-func (g *global) add(op *Operation) {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	g.ops[op.ID.String()] = op
+func (m *Manager) add(op *Operation) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	m.ops[op.ID.String()] = op
 }
 
-func (g *global) all() []*Operation {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	a := make([]*Operation, 0, len(g.ops))
-	for _, o := range g.ops {
+// All returns all running operations.
+func (m *Manager) All() []*Operation {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	a := make([]*Operation, 0, len(m.ops))
+	for _, o := range m.ops {
 		a = append(a, o)
 	}
 	return a
 }
 
-func (g *global) find(id uuid.UUID) *Operation {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	return g.ops[id.String()]
+// Find an Operation.
+func (m *Manager) Find(id uuid.UUID) *Operation {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.ops[id.String()]
 }
 
-func (g *global) findString(id string) *Operation {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	return g.ops[id]
-}
-
-// CurrentOps returns all of the currently running operations.
-func CurrentOps() []*Operation {
-	return theGlobal.all()
-}
-
-// FindOp finds an op by id, could return nil.
-func FindOp(id uuid.UUID) *Operation {
-	return theGlobal.find(id)
-}
-
-// FindOpString finds an op by id, could return nil.
-func FindOpString(id string) *Operation {
-	return theGlobal.findString(id)
+// FindString an Operation.
+func (m *Manager) FindString(id string) *Operation {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	return m.ops[id]
 }
 
 // Create puts an operation on this context.
-func Create(ctx context.Context, method string, args interface{}) (context.Context, func()) {
+func (m *Manager) Create(ctx context.Context, method string, args interface{}) (context.Context, func()) {
 	if ctx.Value(opidKey) != nil {
 		panic("operations cannot be nested")
 	}
@@ -125,11 +118,12 @@ func Create(ctx context.Context, method string, args interface{}) (context.Conte
 		Method:    method,
 		Arguments: args,
 		Started:   time.Now(),
+		myManager: m,
 	}
 	ctx = context.WithValue(ctx, opidKey, op)
 	ctx, op.cancel = context.WithCancel(ctx)
 
-	theGlobal.add(op)
+	m.add(op)
 
 	return ctx, func() { op.cleanup() }
 }
