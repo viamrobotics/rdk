@@ -13,6 +13,7 @@ import (
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/pkg/errors"
 	"go.opencensus.io/trace"
+	"go.viam.com/utils"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -20,7 +21,6 @@ import (
 	v1 "go.viam.com/rdk/proto/api/service/datamanager/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
-	"go.viam.com/utils"
 )
 
 // Capturer provides a function for capturing a single protobuf reading from the underlying component.
