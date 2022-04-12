@@ -33,13 +33,13 @@ service RobotService {
 
   rpc KillOperation(KillOperationRequest) returns (KillOperationResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/operations/list"
+      get: "/viam/api/v1/operations/kill"
     };    
   }
   
   rpc BlockForOperation(BlockForOperationRequest) returns (BlockForOperationResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/operations/list"
+      get: "/viam/api/v1/operations/block"
     };    
   }
 

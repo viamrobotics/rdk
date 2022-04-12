@@ -72,7 +72,7 @@ func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
 	req *pb.MoveToPositionRequest,
 ) (*pb.MoveToPositionResponse, error) {
-	operation.CancelOtherWithLabel(ctx, "base-actuate-"+req.Name)
+	operation.CancelOtherWithLabel(ctx, "gantry-actuate-"+req.Name)
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err

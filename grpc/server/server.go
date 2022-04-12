@@ -5,13 +5,11 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.viam.com/utils"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -19,6 +17,7 @@ import (
 	"go.viam.com/rdk/component/gps"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/robot"
 	rdkutils "go.viam.com/rdk/utils"
 )
@@ -101,7 +100,7 @@ func (s *Server) ResourceRunCommand(
 func (s *Server) ListOperations(ctx context.Context, req *pb.ListOperationsRequest) (*pb.ListOperationsResponse, error) {
 	me := operation.Get(ctx)
 
-	all := operation.CurrentOps()
+	all := s.r.OperationManager().All()
 
 	res := &pb.ListOperationsResponse{}
 	for _, o := range all {
@@ -126,23 +125,17 @@ func (s *Server) ListOperations(ctx context.Context, req *pb.ListOperationsReque
 }
 
 func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
-	b, err := json.Marshal(i)
+	m, err := protoutils.InterfaceToMap(i)
 	if err != nil {
 		return nil, err
 	}
 
-	s := &structpb.Struct{}
-	err = protojson.Unmarshal(b, s)
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
+	return structpb.NewStruct(m)
 }
 
 // KillOperation kills an operations.
 func (s *Server) KillOperation(ctx context.Context, req *pb.KillOperationRequest) (*pb.KillOperationResponse, error) {
-	op := operation.FindOpString(req.Id)
+	op := s.r.OperationManager().FindString(req.Id)
 	if op != nil {
 		op.Cancel()
 	}
@@ -152,7 +145,7 @@ func (s *Server) KillOperation(ctx context.Context, req *pb.KillOperationRequest
 // BlockForOperation blocks for an operation to finish.
 func (s *Server) BlockForOperation(ctx context.Context, req *pb.BlockForOperationRequest) (*pb.BlockForOperationResponse, error) {
 	for {
-		op := operation.FindOpString(req.Id)
+		op := s.r.OperationManager().FindString(req.Id)
 		if op == nil {
 			return &pb.BlockForOperationResponse{}, nil
 		}
