@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/control"
 	pb "go.viam.com/rdk/proto/api/component/motor/v1"
@@ -227,6 +228,17 @@ func (r *reconfigurableMotor) Close(ctx context.Context) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return viamutils.TryClose(ctx, r.actual)
+}
+
+// Do will try to Do() and error if not implemented.
+func (r *reconfigurableMotor) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if dev, ok := r.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource.Reconfigurable) error {

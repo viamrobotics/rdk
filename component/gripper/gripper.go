@@ -9,6 +9,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/gripper/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -119,6 +120,17 @@ func (g *reconfigurableGripper) Grab(ctx context.Context) (bool, error) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return g.actual.Grab(ctx)
+}
+
+// Do will try to Do() and error if not implemented.
+func (g *reconfigurableGripper) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if dev, ok := g.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", g)
 }
 
 // Reconfigure reconfigures the resource.
