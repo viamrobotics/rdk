@@ -24,33 +24,35 @@ type ResourceConfig interface {
 	Set(val string) error
 }
 
+// CR erodkin: delete me
 // A ComponentType defines a type of component.
-type ComponentType string
+// type ComponentType string
 
 // The set of known component types.
-const (
-	ComponentTypeBase            = ComponentType("base")
-	ComponentTypeArm             = ComponentType("arm")
-	ComponentTypeGantry          = ComponentType("gantry")
-	ComponentTypeGripper         = ComponentType("gripper")
-	ComponentTypeGPS             = ComponentType("gps")
-	ComponentTypeCamera          = ComponentType("camera")
-	ComponentTypeSensor          = ComponentType("sensor")
-	ComponentTypeBoard           = ComponentType("board")
-	ComponentTypeServo           = ComponentType("servo")
-	ComponentTypeMotor           = ComponentType("motor")
-	ComponentTypeInputController = ComponentType("input_controller")
-)
+// CR erodkin: delete me
+//const (
+//ComponentTypeBase            = ComponentType("base")
+//ComponentTypeArm             = ComponentType("arm")
+//ComponentTypeGantry          = ComponentType("gantry")
+//ComponentTypeGripper         = ComponentType("gripper")
+//ComponentTypeGPS             = ComponentType("gps")
+//ComponentTypeCamera          = ComponentType("camera")
+//ComponentTypeSensor          = ComponentType("sensor")
+//ComponentTypeBoard           = ComponentType("board")
+//ComponentTypeServo           = ComponentType("servo")
+//ComponentTypeMotor           = ComponentType("motor")
+//ComponentTypeInputController = ComponentType("input_controller")
+//)
 
 // A Component describes the configuration of a component.
 type Component struct {
 	Name string `json:"name"`
 
-	Type      ComponentType `json:"type"`
-	SubType   string        `json:"subtype"`
-	Model     string        `json:"model"`
-	Frame     *Frame        `json:"frame,omitempty"`
-	DependsOn []string      `json:"depends_on"`
+	Type      resource.SubtypeName `json:"type"`
+	SubType   string               `json:"subtype"`
+	Model     string               `json:"model"`
+	Frame     *Frame               `json:"frame,omitempty"`
+	DependsOn []string             `json:"depends_on"`
 
 	Attributes          AttributeMap `json:"attributes"`
 	ConvertedAttributes interface{}  `json:"-"`
@@ -120,7 +122,7 @@ func ParseComponentFlag(flag string) (Component, error) {
 		case "name":
 			cmp.Name = keyVal[1]
 		case "type":
-			cmp.Type = ComponentType(keyVal[1])
+			cmp.Type = resource.SubtypeName(keyVal[1])
 		case "subtype":
 			cmp.SubType = keyVal[1]
 		case "model":

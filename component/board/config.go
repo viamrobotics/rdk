@@ -12,7 +12,7 @@ import (
 // RegisterConfigAttributeConverter registers a board.Config converter.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeBoard,
+		SubtypeName,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
