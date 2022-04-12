@@ -176,7 +176,7 @@ func TestServiceWithRemote(t *testing.T) {
 		Components: []config.Component{
 			{
 				Name:  "foo",
-				Type:  config.ComponentTypeBase,
+				Type:  framesystem.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: referenceframe.World,
@@ -184,7 +184,7 @@ func TestServiceWithRemote(t *testing.T) {
 			},
 			{
 				Name:  "myParentIsRemote",
-				Type:  config.ComponentTypeGripper,
+				Type:  framesystem.SubtypeName,
 				Model: "fake",
 				Frame: &config.Frame{
 					Parent: "bar.pieceArm",

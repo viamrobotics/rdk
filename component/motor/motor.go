@@ -297,7 +297,7 @@ type Config struct {
 // Note(erd): This probably shouldn't exist since not all motors have the same config requirements.
 func RegisterConfigAttributeConverter(model string) {
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeMotor,
+		SubtypeName,
 		model,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
