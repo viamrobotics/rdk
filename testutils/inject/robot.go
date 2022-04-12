@@ -5,7 +5,6 @@ import (
 	"context"
 	"sync"
 
-
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
 	"go.viam.com/utils/pexec"
