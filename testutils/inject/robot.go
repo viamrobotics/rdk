@@ -9,6 +9,7 @@ import (
 	"go.viam.com/utils/pexec"
 
 	"go.viam.com/rdk/config"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
 )
@@ -26,6 +27,8 @@ type Robot struct {
 	LoggerFunc         func() golog.Logger
 	CloseFunc          func(ctx context.Context) error
 	RefreshFunc        func(ctx context.Context) error
+
+	ops *operation.Manager
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -74,6 +77,14 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 		return r.LocalRobot.ProcessManager()
 	}
 	return r.ProcessManagerFunc()
+}
+
+// OperationManager calls the injected OperationManager or the real version.
+func (r *Robot) OperationManager() *operation.Manager {
+	if r.ops == nil {
+		r.ops = operation.NewManager()
+	}
+	return r.ops
 }
 
 // Config calls the injected Config or the real version.
