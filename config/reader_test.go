@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/edaniels/golog"
+	"go.viam.com/rdk/component/arm"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/test"
 )
 
@@ -42,14 +44,14 @@ func TestFromReaderValidate(t *testing.T) {
 		Components: []Component{
 			{
 				Name: "foo",
-				Type: ComponentTypeArm,
+				Type: arm.SubtypeName,
 			},
 		},
 		Network: NetworkConfig{NetworkConfigData: NetworkConfigData{BindAddress: "localhost:8080", BindAddressDefaultSet: true}},
 	})
 
 	badComponentMapConverter := func() {
-		RegisterComponentAttributeMapConverter(ComponentType("somecomponent"), "somemodel", func(attributes AttributeMap) (interface{}, error) {
+		RegisterComponentAttributeMapConverter(resource.SubtypeName("somecomponent"), "somemodel", func(attributes AttributeMap) (interface{}, error) {
 			return &conf, nil
 		}, nil)
 	}
