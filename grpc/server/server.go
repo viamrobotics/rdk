@@ -125,6 +125,9 @@ func (s *Server) ListOperations(ctx context.Context, req *pb.ListOperationsReque
 }
 
 func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
+	if i == nil {
+		return &structpb.Struct{}, nil // TODO(cheuk): should InterfaceToMap handle nil?
+	}
 	m, err := protoutils.InterfaceToMap(i)
 	if err != nil {
 		return nil, err
