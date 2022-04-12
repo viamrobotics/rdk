@@ -40,7 +40,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeCamera,
+		camera.SubtypeName,
 		"color_detector",
 		func(attributes config.AttributeMap) (interface{}, error) {
 			cameraAttrs, err := camera.CommonCameraAttributes(attributes)
