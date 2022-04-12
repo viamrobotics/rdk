@@ -88,6 +88,36 @@ func ProtobufToFrameSystemPart(fsc *pb.Config) (*FrameSystemPart, error) {
 	return part, nil
 }
 
+// ConvertTransformProtobufToFrameSystemPart creates a FrameSystem part out of a
+// transform protobuf message.
+func ConvertTransformProtobufToFrameSystemPart(transformMsg *commonpb.Transform) *FrameSystemPart {
+	frameName := transformMsg.GetReferenceFrame()
+	poseInObserverFrame := transformMsg.GetPoseInObserverFrame()
+	parentFrame := poseInObserverFrame.GetReferenceFrame()
+	poseMsg := poseInObserverFrame.GetPose()
+	pose := spatialmath.NewPoseFromProtobuf(&commonpb.Pose{
+		X:     poseMsg.X,
+		Y:     poseMsg.Y,
+		Z:     poseMsg.Z,
+		OX:    poseMsg.OX,
+		OY:    poseMsg.OY,
+		OZ:    poseMsg.OZ,
+		Theta: poseMsg.Theta,
+	})
+	point := pose.Point()
+	translation := spatialmath.TranslationConfig{X: point.X, Y: point.Y, Z: point.Z}
+	frameConfig := &Frame{
+		Parent:      parentFrame,
+		Translation: translation,
+		Orientation: pose.Orientation(),
+	}
+	part := &FrameSystemPart{
+		Name:        frameName,
+		FrameConfig: frameConfig,
+	}
+	return part
+}
+
 // CreateFramesFromPart will gather the frame information and build the frames from the given robot part.
 func CreateFramesFromPart(part *FrameSystemPart, logger golog.Logger) (referenceframe.Frame, referenceframe.Frame, error) {
 	if part == nil || part.FrameConfig == nil {

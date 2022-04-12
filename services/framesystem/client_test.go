@@ -15,6 +15,7 @@ import (
 
 	"go.viam.com/rdk/config"
 	viamgrpc "go.viam.com/rdk/grpc"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -92,11 +93,11 @@ func TestClientConfig(t *testing.T) {
 		},
 	}
 
-	workingFrameService.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+	workingFrameService.ConfigFunc = func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystem.Parts, error) {
 		return framesystem.Parts(fsConfigs), nil
 	}
 	configErr := errors.New("failed to retrieve config")
-	failingFrameService.ConfigFunc = func(ctx context.Context) (framesystem.Parts, error) {
+	failingFrameService.ConfigFunc = func(ctx context.Context, additionalTransforms []*commonpb.Transform) (framesystem.Parts, error) {
 		return nil, configErr
 	}
 
@@ -131,7 +132,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for working frame service", func(t *testing.T) {
-		frameSystemParts, err := workingFSClient.Config(context.Background())
+		frameSystemParts, err := workingFSClient.Config(context.Background(), []*commonpb.Transform{})
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -143,7 +144,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener1.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		workingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		frameSystemParts, err := workingDialedClient.Config(context.Background())
+		frameSystemParts, err := workingDialedClient.Config(context.Background(), []*commonpb.Transform{})
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -157,7 +158,7 @@ func TestClientConfig(t *testing.T) {
 		workingDialedClient := resourceSubtype.RPCClient(context.Background(), conn, "", logger)
 		fsClient, ok := workingDialedClient.(framesystem.Service)
 		test.That(t, ok, test.ShouldBeTrue)
-		frameSystemParts, err := fsClient.Config(context.Background())
+		frameSystemParts, err := fsClient.Config(context.Background(), []*commonpb.Transform{})
 		test.That(t, err, test.ShouldBeNil)
 		err = ensurePartsAreEqual(fsConfigs[0], frameSystemParts[0])
 		test.That(t, err, test.ShouldBeNil)
@@ -175,7 +176,7 @@ func TestClientConfig(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	t.Run("client test config for failing frame service", func(t *testing.T) {
-		frameSystemParts, err := failingFSClient.Config(context.Background())
+		frameSystemParts, err := failingFSClient.Config(context.Background(), []*commonpb.Transform{})
 		test.That(t, frameSystemParts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
@@ -184,7 +185,7 @@ func TestClientConfig(t *testing.T) {
 		conn, err := viamgrpc.Dial(context.Background(), listener2.Addr().String(), logger)
 		test.That(t, err, test.ShouldBeNil)
 		failingDialedClient := framesystem.NewClientFromConn(context.Background(), conn, "", logger)
-		parts, err := failingDialedClient.Config(context.Background())
+		parts, err := failingDialedClient.Config(context.Background(), []*commonpb.Transform{})
 		test.That(t, parts, test.ShouldBeNil)
 		test.That(t, err, test.ShouldNotBeNil)
 	})
