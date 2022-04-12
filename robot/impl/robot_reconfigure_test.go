@@ -89,13 +89,13 @@ func TestRobotReconfigure(t *testing.T) {
 		ctx := context.Background()
 		robot, err := New(ctx, conf1, logger)
 		test.That(t, err, test.ShouldBeNil)
-		svc, err := metadata.FromRobot(robot)
-		test.That(t, err, test.ShouldBeNil)
 
-		test.That(t, err, test.ShouldBeNil)
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
+
+		svc, err := metadata.FromRobot(robot)
+		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 10)
 
 		armNames := []resource.Name{arm.Named("arm1")}

@@ -740,11 +740,6 @@ func TestMetadataUpdate(t *testing.T) {
 
 	// 8 declared resources + default web, sensors, status, and metadata service
 	resourceNames := []resource.Name{
-		{
-			UUID:    "00db7188-edaa-5ea9-b573-80ce7d2cee61",
-			Subtype: metadata.Subtype,
-			Name:    "",
-		},
 		arm.Named("pieceArm"),
 		camera.Named("cameraOver"),
 		gripper.Named("pieceGripper"),
@@ -754,6 +749,7 @@ func TestMetadataUpdate(t *testing.T) {
 		sensors.Name,
 		status.Name,
 		datamanager.Name,
+		metadata.Name,
 		{
 			UUID: "8882dd3c-3b80-50e4-bcc3-8f47ada67f85",
 			Subtype: resource.Subtype{
