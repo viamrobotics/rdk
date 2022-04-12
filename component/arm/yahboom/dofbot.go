@@ -67,7 +67,7 @@ func (jc jointConfig) toHw(degrees float64) int {
 func init() {
 	registry.RegisterComponent(arm.Subtype, "yahboom-dofbot", registry.Component{
 		Constructor: func(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (interface{}, error) {
-			return newDofBot(r, config, logger)
+			return newDofBot(ctx, r, config, logger)
 		},
 	})
 }
@@ -93,7 +93,7 @@ func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.M
 	return model, mp, nil
 }
 
-func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
 	var err error
 
 	a := dofBot{}
@@ -119,6 +119,10 @@ func newDofBot(r robot.Robot, config config.Component, logger golog.Logger) (arm
 	a.model, a.mp, err = createDofBotSolver(logger)
 	if err != nil {
 		return nil, err
+	}
+	_, err = a.GetEndPosition(ctx)
+	if err != nil {
+		return nil, errors.New("issue pinging yahboom motors, check connection to motors")
 	}
 
 	a.logger = logger

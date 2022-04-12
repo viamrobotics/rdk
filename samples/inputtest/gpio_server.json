@@ -1,0 +1,108 @@
+{
+  "components": [
+    {
+      "model": "pi",
+      "name": "piboard",
+      "type": "board",
+      "attributes": {
+        "digitalInterrupts": [
+          {
+            "name": "interrupt1",
+            "pin": "11",
+            "type": "basic"
+          },
+          {
+            "name": "interrupt2",
+            "pin": "13",
+            "type": "basic"
+          }
+        ],
+        "spis": [
+          {
+            "bus_select": "0",
+            "name": "main"
+          }
+        ],
+        "analogs": [
+          {
+            "chip_select": "24",
+            "name": "analogReader1",
+            "pin": "0",
+            "spi_bus": "main"
+          },
+          {
+            "chip_select": "24",
+            "name": "analogReader2",
+            "pin": "1",
+            "spi_bus": "main"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GPIO Input",
+      "model": "gpio",
+      "type": "input_controller",
+      "attributes": {
+        "board": "piboard",
+        "buttons": {
+          "interrupt1": {
+           "control": "ButtonNorth",
+           "invert": false,
+           "debounce_ms": 5
+          },
+          "interrupt2": {
+            "control": "ButtonSouth",
+            "invert": true
+          }
+        },
+        "axes": {
+          "analogReader1": {
+            "control": "AbsoluteX",
+            "min": 0,
+            "max": 1023,
+            "poll_hz": 50,
+            "deadzone": 30,
+            "min_change": 5,
+            "two_way": false,
+            "invert": false
+          },
+          "analogReader2": {
+            "control": "AbsoluteY",
+            "min": 0,
+            "max": 1023,
+            "poll_hz": 50,
+            "deadzone": 30,
+            "min_change": 5,
+            "two_way": true,
+            "invert": true
+          }
+        }
+      },
+      "depends_on": ["piboard"]
+    },
+    {
+      "name": "WebGamepad",
+      "model": "webgamepad",
+      "type": "input_controller"
+    },
+    {
+      "name": "Mux",
+      "model": "mux",
+      "type": "input_controller",
+      "depends_on": [
+        "GPIO Input",
+        "WebGamepad"
+      ],
+      "attributes": {
+        "sources": [
+          "GPIO Input",
+          "WebGamepad"
+        ]
+      }
+    }
+  ],
+  "network": {
+		"bind_address": ":8080"
+	}
+}
