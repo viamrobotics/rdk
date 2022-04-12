@@ -8,6 +8,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
@@ -168,6 +169,17 @@ func (g *reconfigurableGantry) Close(ctx context.Context) error {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 	return viamutils.TryClose(ctx, g.actual)
+}
+
+// Do will try to Do() and error if not implemented.
+func (g *reconfigurableGantry) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	if dev, ok := g.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", g)
 }
 
 // Reconfigure reconfigures the resource.

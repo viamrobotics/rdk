@@ -13,6 +13,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/data"
 	"go.viam.com/rdk/pointcloud"
 	pb "go.viam.com/rdk/proto/api/component/camera/v1"
@@ -233,6 +234,17 @@ func (c *reconfigurableCamera) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return viamutils.TryClose(ctx, c.actual)
+}
+
+// Do will try to Do() and error if not implemented.
+func (c *reconfigurableCamera) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if dev, ok := c.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", c)
 }
 
 // Reconfigure reconfigures the resource.

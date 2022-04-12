@@ -12,6 +12,7 @@ import (
 	"go.viam.com/utils/rpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"go.viam.com/rdk/component/generic"
 	pb "go.viam.com/rdk/proto/api/component/inputcontroller/v1"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
@@ -247,6 +248,17 @@ func (c *reconfigurableInputController) Close(ctx context.Context) error {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return viamutils.TryClose(ctx, c.actual)
+}
+
+// Do will try to Do() and error if not implemented.
+func (c *reconfigurableInputController) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if dev, ok := c.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", c)
 }
 
 // Reconfigure reconfigures the resource.

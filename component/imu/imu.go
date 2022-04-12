@@ -11,6 +11,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/component/sensor"
 	"go.viam.com/rdk/data"
 	pb "go.viam.com/rdk/proto/api/component/imu/v1"
@@ -183,6 +184,17 @@ func (r *reconfigurableIMU) GetReadings(ctx context.Context) ([]interface{}, err
 		return sensor.GetReadings(ctx)
 	}
 	return GetReadings(ctx, r.actual)
+}
+
+// Do will try to Do() and error if not implemented.
+func (r *reconfigurableIMU) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if dev, ok := r.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 func (r *reconfigurableIMU) Reconfigure(ctx context.Context, newIMU resource.Reconfigurable) error {

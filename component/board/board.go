@@ -12,6 +12,7 @@ import (
 	viamutils "go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 
+	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/component/board/v1"
 	"go.viam.com/rdk/registry"
@@ -379,6 +380,17 @@ func (r *reconfigurableBoard) ModelAttributes() ModelAttributes {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.actual.ModelAttributes()
+}
+
+// Do will try to Do() and error if not implemented.
+func (r *reconfigurableBoard) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if dev, ok := r.actual.(generic.Generic); ok {
+		return dev.Do(ctx, cmd)
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Generic", r)
 }
 
 // Close attempts to cleanly close each part of the board.
