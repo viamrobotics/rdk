@@ -89,7 +89,7 @@ func init() {
 		},
 	})
 
-	config.RegisterComponentAttributeMapConverter(config.ComponentTypeGantry, modelname,
+	config.RegisterComponentAttributeMapConverter(gantry.SubtypeName, modelname,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf AttrConfig
 			return config.TransformAttributeMapToStruct(&conf, attributes)

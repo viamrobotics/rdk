@@ -59,7 +59,7 @@ func init() {
 		}})
 
 	config.RegisterComponentAttributeMapConverter(
-		config.ComponentTypeBoard,
+		board.SubtypeName,
 		modelName,
 		func(attributes config.AttributeMap) (interface{}, error) {
 			var conf Config
