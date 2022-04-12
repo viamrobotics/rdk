@@ -25,7 +25,6 @@ import (
 	"go.viam.com/rdk/services/navigation"
 	"go.viam.com/rdk/services/web"
 	rdkutils "go.viam.com/rdk/utils"
-	webserver "go.viam.com/rdk/web/server"
 )
 
 var logger = golog.NewDevelopmentLogger("boat2")
@@ -524,10 +523,6 @@ func runAngularVelocityKeeper(ctx context.Context, myBoat *boat) {
 func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err error) {
 	flag.Parse()
 
-	cfg, err := config.Read(ctx, flag.Arg(0), logger)
-	if err != nil {
-		return err
-	}
 	metadataSvc, err := service.New()
 	if err != nil {
 		return err
@@ -546,7 +541,11 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 		},
 	})
 
-	myRobot, err := robotimpl.New(ctx, cfg, logger)
+	cfg, err := config.Read(ctx, flag.Arg(0), logger)
+	if err != nil {
+		return err
+	}
+	myRobot, err := robotimpl.RobotFromConfig(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
@@ -576,5 +575,5 @@ func mainWithArgs(ctx context.Context, args []string, logger golog.Logger) (err 
 	go runRC2(ctx, myB)
 	go runAngularVelocityKeeper(ctx, myB)
 
-	return webserver.RunWeb(ctx, myRobot, web.NewOptions(), logger)
+	return web.RunWebWithConfig(ctx, myRobot, cfg, logger)
 }

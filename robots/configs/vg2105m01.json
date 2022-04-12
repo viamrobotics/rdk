@@ -1,10 +1,6 @@
 {
   "services": [
     {
-    	"name": "frame_system",
-		"type": "frame_system"
-    },
-    {
     	"name": "motion",
 		"type": "motion"
     }

@@ -13,6 +13,7 @@ import Collapse from '../src/components/Collapse';
 import Container from '../src/components/Container';
 import ViamSwitch from '../src/components/Switch';
 import Grid from '../src/components/Grid';
+import KeyboardInput from '../src/components/KeyboardInput';
 import Tab from '../src/components/Tab';
 import Tabs from '../src/components/Tabs';
 import { library } from '@fortawesome/fontawesome-svg-core';
@@ -33,6 +34,7 @@ Vue.component('Collapse', Collapse);
 Vue.component('Container', Container);
 Vue.component('ViamSwitch', ViamSwitch);
 Vue.component('Grid', Grid);
+Vue.component('KeyboardInput', KeyboardInput);
 Vue.component('Tab', Tab);
 Vue.component('Tabs', Tabs);
 

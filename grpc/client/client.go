@@ -20,11 +20,9 @@ import (
 	metadataclient "go.viam.com/rdk/grpc/metadata/client"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
-	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/framesystem"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -200,19 +198,6 @@ func (rc *RobotClient) ResourceNames() []resource.Name {
 		)
 	}
 	return names
-}
-
-// FrameSystem returns the robot's underlying frame system.
-func (rc *RobotClient) FrameSystem(ctx context.Context, name, prefix string) (referenceframe.FrameSystem, error) {
-	fs, err := framesystem.FromRobot(rc)
-	if err != nil {
-		return nil, err
-	}
-	parts, err := fs.Config(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return framesystem.NewFrameSystemFromParts(name, prefix, parts, rc.logger)
 }
 
 // Logger returns the logger being used for this robot.
