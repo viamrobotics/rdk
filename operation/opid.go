@@ -143,3 +143,10 @@ func Get(ctx context.Context) *Operation {
 	return o.(*Operation)
 }
 
+// CancelOtherWithLabel will cancel all operations besides this one with this label.
+// if no Operation is set, will do nothing.
+func CancelOtherWithLabel(ctx context.Context, label string) {
+	if o := Get(ctx); o != nil {
+		o.CancelOtherWithLabel(label)
+	}
+}

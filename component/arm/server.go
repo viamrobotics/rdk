@@ -74,7 +74,7 @@ func (s *subtypeServer) GetJointPositions(
 
 // MoveToPosition returns the position of the arm specified.
 func (s *subtypeServer) MoveToPosition(ctx context.Context, req *pb.MoveToPositionRequest) (*pb.MoveToPositionResponse, error) {
-	operation.Get(ctx).CancelOtherWithLabel("arm-actuate-" + req.Name)
+	operation.CancelOtherWithLabel(ctx, "arm-actuate-"+req.Name)
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (s *subtypeServer) MoveToJointPositions(
 	ctx context.Context,
 	req *pb.MoveToJointPositionsRequest,
 ) (*pb.MoveToJointPositionsResponse, error) {
-	operation.Get(ctx).CancelOtherWithLabel("arm-actuate-" + req.Name)
+	operation.CancelOtherWithLabel(ctx, "arm-actuate-"+req.Name)
 	arm, err := s.getArm(req.Name)
 	if err != nil {
 		return nil, err
