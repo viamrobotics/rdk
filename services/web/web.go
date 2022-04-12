@@ -356,6 +356,15 @@ func (svc *webService) makeStreamServer(ctx context.Context, theRobot robot.Robo
 	return streamServer, true, nil
 }
 
+type ssStreamContextWrapper struct {
+	googlegrpc.ServerStream
+	ctx context.Context
+}
+
+func (w ssStreamContextWrapper) Context() context.Context {
+	return w.ctx
+}
+
 // installWeb prepares the given mux to be able to serve the UI for the robot.
 func (svc *webService) installWeb(mux *goji.Mux, theRobot robot.Robot, options Options) error {
 	app := &robotWebApp{theRobot: theRobot, logger: svc.logger, options: options}
@@ -557,6 +566,20 @@ func (svc *webService) runWeb(ctx context.Context, options Options) (err error) 
 			ctx, done := svc.r.OperationManager().Create(ctx, info.FullMethod, req)
 			defer done()
 			return handler(ctx, req)
+		}),
+	)
+
+	rpcOpts = append(
+		rpcOpts,
+		rpc.WithStreamServerInterceptor(func(
+			srv interface{},
+			ss googlegrpc.ServerStream,
+			info *googlegrpc.StreamServerInfo,
+			handler googlegrpc.StreamHandler,
+		) error {
+			ctx, done := svc.r.OperationManager().Create(ss.Context(), info.FullMethod, nil)
+			defer done()
+			return handler(srv, &ssStreamContextWrapper{ss, ctx})
 		}),
 	)
 
