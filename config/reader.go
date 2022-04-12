@@ -19,6 +19,7 @@ import (
 	"github.com/mitchellh/copystructure"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
+	"go.viam.com/rdk/resource"
 	"go.viam.com/utils"
 )
 
@@ -39,19 +40,19 @@ type AttributeMapConverter func(attributes AttributeMap) (interface{}, error)
 // A ComponentAttributeConverterRegistration describes how to convert a specific attribute
 // for a model of a type of component.
 type ComponentAttributeConverterRegistration struct {
-	CompType ComponentType
-	Model    string
-	Attr     string
-	Conv     AttributeConverter
+	Subtype resource.SubtypeName
+	Model   string
+	Attr    string
+	Conv    AttributeConverter
 }
 
 // A ComponentAttributeMapConverterRegistration describes how to convert all attributes
 // for a model of a type of component.
 type ComponentAttributeMapConverterRegistration struct {
-	CompType ComponentType
-	Model    string
-	Conv     AttributeMapConverter
-	RetType  interface{} // the shape of what is converted to
+	Subtype resource.SubtypeName
+	Model   string
+	Conv    AttributeMapConverter
+	RetType interface{} // the shape of what is converted to
 }
 
 // A ServiceAttributeMapConverterRegistration describes how to convert all attributes
@@ -70,18 +71,18 @@ var (
 
 // RegisterComponentAttributeConverter associates a component type and model with a way to convert a
 // particular attribute name.
-func RegisterComponentAttributeConverter(compType ComponentType, model, attr string, conv AttributeConverter) {
-	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{compType, model, attr, conv})
+func RegisterComponentAttributeConverter(subtype resource.SubtypeName, model, attr string, conv AttributeConverter) {
+	componentAttributeConverters = append(componentAttributeConverters, ComponentAttributeConverterRegistration{subtype, model, attr, conv})
 }
 
 // RegisterComponentAttributeMapConverter associates a component type and model with a way to convert all attributes.
-func RegisterComponentAttributeMapConverter(compType ComponentType, model string, conv AttributeMapConverter, retType interface{}) {
+func RegisterComponentAttributeMapConverter(subtype resource.SubtypeName, model string, conv AttributeMapConverter, retType interface{}) {
 	if retType == nil {
 		panic("retType should not be nil")
 	}
 	componentAttributeMapConverters = append(
 		componentAttributeMapConverters,
-		ComponentAttributeMapConverterRegistration{compType, model, conv, retType},
+		ComponentAttributeMapConverterRegistration{subtype, model, conv, retType},
 	)
 }
 
@@ -160,18 +161,18 @@ func RegisteredServiceAttributeMapConverters() []ServiceAttributeMapConverterReg
 	return copied.([]ServiceAttributeMapConverterRegistration)
 }
 
-func findConverter(compType ComponentType, model, attr string) AttributeConverter {
+func findConverter(subtype resource.SubtypeName, model, attr string) AttributeConverter {
 	for _, r := range componentAttributeConverters {
-		if r.CompType == compType && r.Model == model && r.Attr == attr {
+		if r.Subtype == subtype && r.Model == model && r.Attr == attr {
 			return r.Conv
 		}
 	}
 	return nil
 }
 
-func findMapConverter(compType ComponentType, model string) AttributeMapConverter {
+func findMapConverter(subtype resource.SubtypeName, model string) AttributeMapConverter {
 	for _, r := range componentAttributeMapConverters {
-		if r.CompType == compType && r.Model == model {
+		if r.Subtype == subtype && r.Model == model {
 			return r.Conv
 		}
 	}
