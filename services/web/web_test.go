@@ -17,22 +17,18 @@ import (
 	"go.viam.com/rdk/component/arm"
 	"go.viam.com/rdk/config"
 	rgrpc "go.viam.com/rdk/grpc"
-	"go.viam.com/rdk/grpc/client"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
-	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/services/web"
 	"go.viam.com/rdk/testutils/inject"
 	rutils "go.viam.com/rdk/utils"
 )
 
+const arm1String = "arm1"
+
 var (
-	resources = []resource.Name{
-		resource.NewName(resource.Namespace("acme"), resource.ResourceTypeComponent, arm.SubtypeName, "arm1"),
-		metadata.Name,
-	}
-	injectMetadata = &inject.Metadata{ResourcesFunc: func() []resource.Name { return resources }}
+	resources = []resource.Name{arm.Named(arm1String)}
 )
 
 func TestWebStart(t *testing.T) {
@@ -47,10 +43,9 @@ func TestWebStart(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
-	client, err := client.New(context.Background(), "localhost:8080", logger)
+	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
-	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	fmt.Println(arm1.GetEndPosition(ctx))
 
 	err = svc.Start(context.Background(), web.NewOptions())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -79,10 +74,9 @@ func TestWebStartOptions(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
-	client, err := client.New(context.Background(), addr, logger)
+	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, client.ResourceNames(), test.ShouldResemble, resources)
-	test.That(t, utils.TryClose(context.Background(), client), test.ShouldBeNil)
+	fmt.Println(arm1.GetEndPosition(ctx))
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
@@ -139,28 +133,26 @@ func TestWebWithAuth(t *testing.T) {
 			err = svc.Start(ctx, options)
 			test.That(t, err, test.ShouldBeNil)
 
-			_, err = client.New(context.Background(), addr, logger)
+			_, err = arm.NewClient(context.Background(), arm1String, addr, logger)
 			test.That(t, err, test.ShouldNotBeNil)
 			test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
 			if tc.Managed {
-				_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
-					rpc.WithAllowInsecureWithCredentialsDowngrade(),
+				_, err = arm.NewClient(context.Background(), arm1String, addr, logger, rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
-					}),
-				))
+					}))
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
-				_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+				_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials("wrong", rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecret,
 					}),
-				))
+				)
 				test.That(t, err, test.ShouldNotBeNil)
 				test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
@@ -168,49 +160,50 @@ func TestWebWithAuth(t *testing.T) {
 				if entityName == "" {
 					entityName = options.LocalFQDN
 				}
-				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
 					}),
-				))
+				)
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
-				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
+				fmt.Printf("arm1: %v\n", arm1)
+				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 
-				c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithEntityCredentials(entityName, rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecret,
 					}),
-				))
+				)
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
-				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
+				// CR erodkin: do we need these print statements? I assume not
+				fmt.Printf("arm1: %v\n", arm1)
+				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 			} else {
-				c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rpc.CredentialsTypeAPIKey,
 						Payload: apiKey,
 					}),
-				))
+				)
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
-				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
+				fmt.Printf("arm1: %v\n", arm1)
+				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 
-				c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 					rpc.WithAllowInsecureWithCredentialsDowngrade(),
 					rpc.WithCredentials(rpc.Credentials{
 						Type:    rutils.CredentialsTypeRobotLocationSecret,
 						Payload: locationSecret,
 					}),
-				))
+				)
 				test.That(t, err, test.ShouldBeNil)
-				test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
-				test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
+				fmt.Printf("arm1: %v\n", arm1)
+				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 			}
 
 			err = utils.TryClose(context.Background(), svc)
@@ -268,51 +261,48 @@ func TestWebWithTLSAuth(t *testing.T) {
 	clientTLSConfig.Certificates = nil
 	clientTLSConfig.ServerName = "somename"
 
-	_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-	))
+	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "authentication required")
 
-	_, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials("wrong", rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
 			Payload: locationSecret,
 		}),
-	))
+	)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "invalid credentials")
 
 	// use secret
-	c, err := client.New(context.Background(), addr, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithEntityCredentials(options.FQDN, rpc.Credentials{
 			Type:    rutils.CredentialsTypeRobotLocationSecret,
 			Payload: locationSecret,
 		}),
-	))
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	// use cert
 	clientTLSConfig.Certificates = []tls.Certificate{cert}
-	c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 		rpc.WithTLSConfig(clientTLSConfig),
-	))
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	// use cert with mDNS
-	c, err = client.New(context.Background(), options.FQDN, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
-	))
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	// use signaling creds
-	c, err = client.New(context.Background(), addr, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -323,12 +313,11 @@ func TestWebWithTLSAuth(t *testing.T) {
 				Payload: locationSecret,
 			},
 		}),
-	))
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	// use cert with mDNS while signaling present
-	c, err = client.New(context.Background(), options.FQDN, logger, client.WithDialOptions(
+	_, err = arm.NewClient(context.Background(), arm1String, options.FQDN, logger,
 		rpc.WithDialDebug(),
 		rpc.WithTLSConfig(clientTLSConfig),
 		rpc.WithWebRTCOptions(rpc.DialWebRTCOptions{
@@ -342,9 +331,8 @@ func TestWebWithTLSAuth(t *testing.T) {
 		rpc.WithDialMulticastDNSOptions(rpc.DialMulticastDNSOptions{
 			RemoveAuthCredentials: true,
 		}),
-	))
+	)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
@@ -412,10 +400,8 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
-	arm1 := "arm1"
-	c, err := client.New(context.Background(), addr, logger)
+	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c.ResourceNames(), test.ShouldResemble, resources)
 
 	// add arm to robot and then update
 	injectArm := &inject.Arm{}
@@ -423,7 +409,7 @@ func TestWebUpdate(t *testing.T) {
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
 		return pos, nil
 	}
-	rs := map[resource.Name]interface{}{arm.Named(arm1): injectArm}
+	rs := map[resource.Name]interface{}{arm.Named(arm1String): injectArm}
 	updateable, ok := svc.(resource.Updateable)
 	test.That(t, ok, test.ShouldBeTrue)
 	err = updateable.Update(context.Background(), rs)
@@ -431,23 +417,20 @@ func TestWebUpdate(t *testing.T) {
 
 	conn, err := rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	aClient := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
+	aClient := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	position, err := aClient.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos)
 
-	test.That(t, utils.TryClose(context.Background(), c), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
 	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
 
 	// now start it with the arm already in it
 	ctx, robot2 := setupRobotCtx()
-	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return append(resources, arm.Named(arm1)) }
+	robot2.(*inject.Robot).ResourceNamesFunc = func() []resource.Name { return resources }
 	robot2.(*inject.Robot).ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name == metadata.Name {
-			return injectMetadata, nil
-		}
 		return injectArm, nil
 	}
 
@@ -459,12 +442,12 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
-	c2, err := client.New(context.Background(), addr, logger)
-	test.That(t, err, test.ShouldBeNil)
-	test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
+	//arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	//test.That(t, err, test.ShouldBeNil)
+	//test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1, logger)
+	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
 	test.That(t, err, test.ShouldBeNil)
 	position, err = aClient2.GetEndPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
@@ -493,7 +476,7 @@ func TestWebUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, position, test.ShouldResemble, pos2)
 
-	test.That(t, utils.TryClose(context.Background(), c2), test.ShouldBeNil)
+	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
 	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
@@ -502,16 +485,17 @@ func TestWebUpdate(t *testing.T) {
 func setupRobotCtx() (context.Context, robot.Robot) {
 	// CR erodkin: we're artificially adding metadata here too because it's never
 	// set up with the new robot, is that right?
+	injectArm := &inject.Arm{}
+	pos := &commonpb.Pose{X: 1, Y: 2, Z: 3}
+	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
+		return pos, nil
+	}
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
 	// CR erodkin: this is part of artificial metadata add
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
-		if name == metadata.Name {
-			return injectMetadata, nil
-		}
-
-		return name, rutils.NewResourceNotFoundError(name)
+		return injectArm, nil
 	}
 
 	return context.Background(), injectRobot
