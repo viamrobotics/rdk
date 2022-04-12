@@ -5,6 +5,7 @@ package data
 import (
 	"bufio"
 	"context"
+	"go.viam.com/utils"
 	"os"
 	"sync"
 	"time"
@@ -124,7 +125,9 @@ func (c *collector) sleepBasedCapture() {
 			return
 		default:
 			wg.Add(1)
-			go c.getAndPushNextReading(&wg)
+			utils.PanicCapturingGo(func() {
+				c.getAndPushNextReading(&wg)
+			})
 		}
 		next = next.Add(c.interval)
 	}
@@ -143,7 +146,9 @@ func (c *collector) tickerBasedCapture() {
 			return
 		case <-ticker.C:
 			wg.Add(1)
-			go c.getAndPushNextReading(&wg)
+			utils.PanicCapturingGo(func() {
+				c.getAndPushNextReading(&wg)
+			})
 		}
 	}
 }
