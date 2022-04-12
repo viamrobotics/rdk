@@ -41,7 +41,7 @@ func (s *subtypeServer) MoveStraight(
 	ctx context.Context,
 	req *pb.MoveStraightRequest,
 ) (*pb.MoveStraightResponse, error) {
-	operation.CancelOtherWithLabel(ctx, "base-actuate-"+req.GetName())
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func (s *subtypeServer) MoveArc(
 	ctx context.Context,
 	req *pb.MoveArcRequest,
 ) (*pb.MoveArcResponse, error) {
-	operation.CancelOtherWithLabel(ctx, "base-actuate-"+req.GetName())
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -87,7 +87,7 @@ func (s *subtypeServer) Spin(
 	ctx context.Context,
 	req *pb.SpinRequest,
 ) (*pb.SpinResponse, error) {
-	operation.CancelOtherWithLabel(ctx, "base-actuate-"+req.GetName())
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
@@ -109,7 +109,7 @@ func (s *subtypeServer) Stop(
 	ctx context.Context,
 	req *pb.StopRequest,
 ) (*pb.StopResponse, error) {
-	operation.CancelOtherWithLabel(ctx, "base-actuate-"+req.GetName())
+	operation.CancelOtherWithLabel(ctx, req.GetName())
 	base, err := s.getBase(req.GetName())
 	if err != nil {
 		return nil, err
