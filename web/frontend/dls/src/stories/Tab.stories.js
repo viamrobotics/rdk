@@ -5,19 +5,20 @@ storiesOf("Tab", module).add("Default Tab", () => ({
     return {
       streamName: "minirover",
       crumbs: ["Base", "4 Wheel"],
+      selectedItem: "keyboard",
     };
   },
-  template:
-    "<Tabs>\n" +
-    "  <Tab selected='true'>\n" +
-    "    Keyboard\n" +
-    "  </Tab>\n" +
-    "  <Tab>\n" +
-    "    Discrete\n" +
-    "  </Tab>\n" +
-    "  <Tab>\n" +
-    "    Input\n" +
-    "  </Tab>\n" +
-    "</Tabs>\n" +
-    "\n",
+  template: `
+          <Tabs>
+          <Tab :selected='selectedItem === "keyboard"' @select='selectedItem = "keyboard"'>
+            Keyboard
+          </Tab>
+          <Tab :selected='selectedItem === "discrete"' @select='selectedItem = "discrete"'>
+            Discrete
+          </Tab>
+          <Tab :selected='selectedItem === "input"' @select='selectedItem = "input"'>
+            Input
+          </Tab>
+          </Tabs>
+        `,
 }));
