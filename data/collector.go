@@ -103,7 +103,7 @@ func (c *collector) Collect() error {
 // Go's time.Ticker has inconsistent performance with durations of below 1ms [0], so we use a time.Sleep based approach
 // when the configured capture interval is below 2ms. A Ticker based approach is kept for longer capture intervals to
 // avoid wasting CPU on a thread that's idling for the vast majority of the time.
-//[0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
+// [0]: https://www.mail-archive.com/golang-nuts@googlegroups.com/msg46002.html
 func (c *collector) capture() {
 	if c.interval < time.Millisecond*2 {
 		c.sleepBasedCapture()
