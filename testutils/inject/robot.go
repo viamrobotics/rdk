@@ -3,6 +3,8 @@ package inject
 
 import (
 	"context"
+	"sync"
+
 
 	"github.com/edaniels/golog"
 	"go.viam.com/utils"
@@ -28,7 +30,8 @@ type Robot struct {
 	CloseFunc          func(ctx context.Context) error
 	RefreshFunc        func(ctx context.Context) error
 
-	ops *operation.Manager
+	ops     *operation.Manager
+	opsLock sync.Mutex
 }
 
 // RemoteByName calls the injected RemoteByName or the real version.
@@ -81,6 +84,9 @@ func (r *Robot) ProcessManager() pexec.ProcessManager {
 
 // OperationManager calls the injected OperationManager or the real version.
 func (r *Robot) OperationManager() *operation.Manager {
+	r.opsLock.Lock()
+	defer r.opsLock.Unlock()
+
 	if r.ops == nil {
 		r.ops = operation.NewManager()
 	}
