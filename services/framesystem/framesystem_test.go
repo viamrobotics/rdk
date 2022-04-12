@@ -9,6 +9,7 @@ import (
 	"go.viam.com/test"
 
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/services/framesystem"
 	"go.viam.com/rdk/spatialmath"
@@ -32,7 +33,7 @@ func TestEmptyConfigFrameService(t *testing.T) {
 	ctx := context.Background()
 	service, err := framesystem.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	parts, err := service.Config(ctx)
+	parts, err := service.Config(ctx, []*commonpb.Transform{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, parts, test.ShouldHaveLength, 0)
 	fs, err := framesystem.NewFrameSystemFromParts("test", "", parts, logger)

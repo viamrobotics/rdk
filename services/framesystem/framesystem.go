@@ -11,6 +11,7 @@ import (
 	"go.viam.com/utils/rpc"
 
 	"go.viam.com/rdk/config"
+	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	servicepb "go.viam.com/rdk/proto/api/service/framesystem/v1"
 	"go.viam.com/rdk/referenceframe"
 	"go.viam.com/rdk/registry"
@@ -59,8 +60,11 @@ func init() {
 
 // A Service that returns the frame system for a robot.
 type Service interface {
-	Config(ctx context.Context) (Parts, error)
-	TransformPose(ctx context.Context, pose *referenceframe.PoseInFrame, dst string) (*referenceframe.PoseInFrame, error)
+	Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (Parts, error)
+	TransformPose(
+		ctx context.Context, pose *referenceframe.PoseInFrame, dst string,
+		additionalTransforms []*commonpb.Transform,
+	) (*referenceframe.PoseInFrame, error)
 }
 
 // New returns a new frame system service for the given robot.
@@ -126,7 +130,7 @@ func (svc *frameSystemService) Update(ctx context.Context, resources map[resourc
 // The output of this function is to be sent over GRPC to the client, so the client
 // can build its frame system. requests the remote components from the remote's frame system service.
 // NOTE(RDK-258): If remotes can trigger a local robot to reconfigure, you don't need to update remotes in every call.
-func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
+func (svc *frameSystemService) Config(ctx context.Context, additionalTransforms []*commonpb.Transform) (Parts, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::Config")
 	defer span.End()
 	// update parts from remotes
@@ -136,6 +140,11 @@ func (svc *frameSystemService) Config(ctx context.Context) (Parts, error) {
 	}
 	// build the config
 	allParts := combineParts(svc.localParts, svc.offsetParts, remoteParts)
+	for _, transformMsg := range additionalTransforms {
+		allParts = append(
+			allParts, config.ConvertTransformProtobufToFrameSystemPart(transformMsg),
+		)
+	}
 	sortedParts, err := TopologicallySortParts(allParts)
 	if err != nil {
 		return nil, err
@@ -148,6 +157,7 @@ func (svc *frameSystemService) TransformPose(
 	ctx context.Context,
 	pose *referenceframe.PoseInFrame,
 	dst string,
+	additionalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	ctx, span := trace.StartSpan(ctx, "services::framesystem::TransformPose")
 	defer span.End()
@@ -155,7 +165,7 @@ func (svc *frameSystemService) TransformPose(
 	defer svc.mu.RUnlock()
 
 	// get the frame system and initial inputs
-	allParts, err := svc.Config(ctx)
+	allParts, err := svc.Config(ctx, additionalTransforms)
 	if err != nil {
 		return nil, err
 	}

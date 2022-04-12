@@ -77,16 +77,20 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
+			supplementalTransform []*commonpb.Transform,
 		) (*referenceframe.PoseInFrame, error) {
 			return referenceframe.NewPoseInFrame(
 				destinationFrame+componentName.Name, spatialmath.NewPoseFromPoint(r3.Vector{1, 2, 3})), nil
 		}
 
-		result, err := client.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
+		result, err := client.Move(
+			context.Background(), resourceName, grabPose,
+			&commonpb.WorldState{},
+		)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, result, test.ShouldEqual, success)
 
-		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo")
+		poseResult, err := client.GetPose(context.Background(), arm.Named("arm1"), "foo", []*commonpb.Transform{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, poseResult.FrameName(), test.ShouldEqual, "fooarm1")
 		test.That(t, poseResult.Pose().Point().X, test.ShouldEqual, 1)
@@ -118,6 +122,7 @@ func TestClient(t *testing.T) {
 			ctx context.Context,
 			componentName resource.Name,
 			destinationFrame string,
+			supplementalTransform []*commonpb.Transform,
 		) (*referenceframe.PoseInFrame, error) {
 			return nil, passedErr
 		}
@@ -125,7 +130,7 @@ func TestClient(t *testing.T) {
 		resp, err := client2.Move(context.Background(), resourceName, grabPose, &commonpb.WorldState{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, resp, test.ShouldEqual, false)
-		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo")
+		_, err = client2.GetPose(context.Background(), arm.Named("arm1"), "foo", []*commonpb.Transform{})
 		test.That(t, err.Error(), test.ShouldContainSubstring, passedErr.Error())
 		test.That(t, utils.TryClose(context.Background(), client2), test.ShouldBeNil)
 	})

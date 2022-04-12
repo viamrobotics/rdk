@@ -74,6 +74,7 @@ func (c *client) GetPose(
 	ctx context.Context,
 	componentName resource.Name,
 	destinationFrame string,
+	supplementalTransforms []*commonpb.Transform,
 ) (*referenceframe.PoseInFrame, error) {
 	resp, err := c.client.GetPose(ctx, &pb.GetPoseRequest{
 		ComponentName:    protoutils.ResourceNameToProto(componentName),
