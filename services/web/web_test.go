@@ -27,9 +27,7 @@ import (
 
 const arm1String = "arm1"
 
-var (
-	resources = []resource.Name{arm.Named(arm1String)}
-)
+var resources = []resource.Name{arm.Named(arm1String)}
 
 func TestWebStart(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -41,9 +39,8 @@ func TestWebStart(t *testing.T) {
 	err = svc.Start(ctx, web.NewOptions())
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
+	_, err = arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(arm1.GetEndPosition(ctx))
 
 	err = svc.Start(context.Background(), web.NewOptions())
 	test.That(t, err, test.ShouldNotBeNil)
@@ -69,9 +66,8 @@ func TestWebStartOptions(t *testing.T) {
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
+	_, err = arm.NewClient(context.Background(), arm1String, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
-	fmt.Println(arm1.GetEndPosition(ctx))
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
@@ -426,9 +422,8 @@ func TestWebUpdate(t *testing.T) {
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
 
-	//arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
-	//test.That(t, err, test.ShouldBeNil)
-	//test.That(t, c2.ResourceNames(), test.ShouldResemble, resources)
+	arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger)
+	test.That(t, err, test.ShouldBeNil)
 	conn, err = rgrpc.Dial(context.Background(), addr, logger)
 	test.That(t, err, test.ShouldBeNil)
 	aClient2 := arm.NewClientFromConn(context.Background(), conn, arm1String, logger)
