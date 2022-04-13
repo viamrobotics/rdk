@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/component/gantry/v1"
 	"go.viam.com/rdk/subtype"
 )
@@ -71,6 +72,7 @@ func (s *subtypeServer) MoveToPosition(
 	ctx context.Context,
 	req *pb.MoveToPositionRequest,
 ) (*pb.MoveToPositionResponse, error) {
+	operation.CancelOtherWithLabel(ctx, req.Name)
 	gantry, err := s.getGantry(req.Name)
 	if err != nil {
 		return nil, err
