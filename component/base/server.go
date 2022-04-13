@@ -28,11 +28,15 @@ func (s *subtypeServer) getBase(name string) (Base, error) {
 	if resource == nil {
 		return nil, errors.Errorf("no base with name (%s)", name)
 	}
-	base, ok := resource.(Base)
+	wrap1, err := WrapWithReconfigurable(resource)
+	if err != nil {
+		return nil, err
+	}
+	wrap2, ok := wrap1.(Base)
 	if !ok {
 		return nil, errors.Errorf("resource with name (%s) is not a base", name)
 	}
-	return base, nil
+	return wrap2, nil
 }
 
 // MoveStraight moves a robot's base in a straight line by a given distance, expressed in millimeters

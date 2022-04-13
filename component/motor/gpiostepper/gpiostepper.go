@@ -53,7 +53,7 @@ func getBoardFromRobotConfig(r robot.Robot, config config.Component) (board.Boar
 	return b, motorConfig, nil
 }
 
-func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+func newGPIOStepper(ctx context.Context, b board.Board, mc motor.Config, logger golog.Logger) (motor.MinimalMotor, error) {
 	m := &gpioStepper{
 		theBoard:         b,
 		stepsPerRotation: mc.TicksPerRotation,

@@ -236,7 +236,7 @@ func TestMotorEncoderHall(t *testing.T) {
 		EncoderA  board.DigitalInterrupt
 		EncoderB  board.DigitalInterrupt
 		RealMotor *fakemotor.Motor
-		Motor     motor.Motor
+		Motor     motor.MinimalMotor
 		Teardown  func()
 	}
 	setup := func(t *testing.T) testHarness {

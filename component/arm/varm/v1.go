@@ -159,7 +159,7 @@ func testJointLimit(ctx context.Context, m motor.Motor, dir int64, logger golog.
 	return math.NaN(), motorOffError(ctx, m, errors.New("testing joint limit timed out"))
 }
 
-func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.Arm, error) {
+func newArmV1(ctx context.Context, r robot.Robot, logger golog.Logger) (arm.MinimalArm, error) {
 	var err error
 	newArm := &armV1{}
 

@@ -321,7 +321,7 @@ func recordDepthWorker(ctx context.Context, depthSensor sensor.Sensor) {
 }
 
 // newBoat TODO.
-func newBoat(ctx context.Context, r robot.Robot) (base.Base, error) {
+func newBoat(ctx context.Context, r robot.Robot) (base.MinimalBase, error) {
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	b := &Boat{activeBackgroundWorkers: &sync.WaitGroup{}, cancelCtx: cancelCtx, cancel: cancel}
 	var err error

@@ -93,7 +93,7 @@ func createDofBotSolver(logger golog.Logger) (referenceframe.Model, motionplan.M
 	return model, mp, nil
 }
 
-func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.Arm, error) {
+func newDofBot(ctx context.Context, r robot.Robot, config config.Component, logger golog.Logger) (arm.MinimalArm, error) {
 	var err error
 
 	a := dofBot{}

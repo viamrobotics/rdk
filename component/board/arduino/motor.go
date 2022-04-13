@@ -54,7 +54,11 @@ func init() {
 	motor.RegisterConfigAttributeConverter("arduino")
 }
 
-func configureMotorForBoard(ctx context.Context, b *arduinoBoard, config config.Component, motorConfig *motor.Config) (motor.Motor, error) {
+func configureMotorForBoard(
+	ctx context.Context,
+	b *arduinoBoard,
+	config config.Component,
+	motorConfig *motor.Config) (motor.MinimalMotor, error) {
 	if !((motorConfig.Pins.PWM != "" && motorConfig.Pins.Direction != "") || (motorConfig.Pins.A != "" || motorConfig.Pins.B != "")) {
 		return nil, errors.New("arduino needs at least a & b, or dir & pwm pins")
 	}

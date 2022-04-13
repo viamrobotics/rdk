@@ -18,7 +18,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type GenericServiceClient interface {
-	// GetReadings returns the readings of a generic of the underlying robot.
+	// Do sends/recieves arbitrary commands
 	Do(ctx context.Context, in *DoRequest, opts ...grpc.CallOption) (*DoResponse, error)
 }
 
@@ -43,7 +43,7 @@ func (c *genericServiceClient) Do(ctx context.Context, in *DoRequest, opts ...gr
 // All implementations must embed UnimplementedGenericServiceServer
 // for forward compatibility
 type GenericServiceServer interface {
-	// GetReadings returns the readings of a generic of the underlying robot.
+	// Do sends/recieves arbitrary commands
 	Do(context.Context, *DoRequest) (*DoResponse, error)
 	mustEmbedUnimplementedGenericServiceServer()
 }

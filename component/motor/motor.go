@@ -50,8 +50,8 @@ var Subtype = resource.NewSubtype(
 	SubtypeName,
 )
 
-// A Motor represents a physical motor connected to a board.
-type Motor interface {
+// A MinimalMotor represents the minimal interface necessary to be a motor.
+type MinimalMotor interface {
 	// SetPower sets the percentage of power the motor should employ between -1 and 1.
 	// Negative power implies a backward directional rotational
 	SetPower(ctx context.Context, powerPct float64) error
@@ -88,12 +88,18 @@ type Motor interface {
 // A LocalMotor is a motor that supports additional features provided by RDK
 // (e.g. GoTillStop).
 type LocalMotor interface {
-	Motor
+	MinimalMotor
 	// GoTillStop moves a motor until stopped. The "stop" mechanism is up to the underlying motor implementation.
 	// Ex: EncodedMotor goes until physically stopped/stalled (detected by change in position being very small over a fixed time.)
 	// Ex: TMCStepperMotor has "StallGuard" which detects the current increase when obstructed and stops when that reaches a threshold.
 	// Ex: Other motors may use an endstop switch (such as via a DigitalInterrupt) or be configured with other sensors.
 	GoTillStop(ctx context.Context, rpm float64, stopFunc func(ctx context.Context) bool) error
+}
+
+// Motor represents a fully implemented motor.
+type Motor interface {
+	generic.Generic
+	MinimalMotor
 }
 
 // Named is a helper for getting the named Motor's typed resource name.
@@ -112,11 +118,13 @@ func FromRobot(r robot.Robot, name string) (Motor, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Motor)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motor", res)
+	if full, ok := res.(Motor); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalMotor); ok {
+		return &reconfigurableMotor{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Motor", res)
 }
 
 // NamesFromRobot is a helper for getting all motor names from the given Robot.
@@ -154,7 +162,7 @@ func CreateStatus(ctx context.Context, resource interface{}) (*pb.Status, error)
 
 type reconfigurableMotor struct {
 	mu     sync.RWMutex
-	actual Motor
+	actual MinimalMotor
 }
 
 func (r *reconfigurableMotor) ProxyFor() interface{} {
@@ -258,9 +266,9 @@ func (r *reconfigurableMotor) Reconfigure(ctx context.Context, newMotor resource
 // WrapWithReconfigurable converts a regular Motor implementation to a reconfigurableMotor.
 // If motor is already a reconfigurableMotor, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	motor, ok := r.(Motor)
+	motor, ok := r.(MinimalMotor)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Motor", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalMotor", r)
 	}
 	if reconfigurable, ok := motor.(*reconfigurableMotor); ok {
 		return reconfigurable, nil

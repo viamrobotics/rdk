@@ -17,7 +17,7 @@ import (
 
 // NewMotor constructs a new GPIO based motor on the given board using the
 // given configuration.
-func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor, error) {
+func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.MinimalMotor, error) {
 	if mc.MaxPowerPct == 0 {
 		mc.MaxPowerPct = 1.0
 	}
@@ -89,7 +89,7 @@ func NewMotor(b board.Board, mc motor.Config, logger golog.Logger) (motor.Motor,
 	return m, nil
 }
 
-var _ = motor.Motor(&Motor{})
+var _ = motor.MinimalMotor(&Motor{})
 
 // A Motor is a GPIO based Motor that resides on a GPIO Board.
 type Motor struct {

@@ -350,7 +350,7 @@ func evaModel() (referenceframe.Model, error) {
 }
 
 // NewEva TODO.
-func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func NewEva(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.MinimalArm, error) {
 	model, err := evaModel()
 	if err != nil {
 		return nil, err

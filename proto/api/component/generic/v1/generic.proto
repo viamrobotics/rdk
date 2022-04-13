@@ -9,7 +9,7 @@ import "google/api/annotations.proto";
 
 // GenericService services all generic commands associated with a robot
 service GenericService {
-  // GetReadings returns the readings of a generic of the underlying robot.
+  // Do sends/recieves arbitrary commands
   rpc Do(DoRequest) returns (DoResponse) {
     option (google.api.http) = {
       post: "/viam/api/v1/component/generic/{name}/do"

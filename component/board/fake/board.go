@@ -180,6 +180,11 @@ func (b *Board) ModelAttributes() board.ModelAttributes {
 	return board.ModelAttributes{}
 }
 
+// Do will simply echo back what was sent.
+func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	return cmd, nil
+}
+
 // Close attempts to cleanly close each part of the board.
 func (b *Board) Close(ctx context.Context) error {
 	b.CloseCount++
