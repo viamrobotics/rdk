@@ -488,6 +488,135 @@
                           break;
                       }
                   },
+                  handleBaseActionStop : function(name) {
+                      console.log('baseActionHandlerStop');
+                      let req = new baseApi.StopRequest();
+                      req.setName(name);
+                      baseService.stop(req, {}, (err, resp) => grpcCallback(err, resp));
+                  },
+                  handleBaseAction : function(movementMode, movementType, spinType, direction) {
+                      console.log('baseActionHandler');
+                      console.log(movementMode);
+                      console.log(movementType);
+                      console.log(spinType);
+                      console.log(direction);
+                      let req;
+                      if (
+                          movementMode === "Straight" &&
+                          movementType === "Continous" &&
+                          spinType === "" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.MoveStraightRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * 1);
+                          baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Straight" &&
+                          movementType === "Discrete" &&
+                          spinType === "" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.MoveStraightRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * 1);
+                          baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Straight" &&
+                          movementType === "Continous" &&
+                          spinType === "" &&
+                          direction === "Backwards"
+                      ) {
+                          req = new baseApi.MoveStraightRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * -1);
+                          baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Straight" &&
+                          movementType === "Discrete" &&
+                          spinType === "" &&
+                          direction === "Backwards"
+                      ) {
+                          req = new baseApi.MoveStraightRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * -1);
+                          baseService.moveStraight(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Arc" &&
+                          movementType === "Continous" &&
+                          spinType === "Clockwise" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.MoveArcRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * 1);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Arc" &&
+                          movementType === "Continous" &&
+                          spinType === "Counterclockwise" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.MoveArcRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * 1);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Arc" &&
+                          movementType === "Continous" &&
+                          spinType === "Clockwise" &&
+                          direction === "Backwards"
+                      ) {
+                          req = new baseApi.MoveArcRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * -1);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Arc" &&
+                          movementType === "Continous" &&
+                          spinType === "Counterclockwise" &&
+                          direction === "Backwards"
+                      ) {
+                         req = new baseApi.MoveArcRequest();
+                          req.setName(name);
+                          req.setMmPerSec(document.getElementById("speed").value)
+                          req.setDistanceMm(document.getElementById("distance").value * -1);
+                          req.setAngleDeg(document.getElementById("angle").value);
+                          baseService.moveArc(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Spin" &&
+                          movementType === "Continous" &&
+                          spinType === "Clockwise" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.SpinRequest();
+                          req.setName(name);
+                          req.setDegsPerSec(document.getElementById("speed").value)
+                          req.setAngleDeg(document.getElementById("angle").value * 1);
+                          baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                      } else if (
+                          movementMode === "Spin" &&
+                          movementType === "Continous" &&
+                          spinType === "Counterclockwise" &&
+                          direction === "Forwards"
+                      ) {
+                          req = new baseApi.SpinRequest();
+                          req.setName(name);
+                          req.setDegsPerSec(document.getElementById("speed").value)
+                          req.setAngleDeg(document.getElementById("angle").value * -1);
+                          baseService.spin(req, {}, (err, resp) => grpcCallback(err, resp));
+                      }
+                  },
                   renderFrame : function(cameraName) {
                       req = new cameraApi.RenderFrameRequest();
                       req.setName(cameraName);
@@ -833,12 +962,17 @@
                   },
                   viewCamera : function(name) {
                       const streamContainer = document.getElementById(`stream-${name}`);
-                      const button = streamContainer.getElementsByTagName("button")[0];
-                      button.disabled = true;
+                      const streamPreviewContainer = document.getElementById(`stream-preview-${name}`);
                       const req = new streamApi.AddStreamRequest();
                       req.setName(name);
                       streamService.addStream(req, {}, (err, resp) => {
                         grpcCallback(err, resp, false)
+                        if (streamContainer && streamContainer.getElementsByTagName("video").length > 0) {
+                            streamContainer.getElementsByTagName("video")[0].remove();
+                        }
+                        if (streamPreviewContainer && streamPreviewContainer.getElementsByTagName("video").length > 0) {
+                            streamPreviewContainer.getElementsByTagName("video")[0].remove();
+                        }
                         if (err) {
                           button.disabled = false;
                           return;
@@ -1526,22 +1660,22 @@
       imuRefresh();
     </script>
   </head>
-  <body onLoad="waitForClientAndStart()" style="background: var(--black-10);">
+  <body onLoad="waitForClientAndStart()">
     <div id="pre-app">
       <div id="connecting-error"></div>
       <div id="connecting">Connecting via {{ if .WebRTCEnabled }}WebRTC{{ else }}gRPC{{ end }}...</div>
       {{range $authType := .SupportedAuthTypes }}
           <span>{{ $authType }}: </span>
           <div id="auth-{{ $authType }}">
-            <input type="password"/>
-            <button>Login</button>
+            <viam-input type="password"/>
+            <viam-button>Login</viam-button>
           </div>
       {{ end }}
     </div>
     <div id="app" v-cloak>
       <div id="actions">
         {{range $r := .Actions}}
-        <button v-on:click="doAction('{{$r}}')">{{$r}}</button>
+        <viam-button v-on:click="doAction('{{$r}}')">{{$r}}</viam-button>
         {{end}}
       </div>
 
@@ -1549,20 +1683,25 @@
 
       <!-- ******* BASE *******  -->
       <div class="base" v-for="base in filterResources('rdk', 'component', 'base')" :key="base.name">
-        <h3>Base ${base.name}</h3>
-        <ul>
-          <li><button v-on:click="baseAction(base.name, 'straight', 1)">Forward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'straight', -1)">Backward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'arc', 1)">Arc Forward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'arc', -1)">Arc Backward</button></li>
-          <li><button v-on:click="baseAction(base.name, 'angle', -1)">Spin Clockwise</button></li>
-          <li><button v-on:click="baseAction(base.name, 'angle', 1)">Spin Counterclockwise</button></li>
-        </ul>
-
-        Speed (mm per sec): <input id="speed" name="speed" value="300"/><br>
-        Distances (mm): <input id="distance" name="distance" value="500"/><br>
-        Angle (degree): <input id="angle" name="angle" value="0"/><br>
-      </div>
+            <div class="camera" v-for="streamName in streamNames" :key="streamName">
+                <viam-base
+                    :base-name="base.name"
+                    :stream-name="streamName"
+                    :crumbs="['base']"
+                    @forward="baseAction(base.name,'straight', 1)"
+                    @backward="baseAction(base.name,'straight', -1)"
+                    @spin-clockwise="baseAction(base.name,'angle', -1)"
+                    @spin-counter-clockwise="baseAction(base.name,'angle', 1)"
+                    @arc-right="baseAction(base.name,'arc', -1)"
+                    @arc-left="baseAction(base.name,'arc', 1)"
+                    @back-arc-right="baseAction(base.name,'arc', 1)"
+                    @back-arc-left="baseAction(base.name,'arc', -1)"
+                    @base-run="handleBaseAction"
+                    @base-stop="handleBaseActionStop"
+                    @show-base-camera="viewCamera(streamName)"
+                ></viam-base>
+            </div>
+        </div>
 
       <!-- ******* GANTRY *******  -->
       <div
@@ -1581,10 +1720,10 @@
           <tr v-for="pp in resourceStatusByName(gantry).parts" :key="pp.axis">
             <th>${pp.axis}</th>
             <td>
-              <button v-on:click="gantryInc( gantry, pp.axis, -10 )">--</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, -1 )">-</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, 1 )">+</button>
-              <button v-on:click="gantryInc( gantry, pp.axis, 10 )">++</button>
+              <viam-button v-on:click="gantryInc( gantry, pp.axis, -10 )">--</viam-button>
+              <viam-button v-on:click="gantryInc( gantry, pp.axis, -1 )">-</viam-button>
+              <viam-button v-on:click="gantryInc( gantry, pp.axis, 1 )">+</viam-button>
+              <viam-button v-on:click="gantryInc( gantry, pp.axis, 10 )">++</viam-button>
             </td>
             <td>${pp.pos.toFixed(2)}</td>
             <td>${pp.length}</td>
@@ -1598,7 +1737,7 @@
           <hr>
           <h2>ForceMatrix: ${forceMatrix[1].name}</h2>
           <template>
-            <button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forceMatrix[1].name, x)">Visualize Force Matrix</button>
+            <viam-button :id="'force-button-id-' + x" v-on:click="visualizeForceMatrix(forceMatrix[1].name, x)">Visualize Force Matrix</viam-button>
             <!-- force 2d canvas element is resized later upon arrival of sensor data (see animateForceMatrix)  -->
             <canvas :id="'force-2d-id-' + x" width="100" height="100" style="margin-top: 20px;"></canvas>
             <canvas :id="'slip-id-' + x" width="200" height="50"></canvas>
@@ -1646,16 +1785,16 @@
           </tr>
           <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
             <th>${aa.endPosition[0]}</th>
-            <td><input v-model="aa.endPositionValue"></td>
+            <td><viam-input v-model="aa.endPositionValue"></td>
 
             <th>Joint ${aa.joint}</th>
-            <td><input v-model="aa.jointValue"></td>
+            <td><viam-input v-model="aa.jointValue"></td>
           </tr>
           <tr>
             <th colspan="6">
-              <button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</button>
-              <button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</button>
-              <button v-on:click="armModifyAllCancel(arm)">Cancel</button>
+              <viam-button v-on:click="armModifyAllDoEndPosition(arm)">Go To End Position</viam-button>
+              <viam-button v-on:click="armModifyAllDoJoint(arm)">Go To Joints</viam-button>
+              <viam-button v-on:click="armModifyAllCancel(arm)">Cancel</viam-button>
             </th>
           </tr>
         </table>
@@ -1667,26 +1806,26 @@
           <tr v-for="aa in resourceStatusByName(arm).pieces" :key="aa.joint">
             <th>${aa.endPosition[1]}</th>
             <td>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</button>
-              <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
+              <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</viam-button>
+              <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -1 )">-</viam-button>
+              <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 1 )">+</viam-button>
+              <viam-button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</viam-button>
             </td>
             <td>${aa.endPositionValue.toFixed(2)}</td>
 
             <th>Joint ${aa.joint}</th>
             <td>
-              <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
-              <button v-on:click="armJointInc( arm, aa.joint, -1 )">-</button>
-              <button v-on:click="armJointInc( arm, aa.joint, 1 )">+</button>
-              <button v-on:click="armJointInc( arm, aa.joint, 10 )">++</button>
+              <viam-button v-on:click="armJointInc( arm, aa.joint, -10 )">--</viam-button>
+              <viam-button v-on:click="armJointInc( arm, aa.joint, -1 )">-</viam-button>
+              <viam-button v-on:click="armJointInc( arm, aa.joint, 1 )">+</viam-button>
+              <viam-button v-on:click="armJointInc( arm, aa.joint, 10 )">++</viam-button>
             </td>
             <td>${aa.jointValue.toFixed(2)}</td>
           </tr>
           <tr>
             <th colspan="8">
-              <button v-on:click="armHome(arm)">Home</button>
-              <button v-on:click="armModifyAll(arm)">Modify All</button>
+              <viam-button v-on:click="armHome(arm)">Home</viam-button>
+              <viam-button v-on:click="armModifyAll(arm)">Modify All</viam-button>
             </th>
           </tr>
         </table> <!-- end main table -->
@@ -1696,8 +1835,8 @@
       <div class="gripper" v-for="gripper in filterResources('rdk', 'component', 'gripper')" :key="gripper.name">
         <h3>Gripper ${ gripper.name }</h3>
         <ul>
-          <li><button v-on:click="gripperAction( gripper.name, 'open')">Open</button></li>
-          <li><button v-on:click="gripperAction( gripper.name, 'grab')">Grab</button></li>
+          <li><viam-button v-on:click="gripperAction( gripper.name, 'open')">Open</viam-button></li>
+          <li><viam-button v-on:click="gripperAction( gripper.name, 'grab')">Grab</viam-button></li>
         </ul>
       </div>
 
@@ -1715,10 +1854,10 @@
           <tr>
             <td></td>
             <td>
-              <button v-on:click="servoMove(servo, -10)">-10</button>
-              <button v-on:click="servoMove(servo, -1)">-1</button>
-              <button v-on:click="servoMove(servo, 1)">1</button>
-              <button v-on:click="servoMove(servo, 10)">10</button>
+              <viam-button v-on:click="servoMove(servo, -10)">-10</viam-button>
+              <viam-button v-on:click="servoMove(servo, -1)">-1</viam-button>
+              <viam-button v-on:click="servoMove(servo, 1)">1</viam-button>
+              <viam-button v-on:click="servoMove(servo, 10)">10</viam-button>
             </td>
           </tr>
         </table>
@@ -1756,7 +1895,7 @@
       <div class="camera" v-for="streamName in streamNames" :key="streamName">
         <h3>Camera Stream ${streamName}</h3>
         <div :id="'stream-' + streamName">
-          <button v-on:click="viewCamera(streamName)">View</button>
+          <viam-button v-on:click="viewCamera(streamName)">View</viam-button>
         </div>
       </div>
 
@@ -1781,19 +1920,19 @@
           <tr>
             <th>Get</th>
             <td>
-              Pin: <input :id="'get_pin_' + board.name"/><button v-on:click="getGPIO(board.name)">Get</button><br>
+              Pin: <viam-input :id="'get_pin_' + board.name"/><viam-button v-on:click="getGPIO(board.name)">Get</viam-button><br>
               <span :id="'get_pin_value_' + board.name"/>
             </td>
           </tr>
           <tr>
             <th>Set</th>
             <td>
-              Pin: <input :id="'set_pin_' + board.name"/><br>
+              Pin: <viam-input :id="'set_pin_' + board.name"/><br>
               <select :id="'set_pin_v_' + board.name">
                 <option>low</option>
                 <option>high</option>
               </select>
-              <button v-on:click="setGPIO(board.name)">Set</button><br>
+              <viam-button v-on:click="setGPIO(board.name)">Set</viam-button><br>
             </td>
           </tr>
           
@@ -1816,7 +1955,7 @@
         <tr v-for="camera in filterResources('rdk', 'component', 'camera')">
           <td>${camera.name}</td>
           <td><a href="#" v-on:click.prevent="renderFrame(camera.name)">GO</a></td>
-          <td><button v-on:click="renderPCD(camera.name); getSegmenterNames()">GO</button></td>
+          <td><viam-button v-on:click="renderPCD(camera.name); getSegmenterNames()">GO</viam-button></td>
         </tr>
       </table>
 
@@ -1829,14 +1968,14 @@
           <th>Name</th>
           <th>Type</th>
           <th>Readings</th>
-          <th colspan="2"> <button v-on:click="getReadings(sensorNames)">Get All Readings</button></th>
+          <th colspan="2"> <viam-button v-on:click="getReadings(sensorNames)">Get All Readings</viam-button></th>
         </tr>
 
         <tr v-for="name in sensorNames">
           <td>${name.name}</td>
           <td>${name.subtype}</td>
           <td>${sensorReadings[resourceNameToString(name)]}</td>
-          <td> <button v-on:click="getReadings([name])">Get Readings</button></td>
+          <td> <viam-button v-on:click="getReadings([name])">Get Readings</viam-button></td>
         </tr>
 
       </table>
@@ -1866,7 +2005,7 @@
                 </tr>
                 <tr>
                   <td colspan=2>
-                    <button v-on:click="doPCDMove">Move</button>
+                    <viam-button v-on:click="doPCDMove">Move</viam-button>
                   </td>
                 </tr>
               </table>
@@ -1893,11 +2032,11 @@
         </tr>
         <tr v-for="param in segmenterParameterNames">
           <td>${param.getName()}</td>
-	  <td><input :type="parameterType(param.getType())" id="param.getName()" v-model.number="segmenterParameters[param.getName()]"></td>
+	  <td><viam-input :type="parameterType(param.getType())" id="param.getName()" v-model.number="segmenterParameters[param.getName()]"></td>
         </tr>
         <tr>
             <td v-if="!pcdClick.calculatingSegments">
-                <button v-on:click="findSegments(segmentAlgo, segmenterParameters)">Find Segments</button>
+                <viam-button v-on:click="findSegments(segmentAlgo, segmenterParameters)">Find Segments</viam-button>
             </td>
             <td v-else>Finding Objects In Scene...</td>
         </tr>
@@ -1911,24 +2050,24 @@
         </tr>
         <tr>
           <td>Full Image</td>
-          <td><button v-on:click="doPCDLoad(fullcloud)">GO</button></td>
+          <td><viam-button v-on:click="doPCDLoad(fullcloud)">GO</viam-button></td>
           <td>--</td>
         </tr>
         <tr v-for="(seg, i) in objects">
             <td>Object ${i}</td>
-            <td><button v-on:click="doSegmentLoad(i)">GO</button></td>
-            <td><button v-on:click="doPointLoad(i)">GO</button></td>
-            <td><button v-on:click="doBoundingBoxLoad(i)">GO</button></td>
+            <td><viam-button v-on:click="doSegmentLoad(i)">GO</viam-button></td>
+            <td><viam-button v-on:click="doPointLoad(i)">GO</viam-button></td>
+            <td><viam-button v-on:click="doBoundingBoxLoad(i)">GO</viam-button></td>
         </tr>
       </table>
       <div id="map-container" v-if="filterResources('rdk', 'service', 'navigation').length !== 0">
         <br />
         <br />
-        <button v-on:click="setNavigationMode('manual')">Manual</button>
-        <button v-on:click="setNavigationMode('waypoint')">Waypoint</button>
+        <viam-button v-on:click="setNavigationMode('manual')">Manual</viam-button>
+        <viam-button v-on:click="setNavigationMode('waypoint')">Waypoint</viam-button>
         <br />
-        <input type="text" id="nav-set-location" value="40.745297,-74.010916">
-        <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
+        <viam-input type="text" id="nav-set-location" value="40.745297,-74.010916">
+        <viam-button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</viam-button>
         <div id="map" v-map-mounted></div>
       </div>
     </div> <!-- end vue app -->
