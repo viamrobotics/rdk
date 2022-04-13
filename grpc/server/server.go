@@ -96,13 +96,13 @@ func (s *Server) ResourceRunCommand(
 	return &pb.ResourceRunCommandResponse{Result: resultPb}, nil
 }
 
-// ListOperations lists all running operations.
-func (s *Server) ListOperations(ctx context.Context, req *pb.ListOperationsRequest) (*pb.ListOperationsResponse, error) {
+// GetOperations lists all running operations.
+func (s *Server) GetOperations(ctx context.Context, req *pb.GetOperationsRequest) (*pb.GetOperationsResponse, error) {
 	me := operation.Get(ctx)
 
 	all := s.r.OperationManager().All()
 
-	res := &pb.ListOperationsResponse{}
+	res := &pb.GetOperationsResponse{}
 	for _, o := range all {
 		if o == me {
 			continue
@@ -136,13 +136,13 @@ func convertInterfaceToStruct(i interface{}) (*structpb.Struct, error) {
 	return structpb.NewStruct(m)
 }
 
-// KillOperation kills an operations.
-func (s *Server) KillOperation(ctx context.Context, req *pb.KillOperationRequest) (*pb.KillOperationResponse, error) {
+// CancelOperation kills an operations.
+func (s *Server) CancelOperation(ctx context.Context, req *pb.CancelOperationRequest) (*pb.CancelOperationResponse, error) {
 	op := s.r.OperationManager().FindString(req.Id)
 	if op != nil {
 		op.Cancel()
 	}
-	return &pb.KillOperationResponse{}, nil
+	return &pb.CancelOperationResponse{}, nil
 }
 
 // BlockForOperation blocks for an operation to finish.
