@@ -311,7 +311,6 @@ func TestRobotReconfigure(t *testing.T) {
 		resources, err = svc.Resources(ctx)
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, len(resources), test.ShouldEqual, 10)
-
 	})
 
 	t.Run("additive diff", func(t *testing.T) {

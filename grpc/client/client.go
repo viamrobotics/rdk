@@ -154,7 +154,6 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
 		rc.resourceNames = append(rc.resourceNames, names...)
-
 	}
 	return nil
 }
