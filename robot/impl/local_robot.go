@@ -19,6 +19,7 @@ import (
 	// register vm engines.
 	_ "go.viam.com/rdk/function/vm/engines/javascript"
 	"go.viam.com/rdk/metadata/service"
+	"go.viam.com/rdk/operation"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -43,10 +44,11 @@ var (
 // localRobot satisfies robot.LocalRobot and defers most
 // logic to its manager.
 type localRobot struct {
-	mu      sync.Mutex
-	manager *resourceManager
-	config  *config.Config
-	logger  golog.Logger
+	mu         sync.Mutex
+	manager    *resourceManager
+	config     *config.Config
+	operations *operation.Manager
+	logger     golog.Logger
 }
 
 // RemoteByName returns a remote robot by name. If it does not exist
@@ -81,6 +83,11 @@ func (r *localRobot) ProcessManager() pexec.ProcessManager {
 	return r.manager.processManager
 }
 
+// OperationManager returns the operation manager for the robot.
+func (r *localRobot) OperationManager() *operation.Manager {
+	return r.operations
+}
+
 // Close attempts to cleanly close down all constituent parts of the robot.
 func (r *localRobot) Close(ctx context.Context) error {
 	return r.manager.Close(ctx)
@@ -112,7 +119,8 @@ func New(ctx context.Context, cfg *config.Config, logger golog.Logger) (robot.Lo
 			},
 			logger,
 		),
-		logger: logger,
+		operations: operation.NewManager(),
+		logger:     logger,
 	}
 
 	var successful bool
