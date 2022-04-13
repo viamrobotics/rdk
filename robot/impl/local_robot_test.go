@@ -193,9 +193,12 @@ func TestConfigRemote(t *testing.T) {
 		gripper.Named("bar.pieceGripper"),
 	}
 
+	resources2, err := metadataSvc2.Resources(ctx2)
+	test.That(t, err, test.ShouldBeNil)
+
 	test.That(
 		t,
-		rtestutils.NewResourceNameSet(metadataSvc2.Resources(ctx2)...),
+		rtestutils.NewResourceNameSet(resources2...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
@@ -421,9 +424,13 @@ func TestConfigRemoteWithAuth(t *testing.T) {
 				gripper.Named("pieceGripper"),
 				gripper.Named("foo.pieceGripper"),
 			}
+
+			resources2, err := metadataSvc2.Resources(ctx)
+			test.That(t, err, test.ShouldBeNil)
+
 			test.That(
 				t,
-				rtestutils.NewResourceNameSet(metadataSvc2.Resources(ctx)...),
+				rtestutils.NewResourceNameSet(resources2...),
 				test.ShouldResemble,
 				rtestutils.NewResourceNameSet(expected...),
 			)
@@ -612,9 +619,13 @@ func TestConfigRemoteWithTLSAuth(t *testing.T) {
 		gps.Named("gps2"),
 		gripper.Named("pieceGripper"),
 	}
+
+	resources2, err := metadataSvc2.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
 	test.That(
 		t,
-		rtestutils.NewResourceNameSet(metadataSvc2.Resources(ctx)...),
+		rtestutils.NewResourceNameSet(resources2...),
 		test.ShouldResemble,
 		rtestutils.NewResourceNameSet(expected...),
 	)
@@ -734,7 +745,11 @@ func TestMetadataUpdate(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	svc, err := metadata.FromRobot(r)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 12)
+
+	resources, err := svc.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+
+	test.That(t, len(resources), test.ShouldEqual, 12)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, r.Close(context.Background()), test.ShouldBeNil)
 
@@ -773,9 +788,11 @@ func TestMetadataUpdate(t *testing.T) {
 			Name: "func2",
 		},
 	}
-	test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, len(resourceNames))
 
-	svcResources := svc.Resources(ctx)
+	svcResources, err := svc.Resources(ctx)
+	test.That(t, err, test.ShouldBeNil)
+	test.That(t, len(svcResources), test.ShouldEqual, len(resourceNames))
+
 	test.That(t, rtestutils.NewResourceNameSet(svcResources...), test.ShouldResemble, rtestutils.NewResourceNameSet(resourceNames...))
 }
 
