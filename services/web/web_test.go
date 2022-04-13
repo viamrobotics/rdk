@@ -37,11 +37,9 @@ func TestWebStart(t *testing.T) {
 
 	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	err = svc.Start(ctx, web.NewOptions())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	arm1, err := arm.NewClient(context.Background(), arm1String, "localhost:8080", logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -53,7 +51,6 @@ func TestWebStart(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 }
 
 func TestWebStartOptions(t *testing.T) {
@@ -62,7 +59,6 @@ func TestWebStartOptions(t *testing.T) {
 
 	svc, err := web.New(ctx, injectRobot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
@@ -72,7 +68,6 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -80,7 +75,6 @@ func TestWebStartOptions(t *testing.T) {
 
 	err = utils.TryClose(context.Background(), svc)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 }
 
 func TestWebWithAuth(t *testing.T) {
@@ -168,7 +162,6 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				fmt.Printf("arm1: %v\n", arm1)
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 
 				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
@@ -179,8 +172,6 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				// CR erodkin: do we need these print statements? I assume not
-				fmt.Printf("arm1: %v\n", arm1)
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 			} else {
 				arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger,
@@ -191,7 +182,6 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				fmt.Printf("arm1: %v\n", arm1)
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 
 				arm1, err = arm.NewClient(context.Background(), arm1String, addr, logger,
@@ -202,7 +192,6 @@ func TestWebWithAuth(t *testing.T) {
 					}),
 				)
 				test.That(t, err, test.ShouldBeNil)
-				fmt.Printf("arm1: %v\n", arm1)
 				test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 			}
 
@@ -389,7 +378,6 @@ func TestWebUpdate(t *testing.T) {
 
 	svc, err := web.New(ctx, robot, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	port, err := utils.TryReserveRandomPort()
 	test.That(t, err, test.ShouldBeNil)
@@ -398,7 +386,6 @@ func TestWebUpdate(t *testing.T) {
 	options.Network.BindAddress = addr
 	err = svc.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
 	test.That(t, err, test.ShouldBeNil)
@@ -424,7 +411,6 @@ func TestWebUpdate(t *testing.T) {
 
 	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc), test.ShouldBeNil)
-	test.That(t, svc.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), aClient), test.ShouldBeNil)
 
 	// now start it with the arm already in it
@@ -436,11 +422,9 @@ func TestWebUpdate(t *testing.T) {
 
 	svc2, err := web.New(ctx, robot2, config.Service{}, logger)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 
 	err = svc2.Start(ctx, options)
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldNotBeNil)
 
 	//arm1, err := arm.NewClient(context.Background(), arm1String, addr, logger)
 	//test.That(t, err, test.ShouldBeNil)
@@ -478,13 +462,10 @@ func TestWebUpdate(t *testing.T) {
 
 	test.That(t, utils.TryClose(context.Background(), arm1), test.ShouldBeNil)
 	test.That(t, utils.TryClose(context.Background(), svc2), test.ShouldBeNil)
-	test.That(t, svc2.(*web.ServiceImpl).CancelFunc, test.ShouldBeNil)
 	test.That(t, conn.Close(), test.ShouldBeNil)
 }
 
 func setupRobotCtx() (context.Context, robot.Robot) {
-	// CR erodkin: we're artificially adding metadata here too because it's never
-	// set up with the new robot, is that right?
 	injectArm := &inject.Arm{}
 	pos := &commonpb.Pose{X: 1, Y: 2, Z: 3}
 	injectArm.GetEndPositionFunc = func(ctx context.Context) (*commonpb.Pose, error) {
@@ -493,7 +474,6 @@ func setupRobotCtx() (context.Context, robot.Robot) {
 	injectRobot := &inject.Robot{}
 	injectRobot.ConfigFunc = func(ctx context.Context) (*config.Config, error) { return &config.Config{}, nil }
 	injectRobot.ResourceNamesFunc = func() []resource.Name { return resources }
-	// CR erodkin: this is part of artificial metadata add
 	injectRobot.ResourceByNameFunc = func(name resource.Name) (interface{}, error) {
 		return injectArm, nil
 	}

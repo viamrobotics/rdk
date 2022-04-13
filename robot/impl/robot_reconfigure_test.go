@@ -96,7 +96,9 @@ func TestRobotReconfigure(t *testing.T) {
 
 		svc, err := metadata.FromRobot(robot)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 10)
+		resources, err := svc.Resources(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resources), test.ShouldEqual, 10)
 
 		armNames := []resource.Name{arm.Named("arm1")}
 		baseNames := []resource.Name{base.Named("base1")}
@@ -213,14 +215,15 @@ func TestRobotReconfigure(t *testing.T) {
 
 		svc, err := metadata.FromRobot(robot)
 		test.That(t, err, test.ShouldBeNil)
-		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 5)
+
+		resources, err := svc.Resources(ctx)
 		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resources), test.ShouldEqual, 5)
 
 		defer func() {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 5)
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
@@ -305,7 +308,10 @@ func TestRobotReconfigure(t *testing.T) {
 		_, ok = robot.ProcessManager().ProcessByID("2")
 		test.That(t, ok, test.ShouldBeTrue)
 
-		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 10)
+		resources, err = svc.Resources(ctx)
+		test.That(t, err, test.ShouldBeNil)
+		test.That(t, len(resources), test.ShouldEqual, 10)
+
 	})
 
 	t.Run("additive diff", func(t *testing.T) {
