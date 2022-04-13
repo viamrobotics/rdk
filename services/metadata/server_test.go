@@ -39,15 +39,15 @@ func TestServer(t *testing.T) {
 		injectMetadata := &inject.Metadata{}
 		server, err := newServer(injectMetadata)
 		test.That(t, err, test.ShouldBeNil)
-		injectMetadata.ResourcesFunc = func() []resource.Name {
-			return []resource.Name{}
+		injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+			return []resource.Name{}, nil
 		}
 		resourceResp, err := server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
 		test.That(t, resourceResp, test.ShouldResemble, emptyResources)
 
-		injectMetadata.ResourcesFunc = func() []resource.Name {
-			return []resource.Name{serverNewResource}
+		injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+			return []resource.Name{serverNewResource}, nil
 		}
 		resourceResp, err = server.Resources(context.Background(), &pb.ResourcesRequest{})
 		test.That(t, err, test.ShouldBeNil)
