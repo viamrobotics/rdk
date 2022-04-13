@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 
 	"github.com/golang/geo/r3"
 	"github.com/pkg/errors"
@@ -191,6 +192,9 @@ func (sf *staticFrame) Geometries(input []Input) (map[string]spatial.Geometry, e
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", sf)
 	}
 	pose, err := sf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[sf.Name()] = sf.geometryCreator.NewGeometry(pose)
 	return m, err
@@ -266,6 +270,9 @@ func (pf *translationalFrame) Geometries(input []Input) (map[string]spatial.Geom
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", pf)
 	}
 	pose, err := pf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[pf.Name()] = pf.geometryCreator.NewGeometry(pose)
 	return m, err
@@ -397,6 +404,9 @@ func (mf *mobile2DFrame) Geometries(input []Input) (map[string]spatial.Geometry,
 		return nil, fmt.Errorf("frame of type %T has nil geometryCreator", mf)
 	}
 	pose, err := mf.Transform(input)
+	if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
+		return nil, err
+	}
 	m := make(map[string]spatial.Geometry)
 	m[mf.Name()] = mf.geometryCreator.NewGeometry(pose)
 	return m, err
