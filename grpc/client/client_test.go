@@ -450,15 +450,15 @@ func TestClientRefresh(t *testing.T) {
 	var callCount int
 	calledEnough := make(chan struct{})
 
-	injectMetadata.ResourcesFunc = func() []resource.Name {
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
 		if callCount == 5 {
 			close(calledEnough)
 		}
 		callCount++
 		if callCount >= 5 {
-			return finalResources
+			return finalResources, nil
 		}
-		return emptyResources
+		return emptyResources, nil
 	}
 
 	start := time.Now()
@@ -536,8 +536,8 @@ func TestClientRefresh(t *testing.T) {
 	err = client.Close(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.ResourcesFunc = func() []resource.Name {
-		return emptyResources
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return emptyResources, nil
 	}
 	client, err = New(
 		context.Background(),
@@ -598,8 +598,8 @@ func TestClientRefresh(t *testing.T) {
 			gripperNames,
 		)...))
 
-	injectMetadata.ResourcesFunc = func() []resource.Name {
-		return finalResources
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return finalResources, nil
 	}
 	test.That(t, client.Refresh(context.Background()), test.ShouldBeNil)
 
@@ -677,8 +677,8 @@ func TestClientDialerOption(t *testing.T) {
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
-	injectMetadata.ResourcesFunc = func() []resource.Name {
-		return emptyResources
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return emptyResources, nil
 	}
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
