@@ -7,12 +7,14 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.viam.com/test"
+	"go.viam.com/utils"
 	"go.viam.com/utils/rpc"
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
+	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/testutils"
@@ -26,15 +28,15 @@ var clientNewResource = resource.NewName(
 	"",
 )
 
-var clientOneResourceResponse = []*commonpb.ResourceName{
-	{
+var clientOneResourceResponse = []resource.Name{protoutils.ResourceNameFromProto(
+	&commonpb.ResourceName{
 		Uuid:      clientNewResource.UUID,
 		Namespace: string(clientNewResource.Namespace),
 		Type:      string(clientNewResource.ResourceType),
 		Subtype:   string(clientNewResource.ResourceSubtype),
 		Name:      clientNewResource.Name,
 	},
-}
+)}
 
 func TestClient(t *testing.T) {
 	logger := golog.NewTestLogger(t)
@@ -63,14 +65,14 @@ func TestClient(t *testing.T) {
 	client, err := metadata.NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.ResourcesFunc = func() []resource.Name {
-		return []resource.Name{clientNewResource}
+	injectMetadata.ResourcesFunc = func() ([]resource.Name, error) {
+		return []resource.Name{clientNewResource}, nil
 	}
 	resource, err := client.Resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, resource, test.ShouldResemble, clientOneResourceResponse)
 
-	err = client.Close()
+	err = utils.TryClose(context.Background(), client)
 	test.That(t, err, test.ShouldBeNil)
 }
 
@@ -96,8 +98,8 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
-	err = client1.Close()
+	err = utils.TryClose(context.Background(), client1)
 	test.That(t, err, test.ShouldBeNil)
-	err = client2.Close()
+	err = utils.TryClose(context.Background(), client2)
 	test.That(t, err, test.ShouldBeNil)
 }

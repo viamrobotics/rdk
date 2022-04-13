@@ -19,7 +19,6 @@ import (
 	"go.viam.com/rdk/grpc"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
-	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
@@ -36,7 +35,7 @@ type RobotClient struct {
 	address        string
 	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
-	metadataClient *metadata.ServiceClient
+	metadataClient metadata.Service
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
@@ -83,7 +82,7 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
-		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
+		return nil, multierr.Combine(err, utils.TryClose(ctx, metadataClient), conn.Close())
 	}
 
 	if rOpts.refreshEvery != 0 {
@@ -102,7 +101,7 @@ func (rc *RobotClient) Close(ctx context.Context) error {
 	rc.cancelBackgroundWorkers()
 	rc.activeBackgroundWorkers.Wait()
 
-	return multierr.Combine(rc.conn.Close(), rc.metadataClient.Close())
+	return multierr.Combine(rc.conn.Close(), utils.TryClose(ctx, rc.metadataClient))
 }
 
 // RefreshEvery refreshes the robot on the interval given by every until the
@@ -155,10 +154,8 @@ func (rc *RobotClient) Refresh(ctx context.Context) (err error) {
 	}
 	if err == nil {
 		rc.resourceNames = make([]resource.Name, 0, len(names))
-		for _, name := range names {
-			newName := protoutils.ResourceNameFromProto(name)
-			rc.resourceNames = append(rc.resourceNames, newName)
-		}
+		rc.resourceNames = append(rc.resourceNames, names...)
+
 	}
 	return nil
 }
