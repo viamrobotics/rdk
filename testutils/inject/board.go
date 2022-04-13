@@ -6,12 +6,15 @@ import (
 	"go.viam.com/utils"
 
 	"go.viam.com/rdk/component/board"
+	"go.viam.com/rdk/component/generic"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
+	rdkutils "go.viam.com/rdk/utils"
 )
 
 // Board is an injected board.
 type Board struct {
 	board.LocalBoard
+	DoFunc                     func(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error)
 	SPIByNameFunc              func(name string) (board.SPI, bool)
 	spiByNameCap               []interface{}
 	I2CByNameFunc              func(name string) (board.I2C, bool)
@@ -169,4 +172,15 @@ func (b *Board) StatusCap() []interface{} {
 	}
 	defer func() { b.statusCap = nil }()
 	return b.statusCap
+}
+
+// Do calls the injected Do or the real version.
+func (b *Board) Do(ctx context.Context, cmd map[string]interface{}) (map[string]interface{}, error) {
+	if b.DoFunc == nil {
+		if doer, ok := b.LocalBoard.(generic.Generic); ok {
+			return doer.Do(ctx, cmd)
+		}
+		return nil, rdkutils.NewUnimplementedInterfaceError("Generic", b.LocalBoard)
+	}
+	return b.DoFunc(ctx, cmd)
 }

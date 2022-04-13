@@ -23,7 +23,7 @@ import (
 const modelName = "pca9685"
 
 var (
-	_ = board.Board(&PCA9685{})
+	_ = board.MinimalBoard(&PCA9685{})
 	_ = board.GPIOPin(&gpioPin{})
 )
 

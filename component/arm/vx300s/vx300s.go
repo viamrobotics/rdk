@@ -96,7 +96,7 @@ func getPortMutex(port string) *sync.Mutex {
 	return mu
 }
 
-func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.Arm, error) {
+func newArm(attributes config.AttributeMap, logger golog.Logger) (arm.MinimalArm, error) {
 	usbPort := attributes.String("usb_port")
 	servos, err := findServos(usbPort, attributes.String("baud_rate"), attributes.String("arm_servo_count"))
 	if err != nil {

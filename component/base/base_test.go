@@ -76,12 +76,12 @@ func TestBaseNamed(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualBase1 base.Base = &mock{Name: testBaseName}
+	var actualBase1 base.MinimalBase = &mock{Name: testBaseName}
 	reconfBase1, err := base.WrapWithReconfigurable(actualBase1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = base.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("LocalBase", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalBase", nil))
 
 	reconfBase2, err := base.WrapWithReconfigurable(reconfBase1)
 	test.That(t, err, test.ShouldBeNil)

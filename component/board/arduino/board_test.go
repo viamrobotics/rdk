@@ -277,7 +277,7 @@ func TestArduinoMotorAB(t *testing.T) {
 	arduinoMotorTests(ctx, t, m)
 }
 
-func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.Motor) {
+func arduinoMotorTests(ctx context.Context, t *testing.T, m motor.MinimalMotor) {
 	t.Helper()
 
 	t.Run("arduino motor features include position support", func(t *testing.T) {

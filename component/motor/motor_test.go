@@ -201,12 +201,12 @@ func TestMotorName(t *testing.T) {
 }
 
 func TestWrapWithReconfigurable(t *testing.T) {
-	var actualMotor1 motor.Motor = &mock{Name: testMotorName}
+	var actualMotor1 motor.MinimalMotor = &mock{Name: testMotorName}
 	reconfMotor1, err := motor.WrapWithReconfigurable(actualMotor1)
 	test.That(t, err, test.ShouldBeNil)
 
 	_, err = motor.WrapWithReconfigurable(nil)
-	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("Motor", nil))
+	test.That(t, err, test.ShouldBeError, rutils.NewUnimplementedInterfaceError("MinimalMotor", nil))
 
 	reconfMotor2, err := motor.WrapWithReconfigurable(reconfMotor1)
 	test.That(t, err, test.ShouldBeNil)
@@ -230,7 +230,7 @@ func TestReconfigurableMotor(t *testing.T) {
 
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
 	test.That(t, actualMotor2.posCount, test.ShouldEqual, 0)
-	result, err := reconfMotor1.(motor.Motor).GetPosition(context.Background())
+	result, err := reconfMotor1.(motor.MinimalMotor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, result, test.ShouldResemble, position)
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
@@ -247,7 +247,7 @@ func TestSetPower(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.powerCount, test.ShouldEqual, 0)
-	err = reconfMotor1.(motor.Motor).SetPower(context.Background(), 0)
+	err = reconfMotor1.(motor.MinimalMotor).SetPower(context.Background(), 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.powerCount, test.ShouldEqual, 1)
 }
@@ -258,7 +258,7 @@ func TestGoFor(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.goForCount, test.ShouldEqual, 0)
-	err = reconfMotor1.(motor.Motor).GoFor(context.Background(), 0, 0)
+	err = reconfMotor1.(motor.MinimalMotor).GoFor(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.goForCount, test.ShouldEqual, 1)
 }
@@ -269,7 +269,7 @@ func TestGoTo(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.goToCount, test.ShouldEqual, 0)
-	err = reconfMotor1.(motor.Motor).GoTo(context.Background(), 0, 0)
+	err = reconfMotor1.(motor.MinimalMotor).GoTo(context.Background(), 0, 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.goToCount, test.ShouldEqual, 1)
 }
@@ -280,7 +280,7 @@ func TestResetZeroPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.zeroCount, test.ShouldEqual, 0)
-	err = reconfMotor1.(motor.Motor).ResetZeroPosition(context.Background(), 0)
+	err = reconfMotor1.(motor.MinimalMotor).ResetZeroPosition(context.Background(), 0)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.zeroCount, test.ShouldEqual, 1)
 }
@@ -291,7 +291,7 @@ func TestGetPosition(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 0)
-	pos1, err := reconfMotor1.(motor.Motor).GetPosition(context.Background())
+	pos1, err := reconfMotor1.(motor.MinimalMotor).GetPosition(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, pos1, test.ShouldResemble, position)
 	test.That(t, actualMotor1.posCount, test.ShouldEqual, 1)
@@ -303,7 +303,7 @@ func TestGetFeatures(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.featuresCount, test.ShouldEqual, 0)
-	feat1, err := reconfMotor1.(motor.Motor).GetFeatures(context.Background())
+	feat1, err := reconfMotor1.(motor.MinimalMotor).GetFeatures(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, feat1, test.ShouldResemble, features)
 	test.That(t, actualMotor1.featuresCount, test.ShouldEqual, 1)
@@ -315,7 +315,7 @@ func TestStop(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.stopCount, test.ShouldEqual, 0)
-	err = reconfMotor1.(motor.Motor).Stop(context.Background())
+	err = reconfMotor1.(motor.MinimalMotor).Stop(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, actualMotor1.stopCount, test.ShouldEqual, 1)
 }
@@ -326,7 +326,7 @@ func TestIsPowered(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 
 	test.That(t, actualMotor1.poweredCount, test.ShouldEqual, 0)
-	isPowered1, err := reconfMotor1.(motor.Motor).IsPowered(context.Background())
+	isPowered1, err := reconfMotor1.(motor.MinimalMotor).IsPowered(context.Background())
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, isPowered1, test.ShouldEqual, isPowered)
 	test.That(t, actualMotor1.poweredCount, test.ShouldEqual, 1)

@@ -50,9 +50,9 @@ func WrapMotorWithEncoder(
 	encoderBoard board.Board,
 	c config.Component,
 	mc motor.Config,
-	m motor.Motor,
+	m motor.MinimalMotor,
 	logger golog.Logger,
-) (motor.Motor, error) {
+) (motor.MinimalMotor, error) {
 	if mc.EncoderA == "" {
 		return m, nil
 	}
@@ -98,17 +98,17 @@ func WrapMotorWithEncoder(
 func NewEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	realMotor motor.Motor,
+	realMotor motor.MinimalMotor,
 	encoder board.Encoder,
 	logger golog.Logger,
-) (motor.Motor, error) {
+) (motor.MinimalMotor, error) {
 	return newEncodedMotor(config, motorConfig, realMotor, encoder, logger)
 }
 
 func newEncodedMotor(
 	config config.Component,
 	motorConfig motor.Config,
-	realMotor motor.Motor,
+	realMotor motor.MinimalMotor,
 	encoder board.Encoder,
 	logger golog.Logger,
 ) (*EncodedMotor, error) {
@@ -167,7 +167,7 @@ func newEncodedMotor(
 type EncodedMotor struct {
 	activeBackgroundWorkers *sync.WaitGroup
 	cfg                     motor.Config
-	real                    motor.Motor
+	real                    motor.MinimalMotor
 	encoder                 board.Encoder
 
 	stateMu *sync.RWMutex

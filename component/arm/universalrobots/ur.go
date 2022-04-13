@@ -113,7 +113,7 @@ func (ua *URArm) Close(ctx context.Context) error {
 }
 
 // URArmConnect TODO.
-func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.Arm, error) {
+func URArmConnect(ctx context.Context, cfg config.Component, logger golog.Logger) (arm.MinimalArm, error) {
 	speed := cfg.ConvertedAttributes.(*AttrConfig).Speed
 	host := cfg.ConvertedAttributes.(*AttrConfig).Host
 	if speed > 1 || speed < .1 {

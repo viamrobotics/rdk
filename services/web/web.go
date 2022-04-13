@@ -32,6 +32,7 @@ import (
 	googlegrpc "google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/camera"
+	"go.viam.com/rdk/component/generic"
 	"go.viam.com/rdk/config"
 	"go.viam.com/rdk/grpc"
 	grpcserver "go.viam.com/rdk/grpc/server"
@@ -273,14 +274,22 @@ func (svc *webService) Update(ctx context.Context, resources map[resource.Name]i
 func (svc *webService) update(resources map[resource.Name]interface{}) error {
 	// so group resources by subtype
 	groupedResources := make(map[resource.Subtype]map[resource.Name]interface{})
+	components := make(map[resource.Name]interface{})
 	for n, v := range resources {
+		if n.Subtype == generic.Subtype {
+			continue
+		}
 		r, ok := groupedResources[n.Subtype]
 		if !ok {
 			r = make(map[resource.Name]interface{})
 		}
 		r[n] = v
 		groupedResources[n.Subtype] = r
+		if n.Subtype.Type.ResourceType == resource.ResourceTypeComponent {
+			components[n] = v
+		}
 	}
+	groupedResources[generic.Subtype] = components
 
 	for s, v := range groupedResources {
 		subtypeSvc, ok := svc.services[s]

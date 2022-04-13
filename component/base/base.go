@@ -51,8 +51,8 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Base represents a physical base of a robot.
-type Base interface {
+// A MinimalBase represents a physical base of a robot.
+type MinimalBase interface {
 	// MoveStraight moves the robot straight a given distance at a given speed. The method
 	// can be requested to block until the move is complete. If a distance or speed of zero is given,
 	// the base will stop.
@@ -75,13 +75,20 @@ type Base interface {
 
 // A LocalBase represents a physical base of a robot that can report the width of itself.
 type LocalBase interface {
-	Base
+	MinimalBase
 	// GetWidth returns the width of the base in millimeters.
 	GetWidth(ctx context.Context) (int, error)
 }
 
+// Base represents a fully implemented Base.
+type Base interface {
+	generic.Generic
+	MinimalBase
+}
+
 var (
 	_ = LocalBase(&reconfigurableBase{})
+	_ = generic.Generic(&reconfigurableBase{})
 	_ = resource.Reconfigurable(&reconfigurableBase{})
 )
 
@@ -91,11 +98,13 @@ func FromRobot(r robot.Robot, name string) (Base, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Base)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Base", res)
+	if full, ok := res.(Base); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(MinimalBase); ok {
+		return &reconfigurableBase{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Base", res)
 }
 
 // NamesFromRobot is a helper for getting all base names from the given Robot.
@@ -105,7 +114,7 @@ func NamesFromRobot(r robot.Robot) []string {
 
 type reconfigurableBase struct {
 	mu     sync.RWMutex
-	actual LocalBase
+	actual MinimalBase
 }
 
 func (r *reconfigurableBase) ProxyFor() interface{} {
@@ -145,7 +154,10 @@ func (r *reconfigurableBase) Stop(ctx context.Context) error {
 func (r *reconfigurableBase) GetWidth(ctx context.Context) (int, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.actual.GetWidth(ctx)
+	if dev, ok := r.actual.(LocalBase); ok {
+		return dev.GetWidth(ctx)
+	}
+	return -1, utils.NewUnimplementedInterfaceError("LocalBase", r)
 }
 
 func (r *reconfigurableBase) Close(ctx context.Context) error {
@@ -182,9 +194,9 @@ func (r *reconfigurableBase) Reconfigure(ctx context.Context, newBase resource.R
 // WrapWithReconfigurable converts a regular LocalBase implementation to a reconfigurableBase.
 // If base is already a reconfigurableBase, then nothing is done.
 func WrapWithReconfigurable(r interface{}) (resource.Reconfigurable, error) {
-	base, ok := r.(LocalBase)
+	base, ok := r.(MinimalBase)
 	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("LocalBase", r)
+		return nil, utils.NewUnimplementedInterfaceError("MinimalBase", r)
 	}
 	if reconfigurable, ok := base.(*reconfigurableBase); ok {
 		return reconfigurable, nil
@@ -202,7 +214,7 @@ type Move struct {
 }
 
 // DoMove performs the given move on the given base.
-func DoMove(ctx context.Context, move Move, base Base) error {
+func DoMove(ctx context.Context, move Move, base MinimalBase) error {
 	if move.AngleDeg != 0 {
 		err := base.Spin(ctx, move.AngleDeg, move.DegsPerSec, move.Block)
 		if err != nil {

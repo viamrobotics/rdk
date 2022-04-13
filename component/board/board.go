@@ -62,9 +62,9 @@ func Named(name string) resource.Name {
 	return resource.NameFromSubtype(Subtype, name)
 }
 
-// A Board represents a physical general purpose board that contains various
+// A MinimalBoard represents a physical general purpose board that contains various
 // components such as analog readers, and digital interrupts.
-type Board interface {
+type MinimalBoard interface {
 	// AnalogReaderByName returns an analog reader by name.
 	AnalogReaderByName(name string) (AnalogReader, bool)
 
@@ -100,13 +100,19 @@ type Board interface {
 
 // A LocalBoard represents a Board where you can request SPIs and I2Cs by name.
 type LocalBoard interface {
-	Board
+	MinimalBoard
 
 	// SPIByName returns an SPI bus by name.
 	SPIByName(name string) (SPI, bool)
 
 	// I2CByName returns an I2C bus by name.
 	I2CByName(name string) (I2C, bool)
+}
+
+// A Board represents a fully implemented Board.
+type Board interface {
+	generic.Generic
+	MinimalBoard
 }
 
 // ModelAttributes provide info related to a board model.
@@ -154,6 +160,7 @@ type AnalogReader interface {
 type PostProcessor func(raw int64) int64
 
 var (
+	_ = generic.Generic(&reconfigurableBoard{})
 	_ = LocalBoard(&reconfigurableBoard{})
 	_ = resource.Reconfigurable(&reconfigurableBoard{})
 )
@@ -164,11 +171,13 @@ func FromRobot(r robot.Robot, name string) (Board, error) {
 	if err != nil {
 		return nil, err
 	}
-	part, ok := res.(Board)
-	if !ok {
-		return nil, utils.NewUnimplementedInterfaceError("Board", res)
+	if full, ok := res.(Board); ok {
+		return full, nil
 	}
-	return part, nil
+	if part, ok := res.(LocalBoard); ok {
+		return &reconfigurableBoard{actual: part}, nil
+	}
+	return nil, utils.NewUnimplementedInterfaceError("Board", res)
 }
 
 // NamesFromRobot is a helper for getting all board names from the given Robot.
