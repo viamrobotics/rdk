@@ -61,12 +61,11 @@ func (mc *serviceClient) Resources(ctx context.Context) ([]resource.Name, error)
 		return nil, err
 	}
 
-	var resources = make([]resource.Name, 0, len(resp.Resources))
+	resources := make([]resource.Name, 0, len(resp.Resources))
 
 	for _, name := range resp.Resources {
 		newName := protoutils.ResourceNameFromProto(name)
 		resources = append(resources, newName)
-
 	}
 	return resources, nil
 }
