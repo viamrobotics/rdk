@@ -224,7 +224,6 @@ func TestRobotReconfigure(t *testing.T) {
 			test.That(t, robot.Close(context.Background()), test.ShouldBeNil)
 		}()
 
-		test.That(t, len(svc.Resources(ctx)), test.ShouldEqual, 5)
 		test.That(t, robot.Reconfigure(ctx, emptyConf), test.ShouldBeNil)
 		test.That(t, utils.NewStringSet(robot.RemoteNames()...), test.ShouldBeEmpty)
 		test.That(t, utils.NewStringSet(arm.NamesFromRobot(robot)...), test.ShouldBeEmpty)
