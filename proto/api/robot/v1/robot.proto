@@ -25,21 +25,21 @@ service RobotService {
     };
   }
 
-  rpc ListOperations(ListOperationsRequest) returns (ListOperationsResponse) {
+  rpc GetOperations(GetOperationsRequest) returns (GetOperationsResponse) {
     option (google.api.http) = {
       get: "/viam/api/v1/operations/list"
     };    
   }
 
-  rpc KillOperation(KillOperationRequest) returns (KillOperationResponse) {
+  rpc CancelOperation(CancelOperationRequest) returns (CancelOperationResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/operations/kill"
+      post: "/viam/api/v1/operations/cancel"
     };    
   }
   
   rpc BlockForOperation(BlockForOperationRequest) returns (BlockForOperationResponse) {
     option (google.api.http) = {
-      get: "/viam/api/v1/operations/block"
+      post: "/viam/api/v1/operations/block"
     };    
   }
 
@@ -69,17 +69,17 @@ message Operation {
   google.protobuf.Timestamp started = 4;
 };
 
-message ListOperationsRequest { }
+message GetOperationsRequest { }
 
-message ListOperationsResponse {
+message GetOperationsResponse {
   repeated Operation operations = 1;
 }
 
-message KillOperationRequest {
+message CancelOperationRequest {
   string id = 1;
 }
 
-message KillOperationResponse {}
+message CancelOperationResponse {}
 
 message BlockForOperationRequest {
     string id = 1;
