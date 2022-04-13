@@ -50,9 +50,13 @@
           return num / 100;
       }
 
+      function setError(err) {
+         theData.error = err;
+      }
+
       function grpcCallback(err, resp, stringify) {
         if (err) {
-          theData.error = JSON.stringify(err);
+          setError(err);
           return;
         }
         if (stringify === undefined || stringify) {
@@ -63,7 +67,7 @@
               theData.res = JSON.stringify(resp.toObject());
             }
           } catch (e) {
-            theData.error = JSON.stringify(e);
+            setError(err);
           }
         }
       }
@@ -200,7 +204,8 @@
               armToggle : {},
               mapOnce: false,
               value: 0,
-              imuData: {}
+            imuData: {},
+            currentOps: [],
           };
           theApp = new Vue({
               el: '#app',
@@ -456,8 +461,13 @@
                   inputInject: function(req) {
                     inputControllerService.triggerEvent(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
+                  killOp: function(id) {
+                    var req = new robotApi.KillOperationRequest();
+                    req.setId(id);
+                    robotService.killOperation(req, {}, (err, resp) => grpcCallback(err, resp));
+                  },
                   doAction : function(name) {
-                      const req = new robotApi.DoActionRequest();
+                    const req = new robotApi.DoActionRequest();
                       req.setName(name);
                       robotService.doAction(req, {}, (err, resp) => grpcCallback(err, resp));
                   },
@@ -888,11 +898,20 @@
                   theData.mapOnce = true;
                   initNavigation();
                 }
-              },
-          })
+            },
+     })
 
-          const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"]
+        const relevantSubtypesForStatus = ["arm", "gantry", "board", "servo", "motor", "input_controller"]
 
+        const loadCurrentOps = async function() {
+          var req = new robotApi.ListOperationsRequest();
+          robotService.listOperations(req, {}, (err, resp) => {
+            var lst = resp.toObject().operationsList;
+            theData.currentOps = lst;
+          });
+          setTimeout( loadCurrentOps, 500);
+        };
+          
           // query metadata service every 0.5s
           const queryMetadata = async function() {
             let pResolve;
@@ -1057,6 +1076,7 @@
             });
           }
           queryMetadata();
+          loadCurrentOps();
           if (window.streamService) {
             queryStreams();
           }
@@ -1469,7 +1489,7 @@
       function imuRefresh() {
           if (window.theApp) {
               var all = theApp.filterResources("rdk", "component", "imu");
-              all.forEach(function(x) {
+                  all.forEach(function(x) {
                   var name = x.name;
 
                   if (!theData.imuData[name]) {
@@ -1931,6 +1951,23 @@
         <button v-on:click="setNavigationLocation('nav-set-location')">Try Set Location</button>
         <div id="map" v-map-mounted></div>
       </div>
+
+      <h3>Current Operations</h3>
+      <table>
+        <tr>
+          <th>id</th>
+          <th>method</th>
+          <th>elapsed time</th>
+          <th></th>
+        </tr>
+        <tr v-for="o in currentOps" :key="o.id">
+          <td>${o.id}</td>
+          <td>${o.method}</td>
+          <td>${(new Date()).getTime() - (o.started.seconds * 1000)}ms</td>
+          <td><button v-on:click="killOp(o.id)">Kill</button></td>
+        </tr>
+      </table>
+      
     </div> <!-- end vue app -->
 
     <!-- TODO(RDK-70): remove api key once going into production -->
