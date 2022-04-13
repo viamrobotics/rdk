@@ -48,7 +48,7 @@ func FromRobot(robot robot.Robot) (Service, error) {
 // Service defines what a metadataService should be able to do.
 type Service interface {
 	// Resources returns the list of resources.
-	Resources(ctx context.Context) []resource.Name
+	Resources(ctx context.Context) ([]resource.Name, error)
 }
 
 // New creates a new Service struct and initializes the resource list with a metadata service.
@@ -85,11 +85,11 @@ func init() {
 }
 
 // Resources returns the list of resources.
-func (svc *metadataService) Resources(ctx context.Context) []resource.Name {
+func (svc *metadataService) Resources(ctx context.Context) ([]resource.Name, error) {
 	resources := []resource.Name{}
 
 	resources = append(resources, svc.resources...)
-	return resources
+	return resources, nil
 }
 
 // Update updates metadata service using the currently registered parts of the robot.
