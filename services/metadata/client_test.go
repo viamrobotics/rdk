@@ -1,4 +1,4 @@
-package client_test
+package metadata_test
 
 import (
 	"context"
@@ -11,29 +11,28 @@ import (
 	"google.golang.org/grpc"
 
 	"go.viam.com/rdk/component/arm"
-	"go.viam.com/rdk/grpc/metadata/client"
-	"go.viam.com/rdk/grpc/metadata/server"
 	commonpb "go.viam.com/rdk/proto/api/common/v1"
 	pb "go.viam.com/rdk/proto/api/service/metadata/v1"
 	"go.viam.com/rdk/resource"
+	"go.viam.com/rdk/services/metadata"
 	"go.viam.com/rdk/testutils"
 	"go.viam.com/rdk/testutils/inject"
 )
 
-var newResource = resource.NewName(
+var clientNewResource = resource.NewName(
 	resource.ResourceNamespaceRDK,
 	resource.ResourceTypeComponent,
 	arm.SubtypeName,
 	"",
 )
 
-var oneResourceResponse = []*commonpb.ResourceName{
+var clientOneResourceResponse = []*commonpb.ResourceName{
 	{
-		Uuid:      newResource.UUID,
-		Namespace: string(newResource.Namespace),
-		Type:      string(newResource.ResourceType),
-		Subtype:   string(newResource.ResourceSubtype),
-		Name:      newResource.Name,
+		Uuid:      clientNewResource.UUID,
+		Namespace: string(clientNewResource.Namespace),
+		Type:      string(clientNewResource.ResourceType),
+		Subtype:   string(clientNewResource.ResourceSubtype),
+		Name:      clientNewResource.Name,
 	},
 }
 
@@ -43,8 +42,12 @@ func TestClient(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, err, test.ShouldBeNil)
 	gServer1 := grpc.NewServer()
+
 	injectMetadata := &inject.Metadata{}
-	pb.RegisterMetadataServiceServer(gServer1, server.New(injectMetadata))
+
+	metadataServer, err := newServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterMetadataServiceServer(gServer1, metadataServer)
 
 	go gServer1.Serve(listener1)
 	defer gServer1.Stop()
@@ -52,20 +55,20 @@ func TestClient(t *testing.T) {
 	// failing
 	cancelCtx, cancel := context.WithCancel(context.Background())
 	cancel()
-	_, err = client.New(cancelCtx, listener1.Addr().String(), logger)
+	_, err = metadata.NewClient(cancelCtx, listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldNotBeNil)
 	test.That(t, err.Error(), test.ShouldContainSubstring, "canceled")
 
 	// working
-	client, err := client.New(context.Background(), listener1.Addr().String(), logger)
+	client, err := metadata.NewClient(context.Background(), listener1.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 
-	injectMetadata.AllFunc = func() []resource.Name {
-		return []resource.Name{newResource}
+	injectMetadata.ResourcesFunc = func() []resource.Name {
+		return []resource.Name{clientNewResource}
 	}
 	resource, err := client.Resources(context.Background())
 	test.That(t, err, test.ShouldBeNil)
-	test.That(t, resource, test.ShouldResemble, oneResourceResponse)
+	test.That(t, resource, test.ShouldResemble, clientOneResourceResponse)
 
 	err = client.Close()
 	test.That(t, err, test.ShouldBeNil)
@@ -77,17 +80,19 @@ func TestClientDialerOption(t *testing.T) {
 	test.That(t, err, test.ShouldBeNil)
 	gServer := grpc.NewServer()
 	injectMetadata := &inject.Metadata{}
-	pb.RegisterMetadataServiceServer(gServer, server.New(injectMetadata))
+	metadataServer, err := newServer(injectMetadata)
+	test.That(t, err, test.ShouldBeNil)
+	pb.RegisterMetadataServiceServer(gServer, metadataServer)
 
 	go gServer.Serve(listener)
 	defer gServer.Stop()
 
 	td := &testutils.TrackingDialer{Dialer: rpc.NewCachedDialer()}
 	ctx := rpc.ContextWithDialer(context.Background(), td)
-	client1, err := client.New(ctx, listener.Addr().String(), logger)
+	client1, err := metadata.NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
-	client2, err := client.New(ctx, listener.Addr().String(), logger)
+	client2, err := metadata.NewClient(ctx, listener.Addr().String(), logger)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, td.NewConnections, test.ShouldEqual, 3)
 
