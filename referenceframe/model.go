@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 
 	"go.uber.org/multierr"
@@ -201,7 +202,7 @@ func (m *SimpleModel) inputsToFrames(inputs []Input, collectAll bool) ([]*static
 
 		pose, errNew := transform.Transform(input)
 		// Fail if inputs are incorrect and pose is nil, but allow querying out-of-bounds positions
-		if pose == nil {
+		if pose == nil || (err != nil && !strings.Contains(err.Error(), OOBErrString)) {
 			return nil, err
 		}
 		multierr.AppendInto(&err, errNew)

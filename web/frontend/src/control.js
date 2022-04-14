@@ -81,8 +81,13 @@ let connect = async (authEntity, creds) => {
 			video.playsInline = true;
 			const streamName = event.streams[0].id;
 			const streamContainer = document.getElementById(`stream-${streamName}`);
-			streamContainer.getElementsByTagName("button")[0].remove();
-			streamContainer.appendChild(video);
+			if (streamContainer) {
+				streamContainer.appendChild(video);
+			}
+			const streamPreviewContainer = document.getElementById(`stream-preview-${streamName}`);
+			if (streamPreviewContainer) {
+				streamPreviewContainer.appendChild(video);
+			}
 		}
 	} else {
 		transportFactory = await dialDirect(impliedURL, opts);
