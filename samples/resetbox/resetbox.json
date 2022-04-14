@@ -1,0 +1,161 @@
+{
+  "components": [
+    {
+      "name": "resetboard",
+      "model": "pi",
+      "type": "board",
+      "attributes": {
+        "spis": [
+          {
+            "name": "main",
+            "bus_select": "0"
+          },
+          {
+            "name": "aux",
+            "bus_select": "1"
+          }
+        ]
+      }
+    },
+    {
+      "name": "gateL",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "spi_bus": "main",
+        "chip_select": "36",
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "gateR",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "spi_bus": "main",
+        "chip_select": "36",
+        "index": 1,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "squeezeL",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "spi_bus": "main",
+        "chip_select": "38",
+        "index": 0,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "squeezeR",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "spi_bus": "main",
+        "chip_select": "38",
+        "index": 1,
+        "sg_thresh": 10,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "elevator",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 200,
+        "max_rpm": 450,
+        "max_acceleration": 400,
+        "spi_bus": "main",
+        "chip_select": "40",
+        "index": 0,
+        "sg_thresh": 5,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "hammer",
+      "type": "motor",
+      "model": "TMC5072",
+      "attributes": {
+        "board": "resetboard",
+        "ticks_per_rotation": 5370,
+        "max_rpm": 18.5,
+        "max_acceleration": 30,
+        "spi_bus": "main",
+        "chip_select": "40",
+        "index": 1,
+        "sg_thresh": 0,
+        "cal_factor": 1.058333
+      }
+    },
+    {
+      "name": "tipper",
+      "type": "motor",
+      "model": "pi",
+      "attributes": {
+        "board": "resetboard",
+        "pwm_freq": 8000,
+        "pins": {
+          "pwm": "35",
+          "dir": "37"
+        }
+      }
+    },
+    {
+      "name": "vibrator",
+      "type": "motor",
+      "model": "pi",
+      "attributes": {
+        "board": "resetboard",
+        "pwm_freq": 8000,
+        "pins": {
+          "pwm": "16",
+          "dir": "18"
+        }
+      }
+    },
+    {
+      "host": "10.0.0.99",
+      "model": "xArm6",
+      "name": "xArm6",
+      "type": "arm"
+      "frame" : {
+          "parent" : "world"
+      }
+    }
+  ],
+  "remotes": [
+    {
+      "address": "vg2105m04.local:8080",
+      "name": "gripper"
+      "frame" : {
+          "parent" : "xArm6"
+      }
+    }
+  ]
+}
