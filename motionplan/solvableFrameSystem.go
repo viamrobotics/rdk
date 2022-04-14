@@ -8,7 +8,6 @@ import (
 
 	"github.com/edaniels/golog"
 	"go.uber.org/multierr"
-	"go.viam.com/utils"
 
 	frame "go.viam.com/rdk/referenceframe"
 	spatial "go.viam.com/rdk/spatialmath"
@@ -117,100 +116,6 @@ func (fss *SolvableFrameSystem) SolveWaypointsWithOptions(ctx context.Context,
 	}
 
 	return steps, nil
-}
-
-func plannerRunner(ctx context.Context,
-	planner MotionPlanner,
-	goals []spatial.Pose,
-	seed []frame.Input,
-	opts []*PlannerOptions,
-	iter int,
-) ([]*configuration, error) {
-	var err error
-	goal := goals[iter]
-	opt := opts[iter]
-	if opt == nil {
-		opt = NewDefaultPlannerOptions()
-	}
-	remainingSteps := []*configuration{}
-	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
-		// cBiRRT supports solution look-ahead for parallel waypoint solving
-		endpointPreview := make(chan *configuration, 1)
-		solutionChan := make(chan *planReturn, 1)
-		utils.PanicCapturingGo(func() {
-			// TODO(rb) fix me
-			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{}, opt, endpointPreview, solutionChan)
-		})
-		for {
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			default:
-			}
-			select {
-			case nextSeed := <-endpointPreview:
-				// Got a solution preview, start solving the next motion in a new thread.
-				if iter < len(goals)-1 {
-					// In this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it.
-					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				for {
-					// Get the step from this runner invocation, and return everything in order.
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					default:
-					}
-
-					select {
-					case finalSteps := <-solutionChan:
-						if finalSteps.err != nil {
-							return nil, finalSteps.err
-						}
-						return append(finalSteps.steps, remainingSteps...), nil
-					default:
-					}
-				}
-			case finalSteps := <-solutionChan:
-				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
-				if finalSteps.err != nil {
-					return nil, finalSteps.err
-				}
-				if iter < len(goals)-1 {
-					// in this case, we create the next step (and thus the remaining steps) and the
-					// step from our iteration hangs out in the channel buffer until we're done with it
-					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
-					if err != nil {
-						return nil, err
-					}
-				}
-				return append(finalSteps.steps, remainingSteps...), nil
-			default:
-			}
-		}
-	} else {
-		resultSlices := []*configuration{}
-		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
-		if err != nil {
-			return nil, err
-		}
-		for _, step := range resultSlicesRaw {
-			resultSlices = append(resultSlices, &configuration{step})
-		}
-		if iter < len(goals)-2 {
-			// in this case, we create the next step (and thus the remaining steps) and the
-			// step from our iteration hangs out in the channel buffer until we're done with it
-			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
-			if err != nil {
-				return nil, err
-			}
-		}
-		return append(resultSlices, remainingSteps...), nil
-	}
 }
 
 // SetPlannerGen sets the function which is used to create the motion planner to solve a requested plan.

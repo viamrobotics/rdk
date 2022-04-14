@@ -75,21 +75,28 @@ func DefaultConstraint(
 	f frame.Frame,
 	opt *PlannerOptions,
 ) *PlannerOptions {
-	pathDist := newDefaultMetric(from, to)
+	//~ pathDist := newDefaultMetric(from, to)
 
-	validFunc := func(cInput *ConstraintInput) (bool, float64) {
-		err := resolveInputsToPositions(cInput)
-		if err != nil {
-			return false, 0
-		}
-		dist := pathDist(cInput.StartPos, cInput.EndPos)
-		if dist < defaultEpsilon*defaultEpsilon {
-			return true, 0
-		}
-		return false, dist
-	}
-	opt.pathDist = pathDist
-	opt.AddConstraint(defaultMotionConstraint, validFunc)
+	//~ validFunc := func(cInput *ConstraintInput) (bool, float64) {
+		//~ err := resolveInputsToPositions(cInput)
+		//~ if err != nil {
+			//~ return false, 0
+		//~ }
+		//~ dist := pathDist(cInput.StartPos, cInput.EndPos)
+		//~ if dist < defaultEpsilon*defaultEpsilon {
+			//~ return true, 0
+		//~ }
+		//~ return false, dist
+	//~ }
+	//~ opt.pathDist = pathDist
+	//~ opt.AddConstraint(defaultMotionConstraint, validFunc)
+	
+	orientConstraint, orientMetric := NewSlerpOrientationConstraint(from, to, 0.01)
+	lineConstraint, lineMetric := NewLineConstraint(from.Point(), to.Point(), 0.1)
+	opt.pathDist = CombineMetrics(orientMetric, lineMetric)
+	
+	opt.AddConstraint("orientation", orientConstraint)
+	opt.AddConstraint("line", lineConstraint)
 
 	// Add self-collision check if available
 	collisionConst := NewCollisionConstraintFromFrame(f, map[string]spatial.Geometry{})
@@ -117,6 +124,97 @@ func (p *PlannerOptions) SetMaxSolutions(maxSolutions int) {
 // SetMinScore specifies the IK stopping score for the planner.
 func (p *PlannerOptions) SetMinScore(minScore float64) {
 	p.minScore = minScore
+}
+
+func plannerRunner(ctx context.Context,
+	planner MotionPlanner,
+	goals []spatial.Pose,
+	seed []frame.Input,
+	opts []*PlannerOptions,
+	iter int,
+) ([]*configuration, error) {
+	var err error
+	goal := goals[iter]
+	opt := opts[iter]
+	remainingSteps := []*configuration{}
+	if cbert, ok := planner.(*cBiRRTMotionPlanner); ok {
+		// cBiRRT supports solution look-ahead for parallel waypoint solving
+		endpointPreview := make(chan *configuration, 1)
+		solutionChan := make(chan *planReturn, 1)
+		utils.PanicCapturingGo(func() {
+			// TODO(rb) fix me
+			cbert.planRunner(ctx, spatial.PoseToProtobuf(goal), seed, map[string]spatial.Geometry{}, opt, endpointPreview, solutionChan)
+		})
+		for {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			default:
+			}
+			select {
+			case nextSeed := <-endpointPreview:
+				// Got a solution preview, start solving the next motion in a new thread.
+				if iter < len(goals)-1 {
+					// In this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it.
+					remainingSteps, err = plannerRunner(ctx, planner, goals, nextSeed.inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				for {
+					// Get the step from this runner invocation, and return everything in order.
+					select {
+					case <-ctx.Done():
+						return nil, ctx.Err()
+					default:
+					}
+
+					select {
+					case finalSteps := <-solutionChan:
+						if finalSteps.err != nil {
+							return nil, finalSteps.err
+						}
+						return append(finalSteps.steps, remainingSteps...), nil
+					default:
+					}
+				}
+			case finalSteps := <-solutionChan:
+				// We didn't get a solution preview (possible error), so we get and process the full step set and error.
+				if finalSteps.err != nil {
+					return nil, finalSteps.err
+				}
+				if iter < len(goals)-1 {
+					// in this case, we create the next step (and thus the remaining steps) and the
+					// step from our iteration hangs out in the channel buffer until we're done with it
+					remainingSteps, err = plannerRunner(ctx, planner, goals, finalSteps.steps[len(finalSteps.steps)-1].inputs, opts, iter+1)
+					if err != nil {
+						return nil, err
+					}
+				}
+				return append(finalSteps.steps, remainingSteps...), nil
+			default:
+			}
+		}
+	} else {
+		resultSlices := []*configuration{}
+		resultSlicesRaw, err := planner.Plan(ctx, spatial.PoseToProtobuf(goal), seed, opt)
+		if err != nil {
+			return nil, err
+		}
+		for _, step := range resultSlicesRaw {
+			resultSlices = append(resultSlices, &configuration{step})
+		}
+		if iter < len(goals)-2 {
+			// in this case, we create the next step (and thus the remaining steps) and the
+			// step from our iteration hangs out in the channel buffer until we're done with it
+			remainingSteps, err = plannerRunner(ctx, planner, goals, resultSlicesRaw[len(resultSlicesRaw)-1], opts, iter+1)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return append(resultSlices, remainingSteps...), nil
+	}
 }
 
 // getSteps will determine the number of steps which should be used to get from the seed to the goal.
