@@ -39,6 +39,11 @@ type Detection interface {
 	Label() string
 }
 
+// NewDetection creates a simple 2D detection
+func NewDetection(boundingBox image.Rectangle, score float64, label string) Detection {
+	return &detection2D{boundingBox, score, label}
+}
+
 // detection2D is a simple struct for storing 2D detections.
 type detection2D struct {
 	boundingBox image.Rectangle
