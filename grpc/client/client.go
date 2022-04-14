@@ -17,13 +17,13 @@ import (
 	grpcstatus "google.golang.org/grpc/status"
 
 	"go.viam.com/rdk/grpc"
-	metadataclient "go.viam.com/rdk/grpc/metadata/client"
 	"go.viam.com/rdk/operation"
 	pb "go.viam.com/rdk/proto/api/robot/v1"
 	"go.viam.com/rdk/protoutils"
 	"go.viam.com/rdk/registry"
 	"go.viam.com/rdk/resource"
 	"go.viam.com/rdk/robot"
+	"go.viam.com/rdk/services/metadata"
 )
 
 // errUnimplemented is used for any unimplemented methods that should
@@ -36,7 +36,7 @@ type RobotClient struct {
 	address        string
 	conn           rpc.ClientConn
 	client         pb.RobotServiceClient
-	metadataClient *metadataclient.MetadataServiceClient
+	metadataClient *metadata.ServiceClient
 
 	namesMu       *sync.RWMutex
 	resourceNames []resource.Name
@@ -61,13 +61,14 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		return nil, err
 	}
 
-	metadataClient, err := metadataclient.New(ctx, address, logger, rOpts.dialOptions...)
+	metadataClient, err := metadata.NewClient(ctx, address, logger, rOpts.dialOptions...)
 	if err != nil {
 		return nil, err
 	}
 
 	client := pb.NewRobotServiceClient(conn)
 	closeCtx, cancel := context.WithCancel(context.Background())
+
 	rc := &RobotClient{
 		address:                 address,
 		conn:                    conn,
@@ -79,16 +80,19 @@ func New(ctx context.Context, address string, logger golog.Logger, opts ...Robot
 		logger:                  logger,
 		closeContext:            closeCtx,
 	}
+
 	// refresh once to hydrate the robot.
 	if err := rc.Refresh(ctx); err != nil {
 		return nil, multierr.Combine(err, metadataClient.Close(), conn.Close())
 	}
+
 	if rOpts.refreshEvery != 0 {
 		rc.activeBackgroundWorkers.Add(1)
 		utils.ManagedGo(func() {
 			rc.RefreshEvery(closeCtx, rOpts.refreshEvery)
 		}, rc.activeBackgroundWorkers.Done)
 	}
+
 	return rc, nil
 }
 
