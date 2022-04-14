@@ -69,15 +69,21 @@
       }
 
       function fixArmStatus(old) {
-        var newStatus = { pieces : [] };
+        var newStatus = { pos_pieces : [], joint_pieces : []};
         var fieldSetters = [ ["x", "X"], ["y", "Y"], ["z", "Z"], ["theta", "Theta"], ["o_x", "OX"], ["o_y", "OY"], ["o_z", "OZ"]];
         for (var j=0; j<fieldSetters.length; j++ ){
             let endPositionField = fieldSetters[j][0];
-            newStatus.pieces.push(
+            newStatus.pos_pieces.push(
               { 
                 endPosition : fieldSetters[j],
                 endPositionValue : old["end_position"][endPositionField] || 0,
-                joint : j,
+              }
+            );
+        }
+        for (var j=0; j<old["joint_positions"]["degrees"].length; j++ ){
+            newStatus.joint_pieces.push(
+              { 
+                joint : old["joint_positions"]["degrees"].length,
                 jointValue : old["joint_positions"]["degrees"][j] || 0,
               }
             );
@@ -344,14 +350,18 @@
                   },
                   armModifyAll : function(name) {
                     const arm = theApp.resourceStatusByName(name);
-                    var n = { pieces : [] };
+                    var n = { pos_pieces : [], joint_pieces : [] };
 
-                    for ( var i=0; i < arm.pieces.length; i++) {
-                        n.pieces.push( {
-                            endPosition : arm.pieces[i].endPosition,
-                            endPositionValue : roundTo2Decimals(arm.pieces[i].endPositionValue),
-                            joint : arm.pieces[i].joint,
-                            jointValue : roundTo2Decimals(arm.pieces[i].jointValue),
+                    for ( var i=0; i < arm.pos_pieces.length; i++) {
+                        n.pos_pieces.push( {
+                            endPosition : arm.pos_pieces[i].endPosition,
+                            endPositionValue : roundTo2Decimals(arm.pos_pieces[i].endPositionValue),
+                        });
+                    }
+                    for ( var i=0; i < arm.joint_pieces.length; i++) {
+                        n.joint_pieces.push( {
+                            joint : arm.joint_pieces[i].joint,
+                            jointValue : roundTo2Decimals(arm.joint_pieces[i].jointValue),
                         });
                     }
                     theData.armToggle[name.name] = n;
@@ -361,12 +371,12 @@
                   },
                   armModifyAllDoEndPosition : function(name) {
                     var newPose = new commonApi.Pose()
-                    var newPieces = theData.armToggle[name.name].pieces;
+                    var newPosPieces = theData.armToggle[name.name].pos_pieces;
 
-                    for (var i=0; i < newPieces.length; i++) {
-                        var getterSetter = newPieces[i].endPosition[1];
+                    for (var i=0; i < newPosPieces.length; i++) {
+                        var getterSetter = newPosPieces[i].endPosition[1];
                         const setter = `set${getterSetter}`;
-                        newPose[setter](newPieces[i].endPositionValue);
+                        newPose[setter](newPosPieces[i].endPositionValue);
                     }
 
                     const req = new armApi.MoveToPositionRequest();
@@ -380,9 +390,9 @@
                     var newPositionDegs = new armApi.JointPositions()
                     var newList = arm["joint_positions"]["degrees"]
 
-                    var newPieces = theData.armToggle[name.name].pieces;
-                    for (var i=0; i < newPieces.length && i < newList.length; i++) {
-                        newList[newPieces[i].joint] = newPieces[i].jointValue;
+                    var newjointPieces = theData.armToggle[name.name].joint_pieces;
+                    for (var i=0; i < newjointPieces.length && i < newList.length; i++) {
+                        newList[newjointPieces[i].joint] = newjointPieces[i].jointValue;
                     }
 
                     newPositionDegs.setDegreesList(newList);
@@ -1644,10 +1654,11 @@
             <th colspan="2"><h5>END POSITION (mms)</h5></th>
             <th colspan="2"><h5>JOINTS (degrees)</h5></th>
           </tr>
-          <tr v-for="aa in armToggle[arm.name].pieces" :key="aa.joint">
+          <tr v-for="aa in armToggle[arm.name].pos_pieces" :key="aa.joint">
             <th>${aa.endPosition[0]}</th>
             <td><input v-model="aa.endPositionValue"></td>
-
+          </tr>
+          <tr v-for="aa in armToggle[arm.name].joint_pieces" :key="aa.joint"></tr>
             <th>Joint ${aa.joint}</th>
             <td><input v-model="aa.jointValue"></td>
           </tr>
@@ -1664,7 +1675,7 @@
             <th colspan="3"><h5>END POSITION (mms)</h5></th>
             <th colspan="3"><h5>JOINTS (degrees)</h5></th>
           </tr>
-          <tr v-for="aa in resourceStatusByName(arm).pieces" :key="aa.joint">
+          <tr v-for="aa in resourceStatusByName(arm).pos_pieces" :key="aa.joint">
             <th>${aa.endPosition[1]}</th>
             <td>
               <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], -10 )">--</button>
@@ -1673,7 +1684,8 @@
               <button v-on:click="armEndPositionInc( arm, aa.endPosition[1], 10 )">++</button>
             </td>
             <td>${aa.endPositionValue.toFixed(2)}</td>
-
+          </tr>
+          <tr v-for="aa in resourceStatusByName(arm).joint_pieces" :key="aa.joint"></tr>
             <th>Joint ${aa.joint}</th>
             <td>
               <button v-on:click="armJointInc( arm, aa.joint, -10 )">--</button>
