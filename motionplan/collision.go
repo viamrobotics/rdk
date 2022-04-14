@@ -47,177 +47,224 @@ func collisionListsAlmostEqual(cs1, cs2 []Collision) bool {
 	return true
 }
 
-// geometryNode defines a node for the CollisionGraph and only exists within this scope.
-// A node can either occupy positive or negative space as defined by the positiveSpace bool.
-//		- positive space implies the geometry has physical volume
-//      - negative space implies the geometry  is the absence of physical volume
-type geometryNode struct {
-	name          string
-	geometry      spatial.Geometry
-	positiveSpace bool
+type collisionEntity struct {
+	name     string
+	geometry spatial.Geometry
 }
 
-// CollisionGraph stores the relationship between Geometries.  The information for each Geometry is stored in a node in the graph,
-// and edges between these nodes are added when the geometries satisfy one of the two conditions below
-// 		- 2 positive space geometries intersect
-//      - a positive space geometry is not fully encompassed by a negative space geometry
-type CollisionGraph struct {
-	// indices is a mapping of Geometry names to their index in the nodes list and adjacency matrix
-	indices map[string]int
+type collisionCheckFn func(key, test *collisionEntity) (float64, error)
+type collisionReportFn func(distances []float64) []int
 
-	// nodes is a list of the nodes that comprise the graph
-	nodes []*geometryNode
-
-	// adjacencies represents the edges in the CollisionGraph as an adjacency matrix
-	// For a pair of nodes (nodes[i], nodes[j]), there exists an edge between them if adjacencies[i][j] is true
-	adjacencies [][]float64
-
-	// hasInteractionSpace is a boolean used to track if any interaction space needs to be accounted for
-	hasInteractionSpace bool
+type CollisionEntities interface {
+	count() int
+	entityFromIndex(int) *collisionEntity
+	indexFromName(string) (int, error)
+	collisionCheckFn() collisionCheckFn
+	collisionReportFn() collisionReportFn
 }
 
-// newCollisionGraph is a helper function to instantiate a new CollisionGraph.  Note that since it does not set the
-// adjacencies matrix, returned CollisionGraphs are not correct on their own and need further processing
-// robot geometries represent geometries that are part of the robot and need to be checked against all geometries
-// obstacles geometries occupy positive space and are other objects that are not a part of the robot.
-// interactionSpaces geometries occupy negative space and represent the space that must encompass the robot.
-// The only collisions that are checked are ones between the robot and obstacles/interactionSpaces, the others are unimportant.
-func newCollisionGraph(robot, obstacles, interactionSpaces map[string]spatial.Geometry) (*CollisionGraph, error) {
-	cg := &CollisionGraph{
-		indices:     make(map[string]int, len(robot)+len(obstacles)+len(interactionSpaces)),
-		nodes:       make([]*geometryNode, len(robot)+len(obstacles)+len(interactionSpaces)),
-		adjacencies: make([][]float64, len(robot)+len(obstacles)+len(interactionSpaces)),
-	}
+type defaultCollisionEntities struct {
+	entities []*collisionEntity
+	indices  map[string]int
+	checkFn  collisionCheckFn
+	reportFn collisionReportFn
+}
 
-	// create all the nodes for the graph
+func newCollisionEntities(
+	geometries map[string]spatial.Geometry,
+	checkFn collisionCheckFn,
+	reportFn collisionReportFn,
+) (*defaultCollisionEntities, error) {
+	entities := make([]*collisionEntity, len(geometries))
+	indices := make(map[string]int, len(geometries))
 	size := 0
-	addGeometryMap := func(geometries map[string]spatial.Geometry, positiveSpace bool) error {
-		for name, geometry := range geometries {
-			if _, ok := cg.indices[name]; ok {
-				return fmt.Errorf("error calculating collisions, found geometry with duplicate name: %s", name)
-			}
-			cg.indices[name] = size
-			cg.nodes[size] = &geometryNode{name, geometry, positiveSpace}
-			size++
+	for name, geometry := range geometries {
+		if _, ok := indices[name]; ok {
+			return nil, fmt.Errorf("error creating CollisionEntities, found geometry with duplicate name: %s", name)
 		}
-		return nil
+		entities[size] = &collisionEntity{name, geometry}
+		indices[name] = size
+		size++
 	}
-	if err := addGeometryMap(robot, true); err != nil {
-		return nil, err
-	}
-	if err := addGeometryMap(obstacles, true); err != nil {
-		return nil, err
-	}
-	if len(interactionSpaces) > 0 {
-		cg.hasInteractionSpace = true
-		if err := addGeometryMap(interactionSpaces, false); err != nil {
-			return nil, err
-		}
-	}
+	return &defaultCollisionEntities{entities, indices, checkFn, reportFn}, nil
+}
 
-	// initialize the adjacency matrix
+func (gce *defaultCollisionEntities) count() int {
+	return len(gce.entities)
+}
+
+func (gce *defaultCollisionEntities) entityFromIndex(index int) *collisionEntity {
+	return gce.entities[index]
+}
+
+func (gce *defaultCollisionEntities) indexFromName(name string) (int, error) {
+	if index, ok := gce.indices[name]; ok {
+		return index, nil
+	}
+	return -1, fmt.Errorf("collision entity %q not found", name)
+}
+
+func (gce *defaultCollisionEntities) collisionCheckFn() collisionCheckFn {
+	return gce.checkFn
+}
+
+func (gce *defaultCollisionEntities) collisionReportFn() collisionReportFn {
+	return gce.reportFn
+}
+
+// exported name because it is required that the key entities in the collision system be of type ObjectCollisionEntities
+type ObjectCollisionEntities struct{ *defaultCollisionEntities }
+
+func NewObjectCollisionEntities(geometries map[string]spatial.Geometry) (*ObjectCollisionEntities, error) {
+	entities, err := newCollisionEntities(
+		geometries,
+		func(key, test *collisionEntity) (float64, error) {
+			distance, err := key.geometry.DistanceFrom(test.geometry)
+			return -distance, err // multiply distance by -1 so that weights of edges are positive
+		},
+		func(distances []float64) []int {
+			collisionIndices := make([]int, 0)
+			for i := range distances {
+				if distances[i] >= 0 {
+					collisionIndices = append(collisionIndices, i)
+				}
+			}
+			return collisionIndices
+		},
+	)
+	return &ObjectCollisionEntities{entities}, err
+}
+
+type spaceCollisionEntities struct{ *defaultCollisionEntities }
+
+func NewSpaceCollisionEntities(geometries map[string]spatial.Geometry) (CollisionEntities, error) {
+	entities, err := newCollisionEntities(
+		geometries,
+		func(key, test *collisionEntity) (float64, error) {
+			encompassed, err := key.geometry.EncompassedBy(test.geometry)
+			if err != nil {
+				return math.NaN(), err
+			}
+			// TODO(rb): EncompassedBy should also report distance required to resolve the collision
+			if !encompassed {
+				return 1, nil
+			} else {
+				return -1, nil
+			}
+		},
+		func(distances []float64) []int {
+			collisionIndices := make([]int, 0)
+			for i := range distances {
+				if distances[i] >= 0 {
+					collisionIndices = append(collisionIndices, i)
+				} else {
+					return []int{}
+				}
+			}
+			return collisionIndices
+		},
+	)
+	return &spaceCollisionEntities{entities}, err
+}
+
+type collisionGraph struct {
+	key         *ObjectCollisionEntities
+	test        CollisionEntities
+	adjacencies [][]float64
+	triangular  bool
+}
+
+func newCollisionGraph(key *ObjectCollisionEntities, test CollisionEntities, reference *CollisionSystem) (*collisionGraph, error) {
+	var err error
+	cg := &collisionGraph{key: key, test: test, adjacencies: make([][]float64, key.count()), triangular: key == test}
 	for i := range cg.adjacencies {
-		cg.adjacencies[i] = make([]float64, len(robot))
-		for j := range cg.adjacencies[i] {
-			cg.adjacencies[i][j] = math.NaN()
+		cg.adjacencies[i] = make([]float64, test.count())
+		keyi := key.entityFromIndex(i)
+		startIndex := 0
+		if cg.triangular {
+			startIndex = i + 1
+			for j := 0; j < startIndex; j++ {
+				cg.adjacencies[i][j] = math.NaN()
+			}
+		}
+		for j := startIndex; j < len(cg.adjacencies[i]); j++ {
+			testj := test.entityFromIndex(j)
+			if reference.CollisionBetween(keyi.name, testj.name) {
+				cg.adjacencies[i][j] = math.NaN() // represent previously seen collisions as NaNs
+			} else {
+				cg.adjacencies[i][j], err = test.collisionCheckFn()(keyi, testj)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 	}
 	return cg, nil
 }
 
-// Collisions returns a list of Collision objects, with each element corresponding to a pair of names of nodes that
-// are in collision within the specified CollisionGraph.
-func (cg *CollisionGraph) Collisions() []Collision {
+func (cg *collisionGraph) collisionBetween(keyName, testName string) bool {
+	i, iOk := cg.key.indexFromName(keyName)
+	j, jOk := cg.test.indexFromName(testName)
+	if cg.triangular && i > j {
+		i, j = j, i
+	}
+	if iOk == nil && jOk == nil && cg.adjacencies[i][j] >= 0 {
+		return true
+	}
+	return false
+}
+
+func (cg *collisionGraph) collisions() []Collision {
 	collisions := make([]Collision, 0)
-	for i := 0; i < len(cg.adjacencies[0]); i++ {
-		inInteractionSpace := false
-		for j := i + 1; j < len(cg.nodes); j++ {
-			if cg.adjacencies[j][i] >= 0 && cg.nodes[j].positiveSpace {
-				collisions = append(collisions, Collision{cg.nodes[i].name, cg.nodes[j].name, cg.adjacencies[j][i]})
-			} else if cg.adjacencies[j][i] == 0 && !cg.nodes[j].positiveSpace {
-				inInteractionSpace = true
-			}
-		}
-		if cg.hasInteractionSpace && !inInteractionSpace {
-			collisions = append(collisions, Collision{cg.nodes[i].name, "interaction space", 1})
+	for i := range cg.adjacencies {
+		for _, j := range cg.test.collisionReportFn()(cg.adjacencies[i]) {
+			collisions = append(collisions, Collision{cg.key.entityFromIndex(i).name, cg.test.entityFromIndex(j).name, cg.adjacencies[i][j]})
 		}
 	}
 	return collisions
 }
 
-// CheckCollisions checks each possible Geometry pair for a collision, and if there is it will be stored as an edge in a
-// newly instantiated CollisionGraph that is returned.
-func CheckCollisions(robot, obstacles, interactionSpaces map[string]spatial.Geometry) (*CollisionGraph, error) {
-	cg, err := newCollisionGraph(robot, obstacles, interactionSpaces)
+type CollisionSystem struct {
+	graphs []*collisionGraph
+}
+
+func NewCollisionSystemFromReference(
+	key *ObjectCollisionEntities,
+	optional []CollisionEntities,
+	reference *CollisionSystem,
+) (*CollisionSystem, error) {
+	var err error
+	cs := &CollisionSystem{make([]*collisionGraph, len(optional)+1)}
+	cs.graphs[0], err = newCollisionGraph(key, key, reference)
 	if err != nil {
 		return nil, err
 	}
-
-	// iterate through all Geometry pairs and store collisions as edges in graph
-	for i := 1; i < len(cg.nodes); i++ {
-		for j := 0; j < i && j < len(cg.adjacencies[i]); j++ {
-			distance, err := checkCollision(cg.nodes[j], cg.nodes[i])
-			if err != nil {
-				return nil, err
-			}
-			cg.adjacencies[i][j] = distance
+	for i := range optional {
+		cs.graphs[i+1], err = newCollisionGraph(key, optional[i], reference)
+		if err != nil {
+			return nil, err
 		}
 	}
-	return cg, nil
+	return cs, nil
 }
 
-// CheckUniqueCollisions checks each possible Geometry pair for a collision, and if there is it will be stored as an edge
-// in a newly instantiated CollisionGraph that is returned. Edges between geometries that already exist in the passed in
-// "seen" CollisionGraph will not be present in the returned CollisionGraph.
-func CheckUniqueCollisions(
-	internal, external, interactionSpaces map[string]spatial.Geometry,
-	seen *CollisionGraph,
-) (*CollisionGraph, error) {
-	cg, err := newCollisionGraph(internal, external, interactionSpaces)
-	if err != nil {
-		return nil, err
-	}
-
-	// iterate through all Geometry pairs and store new collisions as edges in graph
-	var distance float64
-	for i := 1; i < len(cg.nodes); i++ {
-		for j := 0; j < i && j < len(cg.adjacencies[i]); j++ {
-			// check for previously seen collisions and ignore them
-			x, xOk := seen.indices[cg.nodes[i].name]
-			y, yOk := seen.indices[cg.nodes[j].name]
-			if y > x {
-				x, y = y, x
-			}
-			if xOk && yOk && seen.adjacencies[x][y] >= 0 {
-				// represent previously seen collisions as NaNs
-				distance = math.NaN()
-			} else {
-				distance, err = checkCollision(cg.nodes[j], cg.nodes[i])
-				if err != nil {
-					return nil, err
-				}
-			}
-			cg.adjacencies[i][j] = distance
-		}
-	}
-	return cg, nil
+func NewCollisionSystem(key *ObjectCollisionEntities, optional []CollisionEntities) (*CollisionSystem, error) {
+	return NewCollisionSystemFromReference(key, optional, &CollisionSystem{})
 }
 
-func checkCollision(positiveSpaceNode, otherNode *geometryNode) (distance float64, err error) {
-	if otherNode.positiveSpace {
-		distance, err = positiveSpaceNode.geometry.DistanceFrom(otherNode.geometry)
-		if err != nil {
-			return math.NaN(), err
-		}
-	} else {
-		encompassed, err := positiveSpaceNode.geometry.EncompassedBy(otherNode.geometry)
-		if err != nil {
-			return math.NaN(), err
-		}
-		if !encompassed {
-			distance = -1 // TODO(rb): EncompassedBy should also report distance required to resolve the collision
+func (cs *CollisionSystem) Collisions() []Collision {
+	collisions := make([]Collision, 0)
+	for _, graph := range cs.graphs {
+		collisions = append(collisions, graph.collisions()...)
+	}
+	return collisions
+}
+
+func (cs *CollisionSystem) CollisionBetween(keyName, testName string) bool {
+	for _, graph := range cs.graphs {
+		if graph.collisionBetween(keyName, testName) {
+			return true
 		}
 	}
-	distance = -distance // multiply distance by -1 so that weights of edges are positive
-	return
+	return false
 }

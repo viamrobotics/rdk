@@ -124,12 +124,23 @@ func (c *constraintHandler) CheckConstraints(cInput *ConstraintInput) (bool, flo
 // avoidance constraint from them.
 func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSpaces map[string]spatial.Geometry) Constraint {
 	// Making the assumption that setting all inputs to zero is a valid configuration without extraneous self-collisions
-	zeroInput := make([]referenceframe.Input, len(frame.DoF()))
-	zeroVols, err := frame.Geometries(zeroInput)
+	zeroVols, err := frame.Geometries(make([]referenceframe.Input, len(frame.DoF())))
 	if err != nil && len(zeroVols) == 0 {
 		return nil // no geometries defined for frame
 	}
-	zeroCG, err := CheckCollisions(zeroVols, obstacles, interactionSpaces)
+	internalEntities, err := NewObjectCollisionEntities(zeroVols)
+	if err != nil {
+		return nil
+	}
+	obstacleEntities, err := NewObjectCollisionEntities(obstacles)
+	if err != nil {
+		return nil
+	}
+	spaceEntities, err := NewSpaceCollisionEntities(interactionSpaces)
+	if err != nil {
+		return nil
+	}
+	zeroCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities})
 	if err != nil {
 		return nil
 	}
@@ -139,7 +150,11 @@ func NewCollisionConstraint(frame referenceframe.Frame, obstacles, interactionSp
 		if err != nil && internal == nil {
 			return false, 0
 		}
-		cg, err := CheckUniqueCollisions(internal, obstacles, interactionSpaces, zeroCG)
+		internalEntities, err := NewObjectCollisionEntities(internal)
+		if err != nil {
+			return false, 0
+		}
+		cg, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{obstacleEntities, spaceEntities}, zeroCG)
 		if err != nil {
 			return false, 0
 		}
