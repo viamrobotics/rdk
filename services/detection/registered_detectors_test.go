@@ -1,4 +1,4 @@
-package detectionservice
+package detection
 
 import (
 	"image"
