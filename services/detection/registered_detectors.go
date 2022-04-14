@@ -22,10 +22,10 @@ func RegisterDetector(name string, det DetectorRegistration) {
 	if _, old := detectorRegistry[name]; old {
 		panic(errors.Errorf("trying to register two detectors with the same name: %s", name))
 	}
-	if seg.Segmenter == nil {
+	if det.Detector == nil {
 		panic(errors.Errorf("cannot register a nil detector: %s", name))
 	}
-	detectorRegistry[name] = seg
+	detectorRegistry[name] = det
 }
 
 // DetectorLookup looks up a detector registration by name. An error is returned if
