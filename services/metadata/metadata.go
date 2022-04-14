@@ -99,6 +99,8 @@ func (svc *metadataService) Update(ctx context.Context, curResources map[resourc
 
 	resources := []resource.Name{}
 	for name := range curResources {
+		// TODO(ethan) (RSDK-294): consider whether this web exemption is appropriate
+		// in the long term
 		if name == web.Name {
 			continue
 		}
