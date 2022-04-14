@@ -83,7 +83,7 @@ func TestCheckCollisions(t *testing.T) {
 	robot, _ = m.Geometries(make([]frame.Input, len(m.DoF())))
 	test.That(t, robot, test.ShouldNotBeNil)
 	robotEntities, err = NewObjectCollisionEntities(robot)
-	test.That(t, robot, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	cs, err = NewCollisionSystem(robotEntities, []CollisionEntities{})
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cs.Collisions()), test.ShouldEqual, 4)
@@ -98,28 +98,28 @@ func TestUniqueCollisions(t *testing.T) {
 	internalGeometries, _ := m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err := NewObjectCollisionEntities(internalGeometries)
-	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	zeroPositionCG, err := NewCollisionSystem(internalEntities, []CollisionEntities{})
 	test.That(t, err, test.ShouldBeNil)
 
 	// case 1: no self collision - check no new collisions are returned
-	input[0] = frame.Input{0}
+	input[0] = frame.Input{Value: 1}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
-	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	cs, err := NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
 	test.That(t, len(cs.Collisions()), test.ShouldEqual, 0)
 
 	// case 2: self collision - check only new collisions are returned
-	input[4] = frame.Input{2}
+	input[4] = frame.Input{Value: 2}
 	internalGeometries, _ = m.Geometries(input)
 	test.That(t, internalGeometries, test.ShouldNotBeNil)
 	internalEntities, err = NewObjectCollisionEntities(internalGeometries)
-	test.That(t, internalGeometries, test.ShouldNotBeNil)
+	test.That(t, err, test.ShouldBeNil)
 	cs, err = NewCollisionSystemFromReference(internalEntities, []CollisionEntities{}, zeroPositionCG)
 	test.That(t, err, test.ShouldBeNil)
-	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 041.61}, {"xArm6:wrist_link", "xArm6:upper_arm", 48.18}}
+	expectedCollisions := []Collision{{"xArm6:base_top", "xArm6:wrist_link", 0}, {"xArm6:wrist_link", "xArm6:upper_arm", 0}}
 	test.That(t, collisionListsAlmostEqual(cs.Collisions(), expectedCollisions), test.ShouldBeTrue)
 }
