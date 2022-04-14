@@ -1,4 +1,7 @@
-package detectionservice
+// Package detection is the service that allows you to access registered detectors and cameras
+// and return bounding boxes and streams of detections. Also allows you to register new
+// object detectors.
+package detection
 
 import (
 	"github.com/mitchellh/copystructure"

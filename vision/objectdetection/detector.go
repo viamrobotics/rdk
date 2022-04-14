@@ -39,7 +39,7 @@ type Detection interface {
 	Label() string
 }
 
-// NewDetection creates a simple 2D detection
+// NewDetection creates a simple 2D detection.
 func NewDetection(boundingBox image.Rectangle, score float64, label string) Detection {
 	return &detection2D{boundingBox, score, label}
 }
